@@ -10,9 +10,12 @@ classdef Node < matlab.mixin.SetGet
         ycoord
         basevector
         basemag
+        segmentid
+        
     end
     
     methods
+
         function nodeObj = Node(xcoord, ycoord)
             nodeObj.xcoord = xcoord;
             nodeObj.ycoord = ycoord;
@@ -24,13 +27,20 @@ classdef Node < matlab.mixin.SetGet
             end
         end
         function set.connected(nodeObj, node)
-            nodeObj.distance = ((nodeObj.xcoord-node.xcoord)^2+ (nodeObj.ycoord-node.ycoord)^2)^(1/2);
+            persistent num_segments;
             
+            nodeObj.distance = ((nodeObj.xcoord-node.xcoord)^2+ (nodeObj.ycoord-node.ycoord)^2)^(1/2);
+       
             dot_product = ((nodeObj.xcoord-node.xcoord)*nodeObj.basevector(1) + (nodeObj.ycoord-node.ycoord)*nodeObj.basevector(2));
             magnitude_basevector = (nodeObj.basevector(1)^2 + nodeObj.basevector(2)^2)^(1/2);
             magnitude_vector = ((nodeObj.xcoord-node.xcoord)^2 + (nodeObj.ycoord-node.ycoord)^2)^(1/2);
             nodeObj.angle = (dot_product/(magnitude_basevector*magnitude_vector));
+            
+            num_segments = num_segments + 1;
+            
             nodeObj.connected = node;
+            
+            node.segmentid = num_segments;
         end
         function angle = angleToVector(nodeObj, node)
             dot_product = abs(dot(nodeObj.basevector, node.basevector));
@@ -43,12 +53,11 @@ classdef Node < matlab.mixin.SetGet
                 flag = false;
             end
         end
-        function [r] = path(nodeObj, end)
-            
-            if(isempty(nodeObj.connected)|| nodeObj.equals(end))
+        function r = path(nodeObj, endNode)
+            if(nodeObj.equals(endNode))
                 r = nodeObj;
             else
-                r = [nodeObj, nodeObj.connected.path(end)];
+                r = [nodeObj, nodeObj.connected.path(endNode)];
             end
         end
     end
