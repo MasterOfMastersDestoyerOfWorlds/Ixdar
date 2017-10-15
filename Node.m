@@ -4,13 +4,11 @@ classdef Node < matlab.mixin.SetGet
     
     properties
         connected
-        distance
-        angle
         xcoord
         ycoord
         basevector
+        vector
         basemag
-        segmentid
         
     end
     
@@ -21,32 +19,28 @@ classdef Node < matlab.mixin.SetGet
             nodeObj.ycoord = ycoord;
         end
         function insertNode(nodeObj, node)
-            if(nodeObj.connected ~= null)
-                node.setConnected(nodeObj.connected);
-                nodeObj.setConnected(node);
-            end
+            node.set('connected', nodeObj.get('connected'));
+            nodeObj.set('connected', node);
+        end
+        function connected = get.connected(nodeObj)
+            connected = nodeObj.connected;
         end
         function set.connected(nodeObj, node)
-            persistent num_segments;
-            
-            nodeObj.distance = ((nodeObj.xcoord-node.xcoord)^2+ (nodeObj.ycoord-node.ycoord)^2)^(1/2);
-       
-            dot_product = ((nodeObj.xcoord-node.xcoord)*nodeObj.basevector(1) + (nodeObj.ycoord-node.ycoord)*nodeObj.basevector(2));
-            magnitude_basevector = (nodeObj.basevector(1)^2 + nodeObj.basevector(2)^2)^(1/2);
-            magnitude_vector = ((nodeObj.xcoord-node.xcoord)^2 + (nodeObj.ycoord-node.ycoord)^2)^(1/2);
-            nodeObj.angle = (dot_product/(magnitude_basevector*magnitude_vector));
-            
-            num_segments = num_segments + 1;
-            
+            nodeObj.vector = [nodeObj.xcoord - node.xcoord, nodeObj.ycoord - node.ycoord];
+            node.basevector = [node.xcoord-nodeObj.xcoord,node.ycoord-nodeObj.ycoord];
+            node.basemag = norm(node.basevector);
             nodeObj.connected = node;
-            
-            node.segmentid = num_segments;
         end
         function angle = angleToVector(nodeObj, node)
-            dot_product = abs(dot(nodeObj.basevector, node.basevector));
-            angle = acos(dot_product/(nodeObj.basemag*node.basemag))*180/pi;
+            dot_product = dot(nodeObj.basevector, [nodeObj.xcoord-node.xcoord,nodeObj.ycoord-node.ycoord]);
+            angle = acos(dot_product/(nodeObj.basemag*norm([nodeObj.xcoord-node.xcoord,nodeObj.ycoord-node.ycoord])))*180/pi;
         end
         function flag = equals(nodeObj, node)
+%             nodeObj.xcoord
+%             nodeObj.ycoord
+%             node.xcoord
+%             node.ycoord
+%             ''
             if(nodeObj.xcoord == node.xcoord && nodeObj.ycoord == node.ycoord)
                 flag = true;
             else
@@ -54,10 +48,32 @@ classdef Node < matlab.mixin.SetGet
             end
         end
         function r = path(nodeObj, endNode)
-            if(nodeObj.equals(endNode))
+            if(ismember(nodeObj,endNode) || isempty(nodeObj.connected))
                 r = nodeObj;
             else
+                endNode = [endNode, nodeObj];
                 r = [nodeObj, nodeObj.connected.path(endNode)];
+            end
+        end
+        function plotPathStart(nodeObj, x, y)
+            if(~isempty(nodeObj.connected))
+                [xcoords, ycoords] = nodeObj.connected.plotPath(nodeObj);
+            end
+            plot([xcoords, nodeObj.xcoord], [ycoords,nodeObj.ycoord], '-s');
+            hold on;
+            plot(x,y,'o');
+        end
+        function [xcoords, ycoords] = plotPath(nodeObj, firstNode)
+            if(ismember(nodeObj,firstNode) || isempty(nodeObj.connected))
+                hold off;
+                xcoords = [nodeObj.xcoord];
+                ycoords = [nodeObj.ycoord];
+            else
+                firstNode = [firstNode,nodeObj];
+                [x, y] = nodeObj.connected.plotPath(firstNode);
+                xcoords = [x,nodeObj.xcoord];
+                ycoords = [y,nodeObj.ycoord];
+                
             end
         end
     end

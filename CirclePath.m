@@ -1,4 +1,6 @@
-function [path] = CirclePath(node_list)
+function [path] = CirclePath(node_list,x,y)
+    %Finds the path in the graph that encircles all nodes
+    
     list_length = numel(node_list);
 
     %Find the center point of the data set in order to determine the normal
@@ -16,10 +18,11 @@ function [path] = CirclePath(node_list)
     %edge of the dataset 
     edge_node = [0, 0];
     for i = 1:list_length
-        base_vector = [average_x - node_list(i).xcoord, average_y - node_list(i).ycoord];
+        base_vector = [node_list(i).xcoord - average_x, node_list(i).ycoord - average_y];
         node_list(i).basevector = base_vector;
         node_list(i).basemag = norm(base_vector);
         if(node_list(i).basemag > edge_node(2))
+            
             edge_node(1) = i;
             edge_node(2) = node_list(i).basemag;
         end
@@ -33,18 +36,22 @@ function [path] = CirclePath(node_list)
     bigest_node = 0;
     bigest_angle = 0;
     last = 0;
-    while(first || ~(current == edge_node(1)))
+    num_tried = 0;
+    path = [node_list(edge_node(1))];
+    while((first || ~(current == edge_node(1)))&& num_tried < list_length)
         for i = 1:list_length
-            if(i ~= current && i ~= last)
+            if(i ~= current && i ~= last && (~ismember(node_list(i),path) || node_list(i).equals(node_list(edge_node(1)))))
                 angle = node_list(current).angleToVector(node_list(i));
+                
                 if(angle > bigest_angle)
                     bigest_angle = angle;
                     bigest_node = i;
                 end
             end
         end
-
+        num_tried = num_tried + 1;
         node_list(current).set('connected',node_list(bigest_node));
+        path = [path, node_list(bigest_node)];
         last = current;
         current = bigest_node;
         bigest_angle = 0;
@@ -52,20 +59,5 @@ function [path] = CirclePath(node_list)
     end
     
     % Build the path from the connected nodes, draw the path, and return the path 
-    path = [node_list(edge_node(1)),node_list(edge_node(1)).connected.path(node_list(edge_node(1)))];
-    path_length = numel(path);
-    path_x = [];
-    path_y = [];
-    for i = 1:path_length
-        path_x = [path_x , path(i).xcoord];
-        path_y = [path_y, path(i).ycoord];
-    end
-    
-    % Draw all of the segments of the path
-    figure(1);
-    hold on;
-    plot(path_x,path_y);
-    xlim([-10 10]);
-    ylim([-10 10]);
-    hold off;
+    %path = [node_list(edge_node(1)),node_list(edge_node(1)).connected.path(node_list(edge_node(1)).connected)];
 end
