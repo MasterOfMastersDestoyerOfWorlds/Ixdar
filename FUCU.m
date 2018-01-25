@@ -1,10 +1,11 @@
-num_cities = 40;
+num_cities = 100;
 fileId = fopen("./data_set_tsp_2.txt", "r");
 %distance_matrix = fscanf(fileId, "%d", [num_cities num_cities])
 %[xcoords, ycoords] = TriangulatePoints(distance_matrix)
 node_list = [];
 x= [];
 y = [];
+rng(10);
 for i = 1:num_cities
     x = [x, rand()*10];
     y = [y, rand()*10];
@@ -22,8 +23,10 @@ end
 %node_list = node_list(node_list~=added_node);
 for i = 1:(num_cities - numel(perimeter))+1
     [perimeter, added_node] = RecalculatePerimeter(node_list, perimeter);
-    node_list = node_list(node_list~=added_node);
-    figure(i);
-    perimeter(1).plotPathStart(x,y);
-end
 
+    node_list = node_list(node_list~=added_node);
+
+end
+figure(1);
+perimeter(1).plotPathStart(x,y);
+hold off;

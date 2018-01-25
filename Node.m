@@ -4,6 +4,7 @@ classdef Node < matlab.mixin.SetGet
     
     properties
         connected
+        previous
         xcoord
         ycoord
         basevector
@@ -30,6 +31,7 @@ classdef Node < matlab.mixin.SetGet
             node.basevector = [node.xcoord-nodeObj.xcoord,node.ycoord-nodeObj.ycoord];
             node.basemag = norm(node.basevector);
             nodeObj.connected = node;
+            node.previous = nodeObj;
         end
         function angle = angleToVector(nodeObj, node)
             dot_product = dot(nodeObj.basevector, [nodeObj.xcoord-node.xcoord,nodeObj.ycoord-node.ycoord]);
