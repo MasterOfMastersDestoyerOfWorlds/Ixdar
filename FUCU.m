@@ -25,8 +25,14 @@ for i = 1:(num_cities - numel(perimeter))+1
     [perimeter, added_node] = RecalculatePerimeter(node_list, perimeter);
 
     node_list = node_list(node_list~=added_node);
+%     figure(i); 
+%     perimeter(1).plotPathStart(x,y);
+    hold off;
 
 end
+figure(2);
+perimeter(1).plotPathStart(x,y);
+perimeter = CleanUpProcess(perimeter);
 figure(1);
 perimeter(1).plotPathStart(x,y);
 hold off;

@@ -23,6 +23,9 @@ classdef Node < matlab.mixin.SetGet
             node.set('connected', nodeObj.get('connected'));
             nodeObj.set('connected', node);
         end
+        function removeConnectedNode(nodeObj)
+            nodeObj.set('connected', nodeObj.get('connected').get('connected'));
+        end
         function connected = get.connected(nodeObj)
             connected = nodeObj.connected;
         end
