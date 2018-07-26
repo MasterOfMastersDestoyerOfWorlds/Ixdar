@@ -1,6 +1,5 @@
 function [path] = CirclePath(node_list,x,y)
     %Finds the path in the graph that encircles all nodes
-    
     list_length = numel(node_list);
 
     %Find the center point of the data set in order to determine the normal
