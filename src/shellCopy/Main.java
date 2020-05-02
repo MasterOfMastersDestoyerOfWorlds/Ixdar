@@ -1,4 +1,4 @@
-package shell;
+package shellCopy;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -39,7 +39,7 @@ public class Main extends JComponent{
 	        Graphics2D g2 = (Graphics2D) g;
 	
 	
-	        PointSetPath retTup = importFromFile(new File(".\\src\\shell\\djbouti"));
+	        PointSetPath retTup = importFromFile(new File(".\\src\\shellCopy\\djbouti"));
 	        
 	        Shell orgShell = retTup.ps.toShells();
 	        
