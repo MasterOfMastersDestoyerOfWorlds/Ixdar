@@ -32,7 +32,7 @@ public class Main extends JComponent{
 
 	private static final long serialVersionUID = 2722424842956800923L;
 	private static final boolean SCALE = false;
-	private static final int WIDTH= 500, HEIGHT = WIDTH;
+	private static final int WIDTH= 750, HEIGHT = WIDTH;
 	@Override
     public void paint(Graphics g) {
 		try {
@@ -62,18 +62,23 @@ public class Main extends JComponent{
 	        	maxShell = maxShell.collapseChildOntoShell();
 	        }*/
 	        
-	        	conShell = maxShell.consensusWithChildren();
-		        Shell hell1 = conShell.collapseChildOntoShell();
-		        
-		        Shell hell2 = conShell.getChild().collapseChildOntoShell();
+	        	conShell = maxShell;
+	        	while(!conShell.isMinimal()) {
+	        		conShell = conShell.consensusWithChildren();
+	        	}
 	        //Shell.collapseBOntoA(minShell, maxShell).drawShell(this, g2, new Random(), false);
 
-	       // drawPath(this, g2, retTup.path, Color.RED, retTup.ps, true, false, false);
 
 	        //orgShell.drawShell(this, g2, new Random(), true);
-	        //conShell.drawShell(this, g2, new Random(), false);
-	        hell1.drawShell(this, g2, new Random(), false);
-	        hell2.drawShell(this, g2, new Random(), false);
+
+	        //conShell.getChild().drawShell(this, g2, new Random(), false);
+	        //hell1.drawShell(this, g2, new Random(), false);
+	        //hell2.drawShell(this, g2, new Random(), false);
+	        conShell.drawShell(this, g2, new Random(), false);
+
+	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
+
+	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, true, false, false);
 		}catch(Exception e) {
 			e.printStackTrace();
 			SwingUtilities.getWindowAncestor(this).dispatchEvent(new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));
