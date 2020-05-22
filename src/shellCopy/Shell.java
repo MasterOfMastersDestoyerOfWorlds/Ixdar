@@ -20,11 +20,32 @@ import javax.swing.JComponent;
 
 /*NOTES:
  * 
+ * Monetization Plan:
+ * Should we even tell people about this
+ * 
+ * Ryan and Alec to look at this? how are we willing to offer, how do we establish trust, 
+ * 
+ * how do regocnize and how much does he deserve: def on the paper
+ * 
+ * 
+ * 
+ * Sectors:
+ *  * security: steal things?
+ *  * networking: verizon
+ *  * stock market:  how to stop, trade secret?
+ *  * delivery routing amazon?
+ *  * neural network archetechture replacement:
+ * 
+ *  example:
+ *  *Google pagerank is not that complicated the buisuiness moat is number of people using hte platform.
+ *  
+ *  Patent: could we patent and would it be worth it? would we have to make a product that relies on 
+ *  the algorithm to patent
  * 
  * Definitions==========================
  * Collapse function - takes all of A and inserts each point into the closest neighboring segment of B 
- * where the number of segments in B grows with each insert
- *  
+ * where the number of segments in B grows with each insert (Clayton)
+ * 
  * X> = collapse function i.e. AX>B =collapse of A onto B and A <X B = collapse of B onto A
  * NOTE: the path on the left always encloses the path on the right
  * 
@@ -66,15 +87,17 @@ import javax.swing.JComponent;
  * 
  * H = E X> D
  * 
- * G != H
+ * G dosen't necissarily equal H
  * 
  * 3333333333333333333333333333333333333333333
  * 
  * Least comfortable with this one
  * 
  * If you have a path J constructed by ((A1 <X A2) <X ...) <X AN where AN is the order 0 Shell of S and A1 is
- * the maximal shell, Then J is a TSP path so long as the  order from one vertex to the next never changes by more
+ * the maximal shell, Then J is a TSP path so long as the shell order from one vertex to the next never changes by more
  * than 1. 
+ * 
+ * NOT TURE
  * 
  * 4444444444444444444444444444444444444444444
  * 
@@ -139,7 +162,7 @@ import javax.swing.JComponent;
  * I am pretty sure that the points will not always be in a clockwise or counter clockwise order with respect to each 
  * other, but they will always be in the same order when merged with the shells around them can this even possibly be true?
  * 
- * 
+ * WRONG WALL 
  * 
  */
 public class Shell extends LinkedList<Point2D> {
@@ -315,6 +338,11 @@ public class Shell extends LinkedList<Point2D> {
 		return result;
 	}
 	
+	/**
+	 * TODO fix this shit its broken. 
+	 * @param result
+	 * @param isLine
+	 */
 	public static void reduceShell(Shell result, boolean isLine) {
 		boolean notConfirmed = true;
 		while (notConfirmed) {
@@ -337,6 +365,7 @@ public class Shell extends LinkedList<Point2D> {
 					currPoint = result.get(i);
 				}
 				for (Point2D p : result) {
+					//im pretty sure this is where the problem lies. cuases self crossing
 					if(!currPoint.equals(p) && !lastPoint.equals(p)) {
 						double dist = Vectors.distanceChanged(lastPoint, currPoint, p);
 						if (dist < minDist && dist < (result.distanceToNeighbors(p) - result.distanceBetweenNeighbors(p) )) {
@@ -471,7 +500,8 @@ public class Shell extends LinkedList<Point2D> {
 			else {
 				if (BCsections.containsKey(s) && ABsections.get(s).size() == 0 && BCsections.get(s).size() == 0) {
 					result.add(s.last);
-				} else {
+				} 
+				else {
 					Point2D prev = s.first, next = s.last;
 	
 					Shell line = new Shell(null, null, ps);

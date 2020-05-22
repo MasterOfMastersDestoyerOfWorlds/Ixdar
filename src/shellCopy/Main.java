@@ -63,9 +63,9 @@ public class Main extends JComponent{
 	        }*/
 	        
 	        	conShell = maxShell;
-	        	while(!conShell.isMinimal()) {
+	        	/*while(!conShell.isMinimal()) {
 	        		conShell = conShell.consensusWithChildren();
-	        	}
+	        	}*/
 	        //Shell.collapseBOntoA(minShell, maxShell).drawShell(this, g2, new Random(), false);
 
 
@@ -74,11 +74,11 @@ public class Main extends JComponent{
 	        //conShell.getChild().drawShell(this, g2, new Random(), false);
 	        //hell1.drawShell(this, g2, new Random(), false);
 	        //hell2.drawShell(this, g2, new Random(), false);
-	        conShell.drawShell(this, g2, new Random(), false);
+	        conShell.drawShell(this, g2, new Random(), true);
 
 	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
 
-	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, true, false, false);
+	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, true, true, false);
 		}catch(Exception e) {
 			e.printStackTrace();
 			SwingUtilities.getWindowAncestor(this).dispatchEvent(new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));
