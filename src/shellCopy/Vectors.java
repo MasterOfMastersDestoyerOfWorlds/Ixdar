@@ -20,6 +20,9 @@ public class Vectors {
 		
 	}
 	public static double distanceChanged(Point2D lastPoint, Point2D currPoint, Point2D q) {
+		
+		// i think this is wrong or is being used incorrectly because if q is embedded in the 
+		// path already then you also have to consider the distance to its neighbors
 		Point2D AC = new Point2D.Double(q.getX()-lastPoint.getX(), q.getY()-lastPoint.getY());
 		Point2D AB = new Point2D.Double(currPoint.getX()-lastPoint.getX(), currPoint.getY()-lastPoint.getY());
 		Point2D BC = new Point2D.Double(q.getX()-currPoint.getX(), q.getY()-currPoint.getY());
@@ -27,6 +30,7 @@ public class Vectors {
 		return magnitude(AC) + magnitude(BC) -magnitude(AB);
 	}
 	public static double distanceToSegment(Point2D lastPoint, Point2D currPoint, Point2D q) {
+		// this is a poor metric and should probably not be used for optimization
 		Point2D AC = new Point2D.Double(q.getX()-lastPoint.getX(), q.getY()-lastPoint.getY());
 		Point2D AB = new Point2D.Double(currPoint.getX()-lastPoint.getX(), currPoint.getY()-lastPoint.getY());
 		double y1 =lastPoint.getY(), y2 = currPoint.getY(), y0 = q.getY(),

@@ -20,13 +20,65 @@ import javax.swing.JComponent;
 
 /*NOTES:
  * 
+ * ==============================================
+ * Scheduling:
+ * ==============================================
+ * 
+ * Andrew: working on the weekends and sometimes at night after work
+ * 
+ * Ares: pretty much the same
+ * 
+ * meetup every saturday
+ * 
+ * ==============================================
+ * Ownership rules:
+ * ==============================================
+ * 
+ * super shares?
+ * 
+ * ownershares are worth zero dollars and constitute one vote
+ * 
+ * one entity can have one vote
+ * 
+ * can destroy ownershare at anytime for no financial compensation
+ * 
+ * to create and ownershare everyone must agree
+ * 
+ * public shares are normal but don't constitute board membership
+ * 
+ * everyones shares get split during splitting ( no one man gets fucked policy)
+ * 
+ * trade secrets including algorithms must be kept secret until death and beyond
+ * 
+ * 
+ * 
+ * ================================================
+ * Paper Credits
+ * ================================================
+ * 
+ * how do recognize Clayton and how much does he deserve: 
+ * definitely on the paper but is he a special thanks or last author?
+ * 
+ * Andrew Wollack and Ares Shackleford are first co-authors 
+ * 
+ * Special thanks to: Clayton Chu, Edward Wollack, idk who else yet
+ * 
+ * ================================================
  * Monetization Plan:
+ * ================================================
  * Should we even tell people about this
  * 
  * Ryan and Alec to look at this? how are we willing to offer, how do we establish trust, 
  * 
- * how do regocnize and how much does he deserve: def on the paper
  * 
+ * given the current recession and virus situation is it prudent to  release our findings to the public or pursue 
+ * business ventures given the lack of capital available?
+ * 
+ * will we go to jail for releasing this?
+ * 
+ * do we know the full implications of P=NP?
+ * 
+ * should we release the code or just the general algorithm? is it any different?
  * 
  * 
  * Sectors:
@@ -34,17 +86,37 @@ import javax.swing.JComponent;
  *  * networking: verizon
  *  * stock market:  how to stop, trade secret?
  *  * delivery routing amazon?
- *  * neural network archetechture replacement:
+ *  * neural network architecture replacement:
+ *  
+ *  https://cacm.acm.org/magazines/2009/9/38904-the-status-of-the-p-versus-np-problem/fulltext
+ *  
+ *  * Finding a DNA sequence that best fits a collection of fragments of the sequence (see Gusfield20).
+ *	* Finding a ground state in the Ising model of phase transitions (see Cipra8).
+ *	* Finding Nash Equilbriums with specific properties in a number of environments (see Conitzer9).
+ *	* Finding optimal protein threading procedures.26
+ *	* Determining if a mathematical statement has a short proof (follows from Cook10).
  * 
  *  example:
- *  *Google pagerank is not that complicated the buisuiness moat is number of people using hte platform.
+ *  *Google pagerank is not that complicated the business moat is number of people using hte platform.
  *  
  *  Patent: could we patent and would it be worth it? would we have to make a product that relies on 
  *  the algorithm to patent
- * 
- * Definitions==========================
+ *  
+ *  how to prove:?
+ *  Two cases:
+ *  A shell is a SHell of S then A is a TSP Path of A
+ *  
+ *  Does a shell collapse onto a Tsp path result in another tsp path if the tsp path was enclosing the shell
+ *  
+ *  How to generalize in higher dimensions? is this natural from the algorithm we have currently?
+ *  
+ * =========================================
+ * Definitions:
+ * =========================================
  * Collapse function - takes all of A and inserts each point into the closest neighboring segment of B 
  * where the number of segments in B grows with each insert (Clayton)
+ * 
+ * Reduce function - takes a Shell and makes single replacements until the shell is in a minimal state
  * 
  * X> = collapse function i.e. AX>B =collapse of A onto B and A <X B = collapse of B onto A
  * NOTE: the path on the left always encloses the path on the right
@@ -66,10 +138,9 @@ import javax.swing.JComponent;
  * 
  * TSP Path - A closed polygon with every point in S in TSP Path such that the distance is minimized
  * 
- * Equations============================
- * 
- * I believe these to be true:
- * 
+ * =======================================
+ * Equations:
+ * =======================================
  * 
  * 1111111111111111111111111111111111111111111
  * A is a Shell of S then A is a TSP Path of A
@@ -141,7 +212,8 @@ import javax.swing.JComponent;
  * 
  * idfk
  * 
- * it is unclear if this works for more than three shells
+ * it is unclear if this works for more than three shells( i think it does)
+ * 
  * 
  * 555555555555555555555555555555555555555555555555555
  * 
@@ -153,6 +225,7 @@ import javax.swing.JComponent;
  * this is probably false unless???
  * 
  * 666666666666666666666666666666666666666666666666666
+ * 
  * It is  interesting to note that while the property that the order from one vertex to the next never changes by more
  * than 1 does not hold for all TSP Paths, each shell can be thought of as dividing the TSP Path into  into sections where 
  * each vertex of the shell owns a  part of the TSP PAth that leads to the next vertex of the shell in the clockwise or
@@ -163,6 +236,28 @@ import javax.swing.JComponent;
  * other, but they will always be in the same order when merged with the shells around them can this even possibly be true?
  * 
  * WRONG WALL 
+ * 
+ * =======================================================================================
+ * OPEN QUESTIONS:
+ * =======================================================================================
+ * Q:	Are there any collapse and reduce functions that could possibly be used to  maintain tsppath without doing the ]
+ * 		consensus algorithm on the induction step?
+ * 
+ * A:	So far no, any collapse/reduce function that I have come up with cannot be used to do simple induction without 
+ * 		a consensus function.
+ * 
+ * =======================================================================================
+ * Q: 	Is the consensus function the same as collapsing every shell onto its neighbors and doing consensus on those 
+ * 		collapsed shells?
+ * 
+ * A:	I think that this is the case and is the reason why you can't just collapse and reduce the parent shell onto its
+ * 		children recursively.
+ * 
+ * ======================================================================================
+ * Q: 	Is the algorithm a good optimizer or does it actually solve TSP?
+ * 
+ * A:	There is no way to know this without a proof that the algorithm optimally solves TSP, but my intuition is that
+ * 		it does solve TSP.
  * 
  */
 public class Shell extends LinkedList<Point2D> {
@@ -340,6 +435,10 @@ public class Shell extends LinkedList<Point2D> {
 	
 	/**
 	 * TODO fix this shit its broken. 
+	 * 
+	 * two possible cases since i think that the actual reduce part is correct
+	 * 1. we also need to reduce lines during the consensus algorithm. not sure how to do this or why my previous aproach didnt work
+	 * 2. we need to combine the reduce and the collapse functions into one function. i can see why this would be the case, but it would make me not happy.
 	 * @param result
 	 * @param isLine
 	 */
@@ -367,9 +466,11 @@ public class Shell extends LinkedList<Point2D> {
 				for (Point2D p : result) {
 					//im pretty sure this is where the problem lies. cuases self crossing
 					if(!currPoint.equals(p) && !lastPoint.equals(p)) {
-						double dist = Vectors.distanceChanged(lastPoint, currPoint, p);
-						if (dist < minDist && dist < (result.distanceToNeighbors(p) - result.distanceBetweenNeighbors(p) )) {
-							minDist = dist;
+						//the line above is fine, but this line does not fully consider the distance lost or gained by connecting p's neighbors
+						//distance changed = old distance between segments - new distance between segments
+						double distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p) + (result.distanceBetweenNeighbors(p) - result.distanceToNeighbors(p) );
+						if (distanceChanged < minDist && distanceChanged < 0) {
+							minDist = distanceChanged;
 							pointChosen = p;
 							chosenParent = i;
 							changed = true;

@@ -63,7 +63,7 @@ public class Main extends JComponent{
 	        }*/
 	        
 	        	conShell = maxShell;
-	        	/*while(!conShell.isMinimal()) {
+	        	/*for( int i = 0 ; i <5; i ++) {
 	        		conShell = conShell.consensusWithChildren();
 	        	}*/
 	        //Shell.collapseBOntoA(minShell, maxShell).drawShell(this, g2, new Random(), false);
