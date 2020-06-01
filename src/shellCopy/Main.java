@@ -31,7 +31,7 @@ import javax.swing.WindowConstants;
 public class Main extends JComponent{
 
 	private static final long serialVersionUID = 2722424842956800923L;
-	private static final boolean SCALE = false;
+	private static final boolean SCALE = true;
 	private static final int WIDTH= 750, HEIGHT = WIDTH;
 	@Override
     public void paint(Graphics g) {
@@ -39,7 +39,7 @@ public class Main extends JComponent{
 	        Graphics2D g2 = (Graphics2D) g;
 	
 	
-	        PointSetPath retTup = importFromFile(new File(".\\src\\shellCopy\\djbouti"));
+	        PointSetPath retTup = importFromFile(new File(".\\src\\shellCopy\\qa194"));
 	        
 	        Shell orgShell = retTup.ps.toShells();
 	        
@@ -63,22 +63,30 @@ public class Main extends JComponent{
 	        }*/
 	        
 	        	conShell = maxShell;
-	        	/*for( int i = 0 ; i <5; i ++) {
-	        		conShell = conShell.consensusWithChildren();
-	        	}*/
+	        	while(!conShell.isMinimal()) {
+	        		conShell = conShell.consensusWithChildren(true);
+	        		System.out.println(conShell.updateOrder());
+	        	}
+	        	System.out.println(conShell.getLength());
+	        	//conShell = conShell.consensusWithChildren2(true);
+		        //Shell hell1 = conShell.collapseChildOntoShell();
+		        
+		        //Shell hell2 = conShell.getChild().collapseChildOntoShell();
 	        //Shell.collapseBOntoA(minShell, maxShell).drawShell(this, g2, new Random(), false);
 
 
 	        //orgShell.drawShell(this, g2, new Random(), true);
 
 	        //conShell.getChild().drawShell(this, g2, new Random(), false);
-	        //hell1.drawShell(this, g2, new Random(), false);
+		        
+		    
+		    //hell1.drawShell(this, g2, new Random(), false);
 	        //hell2.drawShell(this, g2, new Random(), false);
-	        conShell.drawShell(this, g2, new Random(), true);
+	        conShell.drawShell(this, g2, new Random(), false);
 
 	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
 
-	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, true, true, false);
+	        //drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, true, false);
 		}catch(Exception e) {
 			e.printStackTrace();
 			SwingUtilities.getWindowAncestor(this).dispatchEvent(new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));
@@ -155,9 +163,9 @@ public class Main extends JComponent{
 
 	public static void main(String[] args) {
         JFrame frame = new JFrame("Draw GeneralPath Demo");
-        frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         frame.getContentPane().add(new Main());
         frame.pack();
+        frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         frame.setSize(new Dimension(WIDTH, HEIGHT));
         frame.setVisible(true);
         

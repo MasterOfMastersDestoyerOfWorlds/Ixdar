@@ -276,6 +276,24 @@ public class Shell extends LinkedList<Point2D> {
 		}
 		this.ps = ps;
 	}
+	
+	public double getLength() {
+		Point2D first = null, last = null;
+		double length = 0.0;
+		for(Point2D p: this) {
+			if(first == null) {
+				last = p;
+				first = p;
+			}
+			else {
+				length += last.distance(p);
+				last = p;
+			}
+		}
+		length += last.distance(first);
+		return length;
+		
+	}
 
 	public void drawShell(JComponent frame, Graphics2D g2, Random colorSeed, boolean drawChildren) {
 		Main.drawPath(frame, g2, shellToPath(this),
@@ -326,6 +344,7 @@ public class Shell extends LinkedList<Point2D> {
 		return this.ORDER;
 	}
 
+	
 	public void setChild(Shell child) {
 		this.child = child;
 		minimal = false;
@@ -389,7 +408,7 @@ public class Shell extends LinkedList<Point2D> {
 
 	/*
 	 * A onto B
-	 * 
+	 *  this is where the real problem lies i think the issue is that the line version does not work
 	 * TODO: change so that keeps collapsing onto self until last self  = self
 	 */
 	public static Shell collapseBOntoA(Shell A, Shell B, boolean isLine, boolean reduce) {
@@ -500,76 +519,8 @@ public class Shell extends LinkedList<Point2D> {
 		return copy;
 	}
 	
-	/*public static Set<Point2D> getPatternValues(Shell AB, Shell BC, Shell B) {
-		Set<Segment> segAB = new HashSet<Segment>();
-		Set<Segment> segBC = new HashSet<Segment>();
-
-		Set<Segment> tempResult = new HashSet<Segment>();
-		Set<Point2D> result = new HashSet<Point2D>();
-		
-		Point2D firstAB = null, lastAB = null;
-		boolean first = true;
-		for(Point2D p: AB) {
-			if(B.contains(p)) {
-				if(first) {
-					firstAB = p;
-					lastAB = p;
-					first = false;
-				}
-				else {
-					segAB.add(new Segment(lastAB, p));
-					lastAB = p;
-				}
-			}
-		}
-		segAB.add(new Segment(lastAB, firstAB));
-		
-		Point2D firstBC = null, lastBC = null;
-		boolean first2 = true;
-		for(Point2D p: BC) {
-			if(B.contains(p)) {
-				
-				if(first2) {
-					firstBC = p;
-					lastBC = p;
-					first2 = false;
-				}
-				else {
-					segBC.add(new Segment(lastBC, p));
-					lastBC = p;
-				}
-			}
-		}
-		segBC.add(new Segment(lastBC, firstBC));
-
-		System.out.println("\n+++++++++++++++++\n");
-		System.out.println(segAB);
-		System.out.println("\n++++++++++++++++\n");
-		System.out.println(segBC);
-		for(Segment s : segAB) {
-			if(segBC.contains(s)) {
-				tempResult.add(s);
-			}
-		}
-		for(Segment s : segBC) {
-			if(segAB.contains(s)) {
-				tempResult.add(s);
-			}
-		}		
-		System.out.println("\n--------------------\n");
-		System.out.println(tempResult);
-		System.out.println("\n--------------------\n");
-		for(Segment s: tempResult) {
-			result.add(s.first);
-			result.add(s.last);
-		}
-		System.out.println(result);
-		System.out.println("\n--------------------\n");
-		return result;
-		
-	}*/
 	
-	public Shell consensusWithChildren() {
+	public Shell consensusWithChildren(boolean reduce) {
 		if (this.isMinimal()) {
 			return this;
 		} else if (this.child.isMinimal()) {
@@ -578,8 +529,8 @@ public class Shell extends LinkedList<Point2D> {
 		Shell A = this.copy();
 		Shell B = this.child.copy();
 		Shell C = this.child.child.copy();
-		Shell AB = collapseBOntoA(A, B, false, true);
-		Shell BC = collapseBOntoA(C, B, false, true);
+		Shell AB = collapseBOntoA(A, B, false, reduce);
+		Shell BC = collapseBOntoA(C, B, false, reduce);
 		ArrayList<Segment> ABKeys = new ArrayList<Segment>(), BCKeys = new ArrayList<Segment>();
 		
 		HashMap<Segment, Shell> ABsections = AB.splitBy(B, ABKeys);
@@ -607,10 +558,11 @@ public class Shell extends LinkedList<Point2D> {
 	
 					Shell line = new Shell(null, null, ps);
 					line.add(prev);
+
+					line.addAll(ABsections.get(s));
 					line.add(next);
 	
 					Shell items = new Shell(null, null, ps);
-					items.addAll(ABsections.get(s));
 					if(BCsections.containsKey(s)) {
 						items.addAll(BCsections.get(s));
 					}
@@ -629,9 +581,10 @@ public class Shell extends LinkedList<Point2D> {
 			}
 		}
 		
-		return collapseBOntoA(result, leftOvers, false, true);
+		return collapseBOntoA(result, leftOvers, false, reduce);
 
 	}
+	
 
 	private Collection<? extends Point2D> reverse(Shell shell) {
 		// TODO Auto-generated method stub
@@ -680,7 +633,11 @@ public class Shell extends LinkedList<Point2D> {
 				}
 			}
 		}
-		firstTemp.addAll(temp);
+		int idx = 0;
+		for(Point2D p: temp) {
+			firstTemp.add(idx, p);
+			idx++;
+		}
 		Segment s = new Segment(lastB, firstB);
 		result.put(s, firstTemp);
 		keys.add(s);
