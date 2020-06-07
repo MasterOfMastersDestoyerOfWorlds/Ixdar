@@ -23,6 +23,18 @@ public class Segment {
 		return false;
 
 	}
+	
+	public boolean equalsWithPairity(Object o) {
+		if(o instanceof Segment) {
+
+			Segment other = (Segment) o;
+			return (other.first.getX() == first.getX() && other.last.getX() == last.getX() &&
+					other.first.getY() == first.getY() && other.last.getY() == last.getY()) ;
+		}
+		return false;
+
+	}
+	
 	@Override
 	public String toString() {
 		return "[ " + first + " : " + last +" ]\n";

@@ -31,15 +31,15 @@ import javax.swing.WindowConstants;
 public class Main extends JComponent{
 
 	private static final long serialVersionUID = 2722424842956800923L;
-	private static final boolean SCALE = true;
-	private static final int WIDTH= 750, HEIGHT = WIDTH;
+	private static final boolean SCALE = false;
+	private static final int WIDTH= 1000, HEIGHT = WIDTH;
 	@Override
     public void paint(Graphics g) {
 		try {
 	        Graphics2D g2 = (Graphics2D) g;
 	
 	
-	        PointSetPath retTup = importFromFile(new File(".\\src\\shellCopy\\qa194"));
+	        PointSetPath retTup = importFromFile(new File(".\\src\\shellCopy\\djbouti"));
 	        
 	        Shell orgShell = retTup.ps.toShells();
 	        
@@ -63,11 +63,15 @@ public class Main extends JComponent{
 	        }*/
 	        
 	        	conShell = maxShell;
-	        	while(!conShell.isMinimal()) {
-	        		conShell = conShell.consensusWithChildren(true);
-	        		System.out.println(conShell.updateOrder());
+	        	Shell conShell2 = conShell.copy();
+	        	while(!conShell2.isMinimal()) {
+	        		//conShell = conShell.consensusWithChildren(true);
+	        		conShell2 = conShell2.consensusWithChildren2(true, this, g2, retTup.ps);
+	        		System.out.println(conShell2.updateOrder());
 	        	}
-	        	System.out.println(conShell.getLength());
+
+        		//conShell2 = conShell2.consensusWithChildren2(true);
+	        	System.out.println(conShell2.getLength());
 	        	//conShell = conShell.consensusWithChildren2(true);
 		        //Shell hell1 = conShell.collapseChildOntoShell();
 		        
@@ -82,11 +86,23 @@ public class Main extends JComponent{
 		    
 		    //hell1.drawShell(this, g2, new Random(), false);
 	        //hell2.drawShell(this, g2, new Random(), false);
-	        conShell.drawShell(this, g2, new Random(), false);
+	        
+	        //conShell.copy().collapseChildOntoShell().drawShell(this, g2, new Random(), false, Color.RED);	
+	        	
+	        //conShell.copy().getChild().collapseChildOntoShell().drawShell(this, g2, new Random(), false, Color.BLUE);
+	        
+	        	
+	        //conShell.drawShell(this, g2, new Random(), true, null);
+
+	        conShell2.drawShell(this, g2, new Random(), true, Color.RED);
+	        
+	        
+
+	        //Shell.collapseReduce(conShell2.getChild(), conShell2.getChild().getChild(), false).drawShell(this, g2, new Random(), false, null);
 
 	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
 
-	        //drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, true, false);
+	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, true, false);
 		}catch(Exception e) {
 			e.printStackTrace();
 			SwingUtilities.getWindowAncestor(this).dispatchEvent(new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));
@@ -134,8 +150,8 @@ public class Main extends JComponent{
 			double[] coords = new double[2];
 			pi.currentSegment(coords);
 			pi.next();
-			coords[0] = -(coords[0] - minX)*(width)/rangeX  + width + offset;
-			coords[1] = -(coords[1] - minY)*(height)/rangeY + height + offset;
+			coords[0] = (-(coords[0] - minX)*(width)/rangeX  + width + offset)/1.5;
+			coords[1] = (-(coords[1] - minY)*(height)/rangeY + height + offset)/1.5;
 			if(drawCircles) {
 				g2.draw(new Ellipse2D.Double(coords[0]-5, coords[1]-5, 10, 10));
 			}

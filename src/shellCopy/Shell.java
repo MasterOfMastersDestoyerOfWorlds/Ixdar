@@ -259,6 +259,13 @@ import javax.swing.JComponent;
  * A:	There is no way to know this without a proof that the algorithm optimally solves TSP, but my intuition is that
  * 		it does solve TSP.
  * 
+ * 
+ * Notes:
+ * 
+ * need to make it one at a time instead of 2 at a time but use the 2 to figure it out
+ * 
+ * use the 
+ * 
  */
 public class Shell extends LinkedList<Point2D> {
 	private static final long serialVersionUID = -5904334592585016845L;
@@ -295,11 +302,17 @@ public class Shell extends LinkedList<Point2D> {
 		
 	}
 
-	public void drawShell(JComponent frame, Graphics2D g2, Random colorSeed, boolean drawChildren) {
-		Main.drawPath(frame, g2, shellToPath(this),
-				new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps, true, false, false);
+	public void drawShell(JComponent frame, Graphics2D g2, Random colorSeed, boolean drawChildren , Color c) {
+		if(c == null) {
+			Main.drawPath(frame, g2, shellToPath(this),
+					new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps, true, false, false);
+		}
+		else {
+			Main.drawPath(frame, g2, shellToPath(this),
+					c, ps, true, false, false);
+		}
 		if (!this.isMinimal() && drawChildren) {
-			child.drawShell(frame, g2, colorSeed, drawChildren);
+			child.drawShell(frame, g2, colorSeed, drawChildren, c);
 		}
 	}
 
@@ -358,7 +371,7 @@ public class Shell extends LinkedList<Point2D> {
 		if (this.isMinimal()) {
 			return this;
 		}
-		Shell result = collapseBOntoA(this, this.child, false, true);
+		Shell result = collapseReduce(this, this.child, false);
 		result.child = result.child.child;
 		return result;
 	}
@@ -385,6 +398,20 @@ public class Shell extends LinkedList<Point2D> {
 		
 	}
 	
+	public double distanceToNeighborsOnLine( Point2D p) {
+		Point2D prevP = prevPointOnLine(p), nextP = nextPointOnLine(p);
+		
+		return p.distance(prevP.getX(), prevP.getY()) + p.distance(nextP.getX(), nextP.getY());
+		
+	}
+
+	public double distanceBetweenNeighborsOnLine( Point2D p) {
+		Point2D prevP = prevPointOnLine(p), nextP = nextPointOnLine(p);
+		
+		return prevP.distance(nextP.getX(), nextP.getY());
+		
+	}
+	
 	public Point2D prevPoint(Point2D p) {
 		int i  = this.indexOf(p), before = 0;
 		if(i == 0) {
@@ -405,7 +432,31 @@ public class Shell extends LinkedList<Point2D> {
 		}
 		return this.get(after);
 	}
+	
+	private Point2D nextPointOnLine(Point2D p) {
+		int i  = this.indexOf(p), after = 0;
+		if(i == this.size() - 1) {
+			after = i;
+		}
+		else {
+			after = i + 1;
+		}
+		return this.get(after);
+	}
 
+	private Point2D prevPointOnLine(Point2D p) {
+		int i  = this.indexOf(p), before = 0;
+		if(i == 0) {
+			before = i;
+		}
+		else {
+			before = i - 1;
+		}
+		return this.get(before);
+	}
+
+
+	
 	/*
 	 * A onto B
 	 *  this is where the real problem lies i think the issue is that the line version does not work
@@ -414,10 +465,12 @@ public class Shell extends LinkedList<Point2D> {
 	public static Shell collapseBOntoA(Shell A, Shell B, boolean isLine, boolean reduce) {
 		Shell result = A.copy();
 		Shell copy = B.copy();
-		while (copy.size() > 0) {
+		boolean notConfirmed = true;
+
+		while (notConfirmed) {
 			Point2D pointChosen = null;
 			int chosenParent = 0;
-			boolean first = true;
+			boolean first = true, changed = false;
 			Point2D lastPoint, currPoint = null;
 			double minDist = java.lang.Double.MAX_VALUE;
 			for (int i = 0; i < result.size(); i++) {
@@ -439,12 +492,19 @@ public class Shell extends LinkedList<Point2D> {
 						minDist = dist;
 						pointChosen = q;
 						chosenParent = i;
+						changed = true;
 					}
 				}
 
 			}
-			result.add(chosenParent, pointChosen);
-			copy.remove(pointChosen);
+			if(changed) {
+				result.remove(pointChosen);
+				result.add(chosenParent, pointChosen);
+				copy.remove(pointChosen);
+			}
+			
+
+			notConfirmed = changed;
 		}
 		if(reduce) {
 			reduceShell(result, isLine);
@@ -483,11 +543,68 @@ public class Shell extends LinkedList<Point2D> {
 					currPoint = result.get(i);
 				}
 				for (Point2D p : result) {
-					//im pretty sure this is where the problem lies. cuases self crossing
 					if(!currPoint.equals(p) && !lastPoint.equals(p)) {
-						//the line above is fine, but this line does not fully consider the distance lost or gained by connecting p's neighbors
-						//distance changed = old distance between segments - new distance between segments
 						double distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p) + (result.distanceBetweenNeighbors(p) - result.distanceToNeighbors(p) );
+						if (distanceChanged < minDist && distanceChanged < 0) {
+							minDist = distanceChanged;
+							pointChosen = p;
+							chosenParent = i;
+							changed = true;
+						}
+					}
+				}
+				
+			}
+			if(changed) {
+				result.remove(pointChosen);
+				result.add(chosenParent, pointChosen);
+			}
+			notConfirmed = changed;
+		}
+	}
+
+	public static Shell collapseReduce(Shell A, Shell B, boolean isLine) {
+		Shell result = A.copy();
+		Shell copy = B.copy();
+		boolean notConfirmed = true;
+
+		while (notConfirmed) {
+			Point2D pointChosen = null;
+			int chosenParent = 0;
+			boolean first = true, changed = false;
+			Point2D lastPoint, currPoint = null;
+			double minDist = java.lang.Double.MAX_VALUE;
+			for (int i = 0; i < result.size(); i++) {
+				lastPoint = currPoint;
+				currPoint = result.get(i);
+				if (first && !isLine) {
+					lastPoint = result.getLast();
+					first = false;
+				}
+				else if(first && isLine) {
+					lastPoint = currPoint;
+					first = false;
+					i++;
+					currPoint = result.get(i);
+				}
+				for (Point2D q : copy) {
+					double dist = Vectors.distanceChanged(lastPoint, currPoint, q);
+					if (dist < minDist) {
+						minDist = dist;
+						pointChosen = q;
+						chosenParent = i;
+						changed = true;
+					}
+				}
+				for (Point2D p : result) {
+					if(!currPoint.equals(p) && !lastPoint.equals(p)) {
+						double distanceChanged = java.lang.Double.MAX_VALUE;
+						if(!isLine) {
+							distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p) + (result.distanceBetweenNeighbors(p) - result.distanceToNeighbors(p) );
+						}
+						else {
+							distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p) + (result.distanceBetweenNeighborsOnLine(p) - result.distanceToNeighborsOnLine(p) );
+						}
 						if (distanceChanged < minDist && distanceChanged < 0) {
 							minDist = distanceChanged;
 							pointChosen = p;
@@ -501,24 +618,16 @@ public class Shell extends LinkedList<Point2D> {
 			if(changed) {
 				result.remove(pointChosen);
 				result.add(chosenParent, pointChosen);
+				copy.remove(pointChosen);
 			}
+			
+
 			notConfirmed = changed;
 		}
+		
+		//reduceShell(result, isLine);
+		return result;
 	}
-
-	public Shell copy() {
-		Shell copy = null;
-		if (!isMinimal()) {
-			copy = new Shell(this.parent, this.child.copy(), this.ps);
-		} else {
-			copy = new Shell(this.parent, null, this.ps);
-		}
-		for (Point2D q : this) {
-			copy.add(q);
-		}
-		return copy;
-	}
-	
 	
 	public Shell consensusWithChildren(boolean reduce) {
 		if (this.isMinimal()) {
@@ -529,6 +638,7 @@ public class Shell extends LinkedList<Point2D> {
 		Shell A = this.copy();
 		Shell B = this.child.copy();
 		Shell C = this.child.child.copy();
+		
 		Shell AB = collapseBOntoA(A, B, false, reduce);
 		Shell BC = collapseBOntoA(C, B, false, reduce);
 		ArrayList<Segment> ABKeys = new ArrayList<Segment>(), BCKeys = new ArrayList<Segment>();
@@ -566,7 +676,7 @@ public class Shell extends LinkedList<Point2D> {
 					if(BCsections.containsKey(s)) {
 						items.addAll(BCsections.get(s));
 					}
-					line = collapseBOntoA(line, items, true, false);
+					line = collapseBOntoA(line, items, true, reduce);
 	
 					line.remove(s.first);
 					result.addAll(line);
@@ -578,11 +688,149 @@ public class Shell extends LinkedList<Point2D> {
 		for(Segment s : BCKeys) {
 			if(!ABsections.containsKey(s)) {
 				leftOvers.addAll(BCsections.get(s));
+				System.out.println("broken");
 			}
 		}
 		
 		return collapseBOntoA(result, leftOvers, false, reduce);
 
+	}
+	
+	public Shell consensusWithChildren2(boolean reduce, JComponent frame, Graphics2D g2, PointSet ps2) {
+		if (this.isMinimal()) {
+			return this;
+		} else if (this.child.isMinimal()) {
+			return this.collapseChildOntoShell();
+		}
+		Shell A = this.copy();
+		Shell B = this.child.copy();
+		Shell C = this.child.child.copy();
+		
+		Shell AB = collapseReduce(A, B, false);
+		Shell BC = collapseReduce(C, B, false);
+		ArrayList<Segment> ABKeys = new ArrayList<Segment>(), BCKeys = new ArrayList<Segment>();
+		
+		HashMap<Segment, Shell> ABsections = AB.splitBy(B, ABKeys);
+		HashMap<Segment, Shell> BCsections = BC.splitBy(B, BCKeys);
+
+
+		
+		Shell result = new Shell(null, BC.child, ps); 
+		for(Segment s : ABKeys) {
+			if(!BCsections.containsKey(s)) {
+				//TODO: set start and end to be where they connect to the B points
+				Point2D point = AB.nextPoint(s.first);
+				while(!point.equals(s.last)) {
+					result.add(point);
+					point = AB.nextPoint(point);
+				}
+				result.add(s.last);
+			}
+			else {
+				if (BCsections.containsKey(s) && ABsections.get(s).size() == 0 && BCsections.get(s).size() == 0) {
+					result.add(s.last);
+				} 
+				else {
+					Shell line = new Shell(null, null, ps);
+					line.add(s.first);
+
+					line.addAll(ABsections.get(s));
+					line.add(s.last);
+	
+					Shell items = new Shell(null, null, ps);
+					if(BCsections.containsKey(s)) {
+						items.addAll(BCsections.get(s));
+					}
+					line = collapseReduce(line, items, true);
+	
+					line.remove(s.first);
+					result.addAll(line);
+	
+				}
+			}
+		}
+		//split by the leftover keys and then do the collapse reduce above on the leftovers
+		
+		ArrayList<Segment> leftOverKeys = new ArrayList<Segment>();
+
+		for (Segment s : BCKeys) {
+			if (!ABsections.containsKey(s)) {
+				System.out.println(s);
+				leftOverKeys.add(s);
+				System.out.println(result.contains(s.first));
+
+				System.out.println(result.contains(s.last));
+
+			}
+		}
+
+		// split by the leftover keys and then do the collapse reduce above on the
+		// leftovers
+		for(Segment s : leftOverKeys) {
+			Shell leftOverShell = new Shell(null, null, ps);
+			leftOverShell.add(s.first);
+			leftOverShell.add(s.last);
+			HashMap<Point2D, Shell> resultSections = result.splitInHalf(leftOverShell, new ArrayList<Point2D>());
+			Point2D minIndex = null;
+			double minLengthChange = java.lang.Double.MAX_VALUE;
+			Shell minShell = null;
+			
+			for(Point2D first: resultSections.keySet()) {
+				Shell line = new Shell(null, null, ps);
+				line.add(first);	
+				line.addAll(resultSections.get(first));
+				if(first.equals(s.first)) {
+					line.add(s.last);
+				}
+				else {
+					line.add(s.first);
+				}
+				
+				double firstLength = line.getLength();
+				Shell items = new Shell(null, null, ps);
+				
+				items.addAll(BCsections.get(s));
+				
+				line = collapseReduce(line, items, true);
+				double changedLength = line.getLength();
+				if(changedLength - firstLength < minLengthChange) {
+					minLengthChange = changedLength - firstLength;
+					minIndex = first;
+					minShell = line;
+				}
+			}
+			
+
+			result = new Shell(null, BC.child, ps);
+			for(Point2D first: resultSections.keySet()) {
+				
+				if(first.equals(minIndex)) {
+					result.addAll(minShell);
+				}
+				else {
+					result.addAll(resultSections.get(first));
+				}
+			}
+			
+		}
+		
+		reduceShell(result, false);
+		return result;
+
+	}
+	
+
+	public Shell copy() {
+		Shell copy = null;
+		if (!isMinimal()) {
+			copy = new Shell(this.parent, this.child.copy(), this.ps);
+		} else {
+			copy = new Shell(this.parent, null, this.ps);
+		}
+		for (Point2D q : this) {
+			copy.add(q);
+		}
+		return copy;
 	}
 	
 
@@ -639,8 +887,56 @@ public class Shell extends LinkedList<Point2D> {
 			idx++;
 		}
 		Segment s = new Segment(lastB, firstB);
+		//System.out.println(s);
 		result.put(s, firstTemp);
 		keys.add(s);
+		return result;
+	}
+	
+	private HashMap<Point2D, Shell> splitInHalf(Shell b, ArrayList<Point2D> startPoints) {
+		HashMap<Point2D, Shell> result = new HashMap<Point2D, Shell>();
+		int index = 0;
+		Shell firstTemp = new Shell(null, null, ps);
+		Point2D lastB = null, firstB = null, prevB = null, nextB = null;
+		boolean first = true;
+		Shell temp = new Shell(null, null, ps);
+		int count = 0;
+		for (Point2D p : this) {
+			if (b.contains(p)) {
+				count++;
+				if (first) {
+					firstB = p;
+					prevB = p;
+					nextB = prevB;
+					first = false;
+				} else {
+					if (count == b.size()) {
+						lastB = p;
+					}
+
+					prevB = nextB;
+					nextB = p;
+					Segment s = new Segment(prevB, nextB);
+					result.put(s.first, temp);
+					startPoints.add(s.first);
+					temp = new Shell(null, null, ps);
+				}
+			} else {
+				if (first) {
+					firstTemp.add(p);
+				} else {
+					temp.add(p);
+				}
+			}
+		}
+		int idx = 0;
+		for(Point2D p: temp) {
+			firstTemp.add(idx, p);
+			idx++;
+		}
+		Segment s = new Segment(lastB, firstB);
+		result.put(s.first, firstTemp);
+		startPoints.add(s.first);
 		return result;
 	}
 
