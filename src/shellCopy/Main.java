@@ -43,11 +43,11 @@ public class Main extends JComponent{
 	        
 	        Shell orgShell = retTup.ps.toShells();
 	        
-	        Shell maxShell = orgShell.copy();
+	        Shell maxShell = orgShell.copyRecursive();
 	        
 	        Shell minShell = maxShell.getMinimalShell();
 	        
-	        Shell conShell = maxShell.copy();
+	        Shell conShell = maxShell.copyRecursive();
 	        
 	        
 	        //Shell hell1 = orgShell.collapseChildOntoShell();
@@ -62,16 +62,11 @@ public class Main extends JComponent{
 	        	maxShell = maxShell.collapseChildOntoShell();
 	        }*/
 	        
+	        conShell.drawShell(this, g2, new Random(), true, null);
 	        	conShell = maxShell;
-	        	Shell conShell2 = conShell.copy();
-	        	while(!conShell2.isMinimal()) {
-	        		//conShell = conShell.consensusWithChildren(true);
-	        		conShell2 = conShell2.consensusWithChildren2(true, this, g2, retTup.ps);
-	        		System.out.println(conShell2.updateOrder());
-	        	}
+	        	conShell = conShell.collapseAllShells();
 
         		//conShell2 = conShell2.consensusWithChildren2(true);
-	        	System.out.println(conShell2.getLength());
 	        	//conShell = conShell.consensusWithChildren2(true);
 		        //Shell hell1 = conShell.collapseChildOntoShell();
 		        
@@ -94,7 +89,7 @@ public class Main extends JComponent{
 	        	
 	        //conShell.drawShell(this, g2, new Random(), true, null);
 
-	        conShell2.drawShell(this, g2, new Random(), true, Color.RED);
+	        //conShell.drawShell(this, g2, new Random(), true, Color.RED);
 	        
 	        
 
