@@ -18,3 +18,6 @@ TSP with two predetermined endpoints:
 - https://stackoverflow.com/questions/36086406/traveling-salesman-tsp-with-set-start-and-end-point
 
 - https://stackoverflow.com/questions/36086406/traveling-salesman-tsp-with-set-start-and-end-point
+
+
+http://www.math.uwaterloo.ca/tsp/world/countries.html#LU
