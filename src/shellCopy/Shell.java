@@ -260,11 +260,31 @@ import javax.swing.JComponent;
  * 		it does solve TSP.
  * 
  * 
- * Notes:
  * 
- * need to make it one at a time instead of 2 at a time but use the 2 to figure it out
  * 
- * use the 
+ * 
+ * 
+ * 
+ * PLAN Z:
+ * 
+ * Step 1: do everything like normal
+ * Step 2: when we start to do the consensus algorithm with the subsets in between the barrier points we need to change our algo
+ * Step 3: retrofit existing architecture to use ND points instead of 2D points (this will complicate visualization a lot
+ * 			probably best to only visualize a point if it only has two coords.
+ * Step 4: new algorithm is:
+ * 			1. Let Points S and E from the barrier shell be the start and end points that we want to optimize around
+ * 			2. Create a new PointSet P_SE and let it be all of the points in between S and E including S and E
+ * 			3. From the P_SE create a distance matrix DM out of the points
+ * 			4. Add a new dummy point D that will act as a wormhole between S and E to DM
+ * 				4a. D will have distance 0 to S and E in DM
+ * 				4b. Let M be the maximum distance in DM
+ * 				4c. D will have distance M to all other points besides S and E
+ * 			5. Triangle time baby
+ * 				5a. Add M to all points in DM so that it is TSPMetric form
+ * 				5b. use the triangle inequality to triangulate the points in DM and add them to P_SE'
+ * 				5c. while adding the points make sure to label them with their original coords in P_SE
+ * 			6. run TSP solver on P_SE'
+ * 			7. add the points back to the original Point Set removing D and add the min order from S to E. 			 
  * 
  */
 public class Shell extends LinkedList<Point2D> {
