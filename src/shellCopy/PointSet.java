@@ -6,10 +6,12 @@ import java.util.HashSet;
 public class PointSet extends HashSet<Point2D>{
 	private static final long serialVersionUID = 6129018674280186123L;
 	
-	/*
+	/*ANDREW:
 	*Method 1: Shells to PointSet where does toPointSet goes in Shell.java
+	*RYAN:
+	*Add Class; AdjacencyMatrix
 	*Method 2: PointSet toAdjacencyMatrixes should be nxn where n is points
-	*
+	* 
 	*
 	*/
 	
