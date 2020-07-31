@@ -8,7 +8,7 @@ public class PointSet extends HashSet<Point2D>{
 	
 	/*
 	*Method 1: Shells to PointSet where does toPointSet goes in Shell.java
-	*Method 2: PointSet to AdjacencyMatrixes should be nxn where n is points
+	*Method 2: PointSet toAdjacencyMatrixes should be nxn where n is points
 	*
 	*
 	*/
