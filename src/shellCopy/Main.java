@@ -28,33 +28,42 @@ import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
+/**
+ * The main class that facilitates running our tsp solver
+ */
 public class Main extends JComponent{
 
 	private static final long serialVersionUID = 2722424842956800923L;
 	private static final boolean SCALE = false;
 	private static final int WIDTH= 1000, HEIGHT = WIDTH;
+
+	/**
+	 * Creates a visual depiction of the shells/tsp path of the point set
+	 * @param g
+	 */
 	@Override
     public void paint(Graphics g) {
 		try {
 	        Graphics2D g2 = (Graphics2D) g;
 	
 	
-	        PointSetPath retTup = importFromFile(new File(".\\src\\shellCopy\\djbouti"));
+	        PointSetPath retTup = importFromFile(new File("./src/shellCopy/djbouti"));
 	        
 	        Shell orgShell = retTup.ps.toShells();
 	        
 	        Shell maxShell = orgShell.copyRecursive();
 	        
-	        Shell minShell = maxShell.getMinimalShell();
+	        Shell minShell = maxShell.getMinimalShell(); //this is never used??
 	        
 	        Shell conShell = maxShell.copyRecursive();
 	        
+	        /* All currently unused code
+
+	        Shell hell1 = orgShell.collapseChildOntoShell();
 	        
-	        //Shell hell1 = orgShell.collapseChildOntoShell();
+	        Shell hell2 = orgShell.getChild().collapseChildOntoShell();
 	        
-	        //Shell hell2 = orgShell.getChild().collapseChildOntoShell();
-	        
-	        /*for( int i = 0 ; i <3; i ++) {
+	        for( int i = 0 ; i <3; i ++) {
 	        	minShell = minShell.collapseShellOntoParent();
 	        }
 	        
@@ -63,14 +72,16 @@ public class Main extends JComponent{
 	        }*/
 	        
 	        conShell.drawShell(this, g2, new Random(), true, null);
-	        	conShell = maxShell;
-	        	conShell = conShell.collapseAllShells();
+			conShell = maxShell;
+			conShell = conShell.collapseAllShells(); //finds optimal tsp path
 
-        		//conShell2 = conShell2.consensusWithChildren2(true);
-	        	//conShell = conShell.consensusWithChildren2(true);
-		        //Shell hell1 = conShell.collapseChildOntoShell();
-		        
-		        //Shell hell2 = conShell.getChild().collapseChildOntoShell();
+			/* All currently unused code
+
+			//conShell2 = conShell2.consensusWithChildren2(true);
+			//conShell = conShell.consensusWithChildren2(true);
+			//Shell hell1 = conShell.collapseChildOntoShell();
+
+			//Shell hell2 = conShell.getChild().collapseChildOntoShell();
 	        //Shell.collapseBOntoA(minShell, maxShell).drawShell(this, g2, new Random(), false);
 
 
@@ -97,6 +108,7 @@ public class Main extends JComponent{
 
 	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
 
+			*/
 	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, true, false);
 		}catch(Exception e) {
 			e.printStackTrace();
@@ -105,7 +117,18 @@ public class Main extends JComponent{
 
 
     }
-	
+
+	/**
+	 * Draws the tsp path of the pointset ps
+	 * @param frame
+	 * @param g2
+	 * @param path
+	 * @param color
+	 * @param ps
+	 * @param drawLines
+	 * @param drawCircles
+	 * @param drawNumbers
+	 */
     public static void drawPath( JComponent frame, Graphics2D g2, Path2D path, Color color , PointSet ps, boolean drawLines, boolean drawCircles, boolean drawNumbers) {
         g2.setStroke(new BasicStroke(1.0f));
         g2.setPaint(color);
@@ -172,6 +195,10 @@ public class Main extends JComponent{
 		
 	}
 
+	/**
+	 * Creates the Jframe where the solution is drawn
+	 * @param args
+	 */
 	public static void main(String[] args) {
         JFrame frame = new JFrame("Draw GeneralPath Demo");
         frame.getContentPane().add(new Main());
@@ -181,7 +208,13 @@ public class Main extends JComponent{
         frame.setVisible(true);
         
     }
-	public PointSetPath importFromFile(File f) {
+
+	/**
+	 * Imports the point set and optimal tsp path from a file
+	 * @param f
+	 * @return the optimal PointSetPath
+	 */
+	public static PointSetPath importFromFile(File f) {
 		try {
 			
 			BufferedReader br = new BufferedReader(new FileReader(f));
@@ -189,6 +222,7 @@ public class Main extends JComponent{
 			String line = br.readLine();
 			PointSet ps = new PointSet();
 			Path2D path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
+			Shell tsp = new Shell(null, null, null);
 
 			boolean flag = true, first = true;
 			while (line != null) {
@@ -197,6 +231,7 @@ public class Main extends JComponent{
 					Point2D pt = new Point2D.Double(java.lang.Double.parseDouble(cords[1]), java.lang.Double.parseDouble(cords[2]));
 					lines.add(pt);
 					ps.add(pt);
+					tsp.add(pt);
 					if(first) {
 						path.moveTo(java.lang.Double.parseDouble(cords[1]), java.lang.Double.parseDouble(cords[2]));
 						first = false;
@@ -212,7 +247,7 @@ public class Main extends JComponent{
 				
 			}
 			br.close();
-			return new PointSetPath(ps, path);
+			return new PointSetPath(ps, path, tsp);
 		}
 		catch(Exception e) {
 			e.printStackTrace();
