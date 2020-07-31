@@ -18,274 +18,11 @@ import java.util.Set;
 
 import javax.swing.JComponent;
 
-/*NOTES:
- * 
- * ==============================================
- * Scheduling:
- * ==============================================
- * 
- * Andrew: working on the weekends and sometimes at night after work
- * 
- * Ares: pretty much the same
- * 
- * meetup every saturday
- * 
- * ==============================================
- * Ownership rules:
- * ==============================================
- * 
- * super shares?
- * 
- * ownershares are worth zero dollars and constitute one vote
- * 
- * one entity can have one vote
- * 
- * can destroy ownershare at anytime for no financial compensation
- * 
- * to create and ownershare everyone must agree
- * 
- * public shares are normal but don't constitute board membership
- * 
- * everyones shares get split during splitting ( no one man gets fucked policy)
- * 
- * trade secrets including algorithms must be kept secret until death and beyond
- * 
- * 
- * 
- * ================================================
- * Paper Credits
- * ================================================
- * 
- * how do recognize Clayton and how much does he deserve: 
- * definitely on the paper but is he a special thanks or last author?
- * 
- * Andrew Wollack and Ares Shackleford are first co-authors 
- * 
- * Special thanks to: Clayton Chu, Edward Wollack, idk who else yet
- * 
- * ================================================
- * Monetization Plan:
- * ================================================
- * Should we even tell people about this
- * 
- * Ryan and Alec to look at this? how are we willing to offer, how do we establish trust, 
- * 
- * 
- * given the current recession and virus situation is it prudent to  release our findings to the public or pursue 
- * business ventures given the lack of capital available?
- * 
- * will we go to jail for releasing this?
- * 
- * do we know the full implications of P=NP?
- * 
- * should we release the code or just the general algorithm? is it any different?
- * 
- * 
- * Sectors:
- *  * security: steal things?
- *  * networking: verizon
- *  * stock market:  how to stop, trade secret?
- *  * delivery routing amazon?
- *  * neural network architecture replacement:
- *  
- *  https://cacm.acm.org/magazines/2009/9/38904-the-status-of-the-p-versus-np-problem/fulltext
- *  
- *  * Finding a DNA sequence that best fits a collection of fragments of the sequence (see Gusfield20).
- *	* Finding a ground state in the Ising model of phase transitions (see Cipra8).
- *	* Finding Nash Equilbriums with specific properties in a number of environments (see Conitzer9).
- *	* Finding optimal protein threading procedures.26
- *	* Determining if a mathematical statement has a short proof (follows from Cook10).
- * 
- *  example:
- *  *Google pagerank is not that complicated the business moat is number of people using hte platform.
- *  
- *  Patent: could we patent and would it be worth it? would we have to make a product that relies on 
- *  the algorithm to patent
- *  
- *  how to prove:?
- *  Two cases:
- *  A shell is a SHell of S then A is a TSP Path of A
- *  
- *  Does a shell collapse onto a Tsp path result in another tsp path if the tsp path was enclosing the shell
- *  
- *  How to generalize in higher dimensions? is this natural from the algorithm we have currently?
- *  
- * =========================================
- * Definitions:
- * =========================================
- * Collapse function - takes all of A and inserts each point into the closest neighboring segment of B 
- * where the number of segments in B grows with each insert (Clayton)
- * 
- * Reduce function - takes a Shell and makes single replacements until the shell is in a minimal state
- * 
- * X> = collapse function i.e. AX>B =collapse of A onto B and A <X B = collapse of B onto A
- * NOTE: the path on the left always encloses the path on the right
- * 
- * Solve Set - the collection of points to solve TSP on. Abbreviated as S
- * 
- * Shell - the minimal closed polygon with vertices that are in the Solve Set  that encloses the Solve Set.
- * 
- * Shell Function - F(S) = Shell of S
- * 
- * Related Shells - R=
- * A = F(S)
- * S2 = S - A
- * B = F(S2)
- * A and B are Related Shells and this relationship is associative so if (A R= B) and (B R= C) then (A R= C)
- * 
- * Shell Order -how many internal Related Shells a Shell has  in the previous example A has 2 internal shells, 
- * B has 1, and C has 0, so A has Order 2, B has Order 1 etc.
- * 
- * TSP Path - A closed polygon with every point in S in TSP Path such that the distance is minimized
- * 
- * =======================================
- * Equations:
- * =======================================
- * 
- * 1111111111111111111111111111111111111111111
- * A is a Shell of S then A is a TSP Path of A
- * 
- * let A and B be Related Shells where the order of A is larger than the order of B
- * 
- * C = A <X B
- * 
- * C is a TSP Path and not a Shell
- * 
- * 2222222222222222222222222222222222222222222
- * let D and E be TSP Paths
- * 
- * G = D X> E
- * 
- * H = E X> D
- * 
- * G dosen't necissarily equal H
- * 
- * 3333333333333333333333333333333333333333333
- * 
- * Least comfortable with this one
- * 
- * If you have a path J constructed by ((A1 <X A2) <X ...) <X AN where AN is the order 0 Shell of S and A1 is
- * the maximal shell, Then J is a TSP path so long as the shell order from one vertex to the next never changes by more
- * than 1. 
- * 
- * NOT TURE
- * 
- * 4444444444444444444444444444444444444444444
- * 
- * We can make 3 related shells B,C and Enclosing TSP Path A into a TSP Path via the following consensus algorithm
- * 
- * Unsure if A can be a TSP Path or if only works for three related shells, if not i dont know what to do.
- * 
- * let D be A <X B with shell order (A + B )/2
- * 
- * let E be B X> C  with shell order (B + C)/2
- * 
- * 
- * let TSPSol  = D & E
- * for example A = [ 1 , 2, 3 ]
- * 			   B = [ 4 , 5, 6 ]
- * 			   C = [ 7 , 8, 9 ] 
- *
- * say that    D = [1, 2, 4, 5, 3, 6]
- * and that    E = [4, 7, 8, 9, 5, 6]
- *    
- * then        TSPSOL = [1, 2, 4, 7, 8, 9, 5, 3, 6]
- *   
- * this is an example with no conflicts
- *   
- * still need to figure out how to resolve conflicts
- *   
- * Conflict example:
- *   
- * say that D = [1, 4, 2, 5, 3, 6]
- * and that E = [4, 7, 8, 9, 5, 6]
- *    
- * how would we sort 2, 7, 8, and 9
- * 
- * by their distance to 4 and 5?
- * 
- * or
- * 
- * collapse of 2,7,8,9 onto the line segment formed by 4,5
- * 
- * or 
- * 
- * idfk
- * 
- * it is unclear if this works for more than three shells( i think it does)
- * 
- * 
- * 555555555555555555555555555555555555555555555555555
- * 
- * 
- * let A be a TSPPath such that A encloses minimal  Shell B
- * 
- * then A <X B is TSPPath
- * 
- * this is probably false unless???
- * 
- * 666666666666666666666666666666666666666666666666666
- * 
- * It is  interesting to note that while the property that the order from one vertex to the next never changes by more
- * than 1 does not hold for all TSP Paths, each shell can be thought of as dividing the TSP Path into  into sections where 
- * each vertex of the shell owns a  part of the TSP PAth that leads to the next vertex of the shell in the clockwise or
- *  counter clockwise direction however you can not say this about any ordered group of points on the path.
- * 
- * ^ this is common but false in general
- * I am pretty sure that the points will not always be in a clockwise or counter clockwise order with respect to each 
- * other, but they will always be in the same order when merged with the shells around them can this even possibly be true?
- * 
- * WRONG WALL 
- * 
- * =======================================================================================
- * OPEN QUESTIONS:
- * =======================================================================================
- * Q:	Are there any collapse and reduce functions that could possibly be used to  maintain tsppath without doing the ]
- * 		consensus algorithm on the induction step?
- * 
- * A:	So far no, any collapse/reduce function that I have come up with cannot be used to do simple induction without 
- * 		a consensus function.
- * 
- * =======================================================================================
- * Q: 	Is the consensus function the same as collapsing every shell onto its neighbors and doing consensus on those 
- * 		collapsed shells?
- * 
- * A:	I think that this is the case and is the reason why you can't just collapse and reduce the parent shell onto its
- * 		children recursively.
- * 
- * ======================================================================================
- * Q: 	Is the algorithm a good optimizer or does it actually solve TSP?
- * 
- * A:	There is no way to know this without a proof that the algorithm optimally solves TSP, but my intuition is that
- * 		it does solve TSP.
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * PLAN Z:
- * 
- * Step 1: do everything like normal
- * Step 2: when we start to do the consensus algorithm with the subsets in between the barrier points we need to change our algo
- * Step 3: retrofit existing architecture to use ND points instead of 2D points (this will complicate visualization a lot
- * 			probably best to only visualize a point if it only has two coords.
- * Step 4: new algorithm is:
- * 			1. Let Points S and E from the barrier shell be the start and end points that we want to optimize around
- * 			2. Create a new PointSet P_SE and let it be all of the points in between S and E including S and E
- * 			3. From the P_SE create a distance matrix DM out of the points
- * 			4. Add a new dummy point D that will act as a wormhole between S and E to DM
- * 				4a. D will have distance 0 to S and E in DM
- * 				4b. Let M be the maximum distance in DM
- * 				4c. D will have distance M to all other points besides S and E
- * 			5. Triangle time baby
- * 				5a. Add M to all points in DM so that it is TSPMetric form
- * 				5b. use the triangle inequality to triangulate the points in DM and add them to P_SE'
- * 				5c. while adding the points make sure to label them with their original coords in P_SE
- * 			6. run TSP solver on P_SE'
- * 			7. add the points back to the original Point Set removing D and add the min order from S to E. 			 
- * 
+
+/**
+ * This class represents a list of some points in the point set.
+ * 	Initially each shell is a convex hull, but they are eventually combined together to form the optimal
+ * 	tsp path and they lose their convex property
  */
 public class Shell extends LinkedList<Point2D> {
 	private static final long serialVersionUID = -5904334592585016845L;
@@ -294,6 +31,12 @@ public class Shell extends LinkedList<Point2D> {
 	private Shell parent, child;
 	private static PointSet ps;
 
+	/**
+	 * Initializes a new shell with
+	 * @param parent
+	 * @param child
+	 * @param ps
+	 */
 	public Shell(Shell parent, Shell child, PointSet ps) {
 		this.parent = parent;
 		this.child = child;
@@ -304,6 +47,10 @@ public class Shell extends LinkedList<Point2D> {
 		this.ps = ps;
 	}
 
+	/**
+	 * Get the length of the shell
+	 * @return the length of the path between all points in the shell
+	 */
 	public double getLength() {
 		Point2D first = null, last = null;
 		double length = 0.0;
@@ -321,8 +68,17 @@ public class Shell extends LinkedList<Point2D> {
 
 	}
 
-	public void drawShell(JComponent frame, Graphics2D g2, Random colorSeed, boolean drawChildren, Color c) {
+	/**
+	 * Draws the Shell and its children if drawChildren is true
+	 * @param frame where to draw the shell
+	 * @param g2 graphics object for frame
+	 * @param colorSeed only used if color is set to null in order to get a random color for the Shell drawing
+	 * @param drawChildren whether or not to draw child shells
+	 * @param c the color to draw the shell (set to null to get a random color)
+	 */
+	public void drawShell(JComponent frame, Graphics2D g2, boolean drawChildren, Color c) {
 		if (c == null) {
+			Random colorSeed = new Random();
 			Main.drawPath(frame, g2, shellToPath(this),
 					new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps, true, false,
 					false);
@@ -330,10 +86,14 @@ public class Shell extends LinkedList<Point2D> {
 			Main.drawPath(frame, g2, shellToPath(this), c, ps, true, false, false);
 		}
 		if (!this.isMinimal() && drawChildren) {
-			child.drawShell(frame, g2, colorSeed, drawChildren, c);
+			child.drawShell(frame, g2, drawChildren, c);
 		}
 	}
 
+	/**
+	 * Finds the minimal shell of the pointset
+	 * @return the central most shell that does not have any children
+	 */
 	public Shell getMinimalShell() {
 		if (this.isMinimal()) {
 			return this;
@@ -342,30 +102,34 @@ public class Shell extends LinkedList<Point2D> {
 		}
 	}
 
-	public Shell getMaximalShell() {
-		if (this.isMaximal()) {
-			return this;
-		} else {
-			return child.getMaximalShell();
-		}
-	}
-
+	/**
+	 * Determines whether the current shell is the outermost shell
+	 * @return true if current shell is the outermost shell otherwise false
+	 */
 	public boolean isMaximal() {
 		return parent == null;
 	}
 
+	/**
+	 * Determines whether the current shell is the innermost shell
+	 * @return true if current shell is the innermost shell otherwise false
+	 */
 	public boolean isMinimal() {
 		return child == null;
 	}
 
-	public Shell getParent() {
-		return parent;
-	}
-
+	/**
+	 * Gets the child shell of the current shell
+	 * @return the shell immediately inside of the current shell
+	 */
 	public Shell getChild() {
 		return child;
 	}
 
+	/**
+	 * Updates the order of the current shell to reflect how many shells are inside of it
+	 * @return the number of shells inside the current shell + 1
+	 */
 	public int updateOrder() {
 		if (!this.isMinimal()) {
 			this.ORDER = child.updateOrder() + 1;
@@ -375,6 +139,10 @@ public class Shell extends LinkedList<Point2D> {
 		return this.ORDER;
 	}
 
+	/**
+	 * Updates what shell is considered the child of this shell
+	 * @param child new child shell of current shell
+	 */
 	public void setChild(Shell child) {
 		this.child = child;
 		minimal = false;
@@ -384,24 +152,11 @@ public class Shell extends LinkedList<Point2D> {
 		}
 	}
 
-	public Shell collapseChildOntoShell() {
-		if (this.isMinimal()) {
-			return this;
-		}
-		Shell result = collapseReduce(this, this.child);
-		result.child = result.child.child;
-		return result;
-	}
-
-	public Shell collapseShellOntoParent() {
-		if (this.isMaximal()) {
-			return this;
-		}
-		Shell result = collapseReduce(this.parent, this);
-		result.child = result.child.child;
-		return result;
-	}
-
+	/**
+	 * Gets the distance from a point to its neighboring points in the shell
+	 * @param p
+	 * @return the sum of the distance from p to the prev point in the shell and the distance from p to the next point in the shell
+	 */
 	public double distanceToNeighbors(Point2D p) {
 		Point2D prevP = prevPoint(p), nextP = nextPoint(p);
 
@@ -409,6 +164,11 @@ public class Shell extends LinkedList<Point2D> {
 
 	}
 
+	/**
+	 * Gets the distance from the point previous to p and the point after p in the shell
+	 * @param p
+	 * @return the sum of the distance from  the prev point in the shell  to the next point in the shell
+	 */
 	public double distanceBetweenNeighbors(Point2D p) {
 		Point2D prevP = prevPoint(p), nextP = nextPoint(p);
 
@@ -416,6 +176,11 @@ public class Shell extends LinkedList<Point2D> {
 
 	}
 
+	/**
+	 * Gets the distance from the point previous to p and the point after p on the line
+	 * @param p
+	 * @return the sum of the distance from  the prev point on the line  to the next point on the line
+	 */
 	public double distanceToNeighborsOnLine(Point2D p) {
 		Point2D prevP = prevPointOnLine(p), nextP = nextPointOnLine(p);
 
@@ -423,6 +188,11 @@ public class Shell extends LinkedList<Point2D> {
 
 	}
 
+	/**
+	 * Gets the distance from the point previous to p and the point after p in the shell
+	 * @param p
+	 * @return the sum of the distance from  the prev point in the shell  to the next point in the shell
+	 */
 	public double distanceBetweenNeighborsOnLine(Point2D p) {
 		Point2D prevP = prevPointOnLine(p), nextP = nextPointOnLine(p);
 
@@ -430,6 +200,11 @@ public class Shell extends LinkedList<Point2D> {
 
 	}
 
+	/**
+	 * Finds the previous point in the shell
+	 * @param p reference point
+	 * @return the point that comes before p in the shell
+	 */
 	public Point2D prevPoint(Point2D p) {
 		int i = this.indexOf(p), before = 0;
 		if (i == 0) {
@@ -440,6 +215,11 @@ public class Shell extends LinkedList<Point2D> {
 		return this.get(before);
 	}
 
+	/**
+	 * Finds the next point in the shell
+	 * @param p reference point
+	 * @return the point that comes after p in the shell
+	 */
 	public Point2D nextPoint(Point2D p) {
 		int i = this.indexOf(p), after = 0;
 		if (i == this.size() - 1) {
@@ -450,6 +230,13 @@ public class Shell extends LinkedList<Point2D> {
 		return this.get(after);
 	}
 
+	//these methods are duplicate and we should comment them out and replace the calls
+
+	/**
+	 * Finds the next point on the line, duplicates nextPoint
+	 * @param p reference point
+	 * @return the point that comes before p on the line
+	 */
 	private Point2D nextPointOnLine(Point2D p) {
 		int i = this.indexOf(p), after = 0;
 		if (i == this.size() - 1) {
@@ -460,6 +247,11 @@ public class Shell extends LinkedList<Point2D> {
 		return this.get(after);
 	}
 
+	/**
+	 * Finds the previous point on the line, duplicates prevPoint
+	 * @param p reference point
+	 * @return the point that comes before p on the line
+	 */
 	private Point2D prevPointOnLine(Point2D p) {
 		int i = this.indexOf(p), before = 0;
 		if (i == 0) {
@@ -470,63 +262,11 @@ public class Shell extends LinkedList<Point2D> {
 		return this.get(before);
 	}
 
-	/*
-	 * A onto B this is where the real problem lies i think the issue is that the
-	 * line version does not work TODO: change so that keeps collapsing onto self
-	 * until last self = self
+	/**
+	 * Gives the shell, the barrier shell n levels below, and the first shell after the barrier
+	 * @param firstN number of shells to split after
+	 * @return an arraylist where index 0 is this, index 1 is the shell n levels below this, and index 2 is the child of index 1
 	 */
-	public static Shell collapseFirst(Shell A, Shell B, boolean isLine, boolean reduce) {
-		Shell result = A.copyRecursive();
-		Shell copy = B.copyRecursive();
-		boolean notConfirmed = true;
-
-		while (notConfirmed) {
-			Point2D pointChosen = null;
-			int chosenParent = 0;
-			boolean first = true, changed = false;
-			Point2D lastPoint, currPoint = null;
-			double minDist = java.lang.Double.MAX_VALUE;
-			for (int i = 0; i < result.size(); i++) {
-				lastPoint = currPoint;
-				currPoint = result.get(i);
-				if (first && !isLine) {
-					lastPoint = result.getLast();
-					first = false;
-				} else if (first && isLine) {
-					lastPoint = currPoint;
-					first = false;
-					i++;
-					currPoint = result.get(i);
-				}
-				for (Point2D q : copy) {
-					double dist = Vectors.distanceChanged(lastPoint, currPoint, q);
-					if (dist < minDist) {
-						minDist = dist;
-						pointChosen = q;
-						chosenParent = i;
-						changed = true;
-					}
-				}
-
-			}
-			if (changed) {
-				result.remove(pointChosen);
-				result.add(chosenParent, pointChosen);
-				copy.remove(pointChosen);
-			}
-
-			notConfirmed = changed;
-		}
-		if (reduce) {
-			reduceShell(result, isLine);
-		}
-		return result;
-	}
-
-	public static Shell collapseBOntoA(Shell A, Shell B) {
-		return collapseReduce(A, B);
-	}
-	
 	public ArrayList<Shell> split(int firstN) {
 		
 		Shell A = this.copyRecursive();
@@ -550,6 +290,11 @@ public class Shell extends LinkedList<Point2D> {
 		return result;
 		
 	}
+
+	/**
+	 * Finds and removes the innermost shell
+	 * @return an arraylist where index 0 is the new innermost shell and index 1 is the old innermost shell
+	 */
 	public ArrayList<Shell> popMin() {
 		
 		Shell A = this.copyRecursive();
@@ -570,98 +315,59 @@ public class Shell extends LinkedList<Point2D> {
 		return result;
 		
 	}
-	
+
+	/**
+	 * Collapses all shells into one shell that is the tsp path
+	 * @return one shell that represents the optimal tsp path
+	 */
 	public Shell collapseAllShells() {
 		int order = this.updateOrder();
 
-		System.out.println(order);
 		if(this.isMinimal()) {
 			return this;
 		}
+		//the even case where we pop the min shell and collapse all shells other than that
+		//before collapsing the min one at the end
 		if(order%2 == 0) {
 			ArrayList<Shell> popList = this.popMin();
 			
 			Shell A = popList.get(0).collapseAllShells();
 			Shell B = popList.get(1);
-			return collapseBOntoA(A, B);
+			return collapseReduce(A, B);
 		}
+		//the odd case where we split the remaining shells in half and collapse shells on both sides of the barrier shell
+		//before collapsing both sides onto the barrier shell and calling the consensus function
 		else {
 			int splitVal = (this.updateOrder()-1)/2;
 
 			if(splitVal%2 == 0) {
 				splitVal= splitVal+1;
 			}
-			System.out.println("splitval: " + splitVal);
 			ArrayList<Shell> splitList = this.split(splitVal);
 			Shell A = splitList.get(0).collapseAllShells();
 			Shell B = splitList.get(1);
 			Shell C = splitList.get(2).collapseAllShells();
-			Shell AB = collapseBOntoA(A, B);
-			Shell BC = collapseBOntoA(C, B);
+			Shell AB = collapseReduce(A, B);
+			Shell BC = collapseReduce(C, B);
 			return consensus(AB, BC);
 			
 		}
 	}
 
 	/**
-	 * TODO fix this shit its broken.
-	 * 
-	 * two possible cases since i think that the actual reduce part is correct 1. we
-	 * also need to reduce lines during the consensus algorithm. not sure how to do
-	 * this or why my previous aproach didnt work 2. we need to combine the reduce
-	 * and the collapse functions into one function. i can see why this would be the
-	 * case, but it would make me not happy.
-	 * 
-	 * @param result
-	 * @param isLine
+	 * Collapses shell B onto shell A and reduces the tsp path
+	 * @param A
+	 * @param B the child shell of A
+	 * @return one shell that represents the optimal tsp path for all points in shells A and B
 	 */
-	public static void reduceShell(Shell result, boolean isLine) {
-		boolean notConfirmed = true;
-		while (notConfirmed) {
-			Point2D pointChosen = null;
-			int chosenParent = 0;
-			boolean first = true, changed = false;
-			Point2D lastPoint, currPoint = null;
-			double minDist = java.lang.Double.MAX_VALUE;
-			for (int i = 0; i < result.size(); i++) {
-				lastPoint = currPoint;
-				currPoint = result.get(i);
-				if (first && !isLine) {
-					lastPoint = result.getLast();
-					first = false;
-				} else if (first && isLine) {
-					lastPoint = currPoint;
-					first = false;
-					i++;
-					currPoint = result.get(i);
-				}
-				for (Point2D p : result) {
-					if (!currPoint.equals(p) && !lastPoint.equals(p)) {
-						double distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p)
-								+ (result.distanceBetweenNeighbors(p) - result.distanceToNeighbors(p));
-						if (distanceChanged < minDist && distanceChanged < 0) {
-							minDist = distanceChanged;
-							pointChosen = p;
-							chosenParent = i;
-							changed = true;
-						}
-					}
-				}
-
-			}
-			if (changed) {
-				result.remove(pointChosen);
-				result.add(chosenParent, pointChosen);
-			}
-			notConfirmed = changed;
-		}
-	}
-
 	public static Shell collapseReduce(Shell A, Shell B) {
 		Shell result = A.copyRecursive();
 		Shell copy = B.copyRecursive();
 		boolean notConfirmed = true;
 
+		//once there is no change to result then the loop will exit
+		//this will only happen once all points from copy are in result
+		// and all points in result cannot be rearranged to form a shorter path
 		while (notConfirmed) {
 			Point2D pointChosen = null;
 			int chosenParent = 0;
@@ -677,6 +383,7 @@ public class Shell extends LinkedList<Point2D> {
 				}
 				for (Point2D q : copy) {
 					double dist = Vectors.distanceChanged(lastPoint, currPoint, q);
+					//store which point in b fits best between the two current points in result
 					if (dist < minDist) {
 						minDist = dist;
 						pointChosen = q;
@@ -689,8 +396,10 @@ public class Shell extends LinkedList<Point2D> {
 						double distanceChanged = java.lang.Double.MAX_VALUE;
 
 						distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p)
-								+ (result.distanceBetweenNeighbors(p) - result.distanceToNeighbors(p));
-						
+								+ (result.distanceBetweenNeighbors(p) - result.distanceToNeighbors(p)); //why this second line
+
+						//store which point if any already in result fits better in between curr and last points
+						// instead of where it currently is
 						if (distanceChanged < minDist && distanceChanged < 0) {
 							minDist = distanceChanged;
 							pointChosen = p;
@@ -701,6 +410,7 @@ public class Shell extends LinkedList<Point2D> {
 				}
 
 			}
+			//update result to add the closest point from B or to reduce result into a better tsp path
 			if (changed) {
 				result.remove(pointChosen);
 				result.add(chosenParent, pointChosen);
@@ -710,10 +420,16 @@ public class Shell extends LinkedList<Point2D> {
 			notConfirmed = changed;
 		}
 
-		// reduceShell(result, isLine);
 		return result;
 	}
-	
+
+	/**
+	 * Collapse B onto A just within the segment s
+	 * @param s
+	 * @param A
+	 * @param B
+	 * @return a shell that is the optimal tsp path of the points in A and B
+	 */
 	public static Shell collapseReduceLine(Segment s, Shell A, Shell B) {
 		Shell result = new Shell(null, null, ps);
 		Shell copy = new Shell(null, null, ps);
@@ -721,13 +437,13 @@ public class Shell extends LinkedList<Point2D> {
 		result.add(s.first);
 		result.addAll(A);
 		result.add(s.last);
-		
-		if(copy != null) {
-			copy.addAll(B);
-		}
+		copy.addAll(B);
 		
 		boolean notConfirmed = true;
 
+		//once there is no change to result then the loop will exit
+		//this will only happen once all points from copy are in result
+		// and all points in result cannot be rearranged to form a shorter path
 		while (notConfirmed) {
 			Point2D pointChosen = null;
 			int chosenParent = 0;
@@ -745,8 +461,9 @@ public class Shell extends LinkedList<Point2D> {
 				}
 				for (Point2D q : copy) {
 					if(!s.first.equals(q) && !s.last.equals(q)) {
-						double dist = Vectors.distanceChanged(lastPoint, currPoint, q) 
-								+ (copy.distanceBetweenNeighborsOnLine(q) - copy.distanceToNeighborsOnLine(q));
+						double dist = Vectors.distanceChanged(lastPoint, currPoint, q);
+								//+ (copy.distanceBetweenNeighborsOnLine(q) - copy.distanceToNeighborsOnLine(q));
+						//store which point in b fits best between the two current points in result
 						if (dist < minDist) {
 							minDist = dist;
 							pointChosen = q;
@@ -759,6 +476,8 @@ public class Shell extends LinkedList<Point2D> {
 					if (!currPoint.equals(p) && !lastPoint.equals(p)) {
 						double distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p)
 								+ (result.distanceBetweenNeighborsOnLine(p) - result.distanceToNeighborsOnLine(p));
+						//store which point if any already in result fits better in between curr and last points
+						// instead of where it currently is
 						if (distanceChanged < minDist && distanceChanged < 0) {
 							minDist = distanceChanged;
 							pointChosen = p;
@@ -768,6 +487,7 @@ public class Shell extends LinkedList<Point2D> {
 					}
 				}
 			}
+			//update result to add the closest point from B or to reduce result into a better tsp path
 			if (changed) {
 					result.remove(pointChosen);
 					result.add(chosenParent, pointChosen);
@@ -776,6 +496,7 @@ public class Shell extends LinkedList<Point2D> {
 
 			notConfirmed = changed;
 		}
+
 
 
 		// reduceShell(result, isLine);
@@ -788,9 +509,14 @@ public class Shell extends LinkedList<Point2D> {
 		
 	}
 
-	
 
-
+	/**
+	 * Finds a consensus between the merged shells AB and BC
+	 * Determines how to order points from A and C that come between the same two points in B
+	 * @param AB
+	 * @param BC
+	 * @return a shell that represents the optimal tsp path through shells A, B, and C
+	 */
 	public static Shell consensus(Shell AB, Shell BC) {
 
 		AB = AB.copyRecursive();
@@ -803,6 +529,7 @@ public class Shell extends LinkedList<Point2D> {
 
 		Shell result = new Shell(null, BC.child, ps);
 		for (Segment s : ABKeys) {
+			//if the segment is in AB and not BC then add all non endpoints on the segment
 			if (!BCsections.containsKey(s)) {
 				// TODO: set start and end to be where they connect to the B points
 				Point2D point = AB.nextPoint(s.first);
@@ -811,7 +538,8 @@ public class Shell extends LinkedList<Point2D> {
 					point = AB.nextPoint(point);
 				}
 				result.add(s.last);
-			} else {
+			}// otherwise do collapse reduce line to get a consensus between points from A and C that fit between the same points in B
+			else {
 				if (BCsections.containsKey(s) && ABsections.get(s).size() == 0 && BCsections.get(s).size() == 0) {
 					result.add(s.last);
 				} else {
@@ -832,11 +560,8 @@ public class Shell extends LinkedList<Point2D> {
 
 		for (Segment s : BCKeys) {
 			if (!ABsections.containsKey(s)) {
-				System.out.println(s);
 				leftOverKeys.add(s);
-				System.out.println(result.contains(s.first));
 
-				System.out.println(result.contains(s.last));
 
 			}
 		}
@@ -893,6 +618,12 @@ public class Shell extends LinkedList<Point2D> {
 
 	}
 
+	/**
+	 * Finds all points in common between the shells AB and BC
+	 * @param AB
+	 * @param BC
+	 * @return a shell that has all of the points in common between AB and BC
+	 */
 	private static Shell pointsInCommon(Shell AB, Shell BC) {
 
 		Shell result = new Shell(null, null, ps);
@@ -905,10 +636,14 @@ public class Shell extends LinkedList<Point2D> {
 		return result;
 	}
 
+	/**
+	 * Recursively copies a shell so that all of its children appear in the copy
+	 * @return a shell that represents a complete copy of the current shell
+	 */
 	public Shell copyRecursive() {
 		Shell copy = null;
 		if (!isMinimal()) {
-			copy = new Shell(this.parent, this.child.copyRecursive(), this.ps);
+			copy = new Shell(this.parent, this.child.copyRecursive(), this.ps); //is parent shallow copied here could that cause problems
 		} else {
 			copy = new Shell(this.parent, null, this.ps);
 		}
@@ -918,6 +653,10 @@ public class Shell extends LinkedList<Point2D> {
 		return copy;
 	}
 
+	/**
+	 * Shallow copies a shell so that it does not point to any childern
+	 * @return a copy of the current shell with no references to its children
+	 */
 	public Shell copyShallow() {
 		Shell copy = new Shell(this.parent, null, this.ps);
 
@@ -927,17 +666,12 @@ public class Shell extends LinkedList<Point2D> {
 		return copy;
 	}
 
-	private Collection<? extends Point2D> reverse(Shell shell) {
-		// TODO Auto-generated method stub
-
-		for (int i = 0; i < shell.size(); i++) {
-			Point2D first = shell.pop();
-			shell.add(first);
-
-		}
-		return shell;
-	}
-
+	/**
+	 * Creates a mapping from segments in B to shells that represent all points inbetween the endpoints of the segment
+	 * @param b
+	 * @param keys
+	 * @return A hash map of segments in B to shells that represent all points in this that lie inbetween the endpoints of the segment
+	 */
 	private HashMap<Segment, Shell> splitBy(Shell b, ArrayList<Segment> keys) {
 		HashMap<Segment, Shell> result = new HashMap<Segment, Shell>();
 		int index = 0;
@@ -966,7 +700,7 @@ public class Shell extends LinkedList<Point2D> {
 					keys.add(s);
 					temp = new Shell(null, null, ps);
 				}
-			} else {
+			} else { //is this guaranteed to work?
 				if (first) {
 					firstTemp.add(p);
 				} else {
@@ -980,12 +714,17 @@ public class Shell extends LinkedList<Point2D> {
 			idx++;
 		}
 		Segment s = new Segment(lastB, firstB);
-		// System.out.println(s);
 		result.put(s, firstTemp);
 		keys.add(s);
 		return result;
 	}
 
+	/**
+	 * Creates a mapping from each point in B to a shell that represents all points in this that come after the key and before the next point in b
+	 * @param b
+	 * @param startPoints all of the points in b
+	 * @return A hashmap from points in b to shells that represents points in this between the key and the next key
+	 */
 	private HashMap<Point2D, Shell> splitInHalf(Shell b, ArrayList<Point2D> startPoints) {
 		HashMap<Point2D, Shell> result = new HashMap<Point2D, Shell>();
 		int index = 0;
@@ -1033,6 +772,11 @@ public class Shell extends LinkedList<Point2D> {
 		return result;
 	}
 
+	/**
+	 * Turns a shell into a path object
+	 * @param shell
+	 * @return a path that represnts the path through all points in the shell
+	 */
 	public static Path2D shellToPath(Shell shell) {
 		Path2D path = new GeneralPath();
 		boolean first = true;
@@ -1048,5 +792,41 @@ public class Shell extends LinkedList<Point2D> {
 		return path;
 
 	}
+
+	/**
+	 * Determines equality of shells based on if they represent the same tsp path
+	 * @param o shell to compare to
+	 * @return true if the shells are equal and false if they are not
+	 */
+	@Override
+	public boolean equals(Object o) {
+		if(o instanceof Shell) {
+			Shell other = (Shell) o;
+			if(other.size() != this.size()){
+				return false;
+			}
+			Point2D otherFirst = other.getFirst();
+			int startIndex = -1;
+			for (Point2D p : this){
+				if(p.equals(otherFirst)){
+					startIndex = this.indexOf(p);
+					break;
+				}
+			}
+			if(startIndex == -1){
+				return false;
+			}
+			for(int i = 0; i < other.size(); i++){
+				if(!other.get(i).equals(this.get(startIndex))){
+					return false;
+				}
+				startIndex = (startIndex + 1) % other.size();
+			}
+			return true;
+		}
+		return false;
+
+	}
+
 
 }
