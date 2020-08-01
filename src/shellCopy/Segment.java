@@ -1,15 +1,13 @@
 package shellCopy;
 
-import java.awt.geom.Point2D;
-
 /**
  * This class represents a Segment between two points in space
  * Stores the start and endpoints of the segment
  */
 public class Segment {
 
-	Point2D first, last;
-	public Segment(Point2D first, Point2D last) {
+	PointND first, last;
+	public Segment(PointND first, PointND last) {
 		this.first = first;
 		this.last = last;
 	}
@@ -25,11 +23,8 @@ public class Segment {
 		if(o instanceof Segment) {
 
 			Segment other = (Segment) o;
-			return (other.first.getX() == first.getX() && other.last.getX() == last.getX() &&
-					other.first.getY() == first.getY() && other.last.getY() == last.getY()) 
-					
-					||(other.first.getX() == last.getX() && other.last.getX() == first.getX() &&
-					   other.first.getY() == last.getY() && other.last.getY() == first.getY()) ;
+			return (other.first.equals(first) && other.last.equals(last)) 
+					|| (other.first.equals(last) && other.last.equals(first));
 		}
 		return false;
 

@@ -71,11 +71,10 @@ public class Main extends JComponent{
 	        	maxShell = maxShell.collapseChildOntoShell();
 	        }*/
 	        
-	        conShell.drawShell(this, g2, true, null);
 			conShell = maxShell;
 			conShell = conShell.collapseAllShells(); //finds optimal tsp path
 
-			/* All currently unused code
+	        conShell.drawShell(this, g2, false, Color.BLUE);
 
 			//conShell2 = conShell2.consensusWithChildren2(true);
 			//conShell = conShell.consensusWithChildren2(true);
@@ -100,7 +99,7 @@ public class Main extends JComponent{
 	        	
 	        //conShell.drawShell(this, g2, new Random(), true, null);
 
-	        //conShell.drawShell(this, g2, new Random(), true, Color.RED);
+
 	        
 	        
 
@@ -108,8 +107,7 @@ public class Main extends JComponent{
 
 	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
 
-			*/
-	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, true, false);
+	        //drawPath(this, g2, retTup.path, Color.RED, retTup.ps, true, false, false);
 		}catch(Exception e) {
 			e.printStackTrace();
 			SwingUtilities.getWindowAncestor(this).dispatchEvent(new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));
@@ -136,7 +134,9 @@ public class Main extends JComponent{
 		GeneralPath scaledpath = new GeneralPath();
 		double minX = java.lang.Double.MAX_VALUE, minY = java.lang.Double.MAX_VALUE, maxX = 0, maxY = 0;
 		boolean first = true;
-		for(Point2D p : ps){
+		for(PointND pn : ps){
+			
+			Point2D p = pn.toPoint2D();
 			
 			if(p.getX() < minX) {
 				minX = p.getX();
@@ -218,7 +218,7 @@ public class Main extends JComponent{
 		try {
 			
 			BufferedReader br = new BufferedReader(new FileReader(f));
-			ArrayList<Point2D> lines = new ArrayList<Point2D>();
+			ArrayList<PointND> lines = new ArrayList<PointND>();
 			String line = br.readLine();
 			PointSet ps = new PointSet();
 			Path2D path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
@@ -228,7 +228,7 @@ public class Main extends JComponent{
 			while (line != null) {
 				if(flag == true) {
 					String[] cords = line.split(" ");
-					Point2D pt = new Point2D.Double(java.lang.Double.parseDouble(cords[1]), java.lang.Double.parseDouble(cords[2]));
+					PointND pt = new PointND.Double(java.lang.Double.parseDouble(cords[1]), java.lang.Double.parseDouble(cords[2]));
 					lines.add(pt);
 					ps.add(pt);
 					tsp.add(pt);

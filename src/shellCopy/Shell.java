@@ -4,17 +4,11 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Path2D;
-import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
-import java.awt.geom.Point2D.Double;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Random;
-import java.util.Set;
 
 import javax.swing.JComponent;
 
@@ -24,7 +18,7 @@ import javax.swing.JComponent;
  * 	Initially each shell is a convex hull, but they are eventually combined together to form the optimal
  * 	tsp path and they lose their convex property
  */
-public class Shell extends LinkedList<Point2D> {
+public class Shell extends LinkedList<PointND> {
 	private static final long serialVersionUID = -5904334592585016845L;
 	private int ORDER = 0;
 	private boolean maximal, minimal;
@@ -52,9 +46,9 @@ public class Shell extends LinkedList<Point2D> {
 	 * @return the length of the path between all points in the shell
 	 */
 	public double getLength() {
-		Point2D first = null, last = null;
+		PointND first = null, last = null;
 		double length = 0.0;
-		for (Point2D p : this) {
+		for (PointND p : this) {
 			if (first == null) {
 				last = p;
 				first = p;
@@ -157,10 +151,10 @@ public class Shell extends LinkedList<Point2D> {
 	 * @param p
 	 * @return the sum of the distance from p to the prev point in the shell and the distance from p to the next point in the shell
 	 */
-	public double distanceToNeighbors(Point2D p) {
-		Point2D prevP = prevPoint(p), nextP = nextPoint(p);
+	public double distanceToNeighbors(PointND p) {
+		PointND prevP = prevPoint(p), nextP = nextPoint(p);
 
-		return p.distance(prevP.getX(), prevP.getY()) + p.distance(nextP.getX(), nextP.getY());
+		return p.distance(prevP) + p.distance(nextP);
 
 	}
 
@@ -169,10 +163,10 @@ public class Shell extends LinkedList<Point2D> {
 	 * @param p
 	 * @return the sum of the distance from  the prev point in the shell  to the next point in the shell
 	 */
-	public double distanceBetweenNeighbors(Point2D p) {
-		Point2D prevP = prevPoint(p), nextP = nextPoint(p);
+	public double distanceBetweenNeighbors(PointND p) {
+		PointND prevP = prevPoint(p), nextP = nextPoint(p);
 
-		return prevP.distance(nextP.getX(), nextP.getY());
+		return prevP.distance(nextP);
 
 	}
 
@@ -181,10 +175,10 @@ public class Shell extends LinkedList<Point2D> {
 	 * @param p
 	 * @return the sum of the distance from  the prev point on the line  to the next point on the line
 	 */
-	public double distanceToNeighborsOnLine(Point2D p) {
-		Point2D prevP = prevPointOnLine(p), nextP = nextPointOnLine(p);
+	public double distanceToNeighborsOnLine(PointND p) {
+		PointND prevP = prevPointOnLine(p), nextP = nextPointOnLine(p);
 
-		return p.distance(prevP.getX(), prevP.getY()) + p.distance(nextP.getX(), nextP.getY());
+		return p.distance(prevP) + p.distance(nextP);
 
 	}
 
@@ -193,10 +187,10 @@ public class Shell extends LinkedList<Point2D> {
 	 * @param p
 	 * @return the sum of the distance from  the prev point in the shell  to the next point in the shell
 	 */
-	public double distanceBetweenNeighborsOnLine(Point2D p) {
-		Point2D prevP = prevPointOnLine(p), nextP = nextPointOnLine(p);
+	public double distanceBetweenNeighborsOnLine(PointND p) {
+		PointND prevP = prevPointOnLine(p), nextP = nextPointOnLine(p);
 
-		return prevP.distance(nextP.getX(), nextP.getY());
+		return prevP.distance(nextP);
 
 	}
 
@@ -205,7 +199,7 @@ public class Shell extends LinkedList<Point2D> {
 	 * @param p reference point
 	 * @return the point that comes before p in the shell
 	 */
-	public Point2D prevPoint(Point2D p) {
+	public PointND prevPoint(PointND p) {
 		int i = this.indexOf(p), before = 0;
 		if (i == 0) {
 			before = this.size() - 1;
@@ -220,7 +214,7 @@ public class Shell extends LinkedList<Point2D> {
 	 * @param p reference point
 	 * @return the point that comes after p in the shell
 	 */
-	public Point2D nextPoint(Point2D p) {
+	public PointND nextPoint(PointND p) {
 		int i = this.indexOf(p), after = 0;
 		if (i == this.size() - 1) {
 			after = 0;
@@ -237,7 +231,7 @@ public class Shell extends LinkedList<Point2D> {
 	 * @param p reference point
 	 * @return the point that comes before p on the line
 	 */
-	private Point2D nextPointOnLine(Point2D p) {
+	private PointND nextPointOnLine(PointND p) {
 		int i = this.indexOf(p), after = 0;
 		if (i == this.size() - 1) {
 			after = i;
@@ -252,7 +246,7 @@ public class Shell extends LinkedList<Point2D> {
 	 * @param p reference point
 	 * @return the point that comes before p on the line
 	 */
-	private Point2D prevPointOnLine(Point2D p) {
+	private PointND prevPointOnLine(PointND p) {
 		int i = this.indexOf(p), before = 0;
 		if (i == 0) {
 			before = i;
@@ -369,10 +363,10 @@ public class Shell extends LinkedList<Point2D> {
 		//this will only happen once all points from copy are in result
 		// and all points in result cannot be rearranged to form a shorter path
 		while (notConfirmed) {
-			Point2D pointChosen = null;
+			PointND pointChosen = null;
 			int chosenParent = 0;
 			boolean first = true, changed = false;
-			Point2D lastPoint, currPoint = null;
+			PointND lastPoint, currPoint = null;
 			double minDist = java.lang.Double.MAX_VALUE;
 			for (int i = 0; i < result.size(); i++) {
 				lastPoint = currPoint;
@@ -381,7 +375,7 @@ public class Shell extends LinkedList<Point2D> {
 					lastPoint = result.getLast();
 					first = false;
 				}
-				for (Point2D q : copy) {
+				for (PointND q : copy) {
 					double dist = Vectors.distanceChanged(lastPoint, currPoint, q);
 					//store which point in b fits best between the two current points in result
 					if (dist < minDist) {
@@ -391,7 +385,7 @@ public class Shell extends LinkedList<Point2D> {
 						changed = true;
 					}
 				}
-				for (Point2D p : result) {
+				for (PointND p : result) {
 					if (!currPoint.equals(p) && !lastPoint.equals(p)) {
 						double distanceChanged = java.lang.Double.MAX_VALUE;
 
@@ -445,10 +439,10 @@ public class Shell extends LinkedList<Point2D> {
 		//this will only happen once all points from copy are in result
 		// and all points in result cannot be rearranged to form a shorter path
 		while (notConfirmed) {
-			Point2D pointChosen = null;
+			PointND pointChosen = null;
 			int chosenParent = 0;
 			boolean first = true, changed = false;
-			Point2D lastPoint, currPoint = null;
+			PointND lastPoint, currPoint = null;
 			double minDist = java.lang.Double.MAX_VALUE;
 			for (int i = 0; i < result.size(); i++) {
 				lastPoint = currPoint;
@@ -459,7 +453,7 @@ public class Shell extends LinkedList<Point2D> {
 					i++;
 					currPoint = result.get(i);
 				}
-				for (Point2D q : copy) {
+				for (PointND q : copy) {
 					if(!s.first.equals(q) && !s.last.equals(q)) {
 						double dist = Vectors.distanceChanged(lastPoint, currPoint, q);
 								//+ (copy.distanceBetweenNeighborsOnLine(q) - copy.distanceToNeighborsOnLine(q));
@@ -472,7 +466,7 @@ public class Shell extends LinkedList<Point2D> {
 						}
 					}
 				}
-				for (Point2D p : result) {
+				for (PointND p : result) {
 					if (!currPoint.equals(p) && !lastPoint.equals(p)) {
 						double distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p)
 								+ (result.distanceBetweenNeighborsOnLine(p) - result.distanceToNeighborsOnLine(p));
@@ -532,7 +526,7 @@ public class Shell extends LinkedList<Point2D> {
 			//if the segment is in AB and not BC then add all non endpoints on the segment
 			if (!BCsections.containsKey(s)) {
 				// TODO: set start and end to be where they connect to the B points
-				Point2D point = AB.nextPoint(s.first);
+				PointND point = AB.nextPoint(s.first);
 				while (!point.equals(s.last)) {
 					result.add(point);
 					point = AB.nextPoint(point);
@@ -572,12 +566,12 @@ public class Shell extends LinkedList<Point2D> {
 			Shell leftOverShell = new Shell(null, null, ps);
 			leftOverShell.add(s.first);
 			leftOverShell.add(s.last);
-			HashMap<Point2D, Shell> resultSections = result.splitInHalf(leftOverShell, new ArrayList<Point2D>());
-			Point2D minIndex = null;
+			HashMap<PointND, Shell> resultSections = result.splitInHalf(leftOverShell, new ArrayList<PointND>());
+			PointND minIndex = null;
 			double minLengthChange = java.lang.Double.MAX_VALUE;
 			Shell minShell = null;
 
-			for (Point2D first : resultSections.keySet()) {
+			for (PointND first : resultSections.keySet()) {
 				Segment s1 = new Segment(null, null);
 				if (first.equals(s.first)) {
 					s1.first = s.first;
@@ -604,7 +598,7 @@ public class Shell extends LinkedList<Point2D> {
 			}
 
 			result = new Shell(null, BC.child, ps);
-			for (Point2D first : resultSections.keySet()) {
+			for (PointND first : resultSections.keySet()) {
 
 				if (first.equals(minIndex)) {
 					result.addAll(minShell);
@@ -628,7 +622,7 @@ public class Shell extends LinkedList<Point2D> {
 
 		Shell result = new Shell(null, null, ps);
 
-		for (Point2D p : AB) {
+		for (PointND p : AB) {
 			if (BC.contains(p)) {
 				result.add(p);
 			}
@@ -647,7 +641,7 @@ public class Shell extends LinkedList<Point2D> {
 		} else {
 			copy = new Shell(this.parent, null, this.ps);
 		}
-		for (Point2D q : this) {
+		for (PointND q : this) {
 			copy.add(q);
 		}
 		return copy;
@@ -660,7 +654,7 @@ public class Shell extends LinkedList<Point2D> {
 	public Shell copyShallow() {
 		Shell copy = new Shell(this.parent, null, this.ps);
 
-		for (Point2D q : this) {
+		for (PointND q : this) {
 			copy.add(q);
 		}
 		return copy;
@@ -676,11 +670,11 @@ public class Shell extends LinkedList<Point2D> {
 		HashMap<Segment, Shell> result = new HashMap<Segment, Shell>();
 		int index = 0;
 		Shell firstTemp = new Shell(null, null, ps);
-		Point2D lastB = null, firstB = null, prevB = null, nextB = null;
+		PointND lastB = null, firstB = null, prevB = null, nextB = null;
 		boolean first = true;
 		Shell temp = new Shell(null, null, ps);
 		int count = 0;
-		for (Point2D p : this) {
+		for (PointND p : this) {
 			if (b.contains(p)) {
 				count++;
 				if (first) {
@@ -709,7 +703,7 @@ public class Shell extends LinkedList<Point2D> {
 			}
 		}
 		int idx = 0;
-		for (Point2D p : temp) {
+		for (PointND p : temp) {
 			firstTemp.add(idx, p);
 			idx++;
 		}
@@ -725,15 +719,15 @@ public class Shell extends LinkedList<Point2D> {
 	 * @param startPoints all of the points in b
 	 * @return A hashmap from points in b to shells that represents points in this between the key and the next key
 	 */
-	private HashMap<Point2D, Shell> splitInHalf(Shell b, ArrayList<Point2D> startPoints) {
-		HashMap<Point2D, Shell> result = new HashMap<Point2D, Shell>();
+	private HashMap<PointND, Shell> splitInHalf(Shell b, ArrayList<PointND> startPoints) {
+		HashMap<PointND, Shell> result = new HashMap<PointND, Shell>();
 		int index = 0;
 		Shell firstTemp = new Shell(null, null, ps);
-		Point2D lastB = null, firstB = null, prevB = null, nextB = null;
+		PointND lastB = null, firstB = null, prevB = null, nextB = null;
 		boolean first = true;
 		Shell temp = new Shell(null, null, ps);
 		int count = 0;
-		for (Point2D p : this) {
+		for (PointND p : this) {
 			if (b.contains(p)) {
 				count++;
 				if (first) {
@@ -762,7 +756,7 @@ public class Shell extends LinkedList<Point2D> {
 			}
 		}
 		int idx = 0;
-		for (Point2D p : temp) {
+		for (PointND p : temp) {
 			firstTemp.add(idx, p);
 			idx++;
 		}
@@ -780,12 +774,13 @@ public class Shell extends LinkedList<Point2D> {
 	public static Path2D shellToPath(Shell shell) {
 		Path2D path = new GeneralPath();
 		boolean first = true;
-		for (Point2D p : shell) {
+		for (PointND p : shell) {
+			Point2D p2d = p.toPoint2D();
 			if (first) {
-				path.moveTo(p.getX(), p.getY());
+				path.moveTo(p2d.getX(), p2d.getY());
 				first = false;
 			} else {
-				path.lineTo(p.getX(), p.getY());
+				path.lineTo(p2d.getX(), p2d.getY());
 			}
 
 		}
@@ -805,9 +800,9 @@ public class Shell extends LinkedList<Point2D> {
 			if(other.size() != this.size()){
 				return false;
 			}
-			Point2D otherFirst = other.getFirst();
+			PointND otherFirst = other.getFirst();
 			int startIndex = -1;
-			for (Point2D p : this){
+			for (PointND p : this){
 				if(p.equals(otherFirst)){
 					startIndex = this.indexOf(p);
 					break;

@@ -33,6 +33,7 @@ public abstract class PointND implements Cloneable {
 		 * 
 		 */
 		public Float() {
+			fs = new float[1];
 		}
 
 		/**
@@ -131,6 +132,7 @@ public abstract class PointND implements Cloneable {
 		 * 
 		 */
 		public Double() {
+			ds = new double[1];
 		}
 
 		/**
@@ -274,15 +276,7 @@ public abstract class PointND implements Cloneable {
 	 * 
 	 */
 	public double distanceSq(double... p) {
-		if (p.length != getDim()) {
-			return -1;
-		}
-		double sum = 0;
-		for (int i = 0; i < p.length; i++) {
-			p[i] -= this.getCoord(i);
-			sum += p[i] * p[i];
-		}
-		return sum;
+		return distanceSq(new PointND.Double(p));
 	}
 
 	/**
@@ -295,12 +289,22 @@ public abstract class PointND implements Cloneable {
 	 * 
 	 */
 	public double distanceSq(PointND pt) {
-		if (pt.getDim() != getDim()) {
-			return -1;
-		}
 		double sum = 0;
-		for (int i = 0; i < pt.getDim(); i++) {
-			double val = pt.getCoord(i) - this.getCoord(i);
+
+		int length = Math.max(pt.getDim(), getDim());
+		
+		for (int i = 0; i < length; i++) {
+			
+			double val;
+			if(i >= pt.getDim()) {
+				val = getCoord(i);
+			}
+			else if(i >= getDim()) {
+				val = 0 - pt.getCoord(i);
+			}
+			else {
+				val = getCoord(i) - pt.getCoord(i);
+			}
 			sum += val * val;
 		}
 		return sum;
@@ -315,15 +319,8 @@ public abstract class PointND implements Cloneable {
 	 * 
 	 */
 	public double distance(double... p) {
-		if (p.length != getDim()) {
-			return -1;
-		}
-		double sum = 0;
-		for (int i = 0; i < p.length; i++) {
-			p[i] -= this.getCoord(i);
-			sum += p[i] * p[i];
-		}
-		return Math.sqrt(sum);
+
+		return distance(new PointND.Double(p));
 	}
 
 	/**
@@ -336,15 +333,52 @@ public abstract class PointND implements Cloneable {
 	 * 
 	 */
 	public double distance(PointND pt) {
-		if (pt.getDim() != getDim()) {
-			return -1;
-		}
 		double sum = 0;
-		for (int i = 0; i < pt.getDim(); i++) {
-			double val = pt.getCoord(i) - this.getCoord(i);
+		int length = Math.max(pt.getDim(), getDim());
+		for (int i = 0; i < length; i++) {
+			
+			double val;
+			if(i >= pt.getDim()) {
+				val = getCoord(i);
+			}
+			else if(i >= getDim()) {
+				val = 0 - pt.getCoord(i);
+			}
+			else {
+				val = getCoord(i) - pt.getCoord(i);
+			}
 			sum += val * val;
 		}
 		return Math.sqrt(sum);
+	}
+	
+	/**
+	 * Returns the point vector centered at a specified {@code PointND}.
+	 *
+	 * @param pt the specified point for the vector to start at
+	 * @return the vector from this point to the specified {@code PointND}.
+	 * 
+	 */
+	public PointND toVector(PointND pt) {
+		double[] ds;
+		if (pt.getDim() > getDim()) {
+			ds = new double[pt.getDim()];
+		}
+		else {
+			ds = new double[getDim()];
+		}
+		for (int i = 0; i < ds.length; i++) {
+			if(i >= pt.getDim()) {
+				ds[i] = getCoord(i);
+			}
+			else if(i >= getDim()) {
+				ds[i] = 0 - pt.getCoord(i);
+			}
+			else {
+				ds[i] = getCoord(i) - pt.getCoord(i);
+			}
+		}
+		return new PointND.Double(ds);
 	}
 
 	/**

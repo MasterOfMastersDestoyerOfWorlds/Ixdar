@@ -1,6 +1,5 @@
 package shellCopy;
 
-import java.awt.geom.Point2D;
 
 
 
@@ -10,16 +9,19 @@ import java.awt.geom.Point2D;
 public class Vectors {
 
 	/**
-	 * @param A
-	 * @param B
-	 * @param C
+	 * @param a
+	 * @param b
+	 * @param p
 	 * @return returns the angle ABC
 	 */
-	public static double findAngleSegments(Point2D A, Point2D B, Point2D C) {
-		Point2D BC = new Point2D.Double(C.getX()-B.getX(), C.getY()-B.getY());
-		Point2D AB = new Point2D.Double(A.getX()-B.getX(), A.getY()-B.getY());
+	public static double findAngleSegments(PointND a, PointND b, PointND p) {
+		PointND BC = new PointND.Double(p.toVector(b).getCoordList());
+		PointND AB = new PointND.Double(a.toVector(b).getCoordList());
 		double magAB = magnitude(AB), magBC = magnitude(BC);
 		double dot = findDotProduct(AB,BC);
+		if(dot/(magAB*magBC) >= 1) {
+			return 180;
+		}
 		return Math.acos(dot/(magAB*magBC))*180/Math.PI;
 	}
 
@@ -27,8 +29,8 @@ public class Vectors {
 	 * @param A
 	 * @return the distance from the origin to A
 	 */
-	public static double magnitude(Point2D A) {
-		return A.distance(new Point2D.Double(0, 0));
+	public static double magnitude(PointND A) {
+		return A.distance(new PointND.Double());
 	}
 
 	/**
@@ -36,9 +38,26 @@ public class Vectors {
 	 * @param BC
 	 * @return the dot product of AB and BC
 	 */
-	public static double findDotProduct(Point2D AB, Point2D BC){
+	public static double findDotProduct(PointND AB, PointND BC){
+		double sum = 0;
+
+		int length = Math.max(AB.getDim(), BC.getDim());
 		
-		return  AB.getX()*BC.getX() + AB.getY()*BC.getY();
+		for (int i = 0; i < length; i++) {
+			
+			double val;
+			if(i >= AB.getDim()) {
+				val = AB.getCoord(i)*0;
+			}
+			else if(i >= BC.getDim()) {
+				val = BC.getCoord(i)*0;
+			}
+			else {
+				val = AB.getCoord(i)*BC.getCoord(i);
+			}
+			sum += val;
+		}
+		return sum;
 		
 	}
 
@@ -51,13 +70,13 @@ public class Vectors {
 	 * @param q 2d point in between lastPoint and currPoint
 	 * @return AB + BC - AC
 	 */
-	public static double distanceChanged(Point2D lastPoint, Point2D currPoint, Point2D q) {
+	public static double distanceChanged(PointND lastPoint, PointND currPoint, PointND q) {
 		
 		// i think this is wrong or is being used incorrectly because if q is embedded in the 
 		// path already then you also have to consider the distance to its neighbors
-		Point2D AB = new Point2D.Double(q.getX()-lastPoint.getX(), q.getY()-lastPoint.getY());
-		Point2D AC = new Point2D.Double(currPoint.getX()-lastPoint.getX(), currPoint.getY()-lastPoint.getY());
-		Point2D BC = new Point2D.Double(q.getX()-currPoint.getX(), q.getY()-currPoint.getY());
+		PointND AB = new PointND.Double(q.toVector(lastPoint).getCoordList());
+		PointND AC = new PointND.Double(currPoint.toVector(lastPoint).getCoordList());
+		PointND BC = new PointND.Double(q.toVector(currPoint).getCoordList());
 
 		return magnitude(AB) + magnitude(BC) -magnitude(AC);
 	}
@@ -65,15 +84,15 @@ public class Vectors {
 
 	/*This is currently not used, but keeping for history and potential future use
 
-	public static double getProjectionScalar(Point2D v, Point2D u) {
+	public static double getProjectionScalar(PointND v, PointND u) {
 		// TODO Auto-generated method stub
 		return findDotProduct(v, u)/Math.pow(magnitude(u), 2);
 	}
 
-	public static double distanceToSegment(Point2D lastPoint, Point2D currPoint, Point2D q) {
+	public static double distanceToSegment(PointND lastPoint, PointND currPoint, PointND q) {
 		// this is a poor metric and should probably not be used for optimization
-		Point2D AC = new Point2D.Double(q.getX()-lastPoint.getX(), q.getY()-lastPoint.getY());
-		Point2D AB = new Point2D.Double(currPoint.getX()-lastPoint.getX(), currPoint.getY()-lastPoint.getY());
+		PointND AC = new PointND.Double(q.getX()-lastPoint.getX(), q.getY()-lastPoint.getY());
+		PointND AB = new PointND.Double(currPoint.getX()-lastPoint.getX(), currPoint.getY()-lastPoint.getY());
 		double y1 =lastPoint.getY(), y2 = currPoint.getY(), y0 = q.getY(),
 				x1 =lastPoint.getX(), x2 = currPoint.getX(), x0 =q.getX();
 		double projScalar = getProjectionScalar(AC, AB);
