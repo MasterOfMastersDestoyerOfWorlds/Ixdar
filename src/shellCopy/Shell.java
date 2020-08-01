@@ -73,11 +73,11 @@ public class Shell extends LinkedList<PointND> {
 	public void drawShell(JComponent frame, Graphics2D g2, boolean drawChildren, Color c) {
 		if (c == null) {
 			Random colorSeed = new Random();
-			Main.drawPath(frame, g2, shellToPath(this),
+			Main.drawPath(frame, g2, toPath(this),
 					new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps, true, false,
 					false);
 		} else {
-			Main.drawPath(frame, g2, shellToPath(this), c, ps, true, false, false);
+			Main.drawPath(frame, g2, toPath(this), c, ps, true, false, false);
 		}
 		if (!this.isMinimal() && drawChildren) {
 			child.drawShell(frame, g2, drawChildren, c);
@@ -771,7 +771,7 @@ public class Shell extends LinkedList<PointND> {
 	 * @param shell
 	 * @return a path that represnts the path through all points in the shell
 	 */
-	public static Path2D shellToPath(Shell shell) {
+	public static Path2D toPath(Shell shell) {
 		Path2D path = new GeneralPath();
 		boolean first = true;
 		for (PointND p : shell) {
@@ -785,6 +785,24 @@ public class Shell extends LinkedList<PointND> {
 
 		}
 		return path;
+
+	}
+	
+	/**
+	 * Turns a shell into a PointSet object
+	 * @return all of the points in the Shell and its children
+	 */
+	public PointSet toPointSet() {
+		PointSet ps = new PointSet();
+		Shell  currShell = this;
+		while(currShell != null) {
+			for (PointND p : currShell) {
+				ps.add(p);
+	
+			}
+			currShell = currShell.child;
+		}
+		return ps;
 
 	}
 
