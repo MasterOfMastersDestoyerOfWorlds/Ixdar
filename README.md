@@ -21,3 +21,8 @@ TSP with two predetermined endpoints:
 
 
 http://www.math.uwaterloo.ca/tsp/world/countries.html#LU
+
+Matrix to Points Logic:
+https://math.stackexchange.com/questions/156161/finding-the-coordinates-of-points-from-distance-matrix]
+
+
