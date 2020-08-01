@@ -27,11 +27,8 @@ public class PointSet extends HashSet<PointND> {
 		Shell rootShell = null, currShell = null;
 
 		while (copy.size() > 0) {
-			System.out.println("Point set: " + copy);
 			PointND A = findCentroid(copy);
-			System.out.println("Centroid: " + A);
 			PointND B = findAnoid(copy, A);
-			System.out.println("Annoid: " + B);
 			PointND start = B;
 
 			// makes the first shell
@@ -55,10 +52,8 @@ public class PointSet extends HashSet<PointND> {
 				double maxAngle = 0;
 				PointND maxPoint = null;
 				int count = 0;
-				System.out.println("pointset" + copy);
 				for (PointND p : copy) {
 					double angle = Vectors.findAngleSegments(A, B, p);
-					System.out.println("p: " + p  + " angle "+ angle);
 					if (angle > maxAngle && !outerShellPointSet.contains(p) && !A.equals(p) && !B.equals(p)) {
 
 						maxAngle = angle;
