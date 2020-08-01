@@ -222,7 +222,7 @@ public class Main extends JComponent{
 			String line = br.readLine();
 			PointSet ps = new PointSet();
 			Path2D path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
-			Shell tsp = new Shell(null, null, null);
+			Shell tsp = new Shell();
 
 			boolean flag = true, first = true;
 			while (line != null) {

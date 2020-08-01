@@ -23,22 +23,26 @@ public class Shell extends LinkedList<PointND> {
 	private int ORDER = 0;
 	private boolean maximal, minimal;
 	private Shell parent, child;
-	private static PointSet ps;
 
+	
+	/**
+	 * Initializes a new shell with no parent or child; a blank slate
+	 */
+	public Shell() {
+	}
+	
 	/**
 	 * Initializes a new shell with
 	 * @param parent
 	 * @param child
-	 * @param ps
 	 */
-	public Shell(Shell parent, Shell child, PointSet ps) {
+	public Shell(Shell parent, Shell child) {
 		this.parent = parent;
 		this.child = child;
 		this.updateOrder();
 		if (!this.isMaximal()) {
 			parent.updateOrder();
 		}
-		this.ps = ps;
 	}
 
 	/**
@@ -74,10 +78,10 @@ public class Shell extends LinkedList<PointND> {
 		if (c == null) {
 			Random colorSeed = new Random();
 			Main.drawPath(frame, g2, toPath(this),
-					new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps, true, false,
+					new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), this.toPointSet(), true, false,
 					false);
 		} else {
-			Main.drawPath(frame, g2, toPath(this), c, ps, true, false, false);
+			Main.drawPath(frame, g2, toPath(this), c, this.toPointSet(), true, false, false);
 		}
 		if (!this.isMinimal() && drawChildren) {
 			child.drawShell(frame, g2, drawChildren, c);
@@ -425,8 +429,8 @@ public class Shell extends LinkedList<PointND> {
 	 * @return a shell that is the optimal tsp path of the points in A and B
 	 */
 	public static Shell collapseReduceLine(Segment s, Shell A, Shell B) {
-		Shell result = new Shell(null, null, ps);
-		Shell copy = new Shell(null, null, ps);
+		Shell result = new Shell();
+		Shell copy = new Shell();
 		
 		result.add(s.first);
 		result.addAll(A);
@@ -521,7 +525,7 @@ public class Shell extends LinkedList<PointND> {
 		HashMap<Segment, Shell> ABsections = AB.splitBy(B, ABKeys);
 		HashMap<Segment, Shell> BCsections = BC.splitBy(B, BCKeys);
 
-		Shell result = new Shell(null, BC.child, ps);
+		Shell result = new Shell(null, BC.child);
 		for (Segment s : ABKeys) {
 			//if the segment is in AB and not BC then add all non endpoints on the segment
 			if (!BCsections.containsKey(s)) {
@@ -563,7 +567,7 @@ public class Shell extends LinkedList<PointND> {
 		// split by the leftover keys and then do the collapse reduce above on the
 		// leftovers
 		for (Segment s : leftOverKeys) {
-			Shell leftOverShell = new Shell(null, null, ps);
+			Shell leftOverShell = new Shell();
 			leftOverShell.add(s.first);
 			leftOverShell.add(s.last);
 			HashMap<PointND, Shell> resultSections = result.splitInHalf(leftOverShell, new ArrayList<PointND>());
@@ -581,7 +585,7 @@ public class Shell extends LinkedList<PointND> {
 					s1.first = s.last;
 				}
 				
-				Shell beforeLine = new Shell(null, null, ps);
+				Shell beforeLine = new Shell();
 				beforeLine.add(s1.first);
 				beforeLine.addAll(resultSections.get(first));
 				beforeLine.add(s1.last);
@@ -597,7 +601,7 @@ public class Shell extends LinkedList<PointND> {
 				}
 			}
 
-			result = new Shell(null, BC.child, ps);
+			result = new Shell(null, BC.child);
 			for (PointND first : resultSections.keySet()) {
 
 				if (first.equals(minIndex)) {
@@ -620,7 +624,7 @@ public class Shell extends LinkedList<PointND> {
 	 */
 	private static Shell pointsInCommon(Shell AB, Shell BC) {
 
-		Shell result = new Shell(null, null, ps);
+		Shell result = new Shell();
 
 		for (PointND p : AB) {
 			if (BC.contains(p)) {
@@ -637,9 +641,9 @@ public class Shell extends LinkedList<PointND> {
 	public Shell copyRecursive() {
 		Shell copy = null;
 		if (!isMinimal()) {
-			copy = new Shell(this.parent, this.child.copyRecursive(), this.ps); //is parent shallow copied here could that cause problems
+			copy = new Shell(this.parent, this.child.copyRecursive()); //is parent shallow copied here could that cause problems
 		} else {
-			copy = new Shell(this.parent, null, this.ps);
+			copy = new Shell(this.parent, null);
 		}
 		for (PointND q : this) {
 			copy.add(q);
@@ -652,7 +656,7 @@ public class Shell extends LinkedList<PointND> {
 	 * @return a copy of the current shell with no references to its children
 	 */
 	public Shell copyShallow() {
-		Shell copy = new Shell(this.parent, null, this.ps);
+		Shell copy = new Shell(this.parent, null);
 
 		for (PointND q : this) {
 			copy.add(q);
@@ -669,10 +673,10 @@ public class Shell extends LinkedList<PointND> {
 	private HashMap<Segment, Shell> splitBy(Shell b, ArrayList<Segment> keys) {
 		HashMap<Segment, Shell> result = new HashMap<Segment, Shell>();
 		int index = 0;
-		Shell firstTemp = new Shell(null, null, ps);
+		Shell firstTemp = new Shell();
 		PointND lastB = null, firstB = null, prevB = null, nextB = null;
 		boolean first = true;
-		Shell temp = new Shell(null, null, ps);
+		Shell temp = new Shell();
 		int count = 0;
 		for (PointND p : this) {
 			if (b.contains(p)) {
@@ -692,7 +696,7 @@ public class Shell extends LinkedList<PointND> {
 					Segment s = new Segment(prevB, nextB);
 					result.put(s, temp);
 					keys.add(s);
-					temp = new Shell(null, null, ps);
+					temp = new Shell();
 				}
 			} else { //is this guaranteed to work?
 				if (first) {
@@ -722,10 +726,10 @@ public class Shell extends LinkedList<PointND> {
 	private HashMap<PointND, Shell> splitInHalf(Shell b, ArrayList<PointND> startPoints) {
 		HashMap<PointND, Shell> result = new HashMap<PointND, Shell>();
 		int index = 0;
-		Shell firstTemp = new Shell(null, null, ps);
+		Shell firstTemp = new Shell();
 		PointND lastB = null, firstB = null, prevB = null, nextB = null;
 		boolean first = true;
-		Shell temp = new Shell(null, null, ps);
+		Shell temp = new Shell();
 		int count = 0;
 		for (PointND p : this) {
 			if (b.contains(p)) {
@@ -745,7 +749,7 @@ public class Shell extends LinkedList<PointND> {
 					Segment s = new Segment(prevB, nextB);
 					result.put(s.first, temp);
 					startPoints.add(s.first);
-					temp = new Shell(null, null, ps);
+					temp = new Shell();
 				}
 			} else {
 				if (first) {

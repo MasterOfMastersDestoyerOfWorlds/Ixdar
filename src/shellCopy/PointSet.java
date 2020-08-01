@@ -36,12 +36,12 @@ public class PointSet extends HashSet<PointND> {
 
 			// makes the first shell
 			if (rootShell == null) {
-				rootShell = new Shell(null, null, this);
+				rootShell = new Shell();
 				currShell = rootShell;
 			}
 			// makes a new child shell for the currShell
 			else {
-				Shell nextShell = new Shell(currShell, null, this);
+				Shell nextShell = new Shell(currShell, null);
 				currShell.setChild(nextShell);
 				currShell = nextShell;
 			}
