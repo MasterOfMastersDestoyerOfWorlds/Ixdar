@@ -20,7 +20,7 @@ import javax.swing.JComponent;
  */
 public class Shell extends LinkedList<PointND> {
 	private static final long serialVersionUID = -5904334592585016845L;
-	private int ORDER = 0;
+	private int ORDER = 1;
 	private boolean maximal, minimal;
 	private Shell parent, child;
 
