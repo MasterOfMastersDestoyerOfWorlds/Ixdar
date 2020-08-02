@@ -1,11 +1,11 @@
 package shell;
 
-import java.util.HashSet;
+import java.util.ArrayList;
 
 /**
  * A set of all of the points in the current TSP problem
  */
-public class PointSet extends HashSet<PointND> {
+public class PointSet extends ArrayList<PointND> {
 	private static final long serialVersionUID = 6129018674280186123L;
 
 

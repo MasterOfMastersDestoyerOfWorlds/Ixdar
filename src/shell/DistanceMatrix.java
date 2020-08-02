@@ -136,24 +136,25 @@ public class DistanceMatrix {
 			}
 		}
 		
+		
 		double[][] M = new double[D.length][D.length];
 		// idk whats happening here
 		for (int i = 0; i < M.length; i++) {
 			for (int j = 0; j < M.length; j++) {
-				M[i][j] = (Math.pow(D[1][j], 2) + Math.pow(D[i][1], 2) - Math.pow(D[i][j], 2)) / 2;
+				M[i][j] = (Math.pow(D[0][j], 2) + Math.pow(D[i][0], 2) - Math.pow(D[i][j], 2)) / 2;
 			}
 		}
 		
+		
 		// do SVD for M
-		Complex[][] UValues = new Complex[M.length][M.length];
 		RealMatrix E = new Array2DRowRealMatrix(M);
-		
-		
 		// find the eigen values of U
 		EigenDecomposition SVD = new EigenDecomposition(E);
-		double[] realE = SVD.getRealEigenvalues();
-		double[] imagE = SVD.getImagEigenvalues();
+		double[] realE = reverseArray(SVD.getRealEigenvalues());
+		double[] imagE = reverseArray(SVD.getImagEigenvalues());
 		int numE = realE.length;
+		
+		
 		
 		// put into a diagonal matrix
 		Complex[][] diag = new Complex[numE][numE];
@@ -168,21 +169,27 @@ public class DistanceMatrix {
 		}
 		
 		FieldMatrix<Complex> S = new Array2DRowFieldMatrix<Complex>(diag);
-		FieldMatrix<Complex> U = realToImag(SVD.getV());
-		FieldMatrix<Complex> X = U.multiply(S);
+		FieldMatrix<Complex> V = flipMatrix(realToImag(SVD.getV()));
+		FieldMatrix<Complex> X = V.multiply(S);
 
+		System.out.println("V: " + toImagString(V));
+		System.out.println("S: " + toImagString(S));
+		System.out.println("X: " + toImagString(X));
 		// Convert to 2n space
 		PointSet ps = new PointSet();
 		for (int i = 0; i < X.getRowDimension(); i++) {
 
 			Complex[] row = X.getRow(i);
+			System.out.println(row[1].getReal());
 			double[] coords = new double[row.length * 2];
 			for (int j = 0; j < row.length; j++) {
 				coords[j] = row[j].getReal();
 				coords[row.length + j] = row[j].getImaginary();
 			}
+			System.out.println(new PointND.Double(coords));
 			ps.add(new PointND.Double(coords));
 		}
+		System.out.println(ps);
 
 		return ps;
 
@@ -197,6 +204,42 @@ public class DistanceMatrix {
 		}
 		return new Array2DRowFieldMatrix<Complex>(C);
 		
+	}
+	
+	private static String toImagString(FieldMatrix<Complex> F) {
+		String str = "FieldMatrix[\n";
+        for(int i = 0; i < F.getRowDimension(); i ++) {
+        	str += "[";
+        	for(int j = 0; j < F.getColumnDimension(); j++) {
+        		BigDecimal bd = new BigDecimal(F.getEntry(i, j).getReal());
+        		bd = bd.round(new MathContext(3));
+        		str+= " " + Double.valueOf(String.format("%."+3+"G", bd)) + " ";
+        	}
+        	str+="]\n";
+        }
+        str += "]";
+		return str;
+	}
+	private static FieldMatrix<Complex> flipMatrix(FieldMatrix<Complex> C) {
+		Complex[][] result = new Complex[C.getRowDimension()][C.getColumnDimension()];
+		for(int i=0; i < C.getRowDimension(); i ++) {
+			for(int j=0; j < C.getColumnDimension(); j ++) {
+				if(j == C.getColumnDimension()-1 - i) {
+					result[i][j] = new Complex(1,0);
+				}else {
+					result[i][j] = new Complex(0,0);
+				}
+			}
+		}
+		return C.multiply(new Array2DRowFieldMatrix<Complex>(result));
+	}
+	
+	private static double[] reverseArray(double[] array) {
+		double[] result = new double[array.length];
+		for(int i=0; i < array.length; i ++) {
+			result[i] = array[array.length-1-i];
+		}
+		return result;
 	}
 	
 	@Override

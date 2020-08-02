@@ -37,7 +37,7 @@ public class Tests {
         
         DistanceMatrix m = new DistanceMatrix(ps);
         
-        m = m.addDummyNode(start, end);
+         m = m.addDummyNode(start, end);
         System.out.println("start :"  + m);
         
         double[][] distances = m.getMatrix();
@@ -50,13 +50,11 @@ public class Tests {
         
         System.out.println("end: " + triangulatedM);
         assertTrue(triDistances.length == distances.length);
-        System.out.println(m.getMaxDist());
         
         for(int i = 0; i < distances.length; i ++) {
-        	for(int j = 0; j < distances.length; i++) {
+        	for(int j = 0; j < distances.length; j++) {
         		if(i != j) {
-        			System.out.println( (distances[i][j] + m.getMaxDist()*2) + " " + triDistances[i][j]);
-        			assertTrue((distances[i][j] + m.getMaxDist()*2) == Math.floor(triDistances[i][j]));
+        			assertTrue((distances[i][j] + m.getMaxDist()*2) == Math.round(triDistances[i][j]));
         		}
         		else {
         			assertTrue(distances[i][j] == triDistances[i][j]);
