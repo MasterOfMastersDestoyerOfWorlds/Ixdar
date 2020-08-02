@@ -88,66 +88,74 @@ public class DistanceMatrix {
 	}
 
 	public PointSet toPointSet() {
-		for(int i = 0; i < matrix.length; i++) {
-			for(int j = 0; j < matrix.length; j++) {
-				if(i != j){
+		for (int i = 0; i < matrix.length; i++) {
+			for (int j = 0; j < matrix.length; j++) {
+				if (i != j) {
 					matrix[i][j] = matrix[i][j] + 2 * maxDist;
-		    	}
+				}
 			}
 		}
-    	  
-    	  //Approach 1 (sqrtm)
-    	  double[][] M = new double[matrix.length][matrix.length];
-    	  //idk whats happening here
-    	  for(int i = 0; i < matrix.length; i++) {
-    	      for(int j = 0; j < matrix.length; j++) {
-    	          matrix[i][j] = (Math.pow(matrix[1][j], 2) + Math.pow(matrix[i][1], 2) - Math.pow(matrix[i][j], 2)) / 2;
-    	      }
-    	  }
-    	  
-    	  matrix = M;
-    	  //do SVD for M
-    	  Complex[][] UValues = new Complex[matrix.length][matrix.length];
-    	  //M * MTranspose = U 
-    	  for(int i = 0; i < matrix.length; i++) {
-    	      for(int j = 0; j < matrix.length; j++) {
-    	    	  double val = 0;
-    	    	  for(int k = 0; k <matrix.length; k ++) {
-    	    		  val += matrix[i][k] * matrix[k][j];
-    	    	  }
-    	          UValues[i][j] = new Complex(val, 0);
-    	      }
-    	  }
-    	  RealMatrix E = new Array2DRowRealMatrix(matrix);
-    	  EigenDecomposition SVD = new EigenDecomposition(E);
-    	  //find the eigen values of U
-    	  double[] realE = SVD.getRealEigenvalues();
-    	  double[] imagE = SVD.getImagEigenvalues();
-    	  int numE = realE.length;
-    	  //put into a diagonal matrix
-    	  Complex[][] diag = new Complex[numE][numE];
-    	  for(int i = 0; i < numE; i++) {
-    		  for(int j = 0; j < numE; j++) {
-    			  if(i == j) {
-    				  diag[i][j] = new Complex(realE[i], imagE[j]).sqrt();
-    			  }
-    			  else {
-    				  diag[i][j] = new Complex(0,0);
-    			  }
-    		  }
-    	  }
-    	  FieldMatrix<Complex> S = new Array2DRowFieldMatrix<Complex>(diag);
 
-    	  FieldMatrix<Complex> U = new Array2DRowFieldMatrix<Complex>(UValues);
-    			 
-    	  FieldMatrix<Complex> X = U.multiply(S);
-    	         
+		// Approach 1 (sqrtm)
+		double[][] M = new double[matrix.length][matrix.length];
+		// idk whats happening here
+		for (int i = 0; i < matrix.length; i++) {
+			for (int j = 0; j < matrix.length; j++) {
+				matrix[i][j] = (Math.pow(matrix[1][j], 2) + Math.pow(matrix[i][1], 2) - Math.pow(matrix[i][j], 2)) / 2;
+			}
+		}
 
-    	//Convert to 2n space
-    	  
+		matrix = M;
+		// do SVD for M
+		Complex[][] UValues = new Complex[matrix.length][matrix.length];
+		// M * MTranspose = U
+		for (int i = 0; i < matrix.length; i++) {
+			for (int j = 0; j < matrix.length; j++) {
+				double val = 0;
+				for (int k = 0; k < matrix.length; k++) {
+					val += matrix[i][k] * matrix[k][j];
+				}
+				UValues[i][j] = new Complex(val, 0);
+			}
+		}
+		RealMatrix E = new Array2DRowRealMatrix(matrix);
+		EigenDecomposition SVD = new EigenDecomposition(E);
+		// find the eigen values of U
+		double[] realE = SVD.getRealEigenvalues();
+		double[] imagE = SVD.getImagEigenvalues();
+		int numE = realE.length;
+		// put into a diagonal matrix
+		Complex[][] diag = new Complex[numE][numE];
+		for (int i = 0; i < numE; i++) {
+			for (int j = 0; j < numE; j++) {
+				if (i == j) {
+					diag[i][j] = new Complex(realE[i], imagE[j]).sqrt();
+				} else {
+					diag[i][j] = new Complex(0, 0);
+				}
+			}
+		}
+		FieldMatrix<Complex> S = new Array2DRowFieldMatrix<Complex>(diag);
 
-  		return null;
-    	 
-    }
+		FieldMatrix<Complex> U = new Array2DRowFieldMatrix<Complex>(UValues);
+
+		FieldMatrix<Complex> X = U.multiply(S);
+
+		// Convert to 2n space
+		PointSet ps = new PointSet();
+		for (int i = 0; i < X.getRowDimension(); i++) {
+
+			Complex[] row = X.getRow(i);
+			double[] coords = new double[row.length * 2];
+			for (int j = 0; j < row.length; j++) {
+				coords[j] = row[j].getReal();
+				coords[row.length + j] = row[j].getImaginary();
+			}
+			ps.add(new PointND.Double(coords));
+		}
+
+		return ps;
+
+	}
 
 }
