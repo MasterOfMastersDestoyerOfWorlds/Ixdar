@@ -472,8 +472,7 @@ public class Shell extends LinkedList<PointND> {
 	 * @param B
 	 * @return
 	 */
-	public static Shell solveBetweenEndpointsNew(Segment s, Shell A, Shell B) {
-
+	public static Shell solveBetweenEndpoints(Segment s, Shell A, Shell B) {
 		PointSet ps = new PointSet();
 		ps.add(s.first);
 		ps.add(s.last);
@@ -482,13 +481,19 @@ public class Shell extends LinkedList<PointND> {
 
 		DistanceMatrix D = new DistanceMatrix(ps);
 		D = D.addDummyNode(s.first, s.last);
+		System.out.println(D);
 		PointSet linePS = D.toPointSet();
 
 		PointND dummyPoint = linePS.get(linePS.size() - 1);
+		
+		System.out.println(dummyPoint);
+		
 
 		Shell lineShells = linePS.toShells();
 
+
 		lineShells = lineShells.collapseAllShells();
+		System.out.println(lineShells);
 
 		Shell before = new Shell(), after = new Shell();
 
@@ -507,7 +512,10 @@ public class Shell extends LinkedList<PointND> {
 		}
 
 		after.addAll(before);
-
+		if(after.get(0).equals(s.last)) {
+			System.out.println("flip!");
+			after = after.reverse();
+		}
 		return after;
 
 	}
@@ -522,7 +530,7 @@ public class Shell extends LinkedList<PointND> {
 	 *         the endpoints of segment s
 	 */
 
-	public static Shell solveBetweenEndpoints(Segment s, Shell A, Shell B) {
+	public static Shell solveBetweenEndpointsOld(Segment s, Shell A, Shell B) {
 		PointSet ps = new PointSet();
 		ps.addAll(A);
 		ps.addAll(B);
@@ -955,6 +963,14 @@ public class Shell extends LinkedList<PointND> {
 		}
 		return false;
 
+	}
+	
+	public Shell reverse() {
+		Shell result = new Shell();
+		for(PointND p : this) {
+			result.addFirst(p);
+		}
+		return result;
 	}
 
 }

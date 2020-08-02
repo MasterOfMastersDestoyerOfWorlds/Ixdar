@@ -95,7 +95,7 @@ public class DistanceMatrix {
 					if (i == startIndex || j == startIndex || i == endIndex || j == endIndex || i==j) {
 						temp[i][j] = 0;
 					} else {
-						temp[i][j] = 1;
+						temp[i][j] = maxDist;
 					}
 				} else {
 					temp[i][j] = matrix[i][j];
