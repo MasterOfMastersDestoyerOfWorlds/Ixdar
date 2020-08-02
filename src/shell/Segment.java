@@ -1,4 +1,4 @@
-package shellCopy;
+package shell;
 
 /**
  * This class represents a Segment between two points in space

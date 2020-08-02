@@ -1,4 +1,4 @@
-package shellCopy;
+package shell;
 
 import java.util.HashSet;
 

@@ -1,4 +1,4 @@
-package shellCopy;
+package shell;
 
 import java.awt.Color;
 import java.awt.Graphics2D;

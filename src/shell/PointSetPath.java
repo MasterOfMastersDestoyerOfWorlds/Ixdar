@@ -1,4 +1,4 @@
-package shellCopy;
+package shell;
 
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Path2D;
