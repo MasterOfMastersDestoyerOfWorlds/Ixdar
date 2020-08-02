@@ -38,7 +38,6 @@ public class Tests {
         DistanceMatrix m = new DistanceMatrix(ps);
         
          m = m.addDummyNode(start, end);
-        System.out.println("start :"  + m);
         
         double[][] distances = m.getMatrix();
         
@@ -47,8 +46,6 @@ public class Tests {
         DistanceMatrix triangulatedM = new DistanceMatrix(triangulated);
         
         double[][] triDistances = triangulatedM.getMatrix();
-        
-        System.out.println("end: " + triangulatedM);
         assertTrue(triDistances.length == distances.length);
         
         for(int i = 0; i < distances.length; i ++) {

@@ -64,18 +64,6 @@ public class DistanceMatrix {
 		}
 	}
 
-	public DistanceMatrix(double[][] matrix) {
-		this.matrix = matrix;
-		for (int i = 0; i < matrix.length; i++) {
-			for (int j = 0; j < matrix.length; j++) {
-				double dist = matrix[i][j];
-				if (dist > maxDist) {
-					maxDist = dist;
-				}
-			}
-		}
-	}
-
 	public ArrayList<PointND> getPoints() {
 		return points;
 	}
@@ -171,30 +159,28 @@ public class DistanceMatrix {
 		FieldMatrix<Complex> S = new Array2DRowFieldMatrix<Complex>(diag);
 		FieldMatrix<Complex> V = flipMatrix(realToImag(SVD.getV()));
 		FieldMatrix<Complex> X = V.multiply(S);
-
-		System.out.println("V: " + toImagString(V));
-		System.out.println("S: " + toImagString(S));
-		System.out.println("X: " + toImagString(X));
 		// Convert to 2n space
 		PointSet ps = new PointSet();
 		for (int i = 0; i < X.getRowDimension(); i++) {
 
 			Complex[] row = X.getRow(i);
-			System.out.println(row[1].getReal());
 			double[] coords = new double[row.length * 2];
 			for (int j = 0; j < row.length; j++) {
 				coords[j] = row[j].getReal();
 				coords[row.length + j] = row[j].getImaginary();
 			}
-			System.out.println(new PointND.Double(coords));
 			ps.add(new PointND.Double(coords));
 		}
-		System.out.println(ps);
 
 		return ps;
 
 	}
 	
+	/**
+	 * converts a RealMatrix to a FieldMatrix over the Complex Field
+	 * @param M the real matrix to convert
+	 * @return M in the complex field
+	 */
 	private static FieldMatrix<Complex> realToImag(RealMatrix M){
 		Complex[][] C = new Complex[M.getRowDimension()][M.getColumnDimension()];
 		for (int i = 0; i < M.getRowDimension(); i++) {
@@ -206,20 +192,11 @@ public class DistanceMatrix {
 		
 	}
 	
-	private static String toImagString(FieldMatrix<Complex> F) {
-		String str = "FieldMatrix[\n";
-        for(int i = 0; i < F.getRowDimension(); i ++) {
-        	str += "[";
-        	for(int j = 0; j < F.getColumnDimension(); j++) {
-        		BigDecimal bd = new BigDecimal(F.getEntry(i, j).getReal());
-        		bd = bd.round(new MathContext(3));
-        		str+= " " + Double.valueOf(String.format("%."+3+"G", bd)) + " ";
-        	}
-        	str+="]\n";
-        }
-        str += "]";
-		return str;
-	}
+	/**
+	 * Flips a matrix horizontally by multiplying by I flipped horizontally
+	 * @param C the matrix to flip
+	 * @return the matrix flipped horizontally
+	 */
 	private static FieldMatrix<Complex> flipMatrix(FieldMatrix<Complex> C) {
 		Complex[][] result = new Complex[C.getRowDimension()][C.getColumnDimension()];
 		for(int i=0; i < C.getRowDimension(); i ++) {
@@ -234,6 +211,11 @@ public class DistanceMatrix {
 		return C.multiply(new Array2DRowFieldMatrix<Complex>(result));
 	}
 	
+	/**
+	 * reverses an array of doubles so that element 0 is now last etc.
+	 * @param array to reverse
+	 * @return the array reversed
+	 */
 	private static double[] reverseArray(double[] array) {
 		double[] result = new double[array.length];
 		for(int i=0; i < array.length; i ++) {
