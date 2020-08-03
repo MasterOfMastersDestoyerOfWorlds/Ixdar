@@ -72,7 +72,6 @@ public class Shell extends LinkedList<Point2D> {
 	 * Draws the Shell and its children if drawChildren is true
 	 * @param frame where to draw the shell
 	 * @param g2 graphics object for frame
-	 * @param colorSeed only used if color is set to null in order to get a random color for the Shell drawing
 	 * @param drawChildren whether or not to draw child shells
 	 * @param c the color to draw the shell (set to null to get a random color)
 	 */
@@ -354,6 +353,61 @@ public class Shell extends LinkedList<Point2D> {
 		}
 	}
 
+	/*
+	 * If you have shells A,B,C,D then collapses D onto C, then DC onto B, then DCB onto A
+	 */
+	public Shell collapseAllShellsAlec() {
+		Shell min = this.getMinimalShell();
+		while(min.parent != null) {
+			min = collapseReduce(min.parent, min);
+		}
+		return min;
+
+	}
+
+	/*
+	 * If you have shells A,B,C,D then collapses C onto D, then B onto CD, then A onto BCD
+	 */
+	public Shell collapseAllShellsAlec2() {
+		Shell min = this.getMinimalShell();
+		Shell temp = min.parent;
+		while(temp != null) {
+			min = collapseReduce(min, temp);
+			temp = temp.parent;
+		}
+		return min;
+
+	}
+
+	/*
+	 * If you have shells A,B,C,D then collapses A onto B, then AB onto C, then ABC onto D
+	 */
+	public Shell collapseAllShellsOutRec() {
+		Shell res = this.child;
+		Shell temp = this;
+		while(res.child != null) {
+			temp = collapseReduce(res, temp);
+			res = res.child;
+		}
+		res = collapseReduce(res, temp);
+		return res;
+	}
+
+	/*
+	 * If you have shells A,B,C,D then collapses B onto A, then C onto BA, then D onto CBA
+	 */
+	public Shell collapseAllShellsOutRec2() {
+		Shell res = this;
+		while(res.child != null) {
+			res = collapseReduce(res, res.child);
+			res.child = res.child.child;
+		}
+		return res;
+	}
+
+
+
+
 	/**
 	 * Collapses shell B onto shell A and reduces the tsp path
 	 * @param A
@@ -461,8 +515,8 @@ public class Shell extends LinkedList<Point2D> {
 				}
 				for (Point2D q : copy) {
 					if(!s.first.equals(q) && !s.last.equals(q)) {
-						double dist = Vectors.distanceChanged(lastPoint, currPoint, q);
-								//+ (copy.distanceBetweenNeighborsOnLine(q) - copy.distanceToNeighborsOnLine(q));
+						double dist = Vectors.distanceChanged(lastPoint, currPoint, q)
+								+ (copy.distanceBetweenNeighborsOnLine(q) - copy.distanceToNeighborsOnLine(q));
 						//store which point in b fits best between the two current points in result
 						if (dist < minDist) {
 							minDist = dist;

@@ -15,7 +15,7 @@ public class DistanceMatrix {
      * Creates a distance matrix that represents the distance between every point in the pointset
      * @param pointset
      */
-    public DistanceMatrix(PointSet pointset){
+    /*public DistanceMatrix(PointSet pointset){
         matrix = new double[pointset.size()][pointset.size()];
         for(PointND p : pointset){
             points.add(p);
@@ -29,7 +29,7 @@ public class DistanceMatrix {
                 matrix[i][j] = dist;
             }
         }
-    }
+    }*/
 
     /**
      * Creates a new distance matrix given a 2d array of values and a list of points
