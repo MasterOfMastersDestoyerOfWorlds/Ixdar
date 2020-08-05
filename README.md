@@ -19,8 +19,9 @@ TSP with two predetermined endpoints:
 
 - https://stackoverflow.com/questions/36086406/traveling-salesman-tsp-with-set-start-and-end-point
 
+TSP examples and solutions:
 
-http://www.math.uwaterloo.ca/tsp/world/countries.html#LU
+- http://www.math.uwaterloo.ca/tsp/world/countries.html#LU
 
 Matrix to Points Logic:
 
