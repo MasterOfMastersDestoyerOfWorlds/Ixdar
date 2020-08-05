@@ -24,9 +24,9 @@ http://www.math.uwaterloo.ca/tsp/world/countries.html#LU
 
 Matrix to Points Logic:
 
--https://math.stackexchange.com/questions/156161/finding-the-coordinates-of-points-from-distance-matrix]
+- https://math.stackexchange.com/questions/156161/finding-the-coordinates-of-points-from-distance-matrix]
 
 
 Gift Wrapping Algorithm:
 
--https://en.wikipedia.org/wiki/Gift_wrapping_algorithm
+- https://en.wikipedia.org/wiki/Gift_wrapping_algorithm
