@@ -397,6 +397,8 @@ public abstract class PointND implements Cloneable {
 			throw new InternalError(e);
 		}
 	}
+	
+	
 
 	/**
 	 * Determines whether or not two points are equal. Two instances of

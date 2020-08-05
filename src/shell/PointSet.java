@@ -120,5 +120,17 @@ public class PointSet extends ArrayList<PointND> {
 		}
 		return anoid;
 	}
+	
+	public static String shellToString(Shell A, PointSet ps) {
+		String str = "Shell[";
+		
+		for(PointND p: A) {
+			str += ps.indexOf(p) + " ";
+		}
+		
+		str+="]";
+		
+		return str;
+	}
 
 }

@@ -107,7 +107,7 @@ public class Main extends JComponent{
 
 	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
 
-	        //drawPath(this, g2, retTup.path, Color.RED, retTup.ps, true, false, false);
+	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, true, false);
 		}catch(Exception e) {
 			e.printStackTrace();
 			SwingUtilities.getWindowAncestor(this).dispatchEvent(new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));

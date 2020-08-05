@@ -12,6 +12,8 @@ import java.util.Random;
 
 import javax.swing.JComponent;
 
+import shell.PointND.Double;
+
 /**
  * This class represents a list of some points in the point set. Initially each
  * shell is a convex hull, but they are eventually combined together to form the
@@ -25,8 +27,17 @@ public class Shell extends LinkedList<PointND> {
 
 	/**
 	 * Initializes a new shell with no parent or child; a blank slate
+	 * @param double2 
+	 * @param double1 
 	 */
-	public Shell() {
+	public Shell(Double... points) {
+		this.updateOrder();
+		if (!this.isMaximal()) {
+			parent.updateOrder();
+		}
+		for(int i = 0; i < points.length; i ++) {
+			this.add(points[i]);
+		}
 	}
 
 	/**
@@ -478,22 +489,21 @@ public class Shell extends LinkedList<PointND> {
 		ps.add(s.last);
 		ps.addAll(A);
 		ps.addAll(B);
+		
 
 		DistanceMatrix D = new DistanceMatrix(ps);
 		D = D.addDummyNode(s.first, s.last);
-		System.out.println(D);
 		PointSet linePS = D.toPointSet();
 
 		PointND dummyPoint = linePS.get(linePS.size() - 1);
 		
-		System.out.println(dummyPoint);
-		
 
 		Shell lineShells = linePS.toShells();
+		
+		System.out.println(lineShells.updateOrder());
 
 
 		lineShells = lineShells.collapseAllShells();
-		System.out.println(lineShells);
 
 		Shell before = new Shell(), after = new Shell();
 
@@ -512,8 +522,7 @@ public class Shell extends LinkedList<PointND> {
 		}
 
 		after.addAll(before);
-		if(after.get(0).equals(s.last)) {
-			System.out.println("flip!");
+		if(after.get(0).equals(s.last) || after.getLast().equals(s.first)) {
 			after = after.reverse();
 		}
 		return after;
@@ -534,8 +543,8 @@ public class Shell extends LinkedList<PointND> {
 		PointSet ps = new PointSet();
 		ps.addAll(A);
 		ps.addAll(B);
-		//System.out.println("s: " + s);
-		//System.out.println("AB: " + ps);
+		System.out.println("s: " + s);
+		System.out.println("AB: " + ps);
 		
 		Shell result = new Shell();
 		Shell copy = new Shell();
@@ -606,8 +615,8 @@ public class Shell extends LinkedList<PointND> {
 			notConfirmed = changed;
 		}
 
-			//System.out.println("result: " + result);
-			//System.out.println("=====================================");
+			System.out.println("result: " + result);
+			System.out.println("=====================================");
 			return result;
 
 		
@@ -971,6 +980,23 @@ public class Shell extends LinkedList<PointND> {
 			result.addFirst(p);
 		}
 		return result;
+	}
+	
+	public static String compareTo(Shell A, Shell B) {
+		String str = "Shell A[";
+		for(int i = 0; i < A.size() -1; i++) {
+			str += (i + 1) + ", ";
+		}
+		str += A.size() + "]";
+		
+		str += "\nShell B[";
+		for(int i = 0; i < B.size() -1; i++) {
+			str += (A.indexOf(B.get(i))+1) + ", ";
+		}
+		str += (A.indexOf(B.get(B.size() -1)) + 1)+ "]";
+		
+		return str;
+		
 	}
 
 }
