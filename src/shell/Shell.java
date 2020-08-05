@@ -130,7 +130,7 @@ public class Shell extends LinkedList<PointND> {
 	 * @return true if current shell is the innermost shell otherwise false
 	 */
 	public boolean isMinimal() {
-		return child == null;
+		return child == null || child.size() == 0;
 	}
 
 	/**
@@ -363,7 +363,6 @@ public class Shell extends LinkedList<PointND> {
 	 */
 	public Shell collapseAllShells() {
 		int order = this.updateOrder();
-
 		if (this.isMinimal()) {
 			return this;
 		}
@@ -485,6 +484,7 @@ public class Shell extends LinkedList<PointND> {
 	 */
 	public static Shell solveBetweenEndpoints(Segment s, Shell A, Shell B) {
 		PointSet ps = new PointSet();
+		
 		ps.add(s.first);
 		ps.add(s.last);
 		ps.addAll(A);
@@ -499,9 +499,13 @@ public class Shell extends LinkedList<PointND> {
 		
 
 		Shell lineShells = linePS.toShells();
-		
-		System.out.println(lineShells.updateOrder());
-
+		Shell currShell = lineShells;
+		while(currShell != null) {
+			Shell reducedShell = Shell.collapseReduce(currShell, new Shell());
+			currShell.removeAll(currShell);
+			currShell.addAll(reducedShell);
+			currShell = currShell.getChild();
+		}
 
 		lineShells = lineShells.collapseAllShells();
 
@@ -633,6 +637,7 @@ public class Shell extends LinkedList<PointND> {
 	 *         C
 	 */
 	public static Shell consensus(Shell AB, Shell BC) {
+
 
 		AB = AB.copyRecursive();
 		BC = BC.copyRecursive();
@@ -980,6 +985,24 @@ public class Shell extends LinkedList<PointND> {
 			result.addFirst(p);
 		}
 		return result;
+	}
+	
+	@Override
+	public String toString() {
+		String str = "Shell[";
+		for(int i = 0; i < this.size(); i++) {
+			if(this.get(i).getID() != -1) {
+				str += this.get(i).getID();
+			}
+			else {
+				str += this.get(i).toString();
+			}
+			if(i < this.size() - 1) {
+				str += ", ";
+			}
+		}
+		
+		return str+"]";
 	}
 	
 	public static String compareTo(Shell A, Shell B) {

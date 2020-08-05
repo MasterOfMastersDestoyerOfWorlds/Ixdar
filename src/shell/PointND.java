@@ -32,7 +32,9 @@ public abstract class PointND implements Cloneable {
 		 * Constructs and initializes a {@code PointND} with coordinates (0,&nbsp;0).
 		 * 
 		 */
-		public Float() {
+		public Float(int ID) {
+
+			this.setID(ID);
 			fs = new float[1];
 		}
 
@@ -42,7 +44,9 @@ public abstract class PointND implements Cloneable {
 		 * @param fs the n coordinates of the newly constructed {@code PointND}
 		 * 
 		 */
-		public Float(float... fs) {
+		public Float(int ID, float... fs) {
+
+			this.setID(ID);
 			this.fs = fs;
 		}
 
@@ -144,6 +148,26 @@ public abstract class PointND implements Cloneable {
 		public Double(double... fs) {
 			this.ds = fs;
 		}
+		
+		/**
+		 * Constructs and initializes a {@code PointND} with coordinates (0,&nbsp;0).
+		 * @param ID for comparison purposes across basis
+		 */
+		public Double(int ID) {
+			this.setID(ID);
+			ds = new double[1];
+		}
+
+		/**
+		 * Constructs and initializes a {@code PointND} with the specified coordinates.
+		 *
+		 * @param ds the n coordinates of the newly constructed {@code PointND}
+		 * @param ID for comparison purposes across basis
+		 */
+		public Double(int ID, double... fs) {
+			this.setID(ID);
+			this.ds = fs;
+		}
 
 		public int getDim() {
 			return ds.length;
@@ -223,6 +247,8 @@ public abstract class PointND implements Cloneable {
 	protected PointND() {
 	}
 
+	private int ID = -1;
+	
 	/**
 	 * Returns the nth coordinate of this {@code PointND} in {@code double} precision.
 	 * 
@@ -276,7 +302,7 @@ public abstract class PointND implements Cloneable {
 	 * 
 	 */
 	public double distanceSq(double... p) {
-		return distanceSq(new PointND.Double(p));
+		return distanceSq(new PointND.Double(-1, p));
 	}
 
 	/**
@@ -320,7 +346,7 @@ public abstract class PointND implements Cloneable {
 	 */
 	public double distance(double... p) {
 
-		return distance(new PointND.Double(p));
+		return distance(new PointND.Double(-1, p));
 	}
 
 	/**
@@ -378,7 +404,7 @@ public abstract class PointND implements Cloneable {
 				ds[i] = getCoord(i) - pt.getCoord(i);
 			}
 		}
-		return new PointND.Double(ds);
+		return new PointND.Double(-1, ds);
 	}
 
 	/**
@@ -433,5 +459,13 @@ public abstract class PointND implements Cloneable {
 	 */
 	public Point2D toPoint2D() {
 		return new Point2D.Double(getCoord(0), getCoord(1));
+	}
+
+	public int getID() {
+		return ID;
+	}
+
+	public void setID(int iD) {
+		ID = iD;
 	}
 }

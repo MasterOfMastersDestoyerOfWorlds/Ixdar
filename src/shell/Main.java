@@ -72,10 +72,12 @@ public class Main extends JComponent{
 	        }*/
 	        
 			conShell = maxShell;
+			
 			conShell = conShell.collapseAllShells(); //finds optimal tsp path
+			System.out.println(conShell);
+
 
 	        conShell.drawShell(this, g2, false, Color.BLUE);
-
 			//conShell2 = conShell2.consensusWithChildren2(true);
 			//conShell = conShell.consensusWithChildren2(true);
 			//Shell hell1 = conShell.collapseChildOntoShell();
@@ -107,7 +109,8 @@ public class Main extends JComponent{
 
 	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
 
-	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, true, false);
+	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, true, false, true);
+	        System.out.println("===============================================");
 		}catch(Exception e) {
 			e.printStackTrace();
 			SwingUtilities.getWindowAncestor(this).dispatchEvent(new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));
@@ -164,7 +167,6 @@ public class Main extends JComponent{
 		
 		int count = 0, offset = 100;
 		while(!pi.isDone()) {
-			count ++;
 			double[] coords = new double[2];
 			pi.currentSegment(coords);
 			pi.next();
@@ -187,6 +189,8 @@ public class Main extends JComponent{
 			else {
 				scaledpath.lineTo(coords[0], coords[1]);
 			}
+
+			count ++;
 		}
 		scaledpath.lineTo(start.getX(), start.getY());
 		if(drawLines) {
@@ -225,10 +229,11 @@ public class Main extends JComponent{
 			Shell tsp = new Shell();
 
 			boolean flag = true, first = true;
+			int index = 0;
 			while (line != null) {
 				if(flag == true) {
 					String[] cords = line.split(" ");
-					PointND pt = new PointND.Double(java.lang.Double.parseDouble(cords[1]), java.lang.Double.parseDouble(cords[2]));
+					PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(cords[1]), java.lang.Double.parseDouble(cords[2]));
 					lines.add(pt);
 					ps.add(pt);
 					tsp.add(pt);
@@ -244,6 +249,7 @@ public class Main extends JComponent{
 					flag = true;
 				}
 				line = br.readLine();
+				index++;
 				
 			}
 			br.close();

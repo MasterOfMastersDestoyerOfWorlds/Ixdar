@@ -19,8 +19,7 @@ public class Tests {
 		Shell orgShell = retTup.ps.toShells();
 
 		Shell pathShell = orgShell.collapseAllShells();
-
-		assertTrue(pathShell.equals(retTup.tsp));
+		assertTrue(pathShell.getLength() == retTup.tsp.getLength());
 	}
 
 	@Test
@@ -204,9 +203,11 @@ public class Tests {
 		Segment s = new Segment(new PointND.Double(11569.4444, 43136.6667), new PointND.Double(11423.8889, 43000.2778));
 		Shell AB = new Shell(new PointND.Double(11485.5556, 43187.2222), new PointND.Double(11461.1111, 43252.7778));
 		Shell nothing = new Shell();
-		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11569.4444, 43136.6667), new PointND.Double(11485.5556, 43187.2222),
 				new PointND.Double(11461.1111, 43252.7778), new PointND.Double(11423.8889, 43000.2778));
+		
+
+		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		
 		System.out.println("result length: " + result.getLength());
 		System.out.println("answer length: " + answer.getLength());
@@ -276,6 +277,7 @@ public class Tests {
 				new PointND.Double(12386.6667, 43334.7222), new PointND.Double(12286.9444, 43355.5556),
 				new PointND.Double(11963.0556, 43290.5556), new PointND.Double(11973.0556, 43026.1111));
 		
+		System.out.println("Test 15: ");
 		System.out.println("result length: " + result.getLength());
 		System.out.println("answer length: " + answer.getLength());
 

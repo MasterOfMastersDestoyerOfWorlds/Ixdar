@@ -169,7 +169,12 @@ public class DistanceMatrix {
 				coords[j] = row[j].getReal();
 				coords[row.length + j] = row[j].getImaginary();
 			}
-			ps.add(new PointND.Double(coords));
+			if(i < this.getPoints().size()) {
+				ps.add(new PointND.Double(this.getPoints().get(i).getID(), coords));
+			}
+			else {
+				ps.add(new PointND.Double(-2, coords));
+			}
 		}
 
 		return ps;
