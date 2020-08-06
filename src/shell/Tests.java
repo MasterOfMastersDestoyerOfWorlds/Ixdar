@@ -21,7 +21,10 @@ public class Tests {
 		Shell pathShell = orgShell.collapseAllShells();
 		assertTrue(pathShell.getLength() == retTup.tsp.getLength());
 	}
-
+	/**
+	 * Tests that we can go from a set of point to a distance matrix, add a node to the distance matrix that would make it non-euclidian, 
+	 * and then turn it back into a set of points. The distances are then checked against the orginal distances to ensure that the process behaved correctly.
+	 */
 	@Test
 	public void testTriangulation() {
 		PointSet ps = new PointSet();
@@ -58,6 +61,9 @@ public class Tests {
 
 	}
 
+	/**
+	 * Tests abbility to solve optimally between two set endpoints. the answer Shell is known to be correct.
+	 */
 	@Test
 	public void testOptimizationBetweenEndpoints1() {
 		Segment s = new Segment(new PointND.Double(11438.3333, 42057.2222), new PointND.Double(12058.3333, 42195.5556));

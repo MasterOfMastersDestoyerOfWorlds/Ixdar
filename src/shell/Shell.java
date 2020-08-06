@@ -491,28 +491,30 @@ public class Shell extends LinkedList<PointND> {
 		ps.addAll(B);
 
 		
-
+		// add the dummy node linking the start and end node by zero and triangulate to a set of points
 		DistanceMatrix D = new DistanceMatrix(ps);
 		D = D.addDummyNode(s.first, s.last);
 		PointSet linePS = D.toPointSet();
 
 		PointND dummyPoint = linePS.get(linePS.size() - 1);
 		
-
+		//use the giftwrapping algorithm to get the recursive convex hulls of the set
 		Shell lineShells = linePS.toShells();
 		Shell currShell = lineShells;
+		
+		//make sure that the convex hulls are in reduced forms(this is garunteed in 2D but not in higher dimensions).
 		while(currShell != null) {
 			Shell reducedShell = Shell.collapseReduce(currShell, new Shell());
 			currShell.removeAll(currShell);
 			currShell.addAll(reducedShell);
 			currShell = currShell.getChild();
 		}
-		Shell copy = lineShells.copyRecursive();
 
 		lineShells = lineShells.collapseAllShells();
 
 		Shell before = new Shell(), after = new Shell();
 
+		//find the dummy node and take it out of the Shell unwrapping at the dummy.
 		boolean isBeforeDummy = true;
 		for (PointND p : lineShells) {
 			if (p.equals(dummyPoint)) {
@@ -526,16 +528,19 @@ public class Shell extends LinkedList<PointND> {
 				}
 			}
 		}
-
+		//reverse the set if need be to match the input segment s
 		after.addAll(before);
-		if(after.get(0).equals(s.last) || after.getLast().equals(s.first)) {
+		if(after.get(0).equals(s.last) && after.getLast().equals(s.first)) {
 			after = after.reverse();
+		}else if(after.get(0).equals(s.first) && after.getLast().equals(s.last)) {
 		}
-		System.out.println("\n\n");
-		System.out.println(s);
-		System.out.println(ps);
-		System.out.println(copy);
-		System.out.println(after);
+		else {
+			System.out.println("\n\nERROR");
+			System.out.println(s);
+			System.out.println(ps);
+			System.out.println(after + "\n");
+		}
+
 		return after;
 
 	}
