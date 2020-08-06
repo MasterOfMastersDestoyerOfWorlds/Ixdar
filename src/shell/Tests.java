@@ -199,21 +199,12 @@ public class Tests {
 
 	@Test
 	public void testOptimizationBetweenEndpoints12() {
-		System.out.println("Test 12:");
 		Segment s = new Segment(new PointND.Double(11569.4444, 43136.6667), new PointND.Double(11423.8889, 43000.2778));
 		Shell AB = new Shell(new PointND.Double(11485.5556, 43187.2222), new PointND.Double(11461.1111, 43252.7778));
 		Shell nothing = new Shell();
+		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11569.4444, 43136.6667), new PointND.Double(11485.5556, 43187.2222),
 				new PointND.Double(11461.1111, 43252.7778), new PointND.Double(11423.8889, 43000.2778));
-		
-
-		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
-		
-		System.out.println("result length: " + result.getLength());
-		System.out.println("answer length: " + answer.getLength());
-
-		System.out.println(Shell.compareTo(answer, result));
-
 		assertTrue(result.getLength() <= answer.getLength());
 
 	}

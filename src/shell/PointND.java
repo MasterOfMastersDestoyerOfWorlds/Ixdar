@@ -49,6 +49,28 @@ public abstract class PointND implements Cloneable {
 			this.setID(ID);
 			this.fs = fs;
 		}
+		
+		/**
+		 * Constructs and initializes a {@code PointND} with coordinates (0,&nbsp;0).
+		 * 
+		 */
+		public Float() {
+
+			this.setID(maxID);
+			fs = new float[1];
+		}
+
+		/**
+		 * Constructs and initializes a {@code PointND} with the specified coordinates.
+		 *
+		 * @param fs the n coordinates of the newly constructed {@code PointND}
+		 * 
+		 */
+		public Float(float... fs) {
+
+			this.setID(maxID);
+			this.fs = fs;
+		}
 
 		/**
 		 * @return the dimension of the vector
@@ -136,6 +158,7 @@ public abstract class PointND implements Cloneable {
 		 * 
 		 */
 		public Double() {
+			this.setID(maxID);
 			ds = new double[1];
 		}
 
@@ -146,6 +169,7 @@ public abstract class PointND implements Cloneable {
 		 * 
 		 */
 		public Double(double... fs) {
+			this.setID(maxID);
 			this.ds = fs;
 		}
 		
@@ -248,6 +272,8 @@ public abstract class PointND implements Cloneable {
 	}
 
 	private int ID = -1;
+	
+	private static int maxID = 0;
 	
 	/**
 	 * Returns the nth coordinate of this {@code PointND} in {@code double} precision.
@@ -465,7 +491,10 @@ public abstract class PointND implements Cloneable {
 		return ID;
 	}
 
-	public void setID(int iD) {
-		ID = iD;
+	public void setID(int ID) {
+		if(ID >= maxID ) {
+			maxID = ID + 1;
+		}
+		this.ID = ID;
 	}
 }

@@ -489,6 +489,7 @@ public class Shell extends LinkedList<PointND> {
 		ps.add(s.last);
 		ps.addAll(A);
 		ps.addAll(B);
+
 		
 
 		DistanceMatrix D = new DistanceMatrix(ps);
@@ -506,6 +507,7 @@ public class Shell extends LinkedList<PointND> {
 			currShell.addAll(reducedShell);
 			currShell = currShell.getChild();
 		}
+		Shell copy = lineShells.copyRecursive();
 
 		lineShells = lineShells.collapseAllShells();
 
@@ -529,6 +531,11 @@ public class Shell extends LinkedList<PointND> {
 		if(after.get(0).equals(s.last) || after.getLast().equals(s.first)) {
 			after = after.reverse();
 		}
+		System.out.println("\n\n");
+		System.out.println(s);
+		System.out.println(ps);
+		System.out.println(copy);
+		System.out.println(after);
 		return after;
 
 	}
@@ -642,7 +649,7 @@ public class Shell extends LinkedList<PointND> {
 		AB = AB.copyRecursive();
 		BC = BC.copyRecursive();
 		Shell B = pointsInCommon(AB, BC);
-		ArrayList<Segment> ABKeys = new ArrayList<Segment>(), BCKeys = new ArrayList<Segment>();
+		ArrayList<Segment> ABKeys = new ArrayList<Segment>(), BCKeys = new ArrayList<Segment>(), keys = new ArrayList<Segment>();
 
 		HashMap<Segment, Shell> ABsections = AB.splitBy(B, ABKeys);
 		HashMap<Segment, Shell> BCsections = BC.splitBy(B, BCKeys);
@@ -733,6 +740,12 @@ public class Shell extends LinkedList<PointND> {
 			}
 
 		}
+		System.out.println();
+		System.out.println(AB);
+		System.out.println(BC);
+		System.out.println(ABKeys);
+		System.out.println(result);
+
 		return result;
 
 	}
@@ -1008,15 +1021,15 @@ public class Shell extends LinkedList<PointND> {
 	public static String compareTo(Shell A, Shell B) {
 		String str = "Shell A[";
 		for(int i = 0; i < A.size() -1; i++) {
-			str += (i + 1) + ", ";
+			str += (i) + ", ";
 		}
 		str += A.size() + "]";
 		
 		str += "\nShell B[";
 		for(int i = 0; i < B.size() -1; i++) {
-			str += (A.indexOf(B.get(i))+1) + ", ";
+			str += (A.indexOf(B.get(i))) + ", ";
 		}
-		str += (A.indexOf(B.get(B.size() -1)) + 1)+ "]";
+		str += (A.indexOf(B.get(B.size() -1)))+ "]";
 		
 		return str;
 		
