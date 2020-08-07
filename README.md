@@ -31,3 +31,6 @@ Matrix to Points Logic:
 Gift Wrapping Algorithm:
 
 - https://en.wikipedia.org/wiki/Gift_wrapping_algorithm
+
+Orientaion of 3 Points
+- http://www.cs.tufts.edu/comp/163/OrientationTests.pdf
