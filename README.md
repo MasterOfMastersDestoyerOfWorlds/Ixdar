@@ -31,6 +31,7 @@ Matrix to Points Logic:
 Gift Wrapping Algorithm:
 
 - https://en.wikipedia.org/wiki/Gift_wrapping_algorithm
+- https://www.geeksforgeeks.org/convex-hull-set-1-jarviss-algorithm-or-wrapping/
 
 Orientaion of 3 Points
 - http://www.cs.tufts.edu/comp/163/OrientationTests.pdf
