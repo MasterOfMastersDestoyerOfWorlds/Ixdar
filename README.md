@@ -38,9 +38,9 @@ Gift Wrapping Algorithm:
 
 QuickHull
 
--http://personal.denison.edu/~havill/272S04/papers/convexhulls.pdf
+- http://personal.denison.edu/~havill/272S04/papers/convexhulls.pdf
 
--https://github.com/qhull/qhull/wiki
+- https://github.com/qhull/qhull/wiki
 
 Orientaion of 3 Points
 - http://www.cs.tufts.edu/comp/163/OrientationTests.pdf
