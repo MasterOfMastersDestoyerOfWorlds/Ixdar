@@ -8,8 +8,6 @@ import java.util.ArrayList;
 public class PointSet extends ArrayList<PointND> {
 	private static final long serialVersionUID = 6129018674280186123L;
 
-
-
 	/**
 	 * This divides the point set into numerous convex shells that point to their
 	 * child and parent shells.
@@ -68,12 +66,13 @@ public class PointSet extends ArrayList<PointND> {
 
 				}
 			}
-			
+
 			copy.removeAll(outerShellPointSet);
 		}
 		rootShell.updateOrder();
 		return rootShell;
 	}
+
 
 	/**
 	 * Finds the centroid of the pointset ps
@@ -94,7 +93,7 @@ public class PointSet extends ArrayList<PointND> {
 		for (PointND p : ps) {
 			double[] coordList = p.getCoordList();
 			for (int i = 0; i < coordList.length; i++) {
-				ds[i] += coordList[i]/ps.size();
+				ds[i] += coordList[i] / ps.size();
 			}
 		}
 		return new PointND.Double(ds);
@@ -120,25 +119,23 @@ public class PointSet extends ArrayList<PointND> {
 		}
 		return anoid;
 	}
-	
+
 	@Override
 	public String toString() {
 		String str = "PointSet[";
-		for(int i = 0; i < this.size(); i++) {
-			if(this.get(i).getID() != -1) {
+		for (int i = 0; i < this.size(); i++) {
+			if (this.get(i).getID() != -1) {
 				str += this.get(i).getID();
-			}
-			else {
+			} else {
 				str += this.get(i).toString();
 			}
-			if(i < this.size() - 1) {
+			if (i < this.size() - 1) {
 				str += ", ";
 			}
 		}
-		
-		
-		str+="]";
-		
+
+		str += "]";
+
 		return str;
 	}
 

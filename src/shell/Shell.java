@@ -509,9 +509,11 @@ public class Shell extends LinkedList<PointND> {
 			currShell.addAll(reducedShell);
 			currShell = currShell.getChild();
 		}
+		Shell copy1 = lineShells.copyRecursive();
 
 		lineShells = lineShells.collapseAllShells();
 
+		
 		Shell before = new Shell(), after = new Shell();
 
 		//find the dummy node and take it out of the Shell unwrapping at the dummy.
@@ -529,16 +531,21 @@ public class Shell extends LinkedList<PointND> {
 			}
 		}
 		//reverse the set if need be to match the input segment s
+		Shell copy = after.copyShallow();
 		after.addAll(before);
 		if(after.get(0).equals(s.last) && after.getLast().equals(s.first)) {
 			after = after.reverse();
-		}else if(after.get(0).equals(s.first) && after.getLast().equals(s.last)) {
 		}
 		else {
+			
 			System.out.println("\n\nERROR");
+			System.out.println(copy1.ORDER);
 			System.out.println(s);
 			System.out.println(ps);
-			System.out.println(after + "\n");
+			System.out.println(lineShells);
+			System.out.println("before: " + before);
+			System.out.println("after: " + copy);
+			System.out.println("result:" + after + "\n");
 		}
 
 		return after;
@@ -1028,7 +1035,7 @@ public class Shell extends LinkedList<PointND> {
 		for(int i = 0; i < A.size() -1; i++) {
 			str += (i) + ", ";
 		}
-		str += A.size() + "]";
+		str += A.size()-1 + "]";
 		
 		str += "\nShell B[";
 		for(int i = 0; i < B.size() -1; i++) {
