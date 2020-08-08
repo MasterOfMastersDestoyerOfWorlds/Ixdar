@@ -104,6 +104,23 @@ public class Tests {
 		System.out.println("Answer Length: " + answer.getLength());
 		assertTrue(result.getLength() <= answer.getLength());
 	}
+	
+	/**
+	 * Tests ability of the reduce function of collapseReduce in 3D
+	 */
+	@Test
+	public void testConvexHull3D(){
+		PointSet ps = new PointSet();
+		ps.add(new PointND.Double(3, 0, 1, 0));
+		ps.add(new PointND.Double(4, 0, -1, 0));
+		ps.add(new PointND.Double(1, 0, 0, 1));
+		ps.add(new PointND.Double(5, 1, 0, 0));
+		ps.add(new PointND.Double(6, -1, 0, 0));
+		Shell result = ps.toShells();
+		System.out.println(result.updateOrder());
+		System.out.println(result.toStringRecursive());
+		assertTrue(result.updateOrder() == 1);
+	}
 
 	/**
 	 * Tests abbility to solve optimally between two set endpoints. the answer Shell is known to be correct.

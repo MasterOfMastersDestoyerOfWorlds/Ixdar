@@ -1027,6 +1027,16 @@ public class Shell extends LinkedList<PointND> {
 		
 		return str+"]";
 	}
+	public String toStringRecursive() {
+		String str = "Shell[\n";
+		Shell curr = this;
+		while(!curr.isMinimal()) {
+			str += "\tOrder: " + curr.updateOrder() + " ," + curr + "\n";
+			curr = curr.child;
+		}
+		
+		return str + "\tOrder: " + curr.updateOrder() + " ," + curr +"\n\t]";
+	}
 	
 	public static String compareTo(Shell A, Shell B) {
 		String str = "Shell A[";
