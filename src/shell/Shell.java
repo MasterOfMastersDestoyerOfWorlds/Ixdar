@@ -27,8 +27,7 @@ public class Shell extends LinkedList<PointND> {
 
 	/**
 	 * Initializes a new shell with no parent or child; a blank slate
-	 * @param double2 
-	 * @param double1 
+	 * @param points
 	 */
 	public Shell(Double... points) {
 		this.updateOrder();
@@ -82,8 +81,6 @@ public class Shell extends LinkedList<PointND> {
 	 * 
 	 * @param frame        where to draw the shell
 	 * @param g2           graphics object for frame
-	 * @param colorSeed    only used if color is set to null in order to get a
-	 *                     random color for the Shell drawing
 	 * @param drawChildren whether or not to draw child shells
 	 * @param c            the color to draw the shell (set to null to get a random
 	 *                     color)
@@ -501,8 +498,8 @@ public class Shell extends LinkedList<PointND> {
 		//use the giftwrapping algorithm to get the recursive convex hulls of the set
 		Shell lineShells = linePS.toShells();
 		Shell currShell = lineShells;
-		
-		//make sure that the convex hulls are in reduced forms(this is garunteed in 2D but not in higher dimensions).
+		System.out.println("ORDER OF NEW ND SHELL IS: " + lineShells.ORDER);
+		//make sure that the convex hulls are in reduced forms(this is guaranteed in 2D but not in higher dimensions).
 		while(currShell != null) {
 			Shell reducedShell = Shell.collapseReduce(currShell, new Shell());
 			currShell.removeAll(currShell);
@@ -510,6 +507,7 @@ public class Shell extends LinkedList<PointND> {
 			currShell = currShell.getChild();
 		}
 		Shell copy1 = lineShells.copyRecursive();
+
 
 		lineShells = lineShells.collapseAllShells();
 
