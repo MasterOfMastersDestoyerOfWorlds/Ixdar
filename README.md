@@ -30,8 +30,17 @@ Matrix to Points Logic:
 
 Gift Wrapping Algorithm:
 
+- this cannot actually be generalized to nd despite what the internet says
+
 - https://en.wikipedia.org/wiki/Gift_wrapping_algorithm
+
 - https://www.geeksforgeeks.org/convex-hull-set-1-jarviss-algorithm-or-wrapping/
+
+QuickHull
+
+-http://personal.denison.edu/~havill/272S04/papers/convexhulls.pdf
+
+-https://github.com/qhull/qhull/wiki
 
 Orientaion of 3 Points
 - http://www.cs.tufts.edu/comp/163/OrientationTests.pdf
