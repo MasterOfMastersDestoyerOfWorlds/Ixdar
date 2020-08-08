@@ -64,16 +64,27 @@ public class DistanceMatrix {
 		}
 	}
 
+	/**
+	 * Gets the points stored in the distance matrix
+	 * @return the points stored in the distance matrix
+	 */
 	public ArrayList<PointND> getPoints() {
 		return points;
 	}
 
+	/**
+	 * Gets the maximum distance between any two points in the distance matrix
+	 * @return the maximum distance between any two points in the distance matrix
+	 */
 	public double getMaxDist() {
 		return maxDist;
 	}
-	
+
+	/**
+	 * Gets the distance matrix
+	 * @return the distance matrix
+	 */
 	public double[][] getMatrix() {
-		// TODO Auto-generated method stub
 		return matrix;
 	}
 

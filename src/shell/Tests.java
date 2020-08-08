@@ -62,6 +62,50 @@ public class Tests {
 	}
 
 	/**
+	 * Tests ability of the reduce function of collapseReduce in 2D
+	 */
+	@Test
+	public void testReduce2D(){
+		Shell AB = new Shell();
+		AB.add(new PointND.Double(1, 1, 0));
+		AB.add(new PointND.Double(2, -1, 0));
+		AB.add(new PointND.Double(3, 0, 1));
+		AB.add(new PointND.Double(4, 0, -1));
+		Shell nothing = new Shell();
+		Shell result = Shell.collapseReduce(AB, nothing);
+		Shell answer = new Shell();
+		answer.add(new PointND.Double(1, 1, 0));
+		answer.add(new PointND.Double(3, 0, 1));
+		answer.add(new PointND.Double(2, -1, 0));
+		answer.add(new PointND.Double(4, 0, -1));
+		assertTrue(result.getLength() <= answer.getLength());
+	}
+
+	/**
+	 * Tests ability of the reduce function of collapseReduce in 3D
+	 */
+	@Test
+	public void testReduce3D(){
+		Shell AB = new Shell();
+		AB.add(new PointND.Double(3, 0, 1, 0));
+		AB.add(new PointND.Double(4, 0, -1, 0));
+		AB.add(new PointND.Double(1, 0, 0, 1));
+		AB.add(new PointND.Double(5, 1, 0, 0));
+		AB.add(new PointND.Double(6, -1, 0, 0));
+		Shell nothing = new Shell();
+		Shell result = Shell.collapseReduce(AB, nothing);
+		Shell answer = new Shell();
+		answer.add(new PointND.Double(1, 0, 0, 1));
+		answer.add(new PointND.Double(3, 0, 1, 0));
+		answer.add(new PointND.Double(5, 1, 0, 0));
+		answer.add(new PointND.Double(4, 0, -1, 0));
+		answer.add(new PointND.Double(6, -1, 0, 0));
+		System.out.println("Result Length: " + result.getLength());
+		System.out.println("Answer Length: " + answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());
+	}
+
+	/**
 	 * Tests abbility to solve optimally between two set endpoints. the answer Shell is known to be correct.
 	 */
 	@Test
@@ -78,7 +122,6 @@ public class Tests {
 		answer.add(new PointND.Double(11715.8333, 41836.1111));
 		answer.add(new PointND.Double(12058.3333, 42195.5556));
 		assertTrue(result.getLength() <= answer.getLength());
-
 	}
 
 	@Test
