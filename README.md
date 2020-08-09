@@ -27,7 +27,6 @@ Matrix to Points Logic:
 
 - https://math.stackexchange.com/questions/156161/finding-the-coordinates-of-points-from-distance-matrix]
 
-
 Gift Wrapping Algorithm:
 
 - this cannot actually be generalized to nd despite what the internet says
@@ -40,7 +39,13 @@ QuickHull
 
 - http://personal.denison.edu/~havill/272S04/papers/convexhulls.pdf
 
+- https://www.sciencedirect.com/science/article/pii/S0925772196000235
+
+- http://reports-archive.adm.cs.cmu.edu/anon/anon/usr0/ftp/scan/CMU-CS-88-132.pdf
+
 - https://github.com/qhull/qhull/wiki
+
+- https://github.com/swig/swig
 
 Orientaion of 3 Points
 - http://www.cs.tufts.edu/comp/163/OrientationTests.pdf
