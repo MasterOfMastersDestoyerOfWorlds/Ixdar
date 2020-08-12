@@ -8,6 +8,13 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests to verify that our tsp solver works as expected
  */
 public class Tests {
+	
+	@Test
+	public void testQHull() {
+		PointSetPath retTup = Main.importFromFile(new File("./src/shell/djbouti"));
+
+		Shell orgShell = retTup.ps.convexHull();
+	}
 
 	/**
 	 * Tests that our solver solves the djibouti problem set correctly

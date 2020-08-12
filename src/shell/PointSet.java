@@ -2,11 +2,37 @@ package shell;
 
 import java.util.ArrayList;
 
+import resources.SWIGTYPE_p_boolT;
+import resources.SWIGTYPE_p_coordT;
+import resources.SWIGTYPE_p_int;
+import resources.qhull;
+
 /**
  * A set of all of the points in the current TSP problem
  */
 public class PointSet extends ArrayList<PointND> {
 	private static final long serialVersionUID = 6129018674280186123L;
+
+	static {
+		try {
+			System.loadLibrary("qhull");
+		}catch(Exception e) {
+			System.out.println("name of shared lib should be: " + System.mapLibraryName("qhull"));
+			System.out.println(e);
+		}
+		
+	}
+
+	/**
+	 * make sure to see resources/swig.sh for details on compiling qhull to work with java also set the 
+	 * native library to Users/user/Library/Java/Extensions in the build path so that
+	 * eclipse can find the dylib
+	 * @return the convex hull of the set of points in n dimensions according to qhull
+	 */
+	public Shell convexHull() {
+		System.out.println(qhull.qh_rand());
+		return null;
+	}
 
 	/**
 	 * This divides the point set into numerous convex shells that point to their
@@ -14,6 +40,7 @@ public class PointSet extends ArrayList<PointND> {
 	 * 
 	 * @return the outermost shell of the point set that conatins all other shells
 	 */
+
 	public Shell toShells() {
 		PointSet copy = (PointSet) this.clone();
 		Shell rootShell = null, currShell = null;
@@ -72,7 +99,6 @@ public class PointSet extends ArrayList<PointND> {
 		rootShell.updateOrder();
 		return rootShell;
 	}
-
 
 	/**
 	 * Finds the centroid of the pointset ps
