@@ -19,6 +19,7 @@ public class PointSet extends ArrayList<PointND> {
 		}catch(Exception e) {
 			System.out.println("name of shared lib should be: " + System.mapLibraryName("qhull"));
 			System.out.println(e);
+			
 		}
 		
 	}

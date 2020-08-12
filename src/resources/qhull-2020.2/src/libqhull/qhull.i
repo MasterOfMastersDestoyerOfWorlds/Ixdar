@@ -16,6 +16,10 @@
 
 %}
 // Make SWIG look into this header:
+%include cpointer.i 
+
+%pointer_functions(int, intp);
+
 %include user.h
 %include qhull_a.h
 %include geom.h	

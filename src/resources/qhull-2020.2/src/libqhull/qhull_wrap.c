@@ -222,9 +222,94 @@ static void SWIGUNUSED SWIG_JavaThrowException(JNIEnv *jenv, SWIG_JavaExceptionC
 
 
 
+static int *new_intp() { 
+  return (int *) calloc(1,sizeof(int)); 
+}
+
+static int *copy_intp(int value) { 
+  int *obj = (int *) calloc(1,sizeof(int));
+  *obj = value;
+  return obj; 
+}
+
+static void delete_intp(int *obj) { 
+  if (obj) free(obj); 
+}
+
+static void intp_assign(int *obj, int value) {
+  *obj = value;
+}
+
+static int intp_value(int *obj) {
+  return *obj;
+}
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_new_1intp(JNIEnv *jenv, jclass jcls) {
+  jlong jresult = 0 ;
+  int *result = 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  result = (int *)new_intp();
+  *(int **)&jresult = result; 
+  return jresult;
+}
+
+
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_copy_1intp(JNIEnv *jenv, jclass jcls, jint jarg1) {
+  jlong jresult = 0 ;
+  int arg1 ;
+  int *result = 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = (int)jarg1; 
+  result = (int *)copy_intp(arg1);
+  *(int **)&jresult = result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_delete_1intp(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+  int *arg1 = (int *) 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = *(int **)&jarg1; 
+  delete_intp(arg1);
+}
+
+
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_intp_1assign(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2) {
+  int *arg1 = (int *) 0 ;
+  int arg2 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = *(int **)&jarg1; 
+  arg2 = (int)jarg2; 
+  intp_assign(arg1,arg2);
+}
+
+
+SWIGEXPORT jint JNICALL Java_resources_qhullJNI_intp_1value(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+  jint jresult = 0 ;
+  int *arg1 = (int *) 0 ;
+  int result;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = *(int **)&jarg1; 
+  result = (int)intp_value(arg1);
+  jresult = (jint)result; 
+  return jresult;
+}
+
 
 SWIGEXPORT jint JNICALL Java_resources_qhullJNI_qhDEFuser_1get(JNIEnv *jenv, jclass jcls) {
   jint jresult = 0 ;

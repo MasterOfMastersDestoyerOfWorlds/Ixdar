@@ -9,6 +9,28 @@
 package resources;
 
 public class qhull implements qhullConstants {
+  public static SWIGTYPE_p_int new_intp() {
+    long cPtr = qhullJNI.new_intp();
+    return (cPtr == 0) ? null : new SWIGTYPE_p_int(cPtr, false);
+  }
+
+  public static SWIGTYPE_p_int copy_intp(int value) {
+    long cPtr = qhullJNI.copy_intp(value);
+    return (cPtr == 0) ? null : new SWIGTYPE_p_int(cPtr, false);
+  }
+
+  public static void delete_intp(SWIGTYPE_p_int obj) {
+    qhullJNI.delete_intp(SWIGTYPE_p_int.getCPtr(obj));
+  }
+
+  public static void intp_assign(SWIGTYPE_p_int obj, int value) {
+    qhullJNI.intp_assign(SWIGTYPE_p_int.getCPtr(obj), value);
+  }
+
+  public static int intp_value(SWIGTYPE_p_int obj) {
+    return qhullJNI.intp_value(SWIGTYPE_p_int.getCPtr(obj));
+  }
+
   public static void qh_qhull() {
     qhullJNI.qh_qhull();
   }

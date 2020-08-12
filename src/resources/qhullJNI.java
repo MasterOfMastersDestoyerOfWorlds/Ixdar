@@ -9,6 +9,11 @@
 package resources;
 
 public class qhullJNI {
+  public final static native long new_intp();
+  public final static native long copy_intp(int jarg1);
+  public final static native void delete_intp(long jarg1);
+  public final static native void intp_assign(long jarg1, int jarg2);
+  public final static native int intp_value(long jarg1);
   public final static native int qhDEFuser_get();
   public final static native int qh_FILENAMElen_get();
   public final static native int MSG_TRACE0_get();
