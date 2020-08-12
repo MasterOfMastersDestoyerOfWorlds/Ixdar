@@ -104,6 +104,8 @@ public class qhullJNI {
   public final static native void qh_appendprint(long jarg1);
   public final static native void qh_freebuild(long jarg1);
   public final static native void qh_freebuffers();
+  public final static native void qh_init_A(long jarg1, long jarg2, long jarg3, int jarg4, long jarg5);
+  public final static native void qh_init_B(long jarg1, int jarg2, int jarg3, long jarg4);
   public final static native void qh_allstatA();
   public final static native void qh_allstatB();
   public final static native void qh_allstatC();

@@ -91,6 +91,14 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_freebuffers();
   }
 
+  public static void qh_init_A(SWIGTYPE_p_FILE infile, SWIGTYPE_p_FILE outfile, SWIGTYPE_p_FILE errfile, int argc, SWIGTYPE_p_p_char argv) {
+    qhullJNI.qh_init_A(SWIGTYPE_p_FILE.getCPtr(infile), SWIGTYPE_p_FILE.getCPtr(outfile), SWIGTYPE_p_FILE.getCPtr(errfile), argc, SWIGTYPE_p_p_char.getCPtr(argv));
+  }
+
+  public static void qh_init_B(SWIGTYPE_p_coordT points, int numpoints, int dim, SWIGTYPE_p_boolT ismalloc) {
+    qhullJNI.qh_init_B(SWIGTYPE_p_coordT.getCPtr(points), numpoints, dim, SWIGTYPE_p_boolT.getCPtr(ismalloc));
+  }
+
   public static void qh_allstatA() {
     qhullJNI.qh_allstatA();
   }

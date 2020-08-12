@@ -15,7 +15,6 @@
 #include "stat.h"
 
 %}
-
 // Make SWIG look into this header:
 %include user.h
 %include qhull_a.h
