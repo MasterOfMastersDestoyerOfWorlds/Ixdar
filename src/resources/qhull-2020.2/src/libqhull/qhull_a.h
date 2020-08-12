@@ -133,6 +133,8 @@ void    qh_printsummary(FILE *fp);
 void    qh_appendprint(qh_PRINT format);
 void    qh_freebuild(boolT allmem);
 void    qh_freebuffers(void);
+void    qh_init_A(FILE *infile, FILE *outfile, FILE *errfile, int argc, char *argv[]);
+void    qh_init_B(coordT *points, int numpoints, int dim, boolT ismalloc);
 
 /***** -stat.c internal prototypes (alphabetical) ***********************/
 

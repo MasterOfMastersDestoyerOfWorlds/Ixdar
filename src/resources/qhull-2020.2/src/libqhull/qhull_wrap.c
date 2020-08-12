@@ -1424,6 +1424,47 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1freebuffers(JNIEnv *jenv, jc
 }
 
 
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1init_1A(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jint jarg4, jlong jarg5) {
+  FILE *arg1 = (FILE *) 0 ;
+  FILE *arg2 = (FILE *) 0 ;
+  FILE *arg3 = (FILE *) 0 ;
+  int arg4 ;
+  char **arg5 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = *(FILE **)&jarg1; 
+  arg2 = *(FILE **)&jarg2; 
+  arg3 = *(FILE **)&jarg3; 
+  arg4 = (int)jarg4; 
+  arg5 = *(char ***)&jarg5; 
+  qh_init_A(arg1,arg2,arg3,arg4,arg5);
+  
+}
+
+
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1init_1B(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jint jarg3, jlong jarg4) {
+  coordT *arg1 = (coordT *) 0 ;
+  int arg2 ;
+  int arg3 ;
+  boolT arg4 ;
+  boolT *argp4 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = *(coordT **)&jarg1; 
+  arg2 = (int)jarg2; 
+  arg3 = (int)jarg3; 
+  argp4 = *(boolT **)&jarg4; 
+  if (!argp4) {
+    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
+    return ;
+  }
+  arg4 = *argp4; 
+  qh_init_B(arg1,arg2,arg3,arg4);
+}
+
+
 SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1allstatA(JNIEnv *jenv, jclass jcls) {
   (void)jenv;
   (void)jcls;
