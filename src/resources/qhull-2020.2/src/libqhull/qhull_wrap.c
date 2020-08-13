@@ -398,8 +398,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_delete_1coordT_1array(JNIEnv *je
 }
 
 
-SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_coordT_1array_1getitem(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2) {
-  jfloat jresult = 0 ;
+SWIGEXPORT jdouble JNICALL Java_resources_qhullJNI_coordT_1array_1getitem(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2) {
+  jdouble jresult = 0 ;
   coordT *arg1 = (coordT *) 0 ;
   int arg2 ;
   coordT result;
@@ -418,7 +418,7 @@ SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_coordT_1array_1getitem(JNIEnv 
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_coordT_1array_1setitem(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jfloat jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_coordT_1array_1setitem(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jdouble jarg3) {
   coordT *arg1 = (coordT *) 0 ;
   int arg2 ;
   coordT arg3 ;
@@ -1744,16 +1744,16 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printsummary(JNIEnv *jenv, j
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_coordTset(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jfloat jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_coordTset(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jdouble jarg3) {
   coordT *arg1 = (coordT *) 0 ;
   int arg2 ;
-  float arg3 ;
+  double arg3 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(coordT **)&jarg1; 
   arg2 = (int)jarg2; 
-  arg3 = (float)jarg3; 
+  arg3 = (double)jarg3; 
   coordTset(arg1,arg2,arg3);
 }
 
@@ -2156,8 +2156,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1getcentrum(JNIEnv *jenv, jc
 }
 
 
-SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_qh_1getdistance(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4) {
-  jfloat jresult = 0 ;
+SWIGEXPORT jdouble JNICALL Java_resources_qhullJNI_qh_1getdistance(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4) {
+  jdouble jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   coordT *arg3 = (coordT *) 0 ;
@@ -2778,8 +2778,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1outerinner(JNIEnv *jenv, jcl
 }
 
 
-SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_qh_1pointdist(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jint jarg3) {
-  jfloat jresult = 0 ;
+SWIGEXPORT jdouble JNICALL Java_resources_qhullJNI_qh_1pointdist(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jint jarg3) {
+  jdouble jresult = 0 ;
   pointT *arg1 = (pointT *) 0 ;
   pointT *arg2 = (pointT *) 0 ;
   int arg3 ;
@@ -2925,7 +2925,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1scaleinput(JNIEnv *jenv, jcl
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1scalelast(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jint jarg3, jfloat jarg4, jfloat jarg5, jfloat jarg6) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1scalelast(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jint jarg3, jdouble jarg4, jdouble jarg5, jdouble jarg6) {
   coordT *arg1 = (coordT *) 0 ;
   int arg2 ;
   int arg3 ;
@@ -3029,8 +3029,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1sethalfspace_1all(JNIEnv *j
 }
 
 
-SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_qh_1vertex_1bestdist(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
-  jfloat jresult = 0 ;
+SWIGEXPORT jdouble JNICALL Java_resources_qhullJNI_qh_1vertex_1bestdist(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
+  jdouble jresult = 0 ;
   setT *arg1 = (setT *) 0 ;
   coordT result;
   
@@ -3048,8 +3048,8 @@ SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_qh_1vertex_1bestdist(JNIEnv *j
 }
 
 
-SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_qh_1vertex_1bestdist2(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jlong jarg3) {
-  jfloat jresult = 0 ;
+SWIGEXPORT jdouble JNICALL Java_resources_qhullJNI_qh_1vertex_1bestdist2(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jlong jarg3) {
+  jdouble jresult = 0 ;
   setT *arg1 = (setT *) 0 ;
   vertexT **arg2 = (vertexT **) 0 ;
   vertexT **arg3 = (vertexT **) 0 ;
@@ -6385,7 +6385,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1all_1vertexmerges(JNIEnv *je
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1appendmergeset(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jint jarg3, jfloat jarg4, jdouble jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1appendmergeset(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jint jarg3, jdouble jarg4, jdouble jarg5) {
   facetT *arg1 = (facetT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   mergeType arg3 ;
@@ -6747,7 +6747,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1getmergeset_1initial(JNIEnv 
 }
 
 
-SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1getpinchedmerges(JNIEnv *jenv, jclass jcls, jlong jarg1, jfloat jarg2, jlong jarg3) {
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1getpinchedmerges(JNIEnv *jenv, jclass jcls, jlong jarg1, jdouble jarg2, jlong jarg3) {
   jboolean jresult = 0 ;
   vertexT *arg1 = (vertexT *) 0 ;
   coordT arg2 ;
@@ -7785,8 +7785,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1matchneighbor(JNIEnv *jenv, 
 }
 
 
-SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_qh_1matchnewfacets(JNIEnv *jenv, jclass jcls) {
-  jfloat jresult = 0 ;
+SWIGEXPORT jdouble JNICALL Java_resources_qhullJNI_qh_1matchnewfacets(JNIEnv *jenv, jclass jcls) {
+  jdouble jresult = 0 ;
   coordT result;
   
   (void)jenv;
@@ -8322,8 +8322,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1makenewfacets(JNIEnv *jenv,
 }
 
 
-SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_qh_1matchdupridge(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jint jarg3, jlong jarg4) {
-  jfloat jresult = 0 ;
+SWIGEXPORT jdouble JNICALL Java_resources_qhullJNI_qh_1matchdupridge(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jint jarg3, jlong jarg4) {
+  jdouble jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   int arg2 ;
   int arg3 ;

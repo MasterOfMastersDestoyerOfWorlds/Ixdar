@@ -129,7 +129,7 @@ void    qh_joggle_restart(const char *reason);
 void    qh_printsummary(FILE *fp);
 
 /***** -global.c internal prototypes (alphabetical) ***********************/
-void     coordTset(coordT *ary, int index, float value);
+void     coordTset(coordT *ary, int index, double value);
 int     setjmp_wrap();
 void    setNOerrexit();
 void    qh_appendprint(qh_PRINT format);

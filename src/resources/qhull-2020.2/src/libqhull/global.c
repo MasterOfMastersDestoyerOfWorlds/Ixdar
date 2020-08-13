@@ -61,7 +61,7 @@ void setNOerrexit(){
   qh NOerrexit=False;
 }
 
-void coordTset(coordT *ary, int index, float value){
+void coordTset(coordT *ary, int index, double value){
   ary[index] = value;
 }
 

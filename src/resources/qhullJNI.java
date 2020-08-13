@@ -16,8 +16,8 @@ public class qhullJNI {
   public final static native int intp_value(long jarg1);
   public final static native long new_coordT_array(int jarg1);
   public final static native void delete_coordT_array(long jarg1);
-  public final static native float coordT_array_getitem(long jarg1, int jarg2);
-  public final static native void coordT_array_setitem(long jarg1, int jarg2, float jarg3);
+  public final static native double coordT_array_getitem(long jarg1, int jarg2);
+  public final static native void coordT_array_setitem(long jarg1, int jarg2, double jarg3);
   public final static native String new_String();
   public final static native String copy_String(char jarg1);
   public final static native void delete_String(String jarg1);
@@ -120,7 +120,7 @@ public class qhullJNI {
   public final static native void qh_partitionvisible(boolean jarg1, long jarg2);
   public final static native void qh_joggle_restart(String jarg1);
   public final static native void qh_printsummary(java.io.FileDescriptor jarg1);
-  public final static native void coordTset(long jarg1, int jarg2, float jarg3);
+  public final static native void coordTset(long jarg1, int jarg2, double jarg3);
   public final static native int setjmp_wrap();
   public final static native void setNOerrexit();
   public final static native void qh_appendprint(long jarg1);
@@ -148,7 +148,7 @@ public class qhullJNI {
   public final static native double qh_getangle(long jarg1, long jarg2);
   public final static native long qh_getcenter(long jarg1, setT jarg1_);
   public final static native long qh_getcentrum(long jarg1);
-  public final static native float qh_getdistance(long jarg1, long jarg2, long jarg3, long jarg4);
+  public final static native double qh_getdistance(long jarg1, long jarg2, long jarg3, long jarg4);
   public final static native void qh_normalize(long jarg1, int jarg2, boolean jarg3);
   public final static native void qh_normalize2(long jarg1, int jarg2, boolean jarg3, long jarg4, long jarg5);
   public final static native long qh_projectpoint(long jarg1, long jarg2, double jarg3);
@@ -184,7 +184,7 @@ public class qhullJNI {
   public final static native int qh_mindiff(long jarg1, long jarg2, int jarg3);
   public final static native boolean qh_orientoutside(long jarg1);
   public final static native void qh_outerinner(long jarg1, long jarg2, long jarg3);
-  public final static native float qh_pointdist(long jarg1, long jarg2, int jarg3);
+  public final static native double qh_pointdist(long jarg1, long jarg2, int jarg3);
   public final static native void qh_printmatrix(java.io.FileDescriptor jarg1, String jarg2, long jarg3, int jarg4, int jarg5);
   public final static native void qh_printpoints(java.io.FileDescriptor jarg1, String jarg2, long jarg3, setT jarg3_);
   public final static native void qh_projectinput();
@@ -192,12 +192,12 @@ public class qhullJNI {
   public final static native void qh_rotateinput(long jarg1);
   public final static native void qh_rotatepoints(long jarg1, int jarg2, int jarg3, long jarg4);
   public final static native void qh_scaleinput();
-  public final static native void qh_scalelast(long jarg1, int jarg2, int jarg3, float jarg4, float jarg5, float jarg6);
+  public final static native void qh_scalelast(long jarg1, int jarg2, int jarg3, double jarg4, double jarg5, double jarg6);
   public final static native void qh_scalepoints(long jarg1, int jarg2, int jarg3, long jarg4, long jarg5);
   public final static native boolean qh_sethalfspace(int jarg1, long jarg2, long jarg3, long jarg4, long jarg5, long jarg6);
   public final static native long qh_sethalfspace_all(int jarg1, int jarg2, long jarg3, long jarg4);
-  public final static native float qh_vertex_bestdist(long jarg1, setT jarg1_);
-  public final static native float qh_vertex_bestdist2(long jarg1, setT jarg1_, long jarg2, long jarg3);
+  public final static native double qh_vertex_bestdist(long jarg1, setT jarg1_);
+  public final static native double qh_vertex_bestdist2(long jarg1, setT jarg1_, long jarg2, long jarg3);
   public final static native long qh_voronoi_center(int jarg1, long jarg2, setT jarg2_);
   public final static native int qhDEFio_get();
   public final static native int qh_MAXfirst_get();
@@ -380,7 +380,7 @@ public class qhullJNI {
   public final static native void qh_postmerge(String jarg1, double jarg2, double jarg3, boolean jarg4);
   public final static native void qh_all_merges(boolean jarg1, boolean jarg2);
   public final static native void qh_all_vertexmerges(int jarg1, long jarg2, long jarg3);
-  public final static native void qh_appendmergeset(long jarg1, long jarg2, int jarg3, float jarg4, double jarg5);
+  public final static native void qh_appendmergeset(long jarg1, long jarg2, int jarg3, double jarg4, double jarg5);
   public final static native void qh_appendvertexmerge(long jarg1, long jarg2, int jarg3, double jarg4, long jarg5, long jarg6);
   public final static native long qh_basevertices(long jarg1);
   public final static native void qh_check_dupridge(long jarg1, double jarg2, long jarg3, double jarg4);
@@ -405,7 +405,7 @@ public class qhullJNI {
   public final static native void qh_freemergesets();
   public final static native void qh_getmergeset(long jarg1);
   public final static native void qh_getmergeset_initial(long jarg1);
-  public final static native boolean qh_getpinchedmerges(long jarg1, float jarg2, long jarg3);
+  public final static native boolean qh_getpinchedmerges(long jarg1, double jarg2, long jarg3);
   public final static native boolean qh_hasmerge(long jarg1, setT jarg1_, int jarg2, long jarg3, long jarg4);
   public final static native void qh_hashridge(long jarg1, setT jarg1_, int jarg2, long jarg3, long jarg4);
   public final static native long qh_hashridge_find(long jarg1, setT jarg1_, int jarg2, long jarg3, long jarg4, long jarg5, long jarg6);
@@ -476,7 +476,7 @@ public class qhullJNI {
   public final static native long qh_makenew_nonsimplicial(long jarg1, long jarg2, long jarg3);
   public final static native long qh_makenew_simplicial(long jarg1, long jarg2, long jarg3);
   public final static native void qh_matchneighbor(long jarg1, int jarg2, int jarg3, long jarg4);
-  public final static native float qh_matchnewfacets();
+  public final static native double qh_matchnewfacets();
   public final static native boolean qh_matchvertices(int jarg1, long jarg2, setT jarg2_, int jarg3, long jarg4, setT jarg4_, long jarg5, long jarg6);
   public final static native long qh_newfacet();
   public final static native long qh_newridge();
@@ -516,7 +516,7 @@ public class qhullJNI {
   public final static native long qh_initialvertices(int jarg1, long jarg2, setT jarg2_, long jarg3, int jarg4);
   public final static native long qh_isvertex(long jarg1, long jarg2, setT jarg2_);
   public final static native long qh_makenewfacets(long jarg1);
-  public final static native float qh_matchdupridge(long jarg1, int jarg2, int jarg3, long jarg4);
+  public final static native double qh_matchdupridge(long jarg1, int jarg2, int jarg3, long jarg4);
   public final static native void qh_nearcoplanar();
   public final static native long qh_nearvertex(long jarg1, long jarg2, long jarg3);
   public final static native int qh_newhashtable(int jarg1);

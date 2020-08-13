@@ -51,9 +51,9 @@
 %}
 %typemap(javain) boolT "$javainput"
 
-%typemap(jni) coordT "jfloat"
-%typemap(jstype) coordT "java.lang.Float"
-%typemap(jtype) coordT "float"
+%typemap(jni) coordT "jdouble"
+%typemap(jstype) coordT "java.lang.Double"
+%typemap(jtype) coordT "double"
 
 %typemap(javain) coordT "$javainput"
 

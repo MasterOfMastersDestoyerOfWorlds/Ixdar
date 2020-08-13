@@ -59,10 +59,13 @@ public class PointSet extends ArrayList<PointND> {
 				for(int i = 0; i < ps.size(); i++) {
 					PointND p = ps.get(i);
 					for(int j = 0; j < p.getDim(); j++) {
-						qhull.coordTset(points, maxDim*i + j, (float) 2);
+						qhull.coordTset(points, maxDim*i + j, p.getCoord(j));
 					}
 				}
 				qhull.qh_init_B(points, ps.size(), maxDim, false);
+			    qhull.qh_qhull();
+			    qhull.qh_check_output();
+			    qhull.qh_produce_output();
 			}
 			else {
 				throw new Exception("setjmp failed!");

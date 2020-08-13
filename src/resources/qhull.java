@@ -43,11 +43,11 @@ public class qhull implements qhullConstants {
     qhullJNI.delete_coordT_array(SWIGTYPE_p_coordT.getCPtr(ary));
   }
 
-  public static java.lang.Float coordT_array_getitem(SWIGTYPE_p_coordT ary, int index) {
+  public static java.lang.Double coordT_array_getitem(SWIGTYPE_p_coordT ary, int index) {
     return new SWIGTYPE_p_coordT(qhullJNI.coordT_array_getitem(SWIGTYPE_p_coordT.getCPtr(ary), index), true);
   }
 
-  public static void coordT_array_setitem(SWIGTYPE_p_coordT ary, int index, java.lang.Float value) {
+  public static void coordT_array_setitem(SWIGTYPE_p_coordT ary, int index, java.lang.Double value) {
     qhullJNI.coordT_array_setitem(SWIGTYPE_p_coordT.getCPtr(ary), index, value);
   }
 
@@ -166,7 +166,7 @@ public class qhull implements qhullConstants {
     }
   }
 
-  public static void coordTset(SWIGTYPE_p_coordT ary, int index, float value) {
+  public static void coordTset(SWIGTYPE_p_coordT ary, int index, double value) {
     qhullJNI.coordTset(SWIGTYPE_p_coordT.getCPtr(ary), index, value);
   }
 
@@ -284,7 +284,7 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new SWIGTYPE_p_pointT(cPtr, false);
   }
 
-  public static java.lang.Float qh_getdistance(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, SWIGTYPE_p_coordT mindist, SWIGTYPE_p_coordT maxdist) {
+  public static java.lang.Double qh_getdistance(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, SWIGTYPE_p_coordT mindist, SWIGTYPE_p_coordT maxdist) {
     return new SWIGTYPE_p_coordT(qhullJNI.qh_getdistance(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_facetT.getCPtr(neighbor), SWIGTYPE_p_coordT.getCPtr(mindist), SWIGTYPE_p_coordT.getCPtr(maxdist)), true);
   }
 
@@ -436,7 +436,7 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_outerinner(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(outerplane), SWIGTYPE_p_double.getCPtr(innerplane));
   }
 
-  public static java.lang.Float qh_pointdist(SWIGTYPE_p_pointT point1, SWIGTYPE_p_pointT point2, int dim) {
+  public static java.lang.Double qh_pointdist(SWIGTYPE_p_pointT point1, SWIGTYPE_p_pointT point2, int dim) {
     return new SWIGTYPE_p_coordT(qhullJNI.qh_pointdist(SWIGTYPE_p_pointT.getCPtr(point1), SWIGTYPE_p_pointT.getCPtr(point2), dim), true);
   }
 
@@ -474,7 +474,7 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_scaleinput();
   }
 
-  public static void qh_scalelast(SWIGTYPE_p_coordT points, int numpoints, int dim, java.lang.Float low, java.lang.Float high, java.lang.Float newhigh) {
+  public static void qh_scalelast(SWIGTYPE_p_coordT points, int numpoints, int dim, java.lang.Double low, java.lang.Double high, java.lang.Double newhigh) {
     qhullJNI.qh_scalelast(SWIGTYPE_p_coordT.getCPtr(points), numpoints, dim, low, high, newhigh);
   }
 
@@ -491,11 +491,11 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new SWIGTYPE_p_coordT(cPtr, false);
   }
 
-  public static java.lang.Float qh_vertex_bestdist(setT vertices) {
+  public static java.lang.Double qh_vertex_bestdist(setT vertices) {
     return new SWIGTYPE_p_coordT(qhullJNI.qh_vertex_bestdist(setT.getCPtr(vertices), vertices), true);
   }
 
-  public static java.lang.Float qh_vertex_bestdist2(setT vertices, SWIGTYPE_p_p_vertexT vertexp, SWIGTYPE_p_p_vertexT vertexp2) {
+  public static java.lang.Double qh_vertex_bestdist2(setT vertices, SWIGTYPE_p_p_vertexT vertexp, SWIGTYPE_p_p_vertexT vertexp2) {
     return new SWIGTYPE_p_coordT(qhullJNI.qh_vertex_bestdist2(setT.getCPtr(vertices), vertices, SWIGTYPE_p_p_vertexT.getCPtr(vertexp), SWIGTYPE_p_p_vertexT.getCPtr(vertexp2)), true);
   }
 
@@ -1011,7 +1011,7 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_all_vertexmerges(apexpointid, SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_p_facetT.getCPtr(retryfacet));
   }
 
-  public static void qh_appendmergeset(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, mergeType mergetype, java.lang.Float dist, double angle) {
+  public static void qh_appendmergeset(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, mergeType mergetype, java.lang.Double dist, double angle) {
     qhullJNI.qh_appendmergeset(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_facetT.getCPtr(neighbor), mergetype.swigValue(), dist, angle);
   }
 
@@ -1116,7 +1116,7 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_getmergeset_initial(SWIGTYPE_p_facetT.getCPtr(facetlist));
   }
 
-  public static java.lang.Boolean qh_getpinchedmerges(SWIGTYPE_p_vertexT apex, java.lang.Float maxdupdist, SWIGTYPE_p_boolT iscoplanar) {
+  public static java.lang.Boolean qh_getpinchedmerges(SWIGTYPE_p_vertexT apex, java.lang.Double maxdupdist, SWIGTYPE_p_boolT iscoplanar) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_getpinchedmerges(SWIGTYPE_p_vertexT.getCPtr(apex), maxdupdist, SWIGTYPE_p_boolT.getCPtr(iscoplanar)), true);
   }
 
@@ -1401,7 +1401,7 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_matchneighbor(SWIGTYPE_p_facetT.getCPtr(newfacet), newskip, hashsize, SWIGTYPE_p_int.getCPtr(hashcount));
   }
 
-  public static java.lang.Float qh_matchnewfacets() {
+  public static java.lang.Double qh_matchnewfacets() {
     return new SWIGTYPE_p_coordT(qhullJNI.qh_matchnewfacets(), true);
   }
 
@@ -1570,7 +1570,7 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new SWIGTYPE_p_vertexT(cPtr, false);
   }
 
-  public static java.lang.Float qh_matchdupridge(SWIGTYPE_p_facetT atfacet, int atskip, int hashsize, SWIGTYPE_p_int hashcount) {
+  public static java.lang.Double qh_matchdupridge(SWIGTYPE_p_facetT atfacet, int atskip, int hashsize, SWIGTYPE_p_int hashcount) {
     return new SWIGTYPE_p_coordT(qhullJNI.qh_matchdupridge(SWIGTYPE_p_facetT.getCPtr(atfacet), atskip, hashsize, SWIGTYPE_p_int.getCPtr(hashcount)), true);
   }
 
