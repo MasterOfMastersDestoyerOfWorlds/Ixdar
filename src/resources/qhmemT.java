@@ -146,11 +146,14 @@ public class qhmemT {
     return (cPtr == 0) ? null : new setT(cPtr, false);
   }
 
-  public void setFerr(SWIGTYPE_p_FILE value) {
-    qhullJNI.qhmemT_ferr_set(swigCPtr, this, SWIGTYPE_p_FILE.getCPtr(value));
+  public void setFerr(java.io.FileOutputStream value) throws java.io.IOException {
+    retainFD = value;
+    {
+      qhullJNI.qhmemT_ferr_set(swigCPtr, this, value.getFD());
+    }
   }
 
-  public SWIGTYPE_p_FILE getFerr() {
+  public java.io.FileOutputStream getFerr() throws java.io.IOException {
     long cPtr = qhullJNI.qhmemT_ferr_get(swigCPtr, this);
     return (cPtr == 0) ? null : new SWIGTYPE_p_FILE(cPtr, false);
   }

@@ -13,7 +13,13 @@ public class Tests {
 	public void testQHull() {
 		PointSetPath retTup = Main.importFromFile(new File("./src/shell/djbouti"));
 
-		Shell orgShell = retTup.ps.convexHull();
+		PointSet ps = new PointSet();
+		ps.add(new PointND.Double(3, 0, 1, 0));
+		ps.add(new PointND.Double(4, 0, -1, 0));
+		ps.add(new PointND.Double(1, 0, 0, 1));
+		ps.add(new PointND.Double(5, 1, 0, 0));
+		ps.add(new PointND.Double(6, -1, 0, 0));
+		Shell orgShell = retTup.ps.convexHull(ps);
 	}
 
 	/**

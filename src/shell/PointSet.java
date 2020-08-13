@@ -1,10 +1,14 @@
 package shell;
 
+import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 
-import resources.SWIGTYPE_p_boolT;
 import resources.SWIGTYPE_p_coordT;
-import resources.SWIGTYPE_p_int;
+import resources.SWIGTYPE_p_p_char;
 import resources.qhull;
 
 /**
@@ -16,23 +20,105 @@ public class PointSet extends ArrayList<PointND> {
 	static {
 		try {
 			System.loadLibrary("qhull");
-		}catch(Exception e) {
+		} catch (Exception e) {
 			System.out.println("name of shared lib should be: " + System.mapLibraryName("qhull"));
 			System.out.println(e);
-			
+
 		}
-		
+
 	}
 
 	/**
-	 * make sure to see resources/swig.sh for details on compiling qhull to work with java also set the 
-	 * native library to Users/user/Library/Java/Extensions in the build path so that
-	 * eclipse can find the dylib
-	 * @return the convex hull of the set of points in n dimensions according to qhull
+	 * make sure to see resources/swig.sh for details on compiling qhull to work
+	 * with java also set the native library to Users/user/Library/Java/Extensions
+	 * in the build path so that eclipse can find the dylib
+	 * http://www.swig.org/Doc1.3/Library.html this code should copy the process
+	 * from resources/src/libqhull/unix.c i think anyway doing nconvexhull
+	 * 
+	 * @return the convex hull of the set of points in n dimensions according to
+	 *         qhull
 	 */
-	public Shell convexHull() {
-		System.out.println(qhull.qh_rand());
+	public Shell convexHull(PointSet ps) {
+		/*
+		 * Run 1: convex hull
+		 */
+		SWIGTYPE_p_p_char NULL = qhull.new_Stringp();
+		qhull.Stringp_assign(NULL, null);
+		try {
+
+			File in = new File("in"), out = new File("out"), err = new File("err");
+			qhull.qh_init_A(new FileOutputStream(in), new FileOutputStream(out), new FileOutputStream(err), 0, NULL);
+			int exitcode = qhull.setjmp_wrap();
+			if(exitcode == 0) {
+				qhull.setNOerrexit();
+				qhull.qh_initflags("qhull s");
+				
+				int maxDim = ps.getLargestDim();
+				SWIGTYPE_p_coordT points = qhull.new_coordT_array(maxDim*ps.size());
+				System.out.println();
+				for(int i = 0; i < ps.size(); i++) {
+					PointND p = ps.get(i);
+					for(int j = 0; j < p.getDim(); j++) {
+						qhull.coordTset(points, maxDim*i + j, (float) 2);
+					}
+				}
+				qhull.qh_init_B(points, ps.size(), maxDim, false);
+			}
+			else {
+				throw new Exception("setjmp failed!");
+			}
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	  System.out.println("ree");
+	  System.out.println("reee");
+//	    printf( "\n========\ncompute triangulated convex hull of cube after rotating input\n");
+//	    makecube(array[0], SIZEcube, DIM);
+//	    fflush(NULL);
+//	    qh_init_B(array[0], SIZEcube, DIM, ismalloc);
+//	    qh_qhull();
+//	    qh_check_output();
+//	    qh_triangulate();  /* requires option 'Q11' if want to add points */
+//	    print_summary();
+//	    if (qh VERIFYoutput && !qh FORCEoutput && !qh STOPadd && !qh STOPcone && !qh STOPpoint)
+//	      qh_check_points();
+//	    fflush(NULL);
+//	    printf( "\nadd points in a diamond\n");
+//	    adddiamond(array[0], SIZEcube, SIZEdiamond, DIM);
+//	    qh_check_output();
+//	    print_summary();
+//	    qh_produce_output();  /* delete this line to help avoid io.c */
+//	    if (qh VERIFYoutput && !qh FORCEoutput && !qh STOPadd && !qh STOPcone && !qh STOPpoint)
+//	      qh_check_points();
+//	    fflush(NULL);
+//	  qh NOerrexit= True;
+//	#ifdef qh_NOmem
+//	  qh_freeqhull(qh_ALL);
+//	#else
+//	  qh_freeqhull(!qh_ALL);
+//	  qh_memfreeshort(&curlong, &totlong);
+//	  if (curlong || totlong)
+//	    fprintf(stderr, "qhull warning (user_eg2, run 1): did not free %d bytes of long memory (%d pieces)\n",
+//	          totlong, curlong);
+//	#endif
 		return null;
+	}
+
+	private int getLargestDim() {
+		int maxDim = 0;
+		for(PointND p : this) {
+			if(maxDim < p.getDim()) {
+				maxDim = p.getDim();
+			}
+		}
+		return maxDim;
 	}
 
 	/**

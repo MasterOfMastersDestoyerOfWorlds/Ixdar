@@ -1,7 +1,7 @@
 cd qhull-2020.2/src/libqhull
 make
 #compiling all of the JNI files in the resources folder of the project
-swig -java -package resources -outdir ../../../../resources qhull.i
+swig -java -I/usr/include -package resources -outdir ../../../../resources qhull.i
 # compiling the wrapper code with the correct JNI resources need to 
 #change darwin to win32 or idk what for linux
 gcc -c global.c libqhull.c qhull_wrap.c -I$JAVA_HOME/include -I$JAVA_HOME/include/darwin

@@ -129,12 +129,15 @@ void    qh_joggle_restart(const char *reason);
 void    qh_printsummary(FILE *fp);
 
 /***** -global.c internal prototypes (alphabetical) ***********************/
-
+void     coordTset(coordT *ary, int index, float value);
+int     setjmp_wrap();
+void    setNOerrexit();
 void    qh_appendprint(qh_PRINT format);
 void    qh_freebuild(boolT allmem);
 void    qh_freebuffers(void);
 void    qh_init_A(FILE *infile, FILE *outfile, FILE *errfile, int argc, char *argv[]);
 void    qh_init_B(coordT *points, int numpoints, int dim, boolT ismalloc);
+void    qh_initflags(char *command);
 
 /***** -stat.c internal prototypes (alphabetical) ***********************/
 

@@ -50,6 +50,21 @@ qhT qh_qh;              /* all global variables.
 const char qh_version[]= "2020.2 2020/07/24";
 const char qh_version2[]= "qhull 8.0.1 (2020.2 2020/07/24)";
 
+int setjmp_wrap(){
+  int exitcode;
+  exitcode= setjmp(qh errexit);
+  return exitcode;
+
+}
+
+void setNOerrexit(){
+  qh NOerrexit=False;
+}
+
+void coordTset(coordT *ary, int index, float value){
+  ary[index] = value;
+}
+
 /*-<a                             href="qh-globa.htm#TOC"
   >-------------------------------</a><a name="appendprint">-</a>
 

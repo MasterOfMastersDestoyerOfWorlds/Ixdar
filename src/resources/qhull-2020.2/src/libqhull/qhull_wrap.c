@@ -219,7 +219,8 @@ static void SWIGUNUSED SWIG_JavaThrowException(JNIEnv *jenv, SWIG_JavaExceptionC
 #include "random.h"
 #include "qset.h"
 #include "stat.h"
-
+#include <assert.h>
+#include <jni.h>
 
 
 static int *new_intp() { 
@@ -241,6 +242,68 @@ static void intp_assign(int *obj, int value) {
 }
 
 static int intp_value(int *obj) {
+  return *obj;
+}
+
+
+static coordT *new_coordT_array(int nelements) { 
+  return (coordT *) calloc(nelements,sizeof(coordT)); 
+}
+
+static void delete_coordT_array(coordT *ary) { 
+  free(ary); 
+}
+
+static coordT coordT_array_getitem(coordT *ary, int index) {
+    return ary[index];
+}
+static void coordT_array_setitem(coordT *ary, int index, coordT value) {
+    ary[index] = value;
+}
+
+
+static char *new_String() { 
+  return (char *) calloc(1,sizeof(char)); 
+}
+
+static char *copy_String(char value) { 
+  char *obj = (char *) calloc(1,sizeof(char));
+  *obj = value;
+  return obj; 
+}
+
+static void delete_String(char *obj) { 
+  if (obj) free(obj); 
+}
+
+static void String_assign(char *obj, char value) {
+  *obj = value;
+}
+
+static char String_value(char *obj) {
+  return *obj;
+}
+
+
+static char* *new_Stringp() { 
+  return (char* *) calloc(1,sizeof(char*)); 
+}
+
+static char* *copy_Stringp(char* value) { 
+  char* *obj = (char* *) calloc(1,sizeof(char*));
+  *obj = value;
+  return obj; 
+}
+
+static void delete_Stringp(char* *obj) { 
+  if (obj) free(obj); 
+}
+
+static void Stringp_assign(char* *obj, char* value) {
+  *obj = value;
+}
+
+static char* Stringp_value(char* *obj) {
   return *obj;
 }
 
@@ -307,6 +370,219 @@ SWIGEXPORT jint JNICALL Java_resources_qhullJNI_intp_1value(JNIEnv *jenv, jclass
   arg1 = *(int **)&jarg1; 
   result = (int)intp_value(arg1);
   jresult = (jint)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_new_1coordT_1array(JNIEnv *jenv, jclass jcls, jint jarg1) {
+  jlong jresult = 0 ;
+  int arg1 ;
+  coordT *result = 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = (int)jarg1; 
+  result = (coordT *)new_coordT_array(arg1);
+  *(coordT **)&jresult = result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_delete_1coordT_1array(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+  coordT *arg1 = (coordT *) 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = *(coordT **)&jarg1; 
+  delete_coordT_array(arg1);
+}
+
+
+SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_coordT_1array_1getitem(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2) {
+  jfloat jresult = 0 ;
+  coordT *arg1 = (coordT *) 0 ;
+  int arg2 ;
+  coordT result;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = *(coordT **)&jarg1; 
+  arg2 = (int)jarg2; 
+  result = coordT_array_getitem(arg1,arg2);
+  {
+    coordT * resultptr = (coordT *) malloc(sizeof(coordT));
+    memmove(resultptr, &result, sizeof(coordT));
+    *(coordT **)&jresult = resultptr;
+  }
+  return jresult;
+}
+
+
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_coordT_1array_1setitem(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jfloat jarg3) {
+  coordT *arg1 = (coordT *) 0 ;
+  int arg2 ;
+  coordT arg3 ;
+  coordT *argp3 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = *(coordT **)&jarg1; 
+  arg2 = (int)jarg2; 
+  argp3 = *(coordT **)&jarg3; 
+  if (!argp3) {
+    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null coordT");
+    return ;
+  }
+  arg3 = *argp3; 
+  coordT_array_setitem(arg1,arg2,arg3);
+}
+
+
+SWIGEXPORT jstring JNICALL Java_resources_qhullJNI_new_1String(JNIEnv *jenv, jclass jcls) {
+  jstring jresult = 0 ;
+  char *result = 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  result = (char *)new_String();
+  if (result) jresult = (*jenv)->NewStringUTF(jenv, (const char *)result);
+  return jresult;
+}
+
+
+SWIGEXPORT jstring JNICALL Java_resources_qhullJNI_copy_1String(JNIEnv *jenv, jclass jcls, jchar jarg1) {
+  jstring jresult = 0 ;
+  char arg1 ;
+  char *result = 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = (char)jarg1; 
+  result = (char *)copy_String(arg1);
+  if (result) jresult = (*jenv)->NewStringUTF(jenv, (const char *)result);
+  return jresult;
+}
+
+
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_delete_1String(JNIEnv *jenv, jclass jcls, jstring jarg1) {
+  char *arg1 = (char *) 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = 0;
+  if (jarg1) {
+    arg1 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg1, 0);
+    if (!arg1) return ;
+  }
+  delete_String(arg1);
+  if (arg1) (*jenv)->ReleaseStringUTFChars(jenv, jarg1, (const char *)arg1);
+}
+
+
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_String_1assign(JNIEnv *jenv, jclass jcls, jstring jarg1, jchar jarg2) {
+  char *arg1 = (char *) 0 ;
+  char arg2 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = 0;
+  if (jarg1) {
+    arg1 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg1, 0);
+    if (!arg1) return ;
+  }
+  arg2 = (char)jarg2; 
+  String_assign(arg1,arg2);
+  if (arg1) (*jenv)->ReleaseStringUTFChars(jenv, jarg1, (const char *)arg1);
+}
+
+
+SWIGEXPORT jchar JNICALL Java_resources_qhullJNI_String_1value(JNIEnv *jenv, jclass jcls, jstring jarg1) {
+  jchar jresult = 0 ;
+  char *arg1 = (char *) 0 ;
+  char result;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = 0;
+  if (jarg1) {
+    arg1 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg1, 0);
+    if (!arg1) return 0;
+  }
+  result = (char)String_value(arg1);
+  jresult = (jchar)result; 
+  if (arg1) (*jenv)->ReleaseStringUTFChars(jenv, jarg1, (const char *)arg1);
+  return jresult;
+}
+
+
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_new_1Stringp(JNIEnv *jenv, jclass jcls) {
+  jlong jresult = 0 ;
+  char **result = 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  result = (char **)new_Stringp();
+  *(char ***)&jresult = result; 
+  return jresult;
+}
+
+
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_copy_1Stringp(JNIEnv *jenv, jclass jcls, jstring jarg1) {
+  jlong jresult = 0 ;
+  char *arg1 = (char *) 0 ;
+  char **result = 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = 0;
+  if (jarg1) {
+    arg1 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg1, 0);
+    if (!arg1) return 0;
+  }
+  result = (char **)copy_Stringp(arg1);
+  *(char ***)&jresult = result; 
+  if (arg1) (*jenv)->ReleaseStringUTFChars(jenv, jarg1, (const char *)arg1);
+  return jresult;
+}
+
+
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_delete_1Stringp(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+  char **arg1 = (char **) 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = *(char ***)&jarg1; 
+  delete_Stringp(arg1);
+}
+
+
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_Stringp_1assign(JNIEnv *jenv, jclass jcls, jlong jarg1, jstring jarg2) {
+  char **arg1 = (char **) 0 ;
+  char *arg2 = (char *) 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = *(char ***)&jarg1; 
+  arg2 = 0;
+  if (jarg2) {
+    arg2 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg2, 0);
+    if (!arg2) return ;
+  }
+  Stringp_assign(arg1,arg2);
+  if (arg2) (*jenv)->ReleaseStringUTFChars(jenv, jarg2, (const char *)arg2);
+}
+
+
+SWIGEXPORT jstring JNICALL Java_resources_qhullJNI_Stringp_1value(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+  jstring jresult = 0 ;
+  char **arg1 = (char **) 0 ;
+  char *result = 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = *(char ***)&jarg1; 
+  result = (char *)Stringp_value(arg1);
+  if (result) jresult = (*jenv)->NewStringUTF(jenv, (const char *)result);
   return jresult;
 }
 
@@ -1218,24 +1494,20 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1qhull(JNIEnv *jenv, jclass j
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1addpoint(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1addpoint(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jboolean jarg3) {
+  jboolean jresult = 0 ;
   pointT *arg1 = (pointT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   boolT arg3 ;
-  boolT *argp3 ;
   boolT result;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(pointT **)&jarg1; 
   arg2 = *(facetT **)&jarg2; 
-  argp3 = *(boolT **)&jarg3; 
-  if (!argp3) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg3 = *argp3; 
+  
+  arg3 = jarg3;
+  
   result = qh_addpoint(arg1,arg2,arg3);
   {
     boolT * resultptr = (boolT *) malloc(sizeof(boolT));
@@ -1273,8 +1545,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1buildcone(JNIEnv *jenv, jcl
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1buildcone_1mergepinched(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1buildcone_1mergepinched(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
+  jboolean jresult = 0 ;
   vertexT *arg1 = (vertexT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   facetT **arg3 = (facetT **) 0 ;
@@ -1295,8 +1567,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1buildcone_1mergepinched(JNI
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1buildcone_1onlygood(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1buildcone_1onlygood(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2) {
+  jboolean jresult = 0 ;
   vertexT *arg1 = (vertexT *) 0 ;
   int arg2 ;
   boolT result;
@@ -1393,24 +1665,20 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1partitionall(JNIEnv *jenv, j
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1partitioncoplanar(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1partitioncoplanar(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jboolean jarg4) {
   pointT *arg1 = (pointT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   double *arg3 = (double *) 0 ;
   boolT arg4 ;
-  boolT *argp4 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(pointT **)&jarg1; 
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(double **)&jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   qh_partitioncoplanar(arg1,arg2,arg3,arg4);
 }
 
@@ -1427,19 +1695,15 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1partitionpoint(JNIEnv *jenv,
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1partitionvisible(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1partitionvisible(JNIEnv *jenv, jclass jcls, jboolean jarg1, jlong jarg2) {
   boolT arg1 ;
   int *arg2 = (int *) 0 ;
-  boolT *argp1 ;
   
   (void)jenv;
   (void)jcls;
-  argp1 = *(boolT **)&jarg1; 
-  if (!argp1) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg1 = *argp1; 
+  
+  arg1 = jarg1;
+  
   arg2 = *(int **)&jarg2; 
   qh_partitionvisible(arg1,arg2);
 }
@@ -1460,13 +1724,56 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1joggle_1restart(JNIEnv *jenv
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printsummary(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printsummary(JNIEnv *jenv, jclass jcls, jobject jarg1) {
   FILE *arg1 = (FILE *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   qh_printsummary(arg1);
+}
+
+
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_coordTset(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jfloat jarg3) {
+  coordT *arg1 = (coordT *) 0 ;
+  int arg2 ;
+  float arg3 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = *(coordT **)&jarg1; 
+  arg2 = (int)jarg2; 
+  arg3 = (float)jarg3; 
+  coordTset(arg1,arg2,arg3);
+}
+
+
+SWIGEXPORT jint JNICALL Java_resources_qhullJNI_setjmp_1wrap(JNIEnv *jenv, jclass jcls) {
+  jint jresult = 0 ;
+  int result;
+  
+  (void)jenv;
+  (void)jcls;
+  result = (int)setjmp_wrap();
+  jresult = (jint)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_setNOerrexit(JNIEnv *jenv, jclass jcls) {
+  (void)jenv;
+  (void)jcls;
+  setNOerrexit();
 }
 
 
@@ -1486,18 +1793,14 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1appendprint(JNIEnv *jenv, jc
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1freebuild(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1freebuild(JNIEnv *jenv, jclass jcls, jboolean jarg1) {
   boolT arg1 ;
-  boolT *argp1 ;
   
   (void)jenv;
   (void)jcls;
-  argp1 = *(boolT **)&jarg1; 
-  if (!argp1) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg1 = *argp1; 
+  
+  arg1 = jarg1;
+  
   qh_freebuild(arg1);
 }
 
@@ -1509,7 +1812,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1freebuffers(JNIEnv *jenv, jc
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1init_1A(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jint jarg4, jlong jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1init_1A(JNIEnv *jenv, jclass jcls, jobject jarg1, jobject jarg2, jobject jarg3, jint jarg4, jlong jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   FILE *arg2 = (FILE *) 0 ;
   FILE *arg3 = (FILE *) 0 ;
@@ -1518,9 +1821,39 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1init_1A(JNIEnv *jenv, jclass
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
-  arg2 = *(FILE **)&jarg2; 
-  arg3 = *(FILE **)&jarg3; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg2, field_fd);
+    arg2 = fdopen(rawfd, "w");
+  }
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg3, field_fd);
+    arg3 = fdopen(rawfd, "w");
+  }
   arg4 = (int)jarg4; 
   arg5 = *(char ***)&jarg5; 
   qh_init_A(arg1,arg2,arg3,arg4,arg5);
@@ -1528,25 +1861,36 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1init_1A(JNIEnv *jenv, jclass
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1init_1B(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jint jarg3, jlong jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1init_1B(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jint jarg3, jboolean jarg4) {
   coordT *arg1 = (coordT *) 0 ;
   int arg2 ;
   int arg3 ;
   boolT arg4 ;
-  boolT *argp4 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(coordT **)&jarg1; 
   arg2 = (int)jarg2; 
   arg3 = (int)jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   qh_init_B(arg1,arg2,arg3,arg4);
+}
+
+
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1initflags(JNIEnv *jenv, jclass jcls, jstring jarg1) {
+  char *arg1 = (char *) 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  arg1 = 0;
+  if (jarg1) {
+    arg1 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg1, 0);
+    if (!arg1) return ;
+  }
+  qh_initflags(arg1);
+  if (arg1) (*jenv)->ReleaseStringUTFChars(jenv, jarg1, (const char *)arg1);
 }
 
 
@@ -1625,26 +1969,22 @@ SWIGEXPORT jint JNICALL Java_resources_qhullJNI_qhDEFgeom_1get(JNIEnv *jenv, jcl
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1backnormal(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jint jarg3, jlong jarg4, jlong jarg5, jlong jarg6) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1backnormal(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jint jarg3, jboolean jarg4, jlong jarg5, jlong jarg6) {
   double **arg1 = (double **) 0 ;
   int arg2 ;
   int arg3 ;
   boolT arg4 ;
   coordT *arg5 = (coordT *) 0 ;
   boolT *arg6 = (boolT *) 0 ;
-  boolT *argp4 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(double ***)&jarg1; 
   arg2 = (int)jarg2; 
   arg3 = (int)jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   arg5 = *(coordT **)&jarg5; 
   arg6 = *(boolT **)&jarg6; 
   qh_backnormal(arg1,arg2,arg3,arg4,arg5,arg6);
@@ -1665,7 +2005,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1distplane(JNIEnv *jenv, jcla
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbest(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jlong jarg5, jlong jarg6, jlong jarg7, jlong jarg8) {
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbest(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jboolean jarg3, jboolean jarg4, jboolean jarg5, jlong jarg6, jlong jarg7, jlong jarg8) {
   jlong jresult = 0 ;
   pointT *arg1 = (pointT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
@@ -1675,33 +2015,21 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbest(JNIEnv *jenv, jcla
   double *arg6 = (double *) 0 ;
   boolT *arg7 = (boolT *) 0 ;
   int *arg8 = (int *) 0 ;
-  boolT *argp3 ;
-  boolT *argp4 ;
-  boolT *argp5 ;
   facetT *result = 0 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(pointT **)&jarg1; 
   arg2 = *(facetT **)&jarg2; 
-  argp3 = *(boolT **)&jarg3; 
-  if (!argp3) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg3 = *argp3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg4 = *argp4; 
-  argp5 = *(boolT **)&jarg5; 
-  if (!argp5) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg5 = *argp5; 
+  
+  arg3 = jarg3;
+  
+  
+  arg4 = jarg4;
+  
+  
+  arg5 = jarg5;
+  
   arg6 = *(double **)&jarg6; 
   arg7 = *(boolT **)&jarg7; 
   arg8 = *(int **)&jarg8; 
@@ -1711,7 +2039,7 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbest(JNIEnv *jenv, jcla
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbesthorizon(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jlong jarg5, jlong jarg6) {
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbesthorizon(JNIEnv *jenv, jclass jcls, jboolean jarg1, jlong jarg2, jlong jarg3, jboolean jarg4, jlong jarg5, jlong jarg6) {
   jlong jresult = 0 ;
   boolT arg1 ;
   pointT *arg2 = (pointT *) 0 ;
@@ -1719,26 +2047,18 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbesthorizon(JNIEnv *jen
   boolT arg4 ;
   double *arg5 = (double *) 0 ;
   int *arg6 = (int *) 0 ;
-  boolT *argp1 ;
-  boolT *argp4 ;
   facetT *result = 0 ;
   
   (void)jenv;
   (void)jcls;
-  argp1 = *(boolT **)&jarg1; 
-  if (!argp1) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg1 = *argp1; 
+  
+  arg1 = jarg1;
+  
   arg2 = *(pointT **)&jarg2; 
   arg3 = *(facetT **)&jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   arg5 = *(double **)&jarg5; 
   arg6 = *(int **)&jarg6; 
   result = (facetT *)qh_findbesthorizon(arg1,arg2,arg3,arg4,arg5,arg6);
@@ -1747,7 +2067,7 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbesthorizon(JNIEnv *jen
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbestnew(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jlong jarg5, jlong jarg6) {
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbestnew(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jboolean jarg4, jlong jarg5, jlong jarg6) {
   jlong jresult = 0 ;
   pointT *arg1 = (pointT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
@@ -1755,7 +2075,6 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbestnew(JNIEnv *jenv, j
   boolT arg4 ;
   boolT *arg5 = (boolT *) 0 ;
   int *arg6 = (int *) 0 ;
-  boolT *argp4 ;
   facetT *result = 0 ;
   
   (void)jenv;
@@ -1763,12 +2082,9 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbestnew(JNIEnv *jenv, j
   arg1 = *(pointT **)&jarg1; 
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(double **)&jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   arg5 = *(boolT **)&jarg5; 
   arg6 = *(int **)&jarg6; 
   result = (facetT *)qh_findbestnew(arg1,arg2,arg3,arg4,arg5,arg6);
@@ -1840,8 +2156,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1getcentrum(JNIEnv *jenv, jc
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1getdistance(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4) {
-  jlong jresult = 0 ;
+SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_qh_1getdistance(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4) {
+  jfloat jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   coordT *arg3 = (coordT *) 0 ;
@@ -1864,44 +2180,36 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1getdistance(JNIEnv *jenv, j
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1normalize(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1normalize(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jboolean jarg3) {
   coordT *arg1 = (coordT *) 0 ;
   int arg2 ;
   boolT arg3 ;
-  boolT *argp3 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(coordT **)&jarg1; 
   arg2 = (int)jarg2; 
-  argp3 = *(boolT **)&jarg3; 
-  if (!argp3) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg3 = *argp3; 
+  
+  arg3 = jarg3;
+  
   qh_normalize(arg1,arg2,arg3);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1normalize2(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jlong jarg3, jlong jarg4, jlong jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1normalize2(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jboolean jarg3, jlong jarg4, jlong jarg5) {
   coordT *arg1 = (coordT *) 0 ;
   int arg2 ;
   boolT arg3 ;
   double *arg4 = (double *) 0 ;
   boolT *arg5 = (boolT *) 0 ;
-  boolT *argp3 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(coordT **)&jarg1; 
   arg2 = (int)jarg2; 
-  argp3 = *(boolT **)&jarg3; 
-  if (!argp3) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg3 = *argp3; 
+  
+  arg3 = jarg3;
+  
   arg4 = *(double **)&jarg4; 
   arg5 = *(boolT **)&jarg5; 
   qh_normalize2(arg1,arg2,arg3,arg4,arg5);
@@ -1936,7 +2244,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1setfacetplane(JNIEnv *jenv, 
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1sethyperplane_1det(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jlong jarg5, jlong jarg6, jlong jarg7) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1sethyperplane_1det(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2, jlong jarg3, jboolean jarg4, jlong jarg5, jlong jarg6, jlong jarg7) {
   int arg1 ;
   coordT **arg2 = (coordT **) 0 ;
   coordT *arg3 = (coordT *) 0 ;
@@ -1944,19 +2252,15 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1sethyperplane_1det(JNIEnv *j
   coordT *arg5 = (coordT *) 0 ;
   double *arg6 = (double *) 0 ;
   boolT *arg7 = (boolT *) 0 ;
-  boolT *argp4 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = (int)jarg1; 
   arg2 = *(coordT ***)&jarg2; 
   arg3 = *(coordT **)&jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   arg5 = *(coordT **)&jarg5; 
   arg6 = *(double **)&jarg6; 
   arg7 = *(boolT **)&jarg7; 
@@ -1964,7 +2268,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1sethyperplane_1det(JNIEnv *j
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1sethyperplane_1gauss(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jlong jarg5, jlong jarg6, jlong jarg7) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1sethyperplane_1gauss(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2, jlong jarg3, jboolean jarg4, jlong jarg5, jlong jarg6, jlong jarg7) {
   int arg1 ;
   coordT **arg2 = (coordT **) 0 ;
   pointT *arg3 = (pointT *) 0 ;
@@ -1972,19 +2276,15 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1sethyperplane_1gauss(JNIEnv 
   coordT *arg5 = (coordT *) 0 ;
   coordT *arg6 = (coordT *) 0 ;
   boolT *arg7 = (boolT *) 0 ;
-  boolT *argp4 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = (int)jarg1; 
   arg2 = *(coordT ***)&jarg2; 
   arg3 = *(pointT **)&jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   arg5 = *(coordT **)&jarg5; 
   arg6 = *(coordT **)&jarg6; 
   arg7 = *(boolT **)&jarg7; 
@@ -1992,8 +2292,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1sethyperplane_1gauss(JNIEnv 
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1sharpnewfacets(JNIEnv *jenv, jclass jcls) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1sharpnewfacets(JNIEnv *jenv, jclass jcls) {
+  jboolean jresult = 0 ;
   boolT result;
   
   (void)jenv;
@@ -2188,7 +2488,7 @@ SWIGEXPORT jdouble JNICALL Java_resources_qhullJNI_qh_1facetarea(JNIEnv *jenv, j
 }
 
 
-SWIGEXPORT jdouble JNICALL Java_resources_qhullJNI_qh_1facetarea_1simplex(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jlong jarg4, jlong jarg5, jlong jarg6, jlong jarg7) {
+SWIGEXPORT jdouble JNICALL Java_resources_qhullJNI_qh_1facetarea_1simplex(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jlong jarg4, jboolean jarg5, jlong jarg6, jlong jarg7) {
   jdouble jresult = 0 ;
   int arg1 ;
   coordT *arg2 = (coordT *) 0 ;
@@ -2197,7 +2497,6 @@ SWIGEXPORT jdouble JNICALL Java_resources_qhullJNI_qh_1facetarea_1simplex(JNIEnv
   boolT arg5 ;
   coordT *arg6 = (coordT *) 0 ;
   double *arg7 = (double *) 0 ;
-  boolT *argp5 ;
   double result;
   
   (void)jenv;
@@ -2207,12 +2506,9 @@ SWIGEXPORT jdouble JNICALL Java_resources_qhullJNI_qh_1facetarea_1simplex(JNIEnv
   arg2 = *(coordT **)&jarg2; 
   arg3 = *(setT **)&jarg3; 
   arg4 = *(vertexT **)&jarg4; 
-  argp5 = *(boolT **)&jarg5; 
-  if (!argp5) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg5 = *argp5; 
+  
+  arg5 = jarg5;
+  
   arg6 = *(coordT **)&jarg6; 
   arg7 = *(double **)&jarg7; 
   result = (double)qh_facetarea_simplex(arg1,arg2,arg3,arg4,arg5,arg6,arg7);
@@ -2304,8 +2600,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1getarea(JNIEnv *jenv, jclass
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1gram_1schmidt(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1gram_1schmidt(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2) {
+  jboolean jresult = 0 ;
   int arg1 ;
   double **arg2 = (double **) 0 ;
   boolT result;
@@ -2324,8 +2620,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1gram_1schmidt(JNIEnv *jenv,
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1inthresholds(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1inthresholds(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
+  jboolean jresult = 0 ;
   coordT *arg1 = (coordT *) 0 ;
   double *arg2 = (double *) 0 ;
   boolT result;
@@ -2450,8 +2746,8 @@ SWIGEXPORT jint JNICALL Java_resources_qhullJNI_qh_1mindiff(JNIEnv *jenv, jclass
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1orientoutside(JNIEnv *jenv, jclass jcls, jlong jarg1) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1orientoutside(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+  jboolean jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   boolT result;
   
@@ -2482,8 +2778,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1outerinner(JNIEnv *jenv, jcl
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1pointdist(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jint jarg3) {
-  jlong jresult = 0 ;
+SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_qh_1pointdist(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jint jarg3) {
+  jfloat jresult = 0 ;
   pointT *arg1 = (pointT *) 0 ;
   pointT *arg2 = (pointT *) 0 ;
   int arg3 ;
@@ -2504,7 +2800,7 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1pointdist(JNIEnv *jenv, jcl
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printmatrix(JNIEnv *jenv, jclass jcls, jlong jarg1, jstring jarg2, jlong jarg3, jint jarg4, jint jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printmatrix(JNIEnv *jenv, jclass jcls, jobject jarg1, jstring jarg2, jlong jarg3, jint jarg4, jint jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   char *arg2 = (char *) 0 ;
   double **arg3 = (double **) 0 ;
@@ -2513,7 +2809,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printmatrix(JNIEnv *jenv, jc
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = 0;
   if (jarg2) {
     arg2 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg2, 0);
@@ -2527,7 +2833,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printmatrix(JNIEnv *jenv, jc
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpoints(JNIEnv *jenv, jclass jcls, jlong jarg1, jstring jarg2, jlong jarg3, jobject jarg3_) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpoints(JNIEnv *jenv, jclass jcls, jobject jarg1, jstring jarg2, jlong jarg3, jobject jarg3_) {
   FILE *arg1 = (FILE *) 0 ;
   char *arg2 = (char *) 0 ;
   setT *arg3 = (setT *) 0 ;
@@ -2535,7 +2841,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpoints(JNIEnv *jenv, jc
   (void)jenv;
   (void)jcls;
   (void)jarg3_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = 0;
   if (jarg2) {
     arg2 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg2, 0);
@@ -2609,7 +2925,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1scaleinput(JNIEnv *jenv, jcl
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1scalelast(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jint jarg3, jlong jarg4, jlong jarg5, jlong jarg6) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1scalelast(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jint jarg3, jfloat jarg4, jfloat jarg5, jfloat jarg6) {
   coordT *arg1 = (coordT *) 0 ;
   int arg2 ;
   int arg3 ;
@@ -2665,8 +2981,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1scalepoints(JNIEnv *jenv, jc
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1sethalfspace(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jlong jarg5, jlong jarg6) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1sethalfspace(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jlong jarg5, jlong jarg6) {
+  jboolean jresult = 0 ;
   int arg1 ;
   coordT *arg2 = (coordT *) 0 ;
   coordT **arg3 = (coordT **) 0 ;
@@ -2713,8 +3029,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1sethalfspace_1all(JNIEnv *j
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1vertex_1bestdist(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
-  jlong jresult = 0 ;
+SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_qh_1vertex_1bestdist(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
+  jfloat jresult = 0 ;
   setT *arg1 = (setT *) 0 ;
   coordT result;
   
@@ -2732,8 +3048,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1vertex_1bestdist(JNIEnv *je
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1vertex_1bestdist2(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jlong jarg3) {
-  jlong jresult = 0 ;
+SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_qh_1vertex_1bestdist2(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jlong jarg3) {
+  jfloat jresult = 0 ;
   setT *arg1 = (setT *) 0 ;
   vertexT **arg2 = (vertexT **) 0 ;
   vertexT **arg3 = (vertexT **) 0 ;
@@ -2938,7 +3254,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1copyfilename(JNIEnv *jenv, j
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1countfacets(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jobject jarg2_, jlong jarg3, jlong jarg4, jlong jarg5, jlong jarg6, jlong jarg7, jlong jarg8, jlong jarg9) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1countfacets(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jobject jarg2_, jboolean jarg3, jlong jarg4, jlong jarg5, jlong jarg6, jlong jarg7, jlong jarg8, jlong jarg9) {
   facetT *arg1 = (facetT *) 0 ;
   setT *arg2 = (setT *) 0 ;
   boolT arg3 ;
@@ -2948,19 +3264,15 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1countfacets(JNIEnv *jenv, jc
   int *arg7 = (int *) 0 ;
   int *arg8 = (int *) 0 ;
   int *arg9 = (int *) 0 ;
-  boolT *argp3 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg2_;
   arg1 = *(facetT **)&jarg1; 
   arg2 = *(setT **)&jarg2; 
-  argp3 = *(boolT **)&jarg3; 
-  if (!argp3) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg3 = *argp3; 
+  
+  arg3 = jarg3;
+  
   arg4 = *(int **)&jarg4; 
   arg5 = *(int **)&jarg5; 
   arg6 = *(int **)&jarg6; 
@@ -3022,7 +3334,7 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1detvridge3(JNIEnv *jenv, jc
 }
 
 
-SWIGEXPORT jint JNICALL Java_resources_qhullJNI_qh_1eachvoronoi(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jint jarg5, jlong jarg6) {
+SWIGEXPORT jint JNICALL Java_resources_qhullJNI_qh_1eachvoronoi(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jboolean jarg4, jint jarg5, jboolean jarg6) {
   jint jresult = 0 ;
   FILE *arg1 = (FILE *) 0 ;
   printvridgeT arg2 = (printvridgeT) 0 ;
@@ -3030,62 +3342,66 @@ SWIGEXPORT jint JNICALL Java_resources_qhullJNI_qh_1eachvoronoi(JNIEnv *jenv, jc
   boolT arg4 ;
   qh_RIDGE arg5 ;
   boolT arg6 ;
-  boolT *argp4 ;
-  boolT *argp6 ;
   int result;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(printvridgeT *)&jarg2; 
   arg3 = *(vertexT **)&jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   arg5 = (qh_RIDGE)jarg5; 
-  argp6 = *(boolT **)&jarg6; 
-  if (!argp6) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg6 = *argp6; 
+  
+  arg6 = jarg6;
+  
   result = (int)qh_eachvoronoi(arg1,arg2,arg3,arg4,arg5,arg6);
   jresult = (jint)result; 
   return jresult;
 }
 
 
-SWIGEXPORT jint JNICALL Java_resources_qhullJNI_qh_1eachvoronoi_1all(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jint jarg4, jlong jarg5) {
+SWIGEXPORT jint JNICALL Java_resources_qhullJNI_qh_1eachvoronoi_1all(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jboolean jarg3, jint jarg4, jboolean jarg5) {
   jint jresult = 0 ;
   FILE *arg1 = (FILE *) 0 ;
   printvridgeT arg2 = (printvridgeT) 0 ;
   boolT arg3 ;
   qh_RIDGE arg4 ;
   boolT arg5 ;
-  boolT *argp3 ;
-  boolT *argp5 ;
   int result;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(printvridgeT *)&jarg2; 
-  argp3 = *(boolT **)&jarg3; 
-  if (!argp3) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg3 = *argp3; 
+  
+  arg3 = jarg3;
+  
   arg4 = (qh_RIDGE)jarg4; 
-  argp5 = *(boolT **)&jarg5; 
-  if (!argp5) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg5 = *argp5; 
+  
+  arg5 = jarg5;
+  
   result = (int)qh_eachvoronoi_all(arg1,arg2,arg3,arg4,arg5);
   jresult = (jint)result; 
   return jresult;
@@ -3108,12 +3424,11 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1facet2point(JNIEnv *jenv, jc
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1facetvertices(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jobject jarg2_, jlong jarg3) {
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1facetvertices(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jobject jarg2_, jboolean jarg3) {
   jlong jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   setT *arg2 = (setT *) 0 ;
   boolT arg3 ;
-  boolT *argp3 ;
   setT *result = 0 ;
   
   (void)jenv;
@@ -3121,12 +3436,9 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1facetvertices(JNIEnv *jenv,
   (void)jarg2_;
   arg1 = *(facetT **)&jarg1; 
   arg2 = *(setT **)&jarg2; 
-  argp3 = *(boolT **)&jarg3; 
-  if (!argp3) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg3 = *argp3; 
+  
+  arg3 = jarg3;
+  
   result = (setT *)qh_facetvertices(arg1,arg2,arg3);
   *(setT **)&jresult = result; 
   return jresult;
@@ -3157,14 +3469,13 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1markkeep(JNIEnv *jenv, jclas
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1markvoronoi(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jobject jarg2_, jlong jarg3, jlong jarg4, jlong jarg5) {
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1markvoronoi(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jobject jarg2_, jboolean jarg3, jlong jarg4, jlong jarg5) {
   jlong jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   setT *arg2 = (setT *) 0 ;
   boolT arg3 ;
   boolT *arg4 = (boolT *) 0 ;
   int *arg5 = (int *) 0 ;
-  boolT *argp3 ;
   setT *result = 0 ;
   
   (void)jenv;
@@ -3172,12 +3483,9 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1markvoronoi(JNIEnv *jenv, j
   (void)jarg2_;
   arg1 = *(facetT **)&jarg1; 
   arg2 = *(setT **)&jarg2; 
-  argp3 = *(boolT **)&jarg3; 
-  if (!argp3) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg3 = *argp3; 
+  
+  arg3 = jarg3;
+  
   arg4 = *(boolT **)&jarg4; 
   arg5 = *(int **)&jarg5; 
   result = (setT *)qh_markvoronoi(arg1,arg2,arg3,arg4,arg5);
@@ -3203,17 +3511,26 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1prepare_1output(JNIEnv *jenv
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printafacet(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printafacet(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jboolean jarg4) {
   FILE *arg1 = (FILE *) 0 ;
   qh_PRINT arg2 ;
   facetT *arg3 = (facetT *) 0 ;
   boolT arg4 ;
   qh_PRINT *argp2 ;
-  boolT *argp4 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   argp2 = *(qh_PRINT **)&jarg2; 
   if (!argp2) {
     SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null qh_PRINT");
@@ -3221,29 +3538,35 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printafacet(JNIEnv *jenv, jc
   }
   arg2 = *argp2; 
   arg3 = *(facetT **)&jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   qh_printafacet(arg1,arg2,arg3,arg4);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printbegin(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jlong jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printbegin(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jboolean jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   qh_PRINT arg2 ;
   facetT *arg3 = (facetT *) 0 ;
   setT *arg4 = (setT *) 0 ;
   boolT arg5 ;
   qh_PRINT *argp2 ;
-  boolT *argp5 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg4_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   argp2 = *(qh_PRINT **)&jarg2; 
   if (!argp2) {
     SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null qh_PRINT");
@@ -3252,17 +3575,14 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printbegin(JNIEnv *jenv, jcl
   arg2 = *argp2; 
   arg3 = *(facetT **)&jarg3; 
   arg4 = *(setT **)&jarg4; 
-  argp5 = *(boolT **)&jarg5; 
-  if (!argp5) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg5 = *argp5; 
+  
+  arg5 = jarg5;
+  
   qh_printbegin(arg1,arg2,arg3,arg4,arg5);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printcenter(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jstring jarg3, jlong jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printcenter(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jstring jarg3, jlong jarg4) {
   FILE *arg1 = (FILE *) 0 ;
   qh_PRINT arg2 ;
   char *arg3 = (char *) 0 ;
@@ -3271,7 +3591,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printcenter(JNIEnv *jenv, jc
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   argp2 = *(qh_PRINT **)&jarg2; 
   if (!argp2) {
     SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null qh_PRINT");
@@ -3289,33 +3619,52 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printcenter(JNIEnv *jenv, jc
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printcentrum(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jdouble jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printcentrum(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jdouble jarg3) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   double arg3 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = (double)jarg3; 
   qh_printcentrum(arg1,arg2,arg3);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printend(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jlong jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printend(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jboolean jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   qh_PRINT arg2 ;
   facetT *arg3 = (facetT *) 0 ;
   setT *arg4 = (setT *) 0 ;
   boolT arg5 ;
   qh_PRINT *argp2 ;
-  boolT *argp5 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg4_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   argp2 = *(qh_PRINT **)&jarg2; 
   if (!argp2) {
     SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null qh_PRINT");
@@ -3324,120 +3673,151 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printend(JNIEnv *jenv, jclas
   arg2 = *argp2; 
   arg3 = *(facetT **)&jarg3; 
   arg4 = *(setT **)&jarg4; 
-  argp5 = *(boolT **)&jarg5; 
-  if (!argp5) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg5 = *argp5; 
+  
+  arg5 = jarg5;
+  
   qh_printend(arg1,arg2,arg3,arg4,arg5);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printend4geom(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printend4geom(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jboolean jarg4) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   int *arg3 = (int *) 0 ;
   boolT arg4 ;
-  boolT *argp4 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(int **)&jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   qh_printend4geom(arg1,arg2,arg3,arg4);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printextremes(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jlong jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printextremes(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jboolean jarg4) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   setT *arg3 = (setT *) 0 ;
   boolT arg4 ;
-  boolT *argp4 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg3_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(setT **)&jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   qh_printextremes(arg1,arg2,arg3,arg4);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printextremes_12d(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jlong jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printextremes_12d(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jboolean jarg4) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   setT *arg3 = (setT *) 0 ;
   boolT arg4 ;
-  boolT *argp4 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg3_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(setT **)&jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   qh_printextremes_2d(arg1,arg2,arg3,arg4);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printextremes_1d(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jlong jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printextremes_1d(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jboolean jarg4) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   setT *arg3 = (setT *) 0 ;
   boolT arg4 ;
-  boolT *argp4 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg3_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(setT **)&jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   qh_printextremes_d(arg1,arg2,arg3,arg4);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   qh_printfacet(arg1,arg2);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet2math(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jint jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet2math(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jint jarg4) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   qh_PRINT arg3 ;
@@ -3446,7 +3826,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet2math(JNIEnv *jenv
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   argp3 = *(qh_PRINT **)&jarg3; 
   if (!argp3) {
@@ -3459,14 +3849,24 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet2math(JNIEnv *jenv
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet2geom(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet2geom(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   double *arg3 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(double **)&jarg3; 
   qh_printfacet2geom(arg1,arg2,arg3);
@@ -3474,7 +3874,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet2geom(JNIEnv *jenv
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet2geom_1points(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jdouble jarg5, jlong jarg6) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet2geom_1points(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jdouble jarg5, jlong jarg6) {
   FILE *arg1 = (FILE *) 0 ;
   pointT *arg2 = (pointT *) 0 ;
   pointT *arg3 = (pointT *) 0 ;
@@ -3484,7 +3884,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet2geom_1points(JNIE
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(pointT **)&jarg2; 
   arg3 = *(pointT **)&jarg3; 
   arg4 = *(facetT **)&jarg4; 
@@ -3495,7 +3905,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet2geom_1points(JNIE
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3math(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jint jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3math(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jint jarg4) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   qh_PRINT arg3 ;
@@ -3504,7 +3914,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3math(JNIEnv *jenv
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   argp3 = *(qh_PRINT **)&jarg3; 
   if (!argp3) {
@@ -3517,14 +3937,24 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3math(JNIEnv *jenv
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3geom_1nonsimplicial(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3geom_1nonsimplicial(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   double *arg3 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(double **)&jarg3; 
   qh_printfacet3geom_nonsimplicial(arg1,arg2,arg3);
@@ -3532,7 +3962,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3geom_1nonsimplici
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3geom_1points(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jobject jarg2_, jlong jarg3, jdouble jarg4, jlong jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3geom_1points(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jobject jarg2_, jlong jarg3, jdouble jarg4, jlong jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   setT *arg2 = (setT *) 0 ;
   facetT *arg3 = (facetT *) 0 ;
@@ -3542,7 +3972,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3geom_1points(JNIE
   (void)jenv;
   (void)jcls;
   (void)jarg2_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(setT **)&jarg2; 
   arg3 = *(facetT **)&jarg3; 
   arg4 = (double)jarg4; 
@@ -3552,14 +3992,24 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3geom_1points(JNIE
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3geom_1simplicial(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3geom_1simplicial(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   double *arg3 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(double **)&jarg3; 
   qh_printfacet3geom_simplicial(arg1,arg2,arg3);
@@ -3567,7 +4017,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3geom_1simplicial(
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3vertex(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3vertex(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   qh_PRINT arg3 ;
@@ -3575,7 +4025,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3vertex(JNIEnv *je
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   argp3 = *(qh_PRINT **)&jarg3; 
   if (!argp3) {
@@ -3587,14 +4047,24 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet3vertex(JNIEnv *je
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet4geom_1nonsimplicial(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet4geom_1nonsimplicial(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   double *arg3 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(double **)&jarg3; 
   qh_printfacet4geom_nonsimplicial(arg1,arg2,arg3);
@@ -3602,14 +4072,24 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet4geom_1nonsimplici
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet4geom_1simplicial(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet4geom_1simplicial(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   double *arg3 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(double **)&jarg3; 
   qh_printfacet4geom_simplicial(arg1,arg2,arg3);
@@ -3617,7 +4097,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacet4geom_1simplicial(
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacetNvertex_1nonsimplicial(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jint jarg3, jlong jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacetNvertex_1nonsimplicial(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jint jarg3, jlong jarg4) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   int arg3 ;
@@ -3626,7 +4106,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacetNvertex_1nonsimpli
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = (int)jarg3; 
   argp4 = *(qh_PRINT **)&jarg4; 
@@ -3639,7 +4129,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacetNvertex_1nonsimpli
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacetNvertex_1simplicial(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacetNvertex_1simplicial(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   qh_PRINT arg3 ;
@@ -3647,7 +4137,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacetNvertex_1simplicia
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   argp3 = *(qh_PRINT **)&jarg3; 
   if (!argp3) {
@@ -3659,43 +4159,72 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacetNvertex_1simplicia
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacetheader(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacetheader(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   qh_printfacetheader(arg1,arg2);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacetridges(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacetridges(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   qh_printfacetridges(arg1,arg2);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacets(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jlong jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacets(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jboolean jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   qh_PRINT arg2 ;
   facetT *arg3 = (facetT *) 0 ;
   setT *arg4 = (setT *) 0 ;
   boolT arg5 ;
   qh_PRINT *argp2 ;
-  boolT *argp5 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg4_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   argp2 = *(qh_PRINT **)&jarg2; 
   if (!argp2) {
     SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null qh_PRINT");
@@ -3704,17 +4233,14 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printfacets(JNIEnv *jenv, jc
   arg2 = *argp2; 
   arg3 = *(facetT **)&jarg3; 
   arg4 = *(setT **)&jarg4; 
-  argp5 = *(boolT **)&jarg5; 
-  if (!argp5) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg5 = *argp5; 
+  
+  arg5 = jarg5;
+  
   qh_printfacets(arg1,arg2,arg3,arg4,arg5);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printhyperplaneintersection(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jlong jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printhyperplaneintersection(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jlong jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   facetT *arg3 = (facetT *) 0 ;
@@ -3724,7 +4250,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printhyperplaneintersection(
   (void)jenv;
   (void)jcls;
   (void)jarg4_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(facetT **)&jarg3; 
   arg4 = *(setT **)&jarg4; 
@@ -3734,7 +4270,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printhyperplaneintersection(
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printline3geom(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printline3geom(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jlong jarg4) {
   FILE *arg1 = (FILE *) 0 ;
   pointT *arg2 = (pointT *) 0 ;
   pointT *arg3 = (pointT *) 0 ;
@@ -3742,7 +4278,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printline3geom(JNIEnv *jenv,
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(pointT **)&jarg2; 
   arg3 = *(pointT **)&jarg3; 
   arg4 = *(double **)&jarg4; 
@@ -3751,18 +4297,27 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printline3geom(JNIEnv *jenv,
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printneighborhood(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jlong jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printneighborhood(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jboolean jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   qh_PRINT arg2 ;
   facetT *arg3 = (facetT *) 0 ;
   facetT *arg4 = (facetT *) 0 ;
   boolT arg5 ;
   qh_PRINT *argp2 ;
-  boolT *argp5 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   argp2 = *(qh_PRINT **)&jarg2; 
   if (!argp2) {
     SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null qh_PRINT");
@@ -3771,24 +4326,31 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printneighborhood(JNIEnv *je
   arg2 = *argp2; 
   arg3 = *(facetT **)&jarg3; 
   arg4 = *(facetT **)&jarg4; 
-  argp5 = *(boolT **)&jarg5; 
-  if (!argp5) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg5 = *argp5; 
+  
+  arg5 = jarg5;
+  
   qh_printneighborhood(arg1,arg2,arg3,arg4,arg5);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpoint(JNIEnv *jenv, jclass jcls, jlong jarg1, jstring jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpoint(JNIEnv *jenv, jclass jcls, jobject jarg1, jstring jarg2, jlong jarg3) {
   FILE *arg1 = (FILE *) 0 ;
   char *arg2 = (char *) 0 ;
   pointT *arg3 = (pointT *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = 0;
   if (jarg2) {
     arg2 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg2, 0);
@@ -3800,7 +4362,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpoint(JNIEnv *jenv, jcl
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpointid(JNIEnv *jenv, jclass jcls, jlong jarg1, jstring jarg2, jint jarg3, jlong jarg4, jint jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpointid(JNIEnv *jenv, jclass jcls, jobject jarg1, jstring jarg2, jint jarg3, jlong jarg4, jint jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   char *arg2 = (char *) 0 ;
   int arg3 ;
@@ -3809,7 +4371,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpointid(JNIEnv *jenv, j
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = 0;
   if (jarg2) {
     arg2 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg2, 0);
@@ -3823,42 +4395,58 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpointid(JNIEnv *jenv, j
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpoint3(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpoint3(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2) {
   FILE *arg1 = (FILE *) 0 ;
   pointT *arg2 = (pointT *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(pointT **)&jarg2; 
   qh_printpoint3(arg1,arg2);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpoints_1out(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jlong jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpoints_1out(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jboolean jarg4) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   setT *arg3 = (setT *) 0 ;
   boolT arg4 ;
-  boolT *argp4 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg3_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(setT **)&jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   qh_printpoints_out(arg1,arg2,arg3,arg4);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpointvect(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jdouble jarg5, jlong jarg6) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpointvect(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jdouble jarg5, jlong jarg6) {
   FILE *arg1 = (FILE *) 0 ;
   pointT *arg2 = (pointT *) 0 ;
   coordT *arg3 = (coordT *) 0 ;
@@ -3868,7 +4456,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpointvect(JNIEnv *jenv,
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(pointT **)&jarg2; 
   arg3 = *(coordT **)&jarg3; 
   arg4 = *(pointT **)&jarg4; 
@@ -3879,7 +4477,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpointvect(JNIEnv *jenv,
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpointvect2(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jdouble jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpointvect2(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jdouble jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   pointT *arg2 = (pointT *) 0 ;
   coordT *arg3 = (coordT *) 0 ;
@@ -3888,7 +4486,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpointvect2(JNIEnv *jenv
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(pointT **)&jarg2; 
   arg3 = *(coordT **)&jarg3; 
   arg4 = *(pointT **)&jarg4; 
@@ -3897,19 +4505,29 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printpointvect2(JNIEnv *jenv
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printridge(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printridge(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2) {
   FILE *arg1 = (FILE *) 0 ;
   ridgeT *arg2 = (ridgeT *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(ridgeT **)&jarg2; 
   qh_printridge(arg1,arg2);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printspheres(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jobject jarg2_, jdouble jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printspheres(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jobject jarg2_, jdouble jarg3) {
   FILE *arg1 = (FILE *) 0 ;
   setT *arg2 = (setT *) 0 ;
   double arg3 ;
@@ -3917,26 +4535,45 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printspheres(JNIEnv *jenv, j
   (void)jenv;
   (void)jcls;
   (void)jarg2_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(setT **)&jarg2; 
   arg3 = (double)jarg3; 
   qh_printspheres(arg1,arg2,arg3);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvdiagram(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jlong jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvdiagram(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jboolean jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   qh_PRINT arg2 ;
   facetT *arg3 = (facetT *) 0 ;
   setT *arg4 = (setT *) 0 ;
   boolT arg5 ;
   qh_PRINT *argp2 ;
-  boolT *argp5 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg4_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   argp2 = *(qh_PRINT **)&jarg2; 
   if (!argp2) {
     SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null qh_PRINT");
@@ -3945,69 +4582,91 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvdiagram(JNIEnv *jenv, 
   arg2 = *argp2; 
   arg3 = *(facetT **)&jarg3; 
   arg4 = *(setT **)&jarg4; 
-  argp5 = *(boolT **)&jarg5; 
-  if (!argp5) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg5 = *argp5; 
+  
+  arg5 = jarg5;
+  
   qh_printvdiagram(arg1,arg2,arg3,arg4,arg5);
 }
 
 
-SWIGEXPORT jint JNICALL Java_resources_qhullJNI_qh_1printvdiagram2(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jint jarg4, jlong jarg5) {
+SWIGEXPORT jint JNICALL Java_resources_qhullJNI_qh_1printvdiagram2(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jint jarg4, jboolean jarg5) {
   jint jresult = 0 ;
   FILE *arg1 = (FILE *) 0 ;
   printvridgeT arg2 = (printvridgeT) 0 ;
   setT *arg3 = (setT *) 0 ;
   qh_RIDGE arg4 ;
   boolT arg5 ;
-  boolT *argp5 ;
   int result;
   
   (void)jenv;
   (void)jcls;
   (void)jarg3_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(printvridgeT *)&jarg2; 
   arg3 = *(setT **)&jarg3; 
   arg4 = (qh_RIDGE)jarg4; 
-  argp5 = *(boolT **)&jarg5; 
-  if (!argp5) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg5 = *argp5; 
+  
+  arg5 = jarg5;
+  
   result = (int)qh_printvdiagram2(arg1,arg2,arg3,arg4,arg5);
   jresult = (jint)result; 
   return jresult;
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvertex(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvertex(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2) {
   FILE *arg1 = (FILE *) 0 ;
   vertexT *arg2 = (vertexT *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(vertexT **)&jarg2; 
   qh_printvertex(arg1,arg2);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvertexlist(JNIEnv *jenv, jclass jcls, jlong jarg1, jstring jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jlong jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvertexlist(JNIEnv *jenv, jclass jcls, jobject jarg1, jstring jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jboolean jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   char *arg2 = (char *) 0 ;
   facetT *arg3 = (facetT *) 0 ;
   setT *arg4 = (setT *) 0 ;
   boolT arg5 ;
-  boolT *argp5 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg4_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = 0;
   if (jarg2) {
     arg2 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg2, 0);
@@ -4015,18 +4674,15 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvertexlist(JNIEnv *jenv
   }
   arg3 = *(facetT **)&jarg3; 
   arg4 = *(setT **)&jarg4; 
-  argp5 = *(boolT **)&jarg5; 
-  if (!argp5) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg5 = *argp5; 
+  
+  arg5 = jarg5;
+  
   qh_printvertexlist(arg1,(char const *)arg2,arg3,arg4,arg5);
   if (arg2) (*jenv)->ReleaseStringUTFChars(jenv, jarg2, (const char *)arg2);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvertices(JNIEnv *jenv, jclass jcls, jlong jarg1, jstring jarg2, jlong jarg3, jobject jarg3_) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvertices(JNIEnv *jenv, jclass jcls, jobject jarg1, jstring jarg2, jlong jarg3, jobject jarg3_) {
   FILE *arg1 = (FILE *) 0 ;
   char *arg2 = (char *) 0 ;
   setT *arg3 = (setT *) 0 ;
@@ -4034,7 +4690,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvertices(JNIEnv *jenv, 
   (void)jenv;
   (void)jcls;
   (void)jarg3_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = 0;
   if (jarg2) {
     arg2 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg2, 0);
@@ -4046,42 +4712,57 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvertices(JNIEnv *jenv, 
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvneighbors(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jlong jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvneighbors(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jobject jarg3_, jboolean jarg4) {
   FILE *arg1 = (FILE *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   setT *arg3 = (setT *) 0 ;
   boolT arg4 ;
-  boolT *argp4 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg3_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(setT **)&jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   qh_printvneighbors(arg1,arg2,arg3,arg4);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvoronoi(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jlong jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvoronoi(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jboolean jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   qh_PRINT arg2 ;
   facetT *arg3 = (facetT *) 0 ;
   setT *arg4 = (setT *) 0 ;
   boolT arg5 ;
   qh_PRINT *argp2 ;
-  boolT *argp5 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg4_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   argp2 = *(qh_PRINT **)&jarg2; 
   if (!argp2) {
     SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null qh_PRINT");
@@ -4090,62 +4771,71 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvoronoi(JNIEnv *jenv, j
   arg2 = *argp2; 
   arg3 = *(facetT **)&jarg3; 
   arg4 = *(setT **)&jarg4; 
-  argp5 = *(boolT **)&jarg5; 
-  if (!argp5) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg5 = *argp5; 
+  
+  arg5 = jarg5;
+  
   qh_printvoronoi(arg1,arg2,arg3,arg4,arg5);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvnorm(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jlong jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvnorm(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jboolean jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   vertexT *arg2 = (vertexT *) 0 ;
   vertexT *arg3 = (vertexT *) 0 ;
   setT *arg4 = (setT *) 0 ;
   boolT arg5 ;
-  boolT *argp5 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg4_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(vertexT **)&jarg2; 
   arg3 = *(vertexT **)&jarg3; 
   arg4 = *(setT **)&jarg4; 
-  argp5 = *(boolT **)&jarg5; 
-  if (!argp5) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg5 = *argp5; 
+  
+  arg5 = jarg5;
+  
   qh_printvnorm(arg1,arg2,arg3,arg4,arg5);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvridge(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jlong jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printvridge(JNIEnv *jenv, jclass jcls, jobject jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jobject jarg4_, jboolean jarg5) {
   FILE *arg1 = (FILE *) 0 ;
   vertexT *arg2 = (vertexT *) 0 ;
   vertexT *arg3 = (vertexT *) 0 ;
   setT *arg4 = (setT *) 0 ;
   boolT arg5 ;
-  boolT *argp5 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg4_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = *(vertexT **)&jarg2; 
   arg3 = *(vertexT **)&jarg3; 
   arg4 = *(setT **)&jarg4; 
-  argp5 = *(boolT **)&jarg5; 
-  if (!argp5) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg5 = *argp5; 
+  
+  arg5 = jarg5;
+  
   qh_printvridge(arg1,arg2,arg3,arg4,arg5);
 }
 
@@ -4225,8 +4915,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1setfeasible(JNIEnv *jenv, jc
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1skipfacet(JNIEnv *jenv, jclass jcls, jlong jarg1) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1skipfacet(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+  jboolean jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   boolT result;
   
@@ -4698,7 +5388,7 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qhmemT_1tempstack_1get(JNIEnv *
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qhmemT_1ferr_1set(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qhmemT_1ferr_1set(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jobject jarg2) {
   struct qhmemT *arg1 = (struct qhmemT *) 0 ;
   FILE *arg2 = (FILE *) 0 ;
   
@@ -4706,13 +5396,23 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qhmemT_1ferr_1set(JNIEnv *jenv, 
   (void)jcls;
   (void)jarg1_;
   arg1 = *(struct qhmemT **)&jarg1; 
-  arg2 = *(FILE **)&jarg2; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg2, field_fd);
+    arg2 = fdopen(rawfd, "w");
+  }
   if (arg1) (arg1)->ferr = arg2;
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qhmemT_1ferr_1get(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
-  jlong jresult = 0 ;
+SWIGEXPORT jobject JNICALL Java_resources_qhullJNI_qhmemT_1ferr_1get(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
+  jobject jresult = 0 ;
   struct qhmemT *arg1 = (struct qhmemT *) 0 ;
   FILE *result = 0 ;
   
@@ -5213,12 +5913,22 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1memfreeshort(JNIEnv *jenv, j
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1meminit(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1meminit(JNIEnv *jenv, jclass jcls, jobject jarg1) {
   FILE *arg1 = (FILE *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   qh_meminit(arg1);
 }
 
@@ -5258,12 +5968,22 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1memsize(JNIEnv *jenv, jclass
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1memstatistics(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1memstatistics(JNIEnv *jenv, jclass jcls, jobject jarg1) {
   FILE *arg1 = (FILE *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   qh_memstatistics(arg1);
 }
 
@@ -5612,12 +6332,11 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1premerge(JNIEnv *jenv, jclas
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1postmerge(JNIEnv *jenv, jclass jcls, jstring jarg1, jdouble jarg2, jdouble jarg3, jlong jarg4) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1postmerge(JNIEnv *jenv, jclass jcls, jstring jarg1, jdouble jarg2, jdouble jarg3, jboolean jarg4) {
   char *arg1 = (char *) 0 ;
   double arg2 ;
   double arg3 ;
   boolT arg4 ;
-  boolT *argp4 ;
   
   (void)jenv;
   (void)jcls;
@@ -5628,37 +6347,26 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1postmerge(JNIEnv *jenv, jcla
   }
   arg2 = (double)jarg2; 
   arg3 = (double)jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   qh_postmerge((char const *)arg1,arg2,arg3,arg4);
   if (arg1) (*jenv)->ReleaseStringUTFChars(jenv, jarg1, (const char *)arg1);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1all_1merges(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1all_1merges(JNIEnv *jenv, jclass jcls, jboolean jarg1, jboolean jarg2) {
   boolT arg1 ;
   boolT arg2 ;
-  boolT *argp1 ;
-  boolT *argp2 ;
   
   (void)jenv;
   (void)jcls;
-  argp1 = *(boolT **)&jarg1; 
-  if (!argp1) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg1 = *argp1; 
-  argp2 = *(boolT **)&jarg2; 
-  if (!argp2) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg2 = *argp2; 
+  
+  arg1 = jarg1;
+  
+  
+  arg2 = jarg2;
+  
   qh_all_merges(arg1,arg2);
 }
 
@@ -5677,7 +6385,7 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1all_1vertexmerges(JNIEnv *je
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1appendmergeset(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jint jarg3, jlong jarg4, jdouble jarg5) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1appendmergeset(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jint jarg3, jfloat jarg4, jdouble jarg5) {
   facetT *arg1 = (facetT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   mergeType arg3 ;
@@ -5778,20 +6486,16 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1checkdelridge(JNIEnv *jenv, 
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1checkzero(JNIEnv *jenv, jclass jcls, jlong jarg1) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1checkzero(JNIEnv *jenv, jclass jcls, jboolean jarg1) {
+  jboolean jresult = 0 ;
   boolT arg1 ;
-  boolT *argp1 ;
   boolT result;
   
   (void)jenv;
   (void)jcls;
-  argp1 = *(boolT **)&jarg1; 
-  if (!argp1) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg1 = *argp1; 
+  
+  arg1 = jarg1;
+  
   result = qh_checkzero(arg1);
   {
     boolT * resultptr = (boolT *) malloc(sizeof(boolT));
@@ -5950,7 +6654,7 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbest_1ridgevertex(JNIEn
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1findbest_1test(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jlong jarg5, jlong jarg6, jlong jarg7) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1findbest_1test(JNIEnv *jenv, jclass jcls, jboolean jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jlong jarg5, jlong jarg6, jlong jarg7) {
   boolT arg1 ;
   facetT *arg2 = (facetT *) 0 ;
   facetT *arg3 = (facetT *) 0 ;
@@ -5958,16 +6662,12 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1findbest_1test(JNIEnv *jenv,
   double *arg5 = (double *) 0 ;
   double *arg6 = (double *) 0 ;
   double *arg7 = (double *) 0 ;
-  boolT *argp1 ;
   
   (void)jenv;
   (void)jcls;
-  argp1 = *(boolT **)&jarg1; 
-  if (!argp1) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg1 = *argp1; 
+  
+  arg1 = jarg1;
+  
   arg2 = *(facetT **)&jarg2; 
   arg3 = *(facetT **)&jarg3; 
   arg4 = *(facetT ***)&jarg4; 
@@ -6047,8 +6747,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1getmergeset_1initial(JNIEnv 
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1getpinchedmerges(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1getpinchedmerges(JNIEnv *jenv, jclass jcls, jlong jarg1, jfloat jarg2, jlong jarg3) {
+  jboolean jresult = 0 ;
   vertexT *arg1 = (vertexT *) 0 ;
   coordT arg2 ;
   boolT *arg3 = (boolT *) 0 ;
@@ -6075,8 +6775,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1getpinchedmerges(JNIEnv *je
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1hasmerge(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2, jlong jarg3, jlong jarg4) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1hasmerge(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2, jlong jarg3, jlong jarg4) {
+  jboolean jresult = 0 ;
   setT *arg1 = (setT *) 0 ;
   mergeType arg2 ;
   facetT *arg3 = (facetT *) 0 ;
@@ -6159,20 +6859,16 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1makeridges(JNIEnv *jenv, jcl
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1mark_1dupridges(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1mark_1dupridges(JNIEnv *jenv, jclass jcls, jlong jarg1, jboolean jarg2) {
   facetT *arg1 = (facetT *) 0 ;
   boolT arg2 ;
-  boolT *argp2 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(facetT **)&jarg1; 
-  argp2 = *(boolT **)&jarg2; 
-  if (!argp2) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg2 = *argp2; 
+  
+  arg2 = jarg2;
+  
   qh_mark_dupridges(arg1,arg2);
 }
 
@@ -6327,14 +7023,13 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1mergecycle_1vneighbors(JNIEn
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1mergefacet(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jint jarg3, jlong jarg4, jlong jarg5, jlong jarg6) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1mergefacet(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jint jarg3, jlong jarg4, jlong jarg5, jboolean jarg6) {
   facetT *arg1 = (facetT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   mergeType arg3 ;
   double *arg4 = (double *) 0 ;
   double *arg5 = (double *) 0 ;
   boolT arg6 ;
-  boolT *argp6 ;
   
   (void)jenv;
   (void)jcls;
@@ -6343,12 +7038,9 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1mergefacet(JNIEnv *jenv, jcl
   arg3 = (mergeType)jarg3; 
   arg4 = *(double **)&jarg4; 
   arg5 = *(double **)&jarg5; 
-  argp6 = *(boolT **)&jarg6; 
-  if (!argp6) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg6 = *argp6; 
+  
+  arg6 = jarg6;
+  
   qh_mergefacet(arg1,arg2,arg3,arg4,arg5,arg6);
 }
 
@@ -6389,22 +7081,18 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1mergeridges(JNIEnv *jenv, jc
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1mergesimplex(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1mergesimplex(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jboolean jarg3) {
   facetT *arg1 = (facetT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   boolT arg3 ;
-  boolT *argp3 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(facetT **)&jarg1; 
   arg2 = *(facetT **)&jarg2; 
-  argp3 = *(boolT **)&jarg3; 
-  if (!argp3) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg3 = *argp3; 
+  
+  arg3 = jarg3;
+  
   qh_mergesimplex(arg1,arg2,arg3);
 }
 
@@ -6533,8 +7221,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1opposite_1horizonfacet(JNIE
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1reducevertices(JNIEnv *jenv, jclass jcls) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1reducevertices(JNIEnv *jenv, jclass jcls) {
+  jboolean jresult = 0 ;
   boolT result;
   
   (void)jenv;
@@ -6563,8 +7251,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1redundant_1vertex(JNIEnv *j
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1remove_1extravertices(JNIEnv *jenv, jclass jcls, jlong jarg1) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1remove_1extravertices(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+  jboolean jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   boolT result;
   
@@ -6624,8 +7312,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1rename_1sharedvertex(JNIEnv
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1renameridgevertex(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1renameridgevertex(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
+  jboolean jresult = 0 ;
   ridgeT *arg1 = (ridgeT *) 0 ;
   vertexT *arg2 = (vertexT *) 0 ;
   vertexT *arg3 = (vertexT *) 0 ;
@@ -6665,24 +7353,20 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1renamevertex(JNIEnv *jenv, j
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1test_1appendmerge(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1test_1appendmerge(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jboolean jarg3) {
+  jboolean jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   boolT arg3 ;
-  boolT *argp3 ;
   boolT result;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(facetT **)&jarg1; 
   arg2 = *(facetT **)&jarg2; 
-  argp3 = *(boolT **)&jarg3; 
-  if (!argp3) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg3 = *argp3; 
+  
+  arg3 = jarg3;
+  
   result = qh_test_appendmerge(arg1,arg2,arg3);
   {
     boolT * resultptr = (boolT *) malloc(sizeof(boolT));
@@ -6703,13 +7387,12 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1test_1degen_1neighbors(JNIEn
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1test_1centrum_1merge(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jdouble jarg3, jlong jarg4) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1test_1centrum_1merge(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jdouble jarg3, jboolean jarg4) {
+  jboolean jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   double arg3 ;
   boolT arg4 ;
-  boolT *argp4 ;
   boolT result;
   
   (void)jenv;
@@ -6717,12 +7400,9 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1test_1centrum_1merge(JNIEnv
   arg1 = *(facetT **)&jarg1; 
   arg2 = *(facetT **)&jarg2; 
   arg3 = (double)jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   result = qh_test_centrum_merge(arg1,arg2,arg3,arg4);
   {
     boolT * resultptr = (boolT *) malloc(sizeof(boolT));
@@ -6733,13 +7413,12 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1test_1centrum_1merge(JNIEnv
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1test_1nonsimplicial_1merge(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jdouble jarg3, jlong jarg4) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1test_1nonsimplicial_1merge(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jdouble jarg3, jboolean jarg4) {
+  jboolean jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   facetT *arg2 = (facetT *) 0 ;
   double arg3 ;
   boolT arg4 ;
-  boolT *argp4 ;
   boolT result;
   
   (void)jenv;
@@ -6747,12 +7426,9 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1test_1nonsimplicial_1merge(
   arg1 = *(facetT **)&jarg1; 
   arg2 = *(facetT **)&jarg2; 
   arg3 = (double)jarg3; 
-  argp4 = *(boolT **)&jarg4; 
-  if (!argp4) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg4 = *argp4; 
+  
+  arg4 = jarg4;
+  
   result = qh_test_nonsimplicial_merge(arg1,arg2,arg3,arg4);
   {
     boolT * resultptr = (boolT *) malloc(sizeof(boolT));
@@ -6773,8 +7449,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1test_1redundant_1neighbors(J
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1test_1vneighbors(JNIEnv *jenv, jclass jcls) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1test_1vneighbors(JNIEnv *jenv, jclass jcls) {
+  jboolean jresult = 0 ;
   boolT result;
   
   (void)jenv;
@@ -6822,22 +7498,18 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1updatetested(JNIEnv *jenv, j
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1vertexridges(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1vertexridges(JNIEnv *jenv, jclass jcls, jlong jarg1, jboolean jarg2) {
   jlong jresult = 0 ;
   vertexT *arg1 = (vertexT *) 0 ;
   boolT arg2 ;
-  boolT *argp2 ;
   setT *result = 0 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(vertexT **)&jarg1; 
-  argp2 = *(boolT **)&jarg2; 
-  if (!argp2) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg2 = *argp2; 
+  
+  arg2 = jarg2;
+  
   result = (setT *)qh_vertexridges(arg1,arg2);
   *(setT **)&jresult = result; 
   return jresult;
@@ -6933,24 +7605,20 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1attachnewfacets(JNIEnv *jenv
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1checkflipped(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1checkflipped(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jboolean jarg3) {
+  jboolean jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   double *arg2 = (double *) 0 ;
   boolT arg3 ;
-  boolT *argp3 ;
   boolT result;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(facetT **)&jarg1; 
   arg2 = *(double **)&jarg2; 
-  argp3 = *(boolT **)&jarg3; 
-  if (!argp3) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg3 = *argp3; 
+  
+  arg3 = jarg3;
+  
   result = qh_checkflipped(arg1,arg2,arg3);
   {
     boolT * resultptr = (boolT *) malloc(sizeof(boolT));
@@ -7037,24 +7705,20 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1getreplacement(JNIEnv *jenv
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1makenewfacet(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jlong jarg3) {
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1makenewfacet(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jboolean jarg2, jlong jarg3) {
   jlong jresult = 0 ;
   setT *arg1 = (setT *) 0 ;
   boolT arg2 ;
   facetT *arg3 = (facetT *) 0 ;
-  boolT *argp2 ;
   facetT *result = 0 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
   arg1 = *(setT **)&jarg1; 
-  argp2 = *(boolT **)&jarg2; 
-  if (!argp2) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg2 = *argp2; 
+  
+  arg2 = jarg2;
+  
   arg3 = *(facetT **)&jarg3; 
   result = (facetT *)qh_makenewfacet(arg1,arg2,arg3);
   *(facetT **)&jresult = result; 
@@ -7121,8 +7785,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1matchneighbor(JNIEnv *jenv, 
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1matchnewfacets(JNIEnv *jenv, jclass jcls) {
-  jlong jresult = 0 ;
+SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_qh_1matchnewfacets(JNIEnv *jenv, jclass jcls) {
+  jfloat jresult = 0 ;
   coordT result;
   
   (void)jenv;
@@ -7137,8 +7801,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1matchnewfacets(JNIEnv *jenv
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1matchvertices(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2, jobject jarg2_, jint jarg3, jlong jarg4, jobject jarg4_, jlong jarg5, jlong jarg6) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1matchvertices(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2, jobject jarg2_, jint jarg3, jlong jarg4, jobject jarg4_, jlong jarg5, jlong jarg6) {
+  jboolean jresult = 0 ;
   int arg1 ;
   setT *arg2 = (setT *) 0 ;
   int arg3 ;
@@ -7239,8 +7903,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1update_1vertexneighbors_1con
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1addfacetvertex(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1addfacetvertex(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
+  jboolean jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   vertexT *arg2 = (vertexT *) 0 ;
   boolT result;
@@ -7338,21 +8002,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1checkconvex(JNIEnv *jenv, jc
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1checkfacet(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1checkfacet(JNIEnv *jenv, jclass jcls, jlong jarg1, jboolean jarg2, jlong jarg3) {
   facetT *arg1 = (facetT *) 0 ;
   boolT arg2 ;
   boolT *arg3 = (boolT *) 0 ;
-  boolT *argp2 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(facetT **)&jarg1; 
-  argp2 = *(boolT **)&jarg2; 
-  if (!argp2) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg2 = *argp2; 
+  
+  arg2 = jarg2;
+  
   arg3 = *(boolT **)&jarg3; 
   qh_checkfacet(arg1,arg2,arg3);
 }
@@ -7368,8 +8028,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1checkflipped_1all(JNIEnv *je
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1checklists(JNIEnv *jenv, jclass jcls, jlong jarg1) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1checklists(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+  jboolean jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   boolT result;
   
@@ -7396,21 +8056,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1checkpolygon(JNIEnv *jenv, j
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1checkvertex(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1checkvertex(JNIEnv *jenv, jclass jcls, jlong jarg1, jboolean jarg2, jlong jarg3) {
   vertexT *arg1 = (vertexT *) 0 ;
   boolT arg2 ;
   boolT *arg3 = (boolT *) 0 ;
-  boolT *argp2 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(vertexT **)&jarg1; 
-  argp2 = *(boolT **)&jarg2; 
-  if (!argp2) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg2 = *argp2; 
+  
+  arg2 = jarg2;
+  
   arg3 = *(boolT **)&jarg3; 
   qh_checkvertex(arg1,arg2,arg3);
 }
@@ -7477,24 +8133,20 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1facet3vertex(JNIEnv *jenv, 
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbestfacet(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4) {
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbestfacet(JNIEnv *jenv, jclass jcls, jlong jarg1, jboolean jarg2, jlong jarg3, jlong jarg4) {
   jlong jresult = 0 ;
   pointT *arg1 = (pointT *) 0 ;
   boolT arg2 ;
   double *arg3 = (double *) 0 ;
   boolT *arg4 = (boolT *) 0 ;
-  boolT *argp2 ;
   facetT *result = 0 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(pointT **)&jarg1; 
-  argp2 = *(boolT **)&jarg2; 
-  if (!argp2) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg2 = *argp2; 
+  
+  arg2 = jarg2;
+  
   arg3 = *(double **)&jarg3; 
   arg4 = *(boolT **)&jarg4; 
   result = (facetT *)qh_findbestfacet(arg1,arg2,arg3,arg4);
@@ -7523,25 +8175,21 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findbestlower(JNIEnv *jenv,
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findfacet_1all(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2, jlong jarg3, jlong jarg4, jlong jarg5) {
+SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1findfacet_1all(JNIEnv *jenv, jclass jcls, jlong jarg1, jboolean jarg2, jlong jarg3, jlong jarg4, jlong jarg5) {
   jlong jresult = 0 ;
   pointT *arg1 = (pointT *) 0 ;
   boolT arg2 ;
   double *arg3 = (double *) 0 ;
   boolT *arg4 = (boolT *) 0 ;
   int *arg5 = (int *) 0 ;
-  boolT *argp2 ;
   facetT *result = 0 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = *(pointT **)&jarg1; 
-  argp2 = *(boolT **)&jarg2; 
-  if (!argp2) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return 0;
-  }
-  arg2 = *argp2; 
+  
+  arg2 = jarg2;
+  
   arg3 = *(double **)&jarg3; 
   arg4 = *(boolT **)&jarg4; 
   arg5 = *(int **)&jarg5; 
@@ -7674,8 +8322,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1makenewfacets(JNIEnv *jenv,
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1matchdupridge(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jint jarg3, jlong jarg4) {
-  jlong jresult = 0 ;
+SWIGEXPORT jfloat JNICALL Java_resources_qhullJNI_qh_1matchdupridge(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jint jarg3, jlong jarg4) {
+  jfloat jresult = 0 ;
   facetT *arg1 = (facetT *) 0 ;
   int arg2 ;
   int arg3 ;
@@ -7873,12 +8521,22 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1prependfacet(JNIEnv *jenv, j
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printhashtable(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printhashtable(JNIEnv *jenv, jclass jcls, jobject jarg1) {
   FILE *arg1 = (FILE *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   qh_printhashtable(arg1);
 }
 
@@ -7904,26 +8562,18 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1replacefacetvertex(JNIEnv *j
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1resetlists(JNIEnv *jenv, jclass jcls, jlong jarg1, jlong jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1resetlists(JNIEnv *jenv, jclass jcls, jboolean jarg1, jboolean jarg2) {
   boolT arg1 ;
   boolT arg2 ;
-  boolT *argp1 ;
-  boolT *argp2 ;
   
   (void)jenv;
   (void)jcls;
-  argp1 = *(boolT **)&jarg1; 
-  if (!argp1) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg1 = *argp1; 
-  argp2 = *(boolT **)&jarg2; 
-  if (!argp2) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "Attempt to dereference null boolT");
-    return ;
-  }
-  arg2 = *argp2; 
+  
+  arg1 = jarg1;
+  
+  
+  arg2 = jarg2;
+  
   qh_resetlists(arg1,arg2);
 }
 
@@ -8030,8 +8680,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1vertexneighbors(JNIEnv *jenv
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1vertexsubset(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jobject jarg2_) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1vertexsubset(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jobject jarg2_) {
+  jboolean jresult = 0 ;
   setT *arg1 = (setT *) 0 ;
   setT *arg2 = (setT *) 0 ;
   boolT result;
@@ -8805,7 +9455,7 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1setnew_1delnthsorted(JNIEnv
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1setprint(JNIEnv *jenv, jclass jcls, jlong jarg1, jstring jarg2, jlong jarg3, jobject jarg3_) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1setprint(JNIEnv *jenv, jclass jcls, jobject jarg1, jstring jarg2, jlong jarg3, jobject jarg3_) {
   FILE *arg1 = (FILE *) 0 ;
   char *arg2 = (char *) 0 ;
   setT *arg3 = (setT *) 0 ;
@@ -8813,7 +9463,17 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1setprint(JNIEnv *jenv, jclas
   (void)jenv;
   (void)jcls;
   (void)jarg3_;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = 0;
   if (jarg2) {
     arg2 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg2, 0);
@@ -9524,8 +10184,8 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1initstatistics(JNIEnv *jenv,
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1newstats(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1newstats(JNIEnv *jenv, jclass jcls, jint jarg1, jlong jarg2) {
+  jboolean jresult = 0 ;
   int arg1 ;
   int *arg2 = (int *) 0 ;
   boolT result;
@@ -9544,8 +10204,8 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1newstats(JNIEnv *jenv, jcla
 }
 
 
-SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1nostatistic(JNIEnv *jenv, jclass jcls, jint jarg1) {
-  jlong jresult = 0 ;
+SWIGEXPORT jboolean JNICALL Java_resources_qhullJNI_qh_1nostatistic(JNIEnv *jenv, jclass jcls, jint jarg1) {
+  jboolean jresult = 0 ;
   int arg1 ;
   boolT result;
   
@@ -9562,13 +10222,23 @@ SWIGEXPORT jlong JNICALL Java_resources_qhullJNI_qh_1nostatistic(JNIEnv *jenv, j
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printallstatistics(JNIEnv *jenv, jclass jcls, jlong jarg1, jstring jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printallstatistics(JNIEnv *jenv, jclass jcls, jobject jarg1, jstring jarg2) {
   FILE *arg1 = (FILE *) 0 ;
   char *arg2 = (char *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = 0;
   if (jarg2) {
     arg2 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg2, 0);
@@ -9579,13 +10249,23 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printallstatistics(JNIEnv *j
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printstatistics(JNIEnv *jenv, jclass jcls, jlong jarg1, jstring jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printstatistics(JNIEnv *jenv, jclass jcls, jobject jarg1, jstring jarg2) {
   FILE *arg1 = (FILE *) 0 ;
   char *arg2 = (char *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = 0;
   if (jarg2) {
     arg2 = (char *)(*jenv)->GetStringUTFChars(jenv, jarg2, 0);
@@ -9596,26 +10276,46 @@ SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printstatistics(JNIEnv *jenv
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printstatlevel(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printstatlevel(JNIEnv *jenv, jclass jcls, jobject jarg1, jint jarg2) {
   FILE *arg1 = (FILE *) 0 ;
   int arg2 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = (int)jarg2; 
   qh_printstatlevel(arg1,arg2);
 }
 
 
-SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printstats(JNIEnv *jenv, jclass jcls, jlong jarg1, jint jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_resources_qhullJNI_qh_1printstats(JNIEnv *jenv, jclass jcls, jobject jarg1, jint jarg2, jlong jarg3) {
   FILE *arg1 = (FILE *) 0 ;
   int arg2 ;
   int *arg3 = (int *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(FILE **)&jarg1; 
+  {
+    jfieldID field_fd;
+    jclass class_fdesc;
+    int rawfd;
+    class_fdesc = (*jenv)->FindClass(jenv, "java/io/FileDescriptor");
+    assert(class_fdesc);
+    field_fd = (*jenv)->GetFieldID(jenv, class_fdesc, "fd", "I");
+    assert(field_fd);
+    rawfd = (*jenv)->GetIntField(jenv, jarg1, field_fd);
+    arg1 = fdopen(rawfd, "w");
+  }
   arg2 = (int)jarg2; 
   arg3 = *(int **)&jarg3; 
   qh_printstats(arg1,arg2,arg3);

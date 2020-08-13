@@ -31,12 +31,74 @@ public class qhull implements qhullConstants {
     return qhullJNI.intp_value(SWIGTYPE_p_int.getCPtr(obj));
   }
 
+
+  private static java.io.FileOutputStream retainFD;
+
+  public static SWIGTYPE_p_coordT new_coordT_array(int nelements) {
+    long cPtr = qhullJNI.new_coordT_array(nelements);
+    return (cPtr == 0) ? null : new SWIGTYPE_p_coordT(cPtr, false);
+  }
+
+  public static void delete_coordT_array(SWIGTYPE_p_coordT ary) {
+    qhullJNI.delete_coordT_array(SWIGTYPE_p_coordT.getCPtr(ary));
+  }
+
+  public static java.lang.Float coordT_array_getitem(SWIGTYPE_p_coordT ary, int index) {
+    return new SWIGTYPE_p_coordT(qhullJNI.coordT_array_getitem(SWIGTYPE_p_coordT.getCPtr(ary), index), true);
+  }
+
+  public static void coordT_array_setitem(SWIGTYPE_p_coordT ary, int index, java.lang.Float value) {
+    qhullJNI.coordT_array_setitem(SWIGTYPE_p_coordT.getCPtr(ary), index, value);
+  }
+
+  public static String new_String() {
+    return qhullJNI.new_String();
+  }
+
+  public static String copy_String(char value) {
+    return qhullJNI.copy_String(value);
+  }
+
+  public static void delete_String(String obj) {
+    qhullJNI.delete_String(obj);
+  }
+
+  public static void String_assign(String obj, char value) {
+    qhullJNI.String_assign(obj, value);
+  }
+
+  public static char String_value(String obj) {
+    return qhullJNI.String_value(obj);
+  }
+
+  public static SWIGTYPE_p_p_char new_Stringp() {
+    long cPtr = qhullJNI.new_Stringp();
+    return (cPtr == 0) ? null : new SWIGTYPE_p_p_char(cPtr, false);
+  }
+
+  public static SWIGTYPE_p_p_char copy_Stringp(String value) {
+    long cPtr = qhullJNI.copy_Stringp(value);
+    return (cPtr == 0) ? null : new SWIGTYPE_p_p_char(cPtr, false);
+  }
+
+  public static void delete_Stringp(SWIGTYPE_p_p_char obj) {
+    qhullJNI.delete_Stringp(SWIGTYPE_p_p_char.getCPtr(obj));
+  }
+
+  public static void Stringp_assign(SWIGTYPE_p_p_char obj, String value) {
+    qhullJNI.Stringp_assign(SWIGTYPE_p_p_char.getCPtr(obj), value);
+  }
+
+  public static String Stringp_value(SWIGTYPE_p_p_char obj) {
+    return qhullJNI.Stringp_value(SWIGTYPE_p_p_char.getCPtr(obj));
+  }
+
   public static void qh_qhull() {
     qhullJNI.qh_qhull();
   }
 
-  public static SWIGTYPE_p_boolT qh_addpoint(SWIGTYPE_p_pointT furthest, SWIGTYPE_p_facetT facet, SWIGTYPE_p_boolT checkdist) {
-    return new SWIGTYPE_p_boolT(qhullJNI.qh_addpoint(SWIGTYPE_p_pointT.getCPtr(furthest), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_boolT.getCPtr(checkdist)), true);
+  public static java.lang.Boolean qh_addpoint(SWIGTYPE_p_pointT furthest, SWIGTYPE_p_facetT facet, java.lang.Boolean checkdist) {
+    return new SWIGTYPE_p_boolT(qhullJNI.qh_addpoint(SWIGTYPE_p_pointT.getCPtr(furthest), SWIGTYPE_p_facetT.getCPtr(facet), checkdist), true);
   }
 
   public static void qh_build_withrestart() {
@@ -48,11 +110,11 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new SWIGTYPE_p_vertexT(cPtr, false);
   }
 
-  public static SWIGTYPE_p_boolT qh_buildcone_mergepinched(SWIGTYPE_p_vertexT apex, SWIGTYPE_p_facetT facet, SWIGTYPE_p_p_facetT retryfacet) {
+  public static java.lang.Boolean qh_buildcone_mergepinched(SWIGTYPE_p_vertexT apex, SWIGTYPE_p_facetT facet, SWIGTYPE_p_p_facetT retryfacet) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_buildcone_mergepinched(SWIGTYPE_p_vertexT.getCPtr(apex), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_p_facetT.getCPtr(retryfacet)), true);
   }
 
-  public static SWIGTYPE_p_boolT qh_buildcone_onlygood(SWIGTYPE_p_vertexT apex, int goodhorizon) {
+  public static java.lang.Boolean qh_buildcone_onlygood(SWIGTYPE_p_vertexT apex, int goodhorizon) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_buildcone_onlygood(SWIGTYPE_p_vertexT.getCPtr(apex), goodhorizon), true);
   }
 
@@ -81,44 +143,68 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_partitionall(setT.getCPtr(vertices), vertices, SWIGTYPE_p_pointT.getCPtr(points), npoints);
   }
 
-  public static void qh_partitioncoplanar(SWIGTYPE_p_pointT point, SWIGTYPE_p_facetT facet, SWIGTYPE_p_double dist, SWIGTYPE_p_boolT allnew) {
-    qhullJNI.qh_partitioncoplanar(SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(dist), SWIGTYPE_p_boolT.getCPtr(allnew));
+  public static void qh_partitioncoplanar(SWIGTYPE_p_pointT point, SWIGTYPE_p_facetT facet, SWIGTYPE_p_double dist, java.lang.Boolean allnew) {
+    qhullJNI.qh_partitioncoplanar(SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(dist), allnew);
   }
 
   public static void qh_partitionpoint(SWIGTYPE_p_pointT point, SWIGTYPE_p_facetT facet) {
     qhullJNI.qh_partitionpoint(SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_facetT.getCPtr(facet));
   }
 
-  public static void qh_partitionvisible(SWIGTYPE_p_boolT allpoints, SWIGTYPE_p_int numpoints) {
-    qhullJNI.qh_partitionvisible(SWIGTYPE_p_boolT.getCPtr(allpoints), SWIGTYPE_p_int.getCPtr(numpoints));
+  public static void qh_partitionvisible(java.lang.Boolean allpoints, SWIGTYPE_p_int numpoints) {
+    qhullJNI.qh_partitionvisible(allpoints, SWIGTYPE_p_int.getCPtr(numpoints));
   }
 
   public static void qh_joggle_restart(String reason) {
     qhullJNI.qh_joggle_restart(reason);
   }
 
-  public static void qh_printsummary(SWIGTYPE_p_FILE fp) {
-    qhullJNI.qh_printsummary(SWIGTYPE_p_FILE.getCPtr(fp));
+  public static void qh_printsummary(java.io.FileOutputStream fp) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printsummary(fp.getFD());
+    }
+  }
+
+  public static void coordTset(SWIGTYPE_p_coordT ary, int index, float value) {
+    qhullJNI.coordTset(SWIGTYPE_p_coordT.getCPtr(ary), index, value);
+  }
+
+  public static int setjmp_wrap() {
+    return qhullJNI.setjmp_wrap();
+  }
+
+  public static void setNOerrexit() {
+    qhullJNI.setNOerrexit();
   }
 
   public static void qh_appendprint(SWIGTYPE_p_qh_PRINT format) {
     qhullJNI.qh_appendprint(SWIGTYPE_p_qh_PRINT.getCPtr(format));
   }
 
-  public static void qh_freebuild(SWIGTYPE_p_boolT allmem) {
-    qhullJNI.qh_freebuild(SWIGTYPE_p_boolT.getCPtr(allmem));
+  public static void qh_freebuild(java.lang.Boolean allmem) {
+    qhullJNI.qh_freebuild(allmem);
   }
 
   public static void qh_freebuffers() {
     qhullJNI.qh_freebuffers();
   }
 
-  public static void qh_init_A(SWIGTYPE_p_FILE infile, SWIGTYPE_p_FILE outfile, SWIGTYPE_p_FILE errfile, int argc, SWIGTYPE_p_p_char argv) {
-    qhullJNI.qh_init_A(SWIGTYPE_p_FILE.getCPtr(infile), SWIGTYPE_p_FILE.getCPtr(outfile), SWIGTYPE_p_FILE.getCPtr(errfile), argc, SWIGTYPE_p_p_char.getCPtr(argv));
+  public static void qh_init_A(java.io.FileOutputStream infile, java.io.FileOutputStream outfile, java.io.FileOutputStream errfile, int argc, SWIGTYPE_p_p_char argv) throws java.io.IOException {
+    retainFD = infile;
+    retainFD = outfile;
+    retainFD = errfile;
+    {
+      qhullJNI.qh_init_A(infile.getFD(), outfile.getFD(), errfile.getFD(), argc, SWIGTYPE_p_p_char.getCPtr(argv));
+    }
   }
 
-  public static void qh_init_B(SWIGTYPE_p_coordT points, int numpoints, int dim, SWIGTYPE_p_boolT ismalloc) {
-    qhullJNI.qh_init_B(SWIGTYPE_p_coordT.getCPtr(points), numpoints, dim, SWIGTYPE_p_boolT.getCPtr(ismalloc));
+  public static void qh_init_B(SWIGTYPE_p_coordT points, int numpoints, int dim, java.lang.Boolean ismalloc) {
+    qhullJNI.qh_init_B(SWIGTYPE_p_coordT.getCPtr(points), numpoints, dim, ismalloc);
+  }
+
+  public static void qh_initflags(String command) {
+    qhullJNI.qh_initflags(command);
   }
 
   public static void qh_allstatA() {
@@ -157,26 +243,26 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_allstatH();
   }
 
-  public static void qh_backnormal(SWIGTYPE_p_p_double rows, int numrow, int numcol, SWIGTYPE_p_boolT sign, SWIGTYPE_p_coordT normal, SWIGTYPE_p_boolT nearzero) {
-    qhullJNI.qh_backnormal(SWIGTYPE_p_p_double.getCPtr(rows), numrow, numcol, SWIGTYPE_p_boolT.getCPtr(sign), SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_boolT.getCPtr(nearzero));
+  public static void qh_backnormal(SWIGTYPE_p_p_double rows, int numrow, int numcol, java.lang.Boolean sign, SWIGTYPE_p_coordT normal, SWIGTYPE_p_boolT nearzero) {
+    qhullJNI.qh_backnormal(SWIGTYPE_p_p_double.getCPtr(rows), numrow, numcol, sign, SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_boolT.getCPtr(nearzero));
   }
 
   public static void qh_distplane(SWIGTYPE_p_pointT point, SWIGTYPE_p_facetT facet, SWIGTYPE_p_double dist) {
     qhullJNI.qh_distplane(SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(dist));
   }
 
-  public static SWIGTYPE_p_facetT qh_findbest(SWIGTYPE_p_pointT point, SWIGTYPE_p_facetT startfacet, SWIGTYPE_p_boolT bestoutside, SWIGTYPE_p_boolT isnewfacets, SWIGTYPE_p_boolT noupper, SWIGTYPE_p_double dist, SWIGTYPE_p_boolT isoutside, SWIGTYPE_p_int numpart) {
-    long cPtr = qhullJNI.qh_findbest(SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_facetT.getCPtr(startfacet), SWIGTYPE_p_boolT.getCPtr(bestoutside), SWIGTYPE_p_boolT.getCPtr(isnewfacets), SWIGTYPE_p_boolT.getCPtr(noupper), SWIGTYPE_p_double.getCPtr(dist), SWIGTYPE_p_boolT.getCPtr(isoutside), SWIGTYPE_p_int.getCPtr(numpart));
+  public static SWIGTYPE_p_facetT qh_findbest(SWIGTYPE_p_pointT point, SWIGTYPE_p_facetT startfacet, java.lang.Boolean bestoutside, java.lang.Boolean isnewfacets, java.lang.Boolean noupper, SWIGTYPE_p_double dist, SWIGTYPE_p_boolT isoutside, SWIGTYPE_p_int numpart) {
+    long cPtr = qhullJNI.qh_findbest(SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_facetT.getCPtr(startfacet), bestoutside, isnewfacets, noupper, SWIGTYPE_p_double.getCPtr(dist), SWIGTYPE_p_boolT.getCPtr(isoutside), SWIGTYPE_p_int.getCPtr(numpart));
     return (cPtr == 0) ? null : new SWIGTYPE_p_facetT(cPtr, false);
   }
 
-  public static SWIGTYPE_p_facetT qh_findbesthorizon(SWIGTYPE_p_boolT ischeckmax, SWIGTYPE_p_pointT point, SWIGTYPE_p_facetT startfacet, SWIGTYPE_p_boolT noupper, SWIGTYPE_p_double bestdist, SWIGTYPE_p_int numpart) {
-    long cPtr = qhullJNI.qh_findbesthorizon(SWIGTYPE_p_boolT.getCPtr(ischeckmax), SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_facetT.getCPtr(startfacet), SWIGTYPE_p_boolT.getCPtr(noupper), SWIGTYPE_p_double.getCPtr(bestdist), SWIGTYPE_p_int.getCPtr(numpart));
+  public static SWIGTYPE_p_facetT qh_findbesthorizon(java.lang.Boolean ischeckmax, SWIGTYPE_p_pointT point, SWIGTYPE_p_facetT startfacet, java.lang.Boolean noupper, SWIGTYPE_p_double bestdist, SWIGTYPE_p_int numpart) {
+    long cPtr = qhullJNI.qh_findbesthorizon(ischeckmax, SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_facetT.getCPtr(startfacet), noupper, SWIGTYPE_p_double.getCPtr(bestdist), SWIGTYPE_p_int.getCPtr(numpart));
     return (cPtr == 0) ? null : new SWIGTYPE_p_facetT(cPtr, false);
   }
 
-  public static SWIGTYPE_p_facetT qh_findbestnew(SWIGTYPE_p_pointT point, SWIGTYPE_p_facetT startfacet, SWIGTYPE_p_double dist, SWIGTYPE_p_boolT bestoutside, SWIGTYPE_p_boolT isoutside, SWIGTYPE_p_int numpart) {
-    long cPtr = qhullJNI.qh_findbestnew(SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_facetT.getCPtr(startfacet), SWIGTYPE_p_double.getCPtr(dist), SWIGTYPE_p_boolT.getCPtr(bestoutside), SWIGTYPE_p_boolT.getCPtr(isoutside), SWIGTYPE_p_int.getCPtr(numpart));
+  public static SWIGTYPE_p_facetT qh_findbestnew(SWIGTYPE_p_pointT point, SWIGTYPE_p_facetT startfacet, SWIGTYPE_p_double dist, java.lang.Boolean bestoutside, SWIGTYPE_p_boolT isoutside, SWIGTYPE_p_int numpart) {
+    long cPtr = qhullJNI.qh_findbestnew(SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_facetT.getCPtr(startfacet), SWIGTYPE_p_double.getCPtr(dist), bestoutside, SWIGTYPE_p_boolT.getCPtr(isoutside), SWIGTYPE_p_int.getCPtr(numpart));
     return (cPtr == 0) ? null : new SWIGTYPE_p_facetT(cPtr, false);
   }
 
@@ -198,16 +284,16 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new SWIGTYPE_p_pointT(cPtr, false);
   }
 
-  public static SWIGTYPE_p_coordT qh_getdistance(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, SWIGTYPE_p_coordT mindist, SWIGTYPE_p_coordT maxdist) {
+  public static java.lang.Float qh_getdistance(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, SWIGTYPE_p_coordT mindist, SWIGTYPE_p_coordT maxdist) {
     return new SWIGTYPE_p_coordT(qhullJNI.qh_getdistance(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_facetT.getCPtr(neighbor), SWIGTYPE_p_coordT.getCPtr(mindist), SWIGTYPE_p_coordT.getCPtr(maxdist)), true);
   }
 
-  public static void qh_normalize(SWIGTYPE_p_coordT normal, int dim, SWIGTYPE_p_boolT toporient) {
-    qhullJNI.qh_normalize(SWIGTYPE_p_coordT.getCPtr(normal), dim, SWIGTYPE_p_boolT.getCPtr(toporient));
+  public static void qh_normalize(SWIGTYPE_p_coordT normal, int dim, java.lang.Boolean toporient) {
+    qhullJNI.qh_normalize(SWIGTYPE_p_coordT.getCPtr(normal), dim, toporient);
   }
 
-  public static void qh_normalize2(SWIGTYPE_p_coordT normal, int dim, SWIGTYPE_p_boolT toporient, SWIGTYPE_p_double minnorm, SWIGTYPE_p_boolT ismin) {
-    qhullJNI.qh_normalize2(SWIGTYPE_p_coordT.getCPtr(normal), dim, SWIGTYPE_p_boolT.getCPtr(toporient), SWIGTYPE_p_double.getCPtr(minnorm), SWIGTYPE_p_boolT.getCPtr(ismin));
+  public static void qh_normalize2(SWIGTYPE_p_coordT normal, int dim, java.lang.Boolean toporient, SWIGTYPE_p_double minnorm, SWIGTYPE_p_boolT ismin) {
+    qhullJNI.qh_normalize2(SWIGTYPE_p_coordT.getCPtr(normal), dim, toporient, SWIGTYPE_p_double.getCPtr(minnorm), SWIGTYPE_p_boolT.getCPtr(ismin));
   }
 
   public static SWIGTYPE_p_pointT qh_projectpoint(SWIGTYPE_p_pointT point, SWIGTYPE_p_facetT facet, double dist) {
@@ -219,15 +305,15 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_setfacetplane(SWIGTYPE_p_facetT.getCPtr(newfacets));
   }
 
-  public static void qh_sethyperplane_det(int dim, SWIGTYPE_p_p_coordT rows, SWIGTYPE_p_coordT point0, SWIGTYPE_p_boolT toporient, SWIGTYPE_p_coordT normal, SWIGTYPE_p_double offset, SWIGTYPE_p_boolT nearzero) {
-    qhullJNI.qh_sethyperplane_det(dim, SWIGTYPE_p_p_coordT.getCPtr(rows), SWIGTYPE_p_coordT.getCPtr(point0), SWIGTYPE_p_boolT.getCPtr(toporient), SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_double.getCPtr(offset), SWIGTYPE_p_boolT.getCPtr(nearzero));
+  public static void qh_sethyperplane_det(int dim, SWIGTYPE_p_p_coordT rows, SWIGTYPE_p_coordT point0, java.lang.Boolean toporient, SWIGTYPE_p_coordT normal, SWIGTYPE_p_double offset, SWIGTYPE_p_boolT nearzero) {
+    qhullJNI.qh_sethyperplane_det(dim, SWIGTYPE_p_p_coordT.getCPtr(rows), SWIGTYPE_p_coordT.getCPtr(point0), toporient, SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_double.getCPtr(offset), SWIGTYPE_p_boolT.getCPtr(nearzero));
   }
 
-  public static void qh_sethyperplane_gauss(int dim, SWIGTYPE_p_p_coordT rows, SWIGTYPE_p_pointT point0, SWIGTYPE_p_boolT toporient, SWIGTYPE_p_coordT normal, SWIGTYPE_p_coordT offset, SWIGTYPE_p_boolT nearzero) {
-    qhullJNI.qh_sethyperplane_gauss(dim, SWIGTYPE_p_p_coordT.getCPtr(rows), SWIGTYPE_p_pointT.getCPtr(point0), SWIGTYPE_p_boolT.getCPtr(toporient), SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_coordT.getCPtr(offset), SWIGTYPE_p_boolT.getCPtr(nearzero));
+  public static void qh_sethyperplane_gauss(int dim, SWIGTYPE_p_p_coordT rows, SWIGTYPE_p_pointT point0, java.lang.Boolean toporient, SWIGTYPE_p_coordT normal, SWIGTYPE_p_coordT offset, SWIGTYPE_p_boolT nearzero) {
+    qhullJNI.qh_sethyperplane_gauss(dim, SWIGTYPE_p_p_coordT.getCPtr(rows), SWIGTYPE_p_pointT.getCPtr(point0), toporient, SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_coordT.getCPtr(offset), SWIGTYPE_p_boolT.getCPtr(nearzero));
   }
 
-  public static SWIGTYPE_p_boolT qh_sharpnewfacets() {
+  public static java.lang.Boolean qh_sharpnewfacets() {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_sharpnewfacets(), true);
   }
 
@@ -276,8 +362,8 @@ public class qhull implements qhullConstants {
     return qhullJNI.qh_facetarea(SWIGTYPE_p_facetT.getCPtr(facet));
   }
 
-  public static double qh_facetarea_simplex(int dim, SWIGTYPE_p_coordT apex, setT vertices, SWIGTYPE_p_vertexT notvertex, SWIGTYPE_p_boolT toporient, SWIGTYPE_p_coordT normal, SWIGTYPE_p_double offset) {
-    return qhullJNI.qh_facetarea_simplex(dim, SWIGTYPE_p_coordT.getCPtr(apex), setT.getCPtr(vertices), vertices, SWIGTYPE_p_vertexT.getCPtr(notvertex), SWIGTYPE_p_boolT.getCPtr(toporient), SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_double.getCPtr(offset));
+  public static double qh_facetarea_simplex(int dim, SWIGTYPE_p_coordT apex, setT vertices, SWIGTYPE_p_vertexT notvertex, java.lang.Boolean toporient, SWIGTYPE_p_coordT normal, SWIGTYPE_p_double offset) {
+    return qhullJNI.qh_facetarea_simplex(dim, SWIGTYPE_p_coordT.getCPtr(apex), setT.getCPtr(vertices), vertices, SWIGTYPE_p_vertexT.getCPtr(notvertex), toporient, SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_double.getCPtr(offset));
   }
 
   public static SWIGTYPE_p_pointT qh_facetcenter(setT vertices) {
@@ -304,11 +390,11 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_getarea(SWIGTYPE_p_facetT.getCPtr(facetlist));
   }
 
-  public static SWIGTYPE_p_boolT qh_gram_schmidt(int dim, SWIGTYPE_p_p_double rows) {
+  public static java.lang.Boolean qh_gram_schmidt(int dim, SWIGTYPE_p_p_double rows) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_gram_schmidt(dim, SWIGTYPE_p_p_double.getCPtr(rows)), true);
   }
 
-  public static SWIGTYPE_p_boolT qh_inthresholds(SWIGTYPE_p_coordT normal, SWIGTYPE_p_double angle) {
+  public static java.lang.Boolean qh_inthresholds(SWIGTYPE_p_coordT normal, SWIGTYPE_p_double angle) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_inthresholds(SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_double.getCPtr(angle)), true);
   }
 
@@ -342,7 +428,7 @@ public class qhull implements qhullConstants {
     return qhullJNI.qh_mindiff(SWIGTYPE_p_double.getCPtr(vecA), SWIGTYPE_p_double.getCPtr(vecB), dim);
   }
 
-  public static SWIGTYPE_p_boolT qh_orientoutside(SWIGTYPE_p_facetT facet) {
+  public static java.lang.Boolean qh_orientoutside(SWIGTYPE_p_facetT facet) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_orientoutside(SWIGTYPE_p_facetT.getCPtr(facet)), true);
   }
 
@@ -350,16 +436,22 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_outerinner(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(outerplane), SWIGTYPE_p_double.getCPtr(innerplane));
   }
 
-  public static SWIGTYPE_p_coordT qh_pointdist(SWIGTYPE_p_pointT point1, SWIGTYPE_p_pointT point2, int dim) {
+  public static java.lang.Float qh_pointdist(SWIGTYPE_p_pointT point1, SWIGTYPE_p_pointT point2, int dim) {
     return new SWIGTYPE_p_coordT(qhullJNI.qh_pointdist(SWIGTYPE_p_pointT.getCPtr(point1), SWIGTYPE_p_pointT.getCPtr(point2), dim), true);
   }
 
-  public static void qh_printmatrix(SWIGTYPE_p_FILE fp, String string, SWIGTYPE_p_p_double rows, int numrow, int numcol) {
-    qhullJNI.qh_printmatrix(SWIGTYPE_p_FILE.getCPtr(fp), string, SWIGTYPE_p_p_double.getCPtr(rows), numrow, numcol);
+  public static void qh_printmatrix(java.io.FileOutputStream fp, String string, SWIGTYPE_p_p_double rows, int numrow, int numcol) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printmatrix(fp.getFD(), string, SWIGTYPE_p_p_double.getCPtr(rows), numrow, numcol);
+    }
   }
 
-  public static void qh_printpoints(SWIGTYPE_p_FILE fp, String string, setT points) {
-    qhullJNI.qh_printpoints(SWIGTYPE_p_FILE.getCPtr(fp), string, setT.getCPtr(points), points);
+  public static void qh_printpoints(java.io.FileOutputStream fp, String string, setT points) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printpoints(fp.getFD(), string, setT.getCPtr(points), points);
+    }
   }
 
   public static void qh_projectinput() {
@@ -382,15 +474,15 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_scaleinput();
   }
 
-  public static void qh_scalelast(SWIGTYPE_p_coordT points, int numpoints, int dim, SWIGTYPE_p_coordT low, SWIGTYPE_p_coordT high, SWIGTYPE_p_coordT newhigh) {
-    qhullJNI.qh_scalelast(SWIGTYPE_p_coordT.getCPtr(points), numpoints, dim, SWIGTYPE_p_coordT.getCPtr(low), SWIGTYPE_p_coordT.getCPtr(high), SWIGTYPE_p_coordT.getCPtr(newhigh));
+  public static void qh_scalelast(SWIGTYPE_p_coordT points, int numpoints, int dim, java.lang.Float low, java.lang.Float high, java.lang.Float newhigh) {
+    qhullJNI.qh_scalelast(SWIGTYPE_p_coordT.getCPtr(points), numpoints, dim, low, high, newhigh);
   }
 
   public static void qh_scalepoints(SWIGTYPE_p_pointT points, int numpoints, int dim, SWIGTYPE_p_double newlows, SWIGTYPE_p_double newhighs) {
     qhullJNI.qh_scalepoints(SWIGTYPE_p_pointT.getCPtr(points), numpoints, dim, SWIGTYPE_p_double.getCPtr(newlows), SWIGTYPE_p_double.getCPtr(newhighs));
   }
 
-  public static SWIGTYPE_p_boolT qh_sethalfspace(int dim, SWIGTYPE_p_coordT coords, SWIGTYPE_p_p_coordT nextp, SWIGTYPE_p_coordT normal, SWIGTYPE_p_coordT offset, SWIGTYPE_p_coordT feasible) {
+  public static java.lang.Boolean qh_sethalfspace(int dim, SWIGTYPE_p_coordT coords, SWIGTYPE_p_p_coordT nextp, SWIGTYPE_p_coordT normal, SWIGTYPE_p_coordT offset, SWIGTYPE_p_coordT feasible) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_sethalfspace(dim, SWIGTYPE_p_coordT.getCPtr(coords), SWIGTYPE_p_p_coordT.getCPtr(nextp), SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_coordT.getCPtr(offset), SWIGTYPE_p_coordT.getCPtr(feasible)), true);
   }
 
@@ -399,11 +491,11 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new SWIGTYPE_p_coordT(cPtr, false);
   }
 
-  public static SWIGTYPE_p_coordT qh_vertex_bestdist(setT vertices) {
+  public static java.lang.Float qh_vertex_bestdist(setT vertices) {
     return new SWIGTYPE_p_coordT(qhullJNI.qh_vertex_bestdist(setT.getCPtr(vertices), vertices), true);
   }
 
-  public static SWIGTYPE_p_coordT qh_vertex_bestdist2(setT vertices, SWIGTYPE_p_p_vertexT vertexp, SWIGTYPE_p_p_vertexT vertexp2) {
+  public static java.lang.Float qh_vertex_bestdist2(setT vertices, SWIGTYPE_p_p_vertexT vertexp, SWIGTYPE_p_p_vertexT vertexp2) {
     return new SWIGTYPE_p_coordT(qhullJNI.qh_vertex_bestdist2(setT.getCPtr(vertices), vertices, SWIGTYPE_p_p_vertexT.getCPtr(vertexp), SWIGTYPE_p_p_vertexT.getCPtr(vertexp2)), true);
   }
 
@@ -436,8 +528,8 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_copyfilename(filename, size, source, length);
   }
 
-  public static void qh_countfacets(SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT printall, SWIGTYPE_p_int numfacetsp, SWIGTYPE_p_int numsimplicialp, SWIGTYPE_p_int totneighborsp, SWIGTYPE_p_int numridgesp, SWIGTYPE_p_int numcoplanarsp, SWIGTYPE_p_int numnumtricoplanarsp) {
-    qhullJNI.qh_countfacets(SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(printall), SWIGTYPE_p_int.getCPtr(numfacetsp), SWIGTYPE_p_int.getCPtr(numsimplicialp), SWIGTYPE_p_int.getCPtr(totneighborsp), SWIGTYPE_p_int.getCPtr(numridgesp), SWIGTYPE_p_int.getCPtr(numcoplanarsp), SWIGTYPE_p_int.getCPtr(numnumtricoplanarsp));
+  public static void qh_countfacets(SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean printall, SWIGTYPE_p_int numfacetsp, SWIGTYPE_p_int numsimplicialp, SWIGTYPE_p_int totneighborsp, SWIGTYPE_p_int numridgesp, SWIGTYPE_p_int numcoplanarsp, SWIGTYPE_p_int numnumtricoplanarsp) {
+    qhullJNI.qh_countfacets(SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, printall, SWIGTYPE_p_int.getCPtr(numfacetsp), SWIGTYPE_p_int.getCPtr(numsimplicialp), SWIGTYPE_p_int.getCPtr(totneighborsp), SWIGTYPE_p_int.getCPtr(numridgesp), SWIGTYPE_p_int.getCPtr(numcoplanarsp), SWIGTYPE_p_int.getCPtr(numnumtricoplanarsp));
   }
 
   public static SWIGTYPE_p_pointT qh_detvnorm(SWIGTYPE_p_vertexT vertex, SWIGTYPE_p_vertexT vertexA, setT centers, SWIGTYPE_p_double offsetp) {
@@ -455,20 +547,26 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new setT(cPtr, false);
   }
 
-  public static int qh_eachvoronoi(SWIGTYPE_p_FILE fp, SWIGTYPE_p_f_p_FILE_p_vertexT_p_vertexT_p_struct_setT_boolT__void printvridge, SWIGTYPE_p_vertexT atvertex, SWIGTYPE_p_boolT visitall, qh_RIDGE innerouter, SWIGTYPE_p_boolT inorder) {
-    return qhullJNI.qh_eachvoronoi(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_f_p_FILE_p_vertexT_p_vertexT_p_struct_setT_boolT__void.getCPtr(printvridge), SWIGTYPE_p_vertexT.getCPtr(atvertex), SWIGTYPE_p_boolT.getCPtr(visitall), innerouter.swigValue(), SWIGTYPE_p_boolT.getCPtr(inorder));
+  public static int qh_eachvoronoi(java.io.FileOutputStream fp, SWIGTYPE_p_f_p_FILE_p_vertexT_p_vertexT_p_struct_setT_boolT__void printvridge, SWIGTYPE_p_vertexT atvertex, java.lang.Boolean visitall, qh_RIDGE innerouter, java.lang.Boolean inorder) throws java.io.IOException {
+    retainFD = fp;
+    {
+      return qhullJNI.qh_eachvoronoi(fp.getFD(), SWIGTYPE_p_f_p_FILE_p_vertexT_p_vertexT_p_struct_setT_boolT__void.getCPtr(printvridge), SWIGTYPE_p_vertexT.getCPtr(atvertex), visitall, innerouter.swigValue(), inorder);
+    }
   }
 
-  public static int qh_eachvoronoi_all(SWIGTYPE_p_FILE fp, SWIGTYPE_p_f_p_FILE_p_vertexT_p_vertexT_p_struct_setT_boolT__void printvridge, SWIGTYPE_p_boolT isUpper, qh_RIDGE innerouter, SWIGTYPE_p_boolT inorder) {
-    return qhullJNI.qh_eachvoronoi_all(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_f_p_FILE_p_vertexT_p_vertexT_p_struct_setT_boolT__void.getCPtr(printvridge), SWIGTYPE_p_boolT.getCPtr(isUpper), innerouter.swigValue(), SWIGTYPE_p_boolT.getCPtr(inorder));
+  public static int qh_eachvoronoi_all(java.io.FileOutputStream fp, SWIGTYPE_p_f_p_FILE_p_vertexT_p_vertexT_p_struct_setT_boolT__void printvridge, java.lang.Boolean isUpper, qh_RIDGE innerouter, java.lang.Boolean inorder) throws java.io.IOException {
+    retainFD = fp;
+    {
+      return qhullJNI.qh_eachvoronoi_all(fp.getFD(), SWIGTYPE_p_f_p_FILE_p_vertexT_p_vertexT_p_struct_setT_boolT__void.getCPtr(printvridge), isUpper, innerouter.swigValue(), inorder);
+    }
   }
 
   public static void qh_facet2point(SWIGTYPE_p_facetT facet, SWIGTYPE_p_p_pointT point0, SWIGTYPE_p_p_pointT point1, SWIGTYPE_p_double mindist) {
     qhullJNI.qh_facet2point(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_p_pointT.getCPtr(point0), SWIGTYPE_p_p_pointT.getCPtr(point1), SWIGTYPE_p_double.getCPtr(mindist));
   }
 
-  public static setT qh_facetvertices(SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT allfacets) {
-    long cPtr = qhullJNI.qh_facetvertices(SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(allfacets));
+  public static setT qh_facetvertices(SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean allfacets) {
+    long cPtr = qhullJNI.qh_facetvertices(SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, allfacets);
     return (cPtr == 0) ? null : new setT(cPtr, false);
   }
 
@@ -480,8 +578,8 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_markkeep(SWIGTYPE_p_facetT.getCPtr(facetlist));
   }
 
-  public static setT qh_markvoronoi(SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT printall, SWIGTYPE_p_boolT isLowerp, SWIGTYPE_p_int numcentersp) {
-    long cPtr = qhullJNI.qh_markvoronoi(SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(printall), SWIGTYPE_p_boolT.getCPtr(isLowerp), SWIGTYPE_p_int.getCPtr(numcentersp));
+  public static setT qh_markvoronoi(SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean printall, SWIGTYPE_p_boolT isLowerp, SWIGTYPE_p_int numcentersp) {
+    long cPtr = qhullJNI.qh_markvoronoi(SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, printall, SWIGTYPE_p_boolT.getCPtr(isLowerp), SWIGTYPE_p_int.getCPtr(numcentersp));
     return (cPtr == 0) ? null : new setT(cPtr, false);
   }
 
@@ -493,184 +591,319 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_prepare_output();
   }
 
-  public static void qh_printafacet(SWIGTYPE_p_FILE fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facet, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printafacet(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printafacet(java.io.FileOutputStream fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facet, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printafacet(fp.getFD(), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facet), printall);
+    }
   }
 
-  public static void qh_printbegin(SWIGTYPE_p_FILE fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printbegin(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printbegin(java.io.FileOutputStream fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printbegin(fp.getFD(), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, printall);
+    }
   }
 
-  public static void qh_printcenter(SWIGTYPE_p_FILE fp, SWIGTYPE_p_qh_PRINT format, String string, SWIGTYPE_p_facetT facet) {
-    qhullJNI.qh_printcenter(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_qh_PRINT.getCPtr(format), string, SWIGTYPE_p_facetT.getCPtr(facet));
+  public static void qh_printcenter(java.io.FileOutputStream fp, SWIGTYPE_p_qh_PRINT format, String string, SWIGTYPE_p_facetT facet) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printcenter(fp.getFD(), SWIGTYPE_p_qh_PRINT.getCPtr(format), string, SWIGTYPE_p_facetT.getCPtr(facet));
+    }
   }
 
-  public static void qh_printcentrum(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet, double radius) {
-    qhullJNI.qh_printcentrum(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet), radius);
+  public static void qh_printcentrum(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet, double radius) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printcentrum(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet), radius);
+    }
   }
 
-  public static void qh_printend(SWIGTYPE_p_FILE fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printend(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printend(java.io.FileOutputStream fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printend(fp.getFD(), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, printall);
+    }
   }
 
-  public static void qh_printend4geom(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_int num, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printend4geom(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_int.getCPtr(num), SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printend4geom(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_int num, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printend4geom(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_int.getCPtr(num), printall);
+    }
   }
 
-  public static void qh_printextremes(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printextremes(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printextremes(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printextremes(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, printall);
+    }
   }
 
-  public static void qh_printextremes_2d(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printextremes_2d(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printextremes_2d(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printextremes_2d(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, printall);
+    }
   }
 
-  public static void qh_printextremes_d(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printextremes_d(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printextremes_d(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printextremes_d(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, printall);
+    }
   }
 
-  public static void qh_printfacet(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet) {
-    qhullJNI.qh_printfacet(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet));
+  public static void qh_printfacet(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacet(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet));
+    }
   }
 
-  public static void qh_printfacet2math(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_qh_PRINT format, int notfirst) {
-    qhullJNI.qh_printfacet2math(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_qh_PRINT.getCPtr(format), notfirst);
+  public static void qh_printfacet2math(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_qh_PRINT format, int notfirst) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacet2math(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_qh_PRINT.getCPtr(format), notfirst);
+    }
   }
 
-  public static void qh_printfacet2geom(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_double color) {
-    qhullJNI.qh_printfacet2geom(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(color));
+  public static void qh_printfacet2geom(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_double color) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacet2geom(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(color));
+    }
   }
 
-  public static void qh_printfacet2geom_points(SWIGTYPE_p_FILE fp, SWIGTYPE_p_pointT point1, SWIGTYPE_p_pointT point2, SWIGTYPE_p_facetT facet, double offset, SWIGTYPE_p_double color) {
-    qhullJNI.qh_printfacet2geom_points(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_pointT.getCPtr(point1), SWIGTYPE_p_pointT.getCPtr(point2), SWIGTYPE_p_facetT.getCPtr(facet), offset, SWIGTYPE_p_double.getCPtr(color));
+  public static void qh_printfacet2geom_points(java.io.FileOutputStream fp, SWIGTYPE_p_pointT point1, SWIGTYPE_p_pointT point2, SWIGTYPE_p_facetT facet, double offset, SWIGTYPE_p_double color) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacet2geom_points(fp.getFD(), SWIGTYPE_p_pointT.getCPtr(point1), SWIGTYPE_p_pointT.getCPtr(point2), SWIGTYPE_p_facetT.getCPtr(facet), offset, SWIGTYPE_p_double.getCPtr(color));
+    }
   }
 
-  public static void qh_printfacet3math(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_qh_PRINT format, int notfirst) {
-    qhullJNI.qh_printfacet3math(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_qh_PRINT.getCPtr(format), notfirst);
+  public static void qh_printfacet3math(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_qh_PRINT format, int notfirst) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacet3math(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_qh_PRINT.getCPtr(format), notfirst);
+    }
   }
 
-  public static void qh_printfacet3geom_nonsimplicial(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_double color) {
-    qhullJNI.qh_printfacet3geom_nonsimplicial(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(color));
+  public static void qh_printfacet3geom_nonsimplicial(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_double color) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacet3geom_nonsimplicial(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(color));
+    }
   }
 
-  public static void qh_printfacet3geom_points(SWIGTYPE_p_FILE fp, setT points, SWIGTYPE_p_facetT facet, double offset, SWIGTYPE_p_double color) {
-    qhullJNI.qh_printfacet3geom_points(SWIGTYPE_p_FILE.getCPtr(fp), setT.getCPtr(points), points, SWIGTYPE_p_facetT.getCPtr(facet), offset, SWIGTYPE_p_double.getCPtr(color));
+  public static void qh_printfacet3geom_points(java.io.FileOutputStream fp, setT points, SWIGTYPE_p_facetT facet, double offset, SWIGTYPE_p_double color) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacet3geom_points(fp.getFD(), setT.getCPtr(points), points, SWIGTYPE_p_facetT.getCPtr(facet), offset, SWIGTYPE_p_double.getCPtr(color));
+    }
   }
 
-  public static void qh_printfacet3geom_simplicial(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_double color) {
-    qhullJNI.qh_printfacet3geom_simplicial(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(color));
+  public static void qh_printfacet3geom_simplicial(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_double color) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacet3geom_simplicial(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(color));
+    }
   }
 
-  public static void qh_printfacet3vertex(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_qh_PRINT format) {
-    qhullJNI.qh_printfacet3vertex(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_qh_PRINT.getCPtr(format));
+  public static void qh_printfacet3vertex(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_qh_PRINT format) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacet3vertex(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_qh_PRINT.getCPtr(format));
+    }
   }
 
-  public static void qh_printfacet4geom_nonsimplicial(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_double color) {
-    qhullJNI.qh_printfacet4geom_nonsimplicial(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(color));
+  public static void qh_printfacet4geom_nonsimplicial(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_double color) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacet4geom_nonsimplicial(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(color));
+    }
   }
 
-  public static void qh_printfacet4geom_simplicial(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_double color) {
-    qhullJNI.qh_printfacet4geom_simplicial(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(color));
+  public static void qh_printfacet4geom_simplicial(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_double color) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacet4geom_simplicial(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(color));
+    }
   }
 
-  public static void qh_printfacetNvertex_nonsimplicial(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet, int id, SWIGTYPE_p_qh_PRINT format) {
-    qhullJNI.qh_printfacetNvertex_nonsimplicial(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet), id, SWIGTYPE_p_qh_PRINT.getCPtr(format));
+  public static void qh_printfacetNvertex_nonsimplicial(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet, int id, SWIGTYPE_p_qh_PRINT format) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacetNvertex_nonsimplicial(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet), id, SWIGTYPE_p_qh_PRINT.getCPtr(format));
+    }
   }
 
-  public static void qh_printfacetNvertex_simplicial(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_qh_PRINT format) {
-    qhullJNI.qh_printfacetNvertex_simplicial(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_qh_PRINT.getCPtr(format));
+  public static void qh_printfacetNvertex_simplicial(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet, SWIGTYPE_p_qh_PRINT format) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacetNvertex_simplicial(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_qh_PRINT.getCPtr(format));
+    }
   }
 
-  public static void qh_printfacetheader(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet) {
-    qhullJNI.qh_printfacetheader(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet));
+  public static void qh_printfacetheader(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacetheader(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet));
+    }
   }
 
-  public static void qh_printfacetridges(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet) {
-    qhullJNI.qh_printfacetridges(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet));
+  public static void qh_printfacetridges(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacetridges(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet));
+    }
   }
 
-  public static void qh_printfacets(SWIGTYPE_p_FILE fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printfacets(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printfacets(java.io.FileOutputStream fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printfacets(fp.getFD(), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, printall);
+    }
   }
 
-  public static void qh_printhyperplaneintersection(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facet1, SWIGTYPE_p_facetT facet2, setT vertices, SWIGTYPE_p_double color) {
-    qhullJNI.qh_printhyperplaneintersection(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facet1), SWIGTYPE_p_facetT.getCPtr(facet2), setT.getCPtr(vertices), vertices, SWIGTYPE_p_double.getCPtr(color));
+  public static void qh_printhyperplaneintersection(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facet1, SWIGTYPE_p_facetT facet2, setT vertices, SWIGTYPE_p_double color) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printhyperplaneintersection(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facet1), SWIGTYPE_p_facetT.getCPtr(facet2), setT.getCPtr(vertices), vertices, SWIGTYPE_p_double.getCPtr(color));
+    }
   }
 
-  public static void qh_printline3geom(SWIGTYPE_p_FILE fp, SWIGTYPE_p_pointT pointA, SWIGTYPE_p_pointT pointB, SWIGTYPE_p_double color) {
-    qhullJNI.qh_printline3geom(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_pointT.getCPtr(pointA), SWIGTYPE_p_pointT.getCPtr(pointB), SWIGTYPE_p_double.getCPtr(color));
+  public static void qh_printline3geom(java.io.FileOutputStream fp, SWIGTYPE_p_pointT pointA, SWIGTYPE_p_pointT pointB, SWIGTYPE_p_double color) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printline3geom(fp.getFD(), SWIGTYPE_p_pointT.getCPtr(pointA), SWIGTYPE_p_pointT.getCPtr(pointB), SWIGTYPE_p_double.getCPtr(color));
+    }
   }
 
-  public static void qh_printneighborhood(SWIGTYPE_p_FILE fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facetA, SWIGTYPE_p_facetT facetB, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printneighborhood(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facetA), SWIGTYPE_p_facetT.getCPtr(facetB), SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printneighborhood(java.io.FileOutputStream fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facetA, SWIGTYPE_p_facetT facetB, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printneighborhood(fp.getFD(), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facetA), SWIGTYPE_p_facetT.getCPtr(facetB), printall);
+    }
   }
 
-  public static void qh_printpoint(SWIGTYPE_p_FILE fp, String string, SWIGTYPE_p_pointT point) {
-    qhullJNI.qh_printpoint(SWIGTYPE_p_FILE.getCPtr(fp), string, SWIGTYPE_p_pointT.getCPtr(point));
+  public static void qh_printpoint(java.io.FileOutputStream fp, String string, SWIGTYPE_p_pointT point) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printpoint(fp.getFD(), string, SWIGTYPE_p_pointT.getCPtr(point));
+    }
   }
 
-  public static void qh_printpointid(SWIGTYPE_p_FILE fp, String string, int dim, SWIGTYPE_p_pointT point, int id) {
-    qhullJNI.qh_printpointid(SWIGTYPE_p_FILE.getCPtr(fp), string, dim, SWIGTYPE_p_pointT.getCPtr(point), id);
+  public static void qh_printpointid(java.io.FileOutputStream fp, String string, int dim, SWIGTYPE_p_pointT point, int id) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printpointid(fp.getFD(), string, dim, SWIGTYPE_p_pointT.getCPtr(point), id);
+    }
   }
 
-  public static void qh_printpoint3(SWIGTYPE_p_FILE fp, SWIGTYPE_p_pointT point) {
-    qhullJNI.qh_printpoint3(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_pointT.getCPtr(point));
+  public static void qh_printpoint3(java.io.FileOutputStream fp, SWIGTYPE_p_pointT point) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printpoint3(fp.getFD(), SWIGTYPE_p_pointT.getCPtr(point));
+    }
   }
 
-  public static void qh_printpoints_out(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printpoints_out(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printpoints_out(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printpoints_out(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, printall);
+    }
   }
 
-  public static void qh_printpointvect(SWIGTYPE_p_FILE fp, SWIGTYPE_p_pointT point, SWIGTYPE_p_coordT normal, SWIGTYPE_p_pointT center, double radius, SWIGTYPE_p_double color) {
-    qhullJNI.qh_printpointvect(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_pointT.getCPtr(center), radius, SWIGTYPE_p_double.getCPtr(color));
+  public static void qh_printpointvect(java.io.FileOutputStream fp, SWIGTYPE_p_pointT point, SWIGTYPE_p_coordT normal, SWIGTYPE_p_pointT center, double radius, SWIGTYPE_p_double color) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printpointvect(fp.getFD(), SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_pointT.getCPtr(center), radius, SWIGTYPE_p_double.getCPtr(color));
+    }
   }
 
-  public static void qh_printpointvect2(SWIGTYPE_p_FILE fp, SWIGTYPE_p_pointT point, SWIGTYPE_p_coordT normal, SWIGTYPE_p_pointT center, double radius) {
-    qhullJNI.qh_printpointvect2(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_pointT.getCPtr(center), radius);
+  public static void qh_printpointvect2(java.io.FileOutputStream fp, SWIGTYPE_p_pointT point, SWIGTYPE_p_coordT normal, SWIGTYPE_p_pointT center, double radius) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printpointvect2(fp.getFD(), SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_coordT.getCPtr(normal), SWIGTYPE_p_pointT.getCPtr(center), radius);
+    }
   }
 
-  public static void qh_printridge(SWIGTYPE_p_FILE fp, SWIGTYPE_p_ridgeT ridge) {
-    qhullJNI.qh_printridge(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_ridgeT.getCPtr(ridge));
+  public static void qh_printridge(java.io.FileOutputStream fp, SWIGTYPE_p_ridgeT ridge) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printridge(fp.getFD(), SWIGTYPE_p_ridgeT.getCPtr(ridge));
+    }
   }
 
-  public static void qh_printspheres(SWIGTYPE_p_FILE fp, setT vertices, double radius) {
-    qhullJNI.qh_printspheres(SWIGTYPE_p_FILE.getCPtr(fp), setT.getCPtr(vertices), vertices, radius);
+  public static void qh_printspheres(java.io.FileOutputStream fp, setT vertices, double radius) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printspheres(fp.getFD(), setT.getCPtr(vertices), vertices, radius);
+    }
   }
 
-  public static void qh_printvdiagram(SWIGTYPE_p_FILE fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printvdiagram(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printvdiagram(java.io.FileOutputStream fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printvdiagram(fp.getFD(), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, printall);
+    }
   }
 
-  public static int qh_printvdiagram2(SWIGTYPE_p_FILE fp, SWIGTYPE_p_f_p_FILE_p_vertexT_p_vertexT_p_struct_setT_boolT__void printvridge, setT vertices, qh_RIDGE innerouter, SWIGTYPE_p_boolT inorder) {
-    return qhullJNI.qh_printvdiagram2(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_f_p_FILE_p_vertexT_p_vertexT_p_struct_setT_boolT__void.getCPtr(printvridge), setT.getCPtr(vertices), vertices, innerouter.swigValue(), SWIGTYPE_p_boolT.getCPtr(inorder));
+  public static int qh_printvdiagram2(java.io.FileOutputStream fp, SWIGTYPE_p_f_p_FILE_p_vertexT_p_vertexT_p_struct_setT_boolT__void printvridge, setT vertices, qh_RIDGE innerouter, java.lang.Boolean inorder) throws java.io.IOException {
+    retainFD = fp;
+    {
+      return qhullJNI.qh_printvdiagram2(fp.getFD(), SWIGTYPE_p_f_p_FILE_p_vertexT_p_vertexT_p_struct_setT_boolT__void.getCPtr(printvridge), setT.getCPtr(vertices), vertices, innerouter.swigValue(), inorder);
+    }
   }
 
-  public static void qh_printvertex(SWIGTYPE_p_FILE fp, SWIGTYPE_p_vertexT vertex) {
-    qhullJNI.qh_printvertex(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_vertexT.getCPtr(vertex));
+  public static void qh_printvertex(java.io.FileOutputStream fp, SWIGTYPE_p_vertexT vertex) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printvertex(fp.getFD(), SWIGTYPE_p_vertexT.getCPtr(vertex));
+    }
   }
 
-  public static void qh_printvertexlist(SWIGTYPE_p_FILE fp, String string, SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printvertexlist(SWIGTYPE_p_FILE.getCPtr(fp), string, SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printvertexlist(java.io.FileOutputStream fp, String string, SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printvertexlist(fp.getFD(), string, SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, printall);
+    }
   }
 
-  public static void qh_printvertices(SWIGTYPE_p_FILE fp, String string, setT vertices) {
-    qhullJNI.qh_printvertices(SWIGTYPE_p_FILE.getCPtr(fp), string, setT.getCPtr(vertices), vertices);
+  public static void qh_printvertices(java.io.FileOutputStream fp, String string, setT vertices) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printvertices(fp.getFD(), string, setT.getCPtr(vertices), vertices);
+    }
   }
 
-  public static void qh_printvneighbors(SWIGTYPE_p_FILE fp, SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printvneighbors(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printvneighbors(java.io.FileOutputStream fp, SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printvneighbors(fp.getFD(), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, printall);
+    }
   }
 
-  public static void qh_printvoronoi(SWIGTYPE_p_FILE fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facetlist, setT facets, SWIGTYPE_p_boolT printall) {
-    qhullJNI.qh_printvoronoi(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, SWIGTYPE_p_boolT.getCPtr(printall));
+  public static void qh_printvoronoi(java.io.FileOutputStream fp, SWIGTYPE_p_qh_PRINT format, SWIGTYPE_p_facetT facetlist, setT facets, java.lang.Boolean printall) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printvoronoi(fp.getFD(), SWIGTYPE_p_qh_PRINT.getCPtr(format), SWIGTYPE_p_facetT.getCPtr(facetlist), setT.getCPtr(facets), facets, printall);
+    }
   }
 
-  public static void qh_printvnorm(SWIGTYPE_p_FILE fp, SWIGTYPE_p_vertexT vertex, SWIGTYPE_p_vertexT vertexA, setT centers, SWIGTYPE_p_boolT unbounded) {
-    qhullJNI.qh_printvnorm(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_vertexT.getCPtr(vertex), SWIGTYPE_p_vertexT.getCPtr(vertexA), setT.getCPtr(centers), centers, SWIGTYPE_p_boolT.getCPtr(unbounded));
+  public static void qh_printvnorm(java.io.FileOutputStream fp, SWIGTYPE_p_vertexT vertex, SWIGTYPE_p_vertexT vertexA, setT centers, java.lang.Boolean unbounded) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printvnorm(fp.getFD(), SWIGTYPE_p_vertexT.getCPtr(vertex), SWIGTYPE_p_vertexT.getCPtr(vertexA), setT.getCPtr(centers), centers, unbounded);
+    }
   }
 
-  public static void qh_printvridge(SWIGTYPE_p_FILE fp, SWIGTYPE_p_vertexT vertex, SWIGTYPE_p_vertexT vertexA, setT centers, SWIGTYPE_p_boolT unbounded) {
-    qhullJNI.qh_printvridge(SWIGTYPE_p_FILE.getCPtr(fp), SWIGTYPE_p_vertexT.getCPtr(vertex), SWIGTYPE_p_vertexT.getCPtr(vertexA), setT.getCPtr(centers), centers, SWIGTYPE_p_boolT.getCPtr(unbounded));
+  public static void qh_printvridge(java.io.FileOutputStream fp, SWIGTYPE_p_vertexT vertex, SWIGTYPE_p_vertexT vertexA, setT centers, java.lang.Boolean unbounded) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printvridge(fp.getFD(), SWIGTYPE_p_vertexT.getCPtr(vertex), SWIGTYPE_p_vertexT.getCPtr(vertexA), setT.getCPtr(centers), centers, unbounded);
+    }
   }
 
   public static void qh_produce_output() {
@@ -698,7 +931,7 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_setfeasible(dim);
   }
 
-  public static SWIGTYPE_p_boolT qh_skipfacet(SWIGTYPE_p_facetT facet) {
+  public static java.lang.Boolean qh_skipfacet(SWIGTYPE_p_facetT facet) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_skipfacet(SWIGTYPE_p_facetT.getCPtr(facet)), true);
   }
 
@@ -732,8 +965,11 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_memfreeshort(SWIGTYPE_p_int.getCPtr(curlong), SWIGTYPE_p_int.getCPtr(totlong));
   }
 
-  public static void qh_meminit(SWIGTYPE_p_FILE ferr) {
-    qhullJNI.qh_meminit(SWIGTYPE_p_FILE.getCPtr(ferr));
+  public static void qh_meminit(java.io.FileOutputStream ferr) throws java.io.IOException {
+    retainFD = ferr;
+    {
+      qhullJNI.qh_meminit(ferr.getFD());
+    }
   }
 
   public static void qh_meminitbuffers(int tracelevel, int alignment, int numsizes, int bufsize, int bufinit) {
@@ -748,8 +984,11 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_memsize(size);
   }
 
-  public static void qh_memstatistics(SWIGTYPE_p_FILE fp) {
-    qhullJNI.qh_memstatistics(SWIGTYPE_p_FILE.getCPtr(fp));
+  public static void qh_memstatistics(java.io.FileOutputStream fp) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_memstatistics(fp.getFD());
+    }
   }
 
   public static void qh_memtotal(SWIGTYPE_p_int totlong, SWIGTYPE_p_int curlong, SWIGTYPE_p_int totshort, SWIGTYPE_p_int curshort, SWIGTYPE_p_int maxlong, SWIGTYPE_p_int totbuffer) {
@@ -760,20 +999,20 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_premerge(apexpointid, maxcentrum, maxangle);
   }
 
-  public static void qh_postmerge(String reason, double maxcentrum, double maxangle, SWIGTYPE_p_boolT vneighbors) {
-    qhullJNI.qh_postmerge(reason, maxcentrum, maxangle, SWIGTYPE_p_boolT.getCPtr(vneighbors));
+  public static void qh_postmerge(String reason, double maxcentrum, double maxangle, java.lang.Boolean vneighbors) {
+    qhullJNI.qh_postmerge(reason, maxcentrum, maxangle, vneighbors);
   }
 
-  public static void qh_all_merges(SWIGTYPE_p_boolT othermerge, SWIGTYPE_p_boolT vneighbors) {
-    qhullJNI.qh_all_merges(SWIGTYPE_p_boolT.getCPtr(othermerge), SWIGTYPE_p_boolT.getCPtr(vneighbors));
+  public static void qh_all_merges(java.lang.Boolean othermerge, java.lang.Boolean vneighbors) {
+    qhullJNI.qh_all_merges(othermerge, vneighbors);
   }
 
   public static void qh_all_vertexmerges(int apexpointid, SWIGTYPE_p_facetT facet, SWIGTYPE_p_p_facetT retryfacet) {
     qhullJNI.qh_all_vertexmerges(apexpointid, SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_p_facetT.getCPtr(retryfacet));
   }
 
-  public static void qh_appendmergeset(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, mergeType mergetype, SWIGTYPE_p_coordT dist, double angle) {
-    qhullJNI.qh_appendmergeset(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_facetT.getCPtr(neighbor), mergetype.swigValue(), SWIGTYPE_p_coordT.getCPtr(dist), angle);
+  public static void qh_appendmergeset(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, mergeType mergetype, java.lang.Float dist, double angle) {
+    qhullJNI.qh_appendmergeset(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_facetT.getCPtr(neighbor), mergetype.swigValue(), dist, angle);
   }
 
   public static void qh_appendvertexmerge(SWIGTYPE_p_vertexT vertex, SWIGTYPE_p_vertexT destination, mergeType mergetype, double distance, SWIGTYPE_p_ridgeT ridge1, SWIGTYPE_p_ridgeT ridge2) {
@@ -801,8 +1040,8 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_checkdelridge();
   }
 
-  public static SWIGTYPE_p_boolT qh_checkzero(SWIGTYPE_p_boolT testall) {
-    return new SWIGTYPE_p_boolT(qhullJNI.qh_checkzero(SWIGTYPE_p_boolT.getCPtr(testall)), true);
+  public static java.lang.Boolean qh_checkzero(java.lang.Boolean testall) {
+    return new SWIGTYPE_p_boolT(qhullJNI.qh_checkzero(testall), true);
   }
 
   public static int qh_compare_anglemerge(SWIGTYPE_p_void p1, SWIGTYPE_p_void p2) {
@@ -848,8 +1087,8 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new SWIGTYPE_p_vertexT(cPtr, false);
   }
 
-  public static void qh_findbest_test(SWIGTYPE_p_boolT testcentrum, SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, SWIGTYPE_p_p_facetT bestfacet, SWIGTYPE_p_double distp, SWIGTYPE_p_double mindistp, SWIGTYPE_p_double maxdistp) {
-    qhullJNI.qh_findbest_test(SWIGTYPE_p_boolT.getCPtr(testcentrum), SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_facetT.getCPtr(neighbor), SWIGTYPE_p_p_facetT.getCPtr(bestfacet), SWIGTYPE_p_double.getCPtr(distp), SWIGTYPE_p_double.getCPtr(mindistp), SWIGTYPE_p_double.getCPtr(maxdistp));
+  public static void qh_findbest_test(java.lang.Boolean testcentrum, SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, SWIGTYPE_p_p_facetT bestfacet, SWIGTYPE_p_double distp, SWIGTYPE_p_double mindistp, SWIGTYPE_p_double maxdistp) {
+    qhullJNI.qh_findbest_test(testcentrum, SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_facetT.getCPtr(neighbor), SWIGTYPE_p_p_facetT.getCPtr(bestfacet), SWIGTYPE_p_double.getCPtr(distp), SWIGTYPE_p_double.getCPtr(mindistp), SWIGTYPE_p_double.getCPtr(maxdistp));
   }
 
   public static SWIGTYPE_p_facetT qh_findbestneighbor(SWIGTYPE_p_facetT facet, SWIGTYPE_p_double distp, SWIGTYPE_p_double mindistp, SWIGTYPE_p_double maxdistp) {
@@ -877,11 +1116,11 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_getmergeset_initial(SWIGTYPE_p_facetT.getCPtr(facetlist));
   }
 
-  public static SWIGTYPE_p_boolT qh_getpinchedmerges(SWIGTYPE_p_vertexT apex, SWIGTYPE_p_coordT maxdupdist, SWIGTYPE_p_boolT iscoplanar) {
-    return new SWIGTYPE_p_boolT(qhullJNI.qh_getpinchedmerges(SWIGTYPE_p_vertexT.getCPtr(apex), SWIGTYPE_p_coordT.getCPtr(maxdupdist), SWIGTYPE_p_boolT.getCPtr(iscoplanar)), true);
+  public static java.lang.Boolean qh_getpinchedmerges(SWIGTYPE_p_vertexT apex, java.lang.Float maxdupdist, SWIGTYPE_p_boolT iscoplanar) {
+    return new SWIGTYPE_p_boolT(qhullJNI.qh_getpinchedmerges(SWIGTYPE_p_vertexT.getCPtr(apex), maxdupdist, SWIGTYPE_p_boolT.getCPtr(iscoplanar)), true);
   }
 
-  public static SWIGTYPE_p_boolT qh_hasmerge(setT mergeset, mergeType type, SWIGTYPE_p_facetT facetA, SWIGTYPE_p_facetT facetB) {
+  public static java.lang.Boolean qh_hasmerge(setT mergeset, mergeType type, SWIGTYPE_p_facetT facetA, SWIGTYPE_p_facetT facetB) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_hasmerge(setT.getCPtr(mergeset), mergeset, type.swigValue(), SWIGTYPE_p_facetT.getCPtr(facetA), SWIGTYPE_p_facetT.getCPtr(facetB)), true);
   }
 
@@ -902,8 +1141,8 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_makeridges(SWIGTYPE_p_facetT.getCPtr(facet));
   }
 
-  public static void qh_mark_dupridges(SWIGTYPE_p_facetT facetlist, SWIGTYPE_p_boolT allmerges) {
-    qhullJNI.qh_mark_dupridges(SWIGTYPE_p_facetT.getCPtr(facetlist), SWIGTYPE_p_boolT.getCPtr(allmerges));
+  public static void qh_mark_dupridges(SWIGTYPE_p_facetT facetlist, java.lang.Boolean allmerges) {
+    qhullJNI.qh_mark_dupridges(SWIGTYPE_p_facetT.getCPtr(facetlist), allmerges);
   }
 
   public static void qh_maybe_duplicateridge(SWIGTYPE_p_ridgeT ridge) {
@@ -958,8 +1197,8 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_mergecycle_vneighbors(SWIGTYPE_p_facetT.getCPtr(samecycle), SWIGTYPE_p_facetT.getCPtr(newfacet));
   }
 
-  public static void qh_mergefacet(SWIGTYPE_p_facetT facet1, SWIGTYPE_p_facetT facet2, mergeType mergetype, SWIGTYPE_p_double mindist, SWIGTYPE_p_double maxdist, SWIGTYPE_p_boolT mergeapex) {
-    qhullJNI.qh_mergefacet(SWIGTYPE_p_facetT.getCPtr(facet1), SWIGTYPE_p_facetT.getCPtr(facet2), mergetype.swigValue(), SWIGTYPE_p_double.getCPtr(mindist), SWIGTYPE_p_double.getCPtr(maxdist), SWIGTYPE_p_boolT.getCPtr(mergeapex));
+  public static void qh_mergefacet(SWIGTYPE_p_facetT facet1, SWIGTYPE_p_facetT facet2, mergeType mergetype, SWIGTYPE_p_double mindist, SWIGTYPE_p_double maxdist, java.lang.Boolean mergeapex) {
+    qhullJNI.qh_mergefacet(SWIGTYPE_p_facetT.getCPtr(facet1), SWIGTYPE_p_facetT.getCPtr(facet2), mergetype.swigValue(), SWIGTYPE_p_double.getCPtr(mindist), SWIGTYPE_p_double.getCPtr(maxdist), mergeapex);
   }
 
   public static void qh_mergefacet2d(SWIGTYPE_p_facetT facet1, SWIGTYPE_p_facetT facet2) {
@@ -974,8 +1213,8 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_mergeridges(SWIGTYPE_p_facetT.getCPtr(facet1), SWIGTYPE_p_facetT.getCPtr(facet2));
   }
 
-  public static void qh_mergesimplex(SWIGTYPE_p_facetT facet1, SWIGTYPE_p_facetT facet2, SWIGTYPE_p_boolT mergeapex) {
-    qhullJNI.qh_mergesimplex(SWIGTYPE_p_facetT.getCPtr(facet1), SWIGTYPE_p_facetT.getCPtr(facet2), SWIGTYPE_p_boolT.getCPtr(mergeapex));
+  public static void qh_mergesimplex(SWIGTYPE_p_facetT facet1, SWIGTYPE_p_facetT facet2, java.lang.Boolean mergeapex) {
+    qhullJNI.qh_mergesimplex(SWIGTYPE_p_facetT.getCPtr(facet1), SWIGTYPE_p_facetT.getCPtr(facet2), mergeapex);
   }
 
   public static void qh_mergevertex_del(SWIGTYPE_p_vertexT vertex, SWIGTYPE_p_facetT facet1, SWIGTYPE_p_facetT facet2) {
@@ -1018,7 +1257,7 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new SWIGTYPE_p_facetT(cPtr, false);
   }
 
-  public static SWIGTYPE_p_boolT qh_reducevertices() {
+  public static java.lang.Boolean qh_reducevertices() {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_reducevertices(), true);
   }
 
@@ -1027,7 +1266,7 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new SWIGTYPE_p_vertexT(cPtr, false);
   }
 
-  public static SWIGTYPE_p_boolT qh_remove_extravertices(SWIGTYPE_p_facetT facet) {
+  public static java.lang.Boolean qh_remove_extravertices(SWIGTYPE_p_facetT facet) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_remove_extravertices(SWIGTYPE_p_facetT.getCPtr(facet)), true);
   }
 
@@ -1044,7 +1283,7 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new SWIGTYPE_p_vertexT(cPtr, false);
   }
 
-  public static SWIGTYPE_p_boolT qh_renameridgevertex(SWIGTYPE_p_ridgeT ridge, SWIGTYPE_p_vertexT oldvertex, SWIGTYPE_p_vertexT newvertex) {
+  public static java.lang.Boolean qh_renameridgevertex(SWIGTYPE_p_ridgeT ridge, SWIGTYPE_p_vertexT oldvertex, SWIGTYPE_p_vertexT newvertex) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_renameridgevertex(SWIGTYPE_p_ridgeT.getCPtr(ridge), SWIGTYPE_p_vertexT.getCPtr(oldvertex), SWIGTYPE_p_vertexT.getCPtr(newvertex)), true);
   }
 
@@ -1052,27 +1291,27 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_renamevertex(SWIGTYPE_p_vertexT.getCPtr(oldvertex), SWIGTYPE_p_vertexT.getCPtr(newvertex), setT.getCPtr(ridges), ridges, SWIGTYPE_p_facetT.getCPtr(oldfacet), SWIGTYPE_p_facetT.getCPtr(neighborA));
   }
 
-  public static SWIGTYPE_p_boolT qh_test_appendmerge(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, SWIGTYPE_p_boolT simplicial) {
-    return new SWIGTYPE_p_boolT(qhullJNI.qh_test_appendmerge(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_facetT.getCPtr(neighbor), SWIGTYPE_p_boolT.getCPtr(simplicial)), true);
+  public static java.lang.Boolean qh_test_appendmerge(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, java.lang.Boolean simplicial) {
+    return new SWIGTYPE_p_boolT(qhullJNI.qh_test_appendmerge(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_facetT.getCPtr(neighbor), simplicial), true);
   }
 
   public static void qh_test_degen_neighbors(SWIGTYPE_p_facetT facet) {
     qhullJNI.qh_test_degen_neighbors(SWIGTYPE_p_facetT.getCPtr(facet));
   }
 
-  public static SWIGTYPE_p_boolT qh_test_centrum_merge(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, double angle, SWIGTYPE_p_boolT okangle) {
-    return new SWIGTYPE_p_boolT(qhullJNI.qh_test_centrum_merge(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_facetT.getCPtr(neighbor), angle, SWIGTYPE_p_boolT.getCPtr(okangle)), true);
+  public static java.lang.Boolean qh_test_centrum_merge(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, double angle, java.lang.Boolean okangle) {
+    return new SWIGTYPE_p_boolT(qhullJNI.qh_test_centrum_merge(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_facetT.getCPtr(neighbor), angle, okangle), true);
   }
 
-  public static SWIGTYPE_p_boolT qh_test_nonsimplicial_merge(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, double angle, SWIGTYPE_p_boolT okangle) {
-    return new SWIGTYPE_p_boolT(qhullJNI.qh_test_nonsimplicial_merge(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_facetT.getCPtr(neighbor), angle, SWIGTYPE_p_boolT.getCPtr(okangle)), true);
+  public static java.lang.Boolean qh_test_nonsimplicial_merge(SWIGTYPE_p_facetT facet, SWIGTYPE_p_facetT neighbor, double angle, java.lang.Boolean okangle) {
+    return new SWIGTYPE_p_boolT(qhullJNI.qh_test_nonsimplicial_merge(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_facetT.getCPtr(neighbor), angle, okangle), true);
   }
 
   public static void qh_test_redundant_neighbors(SWIGTYPE_p_facetT facet) {
     qhullJNI.qh_test_redundant_neighbors(SWIGTYPE_p_facetT.getCPtr(facet));
   }
 
-  public static SWIGTYPE_p_boolT qh_test_vneighbors() {
+  public static java.lang.Boolean qh_test_vneighbors() {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_test_vneighbors(), true);
   }
 
@@ -1088,8 +1327,8 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_updatetested(SWIGTYPE_p_facetT.getCPtr(facet1), SWIGTYPE_p_facetT.getCPtr(facet2));
   }
 
-  public static setT qh_vertexridges(SWIGTYPE_p_vertexT vertex, SWIGTYPE_p_boolT allneighbors) {
-    long cPtr = qhullJNI.qh_vertexridges(SWIGTYPE_p_vertexT.getCPtr(vertex), SWIGTYPE_p_boolT.getCPtr(allneighbors));
+  public static setT qh_vertexridges(SWIGTYPE_p_vertexT vertex, java.lang.Boolean allneighbors) {
+    long cPtr = qhullJNI.qh_vertexridges(SWIGTYPE_p_vertexT.getCPtr(vertex), allneighbors);
     return (cPtr == 0) ? null : new setT(cPtr, false);
   }
 
@@ -1113,8 +1352,8 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_attachnewfacets();
   }
 
-  public static SWIGTYPE_p_boolT qh_checkflipped(SWIGTYPE_p_facetT facet, SWIGTYPE_p_double dist, SWIGTYPE_p_boolT allerror) {
-    return new SWIGTYPE_p_boolT(qhullJNI.qh_checkflipped(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(dist), SWIGTYPE_p_boolT.getCPtr(allerror)), true);
+  public static java.lang.Boolean qh_checkflipped(SWIGTYPE_p_facetT facet, SWIGTYPE_p_double dist, java.lang.Boolean allerror) {
+    return new SWIGTYPE_p_boolT(qhullJNI.qh_checkflipped(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_double.getCPtr(dist), allerror), true);
   }
 
   public static void qh_delfacet(SWIGTYPE_p_facetT facet) {
@@ -1139,8 +1378,8 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new SWIGTYPE_p_facetT(cPtr, false);
   }
 
-  public static SWIGTYPE_p_facetT qh_makenewfacet(setT vertices, SWIGTYPE_p_boolT toporient, SWIGTYPE_p_facetT facet) {
-    long cPtr = qhullJNI.qh_makenewfacet(setT.getCPtr(vertices), vertices, SWIGTYPE_p_boolT.getCPtr(toporient), SWIGTYPE_p_facetT.getCPtr(facet));
+  public static SWIGTYPE_p_facetT qh_makenewfacet(setT vertices, java.lang.Boolean toporient, SWIGTYPE_p_facetT facet) {
+    long cPtr = qhullJNI.qh_makenewfacet(setT.getCPtr(vertices), vertices, toporient, SWIGTYPE_p_facetT.getCPtr(facet));
     return (cPtr == 0) ? null : new SWIGTYPE_p_facetT(cPtr, false);
   }
 
@@ -1162,11 +1401,11 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_matchneighbor(SWIGTYPE_p_facetT.getCPtr(newfacet), newskip, hashsize, SWIGTYPE_p_int.getCPtr(hashcount));
   }
 
-  public static SWIGTYPE_p_coordT qh_matchnewfacets() {
+  public static java.lang.Float qh_matchnewfacets() {
     return new SWIGTYPE_p_coordT(qhullJNI.qh_matchnewfacets(), true);
   }
 
-  public static SWIGTYPE_p_boolT qh_matchvertices(int firstindex, setT verticesA, int skipA, setT verticesB, SWIGTYPE_p_int skipB, SWIGTYPE_p_boolT same) {
+  public static java.lang.Boolean qh_matchvertices(int firstindex, setT verticesA, int skipA, setT verticesB, SWIGTYPE_p_int skipB, SWIGTYPE_p_boolT same) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_matchvertices(firstindex, setT.getCPtr(verticesA), verticesA, skipA, setT.getCPtr(verticesB), verticesB, SWIGTYPE_p_int.getCPtr(skipB), SWIGTYPE_p_boolT.getCPtr(same)), true);
   }
 
@@ -1200,7 +1439,7 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_update_vertexneighbors_cone();
   }
 
-  public static SWIGTYPE_p_boolT qh_addfacetvertex(SWIGTYPE_p_facetT facet, SWIGTYPE_p_vertexT newvertex) {
+  public static java.lang.Boolean qh_addfacetvertex(SWIGTYPE_p_facetT facet, SWIGTYPE_p_vertexT newvertex) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_addfacetvertex(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_vertexT.getCPtr(newvertex)), true);
   }
 
@@ -1232,15 +1471,15 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_checkconvex(SWIGTYPE_p_facetT.getCPtr(facetlist), fault);
   }
 
-  public static void qh_checkfacet(SWIGTYPE_p_facetT facet, SWIGTYPE_p_boolT newmerge, SWIGTYPE_p_boolT waserrorp) {
-    qhullJNI.qh_checkfacet(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_boolT.getCPtr(newmerge), SWIGTYPE_p_boolT.getCPtr(waserrorp));
+  public static void qh_checkfacet(SWIGTYPE_p_facetT facet, java.lang.Boolean newmerge, SWIGTYPE_p_boolT waserrorp) {
+    qhullJNI.qh_checkfacet(SWIGTYPE_p_facetT.getCPtr(facet), newmerge, SWIGTYPE_p_boolT.getCPtr(waserrorp));
   }
 
   public static void qh_checkflipped_all(SWIGTYPE_p_facetT facetlist) {
     qhullJNI.qh_checkflipped_all(SWIGTYPE_p_facetT.getCPtr(facetlist));
   }
 
-  public static SWIGTYPE_p_boolT qh_checklists(SWIGTYPE_p_facetT facetlist) {
+  public static java.lang.Boolean qh_checklists(SWIGTYPE_p_facetT facetlist) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_checklists(SWIGTYPE_p_facetT.getCPtr(facetlist)), true);
   }
 
@@ -1248,8 +1487,8 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_checkpolygon(SWIGTYPE_p_facetT.getCPtr(facetlist));
   }
 
-  public static void qh_checkvertex(SWIGTYPE_p_vertexT vertex, SWIGTYPE_p_boolT allchecks, SWIGTYPE_p_boolT waserrorp) {
-    qhullJNI.qh_checkvertex(SWIGTYPE_p_vertexT.getCPtr(vertex), SWIGTYPE_p_boolT.getCPtr(allchecks), SWIGTYPE_p_boolT.getCPtr(waserrorp));
+  public static void qh_checkvertex(SWIGTYPE_p_vertexT vertex, java.lang.Boolean allchecks, SWIGTYPE_p_boolT waserrorp) {
+    qhullJNI.qh_checkvertex(SWIGTYPE_p_vertexT.getCPtr(vertex), allchecks, SWIGTYPE_p_boolT.getCPtr(waserrorp));
   }
 
   public static void qh_clearcenters(SWIGTYPE_p_qh_CENTER type) {
@@ -1273,8 +1512,8 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new setT(cPtr, false);
   }
 
-  public static SWIGTYPE_p_facetT qh_findbestfacet(SWIGTYPE_p_pointT point, SWIGTYPE_p_boolT bestoutside, SWIGTYPE_p_double bestdist, SWIGTYPE_p_boolT isoutside) {
-    long cPtr = qhullJNI.qh_findbestfacet(SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_boolT.getCPtr(bestoutside), SWIGTYPE_p_double.getCPtr(bestdist), SWIGTYPE_p_boolT.getCPtr(isoutside));
+  public static SWIGTYPE_p_facetT qh_findbestfacet(SWIGTYPE_p_pointT point, java.lang.Boolean bestoutside, SWIGTYPE_p_double bestdist, SWIGTYPE_p_boolT isoutside) {
+    long cPtr = qhullJNI.qh_findbestfacet(SWIGTYPE_p_pointT.getCPtr(point), bestoutside, SWIGTYPE_p_double.getCPtr(bestdist), SWIGTYPE_p_boolT.getCPtr(isoutside));
     return (cPtr == 0) ? null : new SWIGTYPE_p_facetT(cPtr, false);
   }
 
@@ -1283,8 +1522,8 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new SWIGTYPE_p_facetT(cPtr, false);
   }
 
-  public static SWIGTYPE_p_facetT qh_findfacet_all(SWIGTYPE_p_pointT point, SWIGTYPE_p_boolT noupper, SWIGTYPE_p_double bestdist, SWIGTYPE_p_boolT isoutside, SWIGTYPE_p_int numpart) {
-    long cPtr = qhullJNI.qh_findfacet_all(SWIGTYPE_p_pointT.getCPtr(point), SWIGTYPE_p_boolT.getCPtr(noupper), SWIGTYPE_p_double.getCPtr(bestdist), SWIGTYPE_p_boolT.getCPtr(isoutside), SWIGTYPE_p_int.getCPtr(numpart));
+  public static SWIGTYPE_p_facetT qh_findfacet_all(SWIGTYPE_p_pointT point, java.lang.Boolean noupper, SWIGTYPE_p_double bestdist, SWIGTYPE_p_boolT isoutside, SWIGTYPE_p_int numpart) {
+    long cPtr = qhullJNI.qh_findfacet_all(SWIGTYPE_p_pointT.getCPtr(point), noupper, SWIGTYPE_p_double.getCPtr(bestdist), SWIGTYPE_p_boolT.getCPtr(isoutside), SWIGTYPE_p_int.getCPtr(numpart));
     return (cPtr == 0) ? null : new SWIGTYPE_p_facetT(cPtr, false);
   }
 
@@ -1331,7 +1570,7 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new SWIGTYPE_p_vertexT(cPtr, false);
   }
 
-  public static SWIGTYPE_p_coordT qh_matchdupridge(SWIGTYPE_p_facetT atfacet, int atskip, int hashsize, SWIGTYPE_p_int hashcount) {
+  public static java.lang.Float qh_matchdupridge(SWIGTYPE_p_facetT atfacet, int atskip, int hashsize, SWIGTYPE_p_int hashcount) {
     return new SWIGTYPE_p_coordT(qhullJNI.qh_matchdupridge(SWIGTYPE_p_facetT.getCPtr(atfacet), atskip, hashsize, SWIGTYPE_p_int.getCPtr(hashcount)), true);
   }
 
@@ -1395,8 +1634,11 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_prependfacet(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_p_facetT.getCPtr(facetlist));
   }
 
-  public static void qh_printhashtable(SWIGTYPE_p_FILE fp) {
-    qhullJNI.qh_printhashtable(SWIGTYPE_p_FILE.getCPtr(fp));
+  public static void qh_printhashtable(java.io.FileOutputStream fp) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printhashtable(fp.getFD());
+    }
   }
 
   public static void qh_printlists() {
@@ -1407,8 +1649,8 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_replacefacetvertex(SWIGTYPE_p_facetT.getCPtr(facet), SWIGTYPE_p_vertexT.getCPtr(oldvertex), SWIGTYPE_p_vertexT.getCPtr(newvertex));
   }
 
-  public static void qh_resetlists(SWIGTYPE_p_boolT stats, SWIGTYPE_p_boolT resetVisible) {
-    qhullJNI.qh_resetlists(SWIGTYPE_p_boolT.getCPtr(stats), SWIGTYPE_p_boolT.getCPtr(resetVisible));
+  public static void qh_resetlists(java.lang.Boolean stats, java.lang.Boolean resetVisible) {
+    qhullJNI.qh_resetlists(stats, resetVisible);
   }
 
   public static void qh_setvoronoi_all() {
@@ -1448,7 +1690,7 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_vertexneighbors();
   }
 
-  public static SWIGTYPE_p_boolT qh_vertexsubset(setT vertexsetA, setT vertexsetB) {
+  public static java.lang.Boolean qh_vertexsubset(setT vertexsetA, setT vertexsetB) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_vertexsubset(setT.getCPtr(vertexsetA), vertexsetA, setT.getCPtr(vertexsetB), vertexsetB), true);
   }
 
@@ -1607,8 +1849,11 @@ public class qhull implements qhullConstants {
     return (cPtr == 0) ? null : new setT(cPtr, false);
   }
 
-  public static void qh_setprint(SWIGTYPE_p_FILE fp, String string, setT set) {
-    qhullJNI.qh_setprint(SWIGTYPE_p_FILE.getCPtr(fp), string, setT.getCPtr(set), set);
+  public static void qh_setprint(java.io.FileOutputStream fp, String string, setT set) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_setprint(fp.getFD(), string, setT.getCPtr(set), set);
+    }
   }
 
   public static void qh_setreplace(setT set, SWIGTYPE_p_void oldelem, SWIGTYPE_p_void newelem) {
@@ -1682,28 +1927,40 @@ public class qhull implements qhullConstants {
     qhullJNI.qh_initstatistics();
   }
 
-  public static SWIGTYPE_p_boolT qh_newstats(int idx, SWIGTYPE_p_int nextindex) {
+  public static java.lang.Boolean qh_newstats(int idx, SWIGTYPE_p_int nextindex) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_newstats(idx, SWIGTYPE_p_int.getCPtr(nextindex)), true);
   }
 
-  public static SWIGTYPE_p_boolT qh_nostatistic(int i) {
+  public static java.lang.Boolean qh_nostatistic(int i) {
     return new SWIGTYPE_p_boolT(qhullJNI.qh_nostatistic(i), true);
   }
 
-  public static void qh_printallstatistics(SWIGTYPE_p_FILE fp, String string) {
-    qhullJNI.qh_printallstatistics(SWIGTYPE_p_FILE.getCPtr(fp), string);
+  public static void qh_printallstatistics(java.io.FileOutputStream fp, String string) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printallstatistics(fp.getFD(), string);
+    }
   }
 
-  public static void qh_printstatistics(SWIGTYPE_p_FILE fp, String string) {
-    qhullJNI.qh_printstatistics(SWIGTYPE_p_FILE.getCPtr(fp), string);
+  public static void qh_printstatistics(java.io.FileOutputStream fp, String string) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printstatistics(fp.getFD(), string);
+    }
   }
 
-  public static void qh_printstatlevel(SWIGTYPE_p_FILE fp, int id) {
-    qhullJNI.qh_printstatlevel(SWIGTYPE_p_FILE.getCPtr(fp), id);
+  public static void qh_printstatlevel(java.io.FileOutputStream fp, int id) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printstatlevel(fp.getFD(), id);
+    }
   }
 
-  public static void qh_printstats(SWIGTYPE_p_FILE fp, int idx, SWIGTYPE_p_int nextindex) {
-    qhullJNI.qh_printstats(SWIGTYPE_p_FILE.getCPtr(fp), idx, SWIGTYPE_p_int.getCPtr(nextindex));
+  public static void qh_printstats(java.io.FileOutputStream fp, int idx, SWIGTYPE_p_int nextindex) throws java.io.IOException {
+    retainFD = fp;
+    {
+      qhullJNI.qh_printstats(fp.getFD(), idx, SWIGTYPE_p_int.getCPtr(nextindex));
+    }
   }
 
   public static double qh_stddev(int num, double tot, double tot2, SWIGTYPE_p_double ave) {
