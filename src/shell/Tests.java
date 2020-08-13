@@ -14,12 +14,16 @@ public class Tests {
 		PointSetPath retTup = Main.importFromFile(new File("./src/shell/djbouti"));
 
 		PointSet ps = new PointSet();
+		
+		ps.add(new PointND.Double(1, 0, 0, 1));
+		ps.add(new PointND.Double(2, 0, 0, 0));
 		ps.add(new PointND.Double(3, 0, 1, 0));
 		ps.add(new PointND.Double(4, 0, -1, 0));
-		ps.add(new PointND.Double(1, 0, 0, 1));
 		ps.add(new PointND.Double(5, 1, 0, 0));
 		ps.add(new PointND.Double(6, -1, 0, 0));
 		Shell orgShell = retTup.ps.convexHull(ps);
+		
+		assertTrue(orgShell.size() == 5);
 	}
 
 	/**

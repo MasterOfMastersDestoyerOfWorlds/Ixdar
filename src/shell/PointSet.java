@@ -1,15 +1,17 @@
 package shell;
 
+import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 
 import resources.SWIGTYPE_p_coordT;
 import resources.SWIGTYPE_p_p_char;
 import resources.qhull;
+import shell.PointND.Double;
 
 /**
  * A set of all of the points in the current TSP problem
@@ -44,6 +46,8 @@ public class PointSet extends ArrayList<PointND> {
 		 */
 		SWIGTYPE_p_p_char NULL = qhull.new_Stringp();
 		qhull.Stringp_assign(NULL, null);
+
+	    Shell hull = new Shell();
 		try {
 
 			File in = new File("in"), out = new File("out"), err = new File("err");
@@ -51,7 +55,7 @@ public class PointSet extends ArrayList<PointND> {
 			int exitcode = qhull.setjmp_wrap();
 			if(exitcode == 0) {
 				qhull.setNOerrexit();
-				qhull.qh_initflags("qhull s");
+				qhull.qh_initflags("qhull s p");
 				
 				int maxDim = ps.getLargestDim();
 				SWIGTYPE_p_coordT points = qhull.new_coordT_array(maxDim*ps.size());
@@ -66,6 +70,28 @@ public class PointSet extends ArrayList<PointND> {
 			    qhull.qh_qhull();
 			    qhull.qh_check_output();
 			    qhull.qh_produce_output();
+			    BufferedReader reader;
+				try {
+					reader = new BufferedReader(new FileReader(out));
+					String line = reader.readLine();
+					int dim = Integer.parseInt(line);
+					
+					line = reader.readLine();
+					int numPoints = Integer.parseInt(line);
+					for(int i = 0; i < numPoints; i++) {
+						line = reader.readLine();
+						String[] coordsStr = line.split("\\s+");
+						double[] coords = new double[dim];
+						for(int j = 1; j < dim+1; j++) {
+							coords[j-1] = java.lang.Double.parseDouble(coordsStr[j]);
+						}
+						hull.add(ps.get(ps.indexOf(new PointND.Double(coords))));
+					}
+					
+					reader.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 			else {
 				throw new Exception("setjmp failed!");
@@ -80,38 +106,8 @@ public class PointSet extends ArrayList<PointND> {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-	  System.out.println("ree");
-	  System.out.println("reee");
-//	    printf( "\n========\ncompute triangulated convex hull of cube after rotating input\n");
-//	    makecube(array[0], SIZEcube, DIM);
-//	    fflush(NULL);
-//	    qh_init_B(array[0], SIZEcube, DIM, ismalloc);
-//	    qh_qhull();
-//	    qh_check_output();
-//	    qh_triangulate();  /* requires option 'Q11' if want to add points */
-//	    print_summary();
-//	    if (qh VERIFYoutput && !qh FORCEoutput && !qh STOPadd && !qh STOPcone && !qh STOPpoint)
-//	      qh_check_points();
-//	    fflush(NULL);
-//	    printf( "\nadd points in a diamond\n");
-//	    adddiamond(array[0], SIZEcube, SIZEdiamond, DIM);
-//	    qh_check_output();
-//	    print_summary();
-//	    qh_produce_output();  /* delete this line to help avoid io.c */
-//	    if (qh VERIFYoutput && !qh FORCEoutput && !qh STOPadd && !qh STOPcone && !qh STOPpoint)
-//	      qh_check_points();
-//	    fflush(NULL);
-//	  qh NOerrexit= True;
-//	#ifdef qh_NOmem
-//	  qh_freeqhull(qh_ALL);
-//	#else
-//	  qh_freeqhull(!qh_ALL);
-//	  qh_memfreeshort(&curlong, &totlong);
-//	  if (curlong || totlong)
-//	    fprintf(stderr, "qhull warning (user_eg2, run 1): did not free %d bytes of long memory (%d pieces)\n",
-//	          totlong, curlong);
-//	#endif
-		return null;
+		System.out.println(ps.size());
+		return hull;
 	}
 
 	private int getLargestDim() {
