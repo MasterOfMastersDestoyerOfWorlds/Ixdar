@@ -53,8 +53,6 @@ public class Main extends JComponent{
 	        
 	        Shell maxShell = orgShell.copyRecursive();
 	        
-	        Shell minShell = maxShell.getMinimalShell(); //this is never used??
-	        
 	        Shell conShell = maxShell.copyRecursive();
 	        
 	        /* All currently unused code
@@ -74,7 +72,7 @@ public class Main extends JComponent{
 			conShell = maxShell;
 			
 			conShell = conShell.collapseAllShells(); //finds optimal tsp path
-			System.out.println(conShell);
+			//System.out.println(conShell);
 
 
 	        conShell.drawShell(this, g2, false, Color.BLUE);

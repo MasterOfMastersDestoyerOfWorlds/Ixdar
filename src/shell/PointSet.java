@@ -40,60 +40,73 @@ public class PointSet extends ArrayList<PointND> {
 	 * @return the convex hull of the set of points in n dimensions according to
 	 *         qhull
 	 */
-	public Shell convexHull(PointSet ps) {
+	public PointSet convexHullND(PointSet ps) {
 		/*
 		 * Run 1: convex hull
 		 */
 		SWIGTYPE_p_p_char NULL = qhull.new_Stringp();
 		qhull.Stringp_assign(NULL, null);
 
-	    Shell hull = new Shell();
+		PointSet hull = new PointSet();
 		try {
 
-			File in = new File("in"), out = new File("out"), err = new File("err");
-			qhull.qh_init_A(new FileOutputStream(in), new FileOutputStream(out), new FileOutputStream(err), 0, NULL);
+			FileOutputStream in = new FileOutputStream("in"), out = new FileOutputStream("out"), err = new FileOutputStream("err");
+			qhull.qh_init_A(in, out, err, 0, NULL);
 			int exitcode = qhull.setjmp_wrap();
-			if(exitcode == 0) {
+			if (exitcode == 0) {
 				qhull.setNOerrexit();
 				qhull.qh_initflags("qhull s p");
-				
+
 				int maxDim = ps.getLargestDim();
-				SWIGTYPE_p_coordT points = qhull.new_coordT_array(maxDim*ps.size());
+				if(ps.size() <= maxDim) {
+					return ps;
+				}
+				SWIGTYPE_p_coordT points = qhull.new_coordT_array(maxDim * ps.size());
 				System.out.println();
-				for(int i = 0; i < ps.size(); i++) {
+				//TODO: need to check that the number of points is more than maxDim + 1 so that the initial simplex can be formed other wise they are just a convex hull i think?
+				//also need to update the point constructor to not keep the padded zeros
+				for (int i = 0; i < ps.size(); i++) {
 					PointND p = ps.get(i);
-					for(int j = 0; j < p.getDim(); j++) {
-						qhull.coordTset(points, maxDim*i + j, p.getCoord(j));
+					for (int j = 0; j < p.getDim(); j++) {
+						qhull.coordTset(points, maxDim * i + j, p.getCoord(j));
 					}
 				}
 				qhull.qh_init_B(points, ps.size(), maxDim, false);
-			    qhull.qh_qhull();
-			    qhull.qh_check_output();
-			    qhull.qh_produce_output();
-			    BufferedReader reader;
+				qhull.qh_qhull();
+				qhull.qh_check_output();
+				qhull.qh_produce_output();
+				qhull.delete_coordT_array(points);
+				qhull.delete_Stringp(NULL);
+				BufferedReader reader;
 				try {
-					reader = new BufferedReader(new FileReader(out));
+					reader = new BufferedReader(new FileReader("out"));
 					String line = reader.readLine();
 					int dim = Integer.parseInt(line);
-					
+
 					line = reader.readLine();
 					int numPoints = Integer.parseInt(line);
-					for(int i = 0; i < numPoints; i++) {
+					for (int i = 0; i < numPoints; i++) {
 						line = reader.readLine();
 						String[] coordsStr = line.split("\\s+");
 						double[] coords = new double[dim];
-						for(int j = 1; j < dim+1; j++) {
-							coords[j-1] = java.lang.Double.parseDouble(coordsStr[j]);
+						int k = 0;
+						for (int j = 0; j < coordsStr.length; j++) {
+							if(!coordsStr[j].isEmpty()) {
+								coords[k] = java.lang.Double.parseDouble(coordsStr[j]);
+								k++;
+							}
 						}
 						hull.add(ps.get(ps.indexOf(new PointND.Double(coords))));
 					}
-					
+
 					reader.close();
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
-			}
-			else {
+				in.close();
+				out.close();
+				err.close();
+			} else {
 				throw new Exception("setjmp failed!");
 			}
 		} catch (FileNotFoundException e) {
@@ -106,14 +119,13 @@ public class PointSet extends ArrayList<PointND> {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		System.out.println(ps.size());
 		return hull;
 	}
 
 	private int getLargestDim() {
 		int maxDim = 0;
-		for(PointND p : this) {
-			if(maxDim < p.getDim()) {
+		for (PointND p : this) {
+			if (maxDim < p.getDim()) {
 				maxDim = p.getDim();
 			}
 		}
@@ -132,10 +144,6 @@ public class PointSet extends ArrayList<PointND> {
 		Shell rootShell = null, currShell = null;
 
 		while (copy.size() > 0) {
-			PointND A = findCentroid(copy);
-			PointND B = findAnoid(copy, A);
-			PointND start = B;
-
 			// makes the first shell
 			if (rootShell == null) {
 				rootShell = new Shell();
@@ -147,43 +155,63 @@ public class PointSet extends ArrayList<PointND> {
 				currShell.setChild(nextShell);
 				currShell = nextShell;
 			}
-
-			PointSet outerShellPointSet = new PointSet();
-
-			boolean breakFlag = false;
-			// Creates the next convex shell
-			while (!breakFlag) {
-
-				double maxAngle = 0;
-				PointND maxPoint = null;
-				int count = 0;
-				for (PointND p : copy) {
-					double angle = Vectors.findAngleSegments(A, B, p);
-					if (angle > maxAngle && !outerShellPointSet.contains(p) && !A.equals(p) && !B.equals(p)) {
-
-						maxAngle = angle;
-						maxPoint = p;
-					}
-					count++;
-				}
-				if (maxPoint == null || maxPoint.equals(start)) {
-					breakFlag = true;
-
-					currShell.add(start);
-					outerShellPointSet.add(start);
-				} else {
-					A = B;
-					B = maxPoint;
-					outerShellPointSet.add(B);
-					currShell.add(B);
-
-				}
+			PointSet hull;
+			if(copy.getLargestDim() == 2) {
+				hull = convexHull2D(copy);
 			}
-
-			copy.removeAll(outerShellPointSet);
+			else { 
+				hull = convexHullND(copy);
+			}
+			
+			currShell.addAll(hull);
+			copy.removeAll(hull);
 		}
 		rootShell.updateOrder();
+		Shell.collapseReduce(rootShell, new Shell());
 		return rootShell;
+	}
+
+	/**
+	 * Does the 2d gift-wrapping/javis march algorithm to find the convex hull of a set of points and add those points
+	 * @param ps
+	 * @returnthe convex hull of the set of points in 2 dimensions
+	 */
+	public PointSet convexHull2D(PointSet ps) {
+		PointND A = findCentroid(ps);
+		PointND B = findAnoid(ps, A);
+		PointND start = B;
+
+
+
+		PointSet outerShellPointSet = new PointSet();
+
+		boolean breakFlag = false;
+		// Creates the next convex shell
+		while (!breakFlag) {
+
+			double maxAngle = 0;
+			PointND maxPoint = null;
+			int count = 0;
+			for (PointND p : ps) {
+				double angle = Vectors.findAngleSegments(A, B, p);
+				if (angle > maxAngle && !outerShellPointSet.contains(p) && !A.equals(p) && !B.equals(p)) {
+
+					maxAngle = angle;
+					maxPoint = p;
+				}
+				count++;
+			}
+			if (maxPoint == null || maxPoint.equals(start)) {
+				breakFlag = true;
+				outerShellPointSet.add(start);
+			} else {
+				A = B;
+				B = maxPoint;
+				outerShellPointSet.add(B);
+
+			}
+		}
+		return outerShellPointSet;
 	}
 
 	/**

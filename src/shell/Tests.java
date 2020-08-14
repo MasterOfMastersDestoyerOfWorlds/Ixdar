@@ -21,7 +21,7 @@ public class Tests {
 		ps.add(new PointND.Double(4, 0, -1, 0));
 		ps.add(new PointND.Double(5, 1, 0, 0));
 		ps.add(new PointND.Double(6, -1, 0, 0));
-		Shell orgShell = retTup.ps.convexHull(ps);
+		PointSet orgShell = retTup.ps.convexHullND(ps);
 		
 		assertTrue(orgShell.size() == 5);
 	}
@@ -117,8 +117,6 @@ public class Tests {
 		answer.add(new PointND.Double(5, 1, 0, 0));
 		answer.add(new PointND.Double(4, 0, -1, 0));
 		answer.add(new PointND.Double(6, -1, 0, 0));
-		System.out.println("Result Length: " + result.getLength());
-		System.out.println("Answer Length: " + answer.getLength());
 		assertTrue(result.getLength() <= answer.getLength());
 	}
 	
@@ -134,8 +132,6 @@ public class Tests {
 		ps.add(new PointND.Double(5, 1, 0, 0));
 		ps.add(new PointND.Double(6, -1, 0, 0));
 		Shell result = ps.toShells();
-		System.out.println(result.updateOrder());
-		System.out.println(result.toStringRecursive());
 		assertTrue(result.updateOrder() == 1);
 	}
 
