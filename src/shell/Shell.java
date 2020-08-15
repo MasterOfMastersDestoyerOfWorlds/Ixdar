@@ -528,6 +528,7 @@ public class Shell extends LinkedList<PointND> {
 		System.out.println(Shell.compareTo(old, after));
 		System.out.println(old.getLength());
 		System.out.println(after.getLength());
+		//after = Shell.collapseReduce(after, new Shell());
 		return after;
 
 	}

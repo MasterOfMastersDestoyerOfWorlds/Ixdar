@@ -154,7 +154,7 @@ public class Tests {
 		answer.add(new PointND.Double(11511.3889, 42106.3889));
 		answer.add(new PointND.Double(11715.8333, 41836.1111));
 		answer.add(new PointND.Double(12058.3333, 42195.5556));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -170,7 +170,7 @@ public class Tests {
 		answer.add(new PointND.Double(12149.4444, 42477.5));
 		answer.add(new PointND.Double(12300.0, 42433.3333));
 		answer.add(new PointND.Double(12372.7778, 42711.3889));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 
 	}
 
@@ -187,7 +187,7 @@ public class Tests {
 		answer.add(new PointND.Double(12645.0, 42973.3333));
 		answer.add(new PointND.Double(12355.8333, 43156.3889));
 		answer.add(new PointND.Double(12363.3333, 43189.1667));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 
 	}
 
@@ -199,7 +199,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(12363.3333, 43189.1667), new PointND.Double(12386.6667, 43334.7222),
 				new PointND.Double(12286.9444, 43355.5556), new PointND.Double(11963.0556, 43290.5556));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -210,7 +210,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11963.0556, 43290.5556), new PointND.Double(11583.3333, 43150.0),
 				new PointND.Double(11461.1111, 43252.7778), new PointND.Double(11485.5556, 43187.2222));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -221,7 +221,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11485.5556, 43187.2222), new PointND.Double(11310.2778, 42929.4444),
 				new PointND.Double(11183.3333, 42933.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -232,7 +232,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11183.3333, 42933.3333), new PointND.Double(11133.3333, 42885.8333),
 				new PointND.Double(11155.8333, 42712.5), new PointND.Double(11108.6111, 42373.8889));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -243,7 +243,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11108.6111, 42373.8889), new PointND.Double(11003.6111, 42102.5),
 				new PointND.Double(11438.3333, 42057.2222));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -254,7 +254,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11973.0556, 43026.1111), new PointND.Double(11785.2778, 42884.4444),
 				new PointND.Double(11846.9444, 42660.5556));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -265,7 +265,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11846.9444, 42660.5556), new PointND.Double(11822.7778, 42673.6111),
 				new PointND.Double(11770.2778, 42651.9444));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -276,7 +276,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11595.0, 43148.0556), new PointND.Double(11583.3333, 43150.0),
 				new PointND.Double(11569.4444, 43136.6667));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -287,7 +287,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11569.4444, 43136.6667), new PointND.Double(11485.5556, 43187.2222),
 				new PointND.Double(11461.1111, 43252.7778), new PointND.Double(11423.8889, 43000.2778));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 
 	}
 
@@ -299,7 +299,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11423.8889, 43000.2778), new PointND.Double(11416.6667, 42983.3333),
 				new PointND.Double(11310.2778, 42929.4444), new PointND.Double(11297.5, 42853.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -312,7 +312,7 @@ public class Tests {
 		Shell answer = new Shell(new PointND.Double(11600.0, 43150.0), new PointND.Double(11785.2778, 42884.4444),
 				new PointND.Double(11770.2778, 42651.9444), new PointND.Double(11822.7778, 42673.6111),
 				new PointND.Double(11846.9444, 42660.5556), new PointND.Double(11973.0556, 43026.1111));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -355,7 +355,7 @@ public class Tests {
 		System.out.println("answer length: " + answer.getLength());
 
 		System.out.println(Shell.compareTo(answer, result));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -388,10 +388,11 @@ public class Tests {
 				new PointND.Double(12386.6667, 43334.7222), new PointND.Double(12286.9444, 43355.5556),
 				new PointND.Double(11963.0556, 43290.5556), new PointND.Double(11600.0, 43150.0),
 				new PointND.Double(11297.5, 42853.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
+	//TODO:i think this one is wrong
 	public void testOptimizationBetweenEndpoints17() {
 		Segment s = new Segment(new PointND.Double(11770.2778, 42651.9444), new PointND.Double(11297.5, 42853.3333));
 		Shell AB = new Shell(new PointND.Double(11822.7778, 42673.6111), new PointND.Double(11846.9444, 42660.5556),
@@ -411,7 +412,7 @@ public class Tests {
 				new PointND.Double(11423.8889, 43000.2778), new PointND.Double(11416.6667, 42983.3333),
 				new PointND.Double(11503.0556, 42855.2778), new PointND.Double(11310.2778, 42929.4444),
 				new PointND.Double(11297.5, 42853.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -422,7 +423,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11438.3333, 42057.2222), new PointND.Double(11511.3889, 42106.3889),
 				new PointND.Double(11715.8333, 41836.1111), new PointND.Double(12058.3333, 42195.5556));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -433,7 +434,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(12058.3333, 42195.5556), new PointND.Double(12149.4444, 42477.5),
 				new PointND.Double(12300.0, 42433.3333), new PointND.Double(12372.7778, 42711.3889));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -444,7 +445,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(12421.6667, 42895.5556), new PointND.Double(12645.0, 42973.3333),
 				new PointND.Double(12355.8333, 43156.3889), new PointND.Double(12363.3333, 43189.1667));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -455,7 +456,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(12363.3333, 43189.1667), new PointND.Double(12386.6667, 43334.7222),
 				new PointND.Double(12286.9444, 43355.5556), new PointND.Double(11963.0556, 43290.5556));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -466,7 +467,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11963.0556, 43290.5556), new PointND.Double(11583.3333, 43150.0),
 				new PointND.Double(11461.1111, 43252.7778), new PointND.Double(11485.5556, 43187.2222));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -477,7 +478,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11485.5556, 43187.2222), new PointND.Double(11310.2778, 42929.4444),
 				new PointND.Double(11183.3333, 42933.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -488,7 +489,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11183.3333, 42933.3333), new PointND.Double(11133.3333, 42885.8333),
 				new PointND.Double(11155.8333, 42712.5), new PointND.Double(11108.6111, 42373.8889));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -499,7 +500,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11108.6111, 42373.8889), new PointND.Double(11003.6111, 42102.5),
 				new PointND.Double(11438.3333, 42057.2222));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -510,7 +511,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11973.0556, 43026.1111), new PointND.Double(11785.2778, 42884.4444),
 				new PointND.Double(11846.9444, 42660.5556));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -521,7 +522,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11846.9444, 42660.5556), new PointND.Double(11822.7778, 42673.6111),
 				new PointND.Double(11770.2778, 42651.9444));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -532,7 +533,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11595.0, 43148.0556), new PointND.Double(11583.3333, 43150.0),
 				new PointND.Double(11569.4444, 43136.6667));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -543,7 +544,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11569.4444, 43136.6667), new PointND.Double(11485.5556, 43187.2222),
 				new PointND.Double(11461.1111, 43252.7778), new PointND.Double(11423.8889, 43000.2778));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -554,7 +555,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11423.8889, 43000.2778), new PointND.Double(11416.6667, 42983.3333),
 				new PointND.Double(11310.2778, 42929.4444), new PointND.Double(11297.5, 42853.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -591,7 +592,7 @@ public class Tests {
 				new PointND.Double(12355.8333, 43156.3889), new PointND.Double(12363.3333, 43189.1667),
 				new PointND.Double(12386.6667, 43334.7222), new PointND.Double(12286.9444, 43355.5556),
 				new PointND.Double(11963.0556, 43290.5556), new PointND.Double(11973.0556, 43026.1111));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -604,7 +605,7 @@ public class Tests {
 		Shell answer = new Shell(new PointND.Double(11600.0, 43150.0), new PointND.Double(11785.2778, 42884.4444),
 				new PointND.Double(11770.2778, 42651.9444), new PointND.Double(11822.7778, 42673.6111),
 				new PointND.Double(11846.9444, 42660.5556), new PointND.Double(11973.0556, 43026.1111));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -627,7 +628,7 @@ public class Tests {
 				new PointND.Double(11423.8889, 43000.2778), new PointND.Double(11416.6667, 42983.3333),
 				new PointND.Double(11503.0556, 42855.2778), new PointND.Double(11310.2778, 42929.4444),
 				new PointND.Double(11297.5, 42853.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -660,7 +661,7 @@ public class Tests {
 				new PointND.Double(12386.6667, 43334.7222), new PointND.Double(12286.9444, 43355.5556),
 				new PointND.Double(11963.0556, 43290.5556), new PointND.Double(11600.0, 43150.0),
 				new PointND.Double(11297.5, 42853.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -671,7 +672,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11438.3333, 42057.2222), new PointND.Double(11511.3889, 42106.3889),
 				new PointND.Double(11715.8333, 41836.1111), new PointND.Double(12058.3333, 42195.5556));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -682,7 +683,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(12058.3333, 42195.5556), new PointND.Double(12149.4444, 42477.5),
 				new PointND.Double(12300.0, 42433.3333), new PointND.Double(12372.7778, 42711.3889));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -693,7 +694,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(12421.6667, 42895.5556), new PointND.Double(12645.0, 42973.3333),
 				new PointND.Double(12355.8333, 43156.3889), new PointND.Double(12363.3333, 43189.1667));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -704,7 +705,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(12363.3333, 43189.1667), new PointND.Double(12386.6667, 43334.7222),
 				new PointND.Double(12286.9444, 43355.5556), new PointND.Double(11963.0556, 43290.5556));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -715,7 +716,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11963.0556, 43290.5556), new PointND.Double(11583.3333, 43150.0),
 				new PointND.Double(11461.1111, 43252.7778), new PointND.Double(11485.5556, 43187.2222));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -726,7 +727,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11485.5556, 43187.2222), new PointND.Double(11310.2778, 42929.4444),
 				new PointND.Double(11183.3333, 42933.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -737,7 +738,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11183.3333, 42933.3333), new PointND.Double(11133.3333, 42885.8333),
 				new PointND.Double(11155.8333, 42712.5), new PointND.Double(11108.6111, 42373.8889));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -748,7 +749,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11108.6111, 42373.8889), new PointND.Double(11003.6111, 42102.5),
 				new PointND.Double(11438.3333, 42057.2222));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -759,7 +760,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11973.0556, 43026.1111), new PointND.Double(11785.2778, 42884.4444),
 				new PointND.Double(11846.9444, 42660.5556));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -770,7 +771,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11846.9444, 42660.5556), new PointND.Double(11822.7778, 42673.6111),
 				new PointND.Double(11770.2778, 42651.9444));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -781,7 +782,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11595.0, 43148.0556), new PointND.Double(11583.3333, 43150.0),
 				new PointND.Double(11569.4444, 43136.6667));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -792,7 +793,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11569.4444, 43136.6667), new PointND.Double(11485.5556, 43187.2222),
 				new PointND.Double(11461.1111, 43252.7778), new PointND.Double(11423.8889, 43000.2778));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -803,7 +804,7 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11423.8889, 43000.2778), new PointND.Double(11416.6667, 42983.3333),
 				new PointND.Double(11310.2778, 42929.4444), new PointND.Double(11297.5, 42853.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -816,7 +817,7 @@ public class Tests {
 		Shell answer = new Shell(new PointND.Double(11600.0, 43150.0), new PointND.Double(11785.2778, 42884.4444),
 				new PointND.Double(11770.2778, 42651.9444), new PointND.Double(11822.7778, 42673.6111),
 				new PointND.Double(11846.9444, 42660.5556), new PointND.Double(11973.0556, 43026.1111));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -853,7 +854,7 @@ public class Tests {
 				new PointND.Double(12355.8333, 43156.3889), new PointND.Double(12363.3333, 43189.1667),
 				new PointND.Double(12386.6667, 43334.7222), new PointND.Double(12286.9444, 43355.5556),
 				new PointND.Double(11963.0556, 43290.5556), new PointND.Double(11973.0556, 43026.1111));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -876,7 +877,7 @@ public class Tests {
 				new PointND.Double(11423.8889, 43000.2778), new PointND.Double(11416.6667, 42983.3333),
 				new PointND.Double(11503.0556, 42855.2778), new PointND.Double(11310.2778, 42929.4444),
 				new PointND.Double(11297.5, 42853.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 	@Test
@@ -909,7 +910,7 @@ public class Tests {
 				new PointND.Double(12386.6667, 43334.7222), new PointND.Double(12286.9444, 43355.5556),
 				new PointND.Double(11963.0556, 43290.5556), new PointND.Double(11600.0, 43150.0),
 				new PointND.Double(11297.5, 42853.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+		assertTrue(result.getLength() <= answer.getLength());assertTrue(result.get(0).equals(s.first));assertTrue(result.getLast().equals(s.last));
 	}
 
 }
