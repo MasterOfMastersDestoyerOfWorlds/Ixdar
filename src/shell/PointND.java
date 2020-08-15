@@ -47,7 +47,17 @@ public abstract class PointND implements Cloneable {
 		public Float(int ID, float... fs) {
 
 			this.setID(ID);
-			this.fs = fs;
+			int ind = 1;
+		    for (int i = fs.length-1; i >=0; i--) { 
+		        if (fs[i] != 0) { 
+		            ind = i+1; 
+		            break; 
+		        } 
+		    } 
+			this.fs = new float[ind];
+			for(int i = 0; i < this.fs.length; i++) {
+				this.fs[i] = fs[i];
+			}
 		}
 		
 		/**
@@ -69,7 +79,17 @@ public abstract class PointND implements Cloneable {
 		public Float(float... fs) {
 
 			this.setID(maxID);
-			this.fs = fs;
+			int ind = 1;
+		    for (int i = fs.length-1; i >=0; i--) { 
+		        if (fs[i] != 0) { 
+		            ind = i+1; 
+		            break; 
+		        } 
+		    } 
+			this.fs = new float[ind];
+			for(int i = 0; i < this.fs.length; i++) {
+				this.fs[i] = fs[i];
+			}
 		}
 
 		/**
@@ -169,8 +189,18 @@ public abstract class PointND implements Cloneable {
 		 * 
 		 */
 		public Double(double... fs) {
-			this.setID(maxID);
-			this.ds = fs;
+			this.setID(maxID);			
+			int ind = 1;
+		    for (int i = fs.length-1; i >=0; i--) { 
+		        if (fs[i] != 0) { 
+		            ind = i+1; 
+		            break; 
+		        } 
+		    } 
+			ds = new double[ind];
+			for(int i = 0; i < ds.length; i++) {
+				ds[i] = fs[i];
+			}
 		}
 		
 		/**
@@ -190,7 +220,17 @@ public abstract class PointND implements Cloneable {
 		 */
 		public Double(int ID, double... fs) {
 			this.setID(ID);
-			this.ds = fs;
+			int ind = 1;
+		    for (int i = fs.length-1; i >=0; i--) { 
+		        if (fs[i] != 0) { 
+		            ind = i+1; 
+		            break; 
+		        } 
+		    } 
+			ds = new double[ind];
+			for(int i = 0; i < ds.length; i++) {
+				ds[i] = fs[i];
+			}
 		}
 
 		public int getDim() {

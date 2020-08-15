@@ -165,9 +165,15 @@ public class PointSet extends ArrayList<PointND> {
 			
 			currShell.addAll(hull);
 			copy.removeAll(hull);
+
+
+			//make sure that the convex hulls are in reduced forms(this is guaranteed in 2D but not in higher dimensions).
+			Shell.collapseReduce(currShell, new Shell());
+			Shell reducedShell = Shell.collapseReduce(currShell, new Shell());
+			currShell.removeAll(currShell);
+			currShell.addAll(reducedShell);
 		}
 		rootShell.updateOrder();
-		Shell.collapseReduce(rootShell, new Shell());
 		return rootShell;
 	}
 

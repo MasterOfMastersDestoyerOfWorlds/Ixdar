@@ -480,6 +480,7 @@ public class Shell extends LinkedList<PointND> {
 	 * @return
 	 */
 	public static Shell solveBetweenEndpoints(Segment s, Shell A, Shell B) {
+		
 		PointSet ps = new PointSet();
 		
 		ps.add(s.first);
@@ -497,17 +498,6 @@ public class Shell extends LinkedList<PointND> {
 		
 		//use the giftwrapping algorithm to get the recursive convex hulls of the set
 		Shell lineShells = linePS.toShells();
-		Shell currShell = lineShells;
-		System.out.println("ORDER OF NEW ND SHELL IS: " + lineShells.ORDER);
-		//make sure that the convex hulls are in reduced forms(this is guaranteed in 2D but not in higher dimensions).
-		while(currShell != null) {
-			Shell reducedShell = Shell.collapseReduce(currShell, new Shell());
-			currShell.removeAll(currShell);
-			currShell.addAll(reducedShell);
-			currShell = currShell.getChild();
-		}
-		Shell copy1 = lineShells.copyRecursive();
-
 
 		lineShells = lineShells.collapseAllShells();
 
@@ -529,23 +519,15 @@ public class Shell extends LinkedList<PointND> {
 			}
 		}
 		//reverse the set if need be to match the input segment s
-		Shell copy = after.copyShallow();
 		after.addAll(before);
-		if(after.get(0).equals(s.last) && after.getLast().equals(s.first)) {
+		if(after.get(0).equals(s.last) || after.getLast().equals(s.first)) {
 			after = after.reverse();
 		}
-		else {
-			
-			System.out.println("\n\nERROR");
-			System.out.println(copy1.ORDER);
-			System.out.println(s);
-			System.out.println(ps);
-			System.out.println(lineShells);
-			System.out.println("before: " + before);
-			System.out.println("after: " + copy);
-			System.out.println("result:" + after + "\n");
-		}
 
+		Shell old = solveBetweenEndpointsOld(s,A,B);
+		System.out.println(Shell.compareTo(old, after));
+		System.out.println(old.getLength());
+		System.out.println(after.getLength());
 		return after;
 
 	}
@@ -564,8 +546,6 @@ public class Shell extends LinkedList<PointND> {
 		PointSet ps = new PointSet();
 		ps.addAll(A);
 		ps.addAll(B);
-		System.out.println("s: " + s);
-		System.out.println("AB: " + ps);
 		
 		Shell result = new Shell();
 		Shell copy = new Shell();
@@ -635,9 +615,6 @@ public class Shell extends LinkedList<PointND> {
 
 			notConfirmed = changed;
 		}
-
-			System.out.println("result: " + result);
-			System.out.println("=====================================");
 			return result;
 
 		
@@ -750,11 +727,6 @@ public class Shell extends LinkedList<PointND> {
 			}
 
 		}
-		System.out.println();
-		System.out.println(AB);
-		System.out.println(BC);
-		System.out.println(ABKeys);
-		System.out.println(result);
 
 		return result;
 

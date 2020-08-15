@@ -36,7 +36,10 @@ public class Tests {
 		Shell orgShell = retTup.ps.toShells();
 
 		Shell pathShell = orgShell.collapseAllShells();
-		assertTrue(pathShell.getLength() == retTup.tsp.getLength());
+
+		System.out.println(pathShell.getLength());
+		System.out.println(retTup.tsp.getLength());
+		assertTrue(Math.abs(pathShell.getLength()-retTup.tsp.getLength()) < 0.1);
 	}
 	/**
 	 * Tests that we can go from a set of point to a distance matrix, add a node to the distance matrix that would make it non-euclidian, 

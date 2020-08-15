@@ -47,10 +47,10 @@ public class Vectors {
 			
 			double val;
 			if(i >= AB.getDim()) {
-				val = AB.getCoord(i)*0;
+				val = BC.getCoord(i)*0;
 			}
 			else if(i >= BC.getDim()) {
-				val = BC.getCoord(i)*0;
+				val = AB.getCoord(i)*0;
 			}
 			else {
 				val = AB.getCoord(i)*BC.getCoord(i);

@@ -1,0 +1,17 @@
+
+Convex hull of 5 points in 3-d:
+
+  Number of vertices: 5
+  Number of facets: 5
+  Number of non-simplicial facets: 1
+
+Statistics for:  | qhull s p
+
+  Number of points processed: 5
+  Number of hyperplanes created: 6
+  Number of distance tests for qhull: 5
+  Number of distance tests for merging: 34
+  Number of distance tests for checking: 25
+  Number of merged facets: 1
+  CPU seconds to compute hull (after input): 4.8e-05
+
