@@ -42,6 +42,8 @@ public class Tests {
 	/**
 	 * Tests that our solver solves the djibouti problem set correctly
 	 */
+	//old: 10038.75729043869 in 3.828s
+	//new: 10178.770192333182 in 20.461s
 	@Test
 	public void testQatar() {
 		PointSetPath retTup = Main.importFromFile(new File("./src/shell/qa194"));
