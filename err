@@ -13,5 +13,5 @@ Statistics for:  | qhull s p
   Number of distance tests for merging: 34
   Number of distance tests for checking: 25
   Number of merged facets: 1
-  CPU seconds to compute hull (after input): 4.9e-05
+  CPU seconds to compute hull (after input): 3.4e-05
 

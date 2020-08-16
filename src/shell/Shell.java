@@ -496,10 +496,11 @@ public class Shell extends LinkedList<PointND> {
 
 		PointND dummyPoint = linePS.get(linePS.size() - 1);
 		
-		//use the giftwrapping algorithm to get the recursive convex hulls of the set
-		Shell lineShells = linePS.toShells();
-
-		lineShells = lineShells.collapseAllShells();
+		//since we have n points in n dimensions we can assume that the points form a convex hull
+		//The simpilest hull that you can form is d+1 points where d is the dimension(see wiki on simplexes)
+		Shell lineShells = new Shell();//linePS.toShells();
+		lineShells.addAll(linePS);
+		lineShells = Shell.collapseReduce(lineShells, new Shell());
 
 		
 		Shell before = new Shell(), after = new Shell();
@@ -520,14 +521,11 @@ public class Shell extends LinkedList<PointND> {
 		}
 		//reverse the set if need be to match the input segment s
 		after.addAll(before);
-		if(after.get(0).equals(s.last) || after.getLast().equals(s.first)) {
+		//TODO: okay something is wrong here
+		/*if(after.get(0).equals(s.last) || after.getLast().equals(s.first)) {
 			after = after.reverse();
-		}
+		}*/
 
-		Shell old = solveBetweenEndpointsOld(s,A,B);
-		System.out.println(Shell.compareTo(old, after));
-		System.out.println(old.getLength());
-		System.out.println(after.getLength());
 		//after = Shell.collapseReduce(after, new Shell());
 		return after;
 
@@ -728,7 +726,7 @@ public class Shell extends LinkedList<PointND> {
 			}
 
 		}
-
+		//result = Shell.collapseReduce(result, new Shell());
 		return result;
 
 	}

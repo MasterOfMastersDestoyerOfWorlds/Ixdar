@@ -47,7 +47,7 @@ public class Main extends JComponent{
 	        Graphics2D g2 = (Graphics2D) g;
 	
 	
-	        PointSetPath retTup = importFromFile(new File("./src/shell/djbouti"));
+	        PointSetPath retTup = importFromFile(new File("./src/shell/qa194"));
 	        
 	        Shell orgShell = retTup.ps.toShells();
 	        
@@ -107,8 +107,8 @@ public class Main extends JComponent{
 
 	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
 
-	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, true, false, true);
-	        System.out.println("===============================================");
+	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, false, true);
+	        //System.out.println("===============================================");
 		}catch(Exception e) {
 			e.printStackTrace();
 			SwingUtilities.getWindowAncestor(this).dispatchEvent(new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));
