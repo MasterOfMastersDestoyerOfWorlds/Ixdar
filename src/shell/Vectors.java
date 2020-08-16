@@ -74,11 +74,11 @@ public class Vectors {
 		
 		// i think this is wrong or is being used incorrectly because if q is embedded in the 
 		// path already then you also have to consider the distance to its neighbors
-		PointND AB = new PointND.Double(q.toVector(lastPoint).getCoordList());
-		PointND AC = new PointND.Double(currPoint.toVector(lastPoint).getCoordList());
-		PointND BC = new PointND.Double(q.toVector(currPoint).getCoordList());
+		Double AB = q.distance(lastPoint);
+		Double AC = currPoint.distance(lastPoint);
+		Double BC = q.distance(currPoint);
 
-		return magnitude(AB) + magnitude(BC) -magnitude(AC);
+		return AB + BC - AC;
 	}
 
 
