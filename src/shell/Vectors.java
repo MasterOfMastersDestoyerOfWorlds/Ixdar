@@ -68,15 +68,16 @@ public class Vectors {
 	 * @param lastPoint
 	 * @param currPoint
 	 * @param q 2d point in between lastPoint and currPoint
+	 * @param maxDist 
 	 * @return AB + BC - AC
 	 */
-	public static double distanceChanged(PointND lastPoint, PointND currPoint, PointND q) {
+	public static double distanceChanged(PointND lastPoint, PointND currPoint, PointND q, double maxDist) {
 		
 		// i think this is wrong or is being used incorrectly because if q is embedded in the 
 		// path already then you also have to consider the distance to its neighbors
-		Double AB = q.distance(lastPoint);
-		Double AC = currPoint.distance(lastPoint);
-		Double BC = q.distance(currPoint);
+		Double AB = q.distance(lastPoint) + maxDist;
+		Double AC = currPoint.distance(lastPoint) + maxDist;
+		Double BC = q.distance(currPoint) + maxDist;
 
 		return AB + BC - AC;
 	}

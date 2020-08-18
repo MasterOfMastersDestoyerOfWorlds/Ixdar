@@ -8,10 +8,12 @@ public class DummyPoint extends PointND.Double{
 	private static final long serialVersionUID = 1L;
 	
 	PointND start, end;
+	double maxDist;
 	
-	public DummyPoint(PointND start, PointND end) {
+	public DummyPoint(PointND start, PointND end, double maxDist) {
 		this.start = start;
 		this.end = end;
+		this.maxDist = maxDist;
 	}
 	
 	/**
@@ -40,10 +42,10 @@ public class DummyPoint extends PointND.Double{
 	 */
 	@Override
 	public double distanceSq(PointND pt) {
-		if(pt.equals(end) || pt.equals(start)) {
+		if(pt.equals(end) || pt.equals(start) || pt.equals(this)) {
 			return 0;
 		}
-		return 100;
+		return maxDist*maxDist;
 	}
 
 	/**
@@ -57,7 +59,7 @@ public class DummyPoint extends PointND.Double{
 	@Override
 	public double distance(double... p) {
 
-		return distance(new PointND.Double(-1, p));
+		return this.distance(new PointND.Double(-1, p));
 	}
 
 	/**
@@ -71,10 +73,10 @@ public class DummyPoint extends PointND.Double{
 	 */
 	@Override
 	public double distance(PointND pt) {
-		if(pt.equals(end) || pt.equals(start)) {
+		if(pt.equals(end) || pt.equals(start) || pt.equals(this)) {
 			return 0;
 		}
-		return 10;
+		return maxDist;
 	}
 	
 	@Override
@@ -87,6 +89,16 @@ public class DummyPoint extends PointND.Double{
 			}
 		}
 		return false;
+	}
+	
+	@Override
+	public String toString(){
+		return "DummyPoint[\nstart: " + start + "\nend: " + end + "";
+	}
+	
+	@Override
+	public int getID() {
+		return -2;
 	}
 
 }

@@ -425,6 +425,9 @@ public abstract class PointND implements Cloneable {
 	 * 
 	 */
 	public double distance(PointND pt) {
+		if(pt instanceof DummyPoint) {
+			return pt.distance(this);
+		}
 		double sum = 0;
 		int length = Math.max(pt.getDim(), getDim());
 		for (int i = 0; i < length; i++) {

@@ -105,7 +105,7 @@ public class Tests {
 		AB.add(new PointND.Double(3, 0, 1));
 		AB.add(new PointND.Double(4, 0, -1));
 		Shell nothing = new Shell();
-		Shell result = Shell.collapseReduce(AB, nothing);
+		Shell result = Shell.collapseReduce(AB, nothing, 0);
 		Shell answer = new Shell();
 		answer.add(new PointND.Double(1, 1, 0));
 		answer.add(new PointND.Double(3, 0, 1));
@@ -126,7 +126,7 @@ public class Tests {
 		AB.add(new PointND.Double(5, 1, 0, 0));
 		AB.add(new PointND.Double(6, -1, 0, 0));
 		Shell nothing = new Shell();
-		Shell result = Shell.collapseReduce(AB, nothing);
+		Shell result = Shell.collapseReduce(AB, nothing, 0);
 		Shell answer = new Shell();
 		answer.add(new PointND.Double(1, 0, 0, 1));
 		answer.add(new PointND.Double(3, 0, 1, 0));

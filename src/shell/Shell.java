@@ -172,13 +172,14 @@ public class Shell extends LinkedList<PointND> {
 	 * Gets the distance from a point to its neighboring points in the shell
 	 * 
 	 * @param p
+	 * @param maxDist 
 	 * @return the sum of the distance from p to the prev point in the shell and the
 	 *         distance from p to the next point in the shell
 	 */
-	public double distanceToNeighbors(PointND p) {
+	public double distanceToNeighbors(PointND p, double maxDist) {
 		PointND prevP = prevPoint(p), nextP = nextPoint(p);
 
-		return p.distance(prevP) + p.distance(nextP);
+		return p.distance(prevP) + maxDist + p.distance(nextP) + maxDist;
 
 	}
 
@@ -187,13 +188,14 @@ public class Shell extends LinkedList<PointND> {
 	 * shell
 	 * 
 	 * @param p
+	 * @param maxDist 
 	 * @return the sum of the distance from the prev point in the shell to the next
 	 *         point in the shell
 	 */
-	public double distanceBetweenNeighbors(PointND p) {
+	public double distanceBetweenNeighbors(PointND p, double maxDist) {
 		PointND prevP = prevPoint(p), nextP = nextPoint(p);
 
-		return prevP.distance(nextP);
+		return prevP.distance(nextP) + maxDist;
 
 	}
 
@@ -371,7 +373,7 @@ public class Shell extends LinkedList<PointND> {
 
 			Shell A = popList.get(0).collapseAllShells();
 			Shell B = popList.get(1);
-			return collapseReduce(A, B);
+			return collapseReduce(A, B, 0);
 		}
 		// the odd case where we split the remaining shells in half and collapse shells
 		// on both sides of the barrier shell
@@ -387,8 +389,8 @@ public class Shell extends LinkedList<PointND> {
 			Shell A = splitList.get(0).collapseAllShells();
 			Shell B = splitList.get(1);
 			Shell C = splitList.get(2).collapseAllShells();
-			Shell AB = collapseReduce(A, B);
-			Shell BC = collapseReduce(C, B);
+			Shell AB = collapseReduce(A, B, 0);
+			Shell BC = collapseReduce(C, B, 0);
 			return consensus(AB, BC);
 
 		}
@@ -399,10 +401,11 @@ public class Shell extends LinkedList<PointND> {
 	 * 
 	 * @param A
 	 * @param B the child shell of A
+	 * @param maxDist 
 	 * @return one shell that represents the optimal tsp path for all points in
 	 *         shells A and B
 	 */
-	public static Shell collapseReduce(Shell A, Shell B) {
+	public static Shell collapseReduce(Shell A, Shell B, double maxDist) {
 		Shell result = A.copyRecursive();
 		Shell copy = B.copyRecursive();
 		boolean notConfirmed = true;
@@ -410,6 +413,8 @@ public class Shell extends LinkedList<PointND> {
 		// once there is no change to result then the loop will exit
 		// this will only happen once all points from copy are in result
 		// and all points in result cannot be rearranged to form a shorter path
+
+		int idx =0;
 		while (notConfirmed) {
 			PointND pointChosen = null;
 			int chosenParent = 0;
@@ -424,7 +429,7 @@ public class Shell extends LinkedList<PointND> {
 					first = false;
 				}
 				for (PointND q : copy) {
-					double dist = Vectors.distanceChanged(lastPoint, currPoint, q);
+					double dist = Vectors.distanceChanged(lastPoint, currPoint, q, maxDist);
 					// store which point in b fits best between the two current points in result
 					if (dist < minDist) {
 						minDist = dist;
@@ -437,10 +442,11 @@ public class Shell extends LinkedList<PointND> {
 					if (!currPoint.equals(p) && !lastPoint.equals(p)) {
 						double distanceChanged = java.lang.Double.MAX_VALUE;
 
-						distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p)
-								+ (result.distanceBetweenNeighbors(p) - result.distanceToNeighbors(p)); // why this
+						
+						distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p, maxDist)
+								+ (result.distanceBetweenNeighbors(p, maxDist) - result.distanceToNeighbors(p, maxDist)); // why this
 																										// second line
-
+						
 						// store which point if any already in result fits better in between curr and
 						// last points
 						// instead of where it currently is
@@ -460,6 +466,8 @@ public class Shell extends LinkedList<PointND> {
 				result.remove(pointChosen);
 				result.add(chosenParent, pointChosen);
 				copy.remove(pointChosen);
+
+				idx++;
 			}
 
 			notConfirmed = changed;
@@ -492,15 +500,24 @@ public class Shell extends LinkedList<PointND> {
 		// add the dummy node linking the start and end node by zero and triangulate to a set of points
 		DistanceMatrix D = new DistanceMatrix(ps);
 		D = D.addDummyNode(s.first, s.last);
-		PointSet linePS = D.toPointSet();
+		//PointSet linePS = D.toPointSet();
+		//DistanceMatrix D2 = new DistanceMatrix(linePS);
+		
+		double maxDist = 2 * D.getMaxDist();
 
-		PointND dummyPoint = linePS.get(linePS.size() - 1);
+		PointND dummyPoint = new DummyPoint(s.first, s.last, D.getMaxDist());
+		//dummyPoint = linePS.get(linePS.size() - 1);
+		ps.add(dummyPoint);
+		
+		
 		
 		//since we have n points in n dimensions we can assume that the points form a convex hull
 		//The simpilest hull that you can form is d+1 points where d is the dimension(see wiki on simplexes)
 		Shell lineShells = new Shell();//linePS.toShells();
-		lineShells.addAll(linePS);
-		lineShells = Shell.collapseReduce(lineShells, new Shell());
+		//lineShells.addAll(linePS);
+		//maxDist = 0;
+		lineShells.addAll(ps);
+		lineShells = Shell.collapseReduce(lineShells, new Shell(), maxDist);
 
 		
 		Shell before = new Shell(), after = new Shell();
@@ -511,7 +528,7 @@ public class Shell extends LinkedList<PointND> {
 			if (p.equals(dummyPoint)) {
 				isBeforeDummy = false;
 			} else {
-				PointND pointInPS = ps.get(linePS.indexOf(p));
+				PointND pointInPS = ps.get(ps.indexOf(p));
 				if (isBeforeDummy) {
 					before.add(pointInPS);
 				} else {
@@ -576,7 +593,7 @@ public class Shell extends LinkedList<PointND> {
 				}
 				for (PointND q : copy) {
 					if (!s.first.equals(q) && !s.last.equals(q)) {
-						double dist = Vectors.distanceChanged(lastPoint, currPoint, q);
+						double dist = Vectors.distanceChanged(lastPoint, currPoint, q, 0);
 						// +(copy.distanceBetweenNeighborsOnLine(q) -
 						// copy.distanceToNeighborsOnLine(q));
 						// store which point in b fits best between the two current points in result
@@ -590,7 +607,7 @@ public class Shell extends LinkedList<PointND> {
 				}
 				for (PointND p : result) {
 					if (!currPoint.equals(p) && !lastPoint.equals(p)) {
-						double distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p)
+						double distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p, 0)
 								+ (result.distanceBetweenNeighborsOnLine(p) - result.distanceToNeighborsOnLine(p));
 						// store which point if any already in result fits better in between curr and
 						// last points
@@ -726,7 +743,7 @@ public class Shell extends LinkedList<PointND> {
 			}
 
 		}
-		//result = Shell.collapseReduce(result, new Shell());
+		result = Shell.collapseReduce(result, new Shell(), 0);
 		return result;
 
 	}
