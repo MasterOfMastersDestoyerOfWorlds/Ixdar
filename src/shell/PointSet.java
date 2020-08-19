@@ -50,7 +50,8 @@ public class PointSet extends ArrayList<PointND> {
 		PointSet hull = new PointSet();
 		try {
 
-			FileOutputStream in = new FileOutputStream("in"), out = new FileOutputStream("out"), err = new FileOutputStream("err");
+			FileOutputStream in = new FileOutputStream("in"), out = new FileOutputStream("out"),
+					err = new FileOutputStream("err");
 			qhull.qh_init_A(in, out, err, 0, NULL);
 			int exitcode = qhull.setjmp_wrap();
 			if (exitcode == 0) {
@@ -58,13 +59,15 @@ public class PointSet extends ArrayList<PointND> {
 				qhull.qh_initflags("qhull s p");
 
 				int maxDim = ps.getLargestDim();
-				if(ps.size() <= maxDim) {
+				if (ps.size() <= maxDim) {
 					return ps;
 				}
 				SWIGTYPE_p_coordT points = qhull.new_coordT_array(maxDim * ps.size());
 				System.out.println();
-				//TODO: need to check that the number of points is more than maxDim + 1 so that the initial simplex can be formed other wise they are just a convex hull i think?
-				//also need to update the point constructor to not keep the padded zeros
+				// TODO: need to check that the number of points is more than maxDim + 1 so that
+				// the initial simplex can be formed other wise they are just a convex hull i
+				// think?
+				// also need to update the point constructor to not keep the padded zeros
 				for (int i = 0; i < ps.size(); i++) {
 					PointND p = ps.get(i);
 					for (int j = 0; j < p.getDim(); j++) {
@@ -91,7 +94,7 @@ public class PointSet extends ArrayList<PointND> {
 						double[] coords = new double[dim];
 						int k = 0;
 						for (int j = 0; j < coordsStr.length; j++) {
-							if(!coordsStr[j].isEmpty()) {
+							if (!coordsStr[j].isEmpty()) {
 								coords[k] = java.lang.Double.parseDouble(coordsStr[j]);
 								k++;
 							}
@@ -156,18 +159,17 @@ public class PointSet extends ArrayList<PointND> {
 				currShell = nextShell;
 			}
 			PointSet hull;
-			if(copy.getLargestDim() == 2) {
+			if (copy.getLargestDim() == 2) {
 				hull = convexHull2D(copy);
-			}
-			else { 
+			} else {
 				hull = convexHullND(copy);
 			}
-			
+
 			currShell.addAll(hull);
 			copy.removeAll(hull);
 
-
-			//make sure that the convex hulls are in reduced forms(this is guaranteed in 2D but not in higher dimensions).
+			// make sure that the convex hulls are in reduced forms(this is guaranteed in 2D
+			// but not in higher dimensions).
 			Shell reducedShell = Shell.collapseReduce(currShell, new Shell(), 0);
 			currShell.removeAll(currShell);
 			currShell.addAll(reducedShell);
@@ -177,7 +179,9 @@ public class PointSet extends ArrayList<PointND> {
 	}
 
 	/**
-	 * Does the 2d gift-wrapping/javis march algorithm to find the convex hull of a set of points and add those points
+	 * Does the 2d gift-wrapping/javis march algorithm to find the convex hull of a
+	 * set of points and add those points
+	 * 
 	 * @param ps
 	 * @returnthe convex hull of the set of points in 2 dimensions
 	 */
@@ -185,8 +189,6 @@ public class PointSet extends ArrayList<PointND> {
 		PointND A = findCentroid(ps);
 		PointND B = findAnoid(ps, A);
 		PointND start = B;
-
-
 
 		PointSet outerShellPointSet = new PointSet();
 
@@ -276,6 +278,21 @@ public class PointSet extends ArrayList<PointND> {
 			}
 			if (i < this.size() - 1) {
 				str += ", ";
+			}
+		}
+
+		str += "]";
+
+		return str;
+	}
+
+	public String toStringCoords() {
+		String str = "PointSet[";
+		for (int i = 0; i < this.size(); i++) {
+
+			str += this.get(i).toString();
+			if (i < this.size() - 1) {
+				str += ", \n";
 			}
 		}
 

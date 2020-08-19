@@ -22,6 +22,7 @@ import shell.PointND.Double;
 public class Shell extends LinkedList<PointND> {
 	private static final long serialVersionUID = -5904334592585016845L;
 	private int ORDER = 1;
+	public static int failed = 0;
 	private boolean maximal, minimal;
 	private Shell parent, child;
 
@@ -491,8 +492,9 @@ public class Shell extends LinkedList<PointND> {
 		
 		PointSet ps = new PointSet();
 		
-		ps.add(s.first);
+
 		ps.add(s.last);
+		ps.add(s.first);
 		ps.addAll(A);
 		ps.addAll(B);
 
@@ -500,24 +502,18 @@ public class Shell extends LinkedList<PointND> {
 		// add the dummy node linking the start and end node by zero and triangulate to a set of points
 		DistanceMatrix D = new DistanceMatrix(ps);
 		D = D.addDummyNode(s.first, s.last);
-		//PointSet linePS = D.toPointSet();
-		//DistanceMatrix D2 = new DistanceMatrix(linePS);
-		
 		double maxDist = 2 * D.getMaxDist();
 
 		PointND dummyPoint = new DummyPoint(s.first, s.last, D.getMaxDist());
-		//dummyPoint = linePS.get(linePS.size() - 1);
-		ps.add(dummyPoint);
+		ps.add(1,dummyPoint);
 		
 		
 		
 		//since we have n points in n dimensions we can assume that the points form a convex hull
 		//The simpilest hull that you can form is d+1 points where d is the dimension(see wiki on simplexes)
-		Shell lineShells = new Shell();//linePS.toShells();
-		//lineShells.addAll(linePS);
-		//maxDist = 0;
+		Shell lineShells = new Shell();
 		lineShells.addAll(ps);
-		lineShells = Shell.collapseReduce(lineShells, new Shell(), maxDist);
+		lineShells = Shell.collapseReduce(lineShells, new Shell(), 0);
 
 		
 		Shell before = new Shell(), after = new Shell();
@@ -528,11 +524,10 @@ public class Shell extends LinkedList<PointND> {
 			if (p.equals(dummyPoint)) {
 				isBeforeDummy = false;
 			} else {
-				PointND pointInPS = ps.get(ps.indexOf(p));
 				if (isBeforeDummy) {
-					before.add(pointInPS);
+					before.add(p);
 				} else {
-					after.add(pointInPS);
+					after.add(p);
 				}
 			}
 		}
@@ -542,8 +537,28 @@ public class Shell extends LinkedList<PointND> {
 		/*if(after.get(0).equals(s.last) || after.getLast().equals(s.first)) {
 			after = after.reverse();
 		}*/
+		Shell old = solveBetweenEndpointsOld(s, A, B);
+		
+		if(old.getLength() < after.getLength() && new Segment(old.get(0), old.getLast()).equals(s)) {
+			failed++;
+			System.out.println("==================");
+			System.out.println(lineShells);
+			System.out.println(old);
+			System.out.println(old.getLength());
+			System.out.println(after.getLength());
+			System.out.println(s);
+			System.out.println(A);
+			System.out.println(B);
+			
+			PointSet order = new PointSet();
+			order.addAll(after);
+			System.out.println(order.toStringCoords());
+			
+			System.out.println(Shell.compareTo(old, after));
 
-		//after = Shell.collapseReduce(after, new Shell());
+			System.out.println(D.toPointSet().toStringCoords());
+			System.out.println(failed);
+		}
 		return after;
 
 	}
@@ -743,7 +758,6 @@ public class Shell extends LinkedList<PointND> {
 			}
 
 		}
-		result = Shell.collapseReduce(result, new Shell(), 0);
 		return result;
 
 	}

@@ -47,7 +47,7 @@ public class Main extends JComponent{
 	        Graphics2D g2 = (Graphics2D) g;
 	
 	
-	        PointSetPath retTup = importFromFile(new File("./src/shell/qa194"));
+	        PointSetPath retTup = importFromFile(new File("./src/shell/djbouti"));
 	        
 	        Shell orgShell = retTup.ps.toShells();
 	        
@@ -68,14 +68,22 @@ public class Main extends JComponent{
 	        for( int i = 0 ; i <3; i ++) {
 	        	maxShell = maxShell.collapseChildOntoShell();
 	        }*/
-	        
-			conShell = maxShell;
 			
 			conShell = conShell.collapseAllShells(); //finds optimal tsp path
 			//System.out.println(conShell);
 
 
 	        conShell.drawShell(this, g2, false, Color.BLUE);
+	        
+	        /*Shell ndShell =new Shell();
+	        ndShell.addAll(retTup.ps);
+	        PointND start = ndShell.get(4), end = ndShell.get(2);
+	        ndShell.remove(ndShell.get(4));
+	        ndShell.remove(ndShell.get(2));
+	        
+	        Shell ndTest = Shell.solveBetweenEndpoints(new Segment(start, end), ndShell, new Shell());
+	        System.out.println(ndTest.getLength());
+	        ndTest.drawShell(this, g2, false, Color.BLUE);*/
 			//conShell2 = conShell2.consensusWithChildren2(true);
 			//conShell = conShell.consensusWithChildren2(true);
 			//Shell hell1 = conShell.collapseChildOntoShell();
