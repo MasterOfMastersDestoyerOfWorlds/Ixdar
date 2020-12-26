@@ -49,3 +49,20 @@ QuickHull
 
 Orientaion of 3 Points
 - http://www.cs.tufts.edu/comp/163/OrientationTests.pdf
+
+Need a log of everything we are trying and should branch when we try new shit also need to put all references we used in either this file or a bibliography
+
+Need to do some theory crafting for the line case
+
+Potentials are transforming circle to line and n-d transformation of line to a circle at infinity
+
+Ares’ thoughts about the future: how long do we want to work on this if we can’t find the optimal solution
+
+Andrew till I can’t think of things to try. Will prolly work last two weeks of break and over the semester/summer
+
+Ryan till he starts working after the summer, will also be working in January.
+
+Ares looking for a job also will be working during semester.
+
+meet in the middle of January and end of January
+
