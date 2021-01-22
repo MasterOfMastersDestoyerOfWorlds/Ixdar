@@ -50,6 +50,8 @@ QuickHull
 Orientaion of 3 Points
 - http://www.cs.tufts.edu/comp/163/OrientationTests.pdf
 
+Meeting notes 1/1/21
+
 Need a log of everything we are trying and should branch when we try new shit also need to put all references we used in either this file or a bibliography
 
 Need to do some theory crafting for the line case
@@ -65,4 +67,16 @@ Ryan till he starts working after the summer, will also be working in January.
 Ares looking for a job also will be working during semester.
 
 meet in the middle of January and end of January
+
+Meeting notes 1/21/21
+
+Ares should try and look into why 15-17 fail but djbouti succ, 
+
+also is the ring we make in PointSet.toShells is a tsp path if not why
+
+Need to fix infinite loop in collapse reduce why? why?
+
+- need to add is point dummy to PointND
+
+
 
