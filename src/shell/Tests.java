@@ -105,7 +105,7 @@ public class Tests {
 		AB.add(new PointND.Double(3, 0, 1));
 		AB.add(new PointND.Double(4, 0, -1));
 		Shell nothing = new Shell();
-		Shell result = Shell.collapseReduce(AB, nothing, 0);
+		Shell result = Shell.collapseReduce(AB, nothing);
 		Shell answer = new Shell();
 		answer.add(new PointND.Double(1, 1, 0));
 		answer.add(new PointND.Double(3, 0, 1));
@@ -126,7 +126,7 @@ public class Tests {
 		AB.add(new PointND.Double(5, 1, 0, 0));
 		AB.add(new PointND.Double(6, -1, 0, 0));
 		Shell nothing = new Shell();
-		Shell result = Shell.collapseReduce(AB, nothing, 0);
+		Shell result = Shell.collapseReduce(AB, nothing);
 		Shell answer = new Shell();
 		answer.add(new PointND.Double(1, 0, 0, 1));
 		answer.add(new PointND.Double(3, 0, 1, 0));
@@ -294,6 +294,8 @@ public class Tests {
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
 		Shell answer = new Shell(new PointND.Double(11973.0556, 43026.1111), new PointND.Double(11785.2778, 42884.4444),
 				new PointND.Double(11846.9444, 42660.5556));
+		System.out.println(answer.getLength());
+		System.out.println(result.getLength());
 		assertTrue(result.getLength() <= answer.getLength());
 	}
 
@@ -325,8 +327,12 @@ public class Tests {
 		Shell AB = new Shell(new PointND.Double(11485.5556, 43187.2222), new PointND.Double(11461.1111, 43252.7778));
 		Shell nothing = new Shell();
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
-		Shell answer = new Shell(new PointND.Double(11569.4444, 43136.6667), new PointND.Double(11485.5556, 43187.2222),
-				new PointND.Double(11461.1111, 43252.7778), new PointND.Double(11423.8889, 43000.2778));
+		Shell answer = new Shell();
+		answer.add(s.first);
+		answer.addAll(AB);
+		answer.add(s.last);
+		System.out.println(result);
+		System.out.println(answer);
 		assertTrue(result.getLength() <= answer.getLength());
 		
 
@@ -338,8 +344,12 @@ public class Tests {
 		Shell AB = new Shell(new PointND.Double(11310.2778, 42929.4444), new PointND.Double(11416.6667, 42983.3333));
 		Shell nothing = new Shell();
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
-		Shell answer = new Shell(new PointND.Double(11423.8889, 43000.2778), new PointND.Double(11416.6667, 42983.3333),
-				new PointND.Double(11310.2778, 42929.4444), new PointND.Double(11297.5, 42853.3333));
+		Shell answer = new Shell();
+		
+		answer.add(s.first);
+		answer.addAll(AB);
+		answer.add(s.last);
+		
 		assertTrue(result.getLength() <= answer.getLength());
 		PointSet ps = new PointSet();
 		System.out.println("13");
@@ -355,9 +365,21 @@ public class Tests {
 				new PointND.Double(11822.7778, 42673.6111), new PointND.Double(11770.2778, 42651.9444));
 		Shell nothing = new Shell();
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
-		Shell answer = new Shell(new PointND.Double(11600.0, 43150.0), new PointND.Double(11785.2778, 42884.4444),
-				new PointND.Double(11770.2778, 42651.9444), new PointND.Double(11822.7778, 42673.6111),
-				new PointND.Double(11846.9444, 42660.5556), new PointND.Double(11973.0556, 43026.1111));
+		Shell answer = new Shell();
+		answer.add(s.first);
+		answer.addAll(AB);
+		answer.add(s.last);
+		PointSet ps = new PointSet();
+		System.out.println("14");
+		ps.addAll(answer);
+		DistanceMatrix d = new DistanceMatrix(ps);
+
+		
+		Shell loop  = ps.toShells().collapseAllShells();
+
+		System.out.println(result);
+		System.out.println(loop);
+		System.out.println(answer);
 		assertTrue(result.getLength() <= answer.getLength());
 	}
 
@@ -380,21 +402,14 @@ public class Tests {
 				new PointND.Double(12286.9444, 43355.5556), new PointND.Double(11963.0556, 43290.5556));
 		Shell nothing = new Shell();
 		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
-		Shell answer = new Shell(new PointND.Double(11600.0, 43150.0), new PointND.Double(11595.0, 43148.0556),
-				new PointND.Double(11583.3333, 43150.0), new PointND.Double(11569.4444, 43136.6667),
-				new PointND.Double(11485.5556, 43187.2222), new PointND.Double(11461.1111, 43252.7778),
-				new PointND.Double(11423.8889, 43000.2778), new PointND.Double(11416.6667, 42983.3333),
-				new PointND.Double(11310.2778, 42929.4444), new PointND.Double(11297.5, 42853.3333),
-				new PointND.Double(11183.3333, 42933.3333), new PointND.Double(11133.3333, 42885.8333),
-				new PointND.Double(11155.8333, 42712.5), new PointND.Double(11108.6111, 42373.8889),
-				new PointND.Double(11003.6111, 42102.5), new PointND.Double(11438.3333, 42057.2222),
-				new PointND.Double(11511.3889, 42106.3889), new PointND.Double(11715.8333, 41836.1111),
-				new PointND.Double(12058.3333, 42195.5556), new PointND.Double(12149.4444, 42477.5),
-				new PointND.Double(12300.0, 42433.3333), new PointND.Double(12372.7778, 42711.3889),
-				new PointND.Double(12421.6667, 42895.5556), new PointND.Double(12645.0, 42973.3333),
-				new PointND.Double(12355.8333, 43156.3889), new PointND.Double(12363.3333, 43189.1667),
-				new PointND.Double(12386.6667, 43334.7222), new PointND.Double(12286.9444, 43355.5556),
-				new PointND.Double(11963.0556, 43290.5556), new PointND.Double(11973.0556, 43026.1111));
+		Shell answer = new Shell();
+	
+		answer.add(s.first);
+		answer.addAll(AB);
+		answer.add(s.last);
+		
+		System.out.println(answer);
+		System.out.println(result);
 		
 		assertTrue(result.getLength() <= answer.getLength());
 	}
@@ -402,21 +417,7 @@ public class Tests {
 	@Test
 	public void testOptimizationBetweenEndpoints16() {
 		Segment s = new Segment(new PointND.Double(11770.2778, 42651.9444), new PointND.Double(11297.5, 42853.3333));
-		Shell AB = new Shell(new PointND.Double(11183.3333, 42933.3333), new PointND.Double(11133.3333, 42885.8333),
-				new PointND.Double(11155.8333, 42712.5), new PointND.Double(11108.6111, 42373.8889),
-				new PointND.Double(11003.6111, 42102.5), new PointND.Double(11438.3333, 42057.2222),
-				new PointND.Double(11511.3889, 42106.3889), new PointND.Double(11715.8333, 41836.1111),
-				new PointND.Double(12058.3333, 42195.5556), new PointND.Double(12149.4444, 42477.5),
-				new PointND.Double(12300.0, 42433.3333), new PointND.Double(12372.7778, 42711.3889),
-				new PointND.Double(12421.6667, 42895.5556), new PointND.Double(12645.0, 42973.3333),
-				new PointND.Double(12355.8333, 43156.3889), new PointND.Double(12363.3333, 43189.1667),
-				new PointND.Double(12386.6667, 43334.7222), new PointND.Double(12286.9444, 43355.5556),
-				new PointND.Double(11963.0556, 43290.5556), new PointND.Double(11600.0, 43150.0),
-				new PointND.Double(11785.2778, 42884.4444), new PointND.Double(11690.5556, 42686.6667),
-				new PointND.Double(11503.0556, 42855.2778));
-		Shell nothing = new Shell();
-		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
-		Shell answer = new Shell(new PointND.Double(11770.2778, 42651.9444), new PointND.Double(11690.5556, 42686.6667),
+		Shell AB = new Shell(new PointND.Double(11690.5556, 42686.6667),
 				new PointND.Double(11785.2778, 42884.4444), new PointND.Double(11503.0556, 42855.2778),
 				new PointND.Double(11183.3333, 42933.3333), new PointND.Double(11133.3333, 42885.8333),
 				new PointND.Double(11155.8333, 42712.5), new PointND.Double(11108.6111, 42373.8889),
@@ -427,43 +428,64 @@ public class Tests {
 				new PointND.Double(12421.6667, 42895.5556), new PointND.Double(12645.0, 42973.3333),
 				new PointND.Double(12355.8333, 43156.3889), new PointND.Double(12363.3333, 43189.1667),
 				new PointND.Double(12386.6667, 43334.7222), new PointND.Double(12286.9444, 43355.5556),
-				new PointND.Double(11963.0556, 43290.5556), new PointND.Double(11600.0, 43150.0),
-				new PointND.Double(11297.5, 42853.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+				new PointND.Double(11963.0556, 43290.5556), new PointND.Double(11600.0, 43150.0));
+		Shell nothing = new Shell();
+		//Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
+		Shell answer = new Shell();
 		PointSet ps = new PointSet();
 		System.out.println("16");
-		ps.addAll(answer);
+		
+		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
+		//ps.add(s.last);
+		answer.add(s.first);
+		answer.addAll(AB);
+		answer.add(s.last);
+		/*System.out.println(d);
 		Shell loop  = ps.toShells().collapseAllShells();
-		System.out.println(Shell.compareTo(loop, result));
+		System.out.println(loop);*/
+		System.out.println(result);
+		System.out.println(answer);
+		/*System.out.println(answer.get(2).getID());
+		System.out.println(answer.get(2).distance(answer.get(0)));*/
+		System.out.println(answer.getLength());
+		System.out.println(result.getLength());
+		
+		assertTrue(result.getLength() <= answer.getLength());
 	}
 
 	@Test
 	//TODO:i think this one is wrong
 	public void testOptimizationBetweenEndpoints17() {
 		Segment s = new Segment(new PointND.Double(11770.2778, 42651.9444), new PointND.Double(11297.5, 42853.3333));
-		Shell AB = new Shell(new PointND.Double(11822.7778, 42673.6111), new PointND.Double(11846.9444, 42660.5556),
-				new PointND.Double(11973.0556, 43026.1111), new PointND.Double(11595.0, 43148.0556),
-				new PointND.Double(11583.3333, 43150.0), new PointND.Double(11569.4444, 43136.6667),
-				new PointND.Double(11485.5556, 43187.2222), new PointND.Double(11461.1111, 43252.7778),
-				new PointND.Double(11423.8889, 43000.2778), new PointND.Double(11416.6667, 42983.3333),
-				new PointND.Double(11310.2778, 42929.4444), new PointND.Double(11690.5556, 42686.6667),
-				new PointND.Double(11503.0556, 42855.2778));
-		Shell nothing = new Shell();
-		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
-		Shell answer = new Shell(new PointND.Double(11770.2778, 42651.9444), new PointND.Double(11690.5556, 42686.6667),
+		Shell AB = new Shell(new PointND.Double(11690.5556, 42686.6667),
 				new PointND.Double(11822.7778, 42673.6111), new PointND.Double(11846.9444, 42660.5556),
 				new PointND.Double(11973.0556, 43026.1111), new PointND.Double(11595.0, 43148.0556),
 				new PointND.Double(11583.3333, 43150.0), new PointND.Double(11569.4444, 43136.6667),
 				new PointND.Double(11485.5556, 43187.2222), new PointND.Double(11461.1111, 43252.7778),
 				new PointND.Double(11423.8889, 43000.2778), new PointND.Double(11416.6667, 42983.3333),
-				new PointND.Double(11503.0556, 42855.2778), new PointND.Double(11310.2778, 42929.4444),
-				new PointND.Double(11297.5, 42853.3333));
-		assertTrue(result.getLength() <= answer.getLength());
+				new PointND.Double(11503.0556, 42855.2778), new PointND.Double(11310.2778, 42929.4444));
+		Shell nothing = new Shell();
+		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing);
+		Shell answer = new Shell();
 		PointSet ps = new PointSet();
 		System.out.println("17");
-		ps.addAll(answer);
+		
+		ps.add(s.first);
+		ps.add(s.last);
+		ps.addAll(AB);
+		DistanceMatrix d = new DistanceMatrix(ps);
+		ps.remove(s.last);
+		ps.add(s.last);
+		answer.addAll(ps);
+		System.out.println(d);
 		Shell loop  = ps.toShells().collapseAllShells();
-		System.out.println(Shell.compareTo(loop, result));
+		System.out.println(loop);
+		System.out.println(result);
+		System.out.println(answer);
+		System.out.println(answer.get(2).getID());
+		System.out.println(answer.get(2).distance(answer.get(0)));
+		assertTrue(result.getLength() <= answer.getLength());
+
 	}
 
 

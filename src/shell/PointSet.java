@@ -134,6 +134,15 @@ public class PointSet extends ArrayList<PointND> {
 		}
 		return maxDim;
 	}
+	
+	public PointND getByID(int ID) {
+		for(PointND p: this) {
+			if(p.getID() == ID) {
+				return p;
+			}
+		}
+		return null;
+	}
 
 	/**
 	 * This divides the point set into numerous convex shells that point to their
@@ -159,21 +168,26 @@ public class PointSet extends ArrayList<PointND> {
 				currShell = nextShell;
 			}
 			PointSet hull;
-			if (copy.getLargestDim() == 2) {
+			//if (copy.getLargestDim() == 2) {
 				hull = convexHull2D(copy);
-			} else {
+			/*} else {
 				hull = convexHullND(copy);
-			}
+			}*/
 
 			currShell.addAll(hull);
 			copy.removeAll(hull);
+			
 
 			// make sure that the convex hulls are in reduced forms(this is guaranteed in 2D
 			// but not in higher dimensions).
-			Shell reducedShell = Shell.collapseReduce(currShell, new Shell(), 0);
+			/*Shell reducedShell = Shell.collapseReduce(currShell, new Shell(), 0);
 			currShell.removeAll(currShell);
-			currShell.addAll(reducedShell);
+			currShell.addAll(reducedShell);*/
+			//System.out.println(copy.size());
+			//System.out.println(copy);*/
+			//System.out.println(hull);
 		}
+		//System.out.println("reee");
 		rootShell.updateOrder();
 		return rootShell;
 	}
@@ -186,38 +200,95 @@ public class PointSet extends ArrayList<PointND> {
 	 * @returnthe convex hull of the set of points in 2 dimensions
 	 */
 	public PointSet convexHull2D(PointSet ps) {
+		if(ps.size() <= 1) {
+			return ps;
+		}
 		PointND A = findCentroid(ps);
 		PointND B = findAnoid(ps, A);
+		//System.out.println(B.getID());
 		PointND start = B;
 
 		PointSet outerShellPointSet = new PointSet();
+		
+		double maxAngle = 0;
+		PointND maxPoint = null;
+		int count = 0;
+		for (PointND p : ps) {
+			double angle = Vectors.findAngleSegments(A, B, p);
+			//System.out.println("angle: " + angle + " A: " + A.getID() + " B: " + B.getID() + " C: " + p.getID());
+			if (angle > maxAngle && !outerShellPointSet.contains(p) && !A.equals(p) && !B.equals(p)) {
+
+				maxAngle = angle;
+				maxPoint = p;
+			}
+			count++;
+		}
+		A = maxPoint;
+		outerShellPointSet.add(A);
+		outerShellPointSet.add(B);
+		//System.out.println(outerShellPointSet);
+		//System.out.println(maxAngle);
+		
+		PointND C = A, D = B;
 
 		boolean breakFlag = false;
+
 		// Creates the next convex shell
 		while (!breakFlag) {
+			
+			/*System.out.println("A: " + A.getID());
+			System.out.println("B: " +B.getID());
+			System.out.println("C: " +C.getID());
+			System.out.println("D: " +D.getID());*/
 
-			double maxAngle = 0;
-			PointND maxPoint = null;
-			int count = 0;
+			maxAngle = 0;
+			maxPoint = null;
+			boolean left = true;
+			count = 0;
 			for (PointND p : ps) {
-				double angle = Vectors.findAngleSegments(A, B, p);
-				if (angle > maxAngle && !outerShellPointSet.contains(p) && !A.equals(p) && !B.equals(p)) {
+				double angle = Vectors.findAngleSegments(p, A, B);
+				//System.out.println("angle: " + angle + " p: " + p.getID() + " A: " + A.getID() + " B: " + B.getID() );
+				if (angle > maxAngle && ((!outerShellPointSet.contains(p) && !A.equals(p) && !B.equals(p)) || (D.equals(p)&& !A.equals(p) && !B.equals(p)))) {
 
 					maxAngle = angle;
 					maxPoint = p;
+					left = true;
 				}
+				angle = Vectors.findAngleSegments(C, D, p);
+				//System.out.println("angle: " + angle + " C: " + C.getID() + " D: " + D.getID() + " p: " + p.getID());
+				if (angle > maxAngle && ((!outerShellPointSet.contains(p) && !C.equals(p) && !D.equals(p)) || (A.equals(p) && !C.equals(p) && !D.equals(p)))) {
+
+					maxAngle = angle;
+					maxPoint = p;
+					left = false;
+				}
+				
 				count++;
 			}
-			if (maxPoint == null || maxPoint.equals(start)) {
+			if (maxPoint == null || maxPoint.equals(D) || maxPoint.equals(A)) {
 				breakFlag = true;
-				outerShellPointSet.add(start);
 			} else {
-				A = B;
-				B = maxPoint;
-				outerShellPointSet.add(B);
+				if(left) {
+					B = A;
+					A = maxPoint;
+					outerShellPointSet.add(0,A);
+				}
+				else {
+					C = D;
+					D = maxPoint;
+					outerShellPointSet.add(D);
+				}
+
+				
 
 			}
+/*
+			System.out.println("maxPoint: " + maxPoint.getID());
+			System.out.println("left: " + left);*/
+			//System.out.println(outerShellPointSet);
+			//System.out.println(maxAngle);
 		}
+		//System.out.println("done");
 		return outerShellPointSet;
 	}
 

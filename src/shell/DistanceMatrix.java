@@ -106,7 +106,7 @@ public class DistanceMatrix {
 					if (i == startIndex || j == startIndex || i == endIndex || j == endIndex || i==j) {
 						temp[i][j] = 0;
 					} else {
-						temp[i][j] = maxDist;
+						temp[i][j] = maxDist*2;
 					}
 				} else {
 					temp[i][j] = matrix[i][j];
@@ -184,7 +184,7 @@ public class DistanceMatrix {
 				ps.add(new PointND.Double(this.getPoints().get(i).getID(), coords));
 			}
 			else {
-				ps.add(new PointND.Double(-2, coords));
+				ps.add(new PointND.Double(coords));
 			}
 		}
 
