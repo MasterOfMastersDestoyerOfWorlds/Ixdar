@@ -12,17 +12,25 @@ public class Vectors {
 	 * @param a
 	 * @param b
 	 * @param p
-	 * @return returns the angle ABC
+	 * @param d 
+	 * @return returns the angle abc
 	 */
-	public static double findAngleSegments(PointND a, PointND b, PointND p) {
-		PointND BC = new PointND.Double(p.toVector(b).getCoordList());
-		PointND AB = new PointND.Double(a.toVector(b).getCoordList());
-		double magAB = magnitude(AB), magBC = magnitude(BC);
-		double dot = findDotProduct(AB,BC);
-		if(dot/(magAB*magBC) >= 1) {
-			return 180;
-		}
-		return Math.acos(dot/(magAB*magBC))*180/Math.PI;
+	public static double findAngleSegments(PointND a, PointND b, PointND c, DistanceMatrix d) {
+//		PointND BC = new PointND.Double(p.toVector(b).getCoordList());
+//		PointND AB = new PointND.Double(a.toVector(b).getCoordList());
+//		double magAB = magnitude(AB), magBC = magnitude(BC);
+//		double dot = findDotProduct(AB,BC);
+//		if(dot/(magAB*magBC) >= 1) {
+//			return 180;
+//		}
+//		return Math.acos(dot/(magAB*magBC))*180/Math.PI;
+		double AB = d.getDistance(a, b); 
+		double BC = d.getDistance(b, c); 
+		double AC = d.getDistance(a, c); 
+		assert(AB + BC >= AC);
+		assert(AC + BC >= AB);
+		assert(AB + AC >= BC);
+		return Math.acos((Math.pow(AB,2) +Math.pow(BC,2) - Math.pow(AC,2))/(2*(AB)*(BC)));
 	}
 
 	/**
@@ -68,15 +76,16 @@ public class Vectors {
 	 * @param lastPoint
 	 * @param currPoint
 	 * @param q 2d point in between lastPoint and currPoint
+	 * @param d 
 	 * @return AB + BC - AC
 	 */
-	public static double distanceChanged(PointND lastPoint, PointND currPoint, PointND q) {
+	public static double distanceChanged(PointND lastPoint, PointND currPoint, PointND q, DistanceMatrix d) {
 		
 		// i think this is wrong or is being used incorrectly because if q is embedded in the 
 		// path already then you also have to consider the distance to its neighbors
-		Double AB = lastPoint.distance(q);
-		Double AC = currPoint.distance(lastPoint);
-		Double BC = q.distance(currPoint);
+		Double AB =  d.getDistance(lastPoint,q);
+		Double BC =  d.getDistance(q,currPoint);
+		Double AC =  d.getDistance(currPoint,lastPoint);
 
 		return AB + BC - AC;
 	}

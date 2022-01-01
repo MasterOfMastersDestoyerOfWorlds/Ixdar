@@ -1,10 +1,9 @@
 package shell;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.apache.commons.math3.complex.Complex;
 import org.apache.commons.math3.linear.Array2DRowFieldMatrix;
@@ -20,7 +19,12 @@ public class DistanceMatrix {
 
 	private double[][] matrix;
 	private ArrayList<PointND> points;
+	private HashMap<Integer,Integer> lookup;
 	private double maxDist = 0;
+	private double minDist = java.lang.Double.MAX_VALUE;
+	private double zero = 0;
+	private PointND.Double centroid;
+	private double[] centroidDist;
 
 	/**
 	 * Creates a distance matrix that represents the distance between every point in
@@ -31,14 +35,19 @@ public class DistanceMatrix {
 	public DistanceMatrix(PointSet pointset) {
 		matrix = new double[pointset.size()][pointset.size()];
 		points = new ArrayList<PointND>();
+		lookup = new HashMap<Integer,Integer>();
 		for (PointND p : pointset) {
 			points.add(p);
 		}
 		for (int i = 0; i < matrix.length; i++) {
+			lookup.put(points.get(i).getID(),i);
 			for (int j = 0; j < matrix.length; j++) {
 				double dist = points.get(i).distance(points.get(j));
 				if (dist > maxDist) {
 					maxDist = dist;
+				}
+				if(dist < minDist) {
+					minDist = dist;
 				}
 				matrix[i][j] = dist;
 			}
@@ -54,12 +63,35 @@ public class DistanceMatrix {
 	public DistanceMatrix(double[][] matrix, ArrayList<PointND> points) {
 		this.matrix = matrix;
 		this.points = points;
+		lookup = new HashMap<Integer,Integer>();
 		for (int i = 0; i < matrix.length; i++) {
+			lookup.put(points.get(i).getID(),i);
 			for (int j = 0; j < matrix.length; j++) {
 				double dist = matrix[i][j];
 				if (dist > maxDist) {
 					maxDist = dist;
 				}
+				if(dist < minDist) {
+					minDist = dist;
+				}
+			}
+		}
+	}
+
+	public DistanceMatrix(PointSet ps, DistanceMatrix d) {
+		matrix = new double[ps.size()][ps.size()];
+		points = new ArrayList<PointND>();
+		lookup = new HashMap<Integer,Integer>();
+		this.zero = d.zero;
+		this.maxDist = d.maxDist;
+		for (PointND p : ps) {
+			points.add(p);
+		}
+		for (int i = 0; i < matrix.length; i++) {
+			lookup.put(points.get(i).getID(),i);
+			for (int j = 0; j < matrix.length; j++) {
+				double dist = d.getDistance(points.get(i), points.get(j));
+				matrix[i][j] = dist;
 			}
 		}
 	}
@@ -79,6 +111,20 @@ public class DistanceMatrix {
 	public double getMaxDist() {
 		return maxDist;
 	}
+	
+	public void updateMaxDist() {
+		for (int i = 0; i < matrix.length; i++) {
+			for (int j = 0; j < matrix.length; j++) {
+				double dist = this.getDistance(points.get(i), points.get(j));
+				if (dist > maxDist) {
+					maxDist = dist;
+				}
+				if(dist < minDist) {
+					minDist = dist;
+				}
+			}
+		}
+	}
 
 	/**
 	 * Gets the distance matrix
@@ -87,7 +133,45 @@ public class DistanceMatrix {
 	public double[][] getMatrix() {
 		return matrix;
 	}
+	
+	/**
+	 * Gets the distance between i and j
+	 * @return the distance 
+	 */
+	public double getDistance(int i, int j) {
+		return matrix[i][j];
+	}
+	/**
+	 * Gets the distance between i and j
+	 * @return the distance 
+	 */
+	public double getDistance(PointND i, PointND j) {
+		
+		if(i.isCentroid() || j.isCentroid()) {
+			return i.isCentroid() ? centroidDist[lookup.get(j.getID())] : centroidDist[lookup.get(i.getID())];
+		}
+		return matrix[lookup.get(i.getID())][lookup.get(j.getID())];
+	}
 
+	public double sumDistances(PointND p) {
+		double sum = 0.0;
+		int i = lookup.get(p.getID());
+		for(int j = 0; j < matrix.length; j ++) {
+			sum += matrix[i][j];
+		}
+		return sum;
+	}
+	public double sumAngles(PointND p) {
+		double sum = 0.0;
+		int i = lookup.get(p.getID());
+		for(int j = 0; j < matrix.length; j ++) {
+			if(i != j) {
+				sum += matrix[lookup.get(p.getID())][j];
+			}
+			
+		}
+		return sum;
+	}
 	/**
 	 * Adds a dummy node to the matrix with infinite distance to all points except
 	 * start and end which is zero distance away
@@ -96,24 +180,45 @@ public class DistanceMatrix {
 	 * @param end
 	 * @return A new distance matrix with the dummy node added on
 	 */
-	public DistanceMatrix addDummyNode(PointND start, PointND end) {
+	public PointND addDummyNode(Segment s) {
 		double[][] temp = new double[matrix.length + 1][matrix.length + 1];
-		int startIndex = points.indexOf(start);
-		int endIndex = points.indexOf(end);
+		int startIndex = points.indexOf(s.first);
+		int endIndex = points.indexOf(s.last);
 		for (int i = 0; i < temp.length; i++) {
 			for (int j = 0; j < temp.length; j++) {
 				if (i == matrix.length || j == matrix.length) {
 					if (i == startIndex || j == startIndex || i == endIndex || j == endIndex || i==j) {
-						temp[i][j] = 0;
+						temp[i][j] = zero;
 					} else {
-						temp[i][j] = maxDist*2;
+						temp[i][j] = maxDist;
 					}
 				} else {
 					temp[i][j] = matrix[i][j];
 				}
 			}
 		}
-		return new DistanceMatrix(temp, points);
+		if(zero == 0) {
+			zero = 2*maxDist;
+			for (int i = 0; i < temp.length; i++) {
+				for (int j = 0; j < temp.length; j++) {
+					if (i != j) {
+						temp[i][j] = temp[i][j] + zero;
+					}
+				}
+			}
+			maxDist = maxDist + zero;
+		}
+		
+
+		
+		PointND dummy = new PointND.Double();
+		dummy.setDummyNode();
+		dummy.setDummyParents(s);
+		points.add(dummy);
+
+		lookup.put(dummy.getID(),points.size()-1);
+		matrix = temp;
+		return dummy;
 	}
 
 	/**
@@ -127,17 +232,18 @@ public class DistanceMatrix {
 		
 		double[][] D = new double[matrix.length][matrix.length];
 		//addint the max distance so the matrix follows the triangle property
+		//https://cstheory.stackexchange.com/questions/12885/guidelines-to-reduce-general-tsp-to-triangle-tsp/14049#14049
 		for (int i = 0; i < D.length; i++) {
 			for (int j = 0; j < D.length; j++) {
 				if (i != j) {
-					D[i][j] = matrix[i][j] + 2 * maxDist;
+					D[i][j] = matrix[i][j];
 				}
 			}
 		}
 		
 		
 		double[][] M = new double[D.length][D.length];
-		// idk whats happening here
+		//https://math.stackexchange.com/questions/156161/finding-the-coordinates-of-points-from-distance-matrix
 		for (int i = 0; i < M.length; i++) {
 			for (int j = 0; j < M.length; j++) {
 				M[i][j] = (Math.pow(D[0][j], 2) + Math.pow(D[i][0], 2) - Math.pow(D[i][j], 2)) / 2;
@@ -190,6 +296,25 @@ public class DistanceMatrix {
 
 		return ps;
 
+	}
+	
+	/**
+	 * Transforms the DistanceMatrix to a PointSet and then averages over the cooridnates to find the centroid
+	 * Adds the centroid to the distance matrix
+	 * 
+	 * @return the centroid of the points represented in the distance matrix
+	 */
+	public PointND findCentroid() {
+		PointSet ps = this.toPointSet();
+		this.centroid = new PointND.Double(ps);
+		this.centroid.setCentroid();
+		this.centroidDist = new double[matrix.length];
+		for(int i = 0; i < matrix.length; i ++) {
+			int index = lookup.get(ps.get(i).getID());
+			centroidDist[index] = ps.get(i).distance(centroid);
+		}
+				
+		return centroid;	
 	}
 	
 	/**
@@ -248,12 +373,22 @@ public class DistanceMatrix {
         	for(int j = 0; j < matrix.length; j++) {
         		BigDecimal bd = new BigDecimal(matrix[i][j]);
         		bd = bd.round(new MathContext(3));
-        		str+= " " + Double.valueOf(String.format("%."+3+"G", bd)) + " ";
+        		str+= " " + java.lang.Double.valueOf(String.format("%."+3+"G", bd)) + " ";
         	}
         	str+="]\n";
         }
         str += "]";
 		return str;
+	}
+
+	public double getZero() {
+		// TODO Auto-generated method stub
+		return this.zero;
+	}
+
+	public int size() {
+		// TODO Auto-generated method stub
+		return matrix.length;
 	}
 
 }

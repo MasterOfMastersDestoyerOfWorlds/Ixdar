@@ -233,6 +233,24 @@ public abstract class PointND implements Cloneable {
 			}
 		}
 
+		/**
+		 * Constructs a {@code PointND} as the centtrroid of the specified PointSet
+		 * @param ps
+		 */
+		public Double(PointSet ps) {
+			this.setID(maxID);
+			ds = new double[ps.getMaxDim()];
+			for(PointND p : ps) {
+				for(int i = 0 ; i < p.getDim(); i ++) {
+					ds[i] += p.getCoord(i);
+				}
+			}
+			
+			for(int i = 0; i < ds.length; i ++) {
+				ds[i] = ds[i]/ps.size();
+			}
+		}
+
 		public int getDim() {
 			return ds.length;
 		}
@@ -312,6 +330,12 @@ public abstract class PointND implements Cloneable {
 	}
 
 	private int ID = -1;
+	
+	private boolean isCentroid = false;
+	
+	private boolean isDummyNode = false;
+	
+	private Segment dummyParents;
 	
 	private static int maxID = 0;
 	
@@ -508,15 +532,8 @@ public abstract class PointND implements Cloneable {
 			if(pt.getID() == getID()) {
 				return true;
 			}
-			if (pt.getDim() != getDim()) {
-				return false;
-			}
-			boolean result = true;
-			for (int i = 0; i < pt.getDim(); i++) {
-				boolean val = (getCoord(i) == pt.getCoord(i));
-				result = result && val;
-			}
-			return result;
+
+			return false;
 		}
 		return super.equals(obj);
 	}
@@ -539,5 +556,29 @@ public abstract class PointND implements Cloneable {
 			maxID = ID + 1;
 		}
 		this.ID = ID;
+	}
+
+	public boolean isCentroid() {
+		return isCentroid;
+	}
+
+	public void setCentroid() {
+		this.isCentroid = true;
+	}
+
+	public boolean isDummyNode() {
+		return isDummyNode;
+	}
+
+	public void setDummyNode() {
+		this.isDummyNode = true;
+	}
+
+	public Segment getDummyParents() {
+		return dummyParents;
+	}
+
+	public void setDummyParents(Segment dummyParents) {
+		this.dummyParents = dummyParents;
 	}
 }

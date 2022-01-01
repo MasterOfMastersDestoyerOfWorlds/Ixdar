@@ -26,8 +26,7 @@ public class Segment {
 		if (o instanceof Segment) {
 
 			Segment other = (Segment) o;
-			return (other.first.equals(first) && other.last.equals(last))
-					|| (other.first.equals(last) && other.last.equals(first));
+			return (other.first.equals(first) && other.last.equals(last));
 		}
 		return false;
 

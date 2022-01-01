@@ -47,13 +47,15 @@ public class Main extends JComponent{
 	        Graphics2D g2 = (Graphics2D) g;
 	
 	
-	        PointSetPath retTup = importFromFile(new File("./src/shell/qa194"));
-	        
-	        Shell orgShell = retTup.ps.toShells();
-	        
+	        PointSetPath retTup = importFromFile(new File("./src/shell/djbouti"));
+			DistanceMatrix d = new DistanceMatrix(retTup.ps);
+	        Shell orgShell = retTup.ps.toShells(d);
+	     
 	        Shell maxShell = orgShell.copyRecursive();
 	        
 	        Shell conShell = maxShell.copyRecursive();
+	        
+	    
 	        
 	        /* All currently unused code
 
@@ -69,11 +71,13 @@ public class Main extends JComponent{
 	        	maxShell = maxShell.collapseChildOntoShell();
 	        }*/
 			
-			conShell = conShell.collapseAllShells(); //finds optimal tsp path
+			conShell = conShell.collapseAllShells(d); //finds optimal tsp path
 			//System.out.println(conShell);
 
 
-	        conShell.drawShell(this, g2, false, Color.BLUE);
+	        conShell.drawShell(this, g2, true, Color.BLUE);
+	        maxShell.drawShell(this, g2, true, null);
+	        
 	        
 	        /*Shell ndShell =new Shell();
 	        ndShell.addAll(retTup.ps);
@@ -115,7 +119,7 @@ public class Main extends JComponent{
 
 	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
 
-	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, false, true);
+	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, true, false, true);
 	        System.out.println("===============================================");
 		}catch(Exception e) {
 			e.printStackTrace();

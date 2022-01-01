@@ -6,6 +6,7 @@ import java.awt.geom.GeneralPath;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Random;
@@ -177,10 +178,10 @@ public class Shell extends LinkedList<PointND> {
 	 * @return the sum of the distance from p to the prev point in the shell and the
 	 *         distance from p to the next point in the shell
 	 */
-	public double distanceToNeighbors(PointND p) {
+	public double distanceToNeighbors(PointND p, DistanceMatrix d) {
 		PointND prevP = prevPoint(p), nextP = nextPoint(p);
 
-		return p.distance(prevP) + p.distance(nextP) ;
+		return d.getDistance(p,prevP) + d.getDistance(p,nextP);
 
 	}
 
@@ -193,42 +194,14 @@ public class Shell extends LinkedList<PointND> {
 	 * @return the sum of the distance from the prev point in the shell to the next
 	 *         point in the shell
 	 */
-	public double distanceBetweenNeighbors(PointND p) {
+	public double distanceBetweenNeighbors(PointND p, DistanceMatrix d) {
 		PointND prevP = prevPoint(p), nextP = nextPoint(p);
 
-		return prevP.distance(nextP);
+		return d.getDistance(nextP,prevP);
 
 	}
 
-	/**
-	 * Gets the distance from the point previous to p and the point after p on the
-	 * line
-	 * 
-	 * @param p
-	 * @return the sum of the distance from the prev point on the line to the next
-	 *         point on the line
-	 */
-	public double distanceToNeighborsOnLine(PointND p) {
-		PointND prevP = prevPointOnLine(p), nextP = nextPointOnLine(p);
 
-		return p.distance(prevP) + p.distance(nextP);
-
-	}
-
-	/**
-	 * Gets the distance from the point previous to p and the point after p in the
-	 * shell
-	 * 
-	 * @param p
-	 * @return the sum of the distance from the prev point in the shell to the next
-	 *         point in the shell
-	 */
-	public double distanceBetweenNeighborsOnLine(PointND p) {
-		PointND prevP = prevPointOnLine(p), nextP = nextPointOnLine(p);
-
-		return prevP.distance(nextP);
-
-	}
 
 	/**
 	 * Finds the previous point in the shell
@@ -262,40 +235,7 @@ public class Shell extends LinkedList<PointND> {
 		return this.get(after);
 	}
 
-	// these methods are duplicate and we should comment them out and replace the
-	// calls
 
-	/**
-	 * Finds the next point on the line, duplicates nextPoint
-	 * 
-	 * @param p reference point
-	 * @return the point that comes before p on the line
-	 */
-	private PointND nextPointOnLine(PointND p) {
-		int i = this.indexOf(p), after = 0;
-		if (i == this.size() - 1) {
-			after = i;
-		} else {
-			after = i + 1;
-		}
-		return this.get(after);
-	}
-
-	/**
-	 * Finds the previous point on the line, duplicates prevPoint
-	 * 
-	 * @param p reference point
-	 * @return the point that comes before p on the line
-	 */
-	private PointND prevPointOnLine(PointND p) {
-		int i = this.indexOf(p), before = 0;
-		if (i == 0) {
-			before = i;
-		} else {
-			before = i - 1;
-		}
-		return this.get(before);
-	}
 
 	/**
 	 * Gives the shell, the barrier shell n levels below, and the first shell after
@@ -361,41 +301,39 @@ public class Shell extends LinkedList<PointND> {
 	 * 
 	 * @return one shell that represents the optimal tsp path
 	 */
-	public Shell collapseAllShells() {
-		System.out.println("collapseAllShells");
+	public Shell collapseAllShells(DistanceMatrix d) {
+
+
 		int order = this.updateOrder();
 		if (this.isMinimal()) {
 			return this;
 		}
-		// the even case where we pop the min shell and collapse all shells other than
-		// that
-		// before collapsing the min one at the end
-		if (order % 2 == 0) {
-			ArrayList<Shell> popList = this.popMin();
-
-			Shell A = popList.get(0).collapseAllShells();
-			Shell B = popList.get(1);
-			return collapseReduce(A, B);
+		int size = this.sizeRecursive();
+		Shell A = this.copyRecursive();
+		Shell B = this.getChild().copyRecursive();
+		
+		System.out.println("Collapsing: " + this.toStringRecursive());
+		
+		Shell collapsed = collapseReduce(A, B, d);
+		System.out.println("Collapsed: " + collapsed);
+		//System.out.println(this.toStringRecursive());
+		//System.out.println(collapsed.toStringRecursive());
+		assert(collapsed.sizeRecursive() == size) : "Shell was size: " + collapsed.sizeRecursive() + " Supposed to be size: " + size;
+		Shell consensus = consensus(collapsed, A, d);
+		
+		
+//		System.out.println("start : " + this.toStringRecursive());
+//		System.out.println("colapse : " + collapsed.toStringRecursive());
+//		System.out.println("rreturn : " + consensus.toStringRecursive());
+		assert(consensus.sizeRecursive() == size) : "Shell was size: " + consensus.sizeRecursive() + " Supposed to be size: " + size;
+		assert(consensus.getLength() - collapsed.getLength() <= 0.01) :" collapsed: " + collapsed + "\n consensus: " + consensus + "\n B: " + B;
+		if(consensus.getLength() < collapsed.getLength()) {
+			return consensus.collapseAllShells(d);
 		}
-		// the odd case where we split the remaining shells in half and collapse shells
-		// on both sides of the barrier shell
-		// before collapsing both sides onto the barrier shell and calling the consensus
-		// function
 		else {
-			int splitVal = (this.updateOrder() - 1) / 2;
-
-			if (splitVal % 2 == 0) {
-				splitVal = splitVal + 1;
-			}
-			ArrayList<Shell> splitList = this.split(splitVal);
-			Shell A = splitList.get(0).collapseAllShells();
-			Shell B = splitList.get(1);
-			Shell C = splitList.get(2).collapseAllShells();
-			Shell AB = collapseReduce(A, B);
-			Shell BC = collapseReduce(C, B);
-			return consensus(AB, BC);
-
+			return collapsed.collapseAllShells(d);
 		}
+
 	}
 
 	/**
@@ -403,15 +341,18 @@ public class Shell extends LinkedList<PointND> {
 	 * 
 	 * @param A
 	 * @param B the child shell of A
+	 * @param d 
 	 * @param maxDist 
 	 * @return one shell that represents the optimal tsp path for all points in
 	 *         shells A and B
 	 */
-	public static Shell collapseReduce(Shell A, Shell B) {
-		System.out.println("collapseReduce");
+	public static Shell collapseReduce(Shell A, Shell B, DistanceMatrix d) {
+
 		Shell result = A.copyRecursive();
 		Shell copy = B.copyRecursive();
+
 		boolean notConfirmed = true;
+		
 
 		// once there is no change to result then the loop will exit
 		// this will only happen once all points from copy are in result
@@ -419,6 +360,7 @@ public class Shell extends LinkedList<PointND> {
 
 		int idx =0;
 		while (notConfirmed) {
+
 			PointND pointChosen = null, lastpc = null, currpc = null;
 			int chosenParent = 0;
 			boolean first = true, changed = false;
@@ -431,8 +373,9 @@ public class Shell extends LinkedList<PointND> {
 					lastPoint = result.getLast();
 					first = false;
 				}
+				//assert(!lastPoint.equals(currPoint));
 				for (PointND q : copy) {
-					double dist = Vectors.distanceChanged(lastPoint, currPoint, q);
+					double dist = Vectors.distanceChanged(lastPoint, currPoint, q, d);
 					// store which point in b fits best between the two current points in result
 					if (dist < minDist) {
 						minDist = dist;
@@ -445,17 +388,18 @@ public class Shell extends LinkedList<PointND> {
 					//PointND next = nextPoint(p), prev = prevPoint(p);
 					
 					if (!currPoint.equals(p) && !lastPoint.equals(p)) {
+						
 						double distanceChanged = java.lang.Double.MAX_VALUE;
 
 						
-						distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p)
-								+ (result.distanceBetweenNeighbors(p) - result.distanceToNeighbors(p)); // why this
+						distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p,d)
+								+ ( result.distanceBetweenNeighbors(p,d) -result.distanceToNeighbors(p,d)); // why this
 																										// second line
 						
 						// store which point if any already in result fits better in between curr and
 						// last points
 						// instead of where it currently is
-						if (distanceChanged < minDist && distanceChanged < 0) {
+						if (distanceChanged < minDist && distanceChanged < -0) {
 							lastpc = lastPoint;
 							currpc = currPoint;
 							minDist = distanceChanged;
@@ -470,30 +414,80 @@ public class Shell extends LinkedList<PointND> {
 			// update result to add the closest point from B or to reduce result into a
 			// better tsp path
 			if (changed) {
-				if(lastpc != null && pointChosen != null && result.size() > 0 && result.contains(pointChosen)) {
-					
-				System.out.println("distchanged " + Vectors.distanceChanged(lastpc, currpc, pointChosen));
-				System.out.println("distanceBB " +result.distanceBetweenNeighbors(pointChosen) );
-				System.out.println("distanceT " + result.distanceToNeighbors(pointChosen));
-				System.out.println(Vectors.distanceChanged(lastpc, currpc, pointChosen)
-								+ (result.distanceBetweenNeighbors(pointChosen) - result.distanceToNeighbors(pointChosen)));
-				System.out.println("last " + lastpc.getID() + " pt " + pointChosen.getID() +" curr " + currpc.getID() );
-				}
 				double ol = result.getLength();
-				System.out.println("old length: " + ol);
 
-				
+
 				result.remove(pointChosen);
+
+				//PointND parent = result.get(chosenParent);
 				result.add(chosenParent, pointChosen);
 				copy.remove(pointChosen);
-				System.out.println("length: " + result.getLength() + " ol- nl " + (ol- result.getLength()) + " min dist " + minDist + " size B: " + copy.size());
 				idx++;
+				/*System.out.println("*******");
+				System.out.println(parent.getID());
+				System.out.println(pointChosen.getID());
+				System.out.println(result.distanceToNeighbors(pointChosen,d)- result.distanceBetweenNeighbors(pointChosen,d));
+				System.out.println();
+				
+				System.out.println(result);
+				System.out.println(d.getDistance(parent, pointChosen));
+				System.out.println(minDist);*/
+				
 			}
 
 			notConfirmed = changed;
 		}
-
+		result.child = copy.child;
+//		System.out.println("--------");
+//		System.out.println(d);
 		return result;
+	}
+	
+	/**
+	 * Checks if shell A is greedily reduced
+	 * 
+	 * @param A
+	 * @param d 
+	 * @return is A in reduced form
+	 */
+	public static boolean isReduced(Shell A, DistanceMatrix d) {
+		Shell result = A.copyShallow();
+		boolean notConfirmed = true;
+
+		// loops through every segment on the path and every point to see if there are any greedy replacements.
+
+		boolean first = true;
+		PointND lastPoint = null, currPoint = null;
+		double minDist = java.lang.Double.MAX_VALUE;
+
+		for (int i = 0; i < result.size(); i++) {
+			lastPoint = currPoint;
+			currPoint = result.get(i);
+			if (first) {
+				lastPoint = result.getLast();
+				first = false;
+			}
+			for (PointND p : result) {
+				if (!currPoint.equals(p) && !lastPoint.equals(p)) {
+					double distanceChanged = java.lang.Double.MAX_VALUE;
+
+					
+					distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p, d)
+							+ (result.distanceBetweenNeighbors(p, d) - result.distanceToNeighbors(p, d)); // why this
+																									// second line
+					
+					// store which point if any already in result fits better in between curr and
+					// last points
+					// instead of where it currently is
+					if (distanceChanged < minDist && distanceChanged < 0) {
+						return false;
+					}
+				}
+			}
+
+		}
+
+		return true;
 	}
 
 	/**
@@ -507,67 +501,38 @@ public class Shell extends LinkedList<PointND> {
 	 * @param B
 	 * @return
 	 */
-	public static Shell solveBetweenEndpoints(Segment s, Shell A, Shell B) {
-		System.out.println("solveBetweenEndpoints");
+	public static Shell solveBetweenEndpoints(Segment s, Shell A, Shell B, DistanceMatrix d) {
 		PointSet ps = new PointSet();
 		
 
 		ps.add(s.first);
-		ps.add(s.last);
-		
+		if(!s.first.equals(s.last)) {
+			ps.add(s.last);
+		}
 		ps.addAll(A);
 		ps.addAll(B);
-		DistanceMatrix d = new DistanceMatrix(ps);
-		d = d.addDummyNode(s.first, s.last);
-		//TODO: need to have different dummy nodes have different ids
-		PointSet psND = d.toPointSet();
-		Shell result = psND.toShells();
-		result = result.collapseAllShells();
-		//System.out.println(result);
+		DistanceMatrix d1 = new DistanceMatrix(ps, d);
+		PointND dummy = d1.addDummyNode(s);
+		ps.add(dummy);
+		Shell result = ps.toShells(d1);
+		assert(isReduced(result, d1));
+		assert(d1.getMaxDist()/2 <= d1.getZero()): "Zero: "+ d1.getZero() + " MaxDist: " + d1.getMaxDist();
+		assert(ps.contains(dummy));
+		//assert(result.contains(dummy)) : result.toStringRecursive();
+		assert(result.sizeRecursive() == ps.size() ) : "Size was " + result.sizeRecursive() + " Expected: " + ps.size();
+
+		result = result.collapseAllShells(d1);
+		
+		assert(result.sizeRecursive() == ps.size() ) : "Size was " + result.sizeRecursive() + " Should have been " + ps.size();
+		
+		ps.remove(dummy);
 		result = result.removeRotate(ps);
+		if(!result.get(0).equals(s.first)) {
+			result = result.reverse();
+		}
 		
-		result = Shell.replaceByID(result, ps);
-		/*ps.add(s.last);
-		ps.add(s.first);
-		ps.addAll(A);
-		ps.addAll(B);
-
-		
-		// add the dummy node linking the start and end node by zero and triangulate to a set of points
-		DistanceMatrix D = new DistanceMatrix(ps);
-		D = D.addDummyNode(s.first, s.last);
-		double maxDist = 2 * D.getMaxDist();
-		
-		Shell circleShell = ps.toShells();
-		
-		
-		circleShell = circleShell.collapseAllShells();
-		ArrayList<PointND> segment = new ArrayList<PointND>();
-		Shell s2 = new Shell();
-		s2.add(s.first);
-		s2.add(s.last);
-		HashMap<PointND, Shell> ans = circleShell.splitInHalf(s2, segment);
-		
-		Shell lineShell = solveBetweenEndpointsOld(s, ans.get(s.first), ans.get(s.last));*/
-		//PointND dummyPoint = new DummyPoint(s.first, s.last, D.getMaxDist());
-		//circleShell.add(1,dummyPoint);
-		
-		
-		
-		//since we have n points in n dimensions we can assume that the points form a convex hull
-		//The simpilest hull that you can form is d+1 points where d is the dimension(see wiki on simplexes)
-		//Shell lineShells = new Shell();
-		//lineShells.addAll(ps);
-		//lineShells = Shell.collapseReduce(lineShells, new Shell(), 0);
-
-
-		//TODO: okay something is wrong here
-		/*if(after.get(0).equals(s.last) || after.getLast().equals(s.first)) {
-			after = after.reverse();
-		}*/
-		//Shell old = solveBetweenEndpointsOld(s, A, B);
-		
-		//Shell after = circleShell;
+		assert((result.get(0).equals(s.first) && result.get(result.size() -1).equals(s.last))):
+			s.first.getID() + " "  + s.last.getID() + " dummy: " + dummy.getID() + "\n" + result.toStringRecursive();
 		return result;
 
 	}
@@ -601,82 +566,12 @@ public class Shell extends LinkedList<PointND> {
 		//reverse the set if need be to match the input segment s
 		after.addAll(before);
 		
+		
+		assert(after.size() == this.size()-1);
+		
 		return after;
 	}
-	/*
-	public Shell loopToLine(PointND first, PointND last) {
-		//thought might have to check neihbors till you cross over the other endpoint then proceed linearly
-		PointND prevP = prevPoint(first), nextP = nextPoint(first);
-		
-		if(prevP.equals(last)) {
-			return this.copyRecursive().rotateTo(first);
-		}else if(nextP.equals(last)) {
-			return this.copyRecursive().rotateTo(last).reverse();
-		}
-		
-		Shell left = this.removeRotate(first);
-		Shell right = this.removeRotate(last);
-		
-		Shell leftAnswer = new Shell();
-		leftAnswer.add(first);
-		left.remove(last);
-		
-		Shell rightAnswer = new Shell();
-		rightAnswer.add(last);
-		right.remove(first);
-		System.out.println(first);
-		System.out.println(left);
-		System.out.println(last);
-		System.out.println(right);
-		
-		while(left.size() + right.size() > 0) {
-			PointND pointChosen = null;
-			double minDist = java.lang.Double.MAX_VALUE;
-			boolean addedLeft = true;
-
-			System.out.println("leftmost " +leftAnswer.getLast().getID());
-			if(left.size() > 0) {
-				if(left.getFirst().distance(leftAnswer.getLast()) < minDist) {
-					minDist = left.getFirst().distance(leftAnswer.getLast());
-					addedLeft = true;
-					pointChosen = left.getFirst();
-				}
-				if(left.getLast().distance(leftAnswer.getLast()) < minDist) {
-					minDist = left.getLast().distance(leftAnswer.getLast());
-					addedLeft = true;
-					pointChosen = left.getLast();
-				}
-			}
-			if(right.size() > 0) {
-				if(right.getFirst().distance(rightAnswer.getFirst()) < minDist) {
-					minDist = right.getFirst().distance(rightAnswer.getFirst());
-					addedLeft = false;
-					pointChosen = right.getFirst();
-				}
-				if(right.getLast().distance(rightAnswer.getFirst()) < minDist) {
-					minDist = right.getLast().distance(rightAnswer.getLast());
-					addedLeft = false;
-					pointChosen = right.getLast();
-				}
-			}
-			
-			if(addedLeft) {
-				leftAnswer.add(pointChosen);
-				
-			}else {
-				rightAnswer.addFirst(pointChosen);
-			}
-			System.out.println(left.getFirst().getID() + " " + left.getLast().getID() + " " + right.getFirst().getID() + " " + right.getLast().getID());
-			System.out.println(minDist);
-			System.out.println(pointChosen.getID());
-			right.remove(pointChosen);
-			left.remove(pointChosen);
-		}
-		
-		
-		leftAnswer.addAll(rightAnswer);
-		return leftAnswer;
-	}*/
+	
 
 	private Shell rotateTo(PointND remove) {
 		Shell before = new Shell(), after = new Shell();
@@ -701,202 +596,79 @@ public class Shell extends LinkedList<PointND> {
 		return after;
 	}
 
-	/**
-	 * Collapse B onto A just within the segment s
-	 * 
-	 * @param s
-	 * @param A
-	 * @param B
-	 * @return a shell that is the optimal tsp path of the points in A and B between
-	 *         the endpoints of segment s
-	 */
 
-	public static Shell solveBetweenEndpointsOld(Segment s, Shell A, Shell B) {
-		PointSet ps = new PointSet();
-		ps.addAll(A);
-		ps.addAll(B);
-		
-		Shell result = new Shell();
-		Shell copy = new Shell();
-
-		result.add(s.first);
-		result.addAll(A);
-		result.add(s.last);
-		copy.addAll(B);
-
-		boolean notConfirmed = true;
-
-		// once there is no change to result then the loop will exit
-		// this will only happen once all points from copy are in result
-		// and all points in result cannot be rearranged to form a shorter path
-		while (notConfirmed) {
-			PointND pointChosen = null;
-			int chosenParent = 0;
-			boolean first = true, changed = false;
-			PointND lastPoint, currPoint = null;
-			double minDist = java.lang.Double.MAX_VALUE;
-			for (int i = 0; i < result.size(); i++) {
-				lastPoint = currPoint;
-				currPoint = result.get(i);
-				if (first) {
-					lastPoint = currPoint;
-					first = false;
-					i++;
-					currPoint = result.get(i);
-				}
-				for (PointND q : copy) {
-					if (!s.first.equals(q) && !s.last.equals(q)) {
-						double dist = Vectors.distanceChanged(lastPoint, currPoint, q); 
-								//+(copy.distanceBetweenNeighborsOnLine(q) - copy.distanceToNeighborsOnLine(q));
-						// store which point in b fits best between the two current points in result
-						if (dist < minDist) {
-							minDist = dist;
-							pointChosen = q;
-							chosenParent = i;
-							changed = true;
-						}
-					}
-				}
-				for (PointND p : result) {
-					if (!currPoint.equals(p) && !currPoint.equals(s.last) && !lastPoint.equals(p)) {
-						double distanceChanged = Vectors.distanceChanged(lastPoint, currPoint, p)
-								+ (result.distanceBetweenNeighborsOnLine(p) - result.distanceToNeighborsOnLine(p));
-						// store which point if any already in result fits better in between curr and
-						// last points
-						// instead of where it currently is
-						if (distanceChanged < minDist && distanceChanged < 0) {
-							minDist = distanceChanged;
-							pointChosen = p;
-							chosenParent = i;
-							changed = true;
-						}
-					}
-				}
-			}
-			// update result to add the closest point from B or to reduce result into a
-			// better tsp path
-			if (changed) {
-				result.remove(pointChosen);
-				result.add(chosenParent, pointChosen);
-				copy.remove(pointChosen);
-			}
-
-			notConfirmed = changed;
-		}
-			return result;
-
-		
-
-	}
-
-	/**
-	 * Finds a consensus between the merged shells AB and BC Determines how to order
-	 * points from A and C that come between the same two points in B
-	 * 
-	 * @param AB
-	 * @param BC
-	 * @return a shell that represents the optimal tsp path through shells A, B, and
-	 *         C
-	 */
-	public static Shell consensus(Shell AB, Shell BC) {
-        System.out.println("consensus");
+	
+	public static Shell consensus(Shell AB, Shell B, DistanceMatrix d) {
 
 		AB = AB.copyRecursive();
-		BC = BC.copyRecursive();
-		Shell B = pointsInCommon(AB, BC);
-		ArrayList<Segment> ABKeys = new ArrayList<Segment>(), BCKeys = new ArrayList<Segment>(), keys = new ArrayList<Segment>();
+		B = B.copyRecursive();
+		
+		ArrayList<Segment> ABKeys = new ArrayList<Segment>();
+
 
 		HashMap<Segment, Shell> ABsections = AB.splitBy(B, ABKeys);
-		HashMap<Segment, Shell> BCsections = BC.splitBy(B, BCKeys);
+		
+		System.out.println(AB);
+		System.out.println(ABsections);
 
-		Shell result = new Shell(null, BC.child);
-		for (Segment s : ABKeys) {
-			// if the segment is in AB and not BC then add all non endpoints on the segment
-			if (!BCsections.containsKey(s)) {
-				// TODO: set start and end to be where they connect to the B points
-				PointND point = AB.nextPoint(s.first);
-				while (!point.equals(s.last)) {
-					result.add(point);
-					point = AB.nextPoint(point);
+		Shell result = new Shell(null, B.child);
+
+		if(numBuckets(ABsections, ABKeys) > 1) {
+				for (Segment s : ABKeys) {
+				
+				Shell line = solveBetweenEndpoints(s, ABsections.get(s), new Shell(), d);
+				//System.out.println(line);
+				//System.out.println(ABKeys);
+//				System.out.println(result);
+//				System.out.println(s);
+//				System.out.println(ABsections.get(s));
+				//need to pack and unpack dummy point as single entity? no needs to work independent of knowledge of endpoints
+				if(!s.first.equals(line.get(0))) {
+					System.out.println("Reverse  Reverse!");
+					line = line.reverse();
+					
+//					line.remove(s.first);
+//					line.addFirst(s.first);
+//					
+//					line.remove(s.last);
+//					line.addLast(s.last);
+//					if(reversed.getLength() < line.getLength()) {
+//						line = reversed;
+//					}
+					
+					
+
+					assert(s.first.equals(line.get(0)));
+					assert(s.last.equals(line.getLast()));
 				}
-				result.add(s.last);
-			} // otherwise do collapse reduce line to get a consensus between points from A
-				// and C that fit between the same points in B
-			else {
-				if (BCsections.containsKey(s) && ABsections.get(s).size() == 0 && BCsections.get(s).size() == 0) {
-					result.add(s.last);
-				} else {
+				line.remove(s.first);
 
-					Shell line = solveBetweenEndpoints(s, ABsections.get(s), BCsections.get(s));
 
-					line.remove(s.first);
-					result.addAll(line);
+				result.addAll(line);
+				//System.out.println(result);
 
-				}
 			}
+			
+			
 		}
-		// split by the leftover keys and then do the collapse reduce above on the
-		// leftovers
-
-		ArrayList<Segment> leftOverKeys = new ArrayList<Segment>();
-
-		for (Segment s : BCKeys) {
-			if (!ABsections.containsKey(s)) {
-				leftOverKeys.add(s);
-
-			}
+		else {
+			
+			result = AB;
 		}
-
-		// split by the leftover keys and then do the collapse reduce above on the
-		// leftovers
-		for (Segment s : leftOverKeys) {
-			Shell leftOverShell = new Shell();
-			leftOverShell.add(s.first);
-			leftOverShell.add(s.last);
-			HashMap<PointND, Shell> resultSections = result.splitInHalf(leftOverShell, new ArrayList<PointND>());
-			PointND minIndex = null;
-			double minLengthChange = java.lang.Double.MAX_VALUE;
-			Shell minShell = null;
-
-			for (PointND first : resultSections.keySet()) {
-				Segment s1 = new Segment(null, null);
-				if (first.equals(s.first)) {
-					s1.first = s.first;
-					s1.last = s.last;
-				} else {
-					s1.last = s.first;
-					s1.first = s.last;
-				}
-
-				Shell beforeLine = new Shell();
-				beforeLine.add(s1.first);
-				beforeLine.addAll(resultSections.get(first));
-				beforeLine.add(s1.last);
-
-				double firstLength = beforeLine.getLength();
-
-				Shell line = solveBetweenEndpoints(s, resultSections.get(first), BCsections.get(s));
-				double changedLength = line.getLength();
-				if (changedLength - firstLength < minLengthChange) {
-					minLengthChange = changedLength - firstLength;
-					minIndex = first;
-					minShell = line;
-				}
-			}
-
-			result = new Shell(null, BC.child);
-			for (PointND first : resultSections.keySet()) {
-
-				if (first.equals(minIndex)) {
-					result.addAll(minShell);
-				} else {
-					result.addAll(resultSections.get(first));
-				}
-			}
-
-		}
+		result.setChild(AB.child);
 		return result;
 
+	}
+	private static int numBuckets(HashMap<Segment, Shell> ABsections, ArrayList<Segment> ABKeys) {
+		int count = 0;
+		for (Segment s : ABKeys) {
+			if(ABsections.get(s).size() > 1) {
+				count++;
+			}
+		}
+		
+		return count;
+		
 	}
 
 	/**
@@ -1000,6 +772,9 @@ public class Shell extends LinkedList<PointND> {
 		for (PointND p : temp) {
 			firstTemp.add(idx, p);
 			idx++;
+		}
+		if(lastB == null) {
+			lastB = firstB;
 		}
 		Segment s = new Segment(lastB, firstB);
 		result.put(s, firstTemp);
@@ -1153,11 +928,16 @@ public class Shell extends LinkedList<PointND> {
 	public String toString() {
 		String str = "Shell[";
 		for(int i = 0; i < this.size(); i++) {
-			if(this.get(i).getID() != -1) {
-				str += this.get(i).getID();
+			PointND p = this.get(i);
+			if(p.isDummyNode()) {
+				Segment s = p.getDummyParents();
+				str += "("+ s.first.getID()+" <=> "+ s.last.getID() + ")";
+			}
+			else if(p.getID() != -1) {
+				str += p.getID();
 			}
 			else {
-				str += this.get(i).toString();
+				str += p.toString();
 			}
 			if(i < this.size() - 1) {
 				str += ", ";
@@ -1176,6 +956,18 @@ public class Shell extends LinkedList<PointND> {
 		
 		return str + "\tOrder: " + curr.updateOrder() + " ," + curr +"\n\t]";
 	}
+	public int sizeRecursive() {
+		
+		Shell curr = this;
+		int ret = curr.size();
+		while(!curr.isMinimal()) {
+			
+			ret += curr.child.size();
+			curr = curr.child;
+		}
+		
+		return ret;
+	}
 	
 	public static String compareTo(Shell A, Shell B) {
 		String str = "Shell A[";
@@ -1193,5 +985,21 @@ public class Shell extends LinkedList<PointND> {
 		return str;
 		
 	}
+	
+	@Override
+	public boolean add(PointND e){
+		assert(!this.contains(e));
+		super.add(e);
+		return true;
+		
+	}
+	@Override
+    public boolean addAll(Collection<? extends PointND> c) {
+    	for(PointND p : c) {
+    		assert(!this.contains(p)): this.toString() + " " + c.toString();
+    	}
+    	super.addAll(c);
+        return true;
+    }
 
 }

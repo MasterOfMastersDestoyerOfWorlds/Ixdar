@@ -7,6 +7,8 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 
 import resources.SWIGTYPE_p_coordT;
 import resources.SWIGTYPE_p_p_char;
@@ -63,7 +65,6 @@ public class PointSet extends ArrayList<PointND> {
 					return ps;
 				}
 				SWIGTYPE_p_coordT points = qhull.new_coordT_array(maxDim * ps.size());
-				System.out.println();
 				// TODO: need to check that the number of points is more than maxDim + 1 so that
 				// the initial simplex can be formed other wise they are just a convex hull i
 				// think?
@@ -147,15 +148,16 @@ public class PointSet extends ArrayList<PointND> {
 	/**
 	 * This divides the point set into numerous convex shells that point to their
 	 * child and parent shells.
+	 * @param d 
 	 * 
 	 * @return the outermost shell of the point set that conatins all other shells
 	 */
 
-	public Shell toShells() {
+	public Shell toShells(DistanceMatrix d) {
 		PointSet copy = (PointSet) this.clone();
 		Shell rootShell = null, currShell = null;
-
 		while (copy.size() > 0) {
+			Shell hull;
 			// makes the first shell
 			if (rootShell == null) {
 				rootShell = new Shell();
@@ -167,15 +169,19 @@ public class PointSet extends ArrayList<PointND> {
 				currShell.setChild(nextShell);
 				currShell = nextShell;
 			}
-			PointSet hull;
+			DistanceMatrix d1 = new DistanceMatrix(copy, d);
+			assert(d1.size() == copy.size());
 			//if (copy.getLargestDim() == 2) {
-				hull = convexHull2D(copy);
+			hull = findMaxAngleMinDistancePaths(copy,  d1);
 			/*} else {
 				hull = convexHullND(copy);
 			}*/
 
 			currShell.addAll(hull);
-			copy.removeAll(hull);
+			for(PointND p : hull) {
+				copy.remove(p);
+			}
+			
 			
 
 			// make sure that the convex hulls are in reduced forms(this is guaranteed in 2D
@@ -183,12 +189,11 @@ public class PointSet extends ArrayList<PointND> {
 			/*Shell reducedShell = Shell.collapseReduce(currShell, new Shell(), 0);
 			currShell.removeAll(currShell);
 			currShell.addAll(reducedShell);*/
-			//System.out.println(copy.size());
-			//System.out.println(copy);*/
-			//System.out.println(hull);
 		}
-		//System.out.println("reee");
+
 		rootShell.updateOrder();
+		assert(rootShell.sizeRecursive() == this.size()) : "Found size: " + rootShell.sizeRecursive() + " Expected size: " + this.size();
+
 		return rootShell;
 	}
 
@@ -197,124 +202,115 @@ public class PointSet extends ArrayList<PointND> {
 	 * set of points and add those points
 	 * 
 	 * @param ps
+	 * @param d 
 	 * @returnthe convex hull of the set of points in 2 dimensions
 	 */
-	public PointSet convexHull2D(PointSet ps) {
-		if(ps.size() <= 1) {
-			return ps;
-		}
-		PointND A = findCentroid(ps);
-		PointND B = findAnoid(ps, A);
-		//System.out.println(B.getID());
-		PointND start = B;
-
-		PointSet outerShellPointSet = new PointSet();
+	public Shell findMaxAngleMinDistancePaths(PointSet ps, DistanceMatrix d) {
+		Shell outerShell = new Shell();
 		
-		double maxAngle = 0;
-		PointND maxPoint = null;
+		//System.out.println(ps.get(0).getID());
+		if(ps.size() <= 1) {
+			outerShell.addAll(ps);
+			return outerShell;
+		}
+		
+		PointND A = d.findCentroid();
+		PointND B = findAnoid(ps, A, d);
+		System.out.println(B.getID());
+		System.out.println(B.isDummyNode());
+
+		PointND start = B;
+		
+		double maxAngle = -1;
+		PointND maxPoint = A;
 		int count = 0;
 		for (PointND p : ps) {
-			double angle = Vectors.findAngleSegments(A, B, p);
-			//System.out.println("angle: " + angle + " A: " + A.getID() + " B: " + B.getID() + " C: " + p.getID());
-			if (angle > maxAngle && !outerShellPointSet.contains(p) && !A.equals(p) && !B.equals(p)) {
+			double angle = Vectors.findAngleSegments(A, B, p, d);
+			if (angle > maxAngle && !outerShell.contains(p) && !A.equals(p) && !B.equals(p)) {
 
 				maxAngle = angle;
 				maxPoint = p;
 			}
 			count++;
 		}
-		A = maxPoint;
-		outerShellPointSet.add(A);
-		outerShellPointSet.add(B);
-		//System.out.println(outerShellPointSet);
-		//System.out.println(maxAngle);
+		if(!maxPoint.equals(A)) {
+			A = maxPoint;
+		    outerShell.add(A);
+		}
+		outerShell.add(B);
 		
 		PointND C = A, D = B;
 
 		boolean breakFlag = false;
 
+
+
 		// Creates the next convex shell
 		while (!breakFlag) {
 			
-			/*System.out.println("A: " + A.getID());
-			System.out.println("B: " +B.getID());
-			System.out.println("C: " +C.getID());
-			System.out.println("D: " +D.getID());*/
-
 			maxAngle = 0;
 			maxPoint = null;
 			boolean left = true;
 			count = 0;
+			ArrayList<PointWrapper> angles = new ArrayList<PointWrapper>();
 			for (PointND p : ps) {
-				double angle = Vectors.findAngleSegments(p, A, B);
-				//System.out.println("angle: " + angle + " p: " + p.getID() + " A: " + A.getID() + " B: " + B.getID() );
-				if (angle > maxAngle && ((!outerShellPointSet.contains(p) && !A.equals(p) && !B.equals(p)) || (D.equals(p)&& !A.equals(p) && !B.equals(p)))) {
 
-					maxAngle = angle;
-					maxPoint = p;
-					left = true;
+				if (((!outerShell.contains(p) && !A.equals(p) && !B.equals(p)))){// || (D.equals(p)&& !A.equals(p) && !B.equals(p)))) {
+					java.lang.Double angle = Vectors.findAngleSegments(p, A, B, d);
+					PointWrapper leftPoint = new PointWrapper(angle, p, true);
+					angles.add(leftPoint);
 				}
-				angle = Vectors.findAngleSegments(C, D, p);
-				//System.out.println("angle: " + angle + " C: " + C.getID() + " D: " + D.getID() + " p: " + p.getID());
-				if (angle > maxAngle && ((!outerShellPointSet.contains(p) && !C.equals(p) && !D.equals(p)) || (A.equals(p) && !C.equals(p) && !D.equals(p)))) {
 
-					maxAngle = angle;
-					maxPoint = p;
-					left = false;
-				}
+				/*if (((!outerShell.contains(p) && !C.equals(p) && !D.equals(p)) || (A.equals(p) && !C.equals(p) && !D.equals(p)))) {
+					java.lang.Double  angle = Vectors.findAngleSegments(C, D, p);
+					PointWrapper rightPoint = new PointWrapper(angle, p, false);
+					angles.add(rightPoint);
+				}*/
 				
 				count++;
 			}
-			if (maxPoint == null || maxPoint.equals(D) || maxPoint.equals(A)) {
-				breakFlag = true;
-			} else {
-				if(left) {
-					B = A;
-					A = maxPoint;
-					outerShellPointSet.add(0,A);
+			
+			
+			while(true) {
+				PointWrapper maxPointWrap = null;
+				if(angles.size() > 0) {
+					Collections.sort(angles);
+					maxPointWrap = angles.get(angles.size() - 1);
+				}
+				if (maxPointWrap == null || maxPointWrap.p.equals(start) || maxPointWrap.p.equals(D) ) {
+					breakFlag = true;
+					break;
+				}
+				
+				outerShell.add(maxPointWrap.p);
+				if(!Shell.isReduced(outerShell, d)) {
+					//assert(false);
+					angles.remove(maxPointWrap);
+					outerShell.remove(maxPointWrap.p);
 				}
 				else {
-					C = D;
-					D = maxPoint;
-					outerShellPointSet.add(D);
+					outerShell.remove(maxPointWrap.p);
+					if(maxPointWrap.left) {
+						B = A;
+						A = maxPointWrap.p;
+						outerShell.add(0,A);
+					}
+					else {
+						C = D;
+						D = maxPointWrap.p;
+						outerShell.add(D);
+					}
+
+					break;
+					
+	
 				}
-
 				
-
 			}
-/*
-			System.out.println("maxPoint: " + maxPoint.getID());
-			System.out.println("left: " + left);*/
-			//System.out.println(outerShellPointSet);
-			//System.out.println(maxAngle);
+			System.out.println(outerShell);
 		}
-		//System.out.println("done");
-		return outerShellPointSet;
-	}
-
-	/**
-	 * Finds the centroid of the pointset ps
-	 * 
-	 * @param ps
-	 * @return the centroid
-	 */
-	public static PointND findCentroid(PointSet ps) {
-
-		int maxDim = -1;
-		for (PointND p : ps) {
-			if (p.getDim() > maxDim) {
-				maxDim = p.getDim();
-			}
-		}
-		double[] ds = new double[maxDim];
-
-		for (PointND p : ps) {
-			double[] coordList = p.getCoordList();
-			for (int i = 0; i < coordList.length; i++) {
-				ds[i] += coordList[i] / ps.size();
-			}
-		}
-		return new PointND.Double(ds);
+		assert(Shell.isReduced(outerShell, d));
+		return outerShell;
 	}
 
 	/**
@@ -324,12 +320,12 @@ public class PointSet extends ArrayList<PointND> {
 	 * @param centroid
 	 * @return the anoid
 	 */
-	public static PointND findAnoid(PointSet ps, PointND centroid) {
+	public static PointND findAnoid(PointSet ps, PointND centroid, DistanceMatrix d) {
 		double maxDist = -1;
 		PointND anoid = null;
-
+		
 		for (PointND p : ps) {
-			double dist = p.distance(centroid);
+			double dist = d.getDistance(p, centroid);
 			if (dist > maxDist) {
 				maxDist = dist;
 				anoid = p;
@@ -357,6 +353,22 @@ public class PointSet extends ArrayList<PointND> {
 		return str;
 	}
 
+	@Override
+	public boolean add(PointND e){
+		assert(!this.contains(e));
+		super.add(e);
+		return true;
+		
+	}
+	@Override
+    public boolean addAll(Collection<? extends PointND> c) {
+    	for(PointND p : c) {
+    		assert(!this.contains(p));
+    	}
+    	super.addAll(c);
+        return true;
+    }
+
 	public String toStringCoords() {
 		String str = "PointSet[";
 		for (int i = 0; i < this.size(); i++) {
@@ -370,6 +382,16 @@ public class PointSet extends ArrayList<PointND> {
 		str += "]";
 
 		return str;
+	}
+
+	public int getMaxDim() {
+		int max = 0;
+		for(PointND p : this) {
+			if(p.getDim() > max) {
+				max = p.getDim();
+			}
+		}
+		return max;
 	}
 
 }
