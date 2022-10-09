@@ -87,17 +87,17 @@ public class Shell extends LinkedList<PointND> {
 	 * @param c            the color to draw the shell (set to null to get a random
 	 *                     color)
 	 */
-	public void drawShell(JComponent frame, Graphics2D g2, boolean drawChildren, Color c) {
+	public void drawShell(JComponent frame, Graphics2D g2, boolean drawChildren, Color c, PointSet ps) {
 		if (c == null) {
 			Random colorSeed = new Random();
 			Main.drawPath(frame, g2, toPath(this),
-					new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), this.toPointSet(),
+					new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps,
 					true, false, false);
 		} else {
 			Main.drawPath(frame, g2, toPath(this), c, this.toPointSet(), true, false, false);
 		}
 		if (!this.isMinimal() && drawChildren) {
-			child.drawShell(frame, g2, drawChildren, c);
+			child.drawShell(frame, g2, drawChildren, c, ps);
 		}
 	}
 
@@ -319,20 +319,16 @@ public class Shell extends LinkedList<PointND> {
 		//System.out.println(this.toStringRecursive());
 		//System.out.println(collapsed.toStringRecursive());
 		assert(collapsed.sizeRecursive() == size) : "Shell was size: " + collapsed.sizeRecursive() + " Supposed to be size: " + size;
-		Shell consensus = consensus(collapsed, A, d);
+		Shell consensus = consensus(collapsed,B, d);
+		System.out.println("Consensus: " + consensus);
 		
 		
 //		System.out.println("start : " + this.toStringRecursive());
 //		System.out.println("colapse : " + collapsed.toStringRecursive());
 //		System.out.println("rreturn : " + consensus.toStringRecursive());
 		assert(consensus.sizeRecursive() == size) : "Shell was size: " + consensus.sizeRecursive() + " Supposed to be size: " + size;
-		assert(consensus.getLength() - collapsed.getLength() <= 0.01) :" collapsed: " + collapsed + "\n consensus: " + consensus + "\n B: " + B;
-		if(consensus.getLength() < collapsed.getLength()) {
-			return consensus.collapseAllShells(d);
-		}
-		else {
-			return collapsed.collapseAllShells(d);
-		}
+		assert(consensus.getLength() <= collapsed.getLength() || consensus.getLength()- collapsed.getLength() < 0.001) :" collapsed: " + collapsed.getLength() + " " + collapsed + "\n consensus: " + consensus.getLength() + " "+ consensus + "\n B: " + B ;
+		return consensus.collapseAllShells(d);
 
 	}
 
@@ -515,9 +511,13 @@ public class Shell extends LinkedList<PointND> {
 		PointND dummy = d1.addDummyNode(s);
 		ps.add(dummy);
 		Shell result = ps.toShells(d1);
+		
+		
 		assert(isReduced(result, d1));
 		assert(d1.getMaxDist()/2 <= d1.getZero()): "Zero: "+ d1.getZero() + " MaxDist: " + d1.getMaxDist();
-		assert(ps.contains(dummy));
+		//assert(result.contains(dummy)): "Expected " + dummy.getID() + " to be in top layer of:\n" + result.toStringRecursive();
+		//assert(result.contains(s.first)) : "Expected " + s.first.getID() + " to be in top layer of:\n" + result.toStringRecursive();
+		//assert(result.contains(s.last)) : "Expected " + s.last.getID() + " to be in top layer of:\n" + result.toStringRecursive();
 		//assert(result.contains(dummy)) : result.toStringRecursive();
 		assert(result.sizeRecursive() == ps.size() ) : "Size was " + result.sizeRecursive() + " Expected: " + ps.size();
 
@@ -532,7 +532,7 @@ public class Shell extends LinkedList<PointND> {
 		}
 		
 		assert((result.get(0).equals(s.first) && result.get(result.size() -1).equals(s.last))):
-			s.first.getID() + " "  + s.last.getID() + " dummy: " + dummy.getID() + "\n" + result.toStringRecursive();
+			"first: "+s.first.getID() + " last: "  + s.last.getID() + " dummy: " + dummy.getID() + "\n" + result.toStringRecursive();
 		return result;
 
 	}

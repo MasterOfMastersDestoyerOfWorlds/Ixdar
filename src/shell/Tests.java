@@ -116,7 +116,7 @@ public class Tests {
 	      int num = a[i];
 
 	      // create an test execution
-	      for(int j = 0; j < 1; j++) {
+	      for(int j = 0; j < n; j++) {
 
 		      int rot = b[j];
 		      // create a test display name
@@ -191,6 +191,34 @@ public class Tests {
 	 * and then turn it back into a set of points. The distances are then checked against the orginal distances to ensure that the process behaved correctly.
 	 */
 	@Test
+	public void testAngleDummyNode() {
+		PointSet ps = new PointSet();
+		PointND start = new PointND.Double(0.0, -1.0), end = new PointND.Double(0.0, 1.0);
+		System.out.println(end.getID());
+
+		ps.add(start);
+
+		ps.add(end);
+
+		ps.add(new PointND.Double(0.0, 0.0));
+
+		DistanceMatrix m = new DistanceMatrix(ps);
+
+		PointND dummy = m.addDummyNode(new Segment(start, end));
+
+		double angle = Vectors.findAngleSegments(start, dummy, end, m);
+		//										      AB = 4.0   AC = 4.0
+		
+		System.out.println(m);
+		System.out.println(180/Math.PI*angle);
+
+	}
+	
+	/**
+	 * Tests that we can go from a set of point to a distance matrix, add a node to the distance matrix that would make it non-euclidian, 
+	 * and then turn it back into a set of points. The distances are then checked against the orginal distances to ensure that the process behaved correctly.
+	 */
+	@Test
 	public void testCentroidCalculation() {
 		PointSet ps1 = new PointSet();
 		PointND start = new PointND.Double(0.0, -1.0), end = new PointND.Double(0.0, 1.0);
@@ -198,27 +226,45 @@ public class Tests {
 		ps1.add(start);
 
 		ps1.add(end);
+		
+		PointND other1 = new PointND.Double(0.0, 0.0);
 
-		ps1.add(new PointND.Double(0.0, 0.0));
+		ps1.add(other1);
+		
+		PointND other = new PointND.Double(3.0, 0.0);
+		
+		ps1.add(other);
 
 		DistanceMatrix m = new DistanceMatrix(ps1);
-		System.out.println(m);
+		
+		PointSet triangulated = m.toPointSet();
+
+		DistanceMatrix triangulatedM = new DistanceMatrix(triangulated);
+		System.out.println("Tri" +  triangulatedM);
 
 		m.addDummyNode(new Segment(start, end));
+		triangulated = m.toPointSet();
+		triangulatedM = new DistanceMatrix(triangulated);
+		System.out.println("Tri" + triangulatedM);
+		System.out.println(m);
+		m.addDummyNode(new Segment(other, other1));
+		triangulated = m.toPointSet();
+		triangulatedM = new DistanceMatrix(triangulated);
+		System.out.println("Tri" + triangulatedM);
+		System.out.println(m);
 		
 		PointND centroid = m.findCentroid();
 		PointSet ps3 = m.toPointSet();
 		System.out.println(ps3);
 		ps3.remove(2);
 		DistanceMatrix m1 = new DistanceMatrix(m.toPointSet());
-		System.out.println(m);
+		System.out.println(m1);
 		DistanceMatrix m3 = new DistanceMatrix(ps3, m);
-		System.out.println(m3);
 		PointSet ps2 = m.toPointSet();
 		for(PointND p1 : ps2) {
 			
 			for(PointND p2 : ps2) {
-				assert(Math.abs(m.getDistance(p1, p2) - m1.getDistance(p1, p2)) < 0.001);
+				assert(Math.abs(m.getDistance(p1, p2) - m1.getDistance(p1, p2)) < 0.001) : m.getDistance(p1, p2) + " " + m1.getDistance(p1, p2);
 			}
 		}
 

@@ -24,6 +24,7 @@ public class Vectors {
 //			return 180;
 //		}
 //		return Math.acos(dot/(magAB*magBC))*180/Math.PI;
+
 		double AB = d.getDistance(a, b); 
 		double BC = d.getDistance(b, c); 
 		double AC = d.getDistance(a, c); 

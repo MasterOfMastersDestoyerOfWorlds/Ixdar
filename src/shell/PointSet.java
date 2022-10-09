@@ -214,60 +214,77 @@ public class PointSet extends ArrayList<PointND> {
 			return outerShell;
 		}
 		
-		PointND A = d.findCentroid();
-		PointND B = findAnoid(ps, A, d);
-		System.out.println(B.getID());
-		System.out.println(B.isDummyNode());
+		PointND behindLastRight = d.findCentroid();
+		PointND lastRight = findAnoid(ps, behindLastRight, d);
+		//System.out.println("Anoid ID: " + lastRight.getID());
+		//System.out.println("Is Dummy Node: " + lastRight.isDummyNode());
 
-		PointND start = B;
-		
+		PointND start = lastRight;
+		outerShell.add(lastRight);
 		double maxAngle = -1;
-		PointND maxPoint = A;
-		int count = 0;
+		PointND maxPoint = behindLastRight;
 		for (PointND p : ps) {
-			double angle = Vectors.findAngleSegments(A, B, p, d);
-			if (angle > maxAngle && !outerShell.contains(p) && !A.equals(p) && !B.equals(p)) {
+			double angle = Vectors.findAngleSegments(behindLastRight, lastRight, p, d);
+			if (angle > maxAngle && !outerShell.contains(p) && !lastRight.equals(p) && !behindLastRight.equals(p)) {
 
 				maxAngle = angle;
 				maxPoint = p;
 			}
-			count++;
 		}
-		if(!maxPoint.equals(A)) {
-			A = maxPoint;
-		    outerShell.add(A);
+		if(!maxPoint.equals(behindLastRight)) {
+			outerShell.add(maxPoint);
+			behindLastRight = lastRight;
+			lastRight  = maxPoint;
+		    
 		}
-		outerShell.add(B);
-		
-		PointND C = A, D = B;
+
+		System.out.println(outerShell);
+
 
 		boolean breakFlag = false;
+		
+		
+		PointND lastLeft = behindLastRight;
+		
+		PointND behindLastLeft = lastRight;
+		
 
 
-
+/*
+ * SEE size 10 Rot 26
+ * TODO Seems to mess up when multiple dummy points are in play
+ * either one or the other needs to be reversed i cant tell if this is a problem with the shell creation process 
+ * or the distance matrix calculations should make a seeries of tests with many dummy points and low numbber of
+ * other points
+ */
+		
 		// Creates the next convex shell
 		while (!breakFlag) {
 			
 			maxAngle = 0;
 			maxPoint = null;
 			boolean left = true;
-			count = 0;
 			ArrayList<PointWrapper> angles = new ArrayList<PointWrapper>();
-			for (PointND p : ps) {
-
-				if (((!outerShell.contains(p) && !A.equals(p) && !B.equals(p)))){// || (D.equals(p)&& !A.equals(p) && !B.equals(p)))) {
-					java.lang.Double angle = Vectors.findAngleSegments(p, A, B, d);
-					PointWrapper leftPoint = new PointWrapper(angle, p, true);
-					angles.add(leftPoint);
+			//System.out.println("lastLeft: " + lastLeft.getID() + "\nbehindLastLeft: " + behindLastLeft.getID());
+			
+			//System.out.println("lastRight: " + lastRight.getID() + "\nbehindLastRight: " + behindLastRight.getID());
+			for (PointND nextPoint : ps) {
+				//TODO figure out whats happeninng here
+				
+				
+				if ((nextPoint.equals(lastLeft)) || (!outerShell.contains(nextPoint) && !lastRight.equals(nextPoint) && !behindLastRight.equals(nextPoint))){
+					java.lang.Double rightAngle = Vectors.findAngleSegments(behindLastRight, lastRight, nextPoint, d);
+					PointWrapper rightPoint = new PointWrapper(rightAngle, nextPoint, false);
+					angles.add(rightPoint);
+					//System.out.println("Adding Right Point: " + nextPoint.getID() + " Angle: " + (180*rightAngle/Math.PI));
 				}
 
-				/*if (((!outerShell.contains(p) && !C.equals(p) && !D.equals(p)) || (A.equals(p) && !C.equals(p) && !D.equals(p)))) {
-					java.lang.Double  angle = Vectors.findAngleSegments(C, D, p);
-					PointWrapper rightPoint = new PointWrapper(angle, p, false);
-					angles.add(rightPoint);
-				}*/
-				
-				count++;
+				if ((nextPoint.equals(lastRight)) || (!outerShell.contains(nextPoint) && !lastLeft.equals(nextPoint) && !behindLastLeft.equals(nextPoint))){
+					java.lang.Double leftAngle = Vectors.findAngleSegments(nextPoint, lastLeft, behindLastLeft, d);
+					PointWrapper leftPoint = new PointWrapper(leftAngle, nextPoint, true);
+					angles.add(leftPoint);
+					//System.out.println("Adding Left Point: " + nextPoint.getID() + " Angle: " + (180*leftAngle/Math.PI));
+				}
 			}
 			
 			
@@ -277,29 +294,30 @@ public class PointSet extends ArrayList<PointND> {
 					Collections.sort(angles);
 					maxPointWrap = angles.get(angles.size() - 1);
 				}
-				if (maxPointWrap == null || maxPointWrap.p.equals(start) || maxPointWrap.p.equals(D) ) {
+				if (maxPointWrap == null || maxPointWrap.p.equals(lastLeft) || maxPointWrap.p.equals(lastRight)) {
 					breakFlag = true;
 					break;
 				}
 				
 				outerShell.add(maxPointWrap.p);
 				if(!Shell.isReduced(outerShell, d)) {
-					//assert(false);
 					angles.remove(maxPointWrap);
 					outerShell.remove(maxPointWrap.p);
 				}
 				else {
-					outerShell.remove(maxPointWrap.p);
 					if(maxPointWrap.left) {
-						B = A;
-						A = maxPointWrap.p;
-						outerShell.add(0,A);
+						outerShell.remove(maxPointWrap.p);
+						behindLastLeft = lastLeft;
+						lastLeft = maxPointWrap.p;
+						outerShell.add(0,lastLeft);
+						
+					}else {
+						outerShell.remove(maxPointWrap.p);
+						behindLastRight = lastRight;
+						lastRight = maxPointWrap.p;
+						outerShell.add(lastRight);
 					}
-					else {
-						C = D;
-						D = maxPointWrap.p;
-						outerShell.add(D);
-					}
+
 
 					break;
 					

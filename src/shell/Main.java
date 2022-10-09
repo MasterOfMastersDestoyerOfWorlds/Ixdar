@@ -75,8 +75,8 @@ public class Main extends JComponent{
 			//System.out.println(conShell);
 
 
-	        conShell.drawShell(this, g2, true, Color.BLUE);
-	        maxShell.drawShell(this, g2, true, null);
+	        conShell.drawShell(this, g2, false, Color.BLUE, retTup.ps);
+	        //maxShell.drawShell(this, g2, true, null, retTup.ps);
 	        
 	        
 	        /*Shell ndShell =new Shell();
@@ -119,7 +119,7 @@ public class Main extends JComponent{
 
 	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
 
-	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, true, false, true);
+	        //drawPath(this, g2, retTup.path, Color.RED, retTup.ps, true, false, true);
 	        System.out.println("===============================================");
 		}catch(Exception e) {
 			e.printStackTrace();

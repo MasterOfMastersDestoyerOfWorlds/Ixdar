@@ -184,12 +184,17 @@ public class DistanceMatrix {
 		double[][] temp = new double[matrix.length + 1][matrix.length + 1];
 		int startIndex = points.indexOf(s.first);
 		int endIndex = points.indexOf(s.last);
+		//\\maxDist = 2*maxDist;
 		for (int i = 0; i < temp.length; i++) {
 			for (int j = 0; j < temp.length; j++) {
 				if (i == matrix.length || j == matrix.length) {
-					if (i == startIndex || j == startIndex || i == endIndex || j == endIndex || i==j) {
+					if (i == startIndex || j == startIndex || i == endIndex || j == endIndex) {
 						temp[i][j] = zero;
-					} else {
+					}
+					else if (i==j) {
+						temp[i][j] = 0;
+					}
+					else {
 						temp[i][j] = maxDist;
 					}
 				} else {
@@ -312,6 +317,7 @@ public class DistanceMatrix {
 		for(int i = 0; i < matrix.length; i ++) {
 			int index = lookup.get(ps.get(i).getID());
 			centroidDist[index] = ps.get(i).distance(centroid);
+			//System.out.println( ps.get(i).getID()+ " Dist to centroid: " + centroidDist[index]);
 		}
 				
 		return centroid;	
