@@ -202,17 +202,15 @@ public class DistanceMatrix {
 				}
 			}
 		}
-		if(zero == 0) {
-			zero = 2*maxDist;
-			for (int i = 0; i < temp.length; i++) {
-				for (int j = 0; j < temp.length; j++) {
-					if (i != j) {
-						temp[i][j] = temp[i][j] + zero;
-					}
+		zero = 2*maxDist;
+		for (int i = 0; i < temp.length; i++) {
+			for (int j = 0; j < temp.length; j++) {
+				if (i != j) {
+					temp[i][j] = temp[i][j] + zero;
 				}
 			}
-			maxDist = maxDist + zero;
 		}
+		maxDist = maxDist + zero;
 		
 
 		
@@ -224,6 +222,11 @@ public class DistanceMatrix {
 		lookup.put(dummy.getID(),points.size()-1);
 		matrix = temp;
 		return dummy;
+	}
+	
+	public EigenDecomposition getEigenvalues() {
+		RealMatrix E = new Array2DRowRealMatrix(matrix);
+		return new EigenDecomposition(E);
 	}
 
 	/**
@@ -303,6 +306,19 @@ public class DistanceMatrix {
 
 	}
 	
+	private void checkPointSet(PointSet ps) {
+
+		for(PointND p : ps) {
+			for(PointND p2 : ps) {
+				if(!p.isCentroid() && !p.equals(p2)) {
+					double  trueDist = this.getDistance(p, p2);
+					double converted = p.distance(p2);
+					assert( Math.abs(converted - trueDist) < 0.0001): "Expected: " + trueDist + " got: " + converted  + "\n " + this;
+				}
+			}
+		}
+	}
+	
 	/**
 	 * Transforms the DistanceMatrix to a PointSet and then averages over the cooridnates to find the centroid
 	 * Adds the centroid to the distance matrix
@@ -311,6 +327,7 @@ public class DistanceMatrix {
 	 */
 	public PointND findCentroid() {
 		PointSet ps = this.toPointSet();
+		this.checkPointSet(ps);
 		this.centroid = new PointND.Double(ps);
 		this.centroid.setCentroid();
 		this.centroidDist = new double[matrix.length];
@@ -375,11 +392,15 @@ public class DistanceMatrix {
 	public String toString() {
 		String str = "DistanceMatrix[\n";
         for(int i = 0; i < matrix.length; i ++) {
+        	if(points.get(i).isDummyNode()) {
+        		str += "*";
+        	}
+        	
         	str += "[";
         	for(int j = 0; j < matrix.length; j++) {
         		BigDecimal bd = new BigDecimal(matrix[i][j]);
-        		bd = bd.round(new MathContext(3));
-        		str+= " " + java.lang.Double.valueOf(String.format("%."+3+"G", bd)) + " ";
+        		bd = bd.round(new MathContext(7));
+        		str+= " " + java.lang.Double.valueOf(String.format("%."+7+"G", bd)) + " ";
         	}
         	str+="]\n";
         }

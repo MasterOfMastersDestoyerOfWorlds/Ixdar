@@ -70,13 +70,15 @@ public class Main extends JComponent{
 	        for( int i = 0 ; i <3; i ++) {
 	        	maxShell = maxShell.collapseChildOntoShell();
 	        }*/
+	        
+	        //maxShell.drawShell(this, g2, true, null, retTup.ps);
 			
-			conShell = conShell.collapseAllShells(d); //finds optimal tsp path
+			//conShell = conShell.collapseAllShells(d); //finds optimal tsp path
 			//System.out.println(conShell);
 
 
-	        conShell.drawShell(this, g2, false, Color.BLUE, retTup.ps);
-	        //maxShell.drawShell(this, g2, true, null, retTup.ps);
+	        //conShell.drawShell(this, g2, false, Color.BLUE, retTup.ps);
+	        maxShell.drawShell(this, g2, true, null, retTup.ps);
 	        
 	        
 	        /*Shell ndShell =new Shell();

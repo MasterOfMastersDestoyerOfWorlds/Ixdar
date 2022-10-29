@@ -91,6 +91,20 @@ public class Vectors {
 		return AB + BC - AC;
 	}
 
+	
+	public static double heronsFormula(PointND a, PointND b, PointND centroid, DistanceMatrix d) {
+		
+		
+		Double AB =  d.getDistance(a,b);
+		Double BC =  d.getDistance(b,centroid);
+		Double AC =  d.getDistance(a,centroid);
+		
+		Double S = (AB + BC + AC)/2;
+		
+		double Area = Math.sqrt(S*(S-AB)*(S-BC)*(S-AC));
+
+		return Area;
+	}
 
 	/*This is currently not used, but keeping for history and potential future use
 

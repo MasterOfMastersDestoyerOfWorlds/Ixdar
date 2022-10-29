@@ -77,6 +77,55 @@ public class Shell extends LinkedList<PointND> {
 		return length;
 
 	}
+	
+	/**
+	 * Get the length of the shell
+	 * @param anoid 
+	 * 
+	 * @return the length of the path between all points in the shell
+	 */
+	//you can think of each segmetn as a triangle starting from the centroid and going to
+	//the bounding circle cut by the segment. get the angle of that triangle and convert 
+	//that to area of a circle and then subtract out the area of the triangle
+
+	public double getVarienceOfSphere(PointSet allPoints,  DistanceMatrix d) {
+		PointND centroid = d.findCentroid();
+		PointND anoid = PointSet.findAnoid(allPoints, centroid, d);
+		double radius = d.getDistance(centroid, anoid);
+		if(this.size() <= 2) {
+			return 0;
+		}
+		PointSet ps = this.copyShallow().toPointSet();
+		DistanceMatrix d1 = new DistanceMatrix(ps, d);
+		centroid = d1.findCentroid();
+		double differenceSum = 0.0;
+		for(PointND p : ps) {
+			PointND next = this.nextPoint(p);
+			double areaTriangle = Vectors.heronsFormula(p, next, centroid, d1);
+			double areaCircle = Vectors.findAngleSegments(p, centroid, next, d1)*Math.pow(radius, 2)/2;
+			differenceSum += Math.abs(areaCircle - areaTriangle);
+		}
+		//assert(Math.abs(sumAngle - Math.PI*2) < 0.1) : sumAngle;
+		//assert(Math.abs(sumArea - Math.PI*Math.pow(radius, 2)) < 0.1) : sumArea + " "+ Math.PI*Math.pow(radius, 2);
+		return differenceSum;
+
+	}
+	
+	/**
+	 * Get the length of the shell
+	 * 
+	 * @return the length of the path between all points in the shell
+	 */
+	public double getLengthRecursive() {
+		Shell currShell = this;
+		double length = currShell.getLength();
+		while(currShell.getChild() != null) {
+			currShell = currShell.getChild();
+			length += currShell.getLength();
+		}
+		return length;
+
+	}
 
 	/**
 	 * Draws the Shell and its children if drawChildren is true
@@ -295,6 +344,15 @@ public class Shell extends LinkedList<PointND> {
 		return result;
 
 	}
+	public PointSet getAllDummyNodes() {
+		PointSet result = new PointSet();
+		for(PointND pt: this) {
+			if(pt.isDummyNode()) {
+				result.add(pt);
+			}
+		}
+		return result;
+	}
 
 	/**
 	 * Collapses all shells into one shell that is the tsp path
@@ -321,13 +379,14 @@ public class Shell extends LinkedList<PointND> {
 		assert(collapsed.sizeRecursive() == size) : "Shell was size: " + collapsed.sizeRecursive() + " Supposed to be size: " + size;
 		Shell consensus = consensus(collapsed,B, d);
 		System.out.println("Consensus: " + consensus);
+		//System.out.println("DM: " + d);
 		
 		
 //		System.out.println("start : " + this.toStringRecursive());
 //		System.out.println("colapse : " + collapsed.toStringRecursive());
 //		System.out.println("rreturn : " + consensus.toStringRecursive());
 		assert(consensus.sizeRecursive() == size) : "Shell was size: " + consensus.sizeRecursive() + " Supposed to be size: " + size;
-		assert(consensus.getLength() <= collapsed.getLength() || consensus.getLength()- collapsed.getLength() < 0.001) :" collapsed: " + collapsed.getLength() + " " + collapsed + "\n consensus: " + consensus.getLength() + " "+ consensus + "\n B: " + B ;
+		//assert(consensus.getLength() <= collapsed.getLength() || consensus.getLength()- collapsed.getLength() < 0.001) :" collapsed: " + collapsed.getLength() + " " + collapsed + "\n consensus: " + consensus.getLength() + " "+ consensus + "\n B: " + B ;
 		return consensus.collapseAllShells(d);
 
 	}
@@ -501,6 +560,7 @@ public class Shell extends LinkedList<PointND> {
 		PointSet ps = new PointSet();
 		
 
+
 		ps.add(s.first);
 		if(!s.first.equals(s.last)) {
 			ps.add(s.last);
@@ -511,6 +571,7 @@ public class Shell extends LinkedList<PointND> {
 		PointND dummy = d1.addDummyNode(s);
 		ps.add(dummy);
 		Shell result = ps.toShells(d1);
+		assert(d1.getZero() != 0);
 		
 		
 		assert(isReduced(result, d1));
@@ -530,6 +591,7 @@ public class Shell extends LinkedList<PointND> {
 		if(!result.get(0).equals(s.first)) {
 			result = result.reverse();
 		}
+		///System.out.println(d1);
 		
 		assert((result.get(0).equals(s.first) && result.get(result.size() -1).equals(s.last))):
 			"first: "+s.first.getID() + " last: "  + s.last.getID() + " dummy: " + dummy.getID() + "\n" + result.toStringRecursive();
@@ -602,57 +664,39 @@ public class Shell extends LinkedList<PointND> {
 
 		AB = AB.copyRecursive();
 		B = B.copyRecursive();
+		PointSet dummies = AB.getAllDummyNodes();
+		B.addAll(dummies);
+		
 		
 		ArrayList<Segment> ABKeys = new ArrayList<Segment>();
 
 
 		HashMap<Segment, Shell> ABsections = AB.splitBy(B, ABKeys);
 		
+		
 		System.out.println(AB);
 		System.out.println(ABsections);
-
 		Shell result = new Shell(null, B.child);
-
+		
+		//checks that there is more that one unsorted segment 
 		if(numBuckets(ABsections, ABKeys) > 1) {
-				for (Segment s : ABKeys) {
-				
-				Shell line = solveBetweenEndpoints(s, ABsections.get(s), new Shell(), d);
-				//System.out.println(line);
-				//System.out.println(ABKeys);
-//				System.out.println(result);
-//				System.out.println(s);
-//				System.out.println(ABsections.get(s));
+			for (Segment s : ABKeys) {
+				Shell line = null;
+				line = solveBetweenEndpoints(s, ABsections.get(s), new Shell(), d);
 				//need to pack and unpack dummy point as single entity? no needs to work independent of knowledge of endpoints
 				if(!s.first.equals(line.get(0))) {
-					System.out.println("Reverse  Reverse!");
 					line = line.reverse();
-					
-//					line.remove(s.first);
-//					line.addFirst(s.first);
-//					
-//					line.remove(s.last);
-//					line.addLast(s.last);
-//					if(reversed.getLength() < line.getLength()) {
-//						line = reversed;
-//					}
-					
-					
 
 					assert(s.first.equals(line.get(0)));
 					assert(s.last.equals(line.getLast()));
 				}
 				line.remove(s.first);
 
-
 				result.addAll(line);
-				//System.out.println(result);
-
+				//maybe also check that each segment shouldnt be flipped
 			}
-			
-			
 		}
 		else {
-			
 			result = AB;
 		}
 		result.setChild(AB.child);
@@ -924,6 +968,35 @@ public class Shell extends LinkedList<PointND> {
 		return result;
 	}
 	
+	public double getAngleSum(DistanceMatrix d) {
+		double sum = 0.0;
+		for(PointND p : this) {
+			PointND next = this.nextPoint(p);
+			PointND last = this.prevPoint(p);
+			double angle =  Vectors.findAngleSegments(last, p, next, d);
+			System.out.println(angle);
+			sum += angle;
+		}
+		return sum;
+	}
+	
+	public double getAngleRatio(DistanceMatrix d) {
+		return this.getAngleSum(d)/this.size();
+	}
+	public int getObtuseAngles(DistanceMatrix d) {
+		int sum = 0;
+		for(PointND p : this) {
+			PointND next = this.nextPoint(p);
+			PointND last = this.prevPoint(p);
+			double angle =  Vectors.findAngleSegments(last, p, next, d);
+			System.out.println(angle);
+			if(angle > Math.PI/2) {
+				sum ++;
+			}
+		}
+		return sum;
+	}
+	
 	@Override
 	public String toString() {
 		String str = "Shell[";
@@ -996,7 +1069,7 @@ public class Shell extends LinkedList<PointND> {
 	@Override
     public boolean addAll(Collection<? extends PointND> c) {
     	for(PointND p : c) {
-    		assert(!this.contains(p)): this.toString() + " " + c.toString();
+    		//assert(!this.contains(p)): this.toString() + " " + c.toString();
     	}
     	super.addAll(c);
         return true;

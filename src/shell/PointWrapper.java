@@ -14,11 +14,6 @@ public class PointWrapper implements Comparable{
 
 	@Override
 	public int compareTo(Object o) {
-		Double cangle=((PointWrapper)o).angle;
-		if(this.angle == cangle) {
-			return 0;
-		}
-        /* For Ascending order*/
-        return (int) (this.angle<cangle ? -1 : 1);
+		return this.angle.compareTo(((PointWrapper)o).angle);
 	}
 }
