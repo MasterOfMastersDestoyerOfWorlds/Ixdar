@@ -37,6 +37,7 @@ public abstract class PointND implements Cloneable {
 			this.setID(ID);
 			fs = new float[1];
 		}
+		
 
 		/**
 		 * Constructs and initializes a {@code PointND} with the specified coordinates.
@@ -92,6 +93,12 @@ public abstract class PointND implements Cloneable {
 			}
 		}
 
+
+		@Override
+		public int hashCode() {
+			return this.getID();
+		}
+		
 		/**
 		 * @return the dimension of the vector
 		 */
@@ -250,6 +257,11 @@ public abstract class PointND implements Cloneable {
 				ds[i] = ds[i]/ps.size();
 			}
 		}
+		
+		@Override
+		public int hashCode() {
+			return this.getID();
+		}
 
 		public int getDim() {
 			return ds.length;
@@ -260,6 +272,9 @@ public abstract class PointND implements Cloneable {
 		 * 
 		 */
 		public double getCoord(int dim) {
+			if(dim >= ds.length){
+				return 0.0;
+			}
 			return (double) ds[dim];
 		}
 
@@ -332,6 +347,8 @@ public abstract class PointND implements Cloneable {
 	private int ID = -1;
 	
 	private boolean isCentroid = false;
+	
+	private boolean isNSphereCenter = false;
 	
 	private boolean isDummyNode = false;
 	
@@ -564,6 +581,14 @@ public abstract class PointND implements Cloneable {
 
 	public void setCentroid() {
 		this.isCentroid = true;
+	}
+	
+	public boolean isNSphereCenter() {
+		return isNSphereCenter;
+	}
+
+	public void setNSphereCenter() {
+		this.isNSphereCenter = true;
 	}
 
 	public boolean isDummyNode() {

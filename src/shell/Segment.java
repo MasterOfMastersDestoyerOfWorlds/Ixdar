@@ -24,9 +24,10 @@ public class Segment {
 	@Override
 	public boolean equals(Object o) {
 		if (o instanceof Segment) {
-
 			Segment other = (Segment) o;
-			return (other.first.equals(first) && other.last.equals(last));
+			return ((other.first.equals(first) && other.last.equals(last))) || ((other.first.equals(last) && other.last.equals(first)));
+		}else if (o instanceof PointDistanceWrapper) {
+			return ((PointDistanceWrapper) o).s.equals(this);
 		}
 		return false;
 
@@ -63,10 +64,10 @@ public class Segment {
 	 * 
 	 * @return first.hashCode() + last.hashCode()
 	 */
-	@Override
+	/*@Override
 	public int hashCode() {
 		return first.hashCode() + last.hashCode();
-	}
+	}**/
 
 	/*
 	 * This code is no longer used but keeping it for history and potential future
@@ -85,4 +86,37 @@ public class Segment {
 	 * 
 	 * }
 	 */
+	public PointND commonPoint(Segment s) {
+		if(s.first.equals(this.first)) {
+			return s.first;
+		}
+		if(s.first.equals(this.last)) {
+			return s.first;
+		}
+		if(s.last.equals(this.first)) {
+			return s.last;
+		}
+		if(s.last.equals(this.last)) {
+			return s.last;
+		}
+		return null;
+	}
+	
+	public boolean contains(PointND p) {
+		return this.first.equals(p) || this.last.equals(p);
+	}
+
+	public Integer getOther(Integer key) {
+		if(this.first.getID() == key) {
+			return this.last.getID();
+		}
+		return this.first.getID();
+	}
+	
+	public PointND getOtherPoint(PointND key) {
+		if(this.first.getID() == key.getID()) {
+			return this.last;
+		}
+		return this.first;
+	}
 }

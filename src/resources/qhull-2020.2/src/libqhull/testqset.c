@@ -1,1 +1,0 @@
-../testqset/testqset.c

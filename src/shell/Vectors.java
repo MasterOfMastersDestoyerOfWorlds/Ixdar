@@ -105,6 +105,25 @@ public class Vectors {
 
 		return Area;
 	}
+	
+	public static double getDifferenceToSphere(PointND a, PointND b, PointND centroid, double radius, DistanceMatrix d) {
+		
+		double areaTriangle = Vectors.heronsFormula(a, b, centroid, d);
+		double areaCircle = Vectors.findAngleSegments(a, centroid, b, d)*Math.pow(radius, 2)/2;
+		//assert(areaTriangle < areaCircle);
+		//return Math.abs(areaCircle - areaTriangle);
+		//maybe trty the distance from the midpoint to the centroid
+		return areaCircle - areaTriangle;
+	}
+	
+	public static double getDifferenceToSphereFromMidpoint(PointND midpoint, PointND centroid, double radius) {
+		
+		double distance = centroid.distance(midpoint);
+		assert(distance < radius);
+		//return Math.abs(areaCircle - areaTriangle);
+		//maybe trty the distance from the midpoint to the centroid
+		return Math.abs(distance - radius);
+	}
 
 	/*This is currently not used, but keeping for history and potential future use
 
@@ -117,7 +136,7 @@ public class Vectors {
 		// this is a poor metric and should probably not be used for optimization
 		PointND AC = new PointND.Double(q.getX()-lastPoint.getX(), q.getY()-lastPoint.getY());
 		PointND AB = new PointND.Double(currPoint.getX()-lastPoint.getX(), currPoint.getY()-lastPoint.getY());
-		double y1 =lastPoint.getY(), y2 = currPoint.getY(), y0 = q.getY(),
+		double y1 =lastPoint.getY(                     ), y2 = currPoint.getY(), y0 = q.getY(),
 				x1 =lastPoint.getX(), x2 = currPoint.getX(), x0 =q.getX();
 		double projScalar = getProjectionScalar(AC, AB);
 		if(projScalar >= 1) {

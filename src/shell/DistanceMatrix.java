@@ -4,13 +4,20 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Vector;
 
 import org.apache.commons.math3.complex.Complex;
 import org.apache.commons.math3.linear.Array2DRowFieldMatrix;
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
+import org.apache.commons.math3.linear.ArrayRealVector;
+import org.apache.commons.math3.linear.DecompositionSolver;
 import org.apache.commons.math3.linear.EigenDecomposition;
 import org.apache.commons.math3.linear.FieldMatrix;
 import org.apache.commons.math3.linear.RealMatrix;
+import org.apache.commons.math3.linear.RealVector;
+import org.apache.commons.math3.linear.SingularValueDecomposition;
+
+import shell.PointND.Double;
 
 /**
  * A class that represents the distances between all points in the pointset
@@ -25,6 +32,24 @@ public class DistanceMatrix {
 	private double zero = 0;
 	private PointND.Double centroid;
 	private double[] centroidDist;
+	private PointND.Double nSphereCenter;
+	private double nSphereRadius = -1;
+
+	public PointND.Double getnSphereCenter() {
+		return nSphereCenter;
+	}
+
+	public void setnSphereCenter(PointND.Double nSphereCenter) {
+		this.nSphereCenter = nSphereCenter;
+	}
+
+	public double getnSphereRadius() {
+		return nSphereRadius;
+	}
+
+	public void setnSphereRadius(double nSphereRadius) {
+		this.nSphereRadius = nSphereRadius;
+	}
 
 	/**
 	 * Creates a distance matrix that represents the distance between every point in
@@ -95,6 +120,48 @@ public class DistanceMatrix {
 			}
 		}
 	}
+	
+	/**
+	 * for reconstructing a partial distance  matrix from a list of segments
+	 * @param segments
+	 * @param ps
+	 * @param d
+	 */
+	
+	public DistanceMatrix(ArrayList<Segment> segments, PointSet ps, DistanceMatrix d) {
+		matrix = new double[ps.size()][ps.size()];
+		points = new ArrayList<PointND>(ps.size());
+		for(int i = 0; i < ps.size(); i ++) {
+			points.add(null);
+		}
+		
+		lookup = new HashMap<Integer,Integer>();
+		this.zero = d.zero;
+		for (Segment s : segments) {
+
+			System.out.println(segments);
+			int i = ps.indexOf(s.first);
+			int j = ps.indexOf(s.last);
+			if(!points.contains(s.first)) {
+				System.out.println(ps.size());
+				System.out.println(s.first.getID());
+				points.set(i, s.first);
+				lookup.put(s.first.getID(), i);
+				System.out.println(points);
+			}
+			if(!points.contains(s.last)) {
+				points.set(j, s.last);
+				lookup.put(s.last.getID(), j);
+			}
+			double dist = d.getDistance(points.get(i), points.get(j));
+			System.out.println(s);
+			System.out.println(dist);
+			System.out.println(i + " " + j);
+			matrix[i][j] = dist;
+			matrix[j][i] = dist;
+			
+		}
+	}
 
 	/**
 	 * Gets the points stored in the distance matrix
@@ -146,6 +213,10 @@ public class DistanceMatrix {
 	 * @return the distance 
 	 */
 	public double getDistance(PointND i, PointND j) {
+		
+		if(i.isNSphereCenter() || j.isNSphereCenter()) {
+			return nSphereRadius;
+		}
 		
 		if(i.isCentroid() || j.isCentroid()) {
 			return i.isCentroid() ? centroidDist[lookup.get(j.getID())] : centroidDist[lookup.get(i.getID())];
@@ -301,6 +372,7 @@ public class DistanceMatrix {
 				ps.add(new PointND.Double(coords));
 			}
 		}
+		this.checkPointSet(ps);
 
 		return ps;
 
@@ -327,7 +399,11 @@ public class DistanceMatrix {
 	 */
 	public PointND findCentroid() {
 		PointSet ps = this.toPointSet();
-		this.checkPointSet(ps);
+				
+		return findCentroid(ps);	
+	}
+	
+	public PointND findCentroid(PointSet ps) {
 		this.centroid = new PointND.Double(ps);
 		this.centroid.setCentroid();
 		this.centroidDist = new double[matrix.length];
@@ -339,6 +415,103 @@ public class DistanceMatrix {
 				
 		return centroid;	
 	}
+	
+	public PointND findNSphereCenter() {
+		PointSet ps = this.toPointSet();
+		return findNSphereCenter(ps);
+		
+	}
+	
+	public PointND findNSphereCenter(PointSet ps) {
+		int numPoints = ps.size();
+		int dim = ps.getMaxDim();
+		
+		//https://stackoverflow.com/questions/37449046/how-to-calculate-the-sphere-center-with-4-points
+		//https://stackoverflow.com/questions/72230142/how-to-find-the-center-and-radius-of-an-any-dimensional-sphere-giving-dims1-poi
+
+		double[][] M = new double[numPoints][dim];
+		double[] v = new double[numPoints];
+		for (int i = 0; i < numPoints; i++) {
+			for (int j = 1; j < dim; j++) {
+				M[i][j-1] = ps.get(i).getCoord(j);
+				v[i] += Math.pow(ps.get(i).getCoord(j), 2);
+			}
+		}
+		RealMatrix A = new Array2DRowRealMatrix(M);
+		
+		for (int j = 0; j < numPoints; j++) {
+			M[numPoints-1][j] = 1;
+		}
+		
+		SingularValueDecomposition svd = new SingularValueDecomposition(A);
+		DecompositionSolver ds = svd.getSolver();
+		RealVector b = new ArrayRealVector(v);
+		RealVector x = ds.solve(b);
+		
+		double[] ans = new double[numPoints];
+		
+		for(int i = 1; i < numPoints; i ++){
+
+			ans[i] = x.getEntry(i-1)/2;
+		}
+		
+		this.nSphereCenter = new PointND.Double(ans);
+		this.nSphereCenter.setNSphereCenter();
+		this.nSphereRadius = this.nSphereCenter.distance(ps.get(0));
+		
+
+		for(PointND p: ps) {
+			assert Math.abs(p.distance(nSphereCenter)- nSphereRadius) < 0.0001;
+		}
+	
+		return this.nSphereCenter;	
+	}
+	
+	public HashMap<Segment, PointND> findMidPoints() {
+		PointSet ps = this.toPointSet();
+		return findMidPoints(ps);
+	}
+	
+	public HashMap<Segment, PointND> findMidPoints(PointSet ps) {
+		HashMap<Segment, PointND> result = new HashMap<Segment, PointND>();
+
+		for (int i = 0; i < ps.size(); i++) {
+			for (int j = 1; j < ps.size(); j++) {
+				if(i != j) {
+					Segment s = new Segment(ps.get(i), ps.get(j));
+					if(!result.containsKey(s)) {
+						int dim = ps.getMaxDim();
+						double[] coords = new double[dim];
+						for(int k = 0; k < dim; k ++) {
+							coords[k] = (s.first.getCoord(k) + s.last.getCoord(k))/2;
+						}
+						PointND midpoint = new PointND.Double(coords);
+						assert Math.abs(s.first.distance(midpoint) - s.last.distance(midpoint)) < 0.0001;
+						result.put(s, midpoint);
+					}
+				}
+			}
+		}
+		
+		return result;	
+	}
+	
+	public PointND findMidPointsCenter(PointSet ps) {
+		PointSet midpoints = new PointSet();
+		midpoints.addAll(this.findMidPoints(ps).values());
+		this.centroid = new PointND.Double(midpoints);
+		this.centroid.setCentroid();
+		this.centroidDist = new double[matrix.length];
+		for(int i = 0; i < matrix.length; i ++) {
+			int index = lookup.get(ps.get(i).getID());
+			centroidDist[index] = ps.get(i).distance(centroid);
+			//System.out.println( ps.get(i).getID()+ " Dist to centroid: " + centroidDist[index]);
+		}
+				
+				
+		return centroid;	
+	}
+	
 	
 	/**
 	 * converts a RealMatrix to a FieldMatrix over the Complex Field
@@ -374,6 +547,42 @@ public class DistanceMatrix {
 		}
 		return C.multiply(new Array2DRowFieldMatrix<Complex>(result));
 	}
+	
+    public int dfsCycleCount(int start, boolean[] visited, Shell shell, ArrayList<Segment> traveled){
+ 
+    	int cycles = 0;
+        // Set current node as visited
+        visited[start] = true;
+ 
+        // For every node of the graph
+        for (int i = 0; i < matrix[start].length; i++) {
+ 
+            // If some node is adjacent to the current node
+            // and it has not already been visited
+            if (this.matrix[start][i] > 0) {
+            	Segment s = new Segment(points.get(i), points.get(start));
+            	if(!traveled.contains(s)) {
+            		traveled.add(s);
+	            	if(!visited[i]) {
+	                    cycles += dfsCycleCount(i, visited, shell, traveled);
+	                    if(cycles == 1) {
+	                    	if(!shell.contains(this.points.get(i)))
+	                    		shell.add(this.points.get(i));
+	                    }
+	            	}
+	            	else {
+	            		cycles++;
+	            		if(!shell.contains(this.points.get(i)))
+	            			shell.add(this.points.get(i));
+	            	}
+            	}
+            	if(cycles > 1) {
+            		return cycles;
+            	}
+            }
+        }
+        return cycles;
+    }
 	
 	/**
 	 * reverses an array of doubles so that element 0 is now last etc.

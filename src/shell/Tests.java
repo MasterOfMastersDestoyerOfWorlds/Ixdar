@@ -20,23 +20,6 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class Tests {
 	
-	//@Test
-	public void testQHull() {
-		PointSetPath retTup = Main.importFromFile(new File("./src/shell/djbouti"));
-
-		PointSet ps = new PointSet();
-		
-		ps.add(new PointND.Double(1, 0, 0, 1));
-		ps.add(new PointND.Double(2, 0, 0, 0));
-		ps.add(new PointND.Double(3, 0, 1, 0));
-		ps.add(new PointND.Double(4, 0, -1, 0));
-		ps.add(new PointND.Double(5, 1, 0, 0));
-		ps.add(new PointND.Double(6, -1, 0, 0));
-		PointSet orgShell = retTup.ps.convexHullND(ps);
-		
-		assertTrue(orgShell.size() == 5);
-	}
-
 	/**
 	 * Tests that our solver solves the djibouti problem set correctly
 	 */
@@ -73,10 +56,12 @@ public class Tests {
 				}
 			}
 		}
+		
 		System.out.println("before   " + AB);
 		Collections.shuffle(AB);//, new Random(2));
 		System.out.println("shuffled " + AB);
 		Segment s = new Segment(answer.getFirst(), answer.getLast());
+		System.out.println("surrounding segment: " + s);
 
 		Shell nothing = new Shell();
 

@@ -78,6 +78,21 @@ public class Shell extends LinkedList<PointND> {
 
 	}
 	
+	public PointND greedyAdd(PointND p, PointND anchor, DistanceMatrix d) {
+		PointND p1 = this.nextPoint(anchor);
+		double dist1 = d.getDistance(anchor, p) + d.getDistance(p1, p) - d.getDistance(anchor, p1);
+		PointND p2 = this.prevPoint(anchor);
+		double dist2 = d.getDistance(anchor, p) + d.getDistance(p2, p)  - d.getDistance(anchor, p2);
+
+		if(dist1 < dist2) {
+			this.addAfter(anchor, p);
+			return p1;
+		}else {
+			this.addAfter(p2, p);
+			return p2;
+		}
+	}
+	
 	/**
 	 * Get the length of the shell
 	 * @param anoid 
@@ -93,7 +108,7 @@ public class Shell extends LinkedList<PointND> {
 		PointND anoid = PointSet.findAnoid(allPoints, centroid, d);
 		double radius = d.getDistance(centroid, anoid);
 		if(this.size() <= 2) {
-			return 0;
+			return Math.PI*Math.pow(radius, 2);
 		}
 		PointSet ps = this.copyShallow().toPointSet();
 		DistanceMatrix d1 = new DistanceMatrix(ps, d);
@@ -101,9 +116,7 @@ public class Shell extends LinkedList<PointND> {
 		double differenceSum = 0.0;
 		for(PointND p : ps) {
 			PointND next = this.nextPoint(p);
-			double areaTriangle = Vectors.heronsFormula(p, next, centroid, d1);
-			double areaCircle = Vectors.findAngleSegments(p, centroid, next, d1)*Math.pow(radius, 2)/2;
-			differenceSum += Math.abs(areaCircle - areaTriangle);
+			differenceSum += Vectors.getDifferenceToSphere(p, next, centroid, radius, d1); 
 		}
 		//assert(Math.abs(sumAngle - Math.PI*2) < 0.1) : sumAngle;
 		//assert(Math.abs(sumArea - Math.PI*Math.pow(radius, 2)) < 0.1) : sumArea + " "+ Math.PI*Math.pow(radius, 2);
@@ -559,7 +572,8 @@ public class Shell extends LinkedList<PointND> {
 	public static Shell solveBetweenEndpoints(Segment s, Shell A, Shell B, DistanceMatrix d) {
 		PointSet ps = new PointSet();
 		
-
+		
+		assert(!s.first.equals(s.last));
 
 		ps.add(s.first);
 		if(!s.first.equals(s.last)) {
@@ -570,11 +584,20 @@ public class Shell extends LinkedList<PointND> {
 		DistanceMatrix d1 = new DistanceMatrix(ps, d);
 		PointND dummy = d1.addDummyNode(s);
 		ps.add(dummy);
+		Shell answer = new Shell();
+		answer.add(s.first);
+		answer.addAll(A.copyShallow());
+		answer.add(s.last);
+		answer.add(dummy);
 		Shell result = ps.toShells(d1);
+
+		System.out.println("answer: " +answer + " varience: " + answer.getVarienceOfSphere(ps, d1));
+		
 		assert(d1.getZero() != 0);
 		
 		
-		assert(isReduced(result, d1));
+		
+		//assert(isReduced(result, d1));
 		assert(d1.getMaxDist()/2 <= d1.getZero()): "Zero: "+ d1.getZero() + " MaxDist: " + d1.getMaxDist();
 		//assert(result.contains(dummy)): "Expected " + dummy.getID() + " to be in top layer of:\n" + result.toStringRecursive();
 		//assert(result.contains(s.first)) : "Expected " + s.first.getID() + " to be in top layer of:\n" + result.toStringRecursive();
@@ -585,7 +608,8 @@ public class Shell extends LinkedList<PointND> {
 		result = result.collapseAllShells(d1);
 		
 		assert(result.sizeRecursive() == ps.size() ) : "Size was " + result.sizeRecursive() + " Should have been " + ps.size();
-		
+		System.out.println(result);
+		System.out.println(result.getVarienceOfSphere(ps, d1));
 		ps.remove(dummy);
 		result = result.removeRotate(ps);
 		if(!result.get(0).equals(s.first)) {
@@ -635,14 +659,15 @@ public class Shell extends LinkedList<PointND> {
 	}
 	
 
-	private Shell rotateTo(PointND remove) {
+	public void rotateTo(PointND p1, PointND p2) {
 		Shell before = new Shell(), after = new Shell();
 
 		//find the dummy node and take it out of the Shell unwrapping at the dummy.
 		boolean isBeforePoint = true;
 		for (PointND p : this) {
-			if (p.equals(remove)) {
+			if ((p.equals(p1) && this.nextPoint(p).equals(p2))|| (p.equals(p2) && this.nextPoint(p).equals(p1)) ) {
 				isBeforePoint = false;
+				before.add(p);
 			} else {
 				if (isBeforePoint) {
 					before.add(p);
@@ -651,11 +676,8 @@ public class Shell extends LinkedList<PointND> {
 				}
 			}
 		}
-		//reverse the set if need be to match the input segment s
-		after.addAll(before);
-		after.addFirst(remove);
-		
-		return after;
+		this.removeAll(before);
+		this.addAll(before);
 	}
 
 
@@ -664,8 +686,6 @@ public class Shell extends LinkedList<PointND> {
 
 		AB = AB.copyRecursive();
 		B = B.copyRecursive();
-		PointSet dummies = AB.getAllDummyNodes();
-		B.addAll(dummies);
 		
 		
 		ArrayList<Segment> ABKeys = new ArrayList<Segment>();
@@ -677,6 +697,7 @@ public class Shell extends LinkedList<PointND> {
 		System.out.println(AB);
 		System.out.println(ABsections);
 		Shell result = new Shell(null, B.child);
+		System.out.println(numBuckets(ABsections, ABKeys));
 		
 		//checks that there is more that one unsorted segment 
 		if(numBuckets(ABsections, ABKeys) > 1) {
@@ -1074,5 +1095,59 @@ public class Shell extends LinkedList<PointND> {
     	super.addAll(c);
         return true;
     }
+	public boolean addAllFirst(Collection<? extends PointND> c) {
+		Object[] points =  c.toArray();
+    	for(int i = points.length-1; i>= 0; i--) {
+    		this.addFirst((PointND) points[i]);
+    	}
+        return true;
+    }
+
+	public void addAfter(PointND contained, PointND insert) {
+		//assert(!this.contains(insert));
+		super.add(this.indexOf(contained)+1, insert);
+	}
+	
+	public void addOutside(PointND contained, PointND insert) {
+		//assert(!this.contains(insert));
+		assert(this.getLast().equals(contained) || this.getFirst().equals(contained)) : insert.getID()+ " " + contained.getID() + " " + this.toString();
+		super.add(this.indexOf(contained)+1, insert);
+		if(this.getLast().equals(contained)) {
+			this.rotateTo(this.getFirst(), insert);
+		}
+		else {
+			this.rotateTo(this.getLast(), insert);
+		}
+	}
+	
+	public void addAllAtSegment(PointND contained, PointND connector, Shell other) {
+		if(this.getLast().equals(contained)) {
+			if(other.getLast().equals(connector)) {
+				Shell reverse = other.reverse();
+				this.addAll(reverse);
+			}else {
+				this.addAll(other);
+			}
+		}
+		else {
+			if(other.getLast().equals(connector)) {
+				this.addAllFirst(other);
+			}else {
+				Shell reverse = other.reverse();
+				this.addAllFirst(reverse);
+			}
+		}
+	}
+	
+	public PointND getOppositeOutside(PointND endpoint) {
+		//assert(!this.contains(insert));
+		assert(this.getLast().equals(endpoint) || this.getFirst().equals(endpoint)) : endpoint.getID();
+		if(this.getLast().equals(endpoint)) {
+			return this.getFirst();
+		}
+		else {
+			return this.getLast();
+		}
+	}
 
 }

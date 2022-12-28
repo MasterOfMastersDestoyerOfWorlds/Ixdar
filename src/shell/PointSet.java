@@ -10,123 +10,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-
-import resources.SWIGTYPE_p_coordT;
-import resources.SWIGTYPE_p_p_char;
-import resources.qhull;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
 import shell.PointND.Double;
 
 /**
  * A set of all of the points in the current TSP problem
  */
 public class PointSet extends ArrayList<PointND> {
-	private static final long serialVersionUID = 6129018674280186123L;
-
-	static {
-		try {
-			System.loadLibrary("qhull");
-		} catch (Exception e) {
-			System.out.println("name of shared lib should be: " + System.mapLibraryName("qhull"));
-			System.out.println(e);
-
-		}
-
-	}
-
-	/**
-	 * make sure to see resources/swig.sh for details on compiling qhull to work
-	 * with java also set the native library to Users/user/Library/Java/Extensions
-	 * in the build path so that eclipse can find the dylib
-	 * http://www.swig.org/Doc1.3/Library.html this code should copy the process
-	 * from resources/src/libqhull/unix.c i think anyway doing nconvexhull
-	 * 
-	 * @return the convex hull of the set of points in n dimensions according to
-	 *         qhull
-	 */
-	public PointSet convexHullND(PointSet ps) {
-		/*
-		 * Run 1: convex hull
-		 */
-		SWIGTYPE_p_p_char NULL = qhull.new_Stringp();
-		qhull.Stringp_assign(NULL, null);
-
-		PointSet hull = new PointSet();
-		try {
-
-			FileOutputStream in = new FileOutputStream("in"), out = new FileOutputStream("out"),
-					err = new FileOutputStream("err");
-			qhull.qh_init_A(in, out, err, 0, NULL);
-			int exitcode = qhull.setjmp_wrap();
-			if (exitcode == 0) {
-				qhull.setNOerrexit();
-				qhull.qh_initflags("qhull s p");
-
-				int maxDim = ps.getLargestDim();
-				if (ps.size() <= maxDim) {
-					return ps;
-				}
-				SWIGTYPE_p_coordT points = qhull.new_coordT_array(maxDim * ps.size());
-				// TODO: need to check that the number of points is more than maxDim + 1 so that
-				// the initial simplex can be formed other wise they are just a convex hull i
-				// think?
-				// also need to update the point constructor to not keep the padded zeros
-				for (int i = 0; i < ps.size(); i++) {
-					PointND p = ps.get(i);
-					for (int j = 0; j < p.getDim(); j++) {
-						qhull.coordTset(points, maxDim * i + j, p.getCoord(j));
-					}
-				}
-				qhull.qh_init_B(points, ps.size(), maxDim, false);
-				qhull.qh_qhull();
-				qhull.qh_check_output();
-				qhull.qh_produce_output();
-				qhull.delete_coordT_array(points);
-				qhull.delete_Stringp(NULL);
-				BufferedReader reader;
-				try {
-					reader = new BufferedReader(new FileReader("out"));
-					String line = reader.readLine();
-					int dim = Integer.parseInt(line);
-
-					line = reader.readLine();
-					int numPoints = Integer.parseInt(line);
-					for (int i = 0; i < numPoints; i++) {
-						line = reader.readLine();
-						String[] coordsStr = line.split("\\s+");
-						double[] coords = new double[dim];
-						int k = 0;
-						for (int j = 0; j < coordsStr.length; j++) {
-							if (!coordsStr[j].isEmpty()) {
-								coords[k] = java.lang.Double.parseDouble(coordsStr[j]);
-								k++;
-							}
-						}
-						hull.add(ps.get(ps.indexOf(new PointND.Double(coords))));
-					}
-
-					reader.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-				in.close();
-				out.close();
-				err.close();
-			} else {
-				throw new Exception("setjmp failed!");
-			}
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return hull;
-	}
-
 	private int getLargestDim() {
 		int maxDim = 0;
 		for (PointND p : this) {
@@ -198,19 +91,21 @@ public class PointSet extends ArrayList<PointND> {
 			//multiply the error by the length of the segments like they are also points, but you'd neeed to be able to integrate over that line in the distance to the edge
 			//you can think of each segmetn as a triangle starting from the centroid and going to the bouding circle cut by the segment. get the angle of that triangle and convert that to area of a circle and then subtract out the area of the triangle
 			double max = java.lang.Double.MAX_VALUE;
-			PointND minp = null;
+			//PointND minp = null;
 			PointND centroid = d1.findCentroid();
-			for(PointND p : copy) {
-				Shell temphull = findMaxAngleMinDistancePaths(copy, d1, p, centroid);
-				temphull = copy.minimizeVarianceOfSphere(temphull, copy, d1);
-				System.out.println("reee: " + p.getID() + " " + temphull.getVarienceOfSphere(copy, d1) + " " + temphull.toString());
+				//maybbe instead of using giftwrapping algo, buuild path based on varience of sphere to begin with
+				//start with the segment (n^2 op) that has the leeast varience when compared to the centroid for the whole set
+				//Shell temphull = findMaxAngleMinDistancePaths(copy, d1, p, centroid);
+				Shell temphull = copy.findMinVariencePath(copy, d1);
+				//temphull = copy.minimizeVarianceOfSphere(temphull, copy, d1);
+				System.out.println("reee: " + " " + temphull.getVarienceOfSphere(copy, d1) + " " + temphull.toString());
 				if(temphull.getVarienceOfSphere(copy, d1) < max) {
 					max = temphull.getVarienceOfSphere(copy, d1);
 					hull = temphull;
-					minp = p;
+					//minp = p;
 				}
-			}
-			System.out.println("++++++++++ " + minp.getID() + "  " + max + " " + hull);
+			
+			System.out.println("++++++++++ "  + "  " + max + " " + hull);
 			/*
 			 * } else { hull = convexHullND(copy); }
 			 */
@@ -395,6 +290,176 @@ public class PointSet extends ArrayList<PointND> {
 	}
 	
 	/**
+	 * IDEA: make a 2d array of all segment variences, use dijkstras to connect the anode 
+	 * and its anode remove those points, do it again now you have a loop
+	 * 
+	 * stupid no garuntee that it surround the centroid
+	 * 
+	 * IDEA: go in order of distance to the centroid and find the minimum varience 
+	 * place to  put it in, continue till there is no place that will decrease the 
+	 * varience of the subset
+	 * 
+	 * will work in 2d dubious in higher dim
+	 * 
+	 * IDEA: start with the set of all segments, throw away the largest varience segment until
+	 * the varience of the subset does not decrease
+	 * 
+	 * IDEA:each vertex is like an umbrella,precompute the two smallest varience segments, 
+	 * start with two smallest varience sgements idk what next this is just greedy algo
+	 * 
+	 * get the set of segments tighten the restriction on varience until the only segments
+	 *  left form a single loop and are <= n can sort by segment varience 
+	 * 
+	 * 
+	 * @param ps
+	 * @param d
+	 * @returnthe convex hull of the set of points in 2 dimensions
+	 */
+	public Shell findMinVariencePath(PointSet ps, DistanceMatrix d) {
+		Shell shell = new Shell();
+		//PointND centroid = d.findNSphereCenter();
+		//double radius = d.getnSphereRadius();
+		
+		shell.addAll(ps);
+		System.out.println(ps);
+		if(shell.size() <= 2) {
+			return shell;
+		}
+		
+		ArrayList<PointDistanceWrapper<Segment>> segments = new ArrayList<PointDistanceWrapper<Segment>>();
+		PointSet centroids = new PointSet();
+		PointSet nd = d.toPointSet();
+
+		//centroids.addAll(nd);
+		//centroids.add(nd.get(0));
+		//HashMap<Segment, PointND> midpoints = d.findMidPoints(nd);
+		//centroids.add(midpointCenter);
+		
+		//centroids.add(d.findCentroid(nd));
+		centroids.add(d.findNSphereCenter(nd));
+		
+		
+		for(int k = 0; k < centroids.size(); k ++) {
+			PointND centroid = centroids.get(k);
+			double radius = d.getDistance(findAnoid(nd, centroid, d),centroid);
+			
+			for (int i = 0; i < ps.size(); i++) {
+				for (int j = 0; j < ps.size(); j++) {
+					if(i!=j) {
+						PointND one = ps.get(i);
+						PointND two = ps.get(j);
+						Segment s = new Segment(one, two);
+						
+						if(!(one.equals(centroid) || two.equals(centroid))){
+							double var = Vectors.getDifferenceToSphere(one, two, centroid, radius, d);
+							//double var = d.getDistance(s.first, s.last);
+							// need to actually get distance to sphere
+							//double var = Vectors.getDifferenceToSphereFromMidpoint(midpoints.get(s), centroid, radius);
+							PointDistanceWrapper<Segment> p = 
+									new PointDistanceWrapper<Segment>(var, s);
+							if(!segments.contains(p)){
+								segments.add(p);	
+							}else {
+								int idx = segments.indexOf(p);
+								segments.get(idx).distance = var;
+							}
+						}
+					}
+				}
+			}
+		}
+		segments.sort(null);
+		Bucket bucket = new Bucket();
+		for(int i = 0; i< segments.size(); i++ ) {
+			bucket.add(segments.get(i).s);
+		}
+		System.out.println(bucket);
+		System.out.println(segments);
+		ArrayList<Segment> matches = bucket.getMatches(); 
+		System.out.println();
+		
+		//Could we possiby reformat these segments as points and then iterate until there are no points left
+		//or is therrer some more complicated way of choosing
+		//first go through and find all of the pairs and then tack on the leftovers to wherever
+		//Needs to be a full statement of this its gonna go between. This and this otherwise delete segment its a loop, using bucket system
+		ArrayList<Shell> shells = new ArrayList<Shell>(); 
+		HashMap<Integer, Integer> locs = new HashMap<Integer, Integer>();
+		ArrayList<PointND> inserted = new ArrayList<PointND>();
+		int idx = 0;
+		while (idx < 4) {
+			for(int i = 0; i < matches.size(); i++){
+				Segment s = matches.get(i);
+				if(!inserted.contains(s.first) && !inserted.contains(s.last)) {
+					Shell nShell = new Shell();
+					nShell.add(s.first);
+					nShell.add(s.last);
+					shells.add(nShell);
+					locs.put(s.first.getID(), shells.size() - 1);
+					locs.put(s.last.getID(), shells.size() - 1);
+					bucket.remove(s);
+					inserted.add(s.first);
+					inserted.add(s.last);
+				}else if (inserted.contains(s.first) || inserted.contains(s.last)){
+					// steps 
+					// check if the other side of the shell is  also in the match list
+					
+					//repeat for other side of segment
+					//if its not in the match list hold off for now
+					int floc = locs.get(s.first.getID());
+					Shell fShell = shells.get(floc);
+					PointND fOpp = fShell.getOppositeOutside(s.first);
+					System.out.println("f "+ s.first.getID() + " fOpp " + fOpp.getID() + " first shell " + fShell + " first in bucket " + bucket.get(fOpp.getID()).get(0));
+					int lloc = locs.get(s.last.getID());
+					Shell lShell = shells.get(lloc);
+					PointND lOpp =lShell.getOppositeOutside(s.last);
+					System.out.println("l "+ s.last.getID() + " lOpp " + lOpp.getID() + "last shell " + lShell + " first in bucket " + bucket.get(lOpp.getID()).get(0));
+					ArrayList<PointND> endpoints = new ArrayList<PointND>();
+					endpoints.add(s.first);
+					endpoints.add(s.last);
+					endpoints.add(lOpp);
+					if(bucket.checkMatchExcludeEndpoints(fOpp, endpoints)){
+						endpoints.remove(lOpp);
+						endpoints.add(fOpp);
+						if(bucket.checkMatchExcludeEndpoints(lOpp, endpoints)){
+							
+							fShell.addAllAtSegment(s.first, s.last, lShell);
+							for(PointND p: lShell) {
+								locs.put(p.getID(), floc);
+							}
+							bucket.removeAll(s);
+							System.out.println("MATCH!!");
+							System.out.println(fShell);
+						}
+					}
+					System.out.println();
+				}
+			}
+			matches = bucket.getMatches(); 
+			System.out.println(matches);
+			System.out.println(shells);
+			System.out.println(bucket);
+			idx ++;
+		}
+		int fun =1/0;
+		return null;
+
+	}
+
+	public ArrayList<Segment> getKnownPairs(ArrayList<PointDistanceWrapper<Segment>> segments){
+		ArrayList<Segment> result = new ArrayList<Segment>();
+		ArrayList<PointND> inserted = new ArrayList<PointND>();
+		for (int i = 0; i < segments.size(); i++) {
+			Segment s = segments.get(i).s;
+			if(!inserted.contains(s.first) && !inserted.contains(s.last)) {
+				inserted.add(s.first);
+				inserted.add(s.last);
+				result.add(s);
+			}
+		}
+		return result;
+	}
+	
+	/**
 	 * Does the 2d gift-wrapping/javis march algorithm to find the convex hull of a
 	 * set of points and add those points
 	 * 
@@ -412,6 +477,7 @@ public class PointSet extends ArrayList<PointND> {
 			PointND pointToAdd = null;
 			int loc = -1;
 			boolean remove = false;
+			boolean swap = false;
 			
 			for (PointND p : allPoints) {
 				if(!shell.contains(p)) {
@@ -438,12 +504,69 @@ public class PointSet extends ArrayList<PointND> {
 					}
 					shell.add(i, removed);
 			}
+			/*for (PointND p : allPoints) {
+				if(!shell.contains(p)) {
+					for(int i = 0; i < shell.size(); i++) {
+						PointND removed = shell.remove(i);
+						shell.add(i, p);
+						double newV = shell.getVarienceOfSphere(allPoints, d);
+						if(newV < minV) {
+							pointToAdd = p;
+							swap = true;
+							minV = newV;
+							loc = i;
+						}
+						shell.remove(i);
+						shell.add(i, removed);
+					}
+				}
+			}*/
 			if(pointToAdd != null) {
+				if(swap) {
+					shell.remove(loc);
+					shell.add(loc, pointToAdd);
+				}
 				if(remove) {
 					shell.remove(loc);
 				}
 				else {
 					shell.add(loc, pointToAdd);
+				}
+				varience = minV;
+			}
+			else {
+				break;
+			}
+		}
+		return shell;
+	}
+	
+	public Shell removeNonMinimal(Shell shell, PointSet allPoints, DistanceMatrix d) {
+
+		double varience = shell.getVarienceOfSphere(allPoints, d);
+		boolean  breakFlag = false;
+		while (!breakFlag) {
+
+			double minV = varience;
+			PointND pointToAdd = null;
+			int loc = -1;
+			boolean remove = false;
+			boolean swap = false;
+			
+			for(int i = 0; i < shell.size(); i++) {
+					PointND removed = shell.remove(i);
+					double newV = shell.getVarienceOfSphere(allPoints, d);
+					if(newV < minV) {
+						pointToAdd = removed;
+						remove = true;
+						minV = newV;
+						loc = i;
+					}
+					shell.add(i, removed);
+			}
+			if(pointToAdd != null) {
+				if(remove) {
+					shell.remove(loc);
 				}
 				varience = minV;
 			}

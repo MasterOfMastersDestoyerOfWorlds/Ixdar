@@ -1,1 +1,0 @@
-../qvoronoi/qvoronoi.c
