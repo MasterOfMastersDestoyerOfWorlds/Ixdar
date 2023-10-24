@@ -122,6 +122,7 @@ public class Main extends JComponent{
 	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
 
 	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, false, true);
+			orgShell.drawShell(this, g2, false,Color.BLUE, retTup.ps);
 	        System.out.println("===============================================");
 		}catch(Exception e) {
 			e.printStackTrace();

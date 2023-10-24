@@ -41,6 +41,16 @@ public class Shell extends LinkedList<PointND> {
 		}
 	}
 
+	public Shell(PointND... points) {
+		this.updateOrder();
+		if (!this.isMaximal()) {
+			parent.updateOrder();
+		}
+		for(int i = 0; i < points.length; i ++) {
+			this.add(points[i]);
+		}
+	}
+
 	/**
 	 * Initializes a new shell with
 	 * 
@@ -74,6 +84,21 @@ public class Shell extends LinkedList<PointND> {
 			}
 		}
 		length += last.distance(first);
+		return length;
+
+	}
+	public double getLengthEndpoints() {
+		PointND first = null, last = null;
+		double length = 0.0;
+		for (PointND p : this) {
+			if (first == null) {
+				last = p;
+				first = p;
+			} else {
+				length += last.distance(p);
+				last = p;
+			}
+		}
 		return length;
 
 	}
@@ -1149,5 +1174,19 @@ public class Shell extends LinkedList<PointND> {
 			return this.getLast();
 		}
 	}
+
+    public boolean isEndpoint(PointND p) {
+        return p.equals(this.getLast()) || p.equals(this.getFirst());
+    }
+
+	public boolean containsID(int id) {
+		for (PointND pointND : this) {
+			if(pointND.getID() == id){
+				return true;
+			}
+		}
+		return false;
+	}
+
 
 }

@@ -149,7 +149,7 @@ public abstract class PointND implements Cloneable {
 			}
 			sb.append(fs[fs.length - 1]);
 			sb.append("]");
-			return sb.toString();
+			return this.getID() + " ";
 		}
 
 		/*
@@ -312,7 +312,7 @@ public abstract class PointND implements Cloneable {
 			}
 			sb.append(ds[ds.length - 1]);
 			sb.append("]");
-			return sb.toString();
+			return this.getID() + "";
 		}
 
 		/*
