@@ -2,23 +2,33 @@ Objects:
 
 abstract class VirtualPoint{
     int numMatches;
-    VirtualPoint match1;
-    VirtualPoint match2;
+    Segment match1;
+    Segment match2;
     int id;
     boolean isKnot;
     Knot group;
+    Segment getPointer(int idx);
 }
 
 class Segment{
     VirtualPoint p1;
     VirtualPoint p2;
     double distance;
-    getOther(VirtualPoint p){
+    VirtualPoint getOther(VirtualPoint p){
         if(p.equals(p1)){
             return p2;
         }
         if(p.equals(p2)){
             return p1;
+        }
+        return null;
+    }
+    VirtualPoint getKnotPoint(ArrayList<VirtualPoint> knotPointsFlattened){
+        if(knotPointsFlattened.contains(p1)){
+            return p1;
+        }
+        if(knotPointsFlattened.contains(p2)){
+            return p2;
         }
         return null;
     }
@@ -33,7 +43,7 @@ class Point implements VirtualPoint {
         pointMap.add(id, this);
         unvisited.add(this);
     }
-    VirtualPoint getPointer(int idx){
+    Segment getPointer(int idx){
         ArrayList<VirtualPoint> seenGroups = new ArrayList<VirtualPoint>();
         for(int i = 0; i < sortedSegments.size(); i++){
             Segment s = sortedSegments.get(i);
@@ -45,7 +55,7 @@ class Point implements VirtualPoint {
             if(vp.numMatches != 2 && !seenGroups.contains(vp)){
                 idx--;
                 if(idx == 0){
-                    return new basePoint;
+                    return s;
                 }
                 seenGroups.add(vp);
             }
@@ -59,16 +69,79 @@ class Knot implements VirtualPoint = struct{
     VirtualPoint match1endpoint;
     VirtualPoint match2endpoint;
     ArrayList<VirtualPoint> knotPoints; //[ vp1, vp2, ... vpm];
-    ArrayList<Segment> internalKnotSegments; //[s1,s2,...,sm]
-    ArrayList<ArrayList<Segment>> externalKnotSegments; //[[s1, ..., sn-1], [s1, ..., sn-1], ... m]; sorted and remove vp1, vp2, ... vpm
+    ArrayList<VirtualPoint> knotPointsFlattened;
+    Set<Segment> internalKnotSegments; //[s1,s2,...,sm]
+    ArrayList<Segment> externalKnotSegments; //[[s1, ..., sn-1], [s1, ..., sn-1], ... m]; sorted and remove vp1, vp2, ... vpm
     public Knot(ArrayList<VirtualPoint> knotPoints){
         this.knotPoints = knotPoints;
         size = knotPoints.size();
+        knotPointsFlattened = new ArrayList<VirtualPoint>();
+        for(VirtualPoint vp: knotPoints){
+            if(vp.isKnot){
+                knotPointsFlattened.addAll(((Knot)vp).knotPointsFlattened);
+            }else{
+                knotPointsFlattened.add(vp);
+            }
+        }
         int numPoints = pointMap.size();
+
+        //get the segments that form the knot
+        boolean odd = true;
+        internalKnotSegments = new Set<Segment>();
+        for(VirtualPoint vp : knotPoints){
+            if(odd){
+                internalKnotSegments.add(vp.match1);
+            }else{
+                internalKnotSegments.add(vp.match2);
+            }
+            odd = !odd;
+        }
+
+        //store the segment lists of each point contained in the knot, recursive
+        externalKnotSegments = new ArrayList<Segment>();
+        for(VirtualPoint vp : knotPoints){
+            if(vp.isKnot){
+                ArrayList<Segment> segments = new ArrayList<Segment>()
+                ArrayList<Segment> vpExternal = ((Knot)vp).externalKnotSegments;
+                for(Segment s : vpExternal){
+                    if(!(knotPointsFlattened.contains(s.first) && knotPointsFlattened.contains(last))){
+                        externalKnotSegments.add(s);
+                    }
+                }
+            }else{
+                if(!(knotPointsFlattened.contains(s.first) && knotPointsFlattened.contains(last))){
+                    externalKnotSegments.add(s);
+                }
+            }
+            vp.group = this;
+        }
+        externalKnotSegments.qsort();
+
         this.id = numPoints;
         pointMap.add(id, this);
         unvisited.add(this);
     }
+    Segment getPointer(int idx){
+        ArrayList<VirtualPoint> seenGroups = new ArrayList<VirtualPoint>();
+        for(int i = 0; i < externalKnotSegments.size(); i++){
+            Segment s = externalKnotSegments.get(i);
+            VirtualPoint knotPoint = s.getKnotPoint(knotPointsFlattened);
+            VirtualPoint basePoint = s.getOther(knotPoint);
+            VirtualPoint vp = basePoint;
+            if(vp.group != null){
+                vp = vp.group;
+            }
+            if(vp.numMatches != 2 && !seenGroups.contains(vp)){
+                idx--;
+                if(idx == 0){
+                    return s;
+                }
+                seenGroups.add(vp);
+                seenGroups.add(knotPoint);
+            }
+        }
+    }
+
 }
 
 
@@ -97,14 +170,22 @@ TSPSolve(Double[][] distanceMatrix){
         }
         p1.sortedSegments.qsort();
     }
-
+    Knot k;
     while(unvisited.size() > 1){
         VirtualPoint p = unvisited.get(0);
-        createKnots(p, p);
+        Pair<Knot, List<VirtualPoint>> pair = createKnots(p, p, p);
+        k = pair.first;
     }
+    //move on to the cutting phase
+    for(VirtualPoint vp : k.internalKnotSegments){
+        if(vp.isKnot){
+            ((Knot)vp).cut();
+        }
+    }
+
 }
 
-Knot createKnots(VirtualPoint startPoint, VirtualPoint loopPoint){
+Pair<Knot, List<VirtualPoint>> createKnots(VirtualPoint startPoint, VirtualPoint loopPoint, VirtualPoint checkPoint){
     ArrayList<VirtualPoint> runList = new ArrayList();
     runList.add(startPoint);
     System.out.println("startPoint: " + startPoint.id);
@@ -133,24 +214,43 @@ Knot createKnots(VirtualPoint startPoint, VirtualPoint loopPoint){
             mainPoint.numMatches++;
             matchPoint.numMatches++;
             runList.add(matchPoint);
+            boolean mainIsFull= false;
+            boolean matchIsFull= false;
             if(mainPoint.numMatches == 2){
                 unvisited.remove(mainPoint);
                 visited.add(mainPoint);
+                mainIsFull = true;
             }
             if(matchPoint.numMatches == 2){
-                if(matchPoint.equals(loopPoint)){
-
+                unvisited.remove(mainPoint);
+                visited.add(mainPoint);
+                matchIsFull = true;
+                if(matchPoint.equals(loopPoint) && mainIsFull){
+                    //Knot Found
+                    Knot k = new Knot(runList);
+                    unvisited.add(k);
+                    return new Pair<Knot, List<VirtualPoint>>(k, null);
                 }
-                //Knot Found or We need to append the runlist
             }
-            else{
-                mainPoint  = matchPoint;
+            if(loopPoint.numMatches == 2){
+                VirtualPoint checkPointer = startPoint.getPointer(2);
+                if(checkPoint.equals(checkPointer)){
+                    return new Pair<Knot, List<VirtualPoint>>(null, runList);
+                }
+                loopPoint = checkPointer;
+                //We need to append the runlist or continue with a new loopPoint
             }
+            mainPoint = matchPoint;
         } else{
-
             //possible dead end, recurse
+            Pair<Knot, List<VirtualPoint>> pair = createKnots(pointer1, pointer12, mainPoint);
+            if(pair.second != null){
+                runList.append(pair.second);
+                mainPoint = runList.get(runList.size()-1);
+            }
         }
     }
+    return new Pair<Knot, List<VirtualPoint>>(null, runList);
 }
 
 
