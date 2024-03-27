@@ -7,7 +7,7 @@ abstract class VirtualPoint{
     int id;
     boolean isKnot;
     Knot group;
-    Segment getPointer(int idx);
+    VirtualPoint getPointer(int idx);
 }
 
 class Segment{
@@ -43,7 +43,7 @@ class Point implements VirtualPoint {
         pointMap.add(id, this);
         unvisited.add(this);
     }
-    Segment getPointer(int idx){
+    VirtualPoint getPointer(int idx){
         ArrayList<VirtualPoint> seenGroups = new ArrayList<VirtualPoint>();
         for(int i = 0; i < sortedSegments.size(); i++){
             Segment s = sortedSegments.get(i);
@@ -55,7 +55,7 @@ class Point implements VirtualPoint {
             if(vp.numMatches != 2 && !seenGroups.contains(vp)){
                 idx--;
                 if(idx == 0){
-                    return s;
+                    return vp;
                 }
                 seenGroups.add(vp);
             }
@@ -90,9 +90,9 @@ class Knot implements VirtualPoint = struct{
         internalKnotSegments = new Set<Segment>();
         for(VirtualPoint vp : knotPoints){
             if(odd){
-                internalKnotSegments.add(vp.match1);
+                internalKnotSegments.add(new Segment(vp, vp.match1));
             }else{
-                internalKnotSegments.add(vp.match2);
+                internalKnotSegments.add(new Segment(vp, vp.match2));
             }
             odd = !odd;
         }
@@ -121,7 +121,7 @@ class Knot implements VirtualPoint = struct{
         pointMap.add(id, this);
         unvisited.add(this);
     }
-    Segment getPointer(int idx){
+    VirtualPoint getPointer(int idx){
         ArrayList<VirtualPoint> seenGroups = new ArrayList<VirtualPoint>();
         for(int i = 0; i < externalKnotSegments.size(); i++){
             Segment s = externalKnotSegments.get(i);
@@ -134,7 +134,7 @@ class Knot implements VirtualPoint = struct{
             if(vp.numMatches != 2 && !seenGroups.contains(vp)){
                 idx--;
                 if(idx == 0){
-                    return s;
+                    return vp;
                 }
                 seenGroups.add(vp);
                 seenGroups.add(knotPoint);
@@ -199,10 +199,10 @@ Pair<Knot, List<VirtualPoint>> createKnots(VirtualPoint startPoint, VirtualPoint
         VirtualPoint pointer21 = pointer2.getPointer(1);
         VirtualPoint pointer22 = pointer2.getPointer(2);  
         VirtualPoint matchPoint;
-        if(mainPoint.equals(pointer11) || mainPoint.equals(pointer12)){
+        if((mainPoint.equals(pointer11) || mainPoint.equals(pointer12)) && (mainPoint.numMatches == 0 || !mainPoint.match1.equals(pointer1))){
             matchPoint = pointer1;
         }
-        else if(mainPoint.equals(pointer21) || mainPoint.equals(pointer22)){
+        else if((mainPoint.equals(pointer21) || mainPoint.equals(pointer22)) && (mainPoint.numMatches == 0 || !mainPoint.match1.equals(pointer2))){
             matchPoint = pointer2;
         }
         if(matchPoint !=null){
@@ -210,6 +210,11 @@ Pair<Knot, List<VirtualPoint>> createKnots(VirtualPoint startPoint, VirtualPoint
                 mainPoint.match1 = matchPoint;
             }else{
                 mainPoint.match2 = matchPoint;
+            }
+            if(matchPoint.numMatches == 0){
+                matchPoint.match1 = mainPoint;
+            }else{
+                matchPoint.match2 = mainPoint;
             }
             mainPoint.numMatches++;
             matchPoint.numMatches++;
@@ -243,7 +248,47 @@ Pair<Knot, List<VirtualPoint>> createKnots(VirtualPoint startPoint, VirtualPoint
             mainPoint = matchPoint;
         } else{
             //possible dead end, recurse
-            Pair<Knot, List<VirtualPoint>> pair = createKnots(pointer1, pointer12, mainPoint);
+            Pair<Knot, List<VirtualPoint>> pair;
+            if(mainPoint.numMatches == 1){
+                if(!mainPoint.match1.equals(pointer1)){
+                    if(pointer1.numMatches == 1){
+                        if(!pointer1.match1.equals(pointer11)){
+                            createKnots(pointer1, pointer11, mainPoint);
+                        }
+                        else{
+                            createKnots(pointer1, pointer12, mainPoint);
+                        }
+                    }else{
+                        createKnots(pointer1, pointer12, mainPoint);
+                    }
+                }
+                else if(!mainPoint.match1.equals(pointer2)){
+                    if(pointer2.numMatches == 1){
+                        if(!pointer2.match1.equals(pointer21)){
+                            createKnots(pointer2, pointer21, mainPoint);
+                        }
+                        else{
+                            createKnots(pointer2, pointer22, mainPoint);
+                        }
+                    }else{
+                        createKnots(pointer2, pointer22, mainPoint);
+                    }
+                }
+            }
+            else{
+                if(pointer1.numMatches == 1){
+                    if(!pointer1.match1.equals(pointer11)){
+                        createKnots(pointer1, pointer11, mainPoint);
+                    }
+                    else{
+                        createKnots(pointer1, pointer12, mainPoint);
+                    }
+                }else{
+                    createKnots(pointer1, pointer12, mainPoint);
+                }
+            }
+
+
             if(pair.second != null){
                 runList.append(pair.second);
                 mainPoint = runList.get(runList.size()-1);
