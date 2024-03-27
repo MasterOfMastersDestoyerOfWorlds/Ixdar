@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="src" path="Extensions"/>
-	<classpathentry kind="src" output="target/test-classes" path="src/test">
+	<classpathentry including="**/*.java" kind="src" output="target/test-classes" path="src/test">
 		<attributes>
 			<attribute name="test" value="true"/>
 		</attributes>

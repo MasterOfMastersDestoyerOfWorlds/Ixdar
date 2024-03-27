@@ -438,19 +438,22 @@ public class PointSet extends ArrayList<PointND> {
 		int idx = 0;
 		int last = 0;
 
+		int maxIdx = 6;
+
 		while (getShellsWithKeys(shells, locs).size() > 3) {
 			System.out.println(
-					"========================================NEXT ROUND ========================================="
+					"========================================NEXT ROUND: " + idx
+							+ " ========================================="
 							+ bucket.size());
 			if (bucket.deepsize() == last) {
 				System.out.println("im gonna cum:");
 				System.out.println(bucket);
 				System.out.println();
 			}
-			if(idx >= 6){
+			if (idx >= maxIdx) {
 				printShellsWithKeys(shells, locs);
 			}
-			assert(idx < 6);
+			assert (idx < maxIdx);
 			assert (bucket.size() != last);
 			// Find Knots
 			ArrayList<PointND> knotPoints = new ArrayList<PointND>();
@@ -645,320 +648,483 @@ public class PointSet extends ArrayList<PointND> {
 					}
 				}
 			}
-				// unravel 2knots
-				System.out.println("2-Knot List: " + twoKnotList);
-				for (Segment knot : twoKnotList) {
-					System.out.println("---------------------------------------------Unravel: " + knot);
-					ArrayList<PointND> endpoints = new ArrayList<PointND>();
-					endpoints.add(knot.first);
-					endpoints.add(knot.last);
-					int n = 4;
-					ArrayList<Segment> prospectiveMatches = bucket.getProspectiveMatches(shells);
-					ArrayList<Segment> bucket1 = bucket.getNBucketExcludeList(knot.first, bucket.get(knot.first),
-							endpoints,
-							n);
-					ArrayList<Group> group1 = bucket.getNGroupsExcludeList(knot.first, bucket.get(knot.first),
-							endpoints, matches,
-							2);
+			// unravel 2knots
+			System.out.println("2-Knot List: " + twoKnotList);
+			for (Segment knot : twoKnotList) {
+				System.out.println("---------------------------------------------Unravel: " + knot);
+				ArrayList<PointND> endpoints = new ArrayList<PointND>();
+				endpoints.add(knot.first);
+				endpoints.add(knot.last);
+				int n = 4;
+				ArrayList<Segment> bucket1 = bucket.getNBucketExcludeList(knot.first, bucket.get(knot.first),
+						endpoints,
+						n);
+				ArrayList<Group> group1 = bucket.getNGroupsExcludeList(knot.first, bucket.get(knot.first),
+						endpoints, matches,
+						2);
 
-					group1 = bucket.checkPointsToKnotFilter(group1, endpoints);
+				group1 = bucket.checkPointsToKnotFilter(group1, endpoints);
 
-					ArrayList<Segment> bucket2 = bucket.getNBucketExcludeList(knot.last, bucket.get(knot.last),
-							endpoints,
-							n);
-					ArrayList<Group> group2 = bucket.getNGroupsExcludeList(knot.last, bucket.get(knot.last), endpoints,
-							matches,
-							2);
-							
-					group2 = bucket.checkPointsToKnotFilter(group2, endpoints);
-					ArrayList<PointND> prospects = new ArrayList<PointND>(Group.flattenToPoints(group1));
-					prospects.addAll(Group.flattenToPoints(group2));
-					ArrayList<Group> groups = new ArrayList<>(group1);
-					for (Group g : group2) {
-						if (!groups.contains(g)) {
-							groups.add(g);
-						}
+				ArrayList<PointND> prospects = new ArrayList<PointND>(Group.flattenToPoints(group1));
+				ArrayList<PointND> exclude = new ArrayList<PointND>(endpoints);
+
+				exclude.addAll(prospects);
+
+				ArrayList<Segment> prospectiveMatches = bucket.getProspectiveMatches(shells, exclude);
+				System.out.println("ProspectiveMatches: " + prospectiveMatches);
+				ArrayList<Segment> bucket2 = bucket.getNBucketExcludeList(knot.last, bucket.get(knot.last),
+						exclude,
+						n);
+				ArrayList<Group> group2 = bucket.getNGroupsExcludeList(knot.last, bucket.get(knot.last), exclude,
+						prospectiveMatches,
+						2);
+
+				group2 = bucket.checkPointsToKnotFilter(group2, endpoints);
+				prospects.addAll(Group.flattenToPoints(group2));
+				ArrayList<Group> groups = new ArrayList<>(group1);
+				for (Group g : group2) {
+					if (!groups.contains(g)) {
+						groups.add(g);
 					}
-
-					/*
-					 * 1. figure out what your three points are outside the knot hereafter refered
-					 * to a, b and c
-					 */
-					prospects.remove(knot.first);
-					prospects.remove(knot.last);
-					System.out.println("prospects: " + prospects);
-					System.out.println("Knot: " + knot.first + " first in list " + bucket1 + " Groups: " + group1);
-					System.out.println("Knot: " + knot.last + " first in list " + bucket2 + " Groups: " + group2);
-					if (groups.size() <= 2) {
-						System.out.println("----------------Go ahead and unravel! 2-Knot: " + knot);
-						/*
-						 * 2. find if the two points are grouped together the two grouped points wolg [a
-						 * b] should want to match together but
-						 * can't
-						 */
-
-						/*
-						 * 3. find the connection in their group that matches somewhere else (exclude
-						 * all points in 3knot and in group)
-						 * (you also may need to exclude the "point in common" g* if the match leads to
-						 * a 2 knot)
-						 * check that its match has a match otherwise quit for now
-						 * 
-						 */
-						ArrayList<PointND> excludeList = new ArrayList<PointND>();
-						for (PointND p : prospects) {
-							if (!excludeList.contains(p)) {
-								excludeList.add(p);
-							}
-						}
-						if(groups.size() <= 1){
-							continue;
-						}
-						if(groups.get(0).match == null || groups.get(1).match == null){
-							continue;
-						}
-						excludeList.add(knot.first);
-						excludeList.add(knot.last);
-						PointND g1 = groups.get(0).outside1;
-						PointND g2 = groups.get(0).outside2;
-						Segment s1 = bucket.getNotInList(g1, bucket.get(g1), excludeList);
-						Segment s2 = bucket.getNotInList(g2, bucket.get(g2), excludeList);
-						PointND g3 = groups.get(1).outside1;
-						PointND g4 = groups.get(1).outside2;
-						Segment s3 = bucket.getNotInList(g3, bucket.get(g3), excludeList);
-						Segment s4 = bucket.getNotInList(g4, bucket.get(g4), excludeList);
-
-						// now check that either has a match and assign the endpoints
-
-						PointND endpoint1;
-						PointND endpoint2;
-						ArrayList<Segment> mergeList = new ArrayList<Segment>();
-
-
-						System.out.println("g1: "+ g1 +" S1: " + s1 + " " + excludeList);
-						System.out.println("g2: "+ g2 +" S2: " + s2 + " " + excludeList);
-						System.out.println("g3: "+ g3 +" S3: " + s3 + " " + excludeList);
-						System.out.println("g4: "+ g4 +" S4: " + s4 + " " + excludeList);
-						if (bucket.checkMatch(g1, s1, excludeList)) {
-							System.out.println("non-endpoint: " + g1);
-							// mergeList.add(s1);
-							endpoint1 = groups.get(0).match2;
-						} else if (bucket.checkMatch(g2, s2, excludeList)) {
-							System.out.println("non-endpoint: " + g2);
-							// mergeList.add(s2);
-							endpoint1 = groups.get(0).match1;
-						} else {
-							System.out.println("No Match found on outside, indeterminate :(");
-							continue;
-						}
-
-						if (bucket.checkMatch(g3, s3, excludeList)) {
-							System.out.println("non-endpoint: " + g3);
-							// mergeList.add(s3);
-							endpoint2 = groups.get(1).match2;
-						} else if (bucket.checkMatch(g4, s4, excludeList)) {
-							System.out.println("non-endpoint: " + g4);
-							// mergeList.add(s4);
-							endpoint2 = groups.get(1).match1;
-						} else {
-							System.out.println("No Match found on outside, indeterminate :(");
-							continue;
-						}
-						/*
-						 * 4. lets say b had the outside connection, and is matching store its match
-						 * points a and c are now the endpoints of the 3knot
-						 * 5. check all permutations with a and c as endpoints (3 possibilities)
-						 */
-						System.out.println("ep1: " + endpoint1 + " ep2: " + endpoint2);
-						mergeList.addAll(knot.permute(endpoint1, endpoint2));
-						System.out.println("mergeList: " + mergeList);
-						for (Segment segment : mergeList) {
-							mergeMatch(bucket, shells, locs, singletons, matches, segment);
-						}
-
-					}
-
-					/*
-					 * System.out.println("Unravel: " + s);
-					 * Segment fbucket = bucket.getNotInList(s.first, bucket.get(s.first),
-					 * knotPoints);
-					 * PointND fOpp = fbucket.getOtherPoint(s.first);
-					 * System.out.println("Knot: " + s + " first in list " + fbucket);
-					 * ArrayList<PointND> endpoints = new ArrayList<PointND>();
-					 * endpoints.add(s.first);
-					 * endpoints.add(s.last);
-					 * 
-					 * boolean knotmatch = bucket.checkMatch(s.first, fbucket);
-					 * System.out.println(knotmatch);
-					 * if (knotmatch) {
-					 * ArrayList<PointND> knotEndpoints = new ArrayList<PointND>();
-					 * knotEndpoints.add(s.first);
-					 * knotEndpoints.add(s.last);
-					 * Pair<PointND, ArrayList<Segment>> pair1 =
-					 * bucket.checkMatchExcludeEndpoints(fOpp, knotEndpoints,
-					 * singletons);
-					 * 
-					 * PointND p1 = pair1.getFirst();
-					 * if (p1 != null) {
-					 * System.out.println("KNOT MATCH!!!!!" + fbucket);
-					 * mergeMatch(bucket, shells, locs, singletons, matches, fbucket);
-					 * continue;
-					 * }
-					 * }
-					 * 
-					 * Segment lbucket = bucket.getNotInList(s.last, bucket.get(s.last),
-					 * knotPoints);
-					 * PointND lOpp = lbucket.getOtherPoint(s.last);
-					 * System.out.println("Knot: " + s + " second in list " + lbucket);
-					 * 
-					 * knotmatch = bucket.checkMatch(s.last, lbucket);
-					 * 
-					 * if (knotmatch) {
-					 * ArrayList<PointND> knotEndpoints = new ArrayList<PointND>();
-					 * knotEndpoints.add(s.first);
-					 * knotEndpoints.add(s.last);
-					 * Pair<PointND, ArrayList<Segment>> pair1 =
-					 * bucket.checkMatchExcludeEndpoints(fOpp, knotEndpoints,
-					 * singletons);
-					 * 
-					 * PointND p1 = pair1.getFirst();
-					 * if (p1 != null) {
-					 * System.out.println("KNOT MATCH!!!!!" + lbucket);
-					 * mergeMatch(bucket, shells, locs, singletons, matches, lbucket);
-					 * }
-					 * }
-					 * System.out.println(knotmatch);
-					 */
 				}
 
-				// unravel 3-knots
-				System.out.println("3-Knot List: " + threeKnotList);
+				/*
+				 * 1. figure out what your three points are outside the knot hereafter refered
+				 * to a, b and c
+				 */
+				prospects.remove(knot.first);
+				prospects.remove(knot.last);
+				System.out.println("prospects: " + prospects);
+				System.out.println("Knot: " + knot.first + " first in list " + bucket1 + " Groups: " + group1);
+				System.out.println("Knot: " + knot.last + " first in list " + bucket2 + " Groups: " + group2);
+				if (groups.size() <= 2) {
+					/*
+					 * 2. find if the two points are grouped together the two grouped points wolg [a
+					 * b] should want to match together but
+					 * can't
+					 */
 
-				for (ThreeKnot knot : threeKnotList) {
-					System.out.println("Unravel: " + knot);
-					ArrayList<PointND> endpoints = new ArrayList<PointND>();
-					endpoints.add(knot.p1);
-					endpoints.add(knot.p2);
-					endpoints.add(knot.p3);
-					ArrayList<Segment> bucket1 = bucket.getNBucketExcludeList(knot.p1, bucket.get(knot.p1), endpoints,
-							3);
-					ArrayList<Segment> bucket2 = bucket.getNBucketExcludeList(knot.p2, bucket.get(knot.p2), endpoints,
-							3);
-					ArrayList<Segment> bucket3 = bucket.getNBucketExcludeList(knot.p3, bucket.get(knot.p3), endpoints,
-							3);
-					ArrayList<PointND> prospects = new ArrayList<PointND>();
-					for (int i = 0; i < 3; i++) {
-						PointND p1 = bucket1.get(i).getOtherPoint(knot.p1);
-						if (!prospects.contains(p1)) {
-							prospects.add(p1);
+					/*
+					 * 3. find the connection in their group that matches somewhere else (exclude
+					 * all points in 3knot and in group)
+					 * (you also may need to exclude the "point in common" g* if the match leads to
+					 * a 2 knot)
+					 * check that its match has a match otherwise quit for now
+					 * 
+					 */
+					ArrayList<PointND> excludeList = new ArrayList<PointND>();
+					for (PointND p : prospects) {
+						if (!excludeList.contains(p)) {
+							excludeList.add(p);
 						}
-						PointND p2 = bucket2.get(i).getOtherPoint(knot.p2);
-						if (!prospects.contains(p2)) {
-							prospects.add(p2);
-						}
-						PointND p3 = bucket3.get(i).getOtherPoint(knot.p3);
-						if (!prospects.contains(p3)) {
-							prospects.add(p3);
-						}
+					}
+					if (groups.size() <= 1) {
+						continue;
+					}
+					if (groups.get(0).match == null || groups.get(1).match == null) {
+						continue;
+					}
+					System.out.println("----------------Go ahead and unravel! 2-Knot: " + knot);
+					excludeList.add(knot.first);
+					excludeList.add(knot.last);
+					PointND g1 = groups.get(0).outside1;
+					PointND g2 = groups.get(0).outside2;
+					Segment s1 = bucket.getNotInList(g1, bucket.get(g1), excludeList);
+					Segment s2 = bucket.getNotInList(g2, bucket.get(g2), excludeList);
+					PointND g3 = groups.get(1).outside1;
+					PointND g4 = groups.get(1).outside2;
+					Segment s3 = bucket.getNotInList(g3, bucket.get(g3), excludeList);
+					Segment s4 = bucket.getNotInList(g4, bucket.get(g4), excludeList);
+
+					// now check that either has a match and assign the endpoints
+
+					PointND endpoint1;
+					PointND endpoint2;
+					ArrayList<Segment> mergeList = new ArrayList<Segment>();
+
+					System.out.println("g1: " + g1 + " S1: " + s1 + " " + excludeList);
+					System.out.println("g2: " + g2 + " S2: " + s2 + " " + excludeList);
+					System.out.println("g3: " + g3 + " S3: " + s3 + " " + excludeList);
+					System.out.println("g4: " + g4 + " S4: " + s4 + " " + excludeList);
+					if (bucket.checkMatch(g1, s1, excludeList)) {
+						System.out.println("non-endpoint: " + g1);
+						// mergeList.add(s1);
+						endpoint1 = g2;
+					} else if (bucket.checkMatch(g2, s2, excludeList)) {
+						System.out.println("non-endpoint: " + g2);
+						// mergeList.add(s2);
+						endpoint1 = g1;
+					} else {
+						System.out.println("No Match found on outside, indeterminate :(");
+						continue;
+					}
+
+					if (bucket.checkMatch(g3, s3, excludeList)) {
+						System.out.println("non-endpoint: " + g3);
+						// mergeList.add(s3);
+						endpoint2 = g4;
+					} else if (bucket.checkMatch(g4, s4, excludeList)) {
+						System.out.println("non-endpoint: " + g4);
+						// mergeList.add(s4);
+						endpoint2 = g3;
+					} else {
+						System.out.println("No Match found on outside, indeterminate :(");
+						continue;
 					}
 					/*
-					 * 1. figure out what your three points are outside the knot hereafter refered
-					 * to a, b and c
+					 * 4. lets say b had the outside connection, and is matching store its match
+					 * points a and c are now the endpoints of the 3knot
+					 * 5. check all permutations with a and c as endpoints (3 possibilities)
 					 */
-					prospects.remove(knot.p1);
-					prospects.remove(knot.p2);
-					prospects.remove(knot.p3);
-					System.out.println("prospects: " + prospects);
-					System.out.println("Knot: " + knot.p1 + " first in list " + bucket1);
-					System.out.println("Knot: " + knot.p2 + " first in list " + bucket2);
-					System.out.println("Knot: " + knot.p3 + " first in list " + bucket3);
-					//now that we have the potential matches check that they want to match with the knot
+					System.out.println("ep1: " + endpoint1 + " ep2: " + endpoint2);
+					mergeList.addAll(knot.permute(endpoint1, endpoint2));
+					System.out.println("mergeList: " + mergeList);
+					for (Segment segment : mergeList) {
+						mergeMatch(bucket, shells, locs, singletons, matches, segment);
+					}
 
-					
+				}
 
-					if (prospects.size() <= 4) {
-						System.out.println("----------------Go ahead and unravel! 3-Knot" + knot);
-						/*
-						 * 2. find the two grouped points wolg [a b] should want to match together but
-						 * can't
-						 */
-						Segment groupsSegment = new Segment(prospects.get(0), prospects.get(1));
-						PointND singleton = prospects.get(2);
+				/*
+				 * System.out.println("Unravel: " + s);
+				 * Segment fbucket = bucket.getNotInList(s.first, bucket.get(s.first),
+				 * knotPoints);
+				 * PointND fOpp = fbucket.getOtherPoint(s.first);
+				 * System.out.println("Knot: " + s + " first in list " + fbucket);
+				 * ArrayList<PointND> endpoints = new ArrayList<PointND>();
+				 * endpoints.add(s.first);
+				 * endpoints.add(s.last);
+				 * 
+				 * boolean knotmatch = bucket.checkMatch(s.first, fbucket);
+				 * System.out.println(knotmatch);
+				 * if (knotmatch) {
+				 * ArrayList<PointND> knotEndpoints = new ArrayList<PointND>();
+				 * knotEndpoints.add(s.first);
+				 * knotEndpoints.add(s.last);
+				 * Pair<PointND, ArrayList<Segment>> pair1 =
+				 * bucket.checkMatchExcludeEndpoints(fOpp, knotEndpoints,
+				 * singletons);
+				 * 
+				 * PointND p1 = pair1.getFirst();
+				 * if (p1 != null) {
+				 * System.out.println("KNOT MATCH!!!!!" + fbucket);
+				 * mergeMatch(bucket, shells, locs, singletons, matches, fbucket);
+				 * continue;
+				 * }
+				 * }
+				 * 
+				 * Segment lbucket = bucket.getNotInList(s.last, bucket.get(s.last),
+				 * knotPoints);
+				 * PointND lOpp = lbucket.getOtherPoint(s.last);
+				 * System.out.println("Knot: " + s + " second in list " + lbucket);
+				 * 
+				 * knotmatch = bucket.checkMatch(s.last, lbucket);
+				 * 
+				 * if (knotmatch) {
+				 * ArrayList<PointND> knotEndpoints = new ArrayList<PointND>();
+				 * knotEndpoints.add(s.first);
+				 * knotEndpoints.add(s.last);
+				 * Pair<PointND, ArrayList<Segment>> pair1 =
+				 * bucket.checkMatchExcludeEndpoints(fOpp, knotEndpoints,
+				 * singletons);
+				 * 
+				 * PointND p1 = pair1.getFirst();
+				 * if (p1 != null) {
+				 * System.out.println("KNOT MATCH!!!!!" + lbucket);
+				 * mergeMatch(bucket, shells, locs, singletons, matches, lbucket);
+				 * }
+				 * }
+				 * System.out.println(knotmatch);
+				 */
+			}
+
+			// unravel 3-knots
+			System.out.println("3-Knot List: " + threeKnotList);
+
+			for (ThreeKnot knot : threeKnotList) {
+				System.out.println("Unravel: " + knot);
+				ArrayList<PointND> endpoints = new ArrayList<PointND>();
+				endpoints.add(knot.p1);
+				endpoints.add(knot.p2);
+				endpoints.add(knot.p3);
+
+				ArrayList<PointND> prospects = new ArrayList<PointND>();
+				ArrayList<Segment> bucket1 = bucket.getNBucketExcludeList(knot.p1, bucket.get(knot.p1), endpoints,
+						4);
+				ArrayList<PointND> points1 = new ArrayList<PointND>();
+				for (int i = 0; i < 4; i++) {
+					points1.add(bucket1.get(i).getOtherPoint(knot.p1));
+				}
+
+				ArrayList<Segment> bucket2 = bucket.getNBucketExcludeList(knot.p2, bucket.get(knot.p2), endpoints,
+						4);
+				ArrayList<PointND> points2 = new ArrayList<PointND>();
+				for (int i = 0; i < 4; i++) {
+					PointND p2 = bucket2.get(i).getOtherPoint(knot.p2);
+					points2.add(p2);
+					if (!prospects.contains(p2) && points1.contains(p2)) {
+						prospects.add(p2);
+					}
+				}
+				ArrayList<Segment> bucket3 = bucket.getNBucketExcludeList(knot.p3, bucket.get(knot.p3), endpoints,
+						4);
+
+				ArrayList<PointND> points3 = new ArrayList<PointND>();
+				for (int i = 0; i < 4; i++) {
+					PointND p3 = bucket3.get(i).getOtherPoint(knot.p3);
+					points3.add(p3);
+					if (!prospects.contains(p3) && (points1.contains(p3) || points2.contains(p3))) {
+						prospects.add(p3);
+					}
+				}
+				/*
+				 * 1. figure out what your three points are outside the knot hereafter refered
+				 * to a, b and c
+				 */
+				ArrayList<PointND> addList = new ArrayList<>();
+				for (int i = 0; i < prospects.size(); i++) {
+					PointND p = prospects.get(i);
+					int index = -1;
+					for (int j = 0; j < matches.size(); j++) {
+						Segment s = matches.get(j);
+						PointND otherp = s.getOtherPoint(p);
+						if (s.contains(p) && !prospects.contains(otherp)) {
+							addList.add(otherp);
+						}
+					}
+				}
+				prospects.addAll(addList);
+				prospects.remove(knot.p1);
+				prospects.remove(knot.p2);
+				prospects.remove(knot.p3);
+				System.out.println("points1: " + points1);
+				System.out.println("points2: " + points2);
+				System.out.println("points3: " + points3);
+				System.out.println("prospects: " + prospects);
+				System.out.println("Knot: " + knot.p1 + " first in list " + bucket1);
+				System.out.println("Knot: " + knot.p2 + " first in list " + bucket2);
+				System.out.println("Knot: " + knot.p3 + " first in list " + bucket3);
+				// now that we have the potential matches check that they want to match with the
+				// knot
+				ArrayList<PointND> removeList = new ArrayList<PointND>();
+				for (PointND p : prospects) {
+					SubBucket sb = bucket.get(p);
+					Segment first = sb.getFirstNotIn(prospects);
+					System.out.println("first in bucket:" + first);
+					PointND otherp = first.getOtherPoint(p);
+					boolean flag = false;
+					if (sb.shell.size() == 1) {
+						Segment second = sb.getSecondNotIn(prospects);
+						PointND otherp2 = second.getOtherPoint(p);
+						System.out.println("second in bucket:" + second);
+						if (!knot.hasEndpoint(otherp2)) {
+							flag = true;
+						}
+					} else {
+						flag = true;
+					}
+					if (!knot.hasEndpoint(otherp) && flag) {
+						removeList.add(p);
+					}
+				}
+				prospects.removeAll(removeList);
+				System.out.println(prospects);
+
+				if (prospects.size() == 3) {
+					System.out.println("----------------Go ahead and unravel! 3-Knot" + knot);
+					/*
+					 * 2. find the two grouped points wolg [a b] should want to match together but
+					 * can't
+					 */
+					Segment groupsSegment = new Segment(prospects.get(0), prospects.get(1));
+					PointND singleton = prospects.get(2);
+					if (!matches.contains(groupsSegment)) {
+						groupsSegment = new Segment(prospects.get(0), prospects.get(2));
+						singleton = prospects.get(1);
 						if (!matches.contains(groupsSegment)) {
-							groupsSegment = new Segment(prospects.get(0), prospects.get(2));
-							singleton = prospects.get(1);
+							groupsSegment = new Segment(prospects.get(1), prospects.get(2));
+							singleton = prospects.get(0);
 							if (!matches.contains(groupsSegment)) {
-								groupsSegment = new Segment(prospects.get(1), prospects.get(2));
-								singleton = prospects.get(0);
-								if (!matches.contains(groupsSegment)) {
-									continue;
-								}
+								continue;
 							}
 						}
-						System.out.println("groupSegment: " + groupsSegment);
+					}
+					System.out.println("groupSegment: " + groupsSegment);
 
-						/*
-						 * 3. find the connection in their group that matches somewhere else (exclude
-						 * all points in 3knot and in group)
-						 * (you also may need to exclude the "point in common" g* if the match leads to
-						 * a 2 knot)
-						 * check that its match has a match otherwise quit for now
-						 * 
-						 */
-						ArrayList<PointND> excludeList = new ArrayList<PointND>(knotPoints);
-						if (!excludeList.contains(singleton)) {
-							excludeList.add(singleton);
-						}
-						if (!excludeList.contains(groupsSegment.first)) {
-							excludeList.add(groupsSegment.first);
-						}
-						if (!excludeList.contains(groupsSegment.last)) {
-							excludeList.add(groupsSegment.last);
-						}
-						Segment s1 = bucket.getNotInList(groupsSegment.first, bucket.get(groupsSegment.first),
-								excludeList);
-						Segment s2 = bucket.getNotInList(groupsSegment.last, bucket.get(groupsSegment.last),
-								excludeList);
-						excludeList.remove(groupsSegment.last);
-						excludeList.remove(groupsSegment.first);
+					/*
+					 * 3. find the connection in their group that matches somewhere else (exclude
+					 * all points in 3knot and in group)
+					 * (you also may need to exclude the "point in common" g* if the match leads to
+					 * a 2 knot)
+					 * check that its match has a match otherwise quit for now
+					 * 
+					 */
+					ArrayList<PointND> excludeList = new ArrayList<PointND>(knotPoints);
+					if (!excludeList.contains(singleton)) {
+						excludeList.add(singleton);
+					}
+					if (!excludeList.contains(groupsSegment.first)) {
+						excludeList.add(groupsSegment.first);
+					}
+					if (!excludeList.contains(groupsSegment.last)) {
+						excludeList.add(groupsSegment.last);
+					}
+					Segment s1 = bucket.getNotInList(groupsSegment.first, bucket.get(groupsSegment.first),
+							excludeList);
+					Segment s2 = bucket.getNotInList(groupsSegment.last, bucket.get(groupsSegment.last),
+							excludeList);
+					excludeList.remove(groupsSegment.last);
+					excludeList.remove(groupsSegment.first);
 
-						// now check that either has a match and assign the endpoints
+					// now check that either has a match and assign the endpoints
 
-						PointND endpoint1;
-						PointND endpoint2;
-						ArrayList<Segment> mergeList = new ArrayList<Segment>();
-						if (bucket.checkMatch(groupsSegment.first, s1, excludeList)) {
-							System.out.println("non-endpoint: " + groupsSegment.first);
-							mergeList.add(s1);
-							endpoint1 = groupsSegment.last;
-							endpoint2 = singleton;
-						} else if (bucket.checkMatch(groupsSegment.last, s2, excludeList)) {
-							System.out.println("non-endpoint: " + groupsSegment.last);
-							mergeList.add(s2);
-							endpoint1 = groupsSegment.first;
-							endpoint2 = singleton;
-						} else {
-							System.out.println("No Match found on outside, indeterminate :(");
-							continue;
-						}
-						/*
-						 * 4. lets say b had the outside connection, and is matching store its match
-						 * points a and c are now the endpoints of the 3knot
-						 * 5. check all permutations with a and c as endpoints (3 possibilities)
-						 */
-						System.out.println("mergeList: " + mergeList);
-						System.out.println("ep1: " + endpoint1 + " ep2 " + endpoint2);
-						mergeList.addAll(knot.permute(endpoint1, endpoint2));
-						System.out.println("mergeList: " + mergeList);
-						for (Segment segment : mergeList) {
+					PointND endpoint1;
+					PointND endpoint2;
+					ArrayList<Segment> mergeList = new ArrayList<Segment>();
+					if (bucket.checkMatch(groupsSegment.first, s1, excludeList)) {
+						System.out.println("non-endpoint: " + groupsSegment.first);
+						mergeList.add(s1);
+						endpoint1 = groupsSegment.last;
+						endpoint2 = singleton;
+					} else if (bucket.checkMatch(groupsSegment.last, s2, excludeList)) {
+						System.out.println("non-endpoint: " + groupsSegment.last);
+						mergeList.add(s2);
+						endpoint1 = groupsSegment.first;
+						endpoint2 = singleton;
+					} else {
+						System.out.println("No Match found on outside, indeterminate :(");
+						continue;
+					}
+					/*
+					 * 4. lets say b had the outside connection, and is matching store its match
+					 * points a and c are now the endpoints of the 3knot
+					 * 5. check all permutations with a and c as endpoints (3 possibilities)
+					 */
+					System.out.println("mergeList: " + mergeList);
+					System.out.println("ep1: " + endpoint1 + " ep2 " + endpoint2);
+					mergeList.addAll(knot.permute(endpoint1, endpoint2));
+					System.out.println("mergeList: " + mergeList);
+					for (Segment segment : mergeList) {
 
-							mergeMatch(bucket, shells, locs, singletons, matches, segment);
-
-						}
+						mergeMatch(bucket, shells, locs, singletons, matches, segment);
 
 					}
 
-				
+				}
+				if (prospects.size() == 4) {
+					System.out.println("----------------Go ahead and unravel! 3-Knot 4 match: " + knot);
+					/*
+					 * 2. find the two grouped points wolg [a b] should want to match together but
+					 * can't
+					 */
+					ArrayList<Segment> matchesExclude = bucket.getMatches(shells, endpoints);
+					System.out.println("matchesExclude: " + matchesExclude);
+					Segment group1 = new Segment(prospects.get(0), prospects.get(1));
+					Segment group2 = new Segment(prospects.get(2), prospects.get(3));
+					if (!matchesExclude.contains(group1) || !matchesExclude.contains(group2)) {
+						group1 = new Segment(prospects.get(0), prospects.get(2));
+						group2 = new Segment(prospects.get(1), prospects.get(3));
+						if (!matchesExclude.contains(group1) || !matchesExclude.contains(group2)) {
+							group1 = new Segment(prospects.get(0), prospects.get(3));
+							group2 = new Segment(prospects.get(1), prospects.get(2));
+							if (!matchesExclude.contains(group1) || !matchesExclude.contains(group2)) {
+								continue;
+							}
+						}
+					}
+					System.out.println("group1: " + group1 + " group2: " + group2);
+
+					ArrayList<PointND> excludeList = new ArrayList<PointND>();
+					for (PointND p : prospects) {
+						if (!excludeList.contains(p)) {
+							excludeList.add(p);
+						}
+					}
+					excludeList.add(knot.p1);
+					excludeList.add(knot.p2);
+					excludeList.add(knot.p3);
+
+					PointND g1 = group1.first;
+					PointND g2 = group1.last;
+					Segment s1 = bucket.getNotInList(g1, bucket.get(g1), excludeList);
+					Segment s2 = bucket.getNotInList(g2, bucket.get(g2), excludeList);
+					PointND g3 = group2.first;
+					PointND g4 = group2.last;
+					Segment s3 = bucket.getNotInList(g3, bucket.get(g3), excludeList);
+					Segment s4 = bucket.getNotInList(g4, bucket.get(g4), excludeList);
+
+					System.out.println("g1: " + g1 + " S1: " + s1 + " " + endpoints);
+					System.out.println("g2: " + g2 + " S2: " + s2 + " " + endpoints);
+					System.out.println("g3: " + g3 + " S3: " + s3 + " " + endpoints);
+					System.out.println("g4: " + g4 + " S4: " + s4 + " " + endpoints);
+
+					/*
+					 * 3. find the connection in their group that matches somewhere else (exclude
+					 * all points in 3knot and in group)
+					 * (you also may need to exclude the "point in common" g* if the match leads to
+					 * a 2 knot)
+					 * check that its match has a match otherwise quit for now
+					 * 
+					 */
+					if (!excludeList.contains(group1.first)) {
+						excludeList.add(group1.first);
+					}
+					if (!excludeList.contains(group2.first)) {
+						excludeList.add(group2.first);
+					}
+					if (!excludeList.contains(group1.last)) {
+						excludeList.add(group1.last);
+					}
+					if (!excludeList.contains(group2.last)) {
+						excludeList.add(group2.last);
+					}
+					excludeList.remove(group1.last);
+					excludeList.remove(group1.first);
+
+					PointND endpoint1;
+					PointND endpoint2;
+					ArrayList<Segment> mergeList = new ArrayList<Segment>();
+
+					// now check that either has a match and assign the endpoints
+					if (bucket.checkMatch(g1, s1, excludeList)) {
+						System.out.println("non-endpoint: " + g1);
+						// mergeList.add(s1);
+						endpoint1 = g2;
+					} else if (bucket.checkMatch(g2, s2, excludeList)) {
+						System.out.println("non-endpoint: " + g2);
+						// mergeList.add(s2);
+						endpoint1 = g1;
+					} else {
+						System.out.println("No Match found on outside, indeterminate :(");
+						continue;
+					}
+
+					if (bucket.checkMatch(g3, s3, excludeList)) {
+						System.out.println("non-endpoint: " + g3);
+						// mergeList.add(s3);
+						endpoint2 = g4;
+					} else if (bucket.checkMatch(g4, s4, excludeList)) {
+						System.out.println("non-endpoint: " + g4);
+						// mergeList.add(s4);
+						endpoint2 = g3;
+					} else {
+						System.out.println("No Match found on outside, indeterminate :(");
+						continue;
+					}
+					/*
+					 * 4. lets say b had the outside connection, and is matching store its match
+					 * points a and c are now the endpoints of the 3knot
+					 * 5. check all permutations with a and c as endpoints (3 possibilities)
+					 */
+					System.out.println("ep1: " + endpoint1 + " ep2: " + endpoint2);
+					mergeList.addAll(knot.permute(endpoint1, endpoint2));
+					System.out.println("mergeList: " + mergeList);
+					for (Segment segment : mergeList) {
+						mergeMatch(bucket, shells, locs, singletons, matches, segment);
+					}
+
+				}
+
 			}
 
 			Set<Integer> locset = new HashSet<Integer>();

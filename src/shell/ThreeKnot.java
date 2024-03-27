@@ -31,6 +31,10 @@ public class ThreeKnot extends ArrayList<Segment> {
 		return super.add(s);
 	}
 
+	public boolean hasEndpoint(PointND p){
+		return p1.equals(p) || p2.equals(p) || p3.equals(p);
+	}
+
 	public ArrayList<Segment> permute(PointND endpoint1, PointND endpoint2) {
 		ArrayList<Segment> mergeSegments = new ArrayList<Segment>();
 

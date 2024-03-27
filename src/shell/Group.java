@@ -45,7 +45,7 @@ public class Group {
 
 	public String toString() {
 		if (!singleton) {
-			String str = "Group :[ s1:" + s1 + ", match:"+match+", s2:" + s2 + " ]";
+			String str = "Group :[ s1:" + s1 + ", match:"+match+", s2:" + s2 + ", match1: " + match1 + ", match2: " + match2 + " ]";
 			return str;
 		} else {
 			String str = "Group :[ " + s1 + " ]";

@@ -49,11 +49,11 @@ public class Main extends JComponent{
 	
 	        PointSetPath retTup = importFromFile(new File("./src/shell/djbouti"));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
-	        Shell orgShell = retTup.ps.toShells(d);
+	        //Shell orgShell = retTup.ps.toShells(d);
 	     
-	        Shell maxShell = orgShell.copyRecursive();
+	        //Shell maxShell = orgShell.copyRecursive();
 	        
-	        Shell conShell = maxShell.copyRecursive();
+	        //Shell conShell = maxShell.copyRecursive();
 	        
 	    
 	        
@@ -122,7 +122,7 @@ public class Main extends JComponent{
 	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
 
 	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, false, true);
-			orgShell.drawShell(this, g2, false,Color.BLUE, retTup.ps);
+			//orgShell.drawShell(this, g2, false,Color.BLUE, retTup.ps);
 	        System.out.println("===============================================");
 		}catch(Exception e) {
 			e.printStackTrace();

@@ -52,38 +52,42 @@ public class Bucket extends HashMap<Integer, SubBucket> {
 		}
 		return null;
 	}
-
+	
 	public ArrayList<Segment> getMatches(ArrayList<Shell> shells) {
+		return this.getMatches(shells, new ArrayList<PointND>());
+	}
+
+	public ArrayList<Segment> getMatches(ArrayList<Shell> shells, ArrayList<PointND> excludeList) {
 		ArrayList<Segment> matches = new ArrayList<Segment>();
 		for (Integer key : this.keySet()) {
 			SubBucket subBucket = this.get(key);
-			Segment s = this.get(key).get(0);
+			Segment s = this.get(key).getFirstNotIn(excludeList);
 			if (!matches.contains(s)) {
 				SubBucket otherList = this.get(s.getOther(key));
-				Segment otherSeg = otherList.get(0);
+				Segment otherSeg = otherList.getFirstNotIn(excludeList);
 
 				if (otherSeg.equals(s)) {
 					matches.add(s);
 				}
 				if (otherList.shell.size() == 1) {
-					otherSeg = otherList.get(1);
+					otherSeg = otherList.getSecondNotIn(excludeList);
 					if (otherSeg.equals(s)) {
 						matches.add(s);
 					}
 				}
 			}
 			if (subBucket.shell.size() == 1) {
-				s = this.get(key).get(1);
+				s = this.get(key).getSecondNotIn(excludeList);
 
 				if (!matches.contains(s)) {
 					SubBucket otherList = this.get(s.getOther(key));
-					Segment otherSeg = otherList.get(0);
+					Segment otherSeg = otherList.getFirstNotIn(excludeList);
 
 					if (otherSeg.equals(s)) {
 						matches.add(s);
 					}
 					if (otherList.shell.size() == 1) {
-						otherSeg = otherList.get(1);
+						otherSeg = otherList.getSecondNotIn(excludeList);
 						if (otherSeg.equals(s)) {
 							matches.add(s);
 						}
@@ -114,18 +118,18 @@ public class Bucket extends HashMap<Integer, SubBucket> {
 
 	}
 
-	public ArrayList<Segment> getProspectiveMatches(ArrayList<Shell> shells) {
+	public ArrayList<Segment> getProspectiveMatches(ArrayList<Shell> shells, ArrayList<PointND> excludeList) {
 		ArrayList<Segment> matches = new ArrayList<Segment>();
 		for (Integer key : this.keySet()) {
 			SubBucket subBucket = this.get(key);
 			Segment s = this.get(key).get(0);
-			if (!matches.contains(s)) {
+			if (!matches.contains(s) && !excludeList.contains(s.first) && !excludeList.contains(s.last)) {
 				matches.add(s);
 			}
 			if (subBucket.shell.size() == 1) {
 				s = this.get(key).get(1);
 
-				if (!matches.contains(s)) {
+				if (!matches.contains(s) && !excludeList.contains(s.first) && !excludeList.contains(s.last)) {
 					matches.add(s);
 				}
 			}
@@ -211,7 +215,7 @@ public class Bucket extends HashMap<Integer, SubBucket> {
 					Group g = new Group(this, this.get(match.first).shell, this.get(match.last).shell, match);
 					if (!groups.contains(g)) {
 						groups.add(g);
-						System.out.println("MATHCHCHCHHCHCH: " + match + "otherp: " + otherp + " group : " + g);
+						//System.out.println("MATHCHCHCHHCHCH: " + match + "otherp: " + otherp + " group : " + g);
 						totalGroups++;
 					}
 
@@ -221,7 +225,7 @@ public class Bucket extends HashMap<Integer, SubBucket> {
 					if (match != null) {
 						Group g = new Group(this, this.get(match.first).shell, this.get(match.last).shell, match);
 						if (!groups.contains(g)) {
-							System.out.println("MABALLS: " + match + " " + this.get(otherp).shell + " " + segPartner);
+							//System.out.println("MABALLS: " + match + " " + this.get(otherp).shell + " " + segPartner);
 							groups.add(g);
 							totalGroups++;
 						}
@@ -265,12 +269,14 @@ public class Bucket extends HashMap<Integer, SubBucket> {
 			System.out.println(other + " reeee " + singletons);
 			segments.remove(otherSeg);
 			otherSeg = getNotInList(other, segments, endpoints);
+			System.out.println("is singleton also checking: " + otherSeg);
 		}
 
 		ArrayList<Segment> segs = new ArrayList<Segment>();
 		segs.add(s);
 		segs.add(otherSeg);
 		if (s.equals(otherSeg)) {
+			System.out.println("Half Match Found!");
 			return new Pair<PointND, ArrayList<Segment>>(s.getOtherPoint(p), segs);
 		}
 		return new Pair<PointND, ArrayList<Segment>>(null, segs);
@@ -393,6 +399,10 @@ public class Bucket extends HashMap<Integer, SubBucket> {
 		int lastMatchID = lastProspectiveMatch.getOther(last);
 		SubBucket firstList = this.get(firstMatchID);
 		SubBucket lastList = this.get(lastMatchID);
+		System.out.println("Checking segment: " + s);
+		
+		System.out.println("first match ID: " + firstMatchID);
+		System.out.println("last match ID: " + lastMatchID);
 		if (firstList.shell.equals(lastList.shell)) {
 			System.out.println(
 					"\n-----------------------2Knot Found -------------------------------------------");
