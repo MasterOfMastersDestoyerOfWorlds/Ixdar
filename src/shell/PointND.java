@@ -352,8 +352,6 @@ public abstract class PointND implements Cloneable {
 	
 	private boolean isDummyNode = false;
 	
-	private Segment dummyParents;
-	
 	private static int maxID = 0;
 	
 	/**
@@ -597,13 +595,5 @@ public abstract class PointND implements Cloneable {
 
 	public void setDummyNode() {
 		this.isDummyNode = true;
-	}
-
-	public Segment getDummyParents() {
-		return dummyParents;
-	}
-
-	public void setDummyParents(Segment dummyParents) {
-		this.dummyParents = dummyParents;
 	}
 }

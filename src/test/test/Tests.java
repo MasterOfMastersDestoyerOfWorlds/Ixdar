@@ -6,9 +6,7 @@ import shell.Main;
 import shell.PointND;
 import shell.PointSet;
 import shell.PointSetPath;
-import shell.Segment;
 import shell.Shell;
-import shell.Vectors;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,14 +58,13 @@ public class Tests {
 		System.out.println("before   " + AB);
 		Collections.shuffle(AB);// , new Random(2));
 		System.out.println("shuffled " + AB);
-		Segment s = new Segment(answer.getFirst(), answer.getLast());
-		System.out.println("surrounding segment: " + s);
+		System.out.println("surrounding segment: " + answer.getFirst() + " " + answer.getLast());
 
 		Shell nothing = new Shell();
 
 		DistanceMatrix d = new DistanceMatrix(ps);
-
-		Shell result = Shell.solveBetweenEndpoints(s, AB, nothing, d);
+		//d.addDummyNode(answer.getFirst(), answer.getLast());
+		Shell result = AB.tspSolve(AB, d);
 
 		System.out.println("result " + result + " " + result.getLength());
 		System.out.println("ans " + answer + " " + answer.getLength());
@@ -133,11 +130,9 @@ public class Tests {
 	public void testQatar() {
 		PointSetPath retTup = Main.importFromFile(new File("./src/shell/qa194"));
 		DistanceMatrix d = new DistanceMatrix(retTup.ps);
-		Shell orgShell = retTup.ps.toShells(d);
-
-		Shell pathShell = orgShell.collapseAllShells(d);
-		System.out.println(pathShell.getLength());
-		Assert.assertTrue(pathShell.getLength() < 9400);
+		Shell orgShell = new Shell();
+		System.out.println(orgShell.getLength());
+		Assert.assertTrue(orgShell.getLength() < 9400);
 	}
 
 	@Test

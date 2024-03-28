@@ -249,42 +249,18 @@ Pair<Knot, List<VirtualPoint>> createKnots(VirtualPoint startPoint, VirtualPoint
         } else{
             //possible dead end, recurse
             Pair<Knot, List<VirtualPoint>> pair;
-            if(mainPoint.numMatches == 1){
-                if(!mainPoint.match1.equals(pointer1)){
-                    if(pointer1.numMatches == 1){
-                        if(!pointer1.match1.equals(pointer11)){
-                            createKnots(pointer1, pointer11, mainPoint);
-                        }
-                        else{
-                            createKnots(pointer1, pointer12, mainPoint);
-                        }
-                    }else{
-                        createKnots(pointer1, pointer12, mainPoint);
-                    }
-                }
-                else if(!mainPoint.match1.equals(pointer2)){
-                    if(pointer2.numMatches == 1){
-                        if(!pointer2.match1.equals(pointer21)){
-                            createKnots(pointer2, pointer21, mainPoint);
-                        }
-                        else{
-                            createKnots(pointer2, pointer22, mainPoint);
-                        }
-                    }else{
-                        createKnots(pointer2, pointer22, mainPoint);
-                    }
+            if((mainPoint.numMatches == 1 && !mainPoint.match1.equals(pointer1)) || mainPoint.numMatches == 0){
+                if(pointer1.numMatches == 1 && !pointer1.match1.equals(pointer11)){
+                    pair = createKnots(pointer1, pointer11, mainPoint);
+                }else{
+                    pair = createKnots(pointer1, pointer12, mainPoint);
                 }
             }
-            else{
-                if(pointer1.numMatches == 1){
-                    if(!pointer1.match1.equals(pointer11)){
-                        createKnots(pointer1, pointer11, mainPoint);
-                    }
-                    else{
-                        createKnots(pointer1, pointer12, mainPoint);
-                    }
+            else if(mainPoint.numMatches == 1 && !mainPoint.match1.equals(pointer2)){
+                if(pointer2.numMatches == 1 && !pointer2.match1.equals(pointer21)){
+                    pair = createKnots(pointer2, pointer21, mainPoint);
                 }else{
-                    createKnots(pointer1, pointer12, mainPoint);
+                    pair = createKnots(pointer2, pointer22, mainPoint);
                 }
             }
 
