@@ -79,6 +79,25 @@ public class DistanceMatrix {
 		}
 	}
 
+	public DistanceMatrix(PointSet ps, DistanceMatrix d) {
+		matrix = new double[ps.size()][ps.size()];
+		points = new ArrayList<PointND>();
+		lookup = new HashMap<Integer,Integer>();
+		this.zero = d.zero;
+		this.maxDist = d.maxDist;
+		for (PointND p : ps) {
+			points.add(p);
+		}
+		for (int i = 0; i < matrix.length; i++) {
+			lookup.put(points.get(i).getID(),i);
+			for (int j = 0; j < matrix.length; j++) {
+				double dist = d.getDistance(points.get(i), points.get(j));
+				matrix[i][j] = dist;
+			}
+		}
+	}
+	
+
 
 	/**
 	 * Gets the points stored in the distance matrix
