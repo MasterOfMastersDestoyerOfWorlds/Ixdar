@@ -64,7 +64,7 @@ public class Tests {
 
 		DistanceMatrix d = new DistanceMatrix(ps);
 		//d.addDummyNode(answer.getFirst(), answer.getLast());
-		Shell result = AB.tspSolve(AB, d);
+		Shell result = AB.solveBetweenEndpoints(answer.getFirst(), answer.getLast(), AB, d);
 
 		System.out.println("result " + result + " " + result.getLength());
 		System.out.println("ans " + answer + " " + answer.getLength());

@@ -690,6 +690,41 @@ public class Shell extends LinkedList<PointND> {
 		return result;
 	}
 
+	public Shell solveBetweenEndpoints(PointND first, PointND last, Shell A, DistanceMatrix d) {
+		PointSet ps = new PointSet();
+		
+		
+		assert(!first.equals(last));
+
+		ps.add(first);
+		if(!first.equals(last)) {
+			ps.add(last);
+		}
+		ps.addAll(A);
+		DistanceMatrix d1 = new DistanceMatrix(ps, d);
+		PointND dummy = d1.addDummyNode(first, last);
+		ps.add(dummy);
+		Shell answer = new Shell();
+		answer.add(first);
+		answer.addAll(A.copyShallow());
+		answer.add(last);
+		answer.add(dummy);
+		Shell result = tspSolve(answer, d1);
+
+		assert(d1.getZero() != 0);
+		assert(d1.getMaxDist()/2 <= d1.getZero()): "Zero: "+ d1.getZero() + " MaxDist: " + d1.getMaxDist();
+				
+		System.out.println(result);
+		ps.remove(dummy);
+		result = result.removeRotate(ps);
+		if(!result.get(0).equals(first)) {
+			result = result.reverse();
+		}
+	
+		return result;
+
+	}
+
 	public Shell() {
 	}
 
