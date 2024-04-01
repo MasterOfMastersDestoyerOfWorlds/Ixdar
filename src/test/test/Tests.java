@@ -141,8 +141,8 @@ public class Tests {
 			int num = a[i];
 
 			// create an test execution
-			int loc = 12;
-			for (int j = 11; j < loc; j++) {
+			int loc = 5;
+			for (int j = 4; j < loc; j++) {
 
 				int rot = b[n - j];
 				// create a test display name
