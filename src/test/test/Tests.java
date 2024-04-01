@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Random;
 
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,45 @@ public class Tests {
 	/**
 	 * Tests that our solver solves the djibouti problem set correctly
 	 */
+
+	
+	@Test
+	public void testDjiboutiNoRotation() {
+
+		PointSetPath retTup = Main.importFromFile(new File("./src/shell/djbouti"));
+		PointSet ps = new PointSet();
+		Shell answer = new Shell();
+		int n = retTup.ps.size();
+
+		Shell AB = new Shell();
+		for (int i = 0; i < n && i < retTup.ps.size(); i++) {
+			ps.add(retTup.ps.get(i));
+			answer.add(retTup.ps.get(i));
+			AB.add(retTup.ps.get(i));
+		}
+
+		System.out.println("before   " + AB);
+		Collections.shuffle(AB , new Random(2));
+		System.out.println("shuffled " + AB);
+		System.out.println("surrounding segment: " + answer.getFirst() + " " + answer.getLast());
+		System.out.println(AB.size());
+		System.out.println();
+
+		Shell nothing = new Shell();
+
+		DistanceMatrix d = new DistanceMatrix(ps);
+		//d.addDummyNode(answer.getFirst(), answer.getLast());
+		Shell result = AB.tspSolve(AB, d);
+
+		System.out.println("result " + result + " " + result.getLength());
+		System.out.println("ans " + answer + " " + answer.getLength());
+		System.out.println("=========================");
+
+		assert (Math.abs(result.getLength() - answer.getLength()) < 1) : "result: " +
+				result + " \n Shell was length: " + result.getLength() + "\n answer: " +
+				answer + "\n Supposed to be length: " + answer.getLength();
+		System.out.println("reee");
+	}
 
 	@Test
 	public boolean testDjiboutiN(int n, int rot) {
@@ -56,9 +96,11 @@ public class Tests {
 		}
 
 		System.out.println("before   " + AB);
-		Collections.shuffle(AB);// , new Random(2));
+		Collections.shuffle(AB);// , new Random(6));
 		System.out.println("shuffled " + AB);
 		System.out.println("surrounding segment: " + answer.getFirst() + " " + answer.getLast());
+		System.out.println(AB.size());
+		System.out.println();
 
 		Shell nothing = new Shell();
 
@@ -99,8 +141,8 @@ public class Tests {
 			int num = a[i];
 
 			// create an test execution
-			int loc = 9;
-			for (int j = 8; j < loc; j++) {
+			int loc = 12;
+			for (int j = 11; j < loc; j++) {
 
 				int rot = b[n - j];
 				// create a test display name
