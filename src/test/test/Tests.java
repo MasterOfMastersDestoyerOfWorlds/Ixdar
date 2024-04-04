@@ -96,7 +96,7 @@ public class Tests {
 		}
 
 		System.out.println("before   " + AB);
-		Collections.shuffle(AB);// , new Random(6));
+		Collections.shuffle(AB , new Random(6));
 		System.out.println("shuffled " + AB);
 		System.out.println("surrounding segment: " + answer.getFirst() + " " + answer.getLast());
 		System.out.println(AB.size());
@@ -141,8 +141,8 @@ public class Tests {
 			int num = a[i];
 
 			// create an test execution
-			int loc = 5;
-			for (int j = 4; j < loc; j++) {
+			int loc = 7;
+			for (int j = 6; j < loc; j++) {
 
 				int rot = b[n - j];
 				// create a test display name

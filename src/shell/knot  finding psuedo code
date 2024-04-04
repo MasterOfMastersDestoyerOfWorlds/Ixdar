@@ -771,3 +771,68 @@ to get match1:
 }
 
 
+Knot[
+    Knot[
+        Knot[
+            Knot[
+                
+                Knot[
+                    Knot[34 38 33 32  Knot[35 36 37 ] ] 
+                1 0 ] 
+                    
+            Knot[7 6 5 4 3 2  8 ] 
+            ]
+                
+            Knot[
+                Knot[31 
+                    Knot[29 28 30 ] 
+                ] 
+            27 26] 
+
+        ] 
+                 
+    25 24 ] 
+                 
+14 15 16 17 18 19 20 21 22 23 ] Knot[Knot[13 12 11 ] 9 10 ] 
+
+[Knot
+    [Knot
+        [Knot
+            [Knot
+                [Knot  
+                    [Knot
+                        [Run[34 38 33 32 ] Knot[35 36 37 ] ]
+                    Run[1 0 ] ] 
+                Run[Knot[
+                        Knot[13 12 11 ] Run[9 10 ] ]
+                     8 7 6 5 4 3 2 ] ] 
+            Knot[
+                Knot[31 
+                    Knot[29 28 30 ] ] 
+                        Run[27 26 ] ] ] 
+                            Run[25 24 ] ] 
+                        Run[23 22 21 20 19 18 17 16 15 14 ] ]]
+
+
+[Run[25 24 ], Knot[Knot[Knot[Knot[Run[34 38 33 32 ] Knot[35 36 37 ] ] Run[1 0 ] ] Run[Knot[Knot[13 12 11 ] Run[9 10 ] ] 8 7 6 5 4 3 2 ] ] Knot[Knot[31 Knot[29 28 30 ] ] Run[27 26 ] ] ], Run[23 22 21 20 19 18 17 16 15 14 ]]
+
+
+
+
+[Run[
+    Knot[Run[0 1 ] Knot[34 Knot[35 36 37 ] ] ] Knot[Knot[Run[32 33 2 3 4 5 6 7 ] Run[8 9 10 Knot[11 12 13 ] ] ] Knot[Run[26 27 ] Knot[Knot[28 29 30 ] 31 ] ] ] 25 24 ] 
+    Run[14 15 16 17 18 19 20 21 22 23 ] ]
+
+    
+Knot[Knot[Knot[Knot[0 1 Knot[34 Knot[35 36 37 ] ] ] Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ] ] Knot[26 27 Knot[Knot[28 29 30 ] 31 ] ] ] 25 24 ] 23 22 21 20 19 18 17 16 15 14 
+
+
+
+[Knot[Knot[Knot[Knot[Knot[0 1 Knot[34 Knot[35 36 37 ] ] ] Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ] ] Knot[26 27 Knot[Knot[28 29 30 ] 31 ] ] ] 25 24 ] 23 22 21 20 19 18 17 16 15 14 ]]
+
+
+[Knot[Knot[0 1 Knot[34 Knot[35 36 37 ] ] ] Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ] ], Knot[26 27 Knot[Knot[28 29 30 ] 31 ] ], 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14]
+
+
+
+[Knot[Knot[Knot[Knot[32 33 38 34 Knot[35 36 37 ] ] 1 0 ] 2 3 4 5 6 7 8 Knot[Knot[13 12 11 ] 10 9 ] ] Knot[Knot[31 Knot[29 28 30 ] ] 27 26 ] ], 25, 24]
