@@ -162,6 +162,8 @@ public class Shell extends LinkedList<PointND> {
 		public boolean contains(VirtualPoint vp) {
 			throw new UnsupportedOperationException("Unimplemented method 'contains'");
 		}
+
+
 	}
 
 	class Point extends VirtualPoint {
@@ -374,6 +376,34 @@ public class Shell extends LinkedList<PointND> {
 						vp2.match2endpoint = (Point) bp1;
 						vp2.s2 = s;
 					}
+					if(vp.s1.distance > vp.s2.distance){
+						Point tempBp = vp.basePoint1;
+						Point tempMe = vp. match1endpoint;
+						VirtualPoint tempMatch = vp.match1;
+						Segment tempSeg = vp.s1;
+						vp.basePoint1 = vp.basePoint2;
+						vp.match1 = vp.match2;
+						vp.match1endpoint = vp.match2endpoint;
+						vp.s1 = vp.s2;
+						vp.basePoint2 = tempBp;
+						vp.match2 = tempMatch;
+						vp.match2endpoint = tempMe;
+						vp.s2 = tempSeg;
+					}
+					if(vp2.s1.distance > vp2.s2.distance){
+						Point tempBp = vp2.basePoint1;
+						Point tempMe = vp2.match1endpoint;
+						VirtualPoint tempMatch = vp2.match1;
+						Segment tempSeg = vp2.s1;
+						vp2.basePoint1 = vp2.basePoint2;
+						vp2.match1 = vp2.match2;
+						vp2.match1endpoint = vp2.match2endpoint;
+						vp2.s1 = vp2.s2;
+						vp2.basePoint2 = tempBp;
+						vp2.match2 = tempMatch;
+						vp2.match2endpoint = tempMe;
+						vp2.s2 = tempSeg;
+					}
 					vp.numMatches = 2;
 					vp2.numMatches = 2;
 
@@ -384,9 +414,14 @@ public class Shell extends LinkedList<PointND> {
 			}
 
 			System.out.println(flattenRunPoints);
-			if (flattenRunPoints.size() != knotPointsToAdd.size()) {
+			//if we have two knots that make up the whole knot we need to insert one of the knots into the other
+			if(flattenRunPoints.size() == 2 && flattenRunPoints.get(0).isKnot && flattenRunPoints.get(1).isKnot){
+				System.out.println("Knot, Knot found, need to insert one into the other");
+					float zero = 1 / 0;
+			}
+			if (true) {
 				knotmergecount++;
-				if (knotmergecount == 6) {
+				if (knotmergecount == 40) {
 					float zero = 1 / 0;
 				}
 			}
@@ -480,12 +515,14 @@ public class Shell extends LinkedList<PointND> {
 						&& (!seenPoints.contains(basePoint))
 						|| potentialSegment.equals(s1) || potentialSegment.equals(s2)) {
 					count--;
+					System.out.println("seen points: " + seenPoints);
+
+					System.out.println("seen points: " + basePoint.group);
 					System.out.println("Potnential match seg: " + potentialSegment);
 					if (count == 0) {
 						return potentialSegment;
 					}
 					seenGroups.add(potentialSegment);
-					seenPoints.add(knotPoint);
 				}
 			}
 			return null;
@@ -676,7 +713,7 @@ public class Shell extends LinkedList<PointND> {
 			System.out.println(flattenRunPoints);
 			if (flattenRunPoints.size() != knotPoints.size()) {
 				runmergecount++;
-				if (runmergecount == 7) {
+				if (runmergecount == 5) {
 					float zero = 1 / 0;
 				}
 			}
@@ -783,7 +820,6 @@ public class Shell extends LinkedList<PointND> {
 						return potentialSegment;
 					}
 					seenGroups.add(potentialSegment);
-					seenPoints.add(knotPoint);
 				}
 			}
 			return null;
@@ -863,7 +899,9 @@ public class Shell extends LinkedList<PointND> {
 			return false;
 		}
 	}
+
 	int breakCount = 0;
+
 	public ArrayList<VirtualPoint> createKnots() {
 		int recurseCount = 0;
 		ArrayList<VirtualPoint> knots = new ArrayList<>();
@@ -946,9 +984,9 @@ public class Shell extends LinkedList<PointND> {
 			System.out.println(vp1.numMatches < 2);
 			System.out.println(mainPoint.numMatches == 0 || !mainPoint.s1.equals(potentialSegment11));
 			if (pointer2.topGroup.contains(pointMap.get(5)) && pointer2.topGroup.contains(pointMap.get(2))) {
-				breakCount ++;
-				if(breakCount == 7){
-				//float zero = 1 / 0;
+				breakCount++;
+				if (breakCount == 7) {
+					// float zero = 1 / 0;
 				}
 			}
 			if (mainPoint.equals(vp11) && !inKnots1 && vp1.numMatches < 2
@@ -1169,7 +1207,7 @@ public class Shell extends LinkedList<PointND> {
 			System.out.println("unvisited:" + unvisited);
 			System.out.println("visited:" + visited);
 			System.out.println("================= - Layer: " + idx + " - =================\n");
-			if (idx > 5) {
+			if (idx > 8) {
 				float zero = 1 / 0;
 			}
 			idx++;
@@ -1217,7 +1255,7 @@ public class Shell extends LinkedList<PointND> {
 				// look at both cuts and figure out which is smaller
 				// 5.
 				knotsCleared++;
-				if (knotsCleared == 9) {
+				if (knotsCleared == 11) {
 					float zero = 1 / 0;
 				}
 				Knot knot = (Knot) vp;
@@ -1323,9 +1361,9 @@ public class Shell extends LinkedList<PointND> {
 						knotPoint1.match1 = external1;
 						VirtualPoint p21 = external1;
 						if (external1.isKnot) {
-							p21 = s2.getKnotPoint(((Knot) external1).knotPointsFlattened);
+							p21 = s1.getKnotPoint(((Knot) external1).knotPointsFlattened);
 						}
-						knotPoint1.basePoint1 = (Point) s2.getOther(p21);
+						knotPoint1.basePoint1 = (Point) s1.getOther(p21);
 						if (external1.match2.equals(knot)) {
 							external1.match2 = knotPoint1;
 							knotPoint1.match1endpoint = external1.basePoint2;
