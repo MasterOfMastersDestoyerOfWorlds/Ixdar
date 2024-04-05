@@ -424,18 +424,15 @@ public class Shell extends LinkedList<PointND> {
 				// beneficial
 				// (current minus new)
 				// to cut
-				VirtualPoint gp1 = flattenRunPoints.get(0);
+				Knot gp1 = (Knot) flattenRunPoints.get(0);
 
-				VirtualPoint gp2 = flattenRunPoints.get(1);
+				Knot gp2 = (Knot) flattenRunPoints.get(1);
 
 				Point pointer1 = gp1.match1endpoint;
-				// System.out.println(((Knot) gp1).externalKnotSegments);
-				VirtualPoint cutPoint1 = pointer1.match2;
-				Point pointer2 = gp1.match2endpoint;
-				VirtualPoint cutPoint2 = pointer2.match2;
-				
 				VirtualPoint vKnotPoint1 = pointer1.topGroupVirtualPoint;
-				VirtualPoint vCutPoint1 = cutPoint1.topGroupVirtualPoint;
+				// System.out.println(((Knot) gp1).externalKnotSegments);
+				VirtualPoint cutPoint1 = vKnotPoint1.match2;
+				VirtualPoint vCutPoint1 = cutPoint1;
 				ArrayList<VirtualPoint> newList = new ArrayList<>();
 				System.out.println("Both are knots, find the two cut segments and join across");
 				Knot knot1 = (Knot) gp1;
@@ -443,6 +440,7 @@ public class Shell extends LinkedList<PointND> {
 				System.out.println("Knot1: " + knot1);
 				System.out.println("Knot2: " + knot2);
 				System.out.println(vKnotPoint1);
+				System.out.println(cutPoint1);
 				System.out.println(vCutPoint1);
 
 				vKnotPoint1.match2 = gp1;
@@ -457,25 +455,41 @@ public class Shell extends LinkedList<PointND> {
 				VirtualPoint m2e = s.getOtherKnot(gp1);
 				VirtualPoint bp2 = s.getOther(m2e);
 				vCutPoint1.match2 = gp1;
-				vCutPoint1.basePoint2 = (Point)m2e;
-				vCutPoint1.match2endpoint = (Point)bp2;
-				
-				gp1.match2 = vCutPoint1;
-				gp1.match2endpoint = (Point)bp2;
-				gp1.basePoint2 =  (Point)m2e;
+				vCutPoint1.basePoint2 = (Point) m2e;
+				vCutPoint1.match2endpoint = (Point) bp2;
 
+				gp1.match2 = vCutPoint1;
+				gp1.basePoint2 = (Point) bp2;
+				gp1.match2endpoint = (Point) m2e;
 
 				System.out.println(cutPoint1.fullString());
 				System.out.println(pointer1.fullString());
 				System.out.println(gp1.fullString());
-				System.out.println(newList);
-				float zero = 1 / 0;
-			}
-			if (true) {
-				knotmergecount++;
-				if (knotmergecount == 40) {
-					float zero = 1 / 0;
+
+				VirtualPoint addPoint = gp2.knotPoints.get(0);
+				VirtualPoint prevPointTemp = gp2.knotPoints.get(gp2.knotPoints.size() - 1);
+				for (int j = 0; j < gp2.knotPoints.size() + 1; j++) {
+					System.out.println("adding: " + addPoint);
+					newList.add(j, addPoint);
+					if (prevPointTemp.equals(addPoint.match2)) {
+						prevPointTemp = addPoint;
+						addPoint = addPoint.match1;
+					} else {
+						prevPointTemp = addPoint;
+						addPoint = addPoint.match2;
+					}
 				}
+
+				System.out.println(newList);
+				flattenRunPoints = newList;
+
+				if (true) {
+					knotmergecount++;
+					if (knotmergecount == 3) {
+						float zero = 1 / 0;
+					}
+				}
+
 			}
 			this.knotPoints = flattenRunPoints;
 			isKnot = true;
@@ -536,9 +550,10 @@ public class Shell extends LinkedList<PointND> {
 				}
 				vp.group = this;
 				vp.topGroup = this;
-				for(VirtualPoint flat :  vp.knotPointsFlattened){
+				for (VirtualPoint flat : vp.knotPointsFlattened) {
 					flat.topGroupVirtualPoint = vp;
 				}
+				vp.topGroupVirtualPoint = vp;
 			}
 			for (VirtualPoint p : knotPointsFlattened) {
 				p.topGroup = this;
@@ -833,7 +848,7 @@ public class Shell extends LinkedList<PointND> {
 						}
 					}
 				}
-				for(VirtualPoint flat :  vp.knotPointsFlattened){
+				for (VirtualPoint flat : vp.knotPointsFlattened) {
 					flat.topGroupVirtualPoint = vp;
 				}
 			}
@@ -1318,6 +1333,8 @@ public class Shell extends LinkedList<PointND> {
 				Knot knot = (Knot) vp;
 				System.out.println("Found Knot!" + " match1: " + knot.match1 + " basepoint 1: " + knot.basePoint1
 						+ " match2: " + knot.match2 + " basepoint 2: " + knot.basePoint2);
+						
+				System.out.println("knot: " + knot.fullString());
 				VirtualPoint knotPoint1 = knot.basePoint1;
 				if (!knotPoint1.group.equals(knot)) {
 					knotPoint1 = knot.pointToInternalKnot.get(knotPoint1.id);
@@ -1330,6 +1347,7 @@ public class Shell extends LinkedList<PointND> {
 				VirtualPoint external1 = knot.match1;
 				VirtualPoint external2 = knot.match2;
 				VirtualPoint knotPoint2 = knot.basePoint2;
+				System.out.println("knotpoint2: " + knotPoint2.fullString());
 				if (!knotPoint2.group.equals(knot)) {
 					knotPoint2 = knot.pointToInternalKnot.get(knotPoint2.id);
 				}
