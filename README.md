@@ -41,17 +41,17 @@ TSP also represents a whole class of problems that are equivalent, and we don't 
 
 These classifications aren't too important, but I would be remiss if I didn't at least mention them because much of the discourse surrounding TSP is about proving these classifications and how they relate to each other rather than solving TSP. This is important because college students often only get instruction on how to sort problems into these classifications and get taught to not touch any problems in NP. This has largely shaped the programming communities perception of TSP as unsolvable. Despite this, we do have examples (I am thinking of the Fast Fourier Transform but may be mistaken) of problems that were previously thought to be in NP but later moved down to P with considerable insight and skill.
 
-<b>Jaded Programmers Note</b>: if you ever hear these arguments in reference to a tough problem:
+    Jaded Programmers Note: if you ever hear these arguments in reference to a tough problem:
 
-* "It has been X number of years and no one has solved the problem; its impossible!"
-  
-* "If we could solve problem A then computers could do unrelated problem B that, currently, only humans can do. So, problem A must be impossible because human brains are magic!" 
+    * "It has been X number of years and no one has solved the problem; its impossible!"
+      
+    * "If we could solve problem A then computers could do unrelated problem B that, currently, only humans can do. So, problem A must be impossible because human brains are magic!" 
 
-* "I have given up on the problem, so you should too, in order to save my ego!" 
+    * "I have given up on the problem, so you should too, in order to save my ego!" 
 
-* "This problem is too hard to be done classically, so Neural Networks and Big Data must be the only answer!" 
+    * "This problem is too hard to be done classically, so Neural Networks and Big Data must be the only answer!" 
 
-likely you should ignore that person as they are toxic to actually solving the problem. There are definitely unsolvable problems, but little time is wasted thinking on an unsolved problem that would help the world.
+    likely you should ignore that person as they are toxic to actually solving the problem. There are definitely unsolvable problems, but little time is wasted thinking on an unsolved problem that would help the world.
 
 ## Chapter 2: Mountains of Madness
 
