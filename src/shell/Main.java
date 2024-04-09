@@ -1,4 +1,4 @@
-package shellCopy;
+package shell;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -47,15 +47,15 @@ public class Main extends JComponent{
 	        Graphics2D g2 = (Graphics2D) g;
 	
 	
-	        PointSetPath retTup = importFromFile(new File("./src/shellCopy/djbouti"));
+	        PointSetPath retTup = importFromFile(new File("./src/shell/djbouti"));
+			DistanceMatrix d = new DistanceMatrix(retTup.ps);
+	        //Shell orgShell = retTup.ps.toShells(d);
+	     
+	        //Shell maxShell = orgShell.copyRecursive();
 	        
-	        Shell orgShell = retTup.ps.toShells();
+	        //Shell conShell = maxShell.copyRecursive();
 	        
-	        Shell maxShell = orgShell.copyRecursive();
-	        
-	        Shell minShell = maxShell.getMinimalShell(); //this is never used??
-	        
-	        Shell conShell = maxShell.copyRecursive();
+	    
 	        
 	        /* All currently unused code
 
@@ -71,12 +71,25 @@ public class Main extends JComponent{
 	        	maxShell = maxShell.collapseChildOntoShell();
 	        }*/
 	        
-	        conShell.drawShell(this, g2, true, null);
-			conShell = maxShell;
-			conShell = conShell.collapseAllShells(); //finds optimal tsp path
+	        //maxShell.drawShell(this, g2, true, null, retTup.ps);
+			
+			//conShell = conShell.collapseAllShells(d); //finds optimal tsp path
+			//System.out.println(conShell);
 
-			/* All currently unused code
 
+	        //conShell.drawShell(this, g2, false, Color.BLUE, retTup.ps);
+	        //maxShell.drawShell(this, g2, true, null, retTup.ps);
+	        
+	        
+	        /*Shell ndShell =new Shell();
+	        ndShell.addAll(retTup.ps);
+	        PointND start = ndShell.get(4), end = ndShell.get(2);
+	        ndShell.remove(ndShell.get(4));
+	        ndShell.remove(ndShell.get(2));
+	        
+	        Shell ndTest = Shell.solveBetweenEndpoints(new Segment(start, end), ndShell, new Shell());
+	        System.out.println(ndTest.getLength());
+	        ndTest.drawShell(this, g2, false, Color.BLUE);*/
 			//conShell2 = conShell2.consensusWithChildren2(true);
 			//conShell = conShell.consensusWithChildren2(true);
 			//Shell hell1 = conShell.collapseChildOntoShell();
@@ -100,7 +113,7 @@ public class Main extends JComponent{
 	        	
 	        //conShell.drawShell(this, g2, new Random(), true, null);
 
-	        //conShell.drawShell(this, g2, new Random(), true, Color.RED);
+
 	        
 	        
 
@@ -108,8 +121,9 @@ public class Main extends JComponent{
 
 	        //conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(), false);
 
-			*/
-	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, true, false);
+	        drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, false, true);
+			//orgShell.drawShell(this, g2, false,Color.BLUE, retTup.ps);
+	        System.out.println("===============================================");
 		}catch(Exception e) {
 			e.printStackTrace();
 			SwingUtilities.getWindowAncestor(this).dispatchEvent(new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));
@@ -136,7 +150,9 @@ public class Main extends JComponent{
 		GeneralPath scaledpath = new GeneralPath();
 		double minX = java.lang.Double.MAX_VALUE, minY = java.lang.Double.MAX_VALUE, maxX = 0, maxY = 0;
 		boolean first = true;
-		for(Point2D p : ps){
+		for(PointND pn : ps){
+			
+			Point2D p = pn.toPoint2D();
 			
 			if(p.getX() < minX) {
 				minX = p.getX();
@@ -164,7 +180,6 @@ public class Main extends JComponent{
 		
 		int count = 0, offset = 100;
 		while(!pi.isDone()) {
-			count ++;
 			double[] coords = new double[2];
 			pi.currentSegment(coords);
 			pi.next();
@@ -187,6 +202,8 @@ public class Main extends JComponent{
 			else {
 				scaledpath.lineTo(coords[0], coords[1]);
 			}
+
+			count ++;
 		}
 		scaledpath.lineTo(start.getX(), start.getY());
 		if(drawLines) {
@@ -218,17 +235,18 @@ public class Main extends JComponent{
 		try {
 			
 			BufferedReader br = new BufferedReader(new FileReader(f));
-			ArrayList<Point2D> lines = new ArrayList<Point2D>();
+			ArrayList<PointND> lines = new ArrayList<PointND>();
 			String line = br.readLine();
 			PointSet ps = new PointSet();
 			Path2D path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
-			Shell tsp = new Shell(null, null, null);
+			Shell tsp = new Shell();
 
 			boolean flag = true, first = true;
+			int index = 0;
 			while (line != null) {
 				if(flag == true) {
 					String[] cords = line.split(" ");
-					Point2D pt = new Point2D.Double(java.lang.Double.parseDouble(cords[1]), java.lang.Double.parseDouble(cords[2]));
+					PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(cords[1]), java.lang.Double.parseDouble(cords[2]));
 					lines.add(pt);
 					ps.add(pt);
 					tsp.add(pt);
@@ -244,6 +262,7 @@ public class Main extends JComponent{
 					flag = true;
 				}
 				line = br.readLine();
+				index++;
 				
 			}
 			br.close();

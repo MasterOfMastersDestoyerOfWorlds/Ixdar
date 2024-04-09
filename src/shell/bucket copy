@@ -1,0 +1,191 @@
+{
+    a: (1 <-> 0)
+    [(32 <-> 33) <-> (4 <- (2 <-> 3) -> 4)) <- [(34) <-> (1 <-> 0) <->  [35 <-> 36 <-> 37]] <-> (4 <- (2 <-> 3) -> 4)]
+    cut segment:        [1:34],       [0:34]
+    potential matches: {[35:1],       [35:0]
+0  s  [Segment[1 : 0], Segment[34 : 0], Segment[35 : 0], Segment[36 : 0], Segment[37 : 0], Segment[2 : 0], Segment[3 : 0], Segment[4 : 0], Segment[33 : 0], Segment[32 : 0], Segment[6 : 0], Segment[5 : 0], Segment[26 : 0], Segment[7 : 0], Segment[24 : 0], Segment[27 : 0], Segment[25 : 0], Segment[31 : 0], Segment[8 : 0], Segment[30 : 0], Segment[28 : 0], Segment[29 : 0], Segment[23 : 0], Segment[20 : 0], Segment[21 : 0], Segment[22 : 0], Segment[9 : 0], Segment[18 : 0], Segment[15 : 0], Segment[0 : 17], Segment[12 : 0], Segment[16 : 0], Segment[11 : 0], Segment[14 : 0], Segment[19 : 0], Segment[10 : 0], Segment[13 : 0], Segment[0 : 38]]
+
+1  s  [Segment[1 : 0], Segment[34 : 1], Segment[35 : 1], Segment[36 : 1], Segment[37 : 1], Segment[2 : 1], Segment[3 : 1], Segment[4 : 1], Segment[33 : 1], Segment[32 : 1], Segment[5 : 1], Segment[6 : 1], Segment[26 : 1], Segment[27 : 1], Segment[7 : 1], Segment[24 : 1], Segment[25 : 1], Segment[31 : 1], Segment[8 : 1], Segment[30 : 1], Segment[28 : 1], Segment[29 : 1], Segment[23 : 1], Segment[20 : 1], Segment[21 : 1], Segment[9 : 1], Segment[22 : 1], Segment[15 : 1], Segment[18 : 1], Segment[1 : 17], Segment[12 : 1], Segment[16 : 1], Segment[11 : 1], Segment[14 : 1], Segment[19 : 1], Segment[10 : 1], Segment[13 : 1], Segment[1 : 38]]
+}
+
+{
+    b: (2 <-> 3)
+    4 <- (2 <-> 3) ->  4
+    cut segment:        [1:34],       [0:34]
+    potential matches: {[35:1],       [35:0]
+
+2  s  [Segment[2 : 3], Segment[4 : 2], Segment[2 : 33], Segment[2 : 32], Segment[2 : 5], Segment[2 : 1], Segment[2 : 34], Segment[2 : 35], Segment[36 : 2], Segment[2 : 37], Segment[6 : 2], Segment[2 : 0], Segment[2 : 7], Segment[2 : 27], Segment[26 : 2], Segment[8 : 2], Segment[2 : 31], Segment[30 : 2], Segment[2 : 28], Segment[29 : 2], Segment[2 : 25], Segment[2 : 24], Segment[9 : 2], Segment[2 : 15], Segment[2 : 12], Segment[23 : 2], Segment[11 : 2], Segment[20 : 2], Segment[21 : 2], Segment[10 : 2], Segment[2 : 17], Segment[2 : 18], Segment[22 : 2], Segment[14 : 2], Segment[16 : 2], Segment[2 : 13], Segment[2 : 19], Segment[2 : 38]]
+
+3  s  [Segment[2 : 3], Segment[4 : 3], Segment[33 : 3], Segment[5 : 3], Segment[32 : 3], Segment[3 : 1], Segment[34 : 3], Segment[35 : 3], Segment[6 : 3], Segment[36 : 3], Segment[37 : 3], Segment[3 : 0], Segment[7 : 3], Segment[27 : 3], Segment[8 : 3], Segment[26 : 3], Segment[31 : 3], Segment[30 : 3], Segment[28 : 3], Segment[29 : 3], Segment[25 : 3], Segment[24 : 3], Segment[9 : 3], Segment[12 : 3], Segment[15 : 3], Segment[11 : 3], Segment[23 : 3], Segment[20 : 3], Segment[21 : 3], Segment[10 : 3], Segment[3 : 17], Segment[18 : 3], Segment[14 : 3], Segment[22 : 3], Segment[16 : 3], Segment[13 : 3], Segment[19 : 3], Segment[3 : 38]]
+}
+
+{
+ c: (3 <-> 2)<-> (4 <-> 5 <-> 6 <-> 7 <-> 8 <-> 9 <-> 10) <-> [11 <-> 12 <-> 13]
+4  s  [Segment[4 : 5], Segment[4 : 3], Segment[4 : 6], Segment[4 : 2], Segment[4 : 7], Segment[4 : 33], Segment[4 : 32], Segment[4 : 8], Segment[4 : 1], Segment[4 : 34], Segment[4 : 35], Segment[4 : 0], Segment[4 : 36], Segment[4 : 37], Segment[4 : 31], Segment[4 : 27], Segment[26 : 4], Segment[30 : 4], Segment[4 : 28], Segment[4 : 9], Segment[29 : 4], Segment[4 : 25], Segment[4 : 24], Segment[4 : 12], Segment[4 : 11], Segment[4 : 10], Segment[4 : 15], Segment[4 : 14], Segment[4 : 23], Segment[4 : 20], Segment[4 : 21], Segment[4 : 17], Segment[16 : 4], Segment[4 : 18], Segment[4 : 22], Segment[4 : 13], Segment[4 : 19], Segment[4 : 38]]
+
+5  s  [Segment[4 : 5], Segment[6 : 5], Segment[5 : 7], Segment[5 : 3], Segment[2 : 5], Segment[8 : 5], Segment[5 : 33], Segment[5 : 32], Segment[5 : 1], Segment[5 : 34], Segment[35 : 5], Segment[36 : 5], Segment[5 : 37], Segment[31 : 5], Segment[5 : 0], Segment[5 : 27], Segment[26 : 5], Segment[30 : 5], Segment[9 : 5], Segment[5 : 28], Segment[29 : 5], Segment[5 : 25], Segment[5 : 12], Segment[24 : 5], Segment[10 : 5], Segment[11 : 5], Segment[5 : 15], Segment[14 : 5], Segment[5 : 17], Segment[16 : 5], Segment[13 : 5], Segment[20 : 5], Segment[23 : 5], Segment[21 : 5], Segment[5 : 18], Segment[22 : 5], Segment[5 : 19], Segment[5 : 38]]
+
+6  s  [Segment[6 : 7], Segment[4 : 6], Segment[6 : 5], Segment[8 : 6], Segment[6 : 3], Segment[6 : 2], Segment[6 : 33], Segment[6 : 32], Segment[6 : 1], Segment[6 : 0], Segment[6 : 34], Segment[6 : 35], Segment[6 : 36], Segment[6 : 37], Segment[6 : 31], Segment[6 : 9], Segment[6 : 27], Segment[26 : 6], Segment[30 : 6], Segment[6 : 28], Segment[29 : 6], Segment[6 : 25], Segment[6 : 10], Segment[6 : 24], Segment[6 : 12], Segment[6 : 11], Segment[6 : 15], Segment[6 : 14], Segment[23 : 6], Segment[20 : 6], Segment[6 : 21], Segment[6 : 17], Segment[6 : 13], Segment[16 : 6], Segment[6 : 18], Segment[6 : 22], Segment[6 : 19], Segment[6 : 38]]
+
+7  s  [Segment[6 : 7], Segment[5 : 7], Segment[8 : 7], Segment[4 : 7], Segment[7 : 3], Segment[2 : 7], Segment[7 : 33], Segment[7 : 32], Segment[7 : 1], Segment[7 : 0], Segment[7 : 34], Segment[9 : 7], Segment[35 : 7], Segment[36 : 7], Segment[7 : 37], Segment[31 : 7], Segment[7 : 27], Segment[26 : 7], Segment[30 : 7], Segment[7 : 28], Segment[29 : 7], Segment[10 : 7], Segment[7 : 25], Segment[7 : 12], Segment[11 : 7], Segment[24 : 7], Segment[7 : 15], Segment[14 : 7], Segment[13 : 7], Segment[23 : 7], Segment[16 : 7], Segment[7 : 17], Segment[20 : 7], Segment[21 : 7], Segment[7 : 18], Segment[22 : 7], Segment[7 : 19], Segment[7 : 38]]
+
+8  s  [Segment[8 : 7], Segment[8 : 5], Segment[8 : 6], Segment[4 : 8], Segment[8 : 9], Segment[8 : 33], Segment[8 : 3], Segment[8 : 32], Segment[8 : 2], Segment[8 : 31], Segment[8 : 1], Segment[8 : 34], Segment[8 : 27], Segment[8 : 35], Segment[30 : 8], Segment[8 : 36], Segment[8 : 0], Segment[8 : 37], Segment[8 : 10], Segment[26 : 8], Segment[8 : 28], Segment[29 : 8], Segment[8 : 12], Segment[8 : 11], Segment[8 : 25], Segment[8 : 24], Segment[8 : 15], Segment[8 : 13], Segment[8 : 14], Segment[16 : 8], Segment[8 : 17], Segment[8 : 18], Segment[20 : 8], Segment[8 : 21], Segment[23 : 8], Segment[8 : 22], Segment[8 : 19], Segment[8 : 38]]
+
+9  s  [Segment[9 : 10], Segment[8 : 9], Segment[9 : 11], Segment[9 : 12], Segment[9 : 7], Segment[9 : 5], Segment[6 : 9], Segment[4 : 9], Segment[9 : 33], Segment[9 : 32], Segment[9 : 31], Segment[9 : 3], Segment[9 : 2], Segment[30 : 9], Segment[9 : 28], Segment[9 : 27], Segment[29 : 9], Segment[9 : 13], Segment[26 : 9], Segment[9 : 34], Segment[9 : 1], Segment[9 : 35], Segment[9 : 36], Segment[9 : 37], Segment[9 : 0], Segment[9 : 14], Segment[9 : 15], Segment[9 : 25], Segment[16 : 9], Segment[9 : 24], Segment[9 : 17], Segment[9 : 18], Segment[20 : 9], Segment[9 : 21], Segment[23 : 9], Segment[22 : 9], Segment[9 : 19], Segment[9 : 38]]
+
+10  s  [Segment[9 : 10], Segment[11 : 10], Segment[10 : 12], Segment[8 : 10], Segment[10 : 13], Segment[10 : 7], Segment[10 : 5], Segment[6 : 10], Segment[4 : 10], Segment[10 : 31], Segment[10 : 32], Segment[10 : 33], Segment[30 : 10], Segment[10 : 3], Segment[10 : 2], Segment[10 : 28], Segment[29 : 10], Segment[10 : 27], Segment[14 : 10], Segment[26 : 10], Segment[10 : 34], Segment[10 : 1], Segment[10 : 35], Segment[10 : 36], Segment[10 : 37], Segment[10 : 15], Segment[10 : 0], Segment[16 : 10], Segment[10 : 25], Segment[10 : 17], Segment[10 : 24], Segment[10 : 18], Segment[20 : 10], Segment[10 : 21], Segment[23 : 10], Segment[22 : 10], Segment[10 : 19], Segment[10 : 38]]
+}
+
+{
+    knot?: true
+    d: [11 <-> 12 <-> 13]
+    (4 <-> 5 <-> 6 <-> 7 <-> 8 <-> 9 <-> 10) <-> [11 <-> 12 <-> 13] <-> (14 <-> 15)
+    cut segment:        [11:13],       [11:12]        [12:13]
+    potential matches: {[11:10, 13:14],[11:10, 12:14],[12:9, 13:14]
+                                       [12:9, 11:14],         
+11  s  [Segment[11 : 12], Segment[11 : 13], Segment[11 : 10], Segment[9 : 11], Segment[11 : 14], Segment[11 : 31], Segment[30 : 11], Segment[8 : 11], Segment[11 : 28], Segment[29 : 11], Segment[11 : 32], Segment[11 : 33], Segment[11 : 5], Segment[11 : 27], Segment[11 : 15], Segment[4 : 11], Segment[11 : 7], Segment[26 : 11], Segment[6 : 11], Segment[11 : 3], Segment[16 : 11], Segment[11 : 2], Segment[11 : 34], Segment[11 : 36], Segment[11 : 35], Segment[11 : 37], Segment[11 : 25], Segment[11 : 1], Segment[11 : 17], Segment[11 : 0], Segment[11 : 18], Segment[11 : 24], Segment[20 : 11], Segment[11 : 21], Segment[11 : 19], Segment[23 : 11], Segment[22 : 11], Segment[11 : 38]]
+
+12  s  [Segment[11 : 12], Segment[13 : 12], Segment[9 : 12], Segment[10 : 12], Segment[14 : 12], Segment[30 : 12], Segment[31 : 12], Segment[12 : 28], Segment[29 : 12], Segment[8 : 12], Segment[12 : 32], Segment[12 : 15], Segment[12 : 27], Segment[12 : 33], Segment[5 : 12], Segment[26 : 12], Segment[4 : 12], Segment[16 : 12], Segment[7 : 12], Segment[12 : 3], Segment[6 : 12], Segment[2 : 12], Segment[12 : 25], Segment[34 : 12], Segment[36 : 12], Segment[35 : 12], Segment[12 : 37], Segment[12 : 17], Segment[12 : 1], Segment[12 : 0], Segment[12 : 18], Segment[24 : 12], Segment[20 : 12], Segment[21 : 12], Segment[19 : 12], Segment[23 : 12], Segment[22 : 12], Segment[12 : 38]]
+
+13  s  [Segment[13 : 12], Segment[11 : 13], Segment[14 : 13], Segment[10 : 13], Segment[13 : 15], Segment[9 : 13], Segment[30 : 13], Segment[29 : 13], Segment[16 : 13], Segment[13 : 28], Segment[13 : 31], Segment[13 : 27], Segment[13 : 32], Segment[8 : 13], Segment[13 : 33], Segment[26 : 13], Segment[13 : 17], Segment[13 : 5], Segment[4 : 13], Segment[13 : 3], Segment[2 : 13], Segment[13 : 7], Segment[13 : 25], Segment[6 : 13], Segment[13 : 18], Segment[13 : 34], Segment[36 : 13], Segment[13 : 37], Segment[13 : 35], Segment[13 : 1], Segment[13 : 0], Segment[20 : 13], Segment[13 : 19], Segment[13 : 24], Segment[21 : 13], Segment[23 : 13], Segment[22 : 13], Segment[13 : 38]]
+}
+
+{
+    e: (14 <-> 15)
+    knot?: true
+    (29) or (13) <- (14 <-> 15) <->  (16 ...)
+    cut segment:        [16:14],       [16:15]
+    potential matches: {[14:13],       [15:29]
+14  s  [Segment[14 : 15], Segment[16 : 14], Segment[14 : 13], Segment[29 : 14], Segment[14 : 28], Segment[30 : 14], Segment[14 : 12], Segment[14 : 17], Segment[14 : 31], Segment[11 : 14], Segment[14 : 27], Segment[26 : 14], Segment[14 : 18], Segment[14 : 25], Segment[14 : 32], Segment[14 : 33], Segment[9 : 14], Segment[14 : 19], Segment[14 : 5], Segment[20 : 14], Segment[14 : 3], Segment[14 : 2], Segment[14 : 21], Segment[8 : 14], Segment[4 : 14], Segment[14 : 37], Segment[14 : 10], Segment[14 : 36], Segment[14 : 34], Segment[14 : 35], Segment[14 : 24], Segment[6 : 14], Segment[14 : 1], Segment[14 : 7], Segment[23 : 14], Segment[22 : 14], Segment[14 : 0], Segment[14 : 38]]
+
+15  s  [Segment[16 : 15], Segment[14 : 15], Segment[15 : 17], Segment[29 : 15], Segment[28 : 15], Segment[30 : 15], Segment[18 : 15], Segment[31 : 15], Segment[27 : 15], Segment[26 : 15], Segment[25 : 15], Segment[19 : 15], Segment[20 : 15], Segment[32 : 15], Segment[12 : 15], Segment[21 : 15], Segment[33 : 15], Segment[13 : 15], Segment[11 : 15], Segment[24 : 15], Segment[37 : 15], Segment[36 : 15], Segment[34 : 15], Segment[35 : 15], Segment[23 : 15], Segment[22 : 15], Segment[15 : 3], Segment[2 : 15], Segment[5 : 15], Segment[4 : 15], Segment[15 : 1], Segment[8 : 15], Segment[15 : 0], Segment[9 : 15], Segment[6 : 15], Segment[7 : 15], Segment[10 : 15], Segment[15 : 38]]
+}
+
+{
+    f: (16 <-> 17 <-> 18 <-> 19)
+    knot?: false
+    potential matches: [16:15], [20:19]
+     (14 <-> 15) <-> (16 <-> 17 <-> 18 <-> 19) <-> (21 <->20) ...
+16  s  [Segment[16 : 15], Segment[16 : 17], Segment[16 : 14], Segment[16 : 18], Segment[29 : 16], Segment[16 : 28], Segment[30 : 16], Segment[16 : 19], Segment[16 : 31], Segment[16 : 27], Segment[16 : 25], Segment[16 : 26], Segment[16 : 20], Segment[16 : 21], Segment[16 : 13], Segment[16 : 12], Segment[16 : 32], Segment[16 : 33], Segment[16 : 22], Segment[16 : 24], Segment[16 : 23], Segment[16 : 11], Segment[16 : 37], Segment[16 : 36], Segment[16 : 35], Segment[16 : 34], Segment[16 : 3], Segment[16 : 2], Segment[16 : 5], Segment[16 : 4], Segment[16 : 1], Segment[16 : 0], Segment[16 : 8], Segment[16 : 9], Segment[16 : 6], Segment[16 : 7], Segment[16 : 10], Segment[16 : 38]]
+
+17  s  [Segment[18 : 17], Segment[16 : 17], Segment[15 : 17], Segment[19 : 17], Segment[20 : 17], Segment[21 : 17], Segment[25 : 17], Segment[29 : 17], Segment[28 : 17], Segment[14 : 17], Segment[30 : 17], Segment[26 : 17], Segment[22 : 17], Segment[27 : 17], Segment[23 : 17], Segment[31 : 17], Segment[24 : 17], Segment[32 : 17], Segment[33 : 17], Segment[37 : 17], Segment[36 : 17], Segment[35 : 17], Segment[34 : 17], Segment[2 : 17], Segment[3 : 17], Segment[1 : 17], Segment[12 : 17], Segment[0 : 17], Segment[5 : 17], Segment[4 : 17], Segment[13 : 17], Segment[11 : 17], Segment[6 : 17], Segment[8 : 17], Segment[7 : 17], Segment[9 : 17], Segment[10 : 17], Segment[17 : 38]]
+
+18  s  [Segment[18 : 17], Segment[19 : 18], Segment[20 : 18], Segment[21 : 18], Segment[22 : 18], Segment[25 : 18], Segment[16 : 18], Segment[23 : 18], Segment[18 : 15], Segment[24 : 18], Segment[29 : 18], Segment[26 : 18], Segment[18 : 28], Segment[27 : 18], Segment[30 : 18], Segment[31 : 18], Segment[14 : 18], Segment[37 : 18], Segment[36 : 18], Segment[35 : 18], Segment[34 : 18], Segment[32 : 18], Segment[18 : 33], Segment[18 : 1], Segment[2 : 18], Segment[18 : 3], Segment[18 : 0], Segment[4 : 18], Segment[5 : 18], Segment[12 : 18], Segment[6 : 18], Segment[13 : 18], Segment[8 : 18], Segment[7 : 18], Segment[11 : 18], Segment[9 : 18], Segment[10 : 18], Segment[18 : 38]]
+
+19  s  [Segment[19 : 18], Segment[20 : 19], Segment[21 : 19], Segment[19 : 17], Segment[22 : 19], Segment[23 : 19], Segment[16 : 19], Segment[19 : 25], Segment[19 : 15], Segment[24 : 19], Segment[29 : 19], Segment[26 : 19], Segment[19 : 28], Segment[19 : 27], Segment[30 : 19], Segment[14 : 19], Segment[31 : 19], Segment[19 : 37], Segment[36 : 19], Segment[35 : 19], Segment[19 : 34], Segment[19 : 32], Segment[19 : 33], Segment[19 : 1], Segment[19 : 0], Segment[2 : 19], Segment[19 : 3], Segment[4 : 19], Segment[5 : 19], Segment[19 : 12], Segment[6 : 19], Segment[13 : 19], Segment[8 : 19], Segment[7 : 19], Segment[11 : 19], Segment[9 : 19], Segment[10 : 19], Segment[19 : 38]]
+}
+
+{
+    g: (20 <-> 21)
+   ... (16 <-> 17 <-> 18 <-> 19) <-> (20 <-> 21) <-> (23 <-> 22)...
+20  s  [Segment[20 : 21], Segment[20 : 22], Segment[20 : 23], Segment[20 : 18], Segment[20 : 19], Segment[20 : 25], Segment[20 : 24], Segment[20 : 17], Segment[26 : 20], Segment[20 : 27], Segment[20 : 15], Segment[29 : 20], Segment[20 : 28], Segment[16 : 20], Segment[20 : 37], Segment[20 : 36], Segment[20 : 35], Segment[30 : 20], Segment[20 : 34], Segment[20 : 31], Segment[20 : 1], Segment[20 : 32], Segment[20 : 0], Segment[20 : 33], Segment[20 : 2], Segment[20 : 3], Segment[20 : 14], Segment[4 : 20], Segment[20 : 5], Segment[20 : 6], Segment[20 : 7], Segment[20 : 8], Segment[20 : 12], Segment[20 : 11], Segment[20 : 13], Segment[20 : 9], Segment[20 : 10], Segment[20 : 38]]
+
+21  s  [Segment[20 : 21], Segment[22 : 21], Segment[23 : 21], Segment[21 : 18], Segment[21 : 19], Segment[21 : 24], Segment[21 : 25], Segment[21 : 17], Segment[26 : 21], Segment[21 : 27], Segment[29 : 21], Segment[21 : 15], Segment[21 : 28], Segment[16 : 21], Segment[21 : 37], Segment[36 : 21], Segment[21 : 35], Segment[21 : 34], Segment[30 : 21], Segment[21 : 31], Segment[21 : 1], Segment[21 : 0], Segment[21 : 32], Segment[21 : 33], Segment[21 : 2], Segment[21 : 3], Segment[14 : 21], Segment[4 : 21], Segment[21 : 5], Segment[6 : 21], Segment[21 : 7], Segment[8 : 21], Segment[21 : 12], Segment[11 : 21], Segment[9 : 21], Segment[21 : 13], Segment[10 : 21], Segment[21 : 38]]
+}
+
+{
+    h: (22 <-> 23)
+   ...(20 <-> 21) <-> (22 <-> 23) <-> (24 <-> 25) ...
+22  s  [Segment[23 : 22], Segment[22 : 21], Segment[20 : 22], Segment[22 : 24], Segment[22 : 18], Segment[22 : 19], Segment[22 : 25], Segment[22 : 17], Segment[26 : 22], Segment[22 : 37], Segment[22 : 36], Segment[22 : 27], Segment[22 : 35], Segment[22 : 34], Segment[29 : 22], Segment[22 : 28], Segment[22 : 15], Segment[16 : 22], Segment[22 : 1], Segment[30 : 22], Segment[22 : 0], Segment[22 : 31], Segment[22 : 32], Segment[22 : 33], Segment[22 : 2], Segment[22 : 3], Segment[4 : 22], Segment[22 : 14], Segment[22 : 5], Segment[6 : 22], Segment[22 : 7], Segment[8 : 22], Segment[22 : 12], Segment[22 : 11], Segment[22 : 9], Segment[22 : 13], Segment[22 : 10], Segment[22 : 38]]
+
+23  s  [Segment[23 : 22], Segment[23 : 21], Segment[20 : 23], Segment[23 : 24], Segment[23 : 25], Segment[23 : 18], Segment[23 : 19], Segment[23 : 17], Segment[26 : 23], Segment[23 : 37], Segment[23 : 36], Segment[23 : 35], Segment[23 : 34], Segment[23 : 27], Segment[23 : 1], Segment[29 : 23], Segment[23 : 28], Segment[23 : 0], Segment[30 : 23], Segment[23 : 15], Segment[23 : 31], Segment[23 : 32], Segment[16 : 23], Segment[23 : 33], Segment[23 : 2], Segment[23 : 3], Segment[4 : 23], Segment[23 : 5], Segment[23 : 6], Segment[23 : 14], Segment[23 : 7], Segment[23 : 8], Segment[23 : 12], Segment[23 : 9], Segment[23 : 11], Segment[23 : 13], Segment[23 : 10], Segment[23 : 38]]
+}
+{
+    i: (24 <-> 25)
+...(22<->23)<-> (24 <-> 25) -> (26 <-> 27)
+24  s  [Segment[24 : 25], Segment[23 : 24], Segment[24 : 37], Segment[36 : 24], Segment[35 : 24], Segment[21 : 24], Segment[20 : 24], Segment[24 : 34], Segment[22 : 24], Segment[26 : 24], Segment[24 : 1], Segment[24 : 0], Segment[24 : 27], Segment[24 : 18], Segment[2 : 24], Segment[24 : 3], Segment[24 : 32], Segment[24 : 28], Segment[24 : 33], Segment[29 : 24], Segment[31 : 24], Segment[30 : 24], Segment[24 : 17], Segment[4 : 24], Segment[24 : 19], Segment[24 : 5], Segment[24 : 15], Segment[6 : 24], Segment[16 : 24], Segment[24 : 7], Segment[8 : 24], Segment[14 : 24], Segment[9 : 24], Segment[24 : 12], Segment[11 : 24], Segment[13 : 24], Segment[10 : 24], Segment[24 : 38]]
+
+25  s  [Segment[26 : 25], Segment[24 : 25], Segment[27 : 25], Segment[25 : 28], Segment[29 : 25], Segment[37 : 25], Segment[36 : 25], Segment[20 : 25], Segment[35 : 25], Segment[34 : 25], Segment[21 : 25], Segment[30 : 25], Segment[31 : 25], Segment[23 : 25], Segment[25 : 18], Segment[32 : 25], Segment[25 : 33], Segment[25 : 17], Segment[25 : 1], Segment[22 : 25], Segment[2 : 25], Segment[25 : 3], Segment[25 : 0], Segment[25 : 15], Segment[4 : 25], Segment[19 : 25], Segment[16 : 25], Segment[5 : 25], Segment[6 : 25], Segment[14 : 25], Segment[7 : 25], Segment[8 : 25], Segment[12 : 25], Segment[9 : 25], Segment[11 : 25], Segment[13 : 25], Segment[10 : 25], Segment[25 : 38]]
+}
+{
+    j: (26 <-> 27)
+    [(31) <-> (26 <-> 27) <-> [30 <->  38 <-> 29 <-> 28]]
+26  s  [Segment[26 : 27], Segment[26 : 28], Segment[26 : 31], Segment[29 : 26], Segment[30 : 26], Segment[26 : 25], Segment[26 : 32], Segment[26 : 33], Segment[26 : 37], Segment[26 : 36], Segment[26 : 34], Segment[26 : 35], Segment[26 : 2], Segment[26 : 3], Segment[26 : 1], Segment[26 : 24], Segment[26 : 4], Segment[26 : 5], Segment[26 : 0], Segment[26 : 15], Segment[26 : 6], Segment[26 : 17], Segment[26 : 20], Segment[26 : 18], Segment[26 : 7], Segment[26 : 8], Segment[26 : 21], Segment[16 : 26], Segment[26 : 23], Segment[26 : 14], Segment[26 : 22], Segment[26 : 12], Segment[26 : 9], Segment[26 : 19], Segment[26 : 11], Segment[26 : 13], Segment[26 : 10], Segment[26 : 38]]
+
+27  s  [Segment[26 : 27], Segment[31 : 27], Segment[27 : 28], Segment[30 : 27], Segment[29 : 27], Segment[27 : 32], Segment[27 : 33], Segment[27 : 25], Segment[27 : 37], Segment[36 : 27], Segment[34 : 27], Segment[27 : 3], Segment[35 : 27], Segment[2 : 27], Segment[5 : 27], Segment[4 : 27], Segment[27 : 1], Segment[24 : 27], Segment[27 : 15], Segment[27 : 0], Segment[6 : 27], Segment[8 : 27], Segment[7 : 27], Segment[27 : 17], Segment[16 : 27], Segment[27 : 18], Segment[14 : 27], Segment[20 : 27], Segment[21 : 27], Segment[12 : 27], Segment[23 : 27], Segment[9 : 27], Segment[11 : 27], Segment[22 : 27], Segment[19 : 27], Segment[13 : 27], Segment[10 : 27], Segment[27 : 38]]
+}
+
+{
+    k: [30 <->  38 <-> 29 <-> 28]
+    ...(25 <-> 26) -> [(26 <-> 27) <-> [30 <->  38 <-> 29 <-> 28] <-> (31)] -> (32 <-> 33)
+    cut segment:        [28:30],       [29:30]        [29:38]         [30:38]
+    potential matches: {[31:28, 30:27],[31:29, 30:27],[31:29, 38:16], [30:31, 38:16]
+                        [31:30, 28:27],[31:30, 29:27],              
+28  s  [Segment[29 : 28], Segment[30 : 28], Segment[31 : 28], Segment[27 : 28], Segment[26 : 28], Segment[32 : 28], Segment[33 : 28], Segment[28 : 15], Segment[25 : 28], Segment[28 : 3], Segment[2 : 28], Segment[37 : 28], Segment[36 : 28], Segment[34 : 28], Segment[14 : 28], Segment[35 : 28], Segment[16 : 28], Segment[28 : 17], Segment[5 : 28], Segment[4 : 28], Segment[28 : 1], Segment[24 : 28], Segment[18 : 28], Segment[12 : 28], Segment[8 : 28], Segment[28 : 0], Segment[6 : 28], Segment[20 : 28], Segment[7 : 28], Segment[11 : 28], Segment[21 : 28], Segment[9 : 28], Segment[23 : 28], Segment[13 : 28], Segment[22 : 28], Segment[19 : 28], Segment[10 : 28], Segment[28 : 38]]
+
+29  s  [Segment[29 : 38], Segment[29 : 28], Segment[30 : 29], Segment[29 : 31], Segment[29 : 27], Segment[29 : 26], Segment[29 : 15], Segment[29 : 32], Segment[29 : 25], Segment[29 : 33], Segment[29 : 16], Segment[29 : 14], Segment[29 : 17], Segment[29 : 3], Segment[29 : 2], Segment[29 : 37], Segment[29 : 36], Segment[29 : 34], Segment[29 : 35], Segment[29 : 5], Segment[29 : 4], Segment[29 : 18], Segment[29 : 1], Segment[29 : 24], Segment[29 : 12], Segment[29 : 8], Segment[29 : 0], Segment[29 : 20], Segment[29 : 6], Segment[29 : 11], Segment[29 : 21], Segment[29 : 7], Segment[29 : 9], Segment[29 : 23], Segment[29 : 13], Segment[29 : 19], Segment[29 : 22], Segment[29 : 10]]
+
+38  s  [Segment[30 : 38], Segment[29 : 38], Segment[16 : 38], Segment[26 : 38], Segment[4 : 38], Segment[20 : 38], Segment[23 : 38], Segment[8 : 38], Segment[6 : 38], Segment[22 : 38], Segment[9 : 38], Segment[11 : 38], Segment[14 : 38], Segment[10 : 38], Segment[36 : 38], Segment[21 : 38], Segment[2 : 38], Segment[13 : 38], Segment[35 : 38], Segment[31 : 38], Segment[24 : 38], Segment[5 : 38], Segment[7 : 38], Segment[19 : 38], Segment[34 : 38], Segment[12 : 38], Segment[27 : 38], Segment[32 : 38], Segment[37 : 38], Segment[25 : 38], Segment[18 : 38], Segment[33 : 38], Segment[28 : 38], Segment[15 : 38], Segment[3 : 38], Segment[1 : 38], Segment[0 : 38], Segment[17 : 38]]
+
+30  s  [Segment[30 : 38], Segment[30 : 28], Segment[30 : 29], Segment[30 : 31], Segment[30 : 27], Segment[30 : 26], Segment[30 : 32], Segment[30 : 33], Segment[30 : 15], Segment[30 : 25], Segment[30 : 3], Segment[30 : 2], Segment[30 : 5], Segment[30 : 34], Segment[30 : 36], Segment[30 : 37], Segment[30 : 35], Segment[30 : 4], Segment[30 : 14], Segment[30 : 16], Segment[30 : 12], Segment[30 : 17], Segment[30 : 1], Segment[30 : 8], Segment[30 : 6], Segment[30 : 24], Segment[30 : 0], Segment[30 : 7], Segment[30 : 11], Segment[30 : 18], Segment[30 : 9], Segment[30 : 20], Segment[30 : 21], Segment[30 : 13], Segment[30 : 23], Segment[30 : 22], Segment[30 : 19], Segment[30 : 10]]
+}
+
+31  s  [Segment[30 : 31], Segment[31 : 28], Segment[31 : 27], Segment[29 : 31], Segment[26 : 31], Segment[31 : 32], Segment[31 : 33], Segment[31 : 3], Segment[2 : 31], Segment[31 : 5], Segment[31 : 25], Segment[4 : 31], Segment[31 : 34], Segment[36 : 31], Segment[31 : 37], Segment[35 : 31], Segment[31 : 15], Segment[8 : 31], Segment[31 : 1], Segment[6 : 31], Segment[31 : 7], Segment[31 : 12], Segment[31 : 0], Segment[14 : 31], Segment[16 : 31], Segment[9 : 31], Segment[31 : 24], Segment[11 : 31], Segment[31 : 17], Segment[31 : 18], Segment[20 : 31], Segment[21 : 31], Segment[13 : 31], Segment[23 : 31], Segment[10 : 31], Segment[22 : 31], Segment[31 : 19], Segment[31 : 38]]
+
+{
+jk31: [j <-> k <-> 31]
+i: (26 <-> 25)
+m: (33<->32)
+b: (2<->3)
+    segment to cut: [j:k]       [k:31]       [j:31]
+                    [j:i, k:m]  [31:m, k:i] [26:25, 31:32]
+                                [31:b, k:m]
+}
+{
+    m: (32 <->  33)
+    knot?: true
+    ... (10 <-> 9 <-> 8 <-> 7 <-> 6 <-> 5 <-> 4) <-> (2 <-> 3) <-> (32 <->  33) <-> (31) or (27)
+    cut segment:        [3:33],       [3:32]
+    potential matches: {[27:33],       [31:32]
+32  s  [Segment[32 : 33], Segment[32 : 3], Segment[2 : 32], Segment[5 : 32], Segment[31 : 32], Segment[4 : 32], Segment[27 : 32], Segment[26 : 32], Segment[34 : 32], Segment[30 : 32], Segment[35 : 32], Segment[36 : 32], Segment[32 : 37], Segment[32 : 28], Segment[32 : 1], Segment[6 : 32], Segment[29 : 32], Segment[8 : 32], Segment[7 : 32], Segment[32 : 0], Segment[32 : 25], Segment[9 : 32], Segment[24 : 32], Segment[32 : 15], Segment[12 : 32], Segment[11 : 32], Segment[14 : 32], Segment[32 : 17], Segment[16 : 32], Segment[20 : 32], Segment[32 : 18], Segment[10 : 32], Segment[21 : 32], Segment[23 : 32], Segment[22 : 32], Segment[13 : 32], Segment[19 : 32], Segment[32 : 38]]
+
+33  s  [Segment[32 : 33], Segment[33 : 3], Segment[2 : 33], Segment[5 : 33], Segment[4 : 33], Segment[27 : 33], Segment[31 : 33], Segment[26 : 33], Segment[34 : 33], Segment[35 : 33], Segment[36 : 33], Segment[37 : 33], Segment[6 : 33], Segment[33 : 1], Segment[30 : 33], Segment[33 : 28], Segment[7 : 33], Segment[8 : 33], Segment[29 : 33], Segment[33 : 0], Segment[25 : 33], Segment[9 : 33], Segment[24 : 33], Segment[33 : 15], Segment[12 : 33], Segment[11 : 33], Segment[14 : 33], Segment[33 : 17], Segment[16 : 33], Segment[10 : 33], Segment[20 : 33], Segment[18 : 33], Segment[21 : 33], Segment[23 : 33], Segment[22 : 33], Segment[13 : 33], Segment[19 : 33], Segment[33 : 38]]
+}
+
+{
+    [[35 <-> 36 <-> 37] <-> (34) <-> (1 <-> 0)]
+    knot?: true
+    cut segment:        [34:35],       [34:36]
+    potential matches: {[34:1],       [34:0]
+34  s  [Segment[35 : 34], Segment[36 : 34], Segment[34 : 37], Segment[34 : 1], Segment[34 : 0], Segment[2 : 34], Segment[34 : 3], Segment[34 : 33], Segment[34 : 32], Segment[4 : 34], Segment[26 : 34], Segment[34 : 27], Segment[5 : 34], Segment[34 : 25], Segment[24 : 34], Segment[6 : 34], Segment[31 : 34], Segment[7 : 34], Segment[30 : 34], Segment[34 : 28], Segment[29 : 34], Segment[8 : 34], Segment[23 : 34], Segment[20 : 34], Segment[21 : 34], Segment[22 : 34], Segment[34 : 15], Segment[34 : 18], Segment[9 : 34], Segment[34 : 17], Segment[16 : 34], Segment[34 : 12], Segment[14 : 34], Segment[11 : 34], Segment[19 : 34], Segment[10 : 34], Segment[13 : 34], Segment[34 : 38]]
+}
+
+{
+    n: [35 <-> 36 <-> 37 <-> 35]
+    [34 <-> [35 <-> 36 <-> 37 <-> 35] <-> (1 <-> 0)]
+    cut segment:        [35:37],          [35:36],          [37:36]
+    potential matches: {[34:35], [37:1]   [34:36], [35:1]   [34:36], [37:1]
+                        [35:1], [37:34]   [34:35], [36:1]   [34:37], [36:1]
+35  s  [Segment[36 : 35], Segment[35 : 37], Segment[35 : 34], Segment[35 : 1], Segment[35 : 0], Segment[2 : 35], Segment[35 : 3], Segment[35 : 33], Segment[35 : 32], Segment[26 : 35], Segment[4 : 35], Segment[35 : 27], Segment[35 : 24], Segment[35 : 25], Segment[35 : 5], Segment[6 : 35], Segment[35 : 31], Segment[35 : 7], Segment[30 : 35], Segment[35 : 28], Segment[29 : 35], Segment[8 : 35], Segment[23 : 35], Segment[20 : 35], Segment[21 : 35], Segment[22 : 35], Segment[35 : 18], Segment[35 : 15], Segment[35 : 17], Segment[9 : 35], Segment[16 : 35], Segment[35 : 12], Segment[14 : 35], Segment[35 : 19], Segment[11 : 35], Segment[10 : 35], Segment[13 : 35], Segment[35 : 38]]
+
+36  s  [Segment[36 : 37], Segment[36 : 35], Segment[36 : 34], Segment[36 : 1], Segment[36 : 0], Segment[36 : 2], Segment[36 : 3], Segment[36 : 33], Segment[36 : 32], Segment[26 : 36], Segment[4 : 36], Segment[36 : 27], Segment[36 : 24], Segment[36 : 25], Segment[36 : 5], Segment[6 : 36], Segment[36 : 31], Segment[30 : 36], Segment[36 : 28], Segment[36 : 7], Segment[29 : 36], Segment[8 : 36], Segment[23 : 36], Segment[20 : 36], Segment[36 : 21], Segment[22 : 36], Segment[36 : 18], Segment[36 : 15], Segment[36 : 17], Segment[9 : 36], Segment[16 : 36], Segment[36 : 12], Segment[14 : 36], Segment[36 : 19], Segment[11 : 36], Segment[10 : 36], Segment[36 : 13], Segment[36 : 38]]
+
+37  s  [Segment[36 : 37], Segment[35 : 37], Segment[34 : 37], Segment[37 : 1], Segment[37 : 0], Segment[2 : 37], Segment[37 : 3], Segment[37 : 33], Segment[32 : 37], Segment[26 : 37], Segment[4 : 37], Segment[27 : 37], Segment[24 : 37], Segment[37 : 25], Segment[5 : 37], Segment[6 : 37], Segment[31 : 37], Segment[37 : 28], Segment[30 : 37], Segment[7 : 37], Segment[29 : 37], Segment[8 : 37], Segment[23 : 37], Segment[20 : 37], Segment[21 : 37], Segment[22 : 37], Segment[37 : 18], Segment[37 : 15], Segment[37 : 17], Segment[9 : 37], Segment[16 : 37], Segment[12 : 37], Segment[14 : 37], Segment[19 : 37], Segment[11 : 37], Segment[10 : 37], Segment[13 : 37], Segment[37 : 38]]
+}
+
+{
+
+n34a: [34 <-> n:[35 <-> 36 <-> 37 <-> 35] <-> a:(1 <-> 0)]
+b:(2:3)
+m:(32:33)
+maybe to find the closest distance to a group we need to make a new bucket with the sorted closest segments and remove duplicates
+for example the bucket a would be [a(1):34, a(1):35, a(1):36, a(1):37, a(1):b(2), a(1):b(3), a(1):c(4)] -> [a:n, a:b]
+segment to cut: [34:n]             [34:a]       [n:a]
+                [34:b, n:m]        [a:b, 34:m]  [a:b, n:m]
+                [34:m, n:b]        [a:c, 34:b]  [a:c, n:m]
+35  s  [Segment[36 : 35], Segment[35 : 37], Segment[35 : 34], Segment[35 : 1], Segment[35 : 0], Segment[b : 35], Segment[35 : b], Segment[35 : m], Segment[35 : m], Segment[26 : 35], Segment[4 : 35], Segment[35 : 27], Segment[35 : 24], Segment[35 : 25], Segment[35 : 5], Segment[6 : 35], Segment[35 : 31], Segment[35 : 7], Segment[30 : 35], Segment[35 : 28], Segment[29 : 35], Segment[8 : 35], Segment[23 : 35], Segment[20 : 35], Segment[21 : 35], Segment[22 : 35], Segment[35 : 18], Segment[35 : 15], Segment[35 : 17], Segment[9 : 35], Segment[16 : 35], Segment[35 : 12], Segment[14 : 35], Segment[35 : 19], Segment[11 : 35], Segment[10 : 35], Segment[13 : 35], Segment[35 : 38]]
+
+36  s  [Segment[36 : 37], Segment[36 : 35], Segment[36 : 34], Segment[36 : 1], Segment[36 : 0], Segment[36 : b], Segment[36 : b], Segment[36 : m], Segment[36 : m], Segment[26 : 36], Segment[4 : 36], Segment[36 : 27], Segment[36 : 24], Segment[36 : 25], Segment[36 : 5], Segment[6 : 36], Segment[36 : 31], Segment[30 : 36], Segment[36 : 28], Segment[36 : 7], Segment[29 : 36], Segment[8 : 36], Segment[23 : 36], Segment[20 : 36], Segment[36 : 21], Segment[22 : 36], Segment[36 : 18], Segment[36 : 15], Segment[36 : 17], Segment[9 : 36], Segment[16 : 36], Segment[36 : 12], Segment[14 : 36], Segment[36 : 19], Segment[11 : 36], Segment[10 : 36], Segment[36 : 13], Segment[36 : 38]]
+
+37  s  [Segment[36 : 37], Segment[35 : 37], Segment[34 : 37], Segment[37 : 1], Segment[37 : 0], Segment[b : 37], Segment[37 : b], Segment[37 : m], Segment[m : 37], Segment[26 : 37], Segment[4 : 37], Segment[27 : 37], Segment[24 : 37], Segment[37 : 25], Segment[5 : 37], Segment[6 : 37], Segment[31 : 37], Segment[37 : 28], Segment[30 : 37], Segment[7 : 37], Segment[29 : 37], Segment[8 : 37], Segment[23 : 37], Segment[20 : 37], Segment[21 : 37], Segment[22 : 37], Segment[37 : 18], Segment[37 : 15], Segment[37 : 17], Segment[9 : 37], Segment[16 : 37], Segment[12 : 37], Segment[14 : 37], Segment[19 : 37], Segment[11 : 37], Segment[10 : 37], Segment[13 : 37], Segment[37 : 38]]
+
+34  s  [Segment[35 : 34], Segment[36 : 34], Segment[34 : 37], Segment[34 : 1], Segment[34 : 0], Segment[b : 34], Segment[34 : b], Segment[34 : m], Segment[34 : m], Segment[4 : 34], Segment[26 : 34], Segment[34 : 27], Segment[5 : 34], Segment[34 : 25], Segment[24 : 34], Segment[6 : 34], Segment[31 : 34], Segment[7 : 34], Segment[30 : 34], Segment[34 : 28], Segment[29 : 34], Segment[8 : 34], Segment[23 : 34], Segment[20 : 34], Segment[21 : 34], Segment[22 : 34], Segment[34 : 15], Segment[34 : 18], Segment[9 : 34], Segment[34 : 17], Segment[16 : 34], Segment[34 : 12], Segment[14 : 34], Segment[11 : 34], Segment[19 : 34], Segment[10 : 34], Segment[13 : 34], Segment[34 : 38]]
+
+0  s  [Segment[1 : 0], Segment[34 : 0], Segment[35 : 0], Segment[36 : 0], Segment[37 : 0], Segment[b : 0], Segment[b : 0], Segment[c : 0], Segment[33 : 0], Segment[32 : 0], Segment[6 : 0], Segment[5 : 0], Segment[26 : 0], Segment[7 : 0], Segment[24 : 0], Segment[27 : 0], Segment[25 : 0], Segment[31 : 0], Segment[8 : 0], Segment[30 : 0], Segment[28 : 0], Segment[29 : 0], Segment[23 : 0], Segment[20 : 0], Segment[21 : 0], Segment[22 : 0], Segment[9 : 0], Segment[18 : 0], Segment[15 : 0], Segment[0 : 17], Segment[12 : 0], Segment[16 : 0], Segment[11 : 0], Segment[14 : 0], Segment[19 : 0], Segment[10 : 0], Segment[13 : 0], Segment[0 : 38]]
+
+1  s  [Segment[1 : 0], Segment[34 : 1], Segment[35 : 1], Segment[36 : 1], Segment[37 : 1], Segment[b : 1], Segment[b : 1], Segment[c : 1], Segment[33 : 1], Segment[32 : 1], Segment[5 : 1], Segment[6 : 1], Segment[26 : 1], Segment[27 : 1], Segment[7 : 1], Segment[24 : 1], Segment[25 : 1], Segment[31 : 1], Segment[8 : 1], Segment[30 : 1], Segment[28 : 1], Segment[29 : 1], Segment[23 : 1], Segment[20 : 1], Segment[21 : 1], Segment[9 : 1], Segment[22 : 1], Segment[15 : 1], Segment[18 : 1], Segment[1 : 17], Segment[12 : 1], Segment[16 : 1], Segment[11 : 1], Segment[14 : 1], Segment[19 : 1], Segment[10 : 1], Segment[13 : 1], Segment[1 : 38]]
+
+
+}
+
+

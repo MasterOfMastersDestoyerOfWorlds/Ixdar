@@ -1,15 +1,14 @@
-package shellCopy;
+package shell;
 
-import java.awt.geom.GeneralPath;
 import java.awt.geom.Path2D;
 
 /**
  * The optimal tsp path in a pointset ps
  */
 public class PointSetPath {
-	PointSet ps;
-	Path2D path;
-	Shell tsp;
+	public PointSet ps;
+	public Path2D path;
+	public Shell tsp;
 
 	/**
 	 * Initializes the path and pointset variables
