@@ -176,15 +176,31 @@ Ok I think we're ready for our first larger structure
 
 ### Knot
 
+A Knot is defined as any subset K of G where all of the Points in K only want to match with each other
+
 Knot(P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>) = struct{
     
-sortedSegments = [Segment( P<sub>1</sub> , P<sub>2</sub> ) , Segment( P<sub>1</sub> , P<sub>3</sub> ) , ... , Segment( P<sub>1</sub> , P<sub>N</sub> )]
+knotPoints = [P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>]
+
+sortedSegments = [Segment( P<sub>1</sub> , P<sub>M+1</sub> ) , Segment( P<sub>1</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>1</sub> , P<sub>N</sub> ), 
+
+Segment( P<sub>2</sub> , P<sub>M+1</sub> ) , Segment( P<sub>2</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>2</sub> , P<sub>N</sub> ),
+
+...
+
+Segment( P<sub>M</sub> , P<sub>M+1</sub> ) , Segment( P<sub>M</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>M</sub> , P<sub>N</sub> ),
+]
 
 match1 = P<sub>*</sub>
 
 match2 = P<sub>*</sub>
 
 }
+
+the sortedSegments are all of the segments from any Point in the K to any point not in K, sorted by distance 
+
+    Note for optimization: You likely don't need to sort all of the segments since we have already sorted them at each Point. Likely you could get the best 3 segments not pointing to other Points contained in the Knot since we will not go beyond this until we make a new Knot.
+
 
 
 
