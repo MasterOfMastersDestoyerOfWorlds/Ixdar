@@ -277,6 +277,21 @@ public class Shell extends LinkedList<PointND> {
 		// vp1, vp2, ... vpm
 
 		public Knot(ArrayList<VirtualPoint> knotPointsToAdd) {
+			// if (knotPointsToAdd.get(0).match2 == null) {
+			// VirtualPoint vp1 = knotPointsToAdd.get(0);
+			// VirtualPoint vp2 = knotPointsToAdd.get(knotPointsToAdd.size() - 1);
+			// Segment s = vp1.getClosestSegment(vp2);
+			// Point bp2 = (Point) s.getOtherKnot(vp1);
+			// Point bp1 = (Point) s.getOther(bp2);
+			// vp1.match2 = vp2;
+			// vp1.basePoint2 = bp1;
+			// vp1.match2endpoint = bp2;
+			// vp1.s2 = s;
+			// vp2.match2 = vp1;
+			// vp2.basePoint2 = bp2;
+			// vp2.match2endpoint = bp1;
+			// vp2.s2 = s;
+			// }
 			sortedSegments = new ArrayList<>();
 			ArrayList<VirtualPoint> flattenRunPoints = new ArrayList<>();
 			if (knotPointsToAdd.size() == 2 && knotPointsToAdd.get(0).isRun && knotPointsToAdd.get(1).isRun) {
@@ -452,12 +467,6 @@ public class Shell extends LinkedList<PointND> {
 			}
 
 			System.out.println(flattenRunPoints);
-			if (flattenRunPoints.size() != knotPointsToAdd.size()) {
-				knotmergecount++;
-				if (knotmergecount == 10) {
-					float zero = 1 / 0;
-				}
-			}
 
 			// if we have two knots that make up the whole knot we need to insert one of the
 			// knots into the other
@@ -557,6 +566,13 @@ public class Shell extends LinkedList<PointND> {
 
 				System.out.println(newList);
 				flattenRunPoints = newList;
+
+				if (true) {
+					knotmergecount++;
+					if (knotmergecount == 3) {
+						float zero = 1 / 0;
+					}
+				}
 
 			}
 			this.knotPoints = flattenRunPoints;
@@ -1056,6 +1072,10 @@ public class Shell extends LinkedList<PointND> {
 		VirtualPoint mainPoint = toVisit.get(0);
 		System.out.println("startPoint: " + mainPoint);
 		boolean endpointReached = false;
+		VirtualPoint runFailedMatch1 = null;
+		VirtualPoint runFailedMatch2 = null;
+		VirtualPoint endPoint1 = null;
+		VirtualPoint endPoint2 = null;
 		boolean knotFound = false;
 		while (toVisit.size() > 0 || runList.size() > 0) {
 			toVisit.remove(mainPoint);
@@ -1275,18 +1295,61 @@ public class Shell extends LinkedList<PointND> {
 			} else {
 				recurseCount++;
 				if (endpointReached) {
+					if (mainPoint.match1.equals(pointer1.topGroup)) {
+						runFailedMatch2 = pointer2.topGroup;
+					} else {
+						runFailedMatch2 = pointer1.topGroup;
+					}
+					endPoint2 = mainPoint;
 					System.out.println("Found both end of the run, adding to knot");
 					// I think if we are pointing on either end to ourselves we need to make a knot,
 					// not a run
-					VirtualPoint endPoint1 = runList.get(0);
-					VirtualPoint endPoint2 = runList.get(runList.size() - 1);
+					if (runList.contains(runFailedMatch1) || runList.contains(runFailedMatch2)) {
+						Segment thirdMatch1 = runFailedMatch1.getPointer(3);
+						VirtualPoint me1 = thirdMatch1.getOtherKnot(runFailedMatch1);
+						VirtualPoint bp1 = thirdMatch1.getOther(me1);
+						boolean flag1 = runFailedMatch1.contains(bp1);
+
+						Segment thirdMatch2 = runFailedMatch2.getPointer(3);
+						VirtualPoint me2 = thirdMatch1.getOtherKnot(runFailedMatch2);
+						VirtualPoint bp2 = thirdMatch1.getOther(me2);
+						boolean flag2 = runFailedMatch1.contains(bp2);
+						if (flag1 || flag2) {
+							System.out.println("Half Knot Found: ");
+							System.out.println(runList);
+							System.out.println(endPoint1);
+							System.out.println(runFailedMatch1);
+							System.out.println(thirdMatch1);
+							System.out.println(endPoint2);
+							System.out.println(runFailedMatch2);
+							System.out.println(thirdMatch2);
+							halfKnotCount++;
+							if (halfKnotCount > 1) {
+								float zero = 1 / 0;
+							}
+						}
+					}
 
 					visited.add(endPoint1);
 					unvisited.remove(endPoint1);
 
 					visited.add(endPoint2);
 					unvisited.remove(endPoint2);
-
+					// should be able to find knots within the run based on where the endpoints are
+					// pointing to
+					// e.g. if without a dummy point we should have ... <- 20 <- 0 <- knot[1,2,3] ->
+					// 4 ->... but we have a dummy point:
+					// D(21) with endpoints 3 and 4 such that 3 <-> 21 <-> 4 and knot [1,2,3]
+					// becomes run[1,2,3,21,4,...], there should still be
+					// the vestigial 1 <-> 3 connection order 3 so 3's match list would be 2<->3,
+					// 3<->21, 3<->1, so instead of making run[1,2,3,21,4,...]
+					// we should make run[knot[1,2,3],21,4,...] and do this for both endpoints in
+					// the run.
+					// the way we find if the vestigial match exists, is we check if 1's failed
+					// connection (2 is the sucessful one) points into the
+					// run list, then we check the point inside of the runlist where 1 points to,
+					// and see if its 3'rd potential match is 1, if so make a knot
+					// from the endpoint to where it points and make the run with the new knot
 					Run k = new Run(runList);
 					knots.add(k);
 					runList = new ArrayList<>();
@@ -1296,6 +1359,13 @@ public class Shell extends LinkedList<PointND> {
 					mainPoint = toVisit.get(0);
 					endpointReached = false;
 				} else {
+
+					if (mainPoint.match1 != null && mainPoint.match1.equals(pointer1.topGroup)) {
+						runFailedMatch1 = pointer2.topGroup;
+					} else {
+						runFailedMatch1 = pointer1.topGroup;
+					}
+					endPoint1 = mainPoint;
 					endpointReached = true;
 					if (runList.size() == 0) {
 						knots.add(mainPoint);
@@ -1318,6 +1388,8 @@ public class Shell extends LinkedList<PointND> {
 		}
 		return knots;
 	}
+
+	int halfKnotCount = 0;
 
 	@SuppressWarnings("unused")
 	public Shell tspSolve(Shell A, DistanceMatrix distanceMatrix) {
@@ -1354,7 +1426,7 @@ public class Shell extends LinkedList<PointND> {
 			System.out.println("unvisited:" + unvisited);
 			System.out.println("visited:" + visited);
 			System.out.println("================= - Layer: " + idx + " - =================\n");
-			if (idx > 8) {
+			if (idx > 10) {
 				float zero = 1 / 0;
 			}
 			idx++;

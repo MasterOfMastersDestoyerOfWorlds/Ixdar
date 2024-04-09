@@ -143,8 +143,8 @@ public class Tests {
 			// create an test execution
 			//failing tests: rot: 7, 17, 35
 			//
-			int loc = 37;
-			for (int j = 8; j < loc; j++) {
+			int loc = 8;
+			for (int j = 7; j < loc; j++) {
 
 				int rot = b[n - j];
 				// create a test display name
