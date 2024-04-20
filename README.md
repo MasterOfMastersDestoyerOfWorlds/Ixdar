@@ -1,7 +1,24 @@
 # Project Gordian
+## Contents
+[Preface: A Short Trip Through Time and Space](#preface)
+
+[Chapter 1: Traveling Whatman?](#chapter-1)
+
+[Chapter 2: Mountains of Madness](#chapter-2)
+
+[Chapter 3: Mapping the Gordian Knot](#chapter-3)
+
+[Chapter 4: The Sword of Iskandar](#chapter-4)
+
+[Links and References](#links)
+
+[Appendix A: Djibouti Sorted Segments Lists](#appendix-a)
 
 
-##  Preface: A Short Trip Through Time and Space
+
+
+##  Preface
+## A Short Trip Through Time and Space
 
 Let's say that we are aliens in some far off star system on the other side of the Milky Way and we want to visit Saturn's Moon Titan. With our current rocket technology it will take us a year to travel to Titan, but, given the way our rocket works, we can't course correct along the way. We need to point to where Titan will be a year from now and be accurate enough to hit the mark when we launch from our home planet. 
 
@@ -11,35 +28,36 @@ As you have been reading this, I'm sure you've been saying to yourself: "Only an
 
 Notice what we did: we started with an abstraction of a small moon orbiting a large planet, and as we built up the terrain of space we quickly ascended to the galactic scale. I would argue that much like the first attempt I described failed to build abstractions to help in the calculation, our current understanding of the Traveling Salesman Problem (TSP) also fails and in a similar way. The abstraction of "the orbit" has not yet been illuminated for TSP, and some think that such an abstraction is impossible, but I believe, if you look close enough, the truth is far simpler than many would have you believe.
 
-## Chapter 1: Traveling Whatman?
+## Chapter 1
+## Traveling Whatman?
 
 A long time ago in the pre-internet, there used to be a whole army of american men who would go door to door and try selling useless junk to unsuspecting housewives (think vacuums and knives and other infomercial garbage,... but in your home!). These salesmen had a problem, they wanted to visit every house in their area to maximize the junk they sold, but they also wanted travel the least distance possible in order to minimize the amount of money they spent on gas. (You can already tell that given the framing of the problem, this problem has been befuddling computer scientists and mathematicians for a long time). 
 
-"So what? I hasn't my Google Maps app solved this? Simply draw a straight line from A to B and try to follow that line on the roads as close as possible!" 
+"So what? Hasn't my Google Maps app solved this? Simply draw a straight line from A to B and try to follow that line on the roads as close as possible!" 
 
-You'd be right if what we were talking about was point to point travel, an algorithm like A* or Dijkstra's has pretty much solved that question as optimally as we care to solve it. However, the important piece that makes TSP different is we MUST visit every house in our list, in the most optimal order. So instead of looking at all possible paths from A to B through any of the other points C to Z, we are instead looking at all possible paths from A to B to C ... Z in the most optimal ordering of those points. This explodes the problem space to exponential proportions.
+You'd be right if what we were talking about was point to point travel, an algorithm like A* or Dijkstra's has pretty much solved that question. However, the important piece that makes TSP different is we MUST visit every house in our list, in the most optimal order. So instead of looking at all possible paths from A to B through any of the other points C to Z, we are instead looking at all possible paths from A to B to C ... Z in the most optimal ordering of those points. This explodes the problem space to exponential proportions.
 
 ### A more precise way of stating the problem would be: 
 
-We have a graph G of N points: 
+We have a graph <b>G</b> with a total of N points: 
 
-G = [ P<sub>1</sub> , P<sub>2</sub> , ... , P<sub>N-1</sub> , P<sub>N</sub> ] 
+<b>G = [ P<sub>1</sub> , P<sub>2</sub> , ... , P<sub>N-1</sub> , P<sub>N</sub> ]</b> 
 
-and we have a cost function C( P<sub>a</sub> , P<sub>b</sub> )  which is defined for all points in G. 
+and we have a cost function <b>C( P<sub>a</sub> , P<sub>b</sub> )</b>  which is defined for all points in G. 
 
-Find the best ordering O of the points in G such that when summing the cost function over the ordering, this sum C<sub>SUM</sub> is minimal when compared to all other possible orderings of G.
+Find the best ordering <b>O</b> of the points in <b>G</b> such that when summing the cost function over the ordering, this sum <b>C<sub>SUM</sub></b> is minimal when compared to all other possible orderings of <b>G</b>.
 
-For example, if the best ordering, O, was [ P<sub>5</sub> , P<sub>3</sub> , ... , P<sub>7</sub> , P<sub>N</sub> ] , then C<sub>SUM</sub>(O) would be:
+For example, if the best ordering, <b>O</b>, was <b>[ P<sub>5</sub> , P<sub>3</sub> , ... , P<sub>7</sub> , P<sub>N</sub> ]</b> , then <b>C<sub>SUM</sub>(O)</b> would be:
 
-C<sub>SUM</sub>(O) = C( P<sub>N</sub> , P<sub>5</sub> ) + C( P<sub>5</sub> , P<sub>3</sub> ) + ... + C( P<sub>7</sub> , P<sub>N</sub> )
+<b>C<sub>SUM</sub>(O) = C( P<sub>N</sub> , P<sub>5</sub> ) + C( P<sub>5</sub> , P<sub>3</sub> ) + ... + C( P<sub>7</sub> , P<sub>N</sub> )</b>
 
 ### This seems like a pretty abstract problem, why is it worth my time?
 
 Well pretty much anywhere where there are networks and costs, a solution to TSP would be very useful. If we could solve this problem, it would reduce shipping costs, make drug discovery easier, increase internet bandwidth, and reduce the price of energy pretty much overnight just to name a few of the areas TSP touches. 
 
-TSP also represents a whole class of problems that are equivalent, and we don't know if we can solve those problems quickly. This class is called NP or Non-Polynomial time problems and represents the boundary region between problems that we know how to solve quickly (Polynomial time problems (P)) and problems we know we cannot solve quickly (Exponential time problems (EXP)). So if you hear people say P = NP, they are saying that TSP is solvable quickly (by quickly I mean we could write an algorithm that builds the optimal path rather than checking all possible paths (there is a little nuance around Big(O) missing here, but this is a good start)). On the other hand if you hear people say P != NP, they are saying the only way to solve TSP is by checking all possible paths in the network, which is 2^N (N factorial? idr) paths. 
+TSP also represents a whole class of problems that are equivalent, and we don't know if we can solve those problems quickly. This class is called <b>NP</b> or Non-Polynomial time problems and represents the boundary region between problems that we know how to solve quickly <b>(Polynomial time problems (P))</b> and problems we know we cannot solve quickly <b>(Exponential time problems (EXP))</b>. So if you hear people say Z<b>P = NP</b>, they are saying that TSP is solvable quickly (by quickly I mean we could write an algorithm that builds the optimal path rather than checking all possible paths (there is a little nuance around <b>Big(O)</b> missing here, but this is a good start)). On the other hand if you hear people say <b>P != NP</b>, they are saying the only way to solve TSP is by checking all possible paths in the network, which is 2^N (N factorial? idr) paths. 
 
-These classifications aren't too important, but I would be remiss if I didn't at least mention them because much of the discourse surrounding TSP is about proving these classifications and how they relate to each other rather than solving TSP. This is important because college students often only get instruction on how to sort problems into these classifications and get taught to not touch any problems in NP. This has largely shaped the programming communities perception of TSP as unsolvable. Despite this, we do have examples (I am thinking of the Fast Fourier Transform but may be mistaken) of problems that were previously thought to be in NP but later moved down to P with considerable insight and skill.
+These classifications aren't too important, but I would be remiss if I didn't at least mention them because much of the discourse surrounding TSP is about proving these classifications and how they relate to each other rather than solving TSP. This is important because college students often only get instruction on how to sort problems into these classifications and get taught to not touch any problems in <b>NP</b>. This has largely shaped the programming communities perception of TSP as unsolvable. Despite this, we do have examples (I am thinking of the Fast Fourier Transform, but may be mistaken) of problems that were previously thought to be in <b>NP</b> but later moved down to <b>P</b> with considerable insight and skill.
 
     Jaded Programmers Note: if you ever hear these arguments in reference to a tough problem:
 
@@ -53,21 +71,49 @@ These classifications aren't too important, but I would be remiss if I didn't at
 
     likely you should ignore that person as they are toxic to actually solving the problem. There are definitely unsolvable problems, but little time is wasted thinking on an unsolved problem that would help the world.
 
-## Chapter 2: Mountains of Madness
+### What is the state of the art?
+
+Algorithms for solving TSP (using the term solving loosely here) fall into three broad categories: <b>Exact</b>, <b>Constructive</b>, and <b>Iterative</b>, or some combination of those three.
+
+#### Exact
+
+Exact algorithms are exponential or factorial in nature and if you believe that <b>P != NP</b> then you also believe that these are the only category of algorithms that can solve the problem outright. They usually involve some level of brute forcing, so checking every possible path and looking for the best solution, and or branch and bounding, which seeks to eliminate large portions of the search space by ignoring all paths we already have a shorter path than. In <b>2D-TSP</b> (only looking at point sets that lie entirely in the plane) it has long been known that a correct ordering will have no self-intersections (the path crossing it self), so that could also be used as a path elimination condition.
+
+Obviously since we wish to prove <b>P = NP</b> we can safely ignore this category of algorithms, at least until quantum computers start working at scale.
+
+#### Constructive
+
+A construction is the idea of making a path directly and submitting it as your answer. The easiest construction to understand would be the greedy/nearest neighbor algorithm which simply starts at a random point and then goes to the next closest point and repeats this process until we have visited all of the points. Any non-brute force algorithm will start with a construction at the very least. My goal in this project is to create a construction that matches the output of the exact algorithms.
+
+The closest construction to the "correct construction" that I have found (i.e. the one I think has the most promise) is the <b>Match Twice and Stich Algorithm</b> (MTS) ([Kahng, 2004](#links)). MTS constructs a series of disjoint cycles and stiches them together. The next question, is why does this algorithm fail? I believe that it correctly recognizes that loops within the greedy matches of the graph are an important part of structure of the problem, but since they only have explored disjoint cycles they have missed the recursive element of the problem. This will be explored more in [Chapter 2](#chapter-2) as we start to identify the structures of TSP graphs.
+
+
+#### Iterative
+Traditionally, constructive algorithms have been seen as worse than iterative algorithms because if you take any failed construction (i.e. a construction that does not produce the correct ordering) you can always improve the construction by using an iterative approach (<b>swapping segments of the path with each other until you reach some local minima</b>). This usually results in a sub-optimal minima except for in very small problems, but it gives the illusion of improvement and understanding. 
+
+A common problem I have encountered in writing algorithms like these (k-opt, lowest insertion from convex hull), is that they often work quite well up to a point, but when you try and make the leap to the next harder problem you fail unexpectedly. You are then left with no rationale behind why you failed, aside from that the problem got too big or your initial construction was somehow flawed. 
+
+Since your algorithm doesn't really understand the structure of the graph, you are a like a blind man who wants to visit his home at the bottom of a hill. He will get to the bottom of the hill that he is on and declare "I must be close to my house, for I am at the bottom of the hill", when in reality his hill and his house are across town. Sometimes he may even luck out and start on the right hill, but until he can reliably find the right hill, he will be lost.
+
+You should therefore be very skeptical of people who say "We have made a great improvement in the state of the art: our algorithm is within 2% of the optimal ordering!". They very well might be within the bound they stated, but it is very hard to tell how close they actually are to the correct ordering. After all, India and America both have beaches, but to say that you are in India because you can hear the ocean is fallacious indeed. 
+
+
+## Chapter 2
+## Mountains of Madness
 
 So far I hope I have conveyed/answered the following:
 
 * What is The Traveling Salesman Problem(TSP)?
 * Why should I care about TSP?
-* The solution to TSP, if one exists, lies in building up abstractions like a topographer builds terrain on a map
+* The solution to TSP, if one exists, lies in building up abstractions like a topographer builds terrain on a map, rather than iterative improvement
 
 So the next question would be: <B>What terrain features exist on our map?</b>
 
-Note that in this section I will be defining some of these features in non-traditional ways if you are coming from graph theory. This is so that our data-structures can more readily fit the problem at hand. If there is overlap, I will redefine these terms so that we can distinguish them from their more basic versions you would have seen in algorithms like BFS, DFS and the like.
+Note that in this section I will be defining some of these features in non-traditional ways if you are coming from graph theory. This is so that our data-structures can more readily fit the problem at hand. If there is overlap, I will redefine these terms so that we can distinguish them from their more basic versions you would have seen in algorithms like <b>BFS, DFS</b> and the like.
 
 ### Segment
   
-  A Segment (also known as an Edge in graph theory), is a connection between two points and a distance provided  by the cost function.
+  A <b>Segment</b> (also known as an <b>Edge</b> in graph theory), is a connection between two points and a distance provided by the cost function.
 
 Segment( P<sub>1</sub> , P<sub>2</sub> ) = struct{
     
@@ -80,7 +126,7 @@ distance = C( P<sub>1</sub> , P<sub>2</sub> )
 }
 
 ### Point
-Our smallest feature is a Point (also know as a Vertex in graph theory), which is defined as a list of Segments all of the segments in the graph that connect to P<sub>1</sub>: 
+Our smallest feature is a <b>Point</b> (also know as a <b>Vertex</b> in graph theory), which is defined as a list of Segments all of the segments in the graph that connect to P<sub>1</sub>: 
 
 Point(P<sub>1</sub>) = struct{
     
@@ -94,11 +140,11 @@ match2 = P<sub>*</sub>
 
 Many of the proceeding algorithms will rely on the fact that sortedSegments is sorted, so  sort it at construction.
 
-The "matches" will be our current best guess of what two points should surround P<sub>1</sub> in our final ordering. Right now they will just be pointers to other points, but as we add more terrain features we will need to add more supporting data to prevent recalculation of what the best match is.
+The "<b>matches</b>" will be our current best guess of what two points should surround P<sub>1</sub> in our final ordering. Right now they will just be pointers to other points, but as we add more terrain features we will need to add more supporting data to prevent recalculation of what the best match is.
 
 ### Wormholes
 
-A Wormhole is a point that has zero distance to two Points of your choosing and maximal distance to all other Points in the set. 
+A <b>Wormhole</b> is a point that has zero distance to two Points of your choosing and maximal distance to all other Points in the set. 
 
 So if we have Points 1 and 2 in the problem set and add Wormhole W "between" 1 and 2, then the new correct ordering would include:
 
@@ -150,7 +196,7 @@ Well before we get to that , lets look at some examples to build some intuition:
 
 The above lists of sorted Segments are from the Djbouti_38 problem set from the University of Waterloo. In these examples I will denote each point by its final position in the correct ordering. So Point 1 would have neighbors 0 and 2 in the final correct ordering. 
 
-A Segment as a reminder is a relationship between two points and the distance between those points. This definition allows us to sort the segments without losing the relationship that they represent. 
+A [Segment](#segment) as a reminder is a relationship between two points and the distance between those points. This definition allows us to sort the segments without losing the relationship that they represent. 
 
 You can see that in the above example if each Point "got it's way" and matched with the two best other points in it's list, then we would have the following set of relationships:
 
@@ -166,9 +212,9 @@ Before we declare defeat, let's try and examine what this loop is telling us:
 
 Well, in a perfect world we would be able to make a loop of size 38 just by looking at each Point's favorite two potential matches. 
 
-From this observation we can also observe that if we tried to solve the subset S = [ P<sub>11</sub> , P<sub>12</sub> , P<sub>13</sub> ], that 11 <-> 12 <-> 13 would be the correct ordering of S.
+From this observation we can also observe that if we tried to solve the subset <b>S = [ P<sub>11</sub> , P<sub>12</sub> , P<sub>13</sub> ]</b>, that <b>11 <-> 12 <-> 13</b> would be the correct ordering of <b>S</b>.
 
-At a more general level this loop is telling us that the subset/grouping S wants to connect with itself more than any other point in the graph. So to "resolve" this loop (i.e. find out which segment we should cut) we must find the two Points that want to match with the points in our loop.
+At a more general level this loop is telling us that the subset/grouping <b>S</b> wants to connect with itself more than any other points in the graph. So to "resolve" this loop (i.e. find out which segment we should cut) we must find the two Points that want to match with the points in our loop.
 
     One should also observe that there is no limit on the size that such a loop could be except that it must have > 2 points
 
@@ -176,7 +222,7 @@ Ok I think we're ready for our first larger structure
 
 ### Knot
 
-A Knot is defined as any subset K of G where all of the Points in K only want to match with each other
+A <b>Knot</b> is defined as any subset <b>K</b> of <b>G</b> where all of the Points in <b>K</b> only want to match with each other
 
 Knot(P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>) = struct{
     
@@ -197,24 +243,300 @@ match2 = P<sub>*</sub>
 
 }
 
-the sortedSegments are all of the segments from any Point in the K to any point not in K, sorted by distance 
+the sortedSegments are all of the segments from any Point in the <b>K</b> to any point not in <b>K</b>, sorted by distance 
 
     Note for optimization: You likely don't need to sort all of the segments since we have already sorted them at each Point. Likely you could get the best 3 segments not pointing to other Points contained in the Knot since we will not go beyond this until we make a new Knot.
 
+Next, so that we can look at [Points](#point) and [Knots](#knot) interchangeably, lets make some interface or abstract class above both of them:
+
+### Virtual Point
+
+all of the stuff from [Points](#point) and [Knots](#knot) combined and generalized!
+
+### Is that All?
+
+Not quite, right now we have our base case (one small Knot), and our final desired state (one big Knot containing the entire graph), but are missing an intermediate state (i.e. what happens if we can't form a smaller Knot with some portion of the graph). Let's look at another example:
+
+    ...
+    13  [Segment[13 : 12], Segment[11 : 13], Segment[14 : 13], Segment[10 : 13], Segment[13 : 15], Segment[9 : 13], ...]
+
+-----------------------------------------------
+    14  [Segment[14 : 15], Segment[16 : 14], Segment[14 : 13], ...]
+
+    15  [Segment[16 : 15], Segment[14 : 15], Segment[15 : 17], ...]
+
+    16  [Segment[16 : 15], Segment[16 : 17], Segment[16 : 14], Segment[16 : 18], ...]
+
+    17  [Segment[18 : 17], Segment[16 : 17], Segment[15 : 17], Segment[19 : 17], ...]
+
+    18  [Segment[18 : 17], Segment[19 : 18], Segment[20 : 18], ...]
+
+    19  [Segment[19 : 18], Segment[20 : 19], ...]
+------
+    20  [Segment[20 : 21], Segment[20 : 22], Segment[20 : 23], Segment[20 : 18], Segment[20 : 19], ...]
+    ...
+
+From our earlier example we know that <b>Point 13</b> is part of <b>Knot[11, 12, 13]</b> and take my word for it that <b>Point 20</b> is part of <b>Knot[20, 21, 22, 23]</b>, so if we naively laid out the relationships here is what we'd get:
+
+14 -> 16
+
+14 <-> 15
+
+15 <-> 16
+
+16 <-> 17
+
+17 <-> 18
+
+18 <-> 19
+
+19 -> 20
+
+So we have a core of <B>[14, 15, 16, 17, 18, 19]</b> with two failed endpoint matches <b>Segment[14:16]</b>, and <b>Segment[19:20]</b>. So it is obvious that this section is not a Knot yet, but what is it? this brings in our final data structure: a Run
+
+    Note that it is debatable whether you need this structure, but for organizational purposes let's include it.
+
+### Run
+
+A <b>Run</b> is just like a <b>Knot</b>, but only its endpoints are exposed.
+
+Run(P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>) = struct{
+    
+endpoint1 = P<Sub>1</sub>
+
+endpoint2 = P<Sub>M</sub>
+
+knotPoints = [P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>]
+
+sortedSegments = [Segment( P<sub>1</sub> , P<sub>M+1</sub> ) , Segment( P<sub>1</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>1</sub> , P<sub>N</sub> ), 
+
+Segment( P<sub>M</sub> , P<sub>M+1</sub> ) , Segment( P<sub>M</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>M</sub> , P<sub>N</sub> ),
+]
+
+match1 = P<sub>*</sub>
+
+match2 = P<sub>*</sub>
+
+}
+
+So we now have <b>Run[14,15,16,17,18,19]</b>, but is that really the case? it might be prudent to form a knot from <b>[14,15,16]</b> since <b>16</b> points back on its third best match <b>Segment[16:14]</b>. You might object saying it is in the correct order now, but often if you insert a Wormhole next to a knot you can end up with a similar structure and get the wrong ordering.
+
+<TODO: insert example (I think (31 WH 32) is a good example)>
+
+So we should denote this as
+<b>Run[ Knot[14, 15, 16], 17, 18, 19]</b>
+
+Now that we have all of our data structures, let's get cracking
+
+## Chapter 3
+## Mapping the Gordian Knot
+
+Our knot mapping algorithm is as follows:
+
+Main Loop:
+
+1.   Get all of the Virtual Points we haven't visited and run the continue from Knot Finding Loop #1
+2.   The new list of unvisited points is the returned knotList
+3.   If there is only one Virtual Point left, finish, otherwise continue from #1 
+
+Knot Finding Loop:
+
+1. Get a Virtual Point(VP) that we haven't looked at yet
+2. If we have looked at every VP return the knotList and continue from Main Loop #2
+3. Check what the main VP's best two matches are
+4. Check if the VPs that our main VP wants to match with will match back
+
+   5. If so, update the two VPs with their matches and add them to the runList
+            
+            a. If we have found a Knot, (both ends of the runList have two matches)  create the Knot from the runList, add it to our knotList, and continue from #1
+
+            b. If not set the main VP to the matched VP and continue from #2
+
+    6. If not check if we have already failed once
+      
+            c. If we have, make a Run from the runList and continue from #1
+
+            d.  If we haven't, set the main point to the other end of the runList and continue from #2
+
+After every Main Loop Cycle every <b>Virtual Point</b> should either be part of a new <b>Knot</b>, a new <b>Run</b>, or have no matches yet. After this should roughly halve the number of VPs every cycle and leave us with one large <b>Knot</b> ready to be cut up.
+
+For example here is Djibouti's unvisited list after one cycle (See [Appendix A](#appendix-a) for the full Sorted Segment List):
+
+    unvisited:[
+      Run[0 1 ], 
+      Run[2 3 4 5 ], 
+      Run[6 7 ], 
+      8, 
+      Run[9 10 ], 
+      Knot[11 12 13 ], 
+      Run[Knot[14 15 16] 17 18 19 ], 
+      Knot[20 21 22 23 ], 
+      Run[24 25 ], 
+      Run[26 27 ], 
+      Knot[28 29 30 ], 
+      31, 
+      Run[32 33 ], 
+      34, 
+      Knot[35 36 37 ]]
+
+Before we continue we should talk about the desired result of combining <b>Runs</b> and <b>Knots</b>
+
+If we have any Runs that are nested within a new <b>Knot</b> or <b>Run</b>, we should dissolve the Runs for example in our next cycle we will get the Run:
+
+<b>Run[Run[32, 33], Run[2, 3, 4, 5], Run [6, 7]]</b>
+
+Which should dissolve to:
+
+<b>Run[32, 33, 2, 3, 4, 5, 6, 7]</b>
+
+With <b>2</b> and <b>33</b> matching, as well as <b>5</b> and <b>6</b> matching.
+
+If this was a <b>Knot</b> instead of a run then we'd also match <b>7</b> and <b>32</b>
+
+
+Next what should we do if we have two <b>Knots</b> in a new <b>Knot</b>? For example if we have the Knot:
+
+    Knot[
+          Knot[Knot[35 36 37 ] 34 ] 0 1 ], 
+
+          Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ]
+    ]
+
+I am not sure why but this seems to be a common failure case, so we need to do something to address it (usually cause both of the super knot's matches point to the same knot). I think if we built the algorithm to be more flat (without Runs) it would not be the case.
+
+Ideally we would be able to have the knot surrounded incorrect context so insert one of them into the other:
+
+    Knot[32 33 Knot[Knot[35 36 37 ] 34 ] 0 1 ] 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ]
+
+    or
+
+    Knot[Knot[35 36 37 ] 34 ] 0 1 Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ]] 
+
+---
+    I think this monstrosity is the best case for a re-write ^^^
+
+    The original rational behind having runs was to solve 34 W 35, but I think the half knot finding code would work better and lead to less nesting of knots.
+
+    maybe instead of adding all of the points in the runList to a Run, we should store the runList in both endpoints and create any half knots. Do we know enough about half-knots to rely on them?
+  
+---
+
+Finally once we found every Knot and made one large Knot we get:
+
+    Knot[
+      Knot[
+          Knot[32 Knot[Knot[Knot[28 29 30 ] 31 ] 26 27 ] 
+                Knot[11 12 13 ] 10 9 8 7 6 5 4 3 2 
+                Knot[Knot[Knot[35 36 37 ] 34 ] 0 1 ] 33 
+              ] 
+          24 25 ] 
+      14 15 16 17 18 19 20 21 22 23 
+    ]
+
+    but really it should be more like
+
+    Knot[32 Knot[Knot[Knot[28 29 30 ] 31 ] 26 27 ] 25 24 Knot [20 21 22 23] 19 18 17 16 15 14 Knot[11 12 13 ] 10 9 8 7 6 5 4 3 2 Knot[Knot[Knot[35 36 37 ] 34 ] 0 1 ] 33 ]
+
+The next step is to cut it up according to the external matches
 
 
 
+## Chapter 4
+## The Sword of Iskandar
 
-## Chapter 3: Mapping the Knot
-
-## Chapter 4: The Sword of Iskandar
-
-## Links:
+## Links
 
 Look at Section 4 Minimum Bounding Circle By Megiddo: 
 
 - https://epubs.siam.org/doi/pdf/10.1137/0212052
 
+Match Twice and Stich Algorithm:
 
+ - https://vlsicad.ucsd.edu/Publications/Journals/j67.pdf
 
-http://www.math.uwaterloo.ca/tsp/world/countries.html#LU
+Waterloo TSP Dataset:
+
+- http://www.math.uwaterloo.ca/tsp/world/countries.html#LU
+
+## Appendix A
+
+## Djibouti Sorted Segment List
+
+    0  [Segment[1 : 0], Segment[34 : 0], Segment[35 : 0], Segment[36 : 0], Segment[37 : 0], Segment[2 : 0], Segment[3 : 0], Segment[4 : 0], Segment[33 : 0], Segment[32 : 0], Segment[6 : 0], Segment[5 : 0], Segment[26 : 0], Segment[7 : 0], Segment[24 : 0], Segment[27 : 0], Segment[25 : 0], Segment[31 : 0], Segment[8 : 0], Segment[30 : 0], Segment[28 : 0], Segment[29 : 0], Segment[23 : 0], Segment[20 : 0], Segment[21 : 0], Segment[22 : 0], Segment[9 : 0], Segment[18 : 0], Segment[15 : 0], Segment[0 : 17], Segment[12 : 0], Segment[16 : 0], Segment[11 : 0], Segment[14 : 0], Segment[19 : 0], Segment[10 : 0], Segment[13 : 0]]
+
+    1  [Segment[1 : 0], Segment[34 : 1], Segment[35 : 1], Segment[36 : 1], Segment[37 : 1], Segment[2 : 1], Segment[3 : 1], Segment[4 : 1], Segment[33 : 1], Segment[32 : 1], Segment[5 : 1], Segment[6 : 1], Segment[26 : 1], Segment[27 : 1], Segment[7 : 1], Segment[24 : 1], Segment[25 : 1], Segment[31 : 1], Segment[8 : 1], Segment[30 : 1], Segment[28 : 1], Segment[29 : 1], Segment[23 : 1], Segment[20 : 1], Segment[21 : 1], Segment[9 : 1], Segment[22 : 1], Segment[15 : 1], Segment[18 : 1], Segment[1 : 17], Segment[12 : 1], Segment[16 : 1], Segment[11 : 1], Segment[14 : 1], Segment[19 : 1], Segment[10 : 1], Segment[13 : 1]]
+
+    2  [Segment[2 : 3], Segment[4 : 2], Segment[2 : 33], Segment[2 : 32], Segment[2 : 5], Segment[2 : 1], Segment[2 : 34], Segment[2 : 35], Segment[36 : 2], Segment[2 : 37], Segment[6 : 2], Segment[2 : 0], Segment[2 : 7], Segment[2 : 27], Segment[26 : 2], Segment[8 : 2], Segment[2 : 31], Segment[30 : 2], Segment[2 : 28], Segment[29 : 2], Segment[2 : 25], Segment[2 : 24], Segment[9 : 2], Segment[2 : 15], Segment[2 : 12], Segment[23 : 2], Segment[11 : 2], Segment[20 : 2], Segment[21 : 2], Segment[10 : 2], Segment[2 : 17], Segment[2 : 18], Segment[22 : 2], Segment[14 : 2], Segment[16 : 2], Segment[2 : 13], Segment[2 : 19]]
+
+    3  [Segment[2 : 3], Segment[4 : 3], Segment[33 : 3], Segment[5 : 3], Segment[32 : 3], Segment[3 : 1], Segment[34 : 3], Segment[35 : 3], Segment[6 : 3], Segment[36 : 3], Segment[37 : 3], Segment[3 : 0], Segment[7 : 3], Segment[27 : 3], Segment[8 : 3], Segment[26 : 3], Segment[31 : 3], Segment[30 : 3], Segment[28 : 3], Segment[29 : 3], Segment[25 : 3], Segment[24 : 3], Segment[9 : 3], Segment[12 : 3], Segment[15 : 3], Segment[11 : 3], Segment[23 : 3], Segment[20 : 3], Segment[21 : 3], Segment[10 : 3], Segment[3 : 17], Segment[18 : 3], Segment[14 : 3], Segment[22 : 3], Segment[16 : 3], Segment[13 : 3], Segment[19 : 3], Segment[3 : 38]]
+
+    4  s  [Segment[4 : 5], Segment[4 : 3], Segment[4 : 6], Segment[4 : 2], Segment[4 : 7], Segment[4 : 33], Segment[4 : 32], Segment[4 : 8], Segment[4 : 1], Segment[4 : 34], Segment[4 : 35], Segment[4 : 0], Segment[4 : 36], Segment[4 : 37], Segment[4 : 31], Segment[4 : 27], Segment[26 : 4], Segment[30 : 4], Segment[4 : 28], Segment[4 : 9], Segment[29 : 4], Segment[4 : 25], Segment[4 : 24], Segment[4 : 12], Segment[4 : 11], Segment[4 : 10], Segment[4 : 15], Segment[4 : 14], Segment[4 : 23], Segment[4 : 20], Segment[4 : 21], Segment[4 : 17], Segment[16 : 4], Segment[4 : 18], Segment[4 : 22], Segment[4 : 13], Segment[4 : 19]]
+
+    5  [Segment[4 : 5], Segment[6 : 5], Segment[5 : 7], Segment[5 : 3], Segment[2 : 5], Segment[8 : 5], Segment[5 : 33], Segment[5 : 32], Segment[5 : 1], Segment[5 : 34], Segment[35 : 5], Segment[36 : 5], Segment[5 : 37], Segment[31 : 5], Segment[5 : 0], Segment[5 : 27], Segment[26 : 5], Segment[30 : 5], Segment[9 : 5], Segment[5 : 28], Segment[29 : 5], Segment[5 : 25], Segment[5 : 12], Segment[24 : 5], Segment[10 : 5], Segment[11 : 5], Segment[5 : 15], Segment[14 : 5], Segment[5 : 17], Segment[16 : 5], Segment[13 : 5], Segment[20 : 5], Segment[23 : 5], Segment[21 : 5], Segment[5 : 18], Segment[22 : 5], Segment[5 : 19]]
+
+    6  [Segment[6 : 7], Segment[4 : 6], Segment[6 : 5], Segment[8 : 6], Segment[6 : 3], Segment[6 : 2], Segment[6 : 33], Segment[6 : 32], Segment[6 : 1], Segment[6 : 0], Segment[6 : 34], Segment[6 : 35], Segment[6 : 36], Segment[6 : 37], Segment[6 : 31], Segment[6 : 9], Segment[6 : 27], Segment[26 : 6], Segment[30 : 6], Segment[6 : 28], Segment[29 : 6], Segment[6 : 25], Segment[6 : 10], Segment[6 : 24], Segment[6 : 12], Segment[6 : 11], Segment[6 : 15], Segment[6 : 14], Segment[23 : 6], Segment[20 : 6], Segment[6 : 21], Segment[6 : 17], Segment[6 : 13], Segment[16 : 6], Segment[6 : 18], Segment[6 : 22], Segment[6 : 19]]
+
+    7  [Segment[6 : 7], Segment[5 : 7], Segment[8 : 7], Segment[4 : 7], Segment[7 : 3], Segment[2 : 7], Segment[7 : 33], Segment[7 : 32], Segment[7 : 1], Segment[7 : 0], Segment[7 : 34], Segment[9 : 7], Segment[35 : 7], Segment[36 : 7], Segment[7 : 37], Segment[31 : 7], Segment[7 : 27], Segment[26 : 7], Segment[30 : 7], Segment[7 : 28], Segment[29 : 7], Segment[10 : 7], Segment[7 : 25], Segment[7 : 12], Segment[11 : 7], Segment[24 : 7], Segment[7 : 15], Segment[14 : 7], Segment[13 : 7], Segment[23 : 7], Segment[16 : 7], Segment[7 : 17], Segment[20 : 7], Segment[21 : 7], Segment[7 : 18], Segment[22 : 7], Segment[7 : 19]]
+
+    8  [Segment[8 : 7], Segment[8 : 5], Segment[8 : 6], Segment[4 : 8], Segment[8 : 9], Segment[8 : 33], Segment[8 : 3], Segment[8 : 32], Segment[8 : 2], Segment[8 : 31], Segment[8 : 1], Segment[8 : 34], Segment[8 : 27], Segment[8 : 35], Segment[30 : 8], Segment[8 : 36], Segment[8 : 0], Segment[8 : 37], Segment[8 : 10], Segment[26 : 8], Segment[8 : 28], Segment[29 : 8], Segment[8 : 12], Segment[8 : 11], Segment[8 : 25], Segment[8 : 24], Segment[8 : 15], Segment[8 : 13], Segment[8 : 14], Segment[16 : 8], Segment[8 : 17], Segment[8 : 18], Segment[20 : 8], Segment[8 : 21], Segment[23 : 8], Segment[8 : 22], Segment[8 : 19]]
+
+    9  [Segment[9 : 10], Segment[8 : 9], Segment[9 : 11], Segment[9 : 12], Segment[9 : 7], Segment[9 : 5], Segment[6 : 9], Segment[4 : 9], Segment[9 : 33], Segment[9 : 32], Segment[9 : 31], Segment[9 : 3], Segment[9 : 2], Segment[30 : 9], Segment[9 : 28], Segment[9 : 27], Segment[29 : 9], Segment[9 : 13], Segment[26 : 9], Segment[9 : 34], Segment[9 : 1], Segment[9 : 35], Segment[9 : 36], Segment[9 : 37], Segment[9 : 0], Segment[9 : 14], Segment[9 : 15], Segment[9 : 25], Segment[16 : 9], Segment[9 : 24], Segment[9 : 17], Segment[9 : 18], Segment[20 : 9], Segment[9 : 21], Segment[23 : 9], Segment[22 : 9], Segment[9 : 19]]
+
+    10  [Segment[9 : 10], Segment[11 : 10], Segment[10 : 12], Segment[8 : 10], Segment[10 : 13], Segment[10 : 7], Segment[10 : 5], Segment[6 : 10], Segment[4 : 10], Segment[10 : 31], Segment[10 : 32], Segment[10 : 33], Segment[30 : 10], Segment[10 : 3], Segment[10 : 2], Segment[10 : 28], Segment[29 : 10], Segment[10 : 27], Segment[14 : 10], Segment[26 : 10], Segment[10 : 34], Segment[10 : 1], Segment[10 : 35], Segment[10 : 36], Segment[10 : 37], Segment[10 : 15], Segment[10 : 0], Segment[16 : 10], Segment[10 : 25], Segment[10 : 17], Segment[10 : 24], Segment[10 : 18], Segment[20 : 10], Segment[10 : 21], Segment[23 : 10], Segment[22 : 10], Segment[10 : 19]]
+
+    11  [Segment[11 : 12], Segment[11 : 13], Segment[11 : 10], Segment[9 : 11], Segment[11 : 14], Segment[11 : 31], Segment[30 : 11], Segment[8 : 11], Segment[11 : 28], Segment[29 : 11], Segment[11 : 32], Segment[11 : 33], Segment[11 : 5], Segment[11 : 27], Segment[11 : 15], Segment[4 : 11], Segment[11 : 7], Segment[26 : 11], Segment[6 : 11], Segment[11 : 3], Segment[16 : 11], Segment[11 : 2], Segment[11 : 34], Segment[11 : 36], Segment[11 : 35], Segment[11 : 37], Segment[11 : 25], Segment[11 : 1], Segment[11 : 17], Segment[11 : 0], Segment[11 : 18], Segment[11 : 24], Segment[20 : 11], Segment[11 : 21], Segment[11 : 19], Segment[23 : 11], Segment[22 : 11]]
+
+    12  [Segment[11 : 12], Segment[13 : 12], Segment[9 : 12], Segment[10 : 12], Segment[14 : 12], Segment[30 : 12], Segment[31 : 12], Segment[12 : 28], Segment[29 : 12], Segment[8 : 12], Segment[12 : 32], Segment[12 : 15], Segment[12 : 27], Segment[12 : 33], Segment[5 : 12], Segment[26 : 12], Segment[4 : 12], Segment[16 : 12], Segment[7 : 12], Segment[12 : 3], Segment[6 : 12], Segment[2 : 12], Segment[12 : 25], Segment[34 : 12], Segment[36 : 12], Segment[35 : 12], Segment[12 : 37], Segment[12 : 17], Segment[12 : 1], Segment[12 : 0], Segment[12 : 18], Segment[24 : 12], Segment[20 : 12], Segment[21 : 12], Segment[19 : 12], Segment[23 : 12], Segment[22 : 12]]
+
+    13  [Segment[13 : 12], Segment[11 : 13], Segment[14 : 13], Segment[10 : 13], Segment[13 : 15], Segment[9 : 13], Segment[30 : 13], Segment[29 : 13], Segment[16 : 13], Segment[13 : 28], Segment[13 : 31], Segment[13 : 27], Segment[13 : 32], Segment[8 : 13], Segment[13 : 33], Segment[26 : 13], Segment[13 : 17], Segment[13 : 5], Segment[4 : 13], Segment[13 : 3], Segment[2 : 13], Segment[13 : 7], Segment[13 : 25], Segment[6 : 13], Segment[13 : 18], Segment[13 : 34], Segment[36 : 13], Segment[13 : 37], Segment[13 : 35], Segment[13 : 1], Segment[13 : 0], Segment[20 : 13], Segment[13 : 19], Segment[13 : 24], Segment[21 : 13], Segment[23 : 13], Segment[22 : 13]]
+    
+    14  [Segment[14 : 15], Segment[16 : 14], Segment[14 : 13], Segment[29 : 14], Segment[14 : 28], Segment[30 : 14], Segment[14 : 12], Segment[14 : 17], Segment[14 : 31], Segment[11 : 14], Segment[14 : 27], Segment[26 : 14], Segment[14 : 18], Segment[14 : 25], Segment[14 : 32], Segment[14 : 33], Segment[9 : 14], Segment[14 : 19], Segment[14 : 5], Segment[20 : 14], Segment[14 : 3], Segment[14 : 2], Segment[14 : 21], Segment[8 : 14], Segment[4 : 14], Segment[14 : 37], Segment[14 : 10], Segment[14 : 36], Segment[14 : 34], Segment[14 : 35], Segment[14 : 24], Segment[6 : 14], Segment[14 : 1], Segment[14 : 7], Segment[23 : 14], Segment[22 : 14], Segment[14 : 0]]
+
+    15  [Segment[16 : 15], Segment[14 : 15], Segment[15 : 17], Segment[29 : 15], Segment[28 : 15], Segment[30 : 15], Segment[18 : 15], Segment[31 : 15], Segment[27 : 15], Segment[26 : 15], Segment[25 : 15], Segment[19 : 15], Segment[20 : 15], Segment[32 : 15], Segment[12 : 15], Segment[21 : 15], Segment[33 : 15], Segment[13 : 15], Segment[11 : 15], Segment[24 : 15], Segment[37 : 15], Segment[36 : 15], Segment[34 : 15], Segment[35 : 15], Segment[23 : 15], Segment[22 : 15], Segment[15 : 3], Segment[2 : 15], Segment[5 : 15], Segment[4 : 15], Segment[15 : 1], Segment[8 : 15], Segment[15 : 0], Segment[9 : 15], Segment[6 : 15], Segment[7 : 15], Segment[10 : 15]]
+
+    16  [Segment[16 : 15], Segment[16 : 17], Segment[16 : 14], Segment[16 : 18], Segment[29 : 16], Segment[16 : 28], Segment[30 : 16], Segment[16 : 19], Segment[16 : 31], Segment[16 : 27], Segment[16 : 25], Segment[16 : 26], Segment[16 : 20], Segment[16 : 21], Segment[16 : 13], Segment[16 : 12], Segment[16 : 32], Segment[16 : 33], Segment[16 : 22], Segment[16 : 24], Segment[16 : 23], Segment[16 : 11], Segment[16 : 37], Segment[16 : 36], Segment[16 : 35], Segment[16 : 34], Segment[16 : 3], Segment[16 : 2], Segment[16 : 5], Segment[16 : 4], Segment[16 : 1], Segment[16 : 0], Segment[16 : 8], Segment[16 : 9], Segment[16 : 6], Segment[16 : 7], Segment[16 : 10]]
+
+    17  [Segment[18 : 17], Segment[16 : 17], Segment[15 : 17], Segment[19 : 17], Segment[20 : 17], Segment[21 : 17], Segment[25 : 17], Segment[29 : 17], Segment[28 : 17], Segment[14 : 17], Segment[30 : 17], Segment[26 : 17], Segment[22 : 17], Segment[27 : 17], Segment[23 : 17], Segment[31 : 17], Segment[24 : 17], Segment[32 : 17], Segment[33 : 17], Segment[37 : 17], Segment[36 : 17], Segment[35 : 17], Segment[34 : 17], Segment[2 : 17], Segment[3 : 17], Segment[1 : 17], Segment[12 : 17], Segment[0 : 17], Segment[5 : 17], Segment[4 : 17], Segment[13 : 17], Segment[11 : 17], Segment[6 : 17], Segment[8 : 17], Segment[7 : 17], Segment[9 : 17], Segment[10 : 17]]
+
+    18  [Segment[18 : 17], Segment[19 : 18], Segment[20 : 18], Segment[21 : 18], Segment[22 : 18], Segment[25 : 18], Segment[16 : 18], Segment[23 : 18], Segment[18 : 15], Segment[24 : 18], Segment[29 : 18], Segment[26 : 18], Segment[18 : 28], Segment[27 : 18], Segment[30 : 18], Segment[31 : 18], Segment[14 : 18], Segment[37 : 18], Segment[36 : 18], Segment[35 : 18], Segment[34 : 18], Segment[32 : 18], Segment[18 : 33], Segment[18 : 1], Segment[2 : 18], Segment[18 : 3], Segment[18 : 0], Segment[4 : 18], Segment[5 : 18], Segment[12 : 18], Segment[6 : 18], Segment[13 : 18], Segment[8 : 18], Segment[7 : 18], Segment[11 : 18], Segment[9 : 18], Segment[10 : 18]]
+
+    19  [Segment[19 : 18], Segment[20 : 19], Segment[21 : 19], Segment[19 : 17], Segment[22 : 19], Segment[23 : 19], Segment[16 : 19], Segment[19 : 25], Segment[19 : 15], Segment[24 : 19], Segment[29 : 19], Segment[26 : 19], Segment[19 : 28], Segment[19 : 27], Segment[30 : 19], Segment[14 : 19], Segment[31 : 19], Segment[19 : 37], Segment[36 : 19], Segment[35 : 19], Segment[19 : 34], Segment[19 : 32], Segment[19 : 33], Segment[19 : 1], Segment[19 : 0], Segment[2 : 19], Segment[19 : 3], Segment[4 : 19], Segment[5 : 19], Segment[19 : 12], Segment[6 : 19], Segment[13 : 19], Segment[8 : 19], Segment[7 : 19], Segment[11 : 19], Segment[9 : 19], Segment[10 : 19]]
+
+    20  [Segment[20 : 21], Segment[20 : 22], Segment[20 : 23], Segment[20 : 18], Segment[20 : 19], Segment[20 : 25], Segment[20 : 24], Segment[20 : 17], Segment[26 : 20], Segment[20 : 27], Segment[20 : 15], Segment[29 : 20], Segment[20 : 28], Segment[16 : 20], Segment[20 : 37], Segment[20 : 36], Segment[20 : 35], Segment[30 : 20], Segment[20 : 34], Segment[20 : 31], Segment[20 : 1], Segment[20 : 32], Segment[20 : 0], Segment[20 : 33], Segment[20 : 2], Segment[20 : 3], Segment[20 : 14], Segment[4 : 20], Segment[20 : 5], Segment[20 : 6], Segment[20 : 7], Segment[20 : 8], Segment[20 : 12], Segment[20 : 11], Segment[20 : 13], Segment[20 : 9], Segment[20 : 10]]
+
+    21  [Segment[20 : 21], Segment[22 : 21], Segment[23 : 21], Segment[21 : 18], Segment[21 : 19], Segment[21 : 24], Segment[21 : 25], Segment[21 : 17], Segment[26 : 21], Segment[21 : 27], Segment[29 : 21], Segment[21 : 15], Segment[21 : 28], Segment[16 : 21], Segment[21 : 37], Segment[36 : 21], Segment[21 : 35], Segment[21 : 34], Segment[30 : 21], Segment[21 : 31], Segment[21 : 1], Segment[21 : 0], Segment[21 : 32], Segment[21 : 33], Segment[21 : 2], Segment[21 : 3], Segment[14 : 21], Segment[4 : 21], Segment[21 : 5], Segment[6 : 21], Segment[21 : 7], Segment[8 : 21], Segment[21 : 12], Segment[11 : 21], Segment[9 : 21], Segment[21 : 13], Segment[10 : 21]]
+
+    22  [Segment[23 : 22], Segment[22 : 21], Segment[20 : 22], Segment[22 : 24], Segment[22 : 18], Segment[22 : 19], Segment[22 : 25], Segment[22 : 17], Segment[26 : 22], Segment[22 : 37], Segment[22 : 36], Segment[22 : 27], Segment[22 : 35], Segment[22 : 34], Segment[29 : 22], Segment[22 : 28], Segment[22 : 15], Segment[16 : 22], Segment[22 : 1], Segment[30 : 22], Segment[22 : 0], Segment[22 : 31], Segment[22 : 32], Segment[22 : 33], Segment[22 : 2], Segment[22 : 3], Segment[4 : 22], Segment[22 : 14], Segment[22 : 5], Segment[6 : 22], Segment[22 : 7], Segment[8 : 22], Segment[22 : 12], Segment[22 : 11], Segment[22 : 9], Segment[22 : 13], Segment[22 : 10]]
+
+    23  [Segment[23 : 22], Segment[23 : 21], Segment[20 : 23], Segment[23 : 24], Segment[23 : 25], Segment[23 : 18], Segment[23 : 19], Segment[23 : 17], Segment[26 : 23], Segment[23 : 37], Segment[23 : 36], Segment[23 : 35], Segment[23 : 34], Segment[23 : 27], Segment[23 : 1], Segment[29 : 23], Segment[23 : 28], Segment[23 : 0], Segment[30 : 23], Segment[23 : 15], Segment[23 : 31], Segment[23 : 32], Segment[16 : 23], Segment[23 : 33], Segment[23 : 2], Segment[23 : 3], Segment[4 : 23], Segment[23 : 5], Segment[23 : 6], Segment[23 : 14], Segment[23 : 7], Segment[23 : 8], Segment[23 : 12], Segment[23 : 9], Segment[23 : 11], Segment[23 : 13], Segment[23 : 10]]
+
+    24  [Segment[24 : 25], Segment[23 : 24], Segment[24 : 37], Segment[36 : 24], Segment[35 : 24], Segment[21 : 24], Segment[20 : 24], Segment[24 : 34], Segment[22 : 24], Segment[26 : 24], Segment[24 : 1], Segment[24 : 0], Segment[24 : 27], Segment[24 : 18], Segment[2 : 24], Segment[24 : 3], Segment[24 : 32], Segment[24 : 28], Segment[24 : 33], Segment[29 : 24], Segment[31 : 24], Segment[30 : 24], Segment[24 : 17], Segment[4 : 24], Segment[24 : 19], Segment[24 : 5], Segment[24 : 15], Segment[6 : 24], Segment[16 : 24], Segment[24 : 7], Segment[8 : 24], Segment[14 : 24], Segment[9 : 24], Segment[24 : 12], Segment[11 : 24], Segment[13 : 24], Segment[10 : 24]]
+
+    25  [Segment[26 : 25], Segment[24 : 25], Segment[27 : 25], Segment[25 : 28], Segment[29 : 25], Segment[37 : 25], Segment[36 : 25], Segment[20 : 25], Segment[35 : 25], Segment[34 : 25], Segment[21 : 25], Segment[30 : 25], Segment[31 : 25], Segment[23 : 25], Segment[25 : 18], Segment[32 : 25], Segment[25 : 33], Segment[25 : 17], Segment[25 : 1], Segment[22 : 25], Segment[2 : 25], Segment[25 : 3], Segment[25 : 0], Segment[25 : 15], Segment[4 : 25], Segment[19 : 25], Segment[16 : 25], Segment[5 : 25], Segment[6 : 25], Segment[14 : 25], Segment[7 : 25], Segment[8 : 25], Segment[12 : 25], Segment[9 : 25], Segment[11 : 25], Segment[13 : 25], Segment[10 : 25]]
+
+    27  [Segment[26 : 27], Segment[31 : 27], Segment[27 : 28], Segment[30 : 27], Segment[29 : 27], Segment[27 : 32], Segment[27 : 33], Segment[27 : 25], Segment[27 : 37], Segment[36 : 27], Segment[34 : 27], Segment[27 : 3], Segment[35 : 27], Segment[2 : 27], Segment[5 : 27], Segment[4 : 27], Segment[27 : 1], Segment[24 : 27], Segment[27 : 15], Segment[27 : 0], Segment[6 : 27], Segment[8 : 27], Segment[7 : 27], Segment[27 : 17], Segment[16 : 27], Segment[27 : 18], Segment[14 : 27], Segment[20 : 27], Segment[21 : 27], Segment[12 : 27], Segment[23 : 27], Segment[9 : 27], Segment[11 : 27], Segment[22 : 27], Segment[19 : 27], Segment[13 : 27], Segment[10 : 27]]
+
+    26  [Segment[26 : 27], Segment[26 : 28], Segment[26 : 31], Segment[29 : 26], Segment[30 : 26], Segment[26 : 25], Segment[26 : 32], Segment[26 : 33], Segment[26 : 37], Segment[26 : 36], Segment[26 : 34], Segment[26 : 35], Segment[26 : 2], Segment[26 : 3], Segment[26 : 1], Segment[26 : 24], Segment[26 : 4], Segment[26 : 5], Segment[26 : 0], Segment[26 : 15], Segment[26 : 6], Segment[26 : 17], Segment[26 : 20], Segment[26 : 18], Segment[26 : 7], Segment[26 : 8], Segment[26 : 21], Segment[16 : 26], Segment[26 : 23], Segment[26 : 14], Segment[26 : 22], Segment[26 : 12], Segment[26 : 9], Segment[26 : 19], Segment[26 : 11], Segment[26 : 13], Segment[26 : 10]]
+
+    28  [Segment[29 : 28], Segment[30 : 28], Segment[31 : 28], Segment[27 : 28], Segment[26 : 28], Segment[32 : 28], Segment[33 : 28], Segment[28 : 15], Segment[25 : 28], Segment[28 : 3], Segment[2 : 28], Segment[37 : 28], Segment[36 : 28], Segment[34 : 28], Segment[14 : 28], Segment[35 : 28], Segment[16 : 28], Segment[28 : 17], Segment[5 : 28], Segment[4 : 28], Segment[28 : 1], Segment[24 : 28], Segment[18 : 28], Segment[12 : 28], Segment[8 : 28], Segment[28 : 0], Segment[6 : 28], Segment[20 : 28], Segment[7 : 28], Segment[11 : 28], Segment[21 : 28], Segment[9 : 28], Segment[23 : 28], Segment[13 : 28], Segment[22 : 28], Segment[19 : 28], Segment[10 : 28]]
+
+    29  [Segment[29 : 28], Segment[30 : 29], Segment[29 : 31], Segment[29 : 27], Segment[29 : 26], Segment[29 : 15], Segment[29 : 32], Segment[29 : 25], Segment[29 : 33], Segment[29 : 16], Segment[29 : 14], Segment[29 : 17], Segment[29 : 3], Segment[29 : 2], Segment[29 : 37], Segment[29 : 36], Segment[29 : 34], Segment[29 : 35], Segment[29 : 5], Segment[29 : 4], Segment[29 : 18], Segment[29 : 1], Segment[29 : 24], Segment[29 : 12], Segment[29 : 8], Segment[29 : 0], Segment[29 : 20], Segment[29 : 6], Segment[29 : 11], Segment[29 : 21], Segment[29 : 7], Segment[29 : 9], Segment[29 : 23], Segment[29 : 13], Segment[29 : 19], Segment[29 : 22], Segment[29 : 10]]
+    
+    30  [Segment[30 : 28], Segment[30 : 29], Segment[30 : 31], Segment[30 : 27], Segment[30 : 26], Segment[30 : 32], Segment[30 : 33], Segment[30 : 15], Segment[30 : 25], Segment[30 : 3], Segment[30 : 2], Segment[30 : 5], Segment[30 : 34], Segment[30 : 36], Segment[30 : 37], Segment[30 : 35], Segment[30 : 4], Segment[30 : 14], Segment[30 : 16], Segment[30 : 12], Segment[30 : 17], Segment[30 : 1], Segment[30 : 8], Segment[30 : 6], Segment[30 : 24], Segment[30 : 0], Segment[30 : 7], Segment[30 : 11], Segment[30 : 18], Segment[30 : 9], Segment[30 : 20], Segment[30 : 21], Segment[30 : 13], Segment[30 : 23], Segment[30 : 22], Segment[30 : 19], Segment[30 : 10]]
+
+    31  [Segment[30 : 31], Segment[31 : 28], Segment[31 : 27], Segment[29 : 31], Segment[26 : 31], Segment[31 : 32], Segment[31 : 33], Segment[31 : 3], Segment[2 : 31], Segment[31 : 5], Segment[31 : 25], Segment[4 : 31], Segment[31 : 34], Segment[36 : 31], Segment[31 : 37], Segment[35 : 31], Segment[31 : 15], Segment[8 : 31], Segment[31 : 1], Segment[6 : 31], Segment[31 : 7], Segment[31 : 12], Segment[31 : 0], Segment[14 : 31], Segment[16 : 31], Segment[9 : 31], Segment[31 : 24], Segment[11 : 31], Segment[31 : 17], Segment[31 : 18], Segment[20 : 31], Segment[21 : 31], Segment[13 : 31], Segment[23 : 31], Segment[10 : 31], Segment[22 : 31], Segment[31 : 19]]
+
+    32  [Segment[32 : 33], Segment[32 : 3], Segment[2 : 32], Segment[5 : 32], Segment[31 : 32], Segment[4 : 32], Segment[27 : 32], Segment[26 : 32], Segment[34 : 32], Segment[30 : 32], Segment[35 : 32], Segment[36 : 32], Segment[32 : 37], Segment[32 : 28], Segment[32 : 1], Segment[6 : 32], Segment[29 : 32], Segment[8 : 32], Segment[7 : 32], Segment[32 : 0], Segment[32 : 25], Segment[9 : 32], Segment[24 : 32], Segment[32 : 15], Segment[12 : 32], Segment[11 : 32], Segment[14 : 32], Segment[32 : 17], Segment[16 : 32], Segment[20 : 32], Segment[32 : 18], Segment[10 : 32], Segment[21 : 32], Segment[23 : 32], Segment[22 : 32], Segment[13 : 32], Segment[19 : 32]]
+
+    33  [Segment[38 : 33], Segment[32 : 33], Segment[33 : 3], Segment[2 : 33], Segment[5 : 33], Segment[4 : 33], Segment[27 : 33], Segment[31 : 33], Segment[26 : 33], Segment[34 : 33], Segment[35 : 33], Segment[36 : 33], Segment[37 : 33], Segment[6 : 33], Segment[33 : 1], Segment[30 : 33], Segment[33 : 28], Segment[7 : 33], Segment[8 : 33], Segment[29 : 33], Segment[33 : 0], Segment[25 : 33], Segment[9 : 33], Segment[24 : 33], Segment[33 : 15], Segment[12 : 33], Segment[11 : 33], Segment[14 : 33], Segment[33 : 17], Segment[16 : 33], Segment[10 : 33], Segment[20 : 33], Segment[18 : 33], Segment[21 : 33], Segment[23 : 33], Segment[22 : 33], Segment[13 : 33], Segment[19 : 33]]
+
+    0  [Segment[1 : 0], Segment[34 : 0], Segment[35 : 0], Segment[36 : 0], Segment[37 : 0], Segment[2 : 0], Segment[3 : 0], Segment[4 : 0], Segment[33 : 0], Segment[32 : 0], Segment[6 : 0], Segment[5 : 0], Segment[26 : 0], Segment[7 : 0], Segment[24 : 0], Segment[27 : 0], Segment[25 : 0], Segment[31 : 0], Segment[8 : 0], Segment[30 : 0], Segment[28 : 0], Segment[29 : 0], Segment[23 : 0], Segment[20 : 0], Segment[21 : 0], Segment[22 : 0], Segment[9 : 0], Segment[18 : 0], Segment[15 : 0], Segment[0 : 17], Segment[12 : 0], Segment[16 : 0], Segment[11 : 0], Segment[14 : 0], Segment[19 : 0], Segment[10 : 0], Segment[13 : 0]]
+
+    1  [Segment[1 : 0], Segment[34 : 1], Segment[35 : 1], Segment[36 : 1], Segment[37 : 1], Segment[2 : 1], Segment[3 : 1], Segment[4 : 1], Segment[33 : 1], Segment[32 : 1], Segment[5 : 1], Segment[6 : 1], Segment[26 : 1], Segment[27 : 1], Segment[7 : 1], Segment[24 : 1], Segment[25 : 1], Segment[31 : 1], Segment[8 : 1], Segment[30 : 1], Segment[28 : 1], Segment[29 : 1], Segment[23 : 1], Segment[20 : 1], Segment[21 : 1], Segment[9 : 1], Segment[22 : 1], Segment[15 : 1], Segment[18 : 1], Segment[1 : 17], Segment[12 : 1], Segment[16 : 1], Segment[11 : 1], Segment[14 : 1], Segment[19 : 1], Segment[10 : 1], Segment[13 : 1]]
+
+    35  [Segment[36 : 35], Segment[35 : 37], Segment[35 : 34], Segment[35 : 1], Segment[35 : 0], Segment[2 : 35], Segment[35 : 3], Segment[35 : 33], Segment[35 : 32], Segment[26 : 35], Segment[4 : 35], Segment[35 : 27], Segment[35 : 24], Segment[35 : 25], Segment[35 : 5], Segment[6 : 35], Segment[35 : 31], Segment[35 : 7], Segment[30 : 35], Segment[35 : 28], Segment[29 : 35], Segment[8 : 35], Segment[23 : 35], Segment[20 : 35], Segment[21 : 35], Segment[22 : 35], Segment[35 : 18], Segment[35 : 15], Segment[35 : 17], Segment[9 : 35], Segment[16 : 35], Segment[35 : 12], Segment[14 : 35], Segment[35 : 19], Segment[11 : 35], Segment[10 : 35], Segment[13 : 35]]
+
+    36  [Segment[36 : 37], Segment[36 : 35], Segment[36 : 34], Segment[36 : 1], Segment[36 : 0], Segment[36 : 2], Segment[36 : 3], Segment[36 : 33], Segment[36 : 32], Segment[26 : 36], Segment[4 : 36], Segment[36 : 27], Segment[36 : 24], Segment[36 : 25], Segment[36 : 5], Segment[6 : 36], Segment[36 : 31], Segment[30 : 36], Segment[36 : 28], Segment[36 : 7], Segment[29 : 36], Segment[8 : 36], Segment[23 : 36], Segment[20 : 36], Segment[36 : 21], Segment[22 : 36], Segment[36 : 18], Segment[36 : 15], Segment[36 : 17], Segment[9 : 36], Segment[16 : 36], Segment[36 : 12], Segment[14 : 36], Segment[36 : 19], Segment[11 : 36], Segment[10 : 36], Segment[36 : 13]]
+
+    37  [Segment[36 : 37], Segment[35 : 37], Segment[34 : 37], Segment[37 : 1], Segment[37 : 0], Segment[2 : 37], Segment[37 : 3], Segment[37 : 33], Segment[32 : 37], Segment[26 : 37], Segment[4 : 37], Segment[27 : 37], Segment[24 : 37], Segment[37 : 25], Segment[5 : 37], Segment[6 : 37], Segment[31 : 37], Segment[37 : 28], Segment[30 : 37], Segment[7 : 37], Segment[29 : 37], Segment[8 : 37], Segment[23 : 37], Segment[20 : 37], Segment[21 : 37], Segment[22 : 37], Segment[37 : 18], Segment[37 : 15], Segment[37 : 17], Segment[9 : 37], Segment[16 : 37], Segment[12 : 37], Segment[14 : 37], Segment[19 : 37], Segment[11 : 37], Segment[10 : 37], Segment[13 : 37]]
+

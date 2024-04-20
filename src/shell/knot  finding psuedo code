@@ -735,7 +735,7 @@ to get match1:
     */
 27  s  [Segment[26 : 27], Segment[31 : 27], Segment[27 : 28], Segment[30 : 27], Segment[29 : 27], Segment[27 : 32], Segment[27 : 33], Segment[27 : 25], Segment[27 : 37], Segment[36 : 27], Segment[34 : 27], Segment[27 : 3], Segment[35 : 27], Segment[2 : 27], Segment[5 : 27], Segment[4 : 27], Segment[27 : 1], Segment[24 : 27], Segment[27 : 15], Segment[27 : 0], Segment[6 : 27], Segment[8 : 27], Segment[7 : 27], Segment[27 : 17], Segment[16 : 27], Segment[27 : 18], Segment[14 : 27], Segment[20 : 27], Segment[21 : 27], Segment[12 : 27], Segment[23 : 27], Segment[9 : 27], Segment[11 : 27], Segment[22 : 27], Segment[19 : 27], Segment[13 : 27], Segment[10 : 27], Segment[27 : 38]]
 
-26  s  [Segment[26 : 27], Segment[26 : Knot[28]], Segment[26 : 31], Segment[Knot[29] : 26], Segment[Knot[30] : 26], Segment[26 : 25], Segment[26 : 32], Segment[26 : 33], Segment[26 : 37], Segment[26 : 36], Segment[26 : 34], Segment[26 : 35], Segment[26 : 2], Segment[26 : 3], Segment[26 : 1], Segment[26 : 24], Segment[26 : 4], Segment[26 : 5], Segment[26 : 0], Segment[26 : 15], Segment[26 : 6], Segment[26 : 17], Segment[26 : 20], Segment[26 : 18], Segment[26 : 7], Segment[26 : 8], Segment[26 : 21], Segment[16 : 26], Segment[26 : 23], Segment[26 : 14], Segment[26 : 22], Segment[26 : 12], Segment[26 : 9], Segment[26 : 19], Segment[26 : 11], Segment[26 : 13], Segment[26 : 10], Segment[26 : 38]]
+26  s  [Segment[26 : 27], Segment[26 : 28], Segment[26 : 31], Segment[29 : 26], Segment[30 : 26], Segment[26 : 25], Segment[26 : 32], Segment[26 : 33], Segment[26 : 37], Segment[26 : 36], Segment[26 : 34], Segment[26 : 35], Segment[26 : 2], Segment[26 : 3], Segment[26 : 1], Segment[26 : 24], Segment[26 : 4], Segment[26 : 5], Segment[26 : 0], Segment[26 : 15], Segment[26 : 6], Segment[26 : 17], Segment[26 : 20], Segment[26 : 18], Segment[26 : 7], Segment[26 : 8], Segment[26 : 21], Segment[16 : 26], Segment[26 : 23], Segment[26 : 14], Segment[26 : 22], Segment[26 : 12], Segment[26 : 9], Segment[26 : 19], Segment[26 : 11], Segment[26 : 13], Segment[26 : 10], Segment[26 : 38]]
 
 {
     28  s  [Segment[29 : 28], Segment[30 : 28], Segment[31 : 28], Segment[27 : 28], Segment[26 : 28], Segment[32 : 28], Segment[33 : 28], Segment[28 : 15], Segment[25 : 28], Segment[28 : 3], Segment[2 : 28], Segment[37 : 28], Segment[36 : 28], Segment[34 : 28], Segment[14 : 28], Segment[35 : 28], Segment[16 : 28], Segment[28 : 17], Segment[5 : 28], Segment[4 : 28], Segment[28 : 1], Segment[24 : 28], Segment[18 : 28], Segment[12 : 28], Segment[8 : 28], Segment[28 : 0], Segment[6 : 28], Segment[20 : 28], Segment[7 : 28], Segment[11 : 28], Segment[21 : 28], Segment[9 : 28], Segment[23 : 28], Segment[13 : 28], Segment[22 : 28], Segment[19 : 28], Segment[10 : 28], Segment[28 : 38]]
@@ -747,6 +747,7 @@ to get match1:
 }
 
 31  s  [Segment[30 : 31], Segment[31 : 28], Segment[31 : 27], Segment[29 : 31], Segment[26 : 31], Segment[31 : 32], Segment[31 : 33], Segment[31 : 3], Segment[2 : 31], Segment[31 : 5], Segment[31 : 25], Segment[4 : 31], Segment[31 : 34], Segment[36 : 31], Segment[31 : 37], Segment[35 : 31], Segment[31 : 15], Segment[8 : 31], Segment[31 : 1], Segment[6 : 31], Segment[31 : 7], Segment[31 : 12], Segment[31 : 0], Segment[14 : 31], Segment[16 : 31], Segment[9 : 31], Segment[31 : 24], Segment[11 : 31], Segment[31 : 17], Segment[31 : 18], Segment[20 : 31], Segment[21 : 31], Segment[13 : 31], Segment[23 : 31], Segment[10 : 31], Segment[22 : 31], Segment[31 : 19], Segment[31 : 38]]
+
 
 
 {
@@ -771,135 +772,17 @@ to get match1:
 }
 
 
-Knot[
-    Knot[
-        Knot[
-            Knot[
-                
-                Knot[
-                    Knot[34 38 33 32  Knot[35 36 37 ] ] 
-                1 0 ] 
-                    
-            Knot[7 6 5 4 3 2  8 ] 
-            ]
-                
-            Knot[
-                Knot[31 
-                    Knot[29 28 30 ] 
-                ] 
-            27 26] 
-
-        ] 
-                 
-    25 24 ] 
-                 
-14 15 16 17 18 19 20 21 22 23 ] Knot[Knot[13 12 11 ] 9 10 ] 
-
-[Knot
-    [Knot
-        [Knot
-            [Knot
-                [Knot  
-                    [Knot
-                        [Run[34 38 33 32 ] Knot[35 36 37 ] ]
-                    Run[1 0 ] ] 
-                Run[Knot[
-                        Knot[13 12 11 ] Run[9 10 ] ]
-                     8 7 6 5 4 3 2 ] ] 
-            Knot[
-                Knot[31 
-                    Knot[29 28 30 ] ] 
-                        Run[27 26 ] ] ] 
-                            Run[25 24 ] ] 
-                        Run[23 22 21 20 19 18 17 16 15 14 ] ]]
-
-
-[Run[25 24 ], Knot[Knot[Knot[Knot[Run[34 38 33 32 ] Knot[35 36 37 ] ] Run[1 0 ] ] Run[Knot[Knot[13 12 11 ] Run[9 10 ] ] 8 7 6 5 4 3 2 ] ] Knot[Knot[31 Knot[29 28 30 ] ] Run[27 26 ] ] ], Run[23 22 21 20 19 18 17 16 15 14 ]]
+[Knot[Knot[32 
+           Knot[Knot[Knot[28 29 30 ] 31 ] 26 27 ] 
+           Knot[11 12 13 ] 10 9 8 7 6 5 4 3 2 
+           Knot[Knot[Knot[35 36 37 ] 34 ] 0 1 ] 
+           33 ] 24 25 ], 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
 
 
 
-
-[Run[
-    Knot[Run[0 1 ] Knot[34 Knot[35 36 37 ] ] ] Knot[Knot[Run[32 33 2 3 4 5 6 7 ] Run[8 9 10 Knot[11 12 13 ] ] ] Knot[Run[26 27 ] Knot[Knot[28 29 30 ] 31 ] ] ] 25 24 ] 
-    Run[14 15 16 17 18 19 20 21 22 23 ] ]
-
-    
-Knot[Knot[Knot[Knot[0 1 Knot[34 Knot[35 36 37 ] ] ] Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ] ] Knot[26 27 Knot[Knot[28 29 30 ] 31 ] ] ] 25 24 ] 23 22 21 20 19 18 17 16 15 14 
-
-
-
-[Knot[Knot[Knot[Knot[Knot[0 1 Knot[34 Knot[35 36 37 ] ] ] Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ] ] Knot[26 27 Knot[Knot[28 29 30 ] 31 ] ] ] 25 24 ] 23 22 21 20 19 18 17 16 15 14 ]]
-
-
-[Knot[Knot[0 1 Knot[34 Knot[35 36 37 ] ] ] Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ] ], Knot[26 27 Knot[Knot[28 29 30 ] 31 ] ], 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14]
-
-
-
-[Knot[Knot[Knot[Knot[32 33 38 34 Knot[35 36 37 ] ] 1 0 ] 2 3 4 5 6 7 8 Knot[Knot[13 12 11 ] 10 9 ] ] Knot[Knot[31 Knot[29 28 30 ] ] 27 26 ] ], 25, 24]
-
-
-Based configuration no rotation
-[Knot[Knot[34 Knot[35 36 37 ] ] 1 0 ], Knot[Knot[26 27 Knot[31 Knot[30 28 29 ] ] ] 32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] 14 15 16 17 18 19 Knot[20 21 22 23 ] 24 25 ]]
-
-SO FUCKING CLOSE LOL, if only this was a knot and not a run
-[Run[0 1 Knot[Knot[35 36 37 ] 34 ] Knot[Knot[Knot[Knot[28 29 30 ] 31 ] 26 27 ] 25 24 23 22 21 20 19 18 17 16 15 14 Knot[11 12 13 ] 10 9 8 7 6 5 4 3 2 33 32 ] ]]
-
-
-[Knot[
-    Knot[Knot[Knot[29 28 30 ] 31 ] 26 27 ]
-    Knot[Knot[Knot[Knot[35 36 37 ] 32 33 38 34 ] 0 1 ] 
-        Knot[10 9 Knot[13 12 11 ] ] 8 7 6 5 4 3 2 ] 
-    ]
-, 24, 25
-
+[Knot[Knot[Knot[Knot[3 38 2 ] 5 4 6 7 32 33 ] 
+           Knot[Knot[Knot[29 28 30 ] 31 ] 26 27 ] 
+           Knot[Knot[Knot[36 37 35 ] 34 ] 0 1 ] 
+           Knot[13 12 11 ] 10 9 8 ] 
+      24 25 ]
 , 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
-
-[Knot[
-    Knot[Knot[Knot[29 28 30 ] 31 ] 26 27 ]
-    Knot[Knot[Knot[Knot[35 36 37 ] 32 33 38 34 ] 0 1 ] 
-        Knot[10 9 Knot[13 12 11 ] ] 8 7 6 5 4 3 2 ] 
-    ]
-, 24, 25
-
-    
-    Knot[Knot[Knot[Knot[35 36 37 ] 32 33 38 34 ] 0 1 ] 
-        Knot[10 9 Knot[13 12 11 ] ] 8 7 6 5 4 3 2 ] 
-    , 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, Knot[Knot[Knot[29 28 30 ] 31 ] 26 27 ]
-
-   
-   2 3 4 5 6 7 8 Knot[10 9 Knot[13 12 11 ] ] , 
-   14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, Knot[Knot[Knot[29 28 30 ] 31 ] 26 27 ], 
-   Knot[Knot[Knot[35 36 37 ] 32 33 38 34 ] 0 1 ]
-
-      2 3 4 5 6 7 8 9 10 Knot[13 12 11 ] , 
-   14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26 27 Knot[Knot[29 28 30 ] 31 ], 
-   Knot[Knot[Knot[35 36 37 ] 32 33 38 34 ] 0 1 ]
-
-         2 3 4 5 6 7 8 9 10 11 12 13  , 
-   14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26 27 Knot[29 28 30 ] 31 , 
-   Knot[Knot[Knot[35 36 37 ] 32 33 38 34 ] 0 1 ]
-
-            2 3 4 5 6 7 8 9 10 11 12 13  , 
-   14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26 27 28 29 30 31 , 
-   Knot[Knot[35 36 37 ] 32 33 38 34 ] 0 1 
-
-   
-            2 3 4 5 6 7 8 9 10 11 12 13  , 
-   14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26 27 28 29 30 31 32 33 38 34 Knot[35 36 37 ] 0 1 
-
-               2 3 4 5 6 7 8 9 10 11 12 13  , 
-   14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26 27 28 29 30 31 32 33 38 34 35 36 37 0 1 
-
-
-[24, 25, 26, 27, Knot[Knot[29 28 30 ] 31 ], Knot[Knot[Knot[Knot[35 36 37 ] 32 33 38 34 ] 0 1 ] Knot[10 9 Knot[13 12 11 ] ] 8 7 6 5 4 3 2 ], 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
-
-
-Knot[7 6 5 4 3 2 Knot[34 38 35 36 37 0 1 ] 33 32 Knot[13 12 11 ] 10 9 8 ]
-
-Knot[7 6 5 4 3 2 Knot[34 38 35 36 37 0 1 ] 33 32 Knot[Knot[Knot[Knot[30 28 29 ] 31 ] 26 27 ] Knot[13 12 11 ] 10 9 8 ] ]
-
-
-[Knot[Knot[Knot[ Knot[7 6 5 4 3 2 Knot[Knot[35 38 36 37 34 ] 0 1 ] 33 32 Knot[Knot[Knot[30 28 29 ] 31 ] 26 27 ] Knot[11 12 13 ] 10 9 8 ]  ] 24 25 ] 14 15 16 17 18 19 20 21 22 23 ]]
-
-
-[Knot[Knot[Knot[31 38 30 28 29 27 26 ] 32 33 Knot[Knot[Knot[36 37 35 ] 34 ] 0 1 ] 2 3 4 5 6 7 8 Knot[9 10 Knot[13 12 11 ] ] 24 25 ] 14 15 16 17 18 19 20 21 22 23 ]]

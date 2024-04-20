@@ -189,6 +189,7 @@ public class Shell extends LinkedList<PointND> {
 
 		public Segment getPointer(int idx) {
 			ArrayList<Segment> seenGroups = new ArrayList<Segment>();
+			ArrayList<VirtualPoint> seenPoints = new ArrayList<VirtualPoint>();
 			int count = idx;
 			for (int i = 0; i < sortedSegments.size(); i++) {
 				Segment s = sortedSegments.get(i);
@@ -198,18 +199,9 @@ public class Shell extends LinkedList<PointND> {
 					vp = vp.group;
 				}
 				Segment potentialSegment = new Segment(basePoint, this, 0);
-				/*
-				 * System.out.println("CheckPointer: vp: " + vp +
-				 * " seengroup.contains(potentialSegment): "
-				 * + seenGroups.contains(potentialSegment) + " basepoint: " + basePoint +
-				 * " topGroupnumMatches: "
-				 * + vp.topGroup.numMatches + " topGroup: " + vp.topGroup);
-				 */
-				//
 				if ((!vp.isRun || ((Run) vp).endpoint1.contains(basePoint) || ((Run) vp).endpoint2.contains(basePoint))
-						&& (!seenGroups.contains(potentialSegment))
+						&& (!seenGroups.contains(potentialSegment)) && (!seenPoints.contains(basePoint))
 						|| potentialSegment.equals(s1) || potentialSegment.equals(s2)) {
-					// System.out.println("match!");
 					count--;
 					if (count == 0) {
 						return potentialSegment;
@@ -234,6 +226,7 @@ public class Shell extends LinkedList<PointND> {
 					}
 				}
 			}
+			System.out.println(vp.fullString());
 			assert (false);
 			return null;
 		}
@@ -267,6 +260,7 @@ public class Shell extends LinkedList<PointND> {
 	}
 
 	int knotmergecount = 0;
+	int runlistmergecount = 0;
 	int runmergecount = 0;
 
 	class Knot extends VirtualPoint {
@@ -277,196 +271,40 @@ public class Shell extends LinkedList<PointND> {
 		// vp1, vp2, ... vpm
 
 		public Knot(ArrayList<VirtualPoint> knotPointsToAdd) {
-			// if (knotPointsToAdd.get(0).match2 == null) {
-			// VirtualPoint vp1 = knotPointsToAdd.get(0);
-			// VirtualPoint vp2 = knotPointsToAdd.get(knotPointsToAdd.size() - 1);
-			// Segment s = vp1.getClosestSegment(vp2);
-			// Point bp2 = (Point) s.getOtherKnot(vp1);
-			// Point bp1 = (Point) s.getOther(bp2);
-			// vp1.match2 = vp2;
-			// vp1.basePoint2 = bp1;
-			// vp1.match2endpoint = bp2;
-			// vp1.s2 = s;
-			// vp2.match2 = vp1;
-			// vp2.basePoint2 = bp2;
-			// vp2.match2endpoint = bp1;
-			// vp2.s2 = s;
-			// }
+			if (knotPointsToAdd.get(0).match2 == null
+					|| knotPointsToAdd.get(knotPointsToAdd.size() - 1).match2 == null) {
+				VirtualPoint vp1 = knotPointsToAdd.get(0);
+				VirtualPoint vp2 = knotPointsToAdd.get(knotPointsToAdd.size() - 1);
+				Segment s = vp1.getClosestSegment(vp2);
+				Point bp2 = (Point) s.getOtherKnot(vp1);
+				Point bp1 = (Point) s.getOther(bp2);
+				vp1.match2 = vp2;
+				vp1.basePoint2 = bp1;
+				vp1.match2endpoint = bp2;
+				vp1.s2 = s;
+				vp2.match2 = vp1;
+				vp2.basePoint2 = bp2;
+				vp2.match2endpoint = bp1;
+				vp2.s2 = s;
+			}
+
+			for (VirtualPoint vp : knotPointsToAdd) {
+				System.out.println(vp.fullString());
+			}
 			sortedSegments = new ArrayList<>();
-			ArrayList<VirtualPoint> flattenRunPoints = new ArrayList<>();
-			if (knotPointsToAdd.size() == 2 && knotPointsToAdd.get(0).isRun && knotPointsToAdd.get(1).isRun) {
-				System.out.println("looped run Points flattening");
-				Run run1 = (Run) knotPointsToAdd.get(0);
-				Run run2 = (Run) knotPointsToAdd.get(1);
-				for (VirtualPoint p : run1.knotPoints) {
-					flattenRunPoints.add(p);
-				}
-				System.out.println(run2.fullString());
-				System.out.println(run1.fullString());
-				System.out.println(flattenRunPoints.get(flattenRunPoints.size() - 1));
-				if (run2.endpoint1.equals(run2.basePoint1)
-						&& flattenRunPoints.get(flattenRunPoints.size() - 1).contains(run2.match1endpoint)) {
-
-					for (VirtualPoint p : run2.knotPoints) {
-						flattenRunPoints.add(p);
-					}
-				} else {
-					int end = flattenRunPoints.size();
-					for (VirtualPoint p : run2.knotPoints) {
-						flattenRunPoints.add(end, p);
-					}
-				}
-				System.out.println(flattenRunPoints);
-
-			} else {
-				for (int i = 0; i < knotPointsToAdd.size(); i++) {
-					VirtualPoint vp = knotPointsToAdd.get(i);
-					System.out.println("flatten endpoints: " + flattenRunPoints);
-					if (i + 1 >= knotPointsToAdd.size()) {
-						VirtualPoint vp2 = knotPointsToAdd.get(0);
-						if (vp.isRun) {
-							Run run = ((Run) vp);
-							if ((run.endpoint1.equals(run.basePoint1)
-									&& ((vp2.isRun && ((Run) vp2).endpoint1.contains(run.match1endpoint))
-											|| vp2.contains(run.match1endpoint)))
-									|| (run.endpoint1.equals(run.basePoint2)
-											&& ((vp2.isRun && ((Run) vp2).endpoint1.contains(run.match2endpoint))
-													|| vp2.contains(run.match2endpoint)))) {
-
-								int end = flattenRunPoints.size();
-								for (VirtualPoint p : run.knotPoints) {
-
-									flattenRunPoints.add(end, p);
-								}
-							} else {
-								for (VirtualPoint p : run.knotPoints) {
-									flattenRunPoints.add(p);
-								}
-							}
-						} else {
-							flattenRunPoints.add(vp);
-						}
-						break;
-					}
-					VirtualPoint vp2 = knotPointsToAdd.get(i + 1);
-					if (vp.isRun) {
-						Run run = ((Run) vp);
-						System.out.println("vp1: " + vp.fullString());
-						System.out.println("endpoint1: " + run.endpoint1);
-						System.out.println("endpoint2: " + run.endpoint2);
-						System.out.println("vp2: " + vp2.fullString());
-						System.out.println(
-								"run.endpoint1.equals(run.basePoint1): " + run.endpoint1.equals(run.basePoint1));
-						System.out.println("vp2.contains(run.match1endpoint): " + vp2.contains(run.match1endpoint));
-						if ((run.endpoint1.equals(run.basePoint1)
-								&& ((vp2.isRun && ((Run) vp2).endpoint1.contains(run.match1endpoint))
-										|| vp2.contains(run.match1endpoint)))
-								|| (run.endpoint1.equals(run.basePoint2)
-										&& ((vp2.isRun && ((Run) vp2).endpoint1.contains(run.match2endpoint))
-												|| vp2.contains(run.match2endpoint)))) {
-
-							int end = flattenRunPoints.size();
-							for (VirtualPoint p : run.knotPoints) {
-								flattenRunPoints.add(end, p);
-							}
-						} else {
-							for (VirtualPoint p : run.knotPoints) {
-								flattenRunPoints.add(p);
-							}
-						}
-					} else {
-						flattenRunPoints.add(vp);
-					}
+			ArrayList<VirtualPoint> flattenRunPoints = flattenRunPoints(knotPointsToAdd, true);
+			System.out.println("-------------------------------");
+			for (VirtualPoint vp : flattenRunPoints) {
+				System.out.println(vp.fullString());
+			}
+			System.out.println("---------------------------");
+			fixRunList(flattenRunPoints, flattenRunPoints.size());
+			if (flattenRunPoints.size() != knotPointsToAdd.size()) {
+				runlistmergecount++;
+				if (runlistmergecount > 10) {
+					float zero = 1 / 0;
 				}
 			}
-
-			for (int i = 0; i < flattenRunPoints.size(); i++) {
-				VirtualPoint vp = flattenRunPoints.get(i);
-				VirtualPoint vp2 = null;
-
-				if (i < flattenRunPoints.size() - 1) {
-					vp2 = flattenRunPoints.get(i + 1);
-				} else {
-					vp2 = flattenRunPoints.get(0);
-				}
-				System.out.println(vp + " " + vp.group);
-				System.out.println(vp2 + " " + vp2.group);
-				if (!vp2.group.equals(vp.group) && (vp.group.isRun || vp2.group.isRun)) {
-					System.out.println(vp + " " + vp.group);
-					System.out.println(vp2 + " " + vp2.group);
-					System.out.println(vp2.group.equals(vp.group));
-					System.out.println("fixing match2 for: " + vp.fullString());
-
-					System.out.println("new match 2: " + vp2.fullString());
-
-					Segment s = vp.getClosestSegment(vp2);
-					VirtualPoint bp1 = s.getKnotPoint(vp.externalVirtualPoints);
-					VirtualPoint bp2 = s.getOther(bp1);
-					System.out.println("bp1:" + bp1);
-					System.out.println("bp2:" + bp2);
-					System.out.println(vp.match1 == null || (vp.match1.contains(bp2) && vp.match1.isRun));
-					System.out.println(vp.match2 == null || (vp.match2.contains(bp2) && vp.match2.isRun));
-					if (vp.match1 == null || (vp.match1.contains(bp2) && vp.match1.isRun)) {
-						vp.match1 = vp2;
-						vp.basePoint1 = (Point) bp1;
-						vp.match1endpoint = (Point) bp2;
-						vp.s1 = s;
-					} else if (vp.match2 == null || (vp.match2.contains(bp2) && vp.match2.isRun)) {
-						vp.match2 = vp2;
-						vp.basePoint2 = (Point) bp1;
-						vp.match2endpoint = (Point) bp2;
-						vp.s2 = s;
-
-					}
-					if (vp2.match1 == null || (vp2.match1.contains(bp1) && vp2.match1.isRun)) {
-						vp2.match1 = vp;
-						vp2.basePoint1 = (Point) bp2;
-						vp2.match1endpoint = (Point) bp1;
-						vp2.s1 = s;
-					} else if (vp2.match2 == null || (vp2.match2.contains(bp1) && vp2.match2.isRun)) {
-						vp2.match2 = vp;
-						vp2.basePoint2 = (Point) bp2;
-						vp2.match2endpoint = (Point) bp1;
-						vp2.s2 = s;
-					}
-					if (vp.s1.distance > vp.s2.distance) {
-						Point tempBp = vp.basePoint1;
-						Point tempMe = vp.match1endpoint;
-						VirtualPoint tempMatch = vp.match1;
-						Segment tempSeg = vp.s1;
-						vp.basePoint1 = vp.basePoint2;
-						vp.match1 = vp.match2;
-						vp.match1endpoint = vp.match2endpoint;
-						vp.s1 = vp.s2;
-						vp.basePoint2 = tempBp;
-						vp.match2 = tempMatch;
-						vp.match2endpoint = tempMe;
-						vp.s2 = tempSeg;
-					}
-					if (vp2.s1.distance > vp2.s2.distance) {
-						Point tempBp = vp2.basePoint1;
-						Point tempMe = vp2.match1endpoint;
-						VirtualPoint tempMatch = vp2.match1;
-						Segment tempSeg = vp2.s1;
-						vp2.basePoint1 = vp2.basePoint2;
-						vp2.match1 = vp2.match2;
-						vp2.match1endpoint = vp2.match2endpoint;
-						vp2.s1 = vp2.s2;
-						vp2.basePoint2 = tempBp;
-						vp2.match2 = tempMatch;
-						vp2.match2endpoint = tempMe;
-						vp2.s2 = tempSeg;
-					}
-					vp.numMatches = 2;
-					vp2.numMatches = 2;
-
-					System.out.println("fixed match2: " + vp.fullString());
-
-					System.out.println("new match 2 after: " + vp2.fullString() + "\n");
-				}
-			}
-
-			System.out.println(flattenRunPoints);
 
 			// if we have two knots that make up the whole knot we need to insert one of the
 			// knots into the other
@@ -482,19 +320,20 @@ public class Shell extends LinkedList<PointND> {
 
 				Point pointer1 = gp1.match1endpoint;
 				VirtualPoint vKnotPoint1 = pointer1.topGroupVirtualPoint;
-				// System.out.println(((Knot) gp1).externalKnotSegments);
 				VirtualPoint cutPoint1 = vKnotPoint1.match2;
 				VirtualPoint vCutPoint1 = cutPoint1;
 				ArrayList<VirtualPoint> newList = new ArrayList<>();
 				System.out.println("Both are knots, find the two cut segments and join across");
 				Knot knot1 = (Knot) gp1;
 				Knot knot2 = (Knot) gp2;
-				System.out.println("Knot1: " + knot1);
-				System.out.println("Knot2: " + knot2);
-				System.out.println("knotPoint1: " + vKnotPoint1.fullString());
-				System.out.println("cutPoint1: " + vCutPoint1.fullString());
-
+				System.out.println(gp1.fullString());
+				// It's somthing about needing to like recursively insert into a knot sometimes
+				// I think its happening when both of gp1's matches point to the same object and
+				// that object is a knot?
+				// I actually think this more has to do with making knots where we shouldn't out
+				// of runs
 				Segment sKP = gp1.getClosestSegment(vKnotPoint1);
+				System.out.println(sKP);
 				Point m1e = (Point) sKP.getOtherKnot(gp1);
 				Point bp1 = (Point) sKP.getOther(m1e);
 				if (vKnotPoint1.match2.equals(vCutPoint1)) {
@@ -510,6 +349,7 @@ public class Shell extends LinkedList<PointND> {
 				}
 
 				Segment sCP = gp1.getClosestSegment(vCutPoint1);
+				System.out.println(sCP);
 				Point m2e = (Point) sCP.getOtherKnot(gp1);
 				Point bp2 = (Point) sCP.getOther(m2e);
 
@@ -546,15 +386,11 @@ public class Shell extends LinkedList<PointND> {
 					gp1.s1 = sCP;
 				}
 
-				System.out.println(cutPoint1.fullString());
-				System.out.println(pointer1.fullString());
-				System.out.println(gp1.fullString());
-
 				VirtualPoint addPoint = gp2.knotPoints.get(0);
 				VirtualPoint prevPointTemp = gp2.knotPoints.get(gp2.knotPoints.size() - 1);
 				for (int j = 0; j < gp2.knotPoints.size() + 1; j++) {
-					System.out.println("adding: " + addPoint);
 					newList.add(j, addPoint);
+					System.out.println(addPoint.fullString());
 					if (prevPointTemp.equals(addPoint.match2)) {
 						prevPointTemp = addPoint;
 						addPoint = addPoint.match1;
@@ -564,12 +400,13 @@ public class Shell extends LinkedList<PointND> {
 					}
 				}
 
-				System.out.println(newList);
 				flattenRunPoints = newList;
-
+				System.out.println(flattenRunPoints);
+				System.out.println(gp1);
+				System.out.println(gp2);
 				if (true) {
 					knotmergecount++;
-					if (knotmergecount == 3) {
+					if (knotmergecount == 5) {
 						float zero = 1 / 0;
 					}
 				}
@@ -624,7 +461,6 @@ public class Shell extends LinkedList<PointND> {
 						}
 					}
 				} else {
-					System.out.println(vp.isKnot);
 					ArrayList<Segment> vpExternal = vp.sortedSegments;
 					for (Segment s : vpExternal) {
 						if (!(knotPointsFlattened.contains(s.first) && knotPointsFlattened.contains(s.last))) {
@@ -643,7 +479,6 @@ public class Shell extends LinkedList<PointND> {
 				p.topGroup = this;
 			}
 			sortedSegments.sort(null);
-			System.out.println("knotPoints Flattened:" + knotPointsFlattened);
 			System.out.println(sortedSegments);
 			this.id = numPoints;
 			pointMap.put(id, this);
@@ -669,10 +504,6 @@ public class Shell extends LinkedList<PointND> {
 						&& (!seenPoints.contains(basePoint))
 						|| potentialSegment.equals(s1) || potentialSegment.equals(s2)) {
 					count--;
-					System.out.println("seen points: " + seenPoints);
-
-					System.out.println("seen points: " + basePoint.group);
-					System.out.println("Potnential match seg: " + potentialSegment);
 					if (count == 0) {
 						return potentialSegment;
 					}
@@ -758,6 +589,138 @@ public class Shell extends LinkedList<PointND> {
 		}
 	}
 
+	public ArrayList<VirtualPoint> flattenRunPoints(ArrayList<VirtualPoint> knotPoints, boolean knot) {
+		ArrayList<VirtualPoint> flattenRunPoints = new ArrayList<>();
+
+		for (int i = 0; i < knotPoints.size(); i++) {
+			VirtualPoint vp = knotPoints.get(i);
+			if (i + 1 >= knotPoints.size() && !knot) {
+				if (vp.isRun) {
+					Run run = ((Run) vp);
+					if (run.endpoint1.contains(run.basePoint1)) {
+						for (VirtualPoint p : run.knotPoints) {
+							flattenRunPoints.add(p);
+						}
+					} else {
+						int end = flattenRunPoints.size();
+						for (VirtualPoint p : run.knotPoints) {
+							flattenRunPoints.add(end, p);
+						}
+					}
+				} else {
+					flattenRunPoints.add(vp);
+				}
+				break;
+			}
+			VirtualPoint vp2 = null;
+			if (i + 1 >= knotPoints.size() && knot) {
+				vp2 = knotPoints.get(0);
+			} else {
+				vp2 = knotPoints.get(i + 1);
+			}
+			if (vp.isRun) {
+				Run run = ((Run) vp);
+				if ((run.endpoint1.contains(run.basePoint1)
+						&& ((vp2.isRun && ((Run) vp2).endpoint1.contains(run.match1endpoint))
+								|| vp2.contains(run.match1endpoint)))
+						|| (run.endpoint1.contains(run.basePoint2)
+								&& ((vp2.isRun && ((Run) vp2).endpoint1.contains(run.match2endpoint))
+										|| vp2.contains(run.match2endpoint)))) {
+
+					int end = flattenRunPoints.size();
+					for (VirtualPoint p : run.knotPoints) {
+						flattenRunPoints.add(end, p);
+					}
+
+				} else {
+					for (VirtualPoint p : run.knotPoints) {
+						flattenRunPoints.add(p);
+					}
+				}
+
+			} else {
+				flattenRunPoints.add(vp);
+			}
+		}
+		return flattenRunPoints;
+	}
+
+	public void fixRunList(ArrayList<VirtualPoint> flattenRunPoints, int end) {
+
+		System.out.println("Fixing run List: " + flattenRunPoints);
+		for (int i = 0; i < end; i++) {
+			VirtualPoint vp = flattenRunPoints.get(i);
+			VirtualPoint vp2 = null;
+			System.out.println("BEfore: ");
+			System.out.println(vp.fullString());
+			if (i < flattenRunPoints.size() - 1) {
+				vp2 = flattenRunPoints.get(i + 1);
+			} else {
+				vp2 = flattenRunPoints.get(0);
+			}
+			System.out.println(vp2.fullString());
+			if (!vp2.group.equals(vp.group) && (vp.group.isRun || vp2.group.isRun)) {
+
+				Segment s = vp.getClosestSegment(vp2);
+				VirtualPoint bp1 = s.getKnotPoint(vp.externalVirtualPoints);
+				VirtualPoint bp2 = s.getOther(bp1);
+				if (vp.match1 == null || (vp.match1.contains(bp2) && vp.match1.isRun)) {
+					vp.match1 = vp2;
+					vp.basePoint1 = (Point) bp1;
+					vp.match1endpoint = (Point) bp2;
+					vp.s1 = s;
+				} else if (vp.match2 == null || (vp.match2.contains(bp2) && vp.match2.isRun)) {
+					if (s.distance < vp.s1.distance) {
+						vp.match2 = vp.match1;
+						vp.basePoint2 = vp.basePoint1;
+						vp.match2endpoint = vp.match1endpoint;
+						vp.s2 = vp.s1;
+						vp.match1 = vp2;
+						vp.basePoint1 = (Point) bp1;
+						vp.match1endpoint = (Point) bp2;
+						vp.s1 = s;
+					} else {
+						vp.match2 = vp2;
+						vp.basePoint2 = (Point) bp1;
+						vp.match2endpoint = (Point) bp2;
+						vp.s2 = s;
+					}
+
+				}
+				if (vp2.match1 == null || (vp2.match1.contains(bp1) && vp2.match1.isRun)) {
+					vp2.match1 = vp;
+					vp2.basePoint1 = (Point) bp2;
+					vp2.match1endpoint = (Point) bp1;
+					vp2.s1 = s;
+
+				} else if (vp2.match2 == null || (vp2.match2.contains(bp1) && vp2.match2.isRun)) {
+					if (s.distance < vp2.s1.distance) {
+						vp2.match2 = vp2.match1;
+						vp2.basePoint2 = vp2.basePoint1;
+						vp2.match2endpoint = vp2.match1endpoint;
+						vp2.s2 = vp2.s1;
+						vp2.match1 = vp;
+						vp2.basePoint1 = (Point) bp2;
+						vp2.match1endpoint = (Point) bp1;
+						vp2.s1 = s;
+					} else {
+						vp2.match2 = vp;
+						vp2.basePoint2 = (Point) bp2;
+						vp2.match2endpoint = (Point) bp1;
+						vp2.s2 = s;
+					}
+				}
+				vp.numMatches = 2;
+				vp2.numMatches = 2;
+			}
+			System.out.println("After:");
+			System.out.println(vp.fullString());
+			System.out.println(vp2.fullString());
+			System.out.println();
+
+		}
+	}
+
 	class Run extends VirtualPoint {
 		public int size;
 		public ArrayList<VirtualPoint> knotPoints; // [ vp1, vp2, ... vpm];
@@ -769,111 +732,21 @@ public class Shell extends LinkedList<PointND> {
 
 		public Run(ArrayList<VirtualPoint> knotPoints) {
 			// TODO: need to flatten all runs in the constructor
-			System.out.println("Making New Run: " + knotPoints);
 			sortedSegments = new ArrayList<>();
-			ArrayList<VirtualPoint> flattenRunPoints = new ArrayList<>();
-			for (int i = 0; i < knotPoints.size(); i++) {
-				VirtualPoint vp = knotPoints.get(i);
-				if (i + 1 >= knotPoints.size()) {
-					if (vp.isRun) {
-						Run run = ((Run) vp);
-						if (run.endpoint1.equals(run.basePoint1)) {
-							for (VirtualPoint p : run.knotPoints) {
-								flattenRunPoints.add(p);
-							}
-						} else {
-							int end = flattenRunPoints.size();
-							for (VirtualPoint p : run.knotPoints) {
-								flattenRunPoints.add(end, p);
-							}
-						}
-					} else {
-						flattenRunPoints.add(vp);
-					}
-					break;
+
+			ArrayList<VirtualPoint> flattenRunPoints = flattenRunPoints(knotPoints, false);
+			fixRunList(flattenRunPoints, flattenRunPoints.size() - 1);
+			if (flattenRunPoints.size() > knotPoints.size()) {
+				System.out.println("Breaking!");
+				for (VirtualPoint vp : flattenRunPoints) {
+					System.out.println(vp.fullString());
 				}
-				VirtualPoint vp2 = knotPoints.get(i + 1);
-				if (vp.isRun) {
-					Run run = ((Run) vp);
-					if ((run.endpoint1.equals(run.basePoint1)
-							&& ((vp2.isRun && ((Run) vp2).endpoint1.contains(run.match1endpoint))
-									|| vp2.contains(run.match1endpoint)))
-							|| (run.endpoint1.equals(run.basePoint2)
-									&& ((vp2.isRun && ((Run) vp2).endpoint1.contains(run.match2endpoint))
-											|| vp2.contains(run.match2endpoint)))) {
-
-						int end = flattenRunPoints.size();
-						for (VirtualPoint p : run.knotPoints) {
-							flattenRunPoints.add(end, p);
-						}
-
-					} else {
-						for (VirtualPoint p : run.knotPoints) {
-							flattenRunPoints.add(p);
-						}
-					}
-
-				} else {
-					flattenRunPoints.add(vp);
-				}
-			}
-
-			for (int i = 0; i < flattenRunPoints.size() - 1; i++) {
-				VirtualPoint vp = flattenRunPoints.get(i);
-				VirtualPoint vp2 = flattenRunPoints.get(i + 1);
-				System.out.println(vp + " " + vp.group);
-				System.out.println(vp2 + " " + vp2.group);
-				if (!vp2.group.equals(vp.group) && (vp.group.isRun || vp2.group.isRun)) {
-					System.out.println(vp + " " + vp.group);
-					System.out.println(vp2 + " " + vp2.group);
-					System.out.println(vp2.group.equals(vp.group));
-					System.out.println("fixing match2 for: " + vp.fullString());
-
-					System.out.println("new match 2: " + vp2.fullString());
-
-					Segment s = vp.getClosestSegment(vp2);
-					VirtualPoint bp1 = s.getKnotPoint(vp.externalVirtualPoints);
-					VirtualPoint bp2 = s.getOther(bp1);
-					System.out.println("bp1:" + bp1);
-					System.out.println("bp2:" + bp2);
-					if (vp.match1 == null || vp.match1.contains(bp2)) {
-						vp.match1 = vp2;
-						vp.basePoint1 = (Point) bp1;
-						vp.match1endpoint = (Point) bp2;
-						vp.s1 = s;
-					} else if (vp.match2 == null || vp.match1.contains(bp2)) {
-						vp.match2 = vp2;
-						vp.basePoint2 = (Point) bp1;
-						vp.match2endpoint = (Point) bp2;
-						vp.s2 = s;
-
-					}
-					if (vp2.match1 == null || vp2.match1.contains(bp1)) {
-						vp2.match1 = vp;
-						vp2.basePoint1 = (Point) bp2;
-						vp2.match1endpoint = (Point) bp1;
-						vp2.s1 = s;
-					} else if (vp2.match2 == null || vp2.match2.contains(bp1)) {
-						vp2.match2 = vp;
-						vp2.basePoint2 = (Point) bp2;
-						vp2.match2endpoint = (Point) bp1;
-						vp2.s2 = s;
-					}
-					vp.numMatches = 2;
-					vp2.numMatches = 2;
-
-					System.out.println("fixed match2: " + vp.fullString());
-
-					System.out.println("new match 2 after: " + vp2.fullString() + "\n");
-				}
-			}
-
-			System.out.println(flattenRunPoints);
-			if (flattenRunPoints.size() != knotPoints.size()) {
 				runmergecount++;
-				if (runmergecount == 10) {
+				if (runmergecount > 5) {
 					float zero = 1 / 0;
 				}
+			}
+			if (flattenRunPoints.size() != knotPoints.size()) {
 			}
 			this.knotPoints = flattenRunPoints;
 			this.endpoint1 = this.knotPoints.get(0);
@@ -913,7 +786,6 @@ public class Shell extends LinkedList<PointND> {
 			endpoints.add(endpoint2);
 			endpoints.add(endpoint1);
 			for (VirtualPoint vp : endpoints) {
-				System.out.println(vp);
 				if (vp.isKnot) {
 					ArrayList<Segment> vpExternal = vp.sortedSegments;
 					for (Segment s : vpExternal) {
@@ -929,7 +801,6 @@ public class Shell extends LinkedList<PointND> {
 						}
 					}
 				} else {
-					System.out.println(vp.isKnot);
 					ArrayList<Segment> vpExternal = vp.sortedSegments;
 					for (Segment s : vpExternal) {
 						if (!(knotPointsFlattened.contains(s.first) && knotPointsFlattened.contains(s.last))) {
@@ -949,9 +820,6 @@ public class Shell extends LinkedList<PointND> {
 				p.topGroup = this;
 			}
 			sortedSegments.sort(null);
-			System.out.println("runPointsFlattened:" + knotPointsFlattened);
-			System.out.println("externalKnotPoints: " + sortedSegments);
-			System.out.println("knotPoints: " + this.knotPoints);
 			this.id = numPoints;
 			pointMap.put(id, this);
 			unvisited.add(this);
@@ -976,7 +844,6 @@ public class Shell extends LinkedList<PointND> {
 								&& (!seenPoints.contains(basePoint)))
 						|| potentialSegment.equals(s1) || potentialSegment.equals(s2)) {
 					count--;
-					System.out.println("Potnential run match seg: " + potentialSegment);
 					if (count == 0) {
 						return potentialSegment;
 					}
@@ -1047,7 +914,9 @@ public class Shell extends LinkedList<PointND> {
 					+ " basepoint1: " + (basePoint1 == null ? " none " : "" + basePoint1.id)
 					+ " match2: " + (match2 == null ? " none " : "" + match2)
 					+ " match2endpoint: " + (match2endpoint == null ? " none " : "" + match2endpoint.id)
-					+ " basepoint2: " + (basePoint2 == null ? " none " : "" + basePoint2.id);
+					+ " basepoint2: " + (basePoint2 == null ? " none " : "" + basePoint2.id)
+					+ " endPoint1: " + (endpoint1 == null ? " none " : "" + endpoint1.id)
+					+ " endPoint2: " + (endpoint2 == null ? " none " : "" + endpoint2.id);
 		}
 
 		public boolean contains(VirtualPoint vp) {
@@ -1062,6 +931,7 @@ public class Shell extends LinkedList<PointND> {
 	}
 
 	int breakCount = 0;
+	int runCount = 0;
 
 	public ArrayList<VirtualPoint> createKnots() {
 		int recurseCount = 0;
@@ -1081,7 +951,6 @@ public class Shell extends LinkedList<PointND> {
 			toVisit.remove(mainPoint);
 			System.out.println("Main Point is now:" + mainPoint);
 			System.out.println("runList:" + runList);
-			System.out.println("visited:" + visited);
 			System.out.println("toVisit:" + toVisit);
 			System.out.println("knots:" + knots);
 			if (mainPoint.numMatches > 2) {
@@ -1089,29 +958,32 @@ public class Shell extends LinkedList<PointND> {
 			}
 			Segment potentialSegment1 = mainPoint.getPointer(1);
 			Point pointer1 = (Point) potentialSegment1.getOtherKnot(mainPoint.topGroup);
-			System.out.println("Point " + mainPoint + " points to: " + pointer1 + " (" + pointer1.topGroup + ")");
+			System.out.println("Point " + mainPoint + " points to: " + pointer1 + " (" + pointer1.topGroup + "):"
+					+ potentialSegment1);
 
 			Segment potentialSegment11 = pointer1.topGroup.getPointer(1);
 			Point pointer11 = (Point) potentialSegment11.getOtherKnot(pointer1.topGroup);
 
 			Segment potentialSegment12 = pointer1.topGroup.getPointer(2);
 			Point pointer12 = (Point) potentialSegment12.getOtherKnot(pointer1.topGroup);
-			System.out.println("Point " + pointer1 + " points to: " + pointer11 + " (" + pointer11.topGroup + ") and "
-					+ pointer12 + " (" + pointer12.topGroup + ")");
+			System.out.println("Point " + pointer1 + " points to: " + pointer11 + " (" + pointer11.topGroup + ") : "
+					+ potentialSegment11 + " and "
+					+ pointer12 + " (" + pointer12.topGroup + ") :" + potentialSegment12);
 
 			Segment potentialSegment2 = mainPoint.getPointer(2);
 			Point pointer2 = (Point) potentialSegment2.getOtherKnot(mainPoint.topGroup);
-			System.out.println("Point " + mainPoint + " points to: " + pointer2 + " (" + pointer2.topGroup + ")");
+			System.out.println("Point " + mainPoint + " points to: " + pointer2 + " (" + pointer2.topGroup + ") : "
+					+ potentialSegment2);
 
 			Segment potentialSegment21 = pointer2.topGroup.getPointer(1);
 			Point pointer21 = (Point) potentialSegment21.getOtherKnot(pointer2.topGroup);
 
 			Segment potentialSegment22 = pointer2.topGroup.getPointer(2);
 			Point pointer22 = (Point) potentialSegment22.getOtherKnot(pointer2.topGroup);
-			System.out.println(potentialSegment22);
 			System.out.println(
-					"Point " + pointer2.topGroup + " points to: " + pointer21 + " (" + pointer21.topGroup + ") and "
-							+ pointer22 + " (" + pointer22.topGroup + ")");
+					"Point " + pointer2.topGroup + " points to: " + pointer21 + " (" + pointer21.topGroup + ") : "
+							+ potentialSegment21 + " and "
+							+ pointer22 + " (" + pointer22.topGroup + ") : " + potentialSegment22);
 
 			VirtualPoint vp1 = pointer1.topGroup;
 			VirtualPoint vp11 = pointer11.topGroup;
@@ -1124,36 +996,47 @@ public class Shell extends LinkedList<PointND> {
 			VirtualPoint matchPoint = null;
 
 			Segment matchSegment = null;
-			System.out.println("mainPoint.s1: " + mainPoint.s1);
-			System.out.println("mainPoint " + mainPoint);
-			System.out.println("pointer1 " + pointer1);
-			System.out.println("potentialSegment1 " + potentialSegment1);
-			System.out.println("potentialSegment2 " + potentialSegment2);
-			System.out.println("potentialSegment11 " + potentialSegment11);
-			System.out.println("potentialSegment12 " + potentialSegment12);
-			System.out.println("potentialSegment21 " + potentialSegment21);
-			System.out.println("potentialSegment22 " + potentialSegment22);
-			System.out.println(potentialSegment12);
-			System.out.println("Point " + mainPoint + " points to: " + vp1 + "(" + pointer1
-					+ ") " + " and " + vp2 + "("
-					+ pointer2 + ") ");
-			System.out.println(mainPoint.equals(vp11));
-			System.out.println("vp11: " + vp11);
-			System.out.println("vp12: " + vp12);
-			System.out.println("vp21: " + vp21);
-			System.out.println("vp22: " + vp22);
 			boolean inKnots1 = knots.contains(vp1);
 			boolean inKnots2 = knots.contains(vp2);
-			System.out.println(mainPoint.equals(vp11));
-			System.out.println(!inKnots1);
-			System.out.println(vp1.numMatches < 2);
-			System.out.println(mainPoint.numMatches == 0 || !mainPoint.s1.equals(potentialSegment11));
+			if (mainPoint.isRun) {
+
+				Run run2 = (Run) mainPoint;
+
+				System.out.println("run found: " + run2.fullString());
+				System.out.println(vp2);
+				if (run2.endpoint1.equals(run2.basePoint1) || run2.endpoint2.equals(run2.basePoint1)) {
+					System.out.println(run2.fullString());
+					System.out.println(pointer1);
+					System.out.println(pointer11);
+					System.out.println(pointer12);
+					System.out.println(pointer2);
+					System.out.println(pointer21);
+					System.out.println(pointer22);
+					// float zero = 1/0;
+				}
+			}
+			if (vp2.isRun) {
+				Run run2 = (Run) vp2;
+
+				System.out.println("run found: " + run2.fullString());
+				if (run2.endpoint1.equals(run2.basePoint1) || run2.endpoint2.equals(run2.basePoint1)) {
+					System.out.println(run2.fullString());
+					// float zero = 1/0;
+				}
+			}
+			if (vp1.isRun) {
+				Run run1 = (Run) vp1;
+				if (run1.endpoint1.equals(run1.basePoint1) || run1.endpoint2.equals(run1.basePoint1)) {
+					System.out.println(run1.fullString());
+				}
+			}
 			if (pointer2.topGroup.contains(pointMap.get(5)) && pointer2.topGroup.contains(pointMap.get(2))) {
 				breakCount++;
 				if (breakCount == 7) {
 					// float zero = 1 / 0;
 				}
 			}
+			// need to check that we haven't already match the end of the run in run case
 			if (mainPoint.equals(vp11) && !inKnots1 && vp1.numMatches < 2
 					&& (mainPoint.numMatches == 0 || !mainPoint.s1.contains(pointer1))) {
 				matchPoint = vp1;
@@ -1304,27 +1187,156 @@ public class Shell extends LinkedList<PointND> {
 					System.out.println("Found both end of the run, adding to knot");
 					// I think if we are pointing on either end to ourselves we need to make a knot,
 					// not a run
-					if (runList.contains(runFailedMatch1) || runList.contains(runFailedMatch2)) {
+					boolean skipflag = false;
+					if (skipflag && (runList.contains(runFailedMatch1) || runList.contains(runFailedMatch2))) {
+
 						Segment thirdMatch1 = runFailedMatch1.getPointer(3);
 						VirtualPoint me1 = thirdMatch1.getOtherKnot(runFailedMatch1);
 						VirtualPoint bp1 = thirdMatch1.getOther(me1);
-						boolean flag1 = runFailedMatch1.contains(bp1);
+						boolean flag1 = runList.contains(runFailedMatch1) && endPoint1.contains(me1);
 
 						Segment thirdMatch2 = runFailedMatch2.getPointer(3);
-						VirtualPoint me2 = thirdMatch1.getOtherKnot(runFailedMatch2);
-						VirtualPoint bp2 = thirdMatch1.getOther(me2);
-						boolean flag2 = runFailedMatch1.contains(bp2);
-						if (flag1 || flag2) {
-							System.out.println("Half Knot Found: ");
+						VirtualPoint me2 = thirdMatch2.getOtherKnot(runFailedMatch2);
+						VirtualPoint bp2 = thirdMatch2.getOther(me2);
+						boolean flag2 = runList.contains(runFailedMatch2) && endPoint2.contains(me2);
+						if ((flag1 || flag2) && skipflag) {
+							System.out.println("Half Knot Found: " + "flag1:" + flag1 + "flag2:" + flag2);
 							System.out.println(runList);
-							System.out.println(endPoint1);
-							System.out.println(runFailedMatch1);
-							System.out.println(thirdMatch1);
-							System.out.println(endPoint2);
-							System.out.println(runFailedMatch2);
-							System.out.println(thirdMatch2);
+							Knot k = null;
+							if (flag1 && !flag2) {
+								System.out.println("ep: " + endPoint1);
+								System.out.println("failed match" + runFailedMatch1);
+								System.out.println(thirdMatch1);
+								System.out.println(bp1);
+								System.out.println(me1);
+								System.out.println("Should be Knot!");
+								int knotIdx = runList.indexOf(runFailedMatch1);
+								ArrayList<VirtualPoint> subList = new ArrayList<VirtualPoint>(
+										runList.subList(knotIdx, runList.size()));
+
+								VirtualPoint tempMatch;
+								Point tempBP;
+								Point tempME;
+								Segment tempS;
+								if (subList.contains(runFailedMatch1.match1)) {
+									tempMatch = runFailedMatch1.match2;
+									tempME = runFailedMatch1.match2endpoint;
+									tempBP = runFailedMatch1.basePoint2;
+									tempS = runFailedMatch1.s2;
+									runFailedMatch1.match2 = null;
+									runFailedMatch1.basePoint2 = null;
+									runFailedMatch1.match2endpoint = null;
+									runFailedMatch1.s2 = null;
+								} else {
+									tempMatch = runFailedMatch1.match1;
+									tempME = runFailedMatch1.match1endpoint;
+									tempBP = runFailedMatch1.basePoint1;
+									tempS = runFailedMatch1.s1;
+									runFailedMatch1.match1 = runFailedMatch1.match2;
+									runFailedMatch1.basePoint1 = runFailedMatch1.basePoint2;
+									runFailedMatch1.match1endpoint = runFailedMatch1.match2endpoint;
+									runFailedMatch1.s1 = runFailedMatch1.s2;
+									runFailedMatch1.match2 = null;
+									runFailedMatch1.basePoint2 = null;
+									runFailedMatch1.match2endpoint = null;
+									runFailedMatch1.s2 = null;
+								}
+								k = new Knot(subList);
+								k.match1 = tempMatch;
+								k.match1endpoint = tempME;
+								k.basePoint1 = tempBP;
+								k.s1 = tempS;
+
+								if (k.contains(tempMatch.match1)) {
+									tempMatch.match1 = k;
+								} else {
+									tempMatch.match2 = k;
+
+								}
+
+								runList.removeAll(subList);
+								runList.add(k);
+								System.out.println(subList);
+								System.out.println(runList);
+
+							} else if (flag2 && !flag1) {
+								System.out.println(endPoint2);
+								System.out.println(runFailedMatch2.fullString());
+								System.out.println(thirdMatch2);
+								System.out.println(bp2);
+								System.out.println(me2);
+								System.out.println("Should be Knot!");
+								int knotIdx = runList.indexOf(runFailedMatch2);
+								ArrayList<VirtualPoint> subList = new ArrayList<VirtualPoint>(
+										runList.subList(0, knotIdx + 1));
+								VirtualPoint tempMatch;
+								Point tempBP;
+								Point tempME;
+								Segment tempS;
+								if (subList.contains(runFailedMatch2.match1)) {
+									tempMatch = runFailedMatch2.match2;
+									tempME = runFailedMatch2.match2endpoint;
+									tempBP = runFailedMatch2.basePoint2;
+									tempS = runFailedMatch2.s2;
+									runFailedMatch2.match2 = null;
+									runFailedMatch2.basePoint2 = null;
+									runFailedMatch2.match2endpoint = null;
+									runFailedMatch2.s2 = null;
+								} else {
+									System.out.println(runFailedMatch2.fullString());
+									System.out.println("reee");
+									tempMatch = runFailedMatch2.match1;
+									tempME = runFailedMatch2.match1endpoint;
+									tempBP = runFailedMatch2.basePoint1;
+									tempS = runFailedMatch2.s1;
+									runFailedMatch2.match1 = runFailedMatch2.match2;
+									runFailedMatch2.basePoint1 = runFailedMatch2.basePoint2;
+									runFailedMatch2.match1endpoint = runFailedMatch2.match2endpoint;
+									runFailedMatch2.s1 = runFailedMatch2.s2;
+									runFailedMatch2.match2 = null;
+									runFailedMatch2.basePoint2 = null;
+									runFailedMatch2.match2endpoint = null;
+									runFailedMatch2.s2 = null;
+								}
+
+								k = new Knot(subList);
+								k.match1 = tempMatch;
+								k.match1endpoint = tempME;
+								k.basePoint1 = tempBP;
+								k.s1 = tempS;
+
+								if (k.contains(tempMatch.match1)) {
+									tempMatch.match1 = k;
+								} else {
+									tempMatch.match2 = k;
+
+								}
+
+								runList.removeAll(subList);
+								runList.add(0, k);
+								System.out.println(subList);
+								System.out.println(runList);
+							} else {
+								System.out.println("Knot Found!");
+
+								k = new Knot(runList);
+								knots.add(k);
+								runList = new ArrayList<>();
+								if (toVisit.size() == 0) {
+									return knots;
+								}
+								mainPoint = toVisit.get(0);
+								endpointReached = false;
+								continue;
+							}
 							halfKnotCount++;
-							if (halfKnotCount > 1) {
+							System.out.println(k.fullString());
+
+							if (halfKnotCount > 5) {
+								System.out.println(runList);
+								System.out.println(k.match1.fullString());
+								System.out.println(endPoint2.fullString());
+								System.out.println(runFailedMatch2.fullString());
 								float zero = 1 / 0;
 							}
 						}
@@ -1390,6 +1402,7 @@ public class Shell extends LinkedList<PointND> {
 	}
 
 	int halfKnotCount = 0;
+	int sameKnotPointCount = 0;
 
 	@SuppressWarnings("unused")
 	public Shell tspSolve(Shell A, DistanceMatrix distanceMatrix) {
@@ -1426,7 +1439,7 @@ public class Shell extends LinkedList<PointND> {
 			System.out.println("unvisited:" + unvisited);
 			System.out.println("visited:" + visited);
 			System.out.println("================= - Layer: " + idx + " - =================\n");
-			if (idx > 10) {
+			if (idx == 10) {
 				float zero = 1 / 0;
 			}
 			idx++;
@@ -1437,7 +1450,6 @@ public class Shell extends LinkedList<PointND> {
 		System.out.println("ナイフが噛み合った");
 		System.out.println("カット開始");
 		System.out.println("================= - WARNING - =================\n");
-		System.out.println(unvisited);
 		// seems like there are three cases: combining two knots, (need to remove two
 		// segments and add two with the lowest cost increase)
 		// pulling apart two knot that has two endpoints and want to cut different
@@ -1446,7 +1458,6 @@ public class Shell extends LinkedList<PointND> {
 		// segment (just remove the segment)
 		int knotsCleared = 0;
 		if (unvisited.size() == 1) {
-			System.out.println("one Knot, unwrapping");
 			VirtualPoint gp1 = unvisited.get(0);
 			if (gp1.isKnot) {
 				unvisited = ((Knot) gp1).knotPoints;
@@ -1478,15 +1489,12 @@ public class Shell extends LinkedList<PointND> {
 					float zero = 1 / 0;
 				}
 				Knot knot = (Knot) vp;
-				System.out.println("Found Knot!" + " match1: " + knot.match1 + " basepoint 1: " + knot.basePoint1
-						+ " match2: " + knot.match2 + " basepoint 2: " + knot.basePoint2);
+				System.out.println("Found Knot!" + knot.fullString());
 
-				System.out.println("knot: " + knot.fullString());
 				VirtualPoint knotPoint1 = knot.basePoint1;
 				if (!knotPoint1.group.equals(knot)) {
 					knotPoint1 = knot.pointToInternalKnot.get(knotPoint1.id);
 				}
-				System.out.println("knotpoint1: " + knotPoint1.fullString());
 				VirtualPoint cutPoint1 = knotPoint1.match2endpoint;
 				if (!cutPoint1.group.equals(knot)) {
 					cutPoint1 = knot.pointToInternalKnot.get(cutPoint1.id);
@@ -1494,7 +1502,6 @@ public class Shell extends LinkedList<PointND> {
 				VirtualPoint external1 = knot.match1;
 				VirtualPoint external2 = knot.match2;
 				VirtualPoint knotPoint2 = knot.basePoint2;
-				System.out.println("knotpoint2: " + knotPoint2.fullString());
 				if (!knotPoint2.group.equals(knot)) {
 					knotPoint2 = knot.pointToInternalKnot.get(knotPoint2.id);
 				}
@@ -1503,10 +1510,10 @@ public class Shell extends LinkedList<PointND> {
 					cutPoint2 = knot.pointToInternalKnot.get(cutPoint2.id);
 				}
 
-				System.out.println(knotPoint1.fullString());
-				System.out.println(knotPoint2.fullString());
-				System.out.println(cutPoint1.fullString());
-				System.out.println(cutPoint2.fullString());
+				System.out.println("knotpoint1: " + knotPoint1.fullString());
+				System.out.println("knotpoint2: " + knotPoint2.fullString());
+				System.out.println("cutPoint1: " + cutPoint1.fullString());
+				System.out.println("cutPoint2: " + cutPoint2.fullString());
 				System.out.println("external1: " + external1.fullString());
 				System.out.println("external2: " + external2.fullString());
 				if (knotPoint2.equals(knotPoint1)) {
@@ -1531,23 +1538,42 @@ public class Shell extends LinkedList<PointND> {
 					Segment cutSegment1 = knotPoint1.getClosestSegment(cutPoint1);
 					Segment cutSegment2 = knotPoint1.getClosestSegment(cutPoint2);
 					System.out.println(s1 + "" + s11 + "" + "cut: " + cutSegment1);
-					System.out.println(s1.distance + s11.distance);
-					double d11 = s1.distance + s11.distance;
+					System.out.println(s1.distance + s11.distance - cutSegment1.distance);
+					double d11 = s1.distance + s11.distance - cutSegment1.distance;
 					System.out.println(s1 + "" + s12 + "" + "cut: " + cutSegment2);
-					System.out.println(s1.distance + s12.distance);
-					double d12 = s1.distance + s12.distance;
+					System.out.println(s1.distance + s12.distance - cutSegment2.distance);
+					double d12 = s1.distance + s12.distance - cutSegment2.distance;
 					System.out.println(s2 + "" + s21 + "" + "cut: " + cutSegment1);
-					System.out.println(s2.distance + s21.distance);
-					double d21 = s2.distance + s21.distance;
+					System.out.println(s2.distance + s21.distance - cutSegment1.distance);
+					double d21 = s2.distance + s21.distance - cutSegment1.distance;
 					System.out.println(s2 + "" + s22 + "" + "cut: " + cutSegment2);
-					System.out.println(s2.distance + s22.distance);
-					double d22 = s2.distance + s22.distance;
+					System.out.println(s2.distance + s22.distance - cutSegment2.distance);
+					double d22 = s2.distance + s22.distance - cutSegment2.distance;
+
+					/*
+					 * need to make a decision tree of all possible cuts
+					 * a decision point occurs when we change the external points of an internal
+					 * knot, we need to recursively check all of the possible cut segments
+					 * should make a method that takes in a Knot and a proposed cut segment and
+					 * returns the smallest change possible
+					 * How do I do this in a way thats not totally ass?
+					 */
+
+					if (knotPoint1.isKnot) {
+
+						d11 = s1.distance + s11.distance;
+						d12 = s1.distance + s12.distance;
+						d21 = s2.distance + s21.distance;
+						d22 = s2.distance + s22.distance;
+					}
 					boolean usingcp2 = false;
 					// this seems wrong
 					if (d11 < d12 && d11 < d21 && d11 < d22) {
 						System.out.println("s1 + s11 (" + s1 + ", " + s11 +
 								") is the smallest");
 						knotPoint1.match2 = external1;
+						Point nearestBP1 = knotPoint1.getNearestBasePoint(external1);
+						Point nearestBP2 = external1.getNearestBasePoint(knotPoint1);
 						VirtualPoint p11 = external1;
 						if (external1.isKnot) {
 							p11 = s1.getKnotPoint(((Knot) external1).knotPointsFlattened);
@@ -1555,12 +1581,14 @@ public class Shell extends LinkedList<PointND> {
 						knotPoint1.basePoint2 = (Point) s1.getOther(p11);
 						if (external1.match2.equals(knot)) {
 							external1.match2 = knotPoint1;
-							knotPoint1.match2endpoint = external1.basePoint2;
-							external1.match2endpoint = knotPoint1.basePoint2;
+							knotPoint1.match2endpoint = nearestBP1;
+							external1.match2endpoint = nearestBP2;
+							external1.basePoint2 = (Point) s1.getOther(knotPoint1.basePoint1);
 						} else {
 							external1.match1 = knotPoint1;
-							knotPoint1.match2endpoint = external1.basePoint1;
-							external1.match1endpoint = knotPoint1.basePoint2;
+							knotPoint1.match2endpoint = nearestBP1;
+							external1.match1endpoint = nearestBP2;
+							external1.basePoint1 = (Point) s1.getOther(knotPoint1.basePoint1);
 						}
 						cutPoint1.match2 = external2;
 						VirtualPoint p12 = external2;
@@ -1572,10 +1600,12 @@ public class Shell extends LinkedList<PointND> {
 							external2.match2 = cutPoint1;
 							cutPoint1.match2endpoint = external2.basePoint2;
 							external2.match2endpoint = cutPoint1.basePoint2;
+							external2.basePoint2 = (Point) s11.getOther(cutPoint1.basePoint2);
 						} else {
 							external2.match1 = cutPoint1;
 							cutPoint1.match2endpoint = external2.basePoint1;
 							external2.match1endpoint = cutPoint1.basePoint2;
+							external2.basePoint1 = (Point) s11.getOther(cutPoint1.basePoint2);
 						}
 					} else if (d12 < d21 && d12 < d22) {
 						System.out.println("s1 + s12 (" + s1 + ", " + s12 +
@@ -1634,8 +1664,6 @@ public class Shell extends LinkedList<PointND> {
 							p22 = s21.getKnotPoint(((Knot) external1).knotPointsFlattened);
 						}
 						cutPoint1.basePoint2 = (Point) s21.getOther(p22);
-						System.out.println("external1:" + external1.fullString());
-						System.out.println("cutPoint1:" + cutPoint1.fullString());
 						if (external1.match2.equals(knot)) {
 							external1.match2 = cutPoint1;
 							cutPoint1.match2endpoint = external1.basePoint2;
@@ -1645,7 +1673,6 @@ public class Shell extends LinkedList<PointND> {
 							cutPoint1.match2endpoint = external1.basePoint1;
 							external1.match1endpoint = cutPoint1.basePoint2;
 						}
-						System.out.println("external1:" + external1.fullString());
 					} else {
 						System.out.println("s2 + s22 (" + s2 + ", " + s22 +
 								") is the smallest");
@@ -1679,12 +1706,6 @@ public class Shell extends LinkedList<PointND> {
 							cutPoint2.match2endpoint = external1.basePoint1;
 							external1.match1endpoint = cutPoint2.basePoint2;
 						}
-						System.out.println();
-						System.out.println("knotPoint1: " + knotPoint1.fullString());
-						System.out.println("external2: " + external2.fullString());
-						System.out.println("cutPoint2: " + cutPoint2.fullString());
-						System.out.println("external1: " + external1.fullString());
-						System.out.println();
 					}
 				} else {
 					if (!cutPoint2.group.equals(knot)) {
@@ -1694,13 +1715,6 @@ public class Shell extends LinkedList<PointND> {
 						cutPoint1 = knotPoint2;
 						cutPoint2 = knotPoint1;
 					}
-					System.out.println("knotPoint1: " + knotPoint1);
-					System.out.println("cutPoint1: " + cutPoint1);
-					System.out.println("external1: " + external1);
-					System.out.println("knotPoint2: " + knotPoint2);
-					System.out.println("cutPoint2: " + cutPoint2);
-					System.out.println("external2: " + external2);
-					System.out.println("prevPoint: " + prevPoint);
 					// TODO: if we have a 3 knot with two different cut segments, we need to test
 					// which is better
 					Point nearestbp1 = knotPoint1.getNearestBasePoint(external1);
@@ -1837,8 +1851,6 @@ public class Shell extends LinkedList<PointND> {
 									p22 = s21.getKnotPoint(((Knot) external1).knotPointsFlattened);
 								}
 								cutPoint1.basePoint2 = (Point) s21.getOther(p22);
-								System.out.println("external1:" + external1.fullString());
-								System.out.println("cutPoint1:" + cutPoint1.fullString());
 								if (external1.match2.equals(knot)) {
 									external1.match2 = cutPoint1;
 									cutPoint1.match2endpoint = external1.basePoint2;
@@ -1848,7 +1860,6 @@ public class Shell extends LinkedList<PointND> {
 									cutPoint1.match2endpoint = external1.basePoint1;
 									external1.match1endpoint = cutPoint1.basePoint2;
 								}
-								System.out.println("external1:" + external1.fullString());
 							}
 						} else {
 							// there should be two cases:
@@ -1890,10 +1901,6 @@ public class Shell extends LinkedList<PointND> {
 							double d3 = s1.distance + s2.distance + s3.distance;
 							if (d3 < d22 && d3 < d11) {
 								System.out.println("Cutting and attaching cutpoints");
-								System.out.println(knotPoint1.fullString());
-								System.out.println(knotPoint2.fullString());
-								System.out.println(cutPoint2.fullString());
-								System.out.println(cutPoint1.fullString());
 								knotPoint1.match2 = external1;
 								knotPoint1.basePoint2 = nearestbp1;
 								if (external1.match1.equals(knot)) {
@@ -1938,11 +1945,6 @@ public class Shell extends LinkedList<PointND> {
 									cutPoint2.match2endpoint = nearestcp1bp;
 									cutPoint2.basePoint2 = nearestcp2bp;
 								}
-								System.out.println();
-								System.out.println(knotPoint1.fullString());
-								System.out.println(knotPoint2.fullString());
-								System.out.println(cutPoint2.fullString());
-								System.out.println(cutPoint1.fullString());
 							} else if (d11 < d22) {
 								System.out.println("s1 + s11 (" + s1 + ", " + s11 +
 										") is the smallest");
@@ -1956,10 +1958,12 @@ public class Shell extends LinkedList<PointND> {
 									external1.match2 = knotPoint1;
 									knotPoint1.match2endpoint = external1.basePoint2;
 									external1.match2endpoint = knotPoint1.basePoint2;
+									external1.basePoint2 = (Point) s1.getOther(knotPoint1.basePoint2);
 								} else {
 									external1.match1 = knotPoint1;
 									knotPoint1.match2endpoint = external1.basePoint1;
 									external1.match1endpoint = knotPoint1.basePoint2;
+									external1.basePoint1 = (Point) s1.getOther(knotPoint1.basePoint2);
 								}
 								cutPoint1.match2 = external2;
 								VirtualPoint p12 = external2;
@@ -1971,10 +1975,12 @@ public class Shell extends LinkedList<PointND> {
 									external2.match2 = cutPoint1;
 									cutPoint1.match2endpoint = external2.basePoint2;
 									external2.match2endpoint = cutPoint1.basePoint2;
+									external2.basePoint2 = (Point) s11.getOther(cutPoint1.basePoint2);
 								} else {
 									external2.match1 = cutPoint1;
 									cutPoint1.match2endpoint = external2.basePoint1;
 									external2.match1endpoint = cutPoint1.basePoint2;
+									external2.basePoint1 = (Point) s11.getOther(cutPoint1.basePoint2);
 								}
 							} else {
 								System.out.println("s2 + s22 (" + s2 + ", " + s22 +
@@ -1989,10 +1995,12 @@ public class Shell extends LinkedList<PointND> {
 									external2.match2 = knotPoint2;
 									knotPoint2.match2endpoint = external2.basePoint2;
 									external2.match2endpoint = knotPoint2.basePoint1;
+									external2.basePoint2 = (Point) s2.getOther(knotPoint1.basePoint1);
 								} else {
 									external2.match1 = knotPoint2;
 									knotPoint2.match2endpoint = external2.basePoint1;
 									external2.match1endpoint = knotPoint2.basePoint1;
+									external2.basePoint1 = (Point) s2.getOther(knotPoint1.basePoint1);
 								}
 								cutPoint2.match2 = external1;
 								VirtualPoint p22 = external1;
@@ -2004,18 +2012,18 @@ public class Shell extends LinkedList<PointND> {
 									external1.match2 = cutPoint2;
 									cutPoint2.match2endpoint = external1.basePoint2;
 									external1.match2endpoint = cutPoint2.basePoint2;
+									external1.basePoint2 = (Point) s22.getOther(cutPoint2.basePoint2);
 								} else {
 									external1.match1 = cutPoint2;
 									cutPoint2.match2endpoint = external1.basePoint1;
 									external1.match1endpoint = cutPoint2.basePoint2;
+									external1.basePoint1 = (Point) s22.getOther(cutPoint2.basePoint2);
 								}
-								System.out.println();
-								System.out.println("knotPoint1: " + knotPoint1.fullString());
-								System.out.println("knotPoint2: " + knotPoint2.fullString());
-								System.out.println("external2: " + external2.fullString());
-								System.out.println("cutPoint2: " + cutPoint2.fullString());
-								System.out.println("external1: " + external1.fullString());
-								System.out.println();
+							}
+
+							sameKnotPointCount++;
+							if (sameKnotPointCount > 2) {
+								float zero = 1 / 0;
 							}
 						}
 					}
@@ -2027,8 +2035,6 @@ public class Shell extends LinkedList<PointND> {
 				System.out.println("external1 final: " + external1.fullString());
 				System.out.println("external2 final: " + external2.fullString());
 				unvisited.remove(vp);
-				System.out.println(unvisited);
-				System.out.println("prevPoint: " + prevPoint.fullString());
 				VirtualPoint addPoint = knotPoint2;
 				if (knotPoint1.match1.equals(prevPoint) || knotPoint1.match2.equals(prevPoint)) {
 					addPoint = knotPoint1;

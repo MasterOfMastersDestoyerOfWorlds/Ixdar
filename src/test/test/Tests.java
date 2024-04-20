@@ -61,8 +61,9 @@ public class Tests {
 		System.out.println("result " + result + " " + result.getLength());
 		System.out.println("ans " + answer + " " + answer.getLength());
 		System.out.println("=========================");
+		System.out.println("error: "+Math.abs(result.getLength() - answer.getLength()) );
 
-		assert (Math.abs(result.getLength() - answer.getLength()) < 1) : "result: " +
+		assert (Math.abs(result.getLength() - answer.getLength()) < 0.1) : "result: " +
 				result + " \n Shell was length: " + result.getLength() + "\n answer: " +
 				answer + "\n Supposed to be length: " + answer.getLength();
 		System.out.println("reee");
@@ -111,8 +112,9 @@ public class Tests {
 		System.out.println("result " + result + " " + result.getLength());
 		System.out.println("ans " + answer + " " + answer.getLength());
 		System.out.println("=========================");
+		System.out.println("error: "+Math.abs(result.getLength() - answer.getLength()) );
 
-		assert (Math.abs(result.getLength() - answer.getLength()) < 1) : "result: " +
+		assert (Math.abs(result.getLength() - answer.getLength()) < 0.1) : "result: " +
 				result + " \n Shell was length: " + result.getLength() + "\n answer: " +
 				answer + "\n Supposed to be length: " + answer.getLength();
 		System.out.println("reee");
@@ -141,7 +143,11 @@ public class Tests {
 			int num = a[i];
 
 			// create an test execution
-			//failing tests: rot: 7, 17, 35
+			//1: need recursive cutsegment calculation
+			//7: something wrong with knot detection
+			//17: looks like run flattening inserted in wrong direction flipping a segment
+			//35: misplaced knot insertion and 4 and 5 are swapped (maybe need mutlilayer not insertion?)
+			//failing tests: rot: 1, 7, 17,  35
 			//
 			int loc = 8;
 			for (int j = 7; j < loc; j++) {
