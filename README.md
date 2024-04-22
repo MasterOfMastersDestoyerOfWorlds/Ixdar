@@ -212,17 +212,46 @@ Before we declare defeat, let's try and examine what this loop is telling us:
 
 Well, in a perfect world we would be able to make a loop of size 38 just by looking at each Point's favorite two potential matches. 
 
+    In reality this is the subset of convex hulls in the plane (think Circles or other Polygons) and this subset is much smaller than the unrestricted set of problems we'd like to solve.
+
 From this observation we can also observe that if we tried to solve the subset <b>S = [ P<sub>11</sub> , P<sub>12</sub> , P<sub>13</sub> ]</b>, that <b>11 <-> 12 <-> 13</b> would be the correct ordering of <b>S</b>.
 
-At a more general level this loop is telling us that the subset/grouping <b>S</b> wants to connect with itself more than any other points in the graph. So to "resolve" this loop (i.e. find out which segment we should cut) we must find the two Points that want to match with the points in our loop.
+At a more general level this loop is telling us that the subset/grouping <b>S</b> wants to connect with itself more than any other points in the graph. So to "resolve" this loop (i.e. find out which segment we should remove) we must find the two Points that want to match with the points in our loop. These outside points will be referred to as the loop's external points or just <b>externals</b> and will be used to determine the <b>cut segment</b>, or segment to remove from the loop. 
 
-    One should also observe that there is no limit on the size that such a loop could be except that it must have > 2 points
+    Also observe that there is no limit on the size that such a loop could be except that it must have more than 2 points and be less than or equal to the size of the entire point set.
+
+Let's look at another example to get some more intuition and see some edge cases:
+
+    20  [Segment[20 : 21], Segment[20 : 22], Segment[20 : 23], Segment[20 : 18], Segment[20 : 19], ...]
+
+    21  [Segment[20 : 21], Segment[22 : 21], Segment[23 : 21], ...]
+
+    22  [Segment[23 : 22], Segment[22 : 21], Segment[20 : 22], Segment[22 : 24], ...]
+
+    23  [Segment[23 : 22], Segment[23 : 21], Segment[20 : 23], Segment[23 : 24], ...]
+
+So if we match on the first two slots for each point in this set we'd get hte relationships:
+
+20  -> 22
+
+20 <-> 21
+
+21 <-> 22
+
+22 <-> 23
+
+23 -> 21
+
+So its one isn't a perfect loop  like  [11, 12, 13] was, but it might be prudent to mark this structure in the same way. If you look at the third Segment on 20 and 23, they'd like to match with each our before matching outside points. We could predict that our cut Segment would be Segment[23:20], but it might not be. 
+
+
+
 
 Ok I think we're ready for our first larger structure
 
 ### Knot
 
-A <b>Knot</b> is defined as any subset <b>K</b> of <b>G</b> where all of the Points in <b>K</b> only want to match with each other
+A <b>Knot</b> is defined as any subset <b>K</b> of <b>G</b> where all of the Points in <b>K</b> only want to match with each other.
 
 Knot(P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>) = struct{
     
@@ -245,13 +274,7 @@ match2 = P<sub>*</sub>
 
 the sortedSegments are all of the segments from any Point in the <b>K</b> to any point not in <b>K</b>, sorted by distance 
 
-    Note for optimization: You likely don't need to sort all of the segments since we have already sorted them at each Point. Likely you could get the best 3 segments not pointing to other Points contained in the Knot since we will not go beyond this until we make a new Knot.
-
-Next, so that we can look at [Points](#point) and [Knots](#knot) interchangeably, lets make some interface or abstract class above both of them:
-
-### Virtual Point
-
-all of the stuff from [Points](#point) and [Knots](#knot) combined and generalized!
+    Note for optimization: You likely don't need to sort all of the segments since we have already sorted them at each Point. Likely you could get the best 3 segments not pointing to other Points contained in the Knot since we will not go beyond this until we make a new Knot that encapsulates this one.
 
 ### Is that All?
 
@@ -260,7 +283,7 @@ Not quite, right now we have our base case (one small Knot), and our final desir
     ...
     13  [Segment[13 : 12], Segment[11 : 13], Segment[14 : 13], Segment[10 : 13], Segment[13 : 15], Segment[9 : 13], ...]
 
------------------------------------------------
+-------
     14  [Segment[14 : 15], Segment[16 : 14], Segment[14 : 13], ...]
 
     15  [Segment[16 : 15], Segment[14 : 15], Segment[15 : 17], ...]
@@ -319,12 +342,12 @@ match2 = P<sub>*</sub>
 
 }
 
-So we now have <b>Run[14,15,16,17,18,19]</b>, but is that really the case? it might be prudent to form a knot from <b>[14,15,16]</b> since <b>16</b> points back on its third best match <b>Segment[16:14]</b>. You might object saying it is in the correct order now, but often if you insert a Wormhole next to a knot you can end up with a similar structure and get the wrong ordering.
+Next, so that we can look at [Points](#point) and [Knots](#knot) interchangeably, lets make some interface or abstract class above both of them (and any other structures we want to add later):
 
-<TODO: insert example (I think (31 WH 32) is a good example)>
+### Virtual Point
 
-So we should denote this as
-<b>Run[ Knot[14, 15, 16], 17, 18, 19]</b>
+all of the stuff from [Points](#point), [Knots](#knot), and [Runs](#run) combined and generalized!
+
 
 Now that we have all of our data structures, let's get cracking
 
@@ -360,7 +383,7 @@ Knot Finding Loop:
 
 After every Main Loop Cycle every <b>Virtual Point</b> should either be part of a new <b>Knot</b>, a new <b>Run</b>, or have no matches yet. After this should roughly halve the number of VPs every cycle and leave us with one large <b>Knot</b> ready to be cut up.
 
-For example here is Djibouti's unvisited list after one cycle (See [Appendix A](#appendix-a) for the full Sorted Segment List):
+For example here is Djibouti's unvisited list after one cycle (See [Appendix A](#appendix-a) for the full Sorted Segment List, I recommend doing this part by hand to start understanding how the matching works):
 
     unvisited:[
       Run[0 1 ], 
@@ -369,7 +392,7 @@ For example here is Djibouti's unvisited list after one cycle (See [Appendix A](
       8, 
       Run[9 10 ], 
       Knot[11 12 13 ], 
-      Run[Knot[14 15 16] 17 18 19 ], 
+      Run[14 15 16 17 18 19 ], 
       Knot[20 21 22 23 ], 
       Run[24 25 ], 
       Run[26 27 ], 
@@ -413,11 +436,7 @@ Ideally we would be able to have the knot surrounded incorrect context so insert
     Knot[Knot[35 36 37 ] 34 ] 0 1 Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ]] 
 
 ---
-    I think this monstrosity is the best case for a re-write ^^^
-
-    The original rational behind having runs was to solve 34 W 35, but I think the half knot finding code would work better and lead to less nesting of knots.
-
-    maybe instead of adding all of the points in the runList to a Run, we should store the runList in both endpoints and create any half knots. Do we know enough about half-knots to rely on them?
+    I think the recursive insertion process should be that if you have a knot that only points to another knot then insert and keep going down levels till you are at the base knot
   
 ---
 
@@ -443,6 +462,61 @@ The next step is to cut it up according to the external matches
 
 ## Chapter 4
 ## The Sword of Iskandar
+Now that we have our final all-encompassing Knot (i.e. it should contain every point in the set), we need to start cutting it up based on the externals that we matched with the Knot. 
+ 
+Our final Knot doesn't have any externals by definition, so we can simply dissolve it.
+
+The general idea will be this:
+
+* Find the next Knot in the list
+* Find its external matches
+* Figure out what segment to cut based on the externals
+* Add the Knot's points into the list 
+* Repeat until we don't have any Knots left in the list
+  
+There are a few edge cases around how to figure out the cut segment, but for the most part this will work.
+
+### Agree Case
+By far the easiest case is when both externals agree on which segment to cut. Let's look at an example:
+
+If we are trying to cut Knot[11,12,13] and our external Points are 10 pointing to Point 11 and 14 pointing to 13 and both 11 and 13 have their second match (important note, we should keep the matches ordered as we make them) as Segment[11:13], then both externals agree on the same cut Segment so we'd get 
+
+ ... <-> 10 <-> 11 <-> 12 <-> 13 <-> 14 <-> ...
+
+ and add the Knot points in order to our final list
+
+### Same Internal Point
+
+A Slightly Harder Case is if both externals are pointing to the same internal point, meaning they agree on which segment to cut but disagree on which external point should connect to the internal point and which should connect to the cut point. Let's look at an example:
+
+If we are trying to cut Knot[35,36,37] and our external points are 34 and 0, then both Point 34 and Point 0 will want to match with Point 35 and neither wants to match with Point 37. Lets enumerate our options and their lengths
+
+formula for length = Segment[external1 : knotPoint] + Segment[external2 : cutPoint] - Segment[knotPoint : cutPoint]
+
+  ... <-> 34 <-> 35 <-> 36 <-> 37 <-> 0 <-> ... 
+175.36768358358407
+
+  ... <-> 34 <-> 37 <-> 36 <-> 35 <-> 0 <-> ... 
+176.36331347048596
+  
+  ... <-> 34 <-> 35 <-> 37 <-> 36 <-> 0 <-> ... 
+177.4047336330519
+  
+  ... <-> 34 <-> 36 <-> 37 <-> 35 <-> 0 <-> ...
+175.84289103887758
+
+and it seems that our lowest cost orientation lines up with our expectations, so our final configuration is:
+
+  ... <-> 34 <-> 35 <-> 36 <-> 37 <-> 0 <-> ...
+
+### Disagree on Cut Segment, Agree on Cut Points
+
+
+
+### Disagree on Cut Segment
+
+
+
 
 ## Links
 

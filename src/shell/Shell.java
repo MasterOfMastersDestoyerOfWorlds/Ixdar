@@ -406,7 +406,7 @@ public class Shell extends LinkedList<PointND> {
 				System.out.println(gp2);
 				if (true) {
 					knotmergecount++;
-					if (knotmergecount == 5) {
+					if (knotmergecount == 0) {
 						float zero = 1 / 0;
 					}
 				}
@@ -591,7 +591,7 @@ public class Shell extends LinkedList<PointND> {
 
 	public ArrayList<VirtualPoint> flattenRunPoints(ArrayList<VirtualPoint> knotPoints, boolean knot) {
 		ArrayList<VirtualPoint> flattenRunPoints = new ArrayList<>();
-
+		boolean twoKnot = knotPoints.size() == 2 && knot;
 		for (int i = 0; i < knotPoints.size(); i++) {
 			VirtualPoint vp = knotPoints.get(i);
 			if (i + 1 >= knotPoints.size() && !knot) {
@@ -612,6 +612,8 @@ public class Shell extends LinkedList<PointND> {
 				}
 				break;
 			}
+
+
 			VirtualPoint vp2 = null;
 			if (i + 1 >= knotPoints.size() && knot) {
 				vp2 = knotPoints.get(0);
@@ -623,9 +625,12 @@ public class Shell extends LinkedList<PointND> {
 				if ((run.endpoint1.contains(run.basePoint1)
 						&& ((vp2.isRun && ((Run) vp2).endpoint1.contains(run.match1endpoint))
 								|| vp2.contains(run.match1endpoint)))
-						|| (run.endpoint1.contains(run.basePoint2)
+						|| (!twoKnot && (run.endpoint1.contains(run.basePoint2)
 								&& ((vp2.isRun && ((Run) vp2).endpoint1.contains(run.match2endpoint))
-										|| vp2.contains(run.match2endpoint)))) {
+										|| vp2.contains(run.match2endpoint))))
+						|| (twoKnot && i + 1 >= knotPoints.size()  && (run.endpoint2.contains(run.basePoint1)
+								&& ((vp2.isRun && ((Run) vp2).endpoint1.contains(run.match1endpoint))
+										|| vp2.contains(run.match1endpoint))))) {
 
 					int end = flattenRunPoints.size();
 					for (VirtualPoint p : run.knotPoints) {
@@ -742,7 +747,7 @@ public class Shell extends LinkedList<PointND> {
 					System.out.println(vp.fullString());
 				}
 				runmergecount++;
-				if (runmergecount > 5) {
+				if (runmergecount > 10) {
 					float zero = 1 / 0;
 				}
 			}

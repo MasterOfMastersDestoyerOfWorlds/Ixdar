@@ -143,14 +143,13 @@ public class Tests {
 			int num = a[i];
 
 			// create an test execution
-			//1: need recursive cutsegment calculation
-			//7: something wrong with knot detection
-			//17: looks like run flattening inserted in wrong direction flipping a segment
+			//1: need recursive cutsegment calculation, alternatively the recursive knot insertion?
+			//7: something wrong with knot detection. I think the thing I had before about the runs turning into knots if both end pointed internally was the correct thing
 			//35: misplaced knot insertion and 4 and 5 are swapped (maybe need mutlilayer not insertion?)
-			//failing tests: rot: 1, 7, 17,  35
+			//failing tests: rot: 1, 7,35
 			//
-			int loc = 8;
-			for (int j = 7; j < loc; j++) {
+			int loc =  36;
+			for (int j = 35; j < loc; j++) {
 
 				int rot = b[n - j];
 				// create a test display name
