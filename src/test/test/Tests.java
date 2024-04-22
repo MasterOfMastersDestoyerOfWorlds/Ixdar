@@ -144,12 +144,13 @@ public class Tests {
 
 			// create an test execution
 			//1: need recursive cutsegment calculation, alternatively the recursive knot insertion?
+					// for some reason the cut segment isn't 35:37 even though it is the second best segment
 			//7: something wrong with knot detection. I think the thing I had before about the runs turning into knots if both end pointed internally was the correct thing
 			//35: misplaced knot insertion and 4 and 5 are swapped (maybe need mutlilayer not insertion?)
-			//failing tests: rot: 1, 7,35
+			//failing tests: rot: 7, 35
 			//
-			int loc =  36;
-			for (int j = 35; j < loc; j++) {
+			int loc =  37;
+			for (int j = 36; j < loc; j++) {
 
 				int rot = b[n - j];
 				// create a test display name

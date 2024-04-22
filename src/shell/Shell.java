@@ -204,7 +204,7 @@ public class Shell extends LinkedList<PointND> {
 						|| potentialSegment.equals(s1) || potentialSegment.equals(s2)) {
 					count--;
 					if (count == 0) {
-						return potentialSegment;
+						return s;
 					}
 					seenGroups.add(potentialSegment);
 				}
@@ -505,7 +505,7 @@ public class Shell extends LinkedList<PointND> {
 						|| potentialSegment.equals(s1) || potentialSegment.equals(s2)) {
 					count--;
 					if (count == 0) {
-						return potentialSegment;
+						return s;
 					}
 					seenGroups.add(potentialSegment);
 				}
@@ -850,7 +850,7 @@ public class Shell extends LinkedList<PointND> {
 						|| potentialSegment.equals(s1) || potentialSegment.equals(s2)) {
 					count--;
 					if (count == 0) {
-						return potentialSegment;
+						return s;
 					}
 					seenGroups.add(potentialSegment);
 				}
@@ -1524,24 +1524,34 @@ public class Shell extends LinkedList<PointND> {
 				if (knotPoint2.equals(knotPoint1)) {
 					System.out.println("!!!!Both externals : ( " + external1 + " " + external2
 							+ " ) point to the same VirtualPoint: " + knotPoint1);
-
+					//this doesnt work if both  cut points are part of the same knot
 					cutPoint2 = knotPoint1.match1endpoint;
 					if (!cutPoint2.group.equals(knot)) {
 						cutPoint2 = knot.pointToInternalKnot.get(cutPoint2.id);
 					}
+					
 					// this checking needs to be recursive down to the base when dealing with nested
 					// knots
 					Segment s1 = knotPoint1.getClosestSegment(external1);
 					Segment s11 = cutPoint1.getClosestSegment(external2);
 					Segment s12 = cutPoint2.getClosestSegment(external2);
-					Segment s1i1 = cutPoint1.getClosestSegment(knotPoint1);
-					Segment s1i2 = cutPoint2.getClosestSegment(knotPoint1);
+					if(cutPoint1.equals(cutPoint2)){
+						s12 = cutPoint2.basePoint2.getClosestSegment(external2);
+					}
 
 					Segment s2 = knotPoint1.getClosestSegment(external2);
 					Segment s21 = cutPoint1.getClosestSegment(external1);
 					Segment s22 = cutPoint2.getClosestSegment(external1);
-					Segment cutSegment1 = knotPoint1.getClosestSegment(cutPoint1);
-					Segment cutSegment2 = knotPoint1.getClosestSegment(cutPoint2);
+					if(cutPoint1.equals(cutPoint2)){
+						s22 = cutPoint2.basePoint2.getClosestSegment(external1);
+					}
+					// need to change this, unsure how
+					// instead of being the closest segment needs to be the farthest segment that knotPoint 1 matches
+					Segment cutSegment1 = cutPoint1.s2;
+					Segment cutSegment2 = cutPoint2.s2;
+					if(cutPoint1.equals(cutPoint2)){
+						cutSegment2 = cutPoint2.basePoint2.getClosestSegment(knotPoint1);
+					}
 					System.out.println(s1 + "" + s11 + "" + "cut: " + cutSegment1);
 					System.out.println(s1.distance + s11.distance - cutSegment1.distance);
 					double d11 = s1.distance + s11.distance - cutSegment1.distance;
@@ -1589,11 +1599,15 @@ public class Shell extends LinkedList<PointND> {
 							knotPoint1.match2endpoint = nearestBP1;
 							external1.match2endpoint = nearestBP2;
 							external1.basePoint2 = (Point) s1.getOther(knotPoint1.basePoint1);
+							knotPoint1.s2 = s1;
+							external1.s2 = s1;
 						} else {
 							external1.match1 = knotPoint1;
 							knotPoint1.match2endpoint = nearestBP1;
 							external1.match1endpoint = nearestBP2;
 							external1.basePoint1 = (Point) s1.getOther(knotPoint1.basePoint1);
+							knotPoint1.s2 = s1;
+							external1.s1 = s1;
 						}
 						cutPoint1.match2 = external2;
 						VirtualPoint p12 = external2;
@@ -1606,11 +1620,15 @@ public class Shell extends LinkedList<PointND> {
 							cutPoint1.match2endpoint = external2.basePoint2;
 							external2.match2endpoint = cutPoint1.basePoint2;
 							external2.basePoint2 = (Point) s11.getOther(cutPoint1.basePoint2);
+							cutPoint1.s2 = s11;
+							external2.s2 = s11;
 						} else {
 							external2.match1 = cutPoint1;
 							cutPoint1.match2endpoint = external2.basePoint1;
 							external2.match1endpoint = cutPoint1.basePoint2;
 							external2.basePoint1 = (Point) s11.getOther(cutPoint1.basePoint2);
+							cutPoint1.s2 = s11;
+							external2.s1 = s11;
 						}
 					} else if (d12 < d21 && d12 < d22) {
 						System.out.println("s1 + s12 (" + s1 + ", " + s12 +
@@ -1625,10 +1643,14 @@ public class Shell extends LinkedList<PointND> {
 							external1.match2 = knotPoint1;
 							knotPoint1.match1endpoint = external1.basePoint2;
 							external1.match2endpoint = knotPoint1.basePoint1;
+							knotPoint1.s1 = s1;
+							external1.s2 = s1;
 						} else {
 							external1.match1 = knotPoint1;
 							knotPoint1.match1endpoint = external1.basePoint1;
 							external1.match1endpoint = knotPoint1.basePoint1;
+							knotPoint1.s1 = s1;
+							external1.s1 = s1;
 						}
 						cutPoint2.match2 = external2;
 						VirtualPoint p22 = external2;
@@ -1640,10 +1662,14 @@ public class Shell extends LinkedList<PointND> {
 							external2.match2 = cutPoint2;
 							cutPoint2.match2endpoint = external2.basePoint2;
 							external2.match2endpoint = cutPoint2.basePoint2;
+							cutPoint2.s2 = s12;
+							external2.s2 = s12;
 						} else {
 							external2.match1 = cutPoint2;
 							cutPoint2.match2endpoint = external2.basePoint1;
 							external2.match1endpoint = cutPoint2.basePoint2;
+							cutPoint2.s2 = s12;
+							external2.s1 = s12;
 						}
 					} else if (d21 < d22) {
 						System.out.println("s2 + s21 (" + s2 + ", " + s21 +
@@ -1658,10 +1684,14 @@ public class Shell extends LinkedList<PointND> {
 							external2.match2 = knotPoint1;
 							knotPoint1.match2endpoint = external2.basePoint2;
 							external2.match2endpoint = knotPoint1.basePoint2;
+							knotPoint1.s2 = s2;
+							external2.s2= s2;
 						} else {
 							external2.match1 = knotPoint1;
 							knotPoint1.match2endpoint = external2.basePoint1;
 							external2.match1endpoint = knotPoint1.basePoint2;
+							knotPoint1.s2 = s2;
+							external2.s1 = s2;
 						}
 						cutPoint1.match2 = external1;
 						VirtualPoint p22 = external1;
@@ -1673,10 +1703,14 @@ public class Shell extends LinkedList<PointND> {
 							external1.match2 = cutPoint1;
 							cutPoint1.match2endpoint = external1.basePoint2;
 							external1.match2endpoint = cutPoint1.basePoint2;
+							cutPoint1.s2 = s21;
+							external1.s2 = s21;
 						} else {
 							external1.match1 = cutPoint1;
 							cutPoint1.match2endpoint = external1.basePoint1;
 							external1.match1endpoint = cutPoint1.basePoint2;
+							cutPoint1.s2 = s21;
+							external1.s1 = s21;
 						}
 					} else {
 						System.out.println("s2 + s22 (" + s2 + ", " + s22 +
@@ -1691,10 +1725,14 @@ public class Shell extends LinkedList<PointND> {
 							external2.match2 = knotPoint1;
 							knotPoint1.match1endpoint = external2.basePoint2;
 							external2.match2endpoint = knotPoint1.basePoint1;
+							knotPoint1.s1 = s2;
+							external2.s2 = s2;
 						} else {
 							external2.match1 = knotPoint1;
 							knotPoint1.match1endpoint = external2.basePoint1;
 							external2.match1endpoint = knotPoint1.basePoint1;
+							knotPoint1.s1 = s2;
+							external2.s1 = s2;
 						}
 						cutPoint2.match2 = external1;
 						VirtualPoint p22 = external1;
@@ -1706,10 +1744,14 @@ public class Shell extends LinkedList<PointND> {
 							external1.match2 = cutPoint2;
 							cutPoint2.match2endpoint = external1.basePoint2;
 							external1.match2endpoint = cutPoint2.basePoint2;
+							cutPoint2.s2 = s22;
+							external1.s2 = s22;
 						} else {
 							external1.match1 = cutPoint2;
 							cutPoint2.match2endpoint = external1.basePoint1;
 							external1.match1endpoint = cutPoint2.basePoint2;
+							cutPoint2.s2 = s22;
+							external1.s1 = s22;
 						}
 					}
 				} else {
@@ -1884,8 +1926,6 @@ public class Shell extends LinkedList<PointND> {
 							Segment s1 = knotPoint1.getClosestSegment(external1);
 							Segment s11 = cutPoint1.getClosestSegment(external2);
 							Segment s12 = cutPoint2.getClosestSegment(external2);
-							Segment s1i1 = cutPoint1.getClosestSegment(knotPoint1);
-							Segment s1i2 = cutPoint2.getClosestSegment(knotPoint1);
 
 							Segment s2 = knotPoint2.getClosestSegment(external2);
 							Segment s21 = cutPoint1.getClosestSegment(external1);

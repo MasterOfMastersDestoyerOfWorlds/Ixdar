@@ -511,10 +511,30 @@ and it seems that our lowest cost orientation lines up with our expectations, so
 
 ### Disagree on Cut Segment, Agree on Cut Points
 
+### Disagree on Cut Segment, One is Better
 
+### Disagree on Cut Segment, Both are Better
+If we come into a situation where both cut segments are necessary for example:
 
-### Disagree on Cut Segment
+Knot[29 28 30 38 31 27 26 ] with externals 25 matching 26 and 32 matching 31, and wormhole 38 between 30 and 31, then what should we do?
 
+if we cut it at [31 : 27], then we have 25 27 26 29 28 30 38 31 32
+
+if we cut it at [26 : 29], then we have 25 26 27 31 38 30 28 29 32
+
+We could cut both and match 27 and 29 across, but then we get 25 26 27 29 28 30 38 31 32
+
+That's close but 29 and 28 are transposed, did we construct the Knot incorrectly?
+
+Alternatively instead of matching across, we could make two new knots, [26, 27] and [29, 28, 30, 38, 31] and set them up correctly then if we unraveled 26 27  we'd get 25 26 27 Knot[29, 28, 30, 38, 31] 32
+or  32 31 38 30 28 29 Knot[26 27] 25
+
+in stead of matching 27 directly to 29 should also check it's closest in the remaining, so that be 28 should check that the connection you are making is less than the one you are breaking
+
+then we'd have 25 26 27 28 29 | 30 38 31 32
+
+might need to also check for 29 that it wants to match with 30 and it does
+so the problem persists, maybe we have made the knot incorrectly?
 
 
 
