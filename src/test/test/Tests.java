@@ -141,24 +141,19 @@ public class Tests {
 		for (int i = n - 1; i < n; i++) {
 
 			int num = a[i];
-
-			// create an test execution
-			//1: need recursive cutsegment calculation, alternatively the recursive knot insertion?
-					// for some reason the cut segment isn't 35:37 even though it is the second best segment
 			//7: something wrong with knot detection. I think the thing I had before about the runs turning into knots if both end pointed internally was the correct thing
-			//35: misplaced knot insertion and 4 and 5 are swapped (maybe need mutlilayer not insertion?)
+					//24 and 25 are transposed when added to their knot
+			//35: 4 and 5 are swapped, when added to their Knot
+			//37: 
 			//failing tests: rot: 7, 35
 			//
-			int loc =  37;
-			for (int j = 36; j < loc; j++) {
+			int limit =  8;
+			for (int j = 7; j < limit; j++) {
 
 				int rot = b[n - j];
-				// create a test display name
 				String testName = "Test djbouti size" + (i + 1) + " rot" + j;
 				System.out.println(testName);
-				// create dynamic test
 				DynamicTest dTest = DynamicTest.dynamicTest(testName, () -> Assert.assertEquals(true, testDjiboutiN(n, rot)));
-				// add the dynamic test to collection
 				dynamicTests.add(dTest);
 			}
 		}
