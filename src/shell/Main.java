@@ -28,6 +28,8 @@ import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
+import shell.Shell.VirtualPoint;
+
 /**
  * The main class that facilitates running our tsp solver
  */
@@ -47,7 +49,7 @@ public class Main extends JComponent{
 	        Graphics2D g2 = (Graphics2D) g;
 	
 	
-	        PointSetPath retTup = importFromFile(new File("./src/shell/wi29"));
+	        PointSetPath retTup = importFromFile(new File("./src/shell/djbouti"));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
 			
@@ -55,11 +57,22 @@ public class Main extends JComponent{
 
 
 			
-	        orgShell.drawShell(this, g2, true, null, retTup.ps);
+	        //orgShell.drawShell(this, g2, true, null, retTup.ps);
 			System.out.println(orgShell.getLength());
 	     
-	        //Shell maxShell = orgShell.copyRecursive();
+	        Shell maxShell = orgShell.copyShallow();
+
+			ArrayList<VirtualPoint> result = maxShell.slowSolve(maxShell, d, 3);
+
 	        
+			for(VirtualPoint vp : result){
+				if(vp.isKnot){
+					Shell temp = maxShell.cutKnot((Shell.Knot)vp);
+	       			 temp.drawShell(this, g2, true, null, retTup.ps);
+				}
+			}
+			System.out.println(result);
+
 	        //Shell conShell = maxShell.copyRecursive();
 	        
 	    
