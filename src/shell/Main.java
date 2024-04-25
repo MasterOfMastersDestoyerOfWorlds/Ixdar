@@ -47,9 +47,16 @@ public class Main extends JComponent{
 	        Graphics2D g2 = (Graphics2D) g;
 	
 	
-	        PointSetPath retTup = importFromFile(new File("./src/shell/djbouti"));
+	        PointSetPath retTup = importFromFile(new File("./src/shell/qa194"));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
-	        //Shell orgShell = retTup.ps.toShells(d);
+
+			
+	        Shell orgShell = retTup.tsp;
+
+
+			
+	        orgShell.drawShell(this, g2, true, null, retTup.ps);
+			System.out.println(orgShell.getLength());
 	     
 	        //Shell maxShell = orgShell.copyRecursive();
 	        
@@ -71,7 +78,6 @@ public class Main extends JComponent{
 	        	maxShell = maxShell.collapseChildOntoShell();
 	        }*/
 	        
-	        //maxShell.drawShell(this, g2, true, null, retTup.ps);
 			
 			//conShell = conShell.collapseAllShells(d); //finds optimal tsp path
 			//System.out.println(conShell);
@@ -178,13 +184,13 @@ public class Main extends JComponent{
 			width = HEIGHT;
 		}
 		
-		int count = 0, offset = 100;
+		int count = 0, offsetx = 100, offsety = 100;
 		while(!pi.isDone()) {
 			double[] coords = new double[2];
 			pi.currentSegment(coords);
 			pi.next();
-			coords[0] = (-(coords[0] - minX)*(width)/rangeX  + width + offset)/1.5;
-			coords[1] = (-(coords[1] - minY)*(height)/rangeY + height + offset)/1.5;
+			coords[0] = (-(coords[0] - minX)*(width)/rangeX  + width + offsetx)/1.5;
+			coords[1] = (-(coords[1] - minY)*(height)/rangeY + height + offsety)/1.5;
 			if(drawCircles) {
 				g2.draw(new Ellipse2D.Double(coords[0]-5, coords[1]-5, 10, 10));
 			}
@@ -221,7 +227,7 @@ public class Main extends JComponent{
         frame.getContentPane().add(new Main());
         frame.pack();
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        frame.setSize(new Dimension(WIDTH, HEIGHT));
+        frame.setSize(new Dimension(1000, 1000));
         frame.setVisible(true);
         
     }

@@ -145,7 +145,7 @@ public class Tests {
 					//24 and 25 are transposed when added to their knot
 			//35: 4 and 5 are swapped, when added to their Knot
 			//37: 
-			//failing tests: rot: 7, 35
+			//failing tests: rot: 7
 			//
 			int limit =  8;
 			for (int j = 7; j < limit; j++) {
@@ -171,13 +171,68 @@ public class Tests {
 	 */
 	// old: 10038.75729043869 in 3.828s
 	// new: 10178.770192333182 in 20.461s
-	// @Test
+	@Test
 	public void testQatar() {
 		PointSetPath retTup = Main.importFromFile(new File("./src/shell/qa194"));
-		DistanceMatrix d = new DistanceMatrix(retTup.ps);
-		Shell orgShell = new Shell();
-		System.out.println(orgShell.getLength());
-		Assert.assertTrue(orgShell.getLength() < 9400);
+		PointSet ps = new PointSet();
+		Shell answer = new Shell();
+		int n = retTup.ps.size();
+
+		Shell AB = new Shell();
+		for (int i = 0; i < n && i < retTup.ps.size(); i++) {
+			ps.add(retTup.ps.get(i));
+			answer.add(retTup.ps.get(i));
+			AB.add(retTup.ps.get(i));
+		}
+
+		System.out.println("before   " + AB);
+		Collections.shuffle(AB , new Random(2));
+		System.out.println("shuffled " + AB);
+		System.out.println("surrounding segment: " + answer.getFirst() + " " + answer.getLast());
+		System.out.println(AB.size());
+		System.out.println();
+
+		Shell nothing = new Shell();
+
+		DistanceMatrix d = new DistanceMatrix(ps);
+		//d.addDummyNode(answer.getFirst(), answer.getLast());
+		Shell result = AB.tspSolve(AB, d);
+
+		System.out.println("result " + result + " " + result.getLength());
+		System.out.println("ans " + answer + " " + answer.getLength());
+		Assert.assertTrue(result.getLength() < 9400);
+	}
+
+	@Test
+	public void testWesternSahara() {
+		PointSetPath retTup = Main.importFromFile(new File("./src/shell/wi29"));
+		PointSet ps = new PointSet();
+		Shell answer = new Shell();
+		int n = retTup.ps.size();
+
+		Shell AB = new Shell();
+		for (int i = 0; i < n && i < retTup.ps.size(); i++) {
+			ps.add(retTup.ps.get(i));
+			answer.add(retTup.ps.get(i));
+			AB.add(retTup.ps.get(i));
+		}
+
+		System.out.println("before   " + AB);
+		Collections.shuffle(AB , new Random(2));
+		System.out.println("shuffled " + AB);
+		System.out.println("surrounding segment: " + answer.getFirst() + " " + answer.getLast());
+		System.out.println(AB.size());
+		System.out.println();
+
+		Shell nothing = new Shell();
+
+		DistanceMatrix d = new DistanceMatrix(ps);
+		//d.addDummyNode(answer.getFirst(), answer.getLast());
+		Shell result = AB.tspSolve(AB, d);
+
+		System.out.println("result " + result + " " + result.getLength());
+		System.out.println("ans " + answer + " " + answer.getLength());
+		Assert.assertTrue(result.getLength() < 27603);
 	}
 
 	@Test
