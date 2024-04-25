@@ -24,10 +24,11 @@
 15 [Segment[15:13], Segment[15:14], Segment[15:17], Segment[15:16], Segment[15:18], Segment[15:7], Segment[15:10], Segment[15:9], Segment[15:19], Segment[15:8], Segment[15:11], Segment[15:12], Segment[15:20], Segment[15:6], Segment[15:3], Segment[15:4], Segment[15:5], Segment[15:2], Segment[15:1], Segment[15:0], Segment[15:25], Segment[15:21], Segment[15:28], Segment[15:27], Segment[15:26], Segment[15:24], Segment[15:23], Segment[15:22]]
 }
 
+{
 16 [Segment[16:17], Segment[16:15], Segment[16:18], Segment[16:14], Segment[16:13], Segment[16:19], Segment[16:7], Segment[16:10], Segment[16:9], Segment[16:8], Segment[16:20], Segment[16:11], Segment[16:12], Segment[16:3], Segment[16:6], Segment[16:4], Segment[16:5], Segment[16:21], Segment[16:25], Segment[16:2], Segment[16:1], Segment[16:0], Segment[16:26], Segment[16:28], Segment[16:27], Segment[16:24], Segment[16:23], Segment[16:22]]
 17 [Segment[17:18], Segment[17:16], Segment[17:15], Segment[17:14], Segment[17:13], Segment[17:19], Segment[17:7], Segment[17:20], Segment[17:9], Segment[17:8], Segment[17:10], Segment[17:3], Segment[17:11], Segment[17:6], Segment[17:12], Segment[17:4], Segment[17:5], Segment[17:21], Segment[17:25], Segment[17:2], Segment[17:1], Segment[17:0], Segment[17:26], Segment[17:28], Segment[17:27], Segment[17:24], Segment[17:23], Segment[17:22]]
 18 [Segment[18:17], Segment[18:16], Segment[18:19], Segment[18:14], Segment[18:15], Segment[18:7], Segment[18:20], Segment[18:13], Segment[18:9], Segment[18:8], Segment[18:3], Segment[18:4], Segment[18:6], Segment[18:10], Segment[18:5], Segment[18:21], Segment[18:25], Segment[18:2], Segment[18:1], Segment[18:0], Segment[18:26], Segment[18:11], Segment[18:12], Segment[18:27], Segment[18:28], Segment[18:24], Segment[18:23], Segment[18:22]]
-
+}
 
 19 [Segment[19:7], Segment[19:20], Segment[19:18], Segment[19:14], Segment[19:17], Segment[19:3], Segment[19:4], Segment[19:6], Segment[19:5], Segment[19:9], Segment[19:15], Segment[19:8], Segment[19:2], Segment[19:16], Segment[19:1], Segment[19:0], Segment[19:25], Segment[19:13], Segment[19:28], Segment[19:21], Segment[19:27], Segment[19:26], Segment[19:10], Segment[19:24], Segment[19:23], Segment[19:22], Segment[19:11], Segment[19:12]]
 20 [Segment[20:3], Segment[20:19], Segment[20:4], Segment[20:25], Segment[20:2], Segment[20:5], Segment[20:21], Segment[20:26], Segment[20:0], Segment[20:1], Segment[20:27], Segment[20:6], Segment[20:28], Segment[20:18], Segment[20:7], Segment[20:24], Segment[20:23], Segment[20:17], Segment[20:14], Segment[20:22], Segment[20:9], Segment[20:8], Segment[20:16], Segment[20:15], Segment[20:13], Segment[20:10], Segment[20:11], Segment[20:12]]
@@ -47,11 +48,13 @@
 
 Layer 0: [Knot[0 2 1 ], 3, ,4, 5 , 6, 7, 19, 20, 8, 9 , Knot[10 11 12 ], Knot[13 15 14 ], Knot[16 17 18 ], 21, Knot[22 23 24 ], 25, 26, 27, 28]
 
-Layer 1: [Knot[Knot[0 2 1 ] 28 ], 3, 4, 5 , 6,  20, Knot[19 7 Knot[13 15 14 ] Knot [16 17 18 ]], 8, 9, Knot[10 11 12 ], Knot[Knot[22 23 24 ] 21 ], Run[25 26 27 ]]
+Layer 1: [Knot[Knot[0 2 1 ] 28 ], 3, 4, 5 , 6,  20, 19, 7, Knot[13 14 15 Knot [16 17 18 ] ], 8, 9, Knot[10 11 12 ], Knot[Knot[22 23 24 ] 21 ],  25, 26, 27 ]
 
-Layer 2: [Knot[Knot[Knot[0 2 1 ] 28 ] 27 26 25 ], Run[3 4 5 6 ], 20, Knot[19 7 Knot[8 9 Knot[10 11 12 ] ] Knot[13 15 14 ] Knot [16 17 18 ]], , Knot[Knot[22 23 24 ] 21 ]]
+Layer 2: [Knot[Knot[Knot[0 2 1 ] 28 ] 4 5] , 3, 6,  20, Knot[19 7 Knot[13 14 15 Knot [16 17 18 ] ]], 8, 9, Knot[10 11 12 ], Knot[Knot[22 23 24 ] 21 ],  25, 26, 27 ]
 
-Layer 2: [Knot[Knot[Knot[Knot[0 2 1 ] 28 ] 27 26 25 ] 3 4 5 6 ], 20, Knot[19 7 Knot[8 9 Knot[10 11 12 ] ] Knot[13 15 14 ] Knot [16 17 18 ]], , Knot[Knot[22 23 24 ] 21 ]]
+Layer 3: [Knot[Knot[Knot[Knot[0 2 1 ] 28 ] 4 5] 3 25 26 27 ], 6,  20, Knot[Knot[19 7 Knot[Knot[10 11 12 ]  13 14 15 Knot [16 17 18 ] ]] 8 9], Knot[Knot[22 23 24 ] 21 ],]
+
+Layer 4: [Knot[Knot[Knot[Knot[0 2 1 ] 28 ] 4 5] 3 25 26 27 ], 6,  20, Knot[Knot[19 7 Knot[Knot[10 11 12 ]  13 14 15 Knot [16 17 18 ] ]] 8 9], Knot[Knot[22 23 24 ] 21 ],]
 
 
 I think we should only ever make knots, if we can only make runs weve failed

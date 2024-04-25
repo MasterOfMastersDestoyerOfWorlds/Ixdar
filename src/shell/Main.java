@@ -47,7 +47,7 @@ public class Main extends JComponent{
 	        Graphics2D g2 = (Graphics2D) g;
 	
 	
-	        PointSetPath retTup = importFromFile(new File("./src/shell/qa194"));
+	        PointSetPath retTup = importFromFile(new File("./src/shell/wi29"));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
 			
