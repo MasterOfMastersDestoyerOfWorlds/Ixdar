@@ -844,3 +844,25 @@ Knot[14 15 16 ], 17, 18, 19
 24, 25, Knot[26 27 Knot[Knot[28 29 30 ] 31 ] ]
 
 32, 33
+
+orphans
+      kp1  cp1 cp2  kp2
+ 6  2  3  | 4   5  | 7   
+
+(cp1 > kp1  && cp1 < kp2 && cp2 > kp1 && cp2 < kp2)
+||
+(cp1 > kp2  && cp1 < kp1 && cp2 > kp2 && cp2 < kp1)
+||
+(kp1 > cp2  && kp1 < cp1 && kp2 > cp2 && kp2 < cp1)
+||
+(kp1 > cp1  && kp1 < cp2 && kp2 > cp1 && kp2 < cp2)
+||
+(kp1 > cp1  && kp1 > cp2 && kp2 > cp1 && kp2 > cp2)
+||
+(kp1 < cp1  && kp1 < cp2 && kp2 < cp1 && kp2 < cp2)
+
+cp1 
+
+no orphans
+       cp1 | kp1 cp2 | kp2
+ 30 29 28  | 26  27  | 31

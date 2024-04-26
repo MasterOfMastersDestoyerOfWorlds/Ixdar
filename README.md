@@ -105,7 +105,7 @@ So far I hope I have conveyed/answered the following:
 
 * What is The Traveling Salesman Problem(TSP)?
 * Why should I care about TSP?
-* The solution to TSP, if one exists, lies in building up abstractions like a topographer builds terrain on a map, rather than iterative improvement
+* The solution to TSP, if one exists, lies in building up abstractions like a topographer builds terrain on a map, rather than iterative improvement. The terrain features should be invarriants in the graph (for a good starting place look at cycles)
 
 So the next question would be: <B>What terrain features exist on our map?</b>
 

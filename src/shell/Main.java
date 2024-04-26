@@ -48,8 +48,11 @@ public class Main extends JComponent {
 	public void paint(Graphics g) {
 		try {
 			Graphics2D g2 = (Graphics2D) g;
-
-			PointSetPath retTup = importFromFile(new File("./src/shell/djbouti"));
+			// djbouti_8-32 : I think I need to re-write the code so we are squashing internal knots every time we make a new one
+			//  also think if we are connecting to a knot we need to check all of the possible length changes of the knot
+			// djbouti_2-7 : Also think we need to treat Runs as Knots again when we combine them
+			// djbouti_2-4 : we need to have the half knot checker in action during the matching and stop matching
+			PointSetPath retTup = importFromFile(new File("./src/shell/djbouti_2-4"));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
 			Shell orgShell = retTup.tsp;
@@ -59,7 +62,7 @@ public class Main extends JComponent {
 
 			Shell maxShell = orgShell.copyShallow();
 
-			ArrayList<VirtualPoint> result = maxShell.slowSolve(maxShell, d, 2);
+			ArrayList<VirtualPoint> result = maxShell.slowSolve(maxShell, d, 3);
 
 			for (VirtualPoint vp : result) {
 				if (vp.isKnot) {
@@ -145,7 +148,8 @@ public class Main extends JComponent {
 			// false);
 
 			drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, false, true);
-			// orgShell.drawShell(this, g2, false,Color.BLUE, retTup.ps);
+			orgShell.drawShell(this, g2, false,Color.BLUE, retTup.ps);
+			System.out.println(orgShell.getLength());
 			System.out.println("===============================================");
 		} catch (Exception e) {
 			e.printStackTrace();
