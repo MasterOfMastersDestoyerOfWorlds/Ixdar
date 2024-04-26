@@ -816,3 +816,31 @@ external1: 2 match1: 3 match1endpoint: 3 basepoint1: 2 match2: Knot[1 38 0 Knot[
 external2: 33 match1: 32 match1endpoint: 32 basepoint1: 33 match2: Knot[1 38 0 Knot[Knot[36 37 35 ] 34 ] ] match2endpoint: 34 basepoint2: 33
 
 Both externals disagree on cut segment Segment[1:52]   Segment[52:0], need to assess 
+
+
+14, 15, 16, 17, 18, 19, Knot[20 21 22 23 ], 24, 25, Knot[26 27 Knot[Knot[28 29 30 ] 31 ] ]
+
+failed: 
+
+32
+Knot[11 12 13 ]
+
+
+Knot[20 21 22 23 ], 24, 25, Knot[26 27 Knot[Knot[28 29 30 ] 31 ] ], 32, 33, 2, 3, 4, 5, 6, 7, 8, 9, 10, Knot[11 12 13 ]
+
+failed: 
+
+14
+18
+
+on fail store the run list to use later?
+
+2, 3, 4, 5
+
+6, 7
+
+Knot[14 15 16 ], 17, 18, 19
+
+24, 25, Knot[26 27 Knot[Knot[28 29 30 ] 31 ] ]
+
+32, 33

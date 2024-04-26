@@ -184,6 +184,7 @@ public class Shell extends LinkedList<PointND> {
 			this.externalVirtualPoints = new ArrayList<>();
 			externalVirtualPoints.add(this);
 			knotPointsFlattened = new ArrayList<VirtualPoint>();
+			knotPointsFlattened.add(this);
 			sortedSegments = new ArrayList<Segment>();
 		}
 
@@ -1352,12 +1353,13 @@ public class Shell extends LinkedList<PointND> {
 								k.match1endpoint = tempME;
 								k.basePoint1 = tempBP;
 								k.s1 = tempS;
+								if (tempMatch != null) {
+									if (k.contains(tempMatch.match1)) {
+										tempMatch.match1 = k;
+									} else {
+										tempMatch.match2 = k;
 
-								if (k.contains(tempMatch.match1)) {
-									tempMatch.match1 = k;
-								} else {
-									tempMatch.match2 = k;
-
+									}
 								}
 
 								runList.removeAll(subList);
@@ -1410,12 +1412,13 @@ public class Shell extends LinkedList<PointND> {
 								k.match1endpoint = tempME;
 								k.basePoint1 = tempBP;
 								k.s1 = tempS;
+								if (tempMatch != null) {
+									if (k.contains(tempMatch.match1)) {
+										tempMatch.match1 = k;
+									} else {
+										tempMatch.match2 = k;
 
-								if (k.contains(tempMatch.match1)) {
-									tempMatch.match1 = k;
-								} else {
-									tempMatch.match2 = k;
-
+									}
 								}
 
 								runList.removeAll(subList);
@@ -1692,7 +1695,11 @@ public class Shell extends LinkedList<PointND> {
 					// need to change this, unsure how
 					// instead of being the closest segment needs to be the farthest segment that
 					// knotPoint 1 matches
-					Segment cutSegment1 = cutPoint1.s2;
+					Point vp1 = (Point) s1.getKnotPoint(knot.knotPointsFlattened);
+					Point vp11 = (Point) s11.getKnotPoint(knot.knotPointsFlattened);
+
+					Segment cutSegment1 = new Segment(vp1, vp11, distanceMatrix.getDistance(vp1.p, vp11.p));
+
 					Segment cutSegment2 = cutPoint2.s2;
 					if (cutPoint1.equals(cutPoint2)) {
 						cutSegment2 = cutPoint2.basePoint2.getClosestSegment(knotPoint1);
