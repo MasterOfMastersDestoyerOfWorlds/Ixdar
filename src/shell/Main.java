@@ -18,6 +18,7 @@ import java.awt.geom.Point2D.Double;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -38,6 +39,7 @@ public class Main extends JComponent {
 	private static final long serialVersionUID = 2722424842956800923L;
 	private static final boolean SCALE = false;
 	private static final int WIDTH = 1000, HEIGHT = WIDTH;
+	public static ArrayList<VirtualPoint> result;
 
 	/**
 	 * Creates a visual depiction of the shells/tsp path of the point set
@@ -48,14 +50,29 @@ public class Main extends JComponent {
 	public void paint(Graphics g) {
 		try {
 			Graphics2D g2 = (Graphics2D) g;
-			// djbouti_8-32 : I think I need to re-write the code so we are cutting internal knots every time we make a new one
-			// the idea of a knot is any section of the graph that would rather connect only to it's internal members 
+			// djbouti_8-24 : something is wrong with the match across function leading to null pointers 
+			// djbouti_8-32 : I think I need to re-write the code so we are cutting internal
+			// knots every time we make a new one
+			// the idea of a knot is any section of the graph that would rather connect only
+			// to it's internal members
 			// rather than external ones, with at maximum 2 cut segments to resolve the knot
-			//  also think if we are connecting to a knot we need to check all of the possible length changes of the knot
-			// djbouti_2-7 : Also think we need to treat Runs as Knots again when we combine them
-			// djbouti_2-4 : we need to have the half knot checker in action during the matching and stop matching
-			// maybe false! We actually need to think about what happens in the half knot checker if we have both side passing, maybe we need to have stopped earlier? or make like Knot[2, Knot[1,0,3] 
-			PointSetPath retTup = importFromFile(new File("./src/shell/djbouti_2-4"));
+			// also think if we are connecting to a knot we need to check all of the
+			// possible length changes of the knot
+			// djbouti_2-7 : need to check both directions when combining knots in a run
+			// djbouti_2-4 : we need to have the half knot checker in action during the
+			// djbouti_8-34: I think what we actually need to do when we come across 2+
+			// knots that want to match with each other is
+			// resolve them internally then cut across
+			// other thing we need to do is add the topgroupvp's knotpoints to seenpoints on
+			// match with a knot? how else can we achieve this?
+			// might also need to only look at knotpoint 1 if there is only 1 external point
+			// to make above work?
+			// djbouti_8-26: I think what we actually need to do when
+			// matching and stop matching
+			// maybe false! We actually need to think about what happens in the half knot
+			// checker if we have both side passing, maybe we need to have stopped earlier?
+			// or make like Knot[2, Knot[1,0,3]
+			PointSetPath retTup = importFromFile(new File("./src/shell/djbouti"));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
 			Shell orgShell = retTup.tsp;
@@ -65,21 +82,32 @@ public class Main extends JComponent {
 
 			Shell maxShell = orgShell.copyShallow();
 
-			ArrayList<VirtualPoint> result = maxShell.slowSolve(maxShell, d, 4);
+			boolean drawSubPaths = true;
+			boolean drawMainPath = false;
 
-			for (VirtualPoint vp : result) {
+			result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 6));
+			for (int i = 0; i < result.size(); i++) {
+				VirtualPoint vp = result.get(i);
 				if (vp.isKnot) {
+					System.out.println("Next Knot: " + vp);
 					Shell temp = maxShell.cutKnot((Shell.Knot) vp);
-					temp.drawShell(this, g2, true, null, retTup.ps);
+					System.out.println(temp.getLength());
+					if (drawSubPaths) {
+						temp.drawShell(this, g2, true, null, retTup.ps);
+					}
 				}
 				if (vp.isRun) {
 					Shell.Run run = (Shell.Run) vp;
 					for (VirtualPoint sub : run.knotPoints) {
 						if (sub.isKnot) {
+							System.out.println("Next Knot: " + sub);
 							Shell temp = maxShell.cutKnot((Shell.Knot) sub);
-							temp.drawShell(this, g2, true, null, retTup.ps);
+							if (drawSubPaths) {
+								temp.drawShell(this, g2, true, null, retTup.ps);
+							}
+							System.out.println(temp.getLength());
 						}
-						
+
 					}
 				}
 			}
@@ -151,7 +179,8 @@ public class Main extends JComponent {
 			// false);
 
 			drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, false, true);
-			//orgShell.drawShell(this, g2, false,Color.BLUE, retTup.ps);
+			if (drawMainPath)
+				orgShell.drawShell(this, g2, false, Color.BLUE, retTup.ps);
 			System.out.println(orgShell.getLength());
 			System.out.println("===============================================");
 		} catch (Exception e) {
