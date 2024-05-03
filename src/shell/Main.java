@@ -21,6 +21,7 @@ import java.io.FileReader;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -50,7 +51,8 @@ public class Main extends JComponent {
 	public void paint(Graphics g) {
 		try {
 			Graphics2D g2 = (Graphics2D) g;
-			// djbouti_8-24 : something is wrong with the match across function leading to null pointers 
+			// djbouti_8-24 : something is wrong with the match across function leading to
+			// null pointers
 			// djbouti_8-32 : I think I need to re-write the code so we are cutting internal
 			// knots every time we make a new one
 			// the idea of a knot is any section of the graph that would rather connect only
@@ -72,7 +74,7 @@ public class Main extends JComponent {
 			// maybe false! We actually need to think about what happens in the half knot
 			// checker if we have both side passing, maybe we need to have stopped earlier?
 			// or make like Knot[2, Knot[1,0,3]
-			PointSetPath retTup = importFromFile(new File("./src/shell/djbouti"));
+			PointSetPath retTup = importFromFile(new File("./src/shell/djbouti_8-32"));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
 			Shell orgShell = retTup.tsp;
@@ -82,32 +84,37 @@ public class Main extends JComponent {
 
 			Shell maxShell = orgShell.copyShallow();
 
+			Collections.shuffle(maxShell);
+			System.out.println(maxShell );
+
 			boolean drawSubPaths = true;
-			boolean drawMainPath = false;
+			boolean drawMainPath = true;
 
-			result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 6));
-			for (int i = 0; i < result.size(); i++) {
-				VirtualPoint vp = result.get(i);
-				if (vp.isKnot) {
-					System.out.println("Next Knot: " + vp);
-					Shell temp = maxShell.cutKnot((Shell.Knot) vp);
-					System.out.println(temp.getLength());
-					if (drawSubPaths) {
-						temp.drawShell(this, g2, true, null, retTup.ps);
-					}
-				}
-				if (vp.isRun) {
-					Shell.Run run = (Shell.Run) vp;
-					for (VirtualPoint sub : run.knotPoints) {
-						if (sub.isKnot) {
-							System.out.println("Next Knot: " + sub);
-							Shell temp = maxShell.cutKnot((Shell.Knot) sub);
-							if (drawSubPaths) {
-								temp.drawShell(this, g2, true, null, retTup.ps);
-							}
-							System.out.println(temp.getLength());
+			if (drawSubPaths) {
+				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 4));
+				for (int i = 0; i < result.size(); i++) {
+					VirtualPoint vp = result.get(i);
+					if (vp.isKnot) {
+						System.out.println("Next Knot: " + vp);
+						Shell temp = maxShell.cutKnot((Shell.Knot) vp);
+						System.out.println(temp.getLength());
+						if (drawSubPaths) {
+							temp.drawShell(this, g2, true, null, retTup.ps);
 						}
+					}
+					if (vp.isRun) {
+						Shell.Run run = (Shell.Run) vp;
+						for (VirtualPoint sub : run.knotPoints) {
+							if (sub.isKnot) {
+								System.out.println("Next Knot: " + sub);
+								Shell temp = maxShell.cutKnot((Shell.Knot) sub);
+								if (drawSubPaths) {
+									temp.drawShell(this, g2, true, null, retTup.ps);
+								}
+								System.out.println(temp.getLength());
+							}
 
+						}
 					}
 				}
 			}
