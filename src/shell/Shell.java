@@ -191,6 +191,28 @@ public class Shell extends LinkedList<PointND> {
 			return s1;
 		}
 
+		public boolean shouldJoinKnot(Knot k) {
+			System.out.println(k.fullString());
+			if (k.match1 == null || !k.match1.contains(this)) {
+				System.out.println("not first match");
+				return false;
+			}
+			int desiredCount = 2;
+			for (Segment s : this.sortedSegments) {
+				VirtualPoint vp = s.getOtherKnot(this);
+				if (!k.contains(vp)) {
+					System.out.println("broke on this segment: " + s + " desired count: " + desiredCount
+							+ " org count: " + k.knotPoints.size() + " sorted segments: " + this.sortedSegments);
+					return false;
+				}
+				desiredCount--;
+				if (desiredCount == 0) {
+					return true;
+				}
+			}
+			return true;
+		}
+
 		public Segment getClosestSegment(VirtualPoint vp, Segment excludeSegment) {
 			for (int i = 0; i < sortedSegments.size(); i++) {
 				Segment s = sortedSegments.get(i);
@@ -252,6 +274,14 @@ public class Shell extends LinkedList<PointND> {
 				System.out.println(this.fullString());
 				float zero = 1 / 0;
 			}
+			if (s1 == null && s2 != null) {
+				System.out.println(this.fullString());
+				float zero = 1 / 0;
+			}
+			if (match1endpoint != null && match2endpoint != null && match1endpoint.equals(match2endpoint)) {
+				System.out.println(this.fullString());
+				float zero = 1 / 0;
+			}
 		}
 
 		public void setMatch1(VirtualPoint matchPoint) {
@@ -269,14 +299,54 @@ public class Shell extends LinkedList<PointND> {
 			if (this.contains(match1endpoint)) {
 				float zero = 1 / 0;
 			}
+			if (s1 == null && s2 != null) {
+				System.out.println(this.fullString());
+				float zero = 1 / 0;
+			}
+			if (match1endpoint != null && match2endpoint != null && match1endpoint.equals(match2endpoint)) {
+
+				float zero = 1 / 0;
+			}
 		}
 
 		public void setMatch2(VirtualPoint matchPoint, Point matchEndPoint, Point matchBasePoint,
 				Segment matchSegment) {
+			if ((matchSegment != null)) {
+				if (s1 == null) {
+					match1 = matchPoint;
+					match1endpoint = matchEndPoint;
+					basePoint1 = matchBasePoint;
+					s1 = matchSegment;
+					return;
+				} else if (s1.distance > matchSegment.distance) {
+					match2 = match1;
+					match2endpoint = match1endpoint;
+					basePoint2 = basePoint1;
+					s2 = s1;
+					match1 = matchPoint;
+					match1endpoint = matchEndPoint;
+					basePoint1 = matchBasePoint;
+					s1 = matchSegment;
+					return;
+				}
+			}
 			match2 = matchPoint;
 			match2endpoint = matchEndPoint;
 			basePoint2 = matchBasePoint;
 			s2 = matchSegment;
+			if (s2 != null && s1.distance > s2.distance) {
+				System.out.println(this.fullString());
+				float zero = 1 / 0;
+			}
+			if (s1 == null && s2 != null) {
+				System.out.println(this.fullString());
+				float zero = 1 / 0;
+			}
+			if (match1endpoint != null && match2endpoint != null && match1endpoint.equals(match2endpoint)
+					&& basePoint1.equals(basePoint2)) {
+				System.out.println(this.fullString());
+				float zero = 1 / 0;
+			}
 		}
 
 		public void setMatch2(VirtualPoint matchPoint) {
@@ -290,6 +360,24 @@ public class Shell extends LinkedList<PointND> {
 				match2endpoint = matchPoint.basePoint2;
 				basePoint2 = matchPoint.match2endpoint;
 				s2 = matchPoint.s2;
+			}
+			if (s1 != null && s2 != null && s1.distance > s2.distance) {
+				this.swap();
+			}
+			if(s1 == null && s2 != null){
+				this.swap();
+			}
+			if (s1 == null && s2 != null) {
+				System.out.println(this.fullString());
+				float zero = 1 / 0;
+			}
+			if (s2 != null && s1.distance > s2.distance) {
+				System.out.println(this.fullString());
+				float zero = 1 / 0;
+			}
+			if (match1endpoint != null && match2endpoint != null && match1endpoint.equals(match2endpoint)) {
+
+				float zero = 1 / 0;
 			}
 		}
 
@@ -333,9 +421,18 @@ public class Shell extends LinkedList<PointND> {
 
 		public void swapMatch2(VirtualPoint matchPoint, Point matchEndPoint, Point matchBasePoint,
 				Segment matchSegment) {
-
-			this.setMatch2(match1, match1endpoint, basePoint1, s1);
-			this.setMatch1(matchPoint, matchEndPoint, matchBasePoint, matchSegment);
+			VirtualPoint tmp = match1;
+			Point tmpMe = match1endpoint;
+			Point tmpBp = basePoint1;
+			Segment tmpSeg = s1;
+			match1 = matchPoint;
+			match1endpoint = matchEndPoint;
+			basePoint1 = matchBasePoint;
+			s1 = matchSegment;
+			match2 = tmp;
+			match2endpoint = tmpMe;
+			basePoint2 = tmpBp;
+			s2 = tmpSeg;
 		}
 
 		public void swap() {
@@ -617,8 +714,8 @@ public class Shell extends LinkedList<PointND> {
 				Segment s21 = run1.endpoint1.getClosestSegment(run2.endpoint2, null);
 				Segment s22 = run1.endpoint2.getClosestSegment(run2.endpoint1, null);
 				Double d2 = s21.distance + s22.distance;
-				System.out.println(s11+ " " + s12 +  " " + d1);
-				System.out.println(s21+ " " + s22 +  " " + d2);
+				System.out.println(s11 + " " + s12 + " " + d1);
+				System.out.println(s21 + " " + s22 + " " + d2);
 				if (d1 < d2) {
 					if (run1.endpoint1.contains(run1.knotPoints.get(0))) {
 						flattenRunPoints.addAll(run1.knotPoints);
@@ -1202,10 +1299,15 @@ public class Shell extends LinkedList<PointND> {
 							System.out.println(runList);
 							makeHalfKnot(runList, vp, other);
 							System.out.println(runList);
-							if (i == 3) {
-								float zero = 1 / 0;
-							}
 							i = 0;
+						} else if (other.isKnot && vp.shouldJoinKnot((Knot) other)) {
+
+							knotFlag = true;
+							System.out.println("Half-Knot ends:" + s1);
+							System.out.println(runList);
+							makeHalfKnot(runList, vp, other);
+							System.out.println(runList);
+
 						}
 					}
 
@@ -1223,7 +1325,7 @@ public class Shell extends LinkedList<PointND> {
 						endpointReached = false;
 						halfKnotCount++;
 
-						if (halfKnotCount > 5) {
+						if (halfKnotCount > 100) {
 							System.out.println(runList);
 							System.out.println(endPoint2.fullString());
 							System.out.println(endPoint1.fullString());
@@ -1296,6 +1398,14 @@ public class Shell extends LinkedList<PointND> {
 	public void makeHalfKnot(ArrayList<VirtualPoint> runList, VirtualPoint vp, VirtualPoint other) {
 		int vpIdx = runList.indexOf(vp);
 		int otherIdx = runList.indexOf(other);
+		if (vpIdx > otherIdx) {
+			VirtualPoint temp = other;
+			other = vp;
+			vp = temp;
+			int tempi = otherIdx;
+			otherIdx = vpIdx;
+			vpIdx = tempi;
+		}
 		ArrayList<VirtualPoint> subList = new ArrayList<VirtualPoint>(
 				runList.subList(vpIdx, otherIdx + 1));
 		if (vpIdx == 0 && otherIdx == runList.size() - 1) {
@@ -1321,7 +1431,7 @@ public class Shell extends LinkedList<PointND> {
 			for (VirtualPoint vp1 : runList) {
 				System.out.println(vp1.fullString());
 			}
-			vp.setMatch1(vp.match2, vp.match2endpoint, vp.basePoint2, vp.s2);
+			vp.swap();
 			vp.setMatch2(null, null, null, null);
 		}
 		VirtualPoint temp2Match;
@@ -1344,9 +1454,11 @@ public class Shell extends LinkedList<PointND> {
 			for (VirtualPoint vp1 : runList) {
 				System.out.println(vp1.fullString());
 			}
-			other.setMatch1(other.match2, other.match2endpoint, other.basePoint2, other.s2);
+			other.swap();
 			other.setMatch2(null, null, null, null);
 		}
+		System.out.println("reeee: " + subList + " vp: " + vp + " other: " + other + "runList: " + runList + " vpidx: "
+				+ vpIdx + " otheridx: " + otherIdx);
 		Knot k = new Knot(subList);
 		k.setMatch1(tempMatch, tempME, tempBP, tempS);
 		if (tempMatch != null) {
