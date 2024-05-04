@@ -74,7 +74,7 @@ public class Main extends JComponent {
 			// maybe false! We actually need to think about what happens in the half knot
 			// checker if we have both side passing, maybe we need to have stopped earlier?
 			// or make like Knot[2, Knot[1,0,3]
-			PointSetPath retTup = importFromFile(new File("./src/shell/djbouti_2-4"));
+			PointSetPath retTup = importFromFile(new File("./src/shell/djbouti_8-32"));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
 			Shell orgShell = retTup.tsp;
