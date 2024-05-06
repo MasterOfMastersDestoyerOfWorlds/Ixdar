@@ -1587,13 +1587,18 @@ public class Shell extends LinkedList<PointND> {
 
 	}
 
-	//TODO: Need to overhaul cut knots here is the idea:
-	// we get the two external points and loop through a double nested for loop across the knot's segments to cut
-	//store the info for each cut segment in a list or just store the min length change, with some minimum set of variables and whether we need to 
-	//join across or not
-	// if the inner segment ""xor'ed"" with the outer segment  is partially overlapping, 
-	// then we do not evaluate it, if it is fully overlapping or not overlapping then evaluate
-	//should be roughly N^3 operation  N^2 to cut a Knot Times M knots  M ~= N/3 worst case M = N-3
+	// TODO: Need to overhaul cut knots here is the idea:
+	// we get the two external points and loop through a double nested for loop
+	// across the knot's segments to cut
+	// store the info for each cut segment in a list or just store the min length
+	// change, with some minimum set of variables and whether we need to
+	// join across or not
+	// if the inner segment ""xor'ed"" with the outer segment is partially
+	// overlapping,
+	// then we do not evaluate it, if it is fully overlapping or not overlapping
+	// then evaluate
+	// should be roughly N^3 operation N^2 to cut a Knot Times M knots M ~= N/3
+	// worst case M = N-3
 	public ArrayList<VirtualPoint> cutKnot(ArrayList<VirtualPoint> knotList) {
 		knotList = new ArrayList<>(knotList);
 		// move on to the cutting phase
@@ -1639,218 +1644,15 @@ public class Shell extends LinkedList<PointND> {
 				if ((external1.getHeight() > 1 || knot.getHeight() > 1 || external2.getHeight() > 1)) {
 					System.out.println("Need to simplify knots internally before matching : knot: " + knot
 							+ " external1: " + external1 + " external2: " + external2);
-					ArrayList<VirtualPoint> flattenKnots = cutKnot(knot.knotPoints);
-					Knot knotNew = new Knot(flattenKnots);
-
-					boolean makeExternal1 = external1.isKnot;
-
-					boolean same = external1.equals(external2);
-					boolean makeExternal2 = external2.isKnot && !same;
-
-					Knot external1Knot = null;
-					ArrayList<VirtualPoint> flattenKnotsExternal1 = null;
-					Knot external1New = null;
-					if (makeExternal1) {
-
-						external1Knot = (Knot) external1;
-						flattenKnotsExternal1 = cutKnot(external1Knot.knotPoints);
-						external1New = new Knot(flattenKnotsExternal1);
-					}
-					Knot external2Knot = null;
-					ArrayList<VirtualPoint> flattenKnotsExternal2 = null;
-					Knot external2New = null;
-					if (makeExternal2) {
-
-						external2Knot = (Knot) external2;
-						flattenKnotsExternal2 = cutKnot(external2Knot.knotPoints);
-						external2New = new Knot(flattenKnotsExternal2);
-					}
-
-					if (external1.contains(knot.match1endpoint)) {
-						if (makeExternal1) {
-							knotNew.match1 = external1New;
-						} else if (!same || (!makeExternal1 && !makeExternal2)) {
-							knotNew.match1 = external1;
-						}
-						knotNew.match1endpoint = knot.match1endpoint;
-						knotNew.basePoint1 = knot.basePoint1;
-						knotNew.s1 = knot.s1;
-					}
-					if (external1.contains(knot.match2endpoint)) {
-						if (makeExternal1) {
-							knotNew.match2 = external1New;
-						} else if (!same || (!makeExternal1 && !makeExternal2)) {
-							knotNew.match2 = external1;
-						}
-						knotNew.match2endpoint = knot.match2endpoint;
-						knotNew.basePoint2 = knot.basePoint2;
-						knotNew.s2 = knot.s2;
-					}
-
-					if (external2.contains(knot.match1endpoint)) {
-						if (makeExternal2) {
-							knotNew.match1 = external2New;
-						} else if (!same || (!makeExternal1 && !makeExternal2)) {
-							knotNew.match1 = external2;
-						}
-						knotNew.match1endpoint = knot.match1endpoint;
-						knotNew.basePoint1 = knot.basePoint1;
-						knotNew.s1 = knot.s1;
-					}
-					if (external2.contains(knot.match2endpoint)) {
-						if (makeExternal2) {
-							knotNew.match2 = external2New;
-						} else if (!same || (!makeExternal1 && !makeExternal2)) {
-							knotNew.match2 = external2;
-						}
-						knotNew.match2endpoint = knot.match2endpoint;
-						knotNew.basePoint2 = knot.basePoint2;
-						knotNew.s2 = knot.s2;
-					}
-
-					if (knotNew.contains(external1.match1endpoint)) {
-						if (makeExternal1) {
-							external1New.match1 = knotNew;
-							external1New.match1endpoint = external1.match1endpoint;
-							external1New.basePoint1 = external1.basePoint1;
-							external1New.s1 = external1.s1;
-							if (!same) {
-								external1New.match2 = external1.match2;
-								external1New.match2endpoint = external1.match2endpoint;
-								external1New.basePoint2 = external1.basePoint2;
-								external1New.s2 = external1.s2;
-							}
-						} else {
-							external1.match1 = knotNew;
-						}
-					}
-					if (knotNew.contains(external1.match2endpoint)) {
-						if (makeExternal1) {
-							external1New.match2 = knotNew;
-							external1New.match2endpoint = external1.match2endpoint;
-							external1New.basePoint2 = external1.basePoint2;
-							external1New.s2 = external1.s2;
-							if (!same) {
-								external1New.match1 = external1.match1;
-								external1New.match1endpoint = external1.match1endpoint;
-								external1New.basePoint1 = external1.basePoint1;
-								external1New.s1 = external1.s1;
-							}
-						} else {
-							external1.match2 = knotNew;
-						}
-					}
-
-					if (knotNew.contains(external2.match1endpoint)) {
-						if (makeExternal2) {
-							external2New.match1 = knotNew;
-							external2New.match1endpoint = external2.match1endpoint;
-							external2New.basePoint1 = external2.basePoint1;
-							external2New.s1 = external2.s1;
-							external2New.match2 = external2.match2;
-							external2New.match2endpoint = external2.match2endpoint;
-							external2New.basePoint2 = external2.basePoint2;
-							external2New.s2 = external2.s2;
-
-						} else {
-							external2.match1 = knotNew;
-						}
-					}
-					if (knotNew.contains(external2.match2endpoint)) {
-						if (makeExternal2) {
-							external2New.match2 = knotNew;
-							external2New.match2endpoint = external2.match2endpoint;
-							external2New.basePoint2 = external2.basePoint2;
-							external2New.s2 = external2.s2;
-							external2New.match1 = external2.match1;
-							external2New.match1endpoint = external2.match1endpoint;
-							external2New.basePoint1 = external2.basePoint1;
-							external2New.s1 = external2.s1;
-						} else {
-							external2.match2 = knotNew;
-						}
-					}
-					if (makeExternal1 && external1New.contains(external2.match1endpoint)) {
-						if (makeExternal2) {
-							external2New.match1 = external1New;
-						} else {
-							external2.match1 = external1New;
-						}
-					}
-					if (makeExternal1 && external1New.contains(external2.match2endpoint)) {
-						if (makeExternal2) {
-							external2New.match2 = external1New;
-						} else {
-							external2.match2 = external1New;
-						}
-					}
-					if (makeExternal2 && external2New.contains(external1.match1endpoint)) {
-						if (makeExternal2) {
-							external1New.match1 = external2New;
-						} else {
-							external1.match1 = external2New;
-						}
-					}
-					if (makeExternal2 && external2New.contains(external1.match2endpoint)) {
-						if (makeExternal2) {
-							external1New.match2 = external2New;
-						} else {
-							external1.match2 = external2New;
-						}
-					}
-					if (makeExternal1) {
-						if (external1New.match1.basePoint1.equals(external1New.match1endpoint)) {
-							external1New.match1.match1 = external1New;
-						} else {
-							external1New.match1.match2 = external1New;
-						}
-						if (external1New.match2.basePoint1.equals(external1New.match1endpoint)) {
-							external1New.match2.match1 = external1New;
-						} else {
-							external1New.match2.match2 = external1New;
-						}
-					}
-					if (makeExternal2) {
-						if (external2New.match1.basePoint1.equals(external2New.match1endpoint)) {
-							external2New.match1.match1 = external2New;
-						} else {
-							external2New.match1.match2 = external2New;
-						}
-						if (external2New.match2.basePoint1.equals(external2New.match1endpoint)) {
-							external2New.match2.match1 = external2New;
-						} else {
-							external2New.match2.match2 = external2New;
-						}
-					}
-					if (makeExternal1) {
-						int idx = knotList.indexOf(external1);
-						knotList.add(idx, external1New);
-						knotList.remove(external1);
-					}
-
-					if (makeExternal2) {
-						int idx = knotList.indexOf(external2);
-						knotList.add(idx, external2New);
-						knotList.remove(external2);
-					}
-					int idx2 = knotList.indexOf(knot);
-					knotList.add(idx2, knotNew);
-					knotList.remove(knot);
-
+					Knot knotNew = flattenKnots(knot, external1, external2, knotList);
 					int prevIdx = knotList.indexOf(knotNew) - 1;
 					if (prevIdx < 0) {
 						prevIdx = knotList.size() - 1;
 					}
 					prevPoint = knotList.get(prevIdx);
 
-					i = i - 1;
-					System.out.println(external1New);
-					System.out.println(external1);
-					System.out.println(external2New);
-					System.out.println(external2);
-					System.out.println(knotNew);
-					System.out.println(knotList);
 					System.out.println(prevPoint);
+					i = i - 1;
 					continue;
 				}
 				System.out.println("knotpoint1: " + knotPoint1.fullString());
@@ -2270,18 +2072,21 @@ public class Shell extends LinkedList<PointND> {
 
 								external1.matchAcross2(knotPoint1, s1, s11, cutSegment1);
 								external2.matchAcross2(cutPoint1, s11, s1, cutSegment1);
-							} else if (d4 < d22 && d4 < d5 && (!connected || d4 < d61) && (!connected || d4 < d62) && (!connected || d4 < d63)) {
+							} else if (d4 < d22 && d4 < d5 && (!connected || d4 < d61) && (!connected || d4 < d62)
+									&& (!connected || d4 < d63)) {
 								System.out.println("s4 + s42 (" + s4 + ", " + s42 +
 										") is the smallest, cut: " + cutSegment2);
 								external1.matchAcross2(knotPoint2, s4, s42, cutSegment2);
 								external2.matchAcross2(cutPoint2, s42, s4, cutSegment2);
-							} else if (d5 < d22 && (!connected || d5 < d61) && (!connected || d5 < d62) && (!connected || d5 < d63)) {
+							} else if (d5 < d22 && (!connected || d5 < d61) && (!connected || d5 < d62)
+									&& (!connected || d5 < d63)) {
 								System.out.println("s5 + s51 (" + s5 + ", " + s51 +
 										") is the smallest, cut: " + cutSegment1);
 
 								external1.matchAcross2(knotPoint1, s5, s51, cutSegment1);
 								external2.matchAcross2(cutPoint1, s51, s5, cutSegment1);
-							} else if ((!connected || d22 < d61) && (!connected || d22 < d62) && (!connected || d22 < d63)) {
+							} else if ((!connected || d22 < d61) && (!connected || d22 < d62)
+									&& (!connected || d22 < d63)) {
 								System.out.println("s2 + s22 (" + s2 + ", " + s22 +
 										") is the smallest, cut: " + cutSegment2);
 
@@ -2293,7 +2098,7 @@ public class Shell extends LinkedList<PointND> {
 								// float zero =1/0;
 							} else if (connected && d61 < d62 && d61 < d63) {
 								System.out.println("s611 + s612 (" + s611 + ", " + s612 +
-										") is the smallest,"+ d61 +" cut: " + cutSegment3);
+										") is the smallest," + d61 + " cut: " + cutSegment3);
 
 								System.out.println(external1.fullString());
 								external2.matchAcross2(knotPoint2, s612, s611, cutSegment3);
@@ -2311,10 +2116,11 @@ public class Shell extends LinkedList<PointND> {
 								external1.matchAcross2(knotPoint2, s622, s621, cutSegment3);
 								System.out.println(external1.fullString());
 
-							} else if(connected){
+							} else if (connected) {
 								System.out.println("Cutting and attaching cutpoints : " + d63);
-								System.out.println("ex1VP63: " + ex1Vp63 + " ex2Vp63: " + ex2Vp63 + " attach1Vp63: " + attach1Vp63
-										+ " attach2Vp63: " + attach2Vp63 + " s631: " + s631 + " s632: " + s632);
+								System.out.println(
+										"ex1VP63: " + ex1Vp63 + " ex2Vp63: " + ex2Vp63 + " attach1Vp63: " + attach1Vp63
+												+ " attach2Vp63: " + attach2Vp63 + " s631: " + s631 + " s632: " + s632);
 								System.out.println("cutSegment61: " + cutSegment61 + " cutSegment62: " + cutSegment62
 										+ " s631: " + s631 + " s632: " + s632);
 								external1.matchAcross2(ex1Vp63, s631, s632, cutSegment61);
@@ -2326,8 +2132,7 @@ public class Shell extends LinkedList<PointND> {
 										nearestcp1bp, sAttach63);
 								attach2Vp63.setMatch(attach2Vp63.match1.equals(ex2Vp63), attach1Vp63, nearestcp1bp,
 										nearestcp2bp, sAttach63);
-							}
-							else {
+							} else {
 								System.out.println("WIERD");
 								float zero = 1 / 0;
 							}
@@ -2375,6 +2180,191 @@ public class Shell extends LinkedList<PointND> {
 			}
 		}
 		return knotList;
+	}
+
+	public Knot flattenKnots(Knot knot, VirtualPoint external1, VirtualPoint external2,
+			ArrayList<VirtualPoint> knotList) {
+
+		ArrayList<VirtualPoint> flattenKnots = cutKnot(knot.knotPoints);
+		Knot knotNew = new Knot(flattenKnots);
+
+		boolean makeExternal1 = external1.isKnot;
+
+		boolean same = external1.equals(external2);
+		boolean makeExternal2 = external2.isKnot && !same;
+
+		Knot external1Knot = null;
+		ArrayList<VirtualPoint> flattenKnotsExternal1 = null;
+		Knot external1New = null;
+		if (makeExternal1) {
+
+			external1Knot = (Knot) external1;
+			flattenKnotsExternal1 = cutKnot(external1Knot.knotPoints);
+			external1New = new Knot(flattenKnotsExternal1);
+		}
+		Knot external2Knot = null;
+		ArrayList<VirtualPoint> flattenKnotsExternal2 = null;
+		Knot external2New = null;
+		if (makeExternal2) {
+
+			external2Knot = (Knot) external2;
+			flattenKnotsExternal2 = cutKnot(external2Knot.knotPoints);
+			external2New = new Knot(flattenKnotsExternal2);
+		}
+
+		if (external1.contains(knot.match1endpoint)) {
+			if (makeExternal1) {
+				knotNew.setMatch1(external1New, knot.match1endpoint, knot.basePoint1, knot.s1);
+			} else if (!same || (!makeExternal1 && !makeExternal2)) {
+				knotNew.setMatch1(external1, knot.match1endpoint, knot.basePoint1, knot.s1);
+			}
+		}
+		if (external1.contains(knot.match2endpoint)) {
+			if (makeExternal1) {
+				knotNew.setMatch2(external1New, knot.match2endpoint, knot.basePoint2, knot.s2);
+			} else if (!same || (!makeExternal1 && !makeExternal2)) {
+				knotNew.setMatch2(external1, knot.match2endpoint, knot.basePoint2, knot.s2);
+			}
+		}
+
+		if (external2.contains(knot.match1endpoint)) {
+			if (makeExternal2) {
+				knotNew.setMatch1(external2New, knot.match1endpoint, knot.basePoint1, knot.s1);
+			} else if (!same || (!makeExternal1 && !makeExternal2)) {
+				knotNew.setMatch1(external2, knot.match1endpoint, knot.basePoint1, knot.s1);
+			}
+		}
+		if (external2.contains(knot.match2endpoint)) {
+			if (makeExternal2) {
+				knotNew.setMatch2(external2New, knot.match2endpoint, knot.basePoint2, knot.s2);
+			} else if (!same || (!makeExternal1 && !makeExternal2)) {
+				knotNew.setMatch2(external2, knot.match2endpoint, knot.basePoint2, knot.s2);
+			}
+		}
+
+		if (knotNew.contains(external1.match1endpoint)) {
+			if (makeExternal1) {
+
+				external1New.setMatch1(knotNew, external1.match1endpoint, external1.basePoint1,
+						external1.s1);
+				if (!same) {
+					external1New.setMatch2(external1.match2, external1.match2endpoint, external1.basePoint2,
+							external1.s2);
+				}
+			} else {
+				external1.match1 = knotNew;
+			}
+		}
+		if (knotNew.contains(external1.match2endpoint)) {
+			if (makeExternal1) {
+				System.out.println(external1New.fullString());
+				System.out.println(knotNew.fullString());
+				System.out.println(external1.fullString());
+				external1New.setMatch2(knotNew, external1.match2endpoint, external1.basePoint2,
+						external1.s2);
+				if (!same) {
+					external1New.setMatch1(external1.match1, external1.match1endpoint, external1.basePoint1,
+							external1.s1);
+				}
+			} else {
+				external1.match2 = knotNew;
+			}
+		}
+
+		if (knotNew.contains(external2.match1endpoint)) {
+			if (makeExternal2) {
+				external2New.setMatch1(knotNew, external2.match1endpoint, external2.basePoint1,
+						external2.s1);
+				external2New.setMatch2(external2.match2, external2.match2endpoint, external2.basePoint2,
+						external2.s2);
+			} else {
+				external2.match1 = knotNew;
+			}
+		}
+		if (knotNew.contains(external2.match2endpoint)) {
+			if (makeExternal2) {
+				external2New.setMatch1(external2.match1, external2.match1endpoint, external2.basePoint1,
+						external2.s1);
+				external2New.setMatch2(knotNew, external2.match2endpoint, external2.basePoint2,
+						external2.s2);
+			} else {
+				external2.match2 = knotNew;
+			}
+		}
+		if (makeExternal1 && external1New.contains(external2.match1endpoint)) {
+			if (makeExternal2) {
+				external2New.match1 = external1New;
+			} else {
+				external2.match1 = external1New;
+			}
+		}
+		if (makeExternal1 && external1New.contains(external2.match2endpoint)) {
+			if (makeExternal2) {
+				external2New.match2 = external1New;
+			} else {
+				external2.match2 = external1New;
+			}
+		}
+		if (makeExternal2 && external2New.contains(external1.match1endpoint)) {
+			if (makeExternal2) {
+				external1New.match1 = external2New;
+			} else {
+				external1.match1 = external2New;
+			}
+		}
+		if (makeExternal2 && external2New.contains(external1.match2endpoint)) {
+			if (makeExternal2) {
+				external1New.match2 = external2New;
+			} else {
+				external1.match2 = external2New;
+			}
+		}
+		if (makeExternal1) {
+			if (external1New.match1.basePoint1.equals(external1New.match1endpoint)) {
+				external1New.match1.match1 = external1New;
+			} else {
+				external1New.match1.match2 = external1New;
+			}
+			if (external1New.match2.basePoint1.equals(external1New.match1endpoint)) {
+				external1New.match2.match1 = external1New;
+			} else {
+				external1New.match2.match2 = external1New;
+			}
+		}
+		if (makeExternal2) {
+			if (external2New.match1.basePoint1.equals(external2New.match1endpoint)) {
+				external2New.match1.match1 = external2New;
+			} else {
+				external2New.match1.match2 = external2New;
+			}
+			if (external2New.match2.basePoint1.equals(external2New.match1endpoint)) {
+				external2New.match2.match1 = external2New;
+			} else {
+				external2New.match2.match2 = external2New;
+			}
+		}
+		if (makeExternal1) {
+			int idx = knotList.indexOf(external1);
+			knotList.add(idx, external1New);
+			knotList.remove(external1);
+		}
+
+		if (makeExternal2) {
+			int idx = knotList.indexOf(external2);
+			knotList.add(idx, external2New);
+			knotList.remove(external2);
+		}
+		int idx2 = knotList.indexOf(knot);
+		knotList.add(idx2, knotNew);
+		knotList.remove(knot);
+
+		System.out.println(external1New);
+		System.out.println(external1);
+		System.out.println(external2New);
+		System.out.println(external2);
+		System.out.println(knotNew);
+		System.out.println(knotList);
+		return knotNew;
 	}
 
 	public Shell solveBetweenEndpoints(PointND first, PointND last, Shell A, DistanceMatrix d) {
