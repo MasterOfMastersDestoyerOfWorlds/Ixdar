@@ -62,19 +62,15 @@ public class Main extends JComponent {
 			// possible length changes of the knot
 			// djbouti_2-7 : need to check both directions when combining knots in a run
 			// djbouti_2-4 : we need to have the half knot checker in action during the
-			// djbouti_8-34: I think what we actually need to do when we come across 2+
-			// knots that want to match with each other is
-			// resolve them internally then cut across
-			// other thing we need to do is add the topgroupvp's knotpoints to seenpoints on
-			// match with a knot? how else can we achieve this?
-			// might also need to only look at knotpoint 1 if there is only 1 external point
-			// to make above work?
+			// djbouti_8-34: 
+
+
 			// djbouti_8-26: I think what we actually need to do when
 			// matching and stop matching
 			// maybe false! We actually need to think about what happens in the half knot
 			// checker if we have both side passing, maybe we need to have stopped earlier?
 			// or make like Knot[2, Knot[1,0,3]
-			PointSetPath retTup = importFromFile(new File("./src/shell/djbouti_8-32"));
+			PointSetPath retTup = importFromFile(new File("./src/shell/djbouti_1-34"));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
 			Shell orgShell = retTup.tsp;
@@ -85,19 +81,19 @@ public class Main extends JComponent {
 			Shell maxShell = orgShell.copyShallow();
 
 			Collections.shuffle(maxShell);
-			System.out.println(maxShell );
+			System.out.println(maxShell);
 
 			boolean drawSubPaths = true;
-			boolean drawMainPath = false;
+			boolean drawMainPath = true;
 
 			if (drawSubPaths) {
-				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 4));
+				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 5));
 				for (int i = 0; i < result.size(); i++) {
 					VirtualPoint vp = result.get(i);
 					if (vp.isKnot) {
 						System.out.println("Next Knot: " + vp);
 						Shell temp = maxShell.cutKnot((Shell.Knot) vp);
-						System.out.println(temp.getLength());
+						System.out.println("Knot: " + temp + " Length: " + temp.getLength());
 						if (drawSubPaths) {
 							temp.drawShell(this, g2, true, null, retTup.ps);
 						}
@@ -111,7 +107,7 @@ public class Main extends JComponent {
 								if (drawSubPaths) {
 									temp.drawShell(this, g2, true, null, retTup.ps);
 								}
-								System.out.println(temp.getLength());
+								System.out.println("Knot: " + temp + " Length: " + temp.getLength());
 							}
 
 						}
@@ -188,7 +184,7 @@ public class Main extends JComponent {
 			drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, false, true);
 			if (drawMainPath)
 				orgShell.drawShell(this, g2, false, Color.BLUE, retTup.ps);
-			System.out.println(orgShell.getLength());
+			System.out.println("Best Length: " + orgShell.getLength());
 			System.out.println("===============================================");
 		} catch (Exception e) {
 			e.printStackTrace();
