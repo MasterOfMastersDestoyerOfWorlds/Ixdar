@@ -57,7 +57,7 @@ Well pretty much anywhere where there are networks and costs, a solution to TSP 
 
 TSP also represents a whole class of problems that are equivalent, and we don't know if we can solve those problems quickly. This class is called <b>NP</b> or Non-Polynomial time problems and represents the boundary region between problems that we know how to solve quickly <b>(Polynomial time problems (P))</b> and problems we know we cannot solve quickly <b>(Exponential time problems (EXP))</b>. So if you hear people say Z<b>P = NP</b>, they are saying that TSP is solvable quickly (by quickly I mean we could write an algorithm that builds the optimal path rather than checking all possible paths (there is a little nuance around <b>Big(O)</b> missing here, but this is a good start)). On the other hand if you hear people say <b>P != NP</b>, they are saying the only way to solve TSP is by checking all possible paths in the network, which is 2^N (N factorial? idr) paths. 
 
-These classifications aren't too important, but I would be remiss if I didn't at least mention them because much of the discourse surrounding TSP is about proving these classifications and how they relate to each other rather than solving TSP. This is important because college students often only get instruction on how to sort problems into these classifications and get taught to not touch any problems in <b>NP</b>. This has largely shaped the programming communities perception of TSP as unsolvable. Despite this, we do have examples (I am thinking of the Fast Fourier Transform, but may be mistaken) of problems that were previously thought to be in <b>NP</b> but later moved down to <b>P</b> with considerable insight and skill.
+These classifications aren't too important, but I would be remiss if I didn't at least mention them because much of the discourse surrounding TSP is about proving these classifications and how they relate to each other rather than solving TSP. This is important because college students often only get instruction on how to sort problems into these classifications and get taught to not touch any problems in <b>NP</b>. This has largely shaped the programming communities perception of TSP as unsolvable, or only solvable with super-computers. Despite this, we do have examples (I am thinking of the Fast Fourier Transform, but may be mistaken) of problems that were previously thought to be in <b>NP</b> but later moved down to <b>P</b> with considerable insight and skill.
 
     Jaded Programmers Note: if you ever hear these arguments in reference to a tough problem:
 
@@ -154,9 +154,9 @@ This type of point could arise naturally in any problem set, but here we are cal
 
 * We want to change a problem set in M dimensions (where M < N and N is the size of the problem set) into an N-dimensional one.
 * We want to perturb a problem set in the smallest way possible, without changing the final ordering.
-* We want to break a large problem down into many subsets (of arbitrary size) while still knowing the correct answer
+* We want to break a large problem down into many subsets (of arbitrary size) while still knowing the correct ordering of the subset
 
-We get the first scenario for free just by adding the Wormhole. (Not sure if this is true in general, but many geometrical arguments break down with the addition of Wormholes)
+We get the first scenario for free just by adding the Wormhole. (Not sure if this is true in general, but many geometrical arguments/algorithms break down with the addition of Wormholes)
 
 Second, if we add a Wormhole between two points that we know are in the correct ordering, then we can change the ordering of our Sorted Segments (and how points will match with each other) without changing the final correct ordering (aside from the wormhole being added). This is useful in testing as it is the smallest change we can make to a problem set and can illuminate potential problems with our algorithm. 
 
@@ -214,7 +214,7 @@ Well, in a perfect world we would be able to make a loop of size 38 just by look
 
     In reality this is the subset of convex hulls in the plane (think Circles or other Polygons) and this subset is much smaller than the unrestricted set of problems we'd like to solve.
 
-From this observation we can also observe that if we tried to solve the subset <b>S = [ P<sub>11</sub> , P<sub>12</sub> , P<sub>13</sub> ]</b>, that <b>11 <-> 12 <-> 13</b> would be the correct ordering of <b>S</b>.
+From this observation we can also see that if we tried to solve the subset <b>S = [ P<sub>11</sub> , P<sub>12</sub> , P<sub>13</sub> ]</b>, that <b>11 <-> 12 <-> 13</b> would be the correct ordering of <b>S</b>.
 
 At a more general level this loop is telling us that the subset/grouping <b>S</b> wants to connect with itself more than any other points in the graph. So to "resolve" this loop (i.e. find out which segment we should remove) we must find the two Points that want to match with the points in our loop. These outside points will be referred to as the loop's external points or just <b>externals</b> and will be used to determine the <b>cut segment</b>, or segment to remove from the loop. 
 
@@ -251,7 +251,7 @@ Ok I think we're ready for our first larger structure
 
 ### Knot
 
-A <b>Knot</b> is defined as any subset <b>K</b> of <b>G</b> where all of the Points in <b>K</b> only want to match with each other.
+A <b>Knot</b> is defined as any subset <b>K</b> of <b>G</b> where all of the Points in <b>K</b> only want to match with each other and a maximum of two external Points.
 
 Knot(P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>) = struct{
     
@@ -476,65 +476,57 @@ The general idea will be this:
   
 There are a few edge cases around how to figure out the cut segment, but for the most part this will work.
 
-### Agree Case
-By far the easiest case is when both externals agree on which segment to cut. Let's look at an example:
+Our cutting algorithm will not work on a nested knot, so if the knot we are trying to cut has a height greater than 1 we will need to recursively cut it internally.
 
-If we are trying to cut Knot[11,12,13] and our external Points are 10 pointing to Point 11 and 14 pointing to 13 and both 11 and 13 have their second match (important note, we should keep the matches ordered as we make them) as Segment[11:13], then both externals agree on the same cut Segment so we'd get 
+### Cutting Loop
 
- ... <-> 10 <-> 11 <-> 12 <-> 13 <-> 14 <-> ...
+Once we have the two externals and the flat knot <b>K</b> we are trying to cut, we will enter the cutting loop. The idea is we will have a doubly nested loop that iterates over the segments of <b>K</b> making for a N<sup>3</sup> operation. 
 
- and add the Knot points in order to our final list
+If the two cut segments overlap fully (i.e. Segment [a:b] and Segment [b:a] are the cuts) then we will calculate the Agree case (seen below) and if it is a smaller loop than our minimum, replace it. so if we had 
 
-### Same Internal Point
+... <-> a <-> b <-> ... 
 
-A Slightly Harder Case is if both externals are pointing to the same internal point, meaning they agree on which segment to cut but disagree on which external point should connect to the internal point and which should connect to the cut point. Let's look at an example:
+with two external points ex1 and ex2, then we could have the following path
 
-If we are trying to cut Knot[35,36,37] and our external points are 34 and 0, then both Point 34 and Point 0 will want to match with Point 35 and neither wants to match with Point 37. Lets enumerate our options and their lengths
+... <-> a <-> ex1 <-> ... <-> ex2 <-> b <-> ... 
 
-formula for length = Segment[external1 : knotPoint] + Segment[external2 : cutPoint] - Segment[knotPoint : cutPoint]
+If the two cut segments overlap partially (i.e. Segment [a:b] and Segment [b:c] are the cut segments) then ignore this pair as it would leave one point orphaned (unconnected  to the final path).
 
-  ... <-> 34 <-> 35 <-> 36 <-> 37 <-> 0 <-> ... 
-175.36768358358407
+If the two cut segments are disjoint (i.e. Segment [a:b] and Segment [c:d] are the cut segments) then we need to figure out which will connect to the externals and which will we attach internally, so if we had 
 
-  ... <-> 34 <-> 37 <-> 36 <-> 35 <-> 0 <-> ... 
-176.36331347048596
-  
-  ... <-> 34 <-> 35 <-> 37 <-> 36 <-> 0 <-> ... 
-177.4047336330519
-  
-  ... <-> 34 <-> 36 <-> 37 <-> 35 <-> 0 <-> ...
-175.84289103887758
+... <-> a <-> b <-> ... <-> c <-> d <-> ...
 
-and it seems that our lowest cost orientation lines up with our expectations, so our final configuration is:
+with two external points ex1 and ex2, then we could have the following paths
 
-  ... <-> 34 <-> 35 <-> 36 <-> 37 <-> 0 <-> ...
+... <-> a <-> ex1 <-> ... <-> ex2 <-> c <-> ... <-> b <-> d <-> ...
 
-### Disagree on Cut Segment, Agree on Cut Points
+or
 
-### Disagree on Cut Segment, One is Better
+... <-> a <-> c <-> ... <-> b <-> ex1 <-> ... <-> ex2 <-> d <-> ...
 
-### Disagree on Cut Segment, Both are Better
-If we come into a situation where both cut segments are necessary for example:
+once we have calculated all of the possible distance changes we take the smallest one and apply it.
 
-Knot[29 28 30 38 31 27 26 ] with externals 25 matching 26 and 32 matching 31, and wormhole 38 between 30 and 31, then what should we do?
+### Complexity Limit
 
-if we cut it at [31 : 27], then we have 25 27 26 29 28 30 38 31 32
+Immediately I can see a few questions with this approach:
 
-if we cut it at [26 : 29], then we have 25 26 27 31 38 30 28 29 32
+Q1.  Why do we only need to look at a maximum of two cut segments? For example in the Match Twice and Stitch Algorithm they have many cut segments that they apply.
 
-We could cut both and match 27 and 29 across, but then we get 25 26 27 29 28 30 38 31 32
+A1. This really comes down to how we are defining and finding our knots. Remember that a Knot is not any cycle in the graph, even though it is a cycle. A Knot is defined as a subset of the graph that only want to match with itself and a maximum of two external VirtualPoints. Given this definition, if we find our knots correctly, then this cutting algorithm will produce the optimal result.
 
-That's close but 29 and 28 are transposed, did we construct the Knot incorrectly?
+Q2. Do we really need to look at all of the cut segments, shouldn't we just be able to look at the ones that are closest to the external VirtualPoints?
 
-Alternatively instead of matching across, we could make two new knots, [26, 27] and [29, 28, 30, 38, 31] and set them up correctly then if we unraveled 26 27  we'd get 25 26 27 Knot[29, 28, 30, 38, 31] 32
-or  32 31 38 30 28 29 Knot[26 27] 25
+A2. While such an approach can work for simple cases it does not work in general and the algorithm i've outlined is really the best we can do. Take as an example a circle lying in the plane with a center point (0,0) and with VirtualPoints distributed on the path of the circle with uneven spacing, lets call this Knot C for circle. Then arrange 3 VirtualPoints far above the circle in a line where their x and y coordinates are 0,0 and they only differ by their z coordinate and let's call this Knot L for line. since the distance from Knot L to any point on Knot C is constant, we must look at every cut segment in  Knot C.
 
-in stead of matching 27 directly to 29 should also check it's closest in the remaining, so that be 28 should check that the connection you are making is less than the one you are breaking
+Ok so now we know we must at least look at all of the segments once, but why this business with two cut segments?
 
-then we'd have 25 26 27 28 29 | 30 38 31 32
+Well, let's now mirror Knot L across the XY Plane so that we have Knot L1 above it and Knot L2 below it. now if we want to cut Knot K we must also consider all of the disjoint segments that would have to match across the circle internally as well.
 
-might need to also check for 29 that it wants to match with 30 and it does
-so the problem persists, maybe we have made the knot incorrectly?
+Q3. How do we get a Big O of N<sup>3</sup>?
+
+A3. In the Worst Case there would be  N-4 Knots to cut, and on average I have seen most sets with roughly N/3 Knots. So if we have O(N) Knots, and we are looking at all cut segment pairs in each Knot with time O(N<sup>2</sup>), then O(N)*O(N<sup>2</sup>) = O(N<sup>3</sup>)
+
+
 
 
 
@@ -544,7 +536,7 @@ Look at Section 4 Minimum Bounding Circle By Megiddo:
 
 - https://epubs.siam.org/doi/pdf/10.1137/0212052
 
-Match Twice and Stich Algorithm:
+Match Twice and Stitch Algorithm:
 
  - https://vlsicad.ucsd.edu/Publications/Journals/j67.pdf
 
