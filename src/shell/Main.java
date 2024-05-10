@@ -64,12 +64,24 @@ public class Main extends JComponent {
 			// djbouti_2-4 : we need to have the half knot checker in action during the
 			// djbouti_8-34:
 
-			// djbouti_8-26: I think what we actually need to do when
+			// djbouti_8-26: Need to write orphan lightning merge to find the actual correct
+			// distance
+			// need to write the following: build up a series of sub graphs from the bottom
+			// up:
+			// if you only have one external what is the one segment i could cut that would
+			// minimize the distance of the upper subgraph
+			// if you have two externals or a knot as the external, what are the two
+			// segments i could cut?
+			// once we have a maximal subgraph for every level start cutting
+			// if external is knot need 4 segments tow on each?
+
+
+
 			// matching and stop matching
 			// maybe false! We actually need to think about what happens in the half knot
 			// checker if we have both side passing, maybe we need to have stopped earlier?
 			// or make like Knot[2, Knot[1,0,3]
-			PointSetPath retTup = importFromFile(new File("./src/shell/wi29"));
+			PointSetPath retTup = importFromFile(new File("./src/shell/djbouti_8-26"));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
 			Shell orgShell = retTup.tsp;
@@ -85,7 +97,7 @@ public class Main extends JComponent {
 			boolean drawSubPaths = true;
 			boolean drawMainPath = true;
 			if (calculateKnot) {
-				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 5));
+				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 6));
 			}
 			if (drawSubPaths) {
 				for (int i = 0; i < result.size(); i++) {

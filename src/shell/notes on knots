@@ -426,3 +426,15 @@ if you look at the match list 8 is noot on there so we need o check all potentia
 matchList: [Segment[0 : 1], Segment[2 : 3], Segment[3 : 4], Segment[6 : 7], Segment[9 : 10], Segment[11 : 12], Segment[11 : 13], Segment[13 : 12], Segment[15 : 14], Segment[15 : 16], Segment[27 : 26], Segment[33 : 32], Segment[36 : 38], Segment[37 : 36], Segment[37 : 38]] exclude list: [33, 32]
 
 
+
+
+knotPoint1: 8 external1: 3
+knotPoint2: 5 external2: 10
+cutPointA: 4 cutPointB: 6
+smallestCommonKnotId: 53
+smallestKnotIdA: 39
+smallestKnotIdB: 53
+flatKnots: {50=Knot[25 23 24 26 ], 51=Knot[1 0 26 25 24 23 ], 36=Knot[23 24 25 ], 52=Knot[10 2 3 9 ], 37=Knot[9 2 3 ], 53=Knot[8 4 5 6 7 ], 39=Knot[4 8 5 ]}
+smallestCommonKnot: Knot[8 4 5 6 7 ]
+smallestKnotA: Knot[4 8 5 ] match1: 6 match1endpoint: 6 basepoint1: 5 match2: 7 match2endpoint: 7 basepoint2: 8
+smallestKnotB: Knot[8 4 5 6 7 ] match1: 3 match1endpoint: 3 basepoint1: 4 match2: 10 match2endpoint: 10 basepoint2: 8
