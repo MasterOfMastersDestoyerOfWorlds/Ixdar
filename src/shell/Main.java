@@ -75,13 +75,11 @@ public class Main extends JComponent {
 			// once we have a maximal subgraph for every level start cutting
 			// if external is knot need 4 segments tow on each?
 
-
-
 			// matching and stop matching
 			// maybe false! We actually need to think about what happens in the half knot
 			// checker if we have both side passing, maybe we need to have stopped earlier?
 			// or make like Knot[2, Knot[1,0,3]
-			PointSetPath retTup = importFromFile(new File("./src/shell/wi29_6-25p20p19"));
+			PointSetPath retTup = importFromFile(new File("./src/shell/djbouti_8-26"));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
 			Shell orgShell = retTup.tsp;
@@ -96,9 +94,15 @@ public class Main extends JComponent {
 			boolean calculateKnot = true;
 			boolean drawSubPaths = true;
 			boolean drawMainPath = true;
+			long startTimeKnotFinding = System.currentTimeMillis();
 			if (calculateKnot) {
 				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 6));
 			}
+			long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
+			double knotFindingSeconds = ((double)endTimeKnotFinding) / 1000.0;
+
+			
+			long startTimeKnotCutting = System.currentTimeMillis();
 			if (drawSubPaths) {
 				for (int i = 0; i < result.size(); i++) {
 					VirtualPoint vp = result.get(i);
@@ -126,7 +130,13 @@ public class Main extends JComponent {
 					}
 				}
 			}
+			
+			long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
+			double knotCuttingSeconds = ((double)endTimeKnotCutting) / 1000.0;
 			System.out.println(result);
+			System.out.println("Knot-finding time: " + knotFindingSeconds);
+			System.out.println("Knot-cutting time: " + knotCuttingSeconds);
+			System.out.println("Knot-cutting %: " + 100 * (knotCuttingSeconds/ (knotCuttingSeconds + knotFindingSeconds)));
 
 			// Shell conShell = maxShell.copyRecursive();
 
