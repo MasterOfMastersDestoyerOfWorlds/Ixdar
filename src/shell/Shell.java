@@ -2448,8 +2448,7 @@ public class Shell extends LinkedList<PointND> {
 		totalCalls++;
 		if (cutLookup.containsKey(knot.id, external2.id, kp1.id, cp1.id, superKnot.id)) {
 			resolved++;
-			return cutLookup.get(knot.id, external2.id, kp1.id < cp1.id ? kp1.id : cp1.id,
-					kp1.id < cp1.id ? cp1.id : kp1.id, superKnot.id).copy();
+			return cutLookup.get(knot.id, external2.id, kp1.id, cp1.id, superKnot.id).copy();
 		}
 
 		if (!(knot.contains(cutSegment1.first) && knot.contains(cutSegment1.last))) {
@@ -2565,14 +2564,14 @@ public class Shell extends LinkedList<PointND> {
 			System.out.println(knot.knotPointsFlattened.size());
 			System.out.println(matchSegment2Final);
 			result.addCut(cutSegmentFinal, matchSegment2Final, knot, knotPoint1Final, knotPoint2Final, superKnot);
-			cutLookup.put(knot.id, external2.id, kp1.id < cp1.id ? kp1.id : cp1.id, kp1.id < cp1.id ? cp1.id : kp1.id,
+			cutLookup.put(knot.id, external2.id, kp1.id, cp1.id,
 					superKnot.id, result);
 			return result;
 		} else if (overlapping == 2) {
 			CutMatchList result = new CutMatchList();
 			result.addTwoCut(cutSegmentFinal, cutSegment2Final, matchSegment2Final, knot, knotPoint1Final,
 					knotPoint2Final, internalCuts, superKnot);
-			cutLookup.put(knot.id, external2.id, kp1.id < cp1.id ? kp1.id : cp1.id, kp1.id < cp1.id ? cp1.id : kp1.id,
+			cutLookup.put(knot.id, external2.id, kp1.id, cp1.id,
 					superKnot.id, result);
 			return result;
 
