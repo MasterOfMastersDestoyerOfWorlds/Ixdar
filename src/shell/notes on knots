@@ -428,13 +428,53 @@ matchList: [Segment[0 : 1], Segment[2 : 3], Segment[3 : 4], Segment[6 : 7], Segm
 
 
 
-knotPoint1: 8 external1: 3
-knotPoint2: 5 external2: 10
+8
+knotPoint1: 4 external1: 1
+knotPoint2: 6 external2: 7
+cutPointA: 3 cutPointB: 5
+flatKnots: {18=Knot[7 0 1 8 ], 19=Knot[3 2 6 4 ], 20=Knot[4 3 2 6 5 ], 12=Knot[8 0 1 ], 14=Knot[2 6 3 ]}
+smallestCommonKnot: Knot[4 3 2 6 5 ]
+3
+smallestKnotA: Knot[2 6 3 ] match1: 4 match1endpoint: 4 basepoint1: 3 match2: 4 match2endpoint: 4 basepoint2: 6
+smallestKnotB: Knot[4 3 2 6 5 ] match1: 1 match1endpoint: 1 basepoint1: 2 match2: 7 match2endpoint: 7 basepoint2: 6
+smallestmatchKnotA: Knot[3 2 6 4 ] match1: 5 match1endpoint: 5 basepoint1: 4 match2: 5 match2endpoint: 5 basepoint2: 6
+smallestmatchKnotB: Knot[2 6 3 ] match1: 4 match1endpoint: 4 basepoint1: 3 match2: 4 match2endpoint: 4 basepoint2: 6
+matchKnot Knot[3 2 6 4 ] match1: 5 match1endpoint: 5 basepoint1: 4 match2: 5 match2endpoint: 5 basepoint2: 6
+
+
+
+
+knotPoint1: 3 external1: 1
+knotPoint2: 5 external2: 7
 cutPointA: 4 cutPointB: 6
-smallestCommonKnotId: 53
-smallestKnotIdA: 39
-smallestKnotIdB: 53
-flatKnots: {50=Knot[25 23 24 26 ], 51=Knot[1 0 26 25 24 23 ], 36=Knot[23 24 25 ], 52=Knot[10 2 3 9 ], 37=Knot[9 2 3 ], 53=Knot[8 4 5 6 7 ], 39=Knot[4 8 5 ]}
-smallestCommonKnot: Knot[8 4 5 6 7 ]
-smallestKnotA: Knot[4 8 5 ] match1: 6 match1endpoint: 6 basepoint1: 5 match2: 7 match2endpoint: 7 basepoint2: 8
-smallestKnotB: Knot[8 4 5 6 7 ] match1: 3 match1endpoint: 3 basepoint1: 4 match2: 10 match2endpoint: 10 basepoint2: 8
+flatKnots: {18=Knot[7 0 1 8 ], 19=Knot[3 2 6 4 ], 20=Knot[4 3 2 6 5 ], 12=Knot[8 0 1 ], 14=Knot[2 6 3 ]}
+smallestCommonKnot: Knot[3 2 6 4 ]
+4
+smallestKnotA: Knot[3 2 6 4 ] match1: 5 match1endpoint: 5 basepoint1: 4 match2: 5 match2endpoint: 5 basepoint2: 6
+smallestKnotB: Knot[2 6 3 ] match1: 4 match1endpoint: 4 basepoint1: 3 match2: 4 match2endpoint: 4 basepoint2: 6
+smallestmatchKnotA: Knot[2 6 3 ] match1: 4 match1endpoint: 4 basepoint1: 3 match2: 4 match2endpoint: 4 basepoint2: 6
+smallestmatchKnotB: Knot[4 3 2 6 5 ] match1: 1 match1endpoint: 1 basepoint1: 2 match2: 7 match2endpoint: 7 basepoint2: 6
+matchKnot Knot[4 3 2 6 5 ] match1: 1 match1endpoint: 1 basepoint1: 2 match2: 7 match2endpoint: 7 basepoint2: 6
+smk in larger structure
+
+
+
+
+Knot[3 2 9 10 8 7 6 5 4 ]
+[1, 0, 14, 13, 12, 11, Knot[3 2 9 10 8 7 6 5 4 ]]
+CML[
+cutSegments: [Segment[2:9], Segment[10:8], Segment[2:9]]
+matchSegments: [Segment[2:1], Segment[10:11], Segment[2:1], Segment[9:10]]
+knotList: [Knot[3 2 9 10 8 7 6 5 4 ], Knot[9 2 3 ]]
+]
+
+CML[
+[CM[
+cutSegments: [Segment[20:10]]
+matchSegments: [Segment[10:11], Segment[20:16]]
+knot: Knot[0 1 17 18 19 20 10 9 8 7 6 5 4 3 2 ]
+diff: null
+delta: 262.4963816310898
+]]
+]
+totalDelta: 262.4963816310898
