@@ -2004,9 +2004,9 @@ public class Shell extends LinkedList<PointND> {
 			cm.superKnot = superKnot;
 			if (knot.knotPointsFlattened.size() > 3) {
 				CutMatch diff = diffKnots(knot, superKnot, cm, cutSegment, kpSegment);
-			cm.diff = diff;
-			cm.cutSegments.addAll(diff.cutSegments);
-			cm.matchSegments.addAll(diff.matchSegments);
+				cm.diff = diff;
+				cm.cutSegments.addAll(diff.cutSegments);
+				cm.matchSegments.addAll(diff.matchSegments);
 			}
 			cm.updateDelta();
 			cm.checkValid();
@@ -2057,9 +2057,9 @@ public class Shell extends LinkedList<PointND> {
 			}
 			if (knot.knotPointsFlattened.size() > 3) {
 				CutMatch diff = diffKnots(knot, superKnot, cm, cutSegment, kpSegment);
-			cm.cutSegments.addAll(diff.cutSegments);
-			cm.matchSegments.addAll(diff.matchSegments);
-			cm.diff = diff;
+				cm.cutSegments.addAll(diff.cutSegments);
+				cm.matchSegments.addAll(diff.matchSegments);
+				cm.diff = diff;
 			}
 			this.updateDelta();
 			cm.checkValid();
@@ -2207,7 +2207,7 @@ public class Shell extends LinkedList<PointND> {
 
 			}
 			return copy;
-		} 
+		}
 
 		public boolean checkCutMatchBalance(Segment s1, Segment s2, Segment cutSegment1, Segment cutSegment2,
 				VirtualPoint external1, VirtualPoint external2) {
@@ -2322,7 +2322,8 @@ public class Shell extends LinkedList<PointND> {
 					delta = d1 < delta ? d1 : delta;
 					if (!internalCuts12.checkCutMatchBalance(s11, s12, cutSegment1, cutSegment2, external1,
 							external2)) {
-						//float z = 1 / 0;
+						System.out.println(knot);
+						float z = 1 / 0;
 					}
 
 					Segment s21 = knotPoint21.getClosestSegment(external1, null);
@@ -2341,7 +2342,7 @@ public class Shell extends LinkedList<PointND> {
 					delta = d3 < delta ? d3 : delta;
 					if (!internalCuts34.checkCutMatchBalance(s31, s32, cutSegment1, cutSegment2, external1,
 							external2)) {
-						//float z = 1 / 0;
+						float z = 1 / 0;
 					}
 					// System.out.println(
 					// "s31: " + s31 + " s32: " + s32 + " cut1: " + cutSegment1 + " cut2: " +
@@ -2531,7 +2532,7 @@ public class Shell extends LinkedList<PointND> {
 				if (!orphanFlag) {
 					internalCuts1 = calculateInternalPathLength(cp1, cp2, external1, external2, kp1, kp2, knot);
 					d1 = s12.distance + internalCuts1.delta - cutSegment2.distance;
-						delta = d1 < delta ? d1 : delta;
+					delta = d1 < delta ? d1 : delta;
 				}
 
 				boolean orphanFlag2 = wouldOrphan(cp1, kp1, kp2, cp2, knot.knotPointsFlattened);
@@ -2544,7 +2545,7 @@ public class Shell extends LinkedList<PointND> {
 				if (!orphanFlag2) {
 					internalCuts2 = calculateInternalPathLength(cp1, kp2, external1, external2, kp1, cp2, knot);
 					d2 = s22.distance + internalCuts2.delta - cutSegment2.distance;
-						delta = d2 < delta ? d2 : delta;
+					delta = d2 < delta ? d2 : delta;
 
 				}
 
@@ -2566,8 +2567,8 @@ public class Shell extends LinkedList<PointND> {
 
 					}
 
-						minDelta = delta;
-						overlapping = 2;
+					minDelta = delta;
+					overlapping = 2;
 				}
 
 			}
@@ -2672,7 +2673,6 @@ public class Shell extends LinkedList<PointND> {
 		int matchKnotId = smallestCommonKnotLookup[knotPoint1.id][knotPoint2.id];
 		Knot matchKnot = flatKnots.get(matchKnotId);
 
-
 		// if both orphans are on the top level, then we can simply match across
 		if (topKnot.equals(botKnot) || knot.knotPointsFlattened.size() <= 3) {
 			System.out.println("fully connected");
@@ -2700,7 +2700,10 @@ public class Shell extends LinkedList<PointND> {
 				VirtualPoint kp2 = knotPoint1;
 				VirtualPoint ex = external2;
 				VirtualPoint vp = botPoint;
+				
 				if (minKnot.equals(knot)) {
+					System.out.println(minKnot);
+					System.out.println("WE'RE IN THE ENDGAME NOW");
 					minKnot = flatKnots.get(smallestCommonKnotLookup[botPoint.id][knotPoint1.id]);
 					kp = knotPoint1;
 					kp2 = knotPoint2;
@@ -2729,7 +2732,15 @@ public class Shell extends LinkedList<PointND> {
 					}
 					ex = external1;
 					vp = cut.getOther(kp);
+				}else{
+					System.out.println("dammit bobby");
+					System.out.println(botKnot);
+					if(botKnot.)
+
 				}
+				System.out.println(cut);
+				System.out.println(kp);
+				System.out.println(vp);
 				reCut = findCutMatchListFixedCut(minKnot, ex, topPoint, cut, kp, vp, knot, kpSegment);
 			} else {
 				System.out.println("CutB");
