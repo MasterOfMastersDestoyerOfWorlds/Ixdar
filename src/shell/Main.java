@@ -79,7 +79,7 @@ public class Main extends JComponent {
 			// maybe false! We actually need to think about what happens in the half knot
 			// checker if we have both side passing, maybe we need to have stopped earlier?
 			// or make like Knot[2, Knot[1,0,3]
-			PointSetPath retTup = importFromFile(new File("./src/test/solutions/djbouti_8-32"));
+			PointSetPath retTup = importFromFile(new File("./src/test/solutions/wi29_6-25p20p19"));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
 			Shell orgShell = retTup.tsp;
@@ -96,7 +96,7 @@ public class Main extends JComponent {
 			boolean drawMainPath = true;
 			long startTimeKnotFinding = System.currentTimeMillis();
 			if (calculateKnot) {
-				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 5));
+				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 3));
 			}
 			long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
 			double knotFindingSeconds = ((double)endTimeKnotFinding) / 1000.0;
