@@ -2207,7 +2207,7 @@ public class Shell extends LinkedList<PointND> {
 
 			}
 			return copy;
-		}
+		} 
 
 		public boolean checkCutMatchBalance(Segment s1, Segment s2, Segment cutSegment1, Segment cutSegment2,
 				VirtualPoint external1, VirtualPoint external2) {
