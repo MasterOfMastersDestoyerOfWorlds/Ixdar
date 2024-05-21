@@ -65,6 +65,7 @@ public class Main extends JComponent {
 			// djbouti_8-34:
 
 			// djbouti_8-26: Need to write orphan lightning merge to find the actual correct
+
 			// distance
 			// need to write the following: build up a series of sub graphs from the bottom
 			// up:
@@ -79,7 +80,9 @@ public class Main extends JComponent {
 			// maybe false! We actually need to think about what happens in the half knot
 			// checker if we have both side passing, maybe we need to have stopped earlier?
 			// or make like Knot[2, Knot[1,0,3]
-			PointSetPath retTup = importFromFile(new File("./src/test/solutions/djbouti_8-34"));
+
+
+			PointSetPath retTup = importFromFile(new File("./src/test/solutions/djbouti_8-26"));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
 			Shell orgShell = retTup.tsp;
@@ -93,7 +96,7 @@ public class Main extends JComponent {
 			System.out.println(maxShell);
 			boolean calculateKnot = true;
 			boolean drawSubPaths = true;
-			boolean drawMainPath = true;
+			boolean drawMainPath = false;
 			long startTimeKnotFinding = System.currentTimeMillis();
 			if (calculateKnot) {
 				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 5));
