@@ -81,8 +81,8 @@ public class Main extends JComponent {
 			// checker if we have both side passing, maybe we need to have stopped earlier?
 			// or make like Knot[2, Knot[1,0,3]
 
-
-			PointSetPath retTup = importFromFile(new File("./src/test/solutions/djbouti_8-26"));
+			String fileName = "djbouti_8-26";
+			PointSetPath retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
 			Shell orgShell = retTup.tsp;
@@ -92,6 +92,8 @@ public class Main extends JComponent {
 
 			Shell maxShell = orgShell.copyShallow();
 
+			maxShell.knotName = fileName;
+
 			Collections.shuffle(maxShell);
 			System.out.println(maxShell);
 			boolean calculateKnot = true;
@@ -99,7 +101,7 @@ public class Main extends JComponent {
 			boolean drawMainPath = false;
 			long startTimeKnotFinding = System.currentTimeMillis();
 			if (calculateKnot) {
-				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 5));
+				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 6));
 			}
 			long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
 			double knotFindingSeconds = ((double)endTimeKnotFinding) / 1000.0;
