@@ -103,6 +103,7 @@ public class Main extends JComponent {
 			if (calculateKnot) {
 				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 6));
 			}
+			maxShell.buff.flush();
 			long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
 			double knotFindingSeconds = ((double)endTimeKnotFinding) / 1000.0;
 
