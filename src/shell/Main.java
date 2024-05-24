@@ -64,22 +64,37 @@ public class Main extends JComponent {
 			// djbouti_2-4 : we need to have the half knot checker in action during the
 			// djbouti_8-34:
 
-			// djbouti_8-26: Need to write orphan lightning merge to find the actual correct
 
-			// distance
-			// need to write the following: build up a series of sub graphs from the bottom
-			// up:
-			// if you only have one external what is the one segment i could cut that would
-			// minimize the distance of the upper subgraph
-			// if you have two externals or a knot as the external, what are the two
-			// segments i could cut?
-			// once we have a maximal subgraph for every level start cutting
-			// if external is knot need 4 segments tow on each?
 
-			// matching and stop matching
-			// maybe false! We actually need to think about what happens in the half knot
-			// checker if we have both side passing, maybe we need to have stopped earlier?
-			// or make like Knot[2, Knot[1,0,3]
+			//wi29_6-25p20_cut4-5and1-2:should have a one to one match between the internal neighbor segments and 
+			//nieghbor segments sometimes they will double count for example in the case of one 34 : 1 and 2 : 33 
+			//its like a pipe so both neighbor segments (1:2 and 34:33) in knot 0-37 would match to 
+			//internal neighbor segment 34:1 (this concept needs a new name) 
+			//in this specific case we are counting internal neighbor segment 5:3 correctly, but are not counting 
+			//this cut also brings about the question of should we be cutting 1:0? probably not but how do we tell?
+			// I think there are actually very few situations in which we want to re cut the knot more than one layer deep
+
+			//djbouti_8-26_cut9-8and17-1: this is much harder case...philosiphy: i think that the world of understanding is 
+			//shortcutted by this method:
+			// first make an assumption expressed as an if then statement : assumption in this case, if the minknot does not contain one 
+			//of the cutpoints, then that cutpoint is the neighbor.
+			//second find an example that disproves the assumption: i.e. the above cut
+			//third make a new assumption that is closer to the truth and if your are not sure if it will be closer, then
+			// fork so you do not lose progress
+			//repeat
+			//as a small aside, I started this project with the assumption that a convex hull in the plane 
+			//greedy matched with the internal points could solve tsp, this is obviously wrong in hindsight
+			//(and maybe even at the time), but I have found that the simpler you keep your assumptions the 
+			//better results you can get.why? I think it is because simple assumptions often work well enough to get you on your way
+			// and you can only advance1 one frontier of the problem one assumption at a time
+			//aside 2: people who stand by the phrase "assumptions make an ass out of me and you" are by definition stupid
+			// the real idea is that if you cannot update your assumptions then you have failed, but we should revel in 
+			// the assumptions we have made and discarded, they are the lifeblood of science
+			//so what is our new assumption? I think it is the following:
+			// if the top cutpoint is not in the minKnot amd the minknot from the cutpoint's prespective is not equal to the entire knot
+			// then we must recut two knots instead of one the first minknot we found and the cutpoint's minknot
+			// it is not clear what the neighbor should be
+
 
 			String fileName = "djbouti_8-26";
 			PointSetPath retTup = importFromFile(new File("./src/test/solutions/" + fileName));

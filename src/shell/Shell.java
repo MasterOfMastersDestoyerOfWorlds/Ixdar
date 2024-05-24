@@ -136,6 +136,13 @@ public class Shell extends LinkedList<PointND> {
 			}
 			return false;
 		}
+
+		public boolean intersects(Segment cutSegment2) {
+			if (cutSegment2.contains(first) || cutSegment2.contains(last)) {
+				return true;
+			}
+			return false;
+		}
 	}
 
 	abstract class VirtualPoint {
@@ -792,6 +799,14 @@ public class Shell extends LinkedList<PointND> {
 			}
 			assert (false);
 			return null;
+		}
+
+		VirtualPoint getPrev(int idx) {
+			return knotPoints.get(idx - 1 < 0 ? knotPoints.size() - 1 : idx - 1);
+		}
+
+		VirtualPoint getNext(int idx) {
+			return knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
 		}
 
 		@Override
@@ -2187,6 +2202,11 @@ public class Shell extends LinkedList<PointND> {
 				}
 			}
 			buff.add("sissy: " + innerNeighborSegments);
+			ArrayList<VirtualPoint> innerNeighborSegmentsFlattened = new ArrayList<>();
+			for (Segment s : innerNeighborSegments) {
+				innerNeighborSegmentsFlattened.add(s.first);
+				innerNeighborSegmentsFlattened.add(s.last);
+			}
 
 			if (subKnot.equals(superKnot)) {
 				return new CutMatch();
@@ -2209,7 +2229,9 @@ public class Shell extends LinkedList<PointND> {
 				superKnotSegments.add(s);
 				if (!subKnotSegments.contains(s) && !cm.matchSegments.contains(s) && subKnot.contains(knotPoint11)
 						&& subKnot.contains(knotPoint12) && !s.equals(kpSegment)
-						&& !innerNeighborSegments.contains(s)) {
+						&& !innerNeighborSegments.contains(s)
+						&& !(innerNeighborSegmentsFlattened.contains(knotPoint12)
+								&& innerNeighborSegmentsFlattened.contains(knotPoint11))) {
 
 					diffList2.add(s);
 				}
@@ -2530,7 +2552,7 @@ public class Shell extends LinkedList<PointND> {
 								/ (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
 						buff.add(knotName + "_cut" + knotPoint12 + "-" + knotPoint11 + "and" + knotPoint22
 								+ "-" + knotPoint21);
-						buff.printAll();
+						buff.printLayer(0);
 						float z = 1 / 0;
 					} else {
 						buff.flush();
@@ -3095,24 +3117,165 @@ public class Shell extends LinkedList<PointND> {
 
 		VirtualPoint n1 = null;
 		VirtualPoint n2 = null;
-		Knot c = minKnot; // matchKnotA.equals(knot) ? minKnot : matchKnotA;
 		ArrayList<Segment> neighborSegments = new ArrayList<Segment>();
 		ArrayList<VirtualPoint> potentialNeighbors = new ArrayList<VirtualPoint>();
 		ArrayList<VirtualPoint> innerPotentialNeighbors = new ArrayList<VirtualPoint>();
-		for (int j = 0; j < knot.knotPointsFlattened.size(); j++) {
-			VirtualPoint k1 = knot.knotPoints.get(j);
-			VirtualPoint k2 = knot.knotPoints.get(j + 1 >= knot.knotPoints.size() ? 0 : j + 1);
-			if (minKnot.contains(k1) && !c.contains(k2)) {
-				neighborSegments.add(knot.getSegment(k1, k2));
+		MultiKeyMap<Integer, Segment> neighborSegmentLookup = new MultiKeyMap<>();
+		HashMap<Integer, Segment> singleNeighborSegmentLookup = new HashMap<>();
+		int startIdx = knot.knotPoints.indexOf(minKnot.knotPoints.get(0));
+		int endIdx = startIdx - 1 < 0 ? knot.knotPoints.size() - 1 : startIdx - 1;
+		VirtualPoint firstInnerNeighbor = null;
+		Segment firstInnerNeighborSegment = null;
+		ArrayList<Segment> innerNeighborSegments2 = new ArrayList<>();
+		int k = startIdx;
+		while (true) {
+			VirtualPoint k1 = knot.knotPoints.get(k);
+			VirtualPoint k2 = knot.getNext(k);
+			if (minKnot.contains(k1) && !minKnot.contains(k2)) {
+				Segment neighborSegment = knot.getSegment(k1, k2);
+				neighborSegments.add(neighborSegment);
 				potentialNeighbors.add(k2);
 				innerPotentialNeighbors.add(k1);
+				firstInnerNeighbor = k1;
+				firstInnerNeighborSegment = neighborSegment;
 			}
-			if (minKnot.contains(k2) && !c.contains(k1)) {
-				neighborSegments.add(knot.getSegment(k1, k2));
+			if (minKnot.contains(k2) && !minKnot.contains(k1)) {
+				Segment neighborSegment = knot.getSegment(k1, k2);
+				neighborSegments.add(neighborSegment);
+				if (minKnot.hasSegment(knot.getSegment(firstInnerNeighbor, k2))) {
+					int first = firstInnerNeighbor.id < k2.id ? firstInnerNeighbor.id : k2.id;
+					int last = firstInnerNeighbor.id < k2.id ? k2.id : firstInnerNeighbor.id;
+					neighborSegmentLookup.put(first, last, neighborSegment);
+				} else {
+					singleNeighborSegmentLookup.put(k2.id, neighborSegment);
+					singleNeighborSegmentLookup.put(firstInnerNeighbor.id, firstInnerNeighborSegment);
+				}
 				potentialNeighbors.add(k1);
 				innerPotentialNeighbors.add(k2);
+				innerNeighborSegments2.add(minKnot.getSegment(firstInnerNeighbor, k2));
+			}
+			if (k == endIdx) {
+				break;
+			}
+			k = k + 1 >= knot.knotPoints.size() ? 0 : k + 1;
+		}
+		buff.add("the splooge list : " + neighborSegmentLookup);
+		buff.add("the dreges list : " + singleNeighborSegmentLookup);
+		// need to find internal segments here
+		ArrayList<Segment> innerNeighborSegments = new ArrayList<>();
+		for (int j = 0; j < minKnot.knotPointsFlattened.size(); j++) {
+			VirtualPoint k3 = minKnot.knotPoints.get(j - 1 < 0 ? minKnot.knotPoints.size() - 1 : j - 1);
+			VirtualPoint k1 = minKnot.knotPoints.get(j);
+			VirtualPoint k2 = minKnot.knotPoints.get(j + 1 >= minKnot.knotPoints.size() ? 0 : j + 1);
+			Segment candidate = knot.getSegment(k1, k2);
+			if (!knot.hasSegment(candidate) && !(candidate.contains(botPoint) && candidate.contains(topPoint))) {
+				boolean intersect = false;
+				for (Segment s : neighborSegments) {
+					if (s.intersects(candidate)) {
+						intersect = true;
+					}
+				}
+
+				buff.add("Checking Segment: " + candidate);
+				int idx = knot.knotPoints.indexOf(k1);
+				int idx2 = knot.knotPoints.indexOf(k2);
+				VirtualPoint endPoint = k2;
+				VirtualPoint nextPoint = knot.getNext(idx);
+				VirtualPoint prevPoint = knot.getPrev(idx);
+				VirtualPoint edgePoint = k1;
+				if (minKnot.contains(prevPoint) && minKnot.contains(nextPoint)) {
+					buff.add("Switching edge point");
+					int tmp = idx;
+					idx = idx2;
+					idx2 = tmp;
+					endPoint = k1;
+					edgePoint = k2;
+				}
+
+				buff.add("edge point: " + edgePoint);
+				int first = endPoint.id < edgePoint.id ? endPoint.id : edgePoint.id;
+				int last = endPoint.id < edgePoint.id ? edgePoint.id : endPoint.id;
+				if (neighborSegmentLookup.containsKey(first, last)) {
+					Segment neighborSegment = neighborSegmentLookup.get(first, last);
+					buff.add("segment leading out" + neighborSegment);
+					if (neighborSegment.contains(endPoint)) {
+						VirtualPoint tmp = endPoint;
+						endPoint = edgePoint;
+						edgePoint = tmp;
+					}
+					VirtualPoint neighborPoint = neighborSegment.getOther(edgePoint);
+					idx = knot.knotPoints.indexOf(edgePoint);
+					idx2 = knot.knotPoints.indexOf(neighborPoint);
+				}else{					
+					Segment neighborSegment = null;
+					if( singleNeighborSegmentLookup.containsKey(edgePoint.id)){
+						neighborSegment = singleNeighborSegmentLookup.get(edgePoint.id);
+					}else if (singleNeighborSegmentLookup.containsKey(endPoint.id)){
+						neighborSegment = singleNeighborSegmentLookup.get(endPoint.id);
+					}
+					buff.add("segment leading out" + neighborSegment);
+					if (neighborSegment.contains(endPoint)) {
+						VirtualPoint tmp = endPoint;
+						endPoint = edgePoint;
+						edgePoint = tmp;
+					}
+					VirtualPoint neighborPoint = neighborSegment.getOther(edgePoint);
+					idx = knot.knotPoints.indexOf(edgePoint);
+					idx2 = knot.knotPoints.indexOf(neighborPoint);
+
+				}
+
+				int marchDirection = idx2 - idx < 0 ? -1 : 1;
+				if (idx == 0 && idx2 == knot.knotPoints.size() - 1) {
+					marchDirection = -1;
+				}
+				if (idx2 == 0 && idx == knot.knotPoints.size() - 1) {
+					marchDirection = 1;
+				}
+				int next = idx + marchDirection;
+				if (marchDirection < 0 && next < 0) {
+					next = knot.knotPoints.size() - 1;
+				} else if (marchDirection > 0 && next >= knot.knotPoints.size()) {
+					next = 0;
+				}
+
+				buff.add(idx);
+				buff.add(next);
+				buff.add(marchDirection);
+				buff.add("next: " + knot.knotPoints.get(next));
+				if (minKnot.contains(knot.knotPoints.get(next))) {
+					marchDirection = -marchDirection;
+				}
+
+				buff.add(knot);
+				buff.add(idx);
+				buff.add(idx2);
+				buff.add(marchDirection);
+				VirtualPoint curr = knot.knotPoints.get(idx);
+				while (!curr.equals(endPoint)) {
+					curr = knot.knotPoints.get(idx);
+					next = idx + marchDirection;
+					if (marchDirection < 0 && next < 0) {
+						next = knot.knotPoints.size() - 1;
+					} else if (marchDirection > 0 && next >= knot.knotPoints.size()) {
+						next = 0;
+					}
+					VirtualPoint nextp = knot.knotPoints.get(next);
+					buff.add(curr + " " + nextp);
+					if (curr.equals(kp2) || (!minKnot.hasSegment(cut) && curr.equals(innerNeighborSegments))) {
+						intersect = false;
+					}
+					if (minKnot.contains(nextp)) {
+						break;
+					}
+					idx = next;
+				}
+				if (intersect) {
+					innerNeighborSegments.add(candidate);
+				}
 			}
 		}
+		buff.add("*************" + innerNeighborSegments);
 		neighborSegments.remove(upperCutSegment);
 		potentialNeighbors.remove(kp2);
 		innerPotentialNeighbors.remove(upperCutSegment.getOther(kp2));
@@ -3120,19 +3283,23 @@ public class Shell extends LinkedList<PointND> {
 			neighborSegments.remove(cut);
 			innerPotentialNeighbors.remove(kp);
 		}
+
 		// && !((k1.equals(topPoint) && k2.equals(topKnotPoint))
-		// || (k1.equals(botPoint) && k2.equals(botKnotPoint)))
-		ArrayList<Segment> innerNeighborSegments = new ArrayList<>();
-		for (int j = 0; j < minKnot.knotPointsFlattened.size(); j++) {
-			VirtualPoint k1 = minKnot.knotPoints.get(j);
-			VirtualPoint k2 = minKnot.knotPoints.get(j + 1 >= minKnot.knotPoints.size() ? 0 : j + 1);
-			if (innerPotentialNeighbors.contains(k1) && innerPotentialNeighbors.contains(k2)) {
-				Segment candidate = knot.getSegment(k1, k2);
-				if (!knot.hasSegment(candidate) && !(candidate.contains(botPoint) && candidate.contains(topPoint))) {
-					innerNeighborSegments.add(candidate);
-				}
-			}
-		}
+		// // || (k1.equals(botPoint) && k2.equals(botKnotPoint)))
+		// ArrayList<Segment> innerNeighborSegments = new ArrayList<>();
+		// for (int j = 0; j < minKnot.knotPointsFlattened.size(); j++) {
+		// VirtualPoint k1 = minKnot.knotPoints.get(j);
+		// VirtualPoint k2 = minKnot.knotPoints.get(j + 1 >= minKnot.knotPoints.size() ?
+		// 0 : j + 1);
+		// if (innerPotentialNeighbors.contains(k1) &&
+		// innerPotentialNeighbors.contains(k2)) {
+		// Segment candidate = knot.getSegment(k1, k2);
+		// if (!knot.hasSegment(candidate) && !(candidate.contains(botPoint) &&
+		// candidate.contains(topPoint))) {
+		// innerNeighborSegments.add(candidate);
+		// }
+		// }
+		// }
 
 		/*
 		 * neighbor should satisfy the following conditions:
@@ -3176,8 +3343,8 @@ public class Shell extends LinkedList<PointND> {
 			buff.add(idx);
 			buff.add(idx2);
 			buff.add(marchDirection);
+			int totalIter = 0;
 			while (neighbor == null) {
-
 				VirtualPoint k1 = knot.knotPoints.get(idx);
 				int next = idx + marchDirection;
 				if (marchDirection < 0 && next < 0) {
@@ -3191,6 +3358,13 @@ public class Shell extends LinkedList<PointND> {
 					neighbor = k2;
 				}
 				idx = next;
+				totalIter++;
+				if (totalIter > knot.knotPoints.size()) {
+					buff.add(potentialNeighbors);
+					buff.printLayer(0);
+					float z = 1 / 0;
+
+				}
 			}
 		}
 
@@ -3268,16 +3442,12 @@ public class Shell extends LinkedList<PointND> {
 			buff.add("neighbor : " + neighbor);
 
 			buff.add("LEFTCUT : " + minKnot + " " + " " + ex + " " + " " + neighbor + " " + " " + leftCut
-					+ " " + " " + kp
-					+ " " + " " + leftPoint + " " + " " + knot + " " + " " + kpSegment + " " + innerNeighborSegments
-					+ " "
-					+ neighborSegments + " " + upperCutSegment + " " + neighborCut);
+					+ " " + " " + kp + " " + " " + leftPoint + " " + " " + knot + " " + " " + kpSegment + " "
+					+ innerNeighborSegments + " " + neighborSegments + " " + upperCutSegment + " " + neighborCut);
 
 			buff.add("RightCUT : " + minKnot + " " + " " + ex + " " + " " + neighbor + " " + " " + rightCut
-					+ " " + " " + kp
-					+ " " + " " + rightPoint + " " + " " + knot + " " + " " + kpSegment + " " + innerNeighborSegments
-					+ " "
-					+ neighborSegments + " " + upperCutSegment + " " + neighborCut);
+					+ " " + " " + kp + " " + " " + rightPoint + " " + " " + knot + " " + " " + kpSegment + " "
+					+ innerNeighborSegments + " " + neighborSegments + " " + upperCutSegment + " " + neighborCut);
 		} else {
 
 			reCut = findCutMatchListFixedCut(minKnot, ex, neighbor, cut, kp, vp, knot, kpSegment,
