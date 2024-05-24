@@ -96,7 +96,7 @@ public class Main extends JComponent {
 			// it is not clear what the neighbor should be
 
 
-			String fileName = "djbouti_8-26";
+			String fileName = "wi29_6-25p20";
 			PointSetPath retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 

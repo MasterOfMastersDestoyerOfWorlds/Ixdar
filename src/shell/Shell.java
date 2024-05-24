@@ -2717,6 +2717,12 @@ public class Shell extends LinkedList<PointND> {
 		if ((knot.contains(external1) || knot.contains(external2))) {
 			float z = 1 / 0;
 		}
+
+		ArrayList<VirtualPoint> innerNeighborSegmentsFlattened = new ArrayList<>();
+		for (Segment s : innerNeighborSegments) {
+			innerNeighborSegmentsFlattened.add(s.first);
+			innerNeighborSegmentsFlattened.add(s.last);
+		}
 		double minDelta = Double.MAX_VALUE;
 		int overlapping = -1;
 		Segment matchSegment2Final = null;
@@ -2784,9 +2790,13 @@ public class Shell extends LinkedList<PointND> {
 						cutPointsAcross = true;
 					}
 				}
+				boolean neighborIntersect = false;
+				if(innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(kp2)){
+					neighborIntersect = true;
+				}
 				buff.add("b: " + cp1 + " " + cp2 + " " + cutPointsAcross);
 				boolean hasSegment = replicatesNeighbor
-						|| (innerNeighbor && outerNeighbor) || s12.equals(upperCutSegment);
+						|| (innerNeighbor && outerNeighbor) || neighborIntersect || s12.equals(upperCutSegment);
 
 				if (hasSegment) {
 					buff.add("REEE" + " s12: " + s12 + " kp2 :" + kp2 + " kpSegment " + kpSegment);
@@ -2834,9 +2844,13 @@ public class Shell extends LinkedList<PointND> {
 						cutPointsAcross2 = true;
 					}
 				}
+				boolean neighborIntersect2 = false;
+				if(innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(kp2)){
+					neighborIntersect2 = true;
+				}
 				buff.add("a: " + cp1 + " " + kp2 + " " + cutPointsAcross2);
 				boolean hasSegment2 = replicatesNeighbor2
-						|| (innerNeighbor2 && outerNeighbor2) || s22.equals(upperCutSegment);
+						|| (innerNeighbor2 && outerNeighbor2) || neighborIntersect2 || s22.equals(upperCutSegment);
 				// false;//
 				// superKnot.hasSegment(s22)
 				// ||
@@ -3168,7 +3182,7 @@ public class Shell extends LinkedList<PointND> {
 			VirtualPoint k1 = minKnot.knotPoints.get(j);
 			VirtualPoint k2 = minKnot.knotPoints.get(j + 1 >= minKnot.knotPoints.size() ? 0 : j + 1);
 			Segment candidate = knot.getSegment(k1, k2);
-			if (!knot.hasSegment(candidate) && !(candidate.contains(botPoint) && candidate.contains(topPoint))) {
+			if (!knot.hasSegment(candidate)) {
 				boolean intersect = false;
 				for (Segment s : neighborSegments) {
 					if (s.intersects(candidate)) {
@@ -3206,11 +3220,11 @@ public class Shell extends LinkedList<PointND> {
 					VirtualPoint neighborPoint = neighborSegment.getOther(edgePoint);
 					idx = knot.knotPoints.indexOf(edgePoint);
 					idx2 = knot.knotPoints.indexOf(neighborPoint);
-				}else{					
+				} else {
 					Segment neighborSegment = null;
-					if( singleNeighborSegmentLookup.containsKey(edgePoint.id)){
+					if (singleNeighborSegmentLookup.containsKey(edgePoint.id)) {
 						neighborSegment = singleNeighborSegmentLookup.get(edgePoint.id);
-					}else if (singleNeighborSegmentLookup.containsKey(endPoint.id)){
+					} else if (singleNeighborSegmentLookup.containsKey(endPoint.id)) {
 						neighborSegment = singleNeighborSegmentLookup.get(endPoint.id);
 					}
 					buff.add("segment leading out" + neighborSegment);
@@ -3283,23 +3297,6 @@ public class Shell extends LinkedList<PointND> {
 			neighborSegments.remove(cut);
 			innerPotentialNeighbors.remove(kp);
 		}
-
-		// && !((k1.equals(topPoint) && k2.equals(topKnotPoint))
-		// // || (k1.equals(botPoint) && k2.equals(botKnotPoint)))
-		// ArrayList<Segment> innerNeighborSegments = new ArrayList<>();
-		// for (int j = 0; j < minKnot.knotPointsFlattened.size(); j++) {
-		// VirtualPoint k1 = minKnot.knotPoints.get(j);
-		// VirtualPoint k2 = minKnot.knotPoints.get(j + 1 >= minKnot.knotPoints.size() ?
-		// 0 : j + 1);
-		// if (innerPotentialNeighbors.contains(k1) &&
-		// innerPotentialNeighbors.contains(k2)) {
-		// Segment candidate = knot.getSegment(k1, k2);
-		// if (!knot.hasSegment(candidate) && !(candidate.contains(botPoint) &&
-		// candidate.contains(topPoint))) {
-		// innerNeighborSegments.add(candidate);
-		// }
-		// }
-		// }
 
 		/*
 		 * neighbor should satisfy the following conditions:
