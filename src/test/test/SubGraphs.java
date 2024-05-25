@@ -5,6 +5,7 @@ import shell.Main;
 import shell.PointND;
 import shell.PointSet;
 import shell.PointSetPath;
+import shell.SegmentBalanceException;
 import shell.Shell;
 import java.io.File;
 import java.util.ArrayList;
@@ -122,38 +123,42 @@ public class SubGraphs {
 	public void test_wi29_5_25() {
 		testMethod("wi29_5-25");
 	}
-		@Test
+
+	@Test
 	public void test_wi29_5_25x3() {
 		testMethod("wi29_5-25x3");
 	}
 
-		@Test
+	@Test
 	public void test_wi29_6_25() {
 		testMethod("wi29_6-25");
 	}
 
-		@Test
+	@Test
 	public void test_wi29_6_25p20() {
 		testMethod("wi29_6-25p20");
 	}
-		@Test
+
+	@Test
 	public void test_wi29_6_25p20p19() {
 		testMethod("wi29_6-25p20p19");
 	}
-		@Test
+
+	@Test
 	public void test_wi29_6_28() {
 		testMethod("wi29_6-28");
 	}
-	
-		@Test
+
+	@Test
 	public void test_wi29_9_25() {
 		testMethod("wi29_9-25");
 	}
 
-		@Test
+	@Test
 	public void test_wi29_9_25p20() {
 		testMethod("wi29_9-25p20");
 	}
+
 	public void testMethod(String fileName) {
 		PointSetPath retTup = Main.importFromFile(new File("./src/test/solutions/" + fileName));
 		PointSet ps = new PointSet();
@@ -177,7 +182,15 @@ public class SubGraphs {
 		Shell nothing = new Shell();
 
 		DistanceMatrix d = new DistanceMatrix(ps);
-		Shell result = AB.tspSolve(AB, d);
+		Shell result = null;
+
+		try {
+			result = AB.tspSolve(AB, d);
+
+		} catch (SegmentBalanceException sbe) {
+			boolean flag = false;
+			assert (flag) : "Unbalanced CutMatchList: \n" + sbe.cutMatchList + "\n in Knot: " + sbe.topKnot;
+		}
 
 		System.out.println("result " + result + " " + result.getLength());
 		System.out.println("ans " + answer + " " + answer.getLength());

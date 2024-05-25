@@ -1,5 +1,7 @@
 package shell;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.geom.GeneralPath;
@@ -18,6 +20,8 @@ import java.util.Set;
 
 import javax.swing.JComponent;
 
+import org.apache.commons.math3.geometry.euclidean.threed.Rotation;
+import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.util.Pair;
 
 /**
@@ -1636,7 +1640,7 @@ public class Shell extends LinkedList<PointND> {
 	int sameKnotPointCount = 0;
 
 	@SuppressWarnings("unused")
-	public Shell tspSolve(Shell A, DistanceMatrix distanceMatrix) {
+	public Shell tspSolve(Shell A, DistanceMatrix distanceMatrix) throws SegmentBalanceException {
 		this.distanceMatrix = distanceMatrix;
 		Shell result = new Shell();
 		visited = new ArrayList<VirtualPoint>();
@@ -1733,7 +1737,7 @@ public class Shell extends LinkedList<PointND> {
 		return unvisited;
 	}
 
-	public Shell cutKnot(Knot mainKnot) {
+	public Shell cutKnot(Knot mainKnot) throws SegmentBalanceException {
 		// seems like there are three cases: combining two knots, (need to remove two
 		// segments and add two with the lowest cost increase)
 		// pulling apart two knot that has two endpoints and want to cut different
@@ -1765,7 +1769,7 @@ public class Shell extends LinkedList<PointND> {
 	public HashMap<Integer, Knot> flatKnots = new HashMap<>();
 	int cutKnotNum = 0;
 
-	public ArrayList<VirtualPoint> cutKnot(ArrayList<VirtualPoint> knotList) {
+	public ArrayList<VirtualPoint> cutKnot(ArrayList<VirtualPoint> knotList) throws SegmentBalanceException {
 		knotList = new ArrayList<>(knotList);
 		// move on to the cutting phase
 		VirtualPoint prevPoint = knotList.get(knotList.size() - 1);
@@ -1892,9 +1896,9 @@ public class Shell extends LinkedList<PointND> {
 	}
 
 	class CutMatch {
-		private ArrayList<Segment> cutSegments;
-		private ArrayList<Segment> matchSegments;
-		private Knot knot;
+		public ArrayList<Segment> cutSegments;
+		public ArrayList<Segment> matchSegments;
+		public Knot knot;
 		VirtualPoint kp1;
 		VirtualPoint kp2;
 		CutMatch diff;
@@ -2446,7 +2450,7 @@ public class Shell extends LinkedList<PointND> {
 	}
 
 	private CutMatchList findCutMatchList(Knot knot, VirtualPoint external1, VirtualPoint external2, Knot superKnot,
-			Segment kpSegment) {
+			Segment kpSegment) throws SegmentBalanceException {
 		double minDelta = Double.MAX_VALUE;
 		boolean overlapping = true;
 		Segment matchSegment1Final = null;
@@ -2522,7 +2526,9 @@ public class Shell extends LinkedList<PointND> {
 						buff.add(knotName + "_cut" + knotPoint11 + "-" + knotPoint12 + "and" + knotPoint21
 								+ "-" + knotPoint22);
 						buff.printLayer(0);
-						float z = 1 / 0;
+						throw new SegmentBalanceException(internalCuts12, knot,
+								knot.getSegment(knotPoint12, knotPoint11), s11,
+								knot.getSegment(knotPoint21, knotPoint22), s12);
 					} else {
 						buff.flush();
 					}
@@ -2553,7 +2559,9 @@ public class Shell extends LinkedList<PointND> {
 						buff.add(knotName + "_cut" + knotPoint12 + "-" + knotPoint11 + "and" + knotPoint22
 								+ "-" + knotPoint21);
 						buff.printLayer(0);
-						float z = 1 / 0;
+						throw new SegmentBalanceException(internalCuts34, knot,
+								knot.getSegment(knotPoint12, knotPoint11), s31,
+								knot.getSegment(knotPoint21, knotPoint22), s32);
 					} else {
 						buff.flush();
 					}
@@ -2791,7 +2799,7 @@ public class Shell extends LinkedList<PointND> {
 					}
 				}
 				boolean neighborIntersect = false;
-				if(innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(kp2)){
+				if (innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(kp2)) {
 					neighborIntersect = true;
 				}
 				buff.add("b: " + cp1 + " " + cp2 + " " + cutPointsAcross);
@@ -2845,7 +2853,7 @@ public class Shell extends LinkedList<PointND> {
 					}
 				}
 				boolean neighborIntersect2 = false;
-				if(innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(kp2)){
+				if (innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(kp2)) {
 					neighborIntersect2 = true;
 				}
 				buff.add("a: " + cp1 + " " + kp2 + " " + cutPointsAcross2);
@@ -3524,7 +3532,7 @@ public class Shell extends LinkedList<PointND> {
 	}
 
 	public Knot flattenKnots(Knot knot, VirtualPoint external1, VirtualPoint external2,
-			ArrayList<VirtualPoint> knotList) {
+			ArrayList<VirtualPoint> knotList) throws SegmentBalanceException {
 
 		ArrayList<VirtualPoint> flattenKnots = cutKnot(knot.knotPoints);
 		Knot knotNew = new Knot(flattenKnots);
@@ -3711,7 +3719,8 @@ public class Shell extends LinkedList<PointND> {
 		return knotNew;
 	}
 
-	public Shell solveBetweenEndpoints(PointND first, PointND last, Shell A, DistanceMatrix d) {
+	public Shell solveBetweenEndpoints(PointND first, PointND last, Shell A, DistanceMatrix d)
+			throws SegmentBalanceException {
 		PointSet ps = new PointSet();
 
 		assert (!first.equals(last));
@@ -3805,16 +3814,19 @@ public class Shell extends LinkedList<PointND> {
 	 * @param c            the color to draw the shell (set to null to get a random
 	 *                     color)
 	 */
-	public void drawShell(JComponent frame, Graphics2D g2, boolean drawChildren, Color c, PointSet ps) {
+	public void drawShell(JComponent frame, Graphics2D g2, boolean drawChildren, int lineThickness, Color c,
+			PointSet ps) {
 		if (c == null) {
 			Random colorSeed = new Random();
-			Main.drawPath(frame, g2, toPath(this),
+			Main.drawPath(frame, g2, toPath(this), lineThickness,
 					new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps,
-					true, false, false);
+					true, false, false, false);
 		} else {
-			Main.drawPath(frame, g2, toPath(this), c, this.toPointSet(), true, false, false);
+			Main.drawPath(frame, g2, toPath(this), lineThickness, c, ps, true, false, false, false);
 		}
 	}
+
+
 
 	/**
 	 * Gets the distance from a point to its neighboring points in the shell
@@ -4151,5 +4163,6 @@ public class Shell extends LinkedList<PointND> {
 		}
 		return false;
 	}
+
 
 }

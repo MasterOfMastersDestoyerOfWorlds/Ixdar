@@ -30,6 +30,8 @@ import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
+import shell.Shell.CutMatch;
+import shell.Shell.Point;
 import shell.Shell.VirtualPoint;
 
 /**
@@ -41,6 +43,7 @@ public class Main extends JComponent {
 	private static final boolean SCALE = false;
 	private static final int WIDTH = 1000, HEIGHT = WIDTH;
 	public static ArrayList<VirtualPoint> result;
+	int minLineThickness = 1;
 
 	/**
 	 * Creates a visual depiction of the shells/tsp path of the point set
@@ -64,39 +67,54 @@ public class Main extends JComponent {
 			// djbouti_2-4 : we need to have the half knot checker in action during the
 			// djbouti_8-34:
 
+			// wi29_6-25p20_cut4-5and1-2:should have a one to one match between the internal
+			// neighbor segments and
+			// nieghbor segments sometimes they will double count for example in the case of
+			// one 34 : 1 and 2 : 33
+			// its like a pipe so both neighbor segments (1:2 and 34:33) in knot 0-37 would
+			// match to
+			// internal neighbor segment 34:1 (this concept needs a new name)
+			// in this specific case we are counting internal neighbor segment 5:3
+			// correctly, but are not counting
+			// this cut also brings about the question of should we be cutting 1:0? probably
+			// not but how do we tell?
+			// I think there are actually very few situations in which we want to re cut the
+			// knot more than one layer deep
 
-
-			//wi29_6-25p20_cut4-5and1-2:should have a one to one match between the internal neighbor segments and 
-			//nieghbor segments sometimes they will double count for example in the case of one 34 : 1 and 2 : 33 
-			//its like a pipe so both neighbor segments (1:2 and 34:33) in knot 0-37 would match to 
-			//internal neighbor segment 34:1 (this concept needs a new name) 
-			//in this specific case we are counting internal neighbor segment 5:3 correctly, but are not counting 
-			//this cut also brings about the question of should we be cutting 1:0? probably not but how do we tell?
-			// I think there are actually very few situations in which we want to re cut the knot more than one layer deep
-
-			//djbouti_8-26_cut9-8and17-1: this is much harder case...philosiphy: i think that the world of understanding is 
-			//shortcutted by this method:
-			// first make an assumption expressed as an if then statement : assumption in this case, if the minknot does not contain one 
-			//of the cutpoints, then that cutpoint is the neighbor.
-			//second find an example that disproves the assumption: i.e. the above cut
-			//third make a new assumption that is closer to the truth and if your are not sure if it will be closer, then
+			// djbouti_8-26_cut9-8and17-1: this is much harder case...philosiphy: i think
+			// that the world of understanding is
+			// shortcutted by this method:
+			// first make an assumption expressed as an if then statement : assumption in
+			// this case, if the minknot does not contain one
+			// of the cutpoints, then that cutpoint is the neighbor.
+			// second find an example that disproves the assumption: i.e. the above cut
+			// third make a new assumption that is closer to the truth and if your are not
+			// sure if it will be closer, then
 			// fork so you do not lose progress
-			//repeat
-			//as a small aside, I started this project with the assumption that a convex hull in the plane 
-			//greedy matched with the internal points could solve tsp, this is obviously wrong in hindsight
-			//(and maybe even at the time), but I have found that the simpler you keep your assumptions the 
-			//better results you can get.why? I think it is because simple assumptions often work well enough to get you on your way
-			// and you can only advance1 one frontier of the problem one assumption at a time
-			//aside 2: people who stand by the phrase "assumptions make an ass out of me and you" are by definition stupid
-			// the real idea is that if you cannot update your assumptions then you have failed, but we should revel in 
+			// repeat
+			// as a small aside, I started this project with the assumption that a convex
+			// hull in the plane
+			// greedy matched with the internal points could solve tsp, this is obviously
+			// wrong in hindsight
+			// (and maybe even at the time), but I have found that the simpler you keep your
+			// assumptions the
+			// better results you can get.why? I think it is because simple assumptions
+			// often work well enough to get you on your way
+			// and you can only advance1 one frontier of the problem one assumption at a
+			// time
+			// aside 2: people who stand by the phrase "assumptions make an ass out of me
+			// and you" are by definition stupid
+			// the real idea is that if you cannot update your assumptions then you have
+			// failed, but we should revel in
 			// the assumptions we have made and discarded, they are the lifeblood of science
-			//so what is our new assumption? I think it is the following:
-			// if the top cutpoint is not in the minKnot amd the minknot from the cutpoint's prespective is not equal to the entire knot
-			// then we must recut two knots instead of one the first minknot we found and the cutpoint's minknot
+			// so what is our new assumption? I think it is the following:
+			// if the top cutpoint is not in the minKnot amd the minknot from the cutpoint's
+			// prespective is not equal to the entire knot
+			// then we must recut two knots instead of one the first minknot we found and
+			// the cutpoint's minknot
 			// it is not clear what the neighbor should be
 
-
-			String fileName = "wi29_6-25p20";
+			String fileName = "djbouti_8-26";
 			PointSetPath retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
@@ -113,51 +131,63 @@ public class Main extends JComponent {
 			System.out.println(maxShell);
 			boolean calculateKnot = true;
 			boolean drawSubPaths = true;
-			boolean drawMainPath = false;
+			boolean drawMainPath = true;
 			long startTimeKnotFinding = System.currentTimeMillis();
 			if (calculateKnot) {
-				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 6));
+				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 5));
 			}
 			maxShell.buff.flush();
 			long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
-			double knotFindingSeconds = ((double)endTimeKnotFinding) / 1000.0;
+			double knotFindingSeconds = ((double) endTimeKnotFinding) / 1000.0;
 
-			
 			long startTimeKnotCutting = System.currentTimeMillis();
-			if (drawSubPaths) {
-				for (int i = 0; i < result.size(); i++) {
-					VirtualPoint vp = result.get(i);
-					if (vp.isKnot) {
-						System.out.println("Next Knot: " + vp);
-						Shell temp = maxShell.cutKnot((Shell.Knot) vp);
-						System.out.println("Knot: " + temp + " Length: " + temp.getLength());
-						if (drawSubPaths) {
-							temp.drawShell(this, g2, true, null, retTup.ps);
-						}
-					}
-					if (vp.isRun) {
-						Shell.Run run = (Shell.Run) vp;
-						for (VirtualPoint sub : run.knotPoints) {
-							if (sub.isKnot) {
-								System.out.println("Next Knot: " + sub);
-								Shell temp = maxShell.cutKnot((Shell.Knot) sub);
-								if (drawSubPaths) {
-									temp.drawShell(this, g2, true, null, retTup.ps);
-								}
-								System.out.println("Knot: " + temp + " Length: " + temp.getLength());
-							}
 
+			if (drawSubPaths) {
+				try {
+
+					for (int i = 0; i < result.size(); i++) {
+						VirtualPoint vp = result.get(i);
+						if (vp.isKnot) {
+							System.out.println("Next Knot: " + vp);
+							Shell temp = maxShell.cutKnot((Shell.Knot) vp);
+							System.out.println("Knot: " + temp + " Length: " + temp.getLength());
+							if (drawSubPaths) {
+								temp.drawShell(this, g2, true, minLineThickness * 2, null, retTup.ps);
+							}
+						}
+						if (vp.isRun) {
+							Shell.Run run = (Shell.Run) vp;
+							for (VirtualPoint sub : run.knotPoints) {
+								if (sub.isKnot) {
+									System.out.println("Next Knot: " + sub);
+									Shell temp = maxShell.cutKnot((Shell.Knot) sub);
+									if (drawSubPaths) {
+										temp.drawShell(this, g2, true, minLineThickness * 2, null, retTup.ps);
+									}
+									System.out.println("Knot: " + temp + " Length: " + temp.getLength());
+								}
+
+							}
 						}
 					}
+				} catch (SegmentBalanceException sbe) {
+					Shell result = new Shell();
+					for (VirtualPoint p : sbe.topKnot.knotPoints) {
+						result.add(((Point) p).p);
+					}
+					result.drawShell(this, g2, true, minLineThickness * 2, Color.magenta, retTup.ps);
+					drawCutMatch(this, g2, sbe, minLineThickness * 2, retTup.ps);
 				}
 			}
-			
+
+			maxShell.buff.printLayer(0);
 			long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
-			double knotCuttingSeconds = ((double)endTimeKnotCutting) / 1000.0;
+			double knotCuttingSeconds = ((double) endTimeKnotCutting) / 1000.0;
 			System.out.println(result);
 			System.out.println("Knot-finding time: " + knotFindingSeconds);
 			System.out.println("Knot-cutting time: " + knotCuttingSeconds);
-			System.out.println("Knot-cutting %: " + 100 * (knotCuttingSeconds/ (knotCuttingSeconds + knotFindingSeconds)));
+			System.out.println(
+					"Knot-cutting %: " + 100 * (knotCuttingSeconds / (knotCuttingSeconds + knotFindingSeconds)));
 
 			// Shell conShell = maxShell.copyRecursive();
 
@@ -224,15 +254,163 @@ public class Main extends JComponent {
 			// conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(),
 			// false);
 
-			drawPath(this, g2, retTup.path, Color.RED, retTup.ps, false, false, true);
+			drawPath(this, g2, retTup.path, minLineThickness, Color.RED, retTup.ps, false, false, true, false);
 			if (drawMainPath)
-				orgShell.drawShell(this, g2, false, Color.BLUE, retTup.ps);
+				orgShell.drawShell(this, g2, false, minLineThickness, Color.BLUE, retTup.ps);
 			System.out.println("Best Length: " + orgShell.getLength());
 			System.out.println("===============================================");
 		} catch (Exception e) {
 			e.printStackTrace();
 			SwingUtilities.getWindowAncestor(this)
 					.dispatchEvent(new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));
+		}
+
+	}
+
+	private void drawCutMatch(JComponent frame, Graphics2D g2, SegmentBalanceException sbe, int lineThickness,
+			PointSet ps) {
+
+		BasicStroke stroke = new BasicStroke(lineThickness);
+
+		BasicStroke doubleStroke = new BasicStroke(lineThickness * 2);
+		g2.setStroke(stroke);
+
+		// Draw x 1
+
+		Font font = new Font("San-Serif", Font.PLAIN, 20);
+		g2.setFont(font);
+
+		g2.setColor(Color.RED);
+
+		double minX = java.lang.Double.MAX_VALUE, minY = java.lang.Double.MAX_VALUE, maxX = 0, maxY = 0;
+
+		for (PointND pn : ps) {
+
+			Point2D p = pn.toPoint2D();
+
+			if (p.getX() < minX) {
+				minX = p.getX();
+			}
+			if (p.getY() < minY) {
+				minY = p.getY();
+			}
+			if (p.getX() > maxX) {
+				maxX = p.getX();
+			}
+			if (p.getY() > maxY) {
+				maxY = p.getY();
+			}
+		}
+
+		Point2D start = null;
+		double rangeX = maxX - minX, rangeY = maxY - minY;
+		double height = SwingUtilities.getWindowAncestor(frame).getHeight(),
+				width = SwingUtilities.getWindowAncestor(frame).getWidth();
+
+		if (!SCALE) {
+			height = WIDTH;
+			width = HEIGHT;
+		}
+
+		int count = 0, offsetx = 100, offsety = 100;
+
+		double[] firstCoords = new double[2];
+		double[] lastCoords = new double[2];
+		double[] midCoords = new double[2];
+
+		Point2D first = ((Point) sbe.cut1.first).p.toPoint2D();
+		Point2D last = ((Point) sbe.cut1.last).p.toPoint2D();
+
+		firstCoords[0] = (-(first.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
+		firstCoords[1] = (-(first.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
+
+		lastCoords[0] = (-(last.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
+		lastCoords[1] = (-(last.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
+		midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0 - 8;
+		midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0 + 8;
+		g2.drawString("X", (int) midCoords[0], (int) midCoords[1]);
+
+		// Draw x 2
+		first = ((Point) sbe.cut2.first).p.toPoint2D();
+		last = ((Point) sbe.cut2.last).p.toPoint2D();
+
+		firstCoords[0] = (-(first.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
+		firstCoords[1] = (-(first.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
+
+		lastCoords[0] = (-(last.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
+		lastCoords[1] = (-(last.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
+		midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0 - 8;
+		midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0 + 8;
+
+		g2.drawString("X", (int) midCoords[0], (int) midCoords[1]);
+
+		// Draw external segment 1
+
+		Point2D knotPoint1 = ((Point) sbe.ex1.getKnotPoint(sbe.topKnot.knotPointsFlattened)).p.toPoint2D();
+
+		firstCoords[0] = (-(knotPoint1.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
+		firstCoords[1] = (-(knotPoint1.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
+
+		g2.setColor(Color.GREEN);
+
+		g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
+
+		// Draw external segment 2
+
+		Point2D knotPoint2 = ((Point) sbe.ex2.getKnotPoint(sbe.topKnot.knotPointsFlattened)).p.toPoint2D();
+
+		firstCoords[0] = (-(knotPoint2.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
+		firstCoords[1] = (-(knotPoint2.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
+
+		g2.setColor(Color.GREEN);
+
+		g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
+
+		// Draw Cuts and Matches
+		for (CutMatch cutMatch : sbe.cutMatchList.cutMatches) {
+
+			// Draw Matches
+			g2.setColor(Color.CYAN);
+			g2.setStroke(stroke);
+			for (Shell.Segment s : cutMatch.matchSegments) {
+
+				first = ((Point) s.first).p.toPoint2D();
+				last = ((Point) s.last).p.toPoint2D();
+
+				firstCoords[0] = (-(first.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
+				firstCoords[1] = (-(first.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
+
+				lastCoords[0] = (-(last.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
+				lastCoords[1] = (-(last.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
+
+				g2.drawLine((int) firstCoords[0], (int) firstCoords[1], (int) lastCoords[0], (int) lastCoords[1]);
+
+			}
+
+			// Draw Cuts
+			g2.setColor(Color.RED);
+			g2.setStroke(doubleStroke);
+			for (Shell.Segment s : cutMatch.cutSegments) {
+
+				first = ((Point) s.first).p.toPoint2D();
+				last = ((Point) s.last).p.toPoint2D();
+
+				firstCoords[0] = (-(first.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
+				firstCoords[1] = (-(first.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
+
+				lastCoords[0] = (-(last.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
+				lastCoords[1] = (-(last.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
+
+				g2.drawLine((int) firstCoords[0], (int) firstCoords[1], (int) lastCoords[0], (int) lastCoords[1]);
+
+			}
+			// Draw SubKnot
+			Shell result = new Shell();
+			for (VirtualPoint p : cutMatch.knot.knotPoints) {
+				result.add(((Point) p).p);
+			}
+			Main.drawPath(frame, g2, Shell.toPath(result), lineThickness, Color.lightGray, ps, true, false, false, true);
+
 		}
 
 	}
@@ -249,10 +427,17 @@ public class Main extends JComponent {
 	 * @param drawCircles
 	 * @param drawNumbers
 	 */
-	public static void drawPath(JComponent frame, Graphics2D g2, Path2D path, Color color, PointSet ps,
-			boolean drawLines, boolean drawCircles, boolean drawNumbers) {
-		g2.setStroke(new BasicStroke(1.0f));
+	public static void drawPath(JComponent frame, Graphics2D g2, Path2D path, int lineThickness, Color color,
+			PointSet ps,
+			boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed) {
 		g2.setPaint(color);
+
+		BasicStroke stroke = new BasicStroke(lineThickness);
+		if (dashed) {
+			stroke = new BasicStroke(lineThickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[] { 9 },
+					0);
+		}
+		g2.setStroke(stroke);
 
 		GeneralPath scaledpath = new GeneralPath();
 		double minX = java.lang.Double.MAX_VALUE, minY = java.lang.Double.MAX_VALUE, maxX = 0, maxY = 0;

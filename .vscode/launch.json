@@ -8,14 +8,18 @@
             "type": "java",
             "name": "Launch Current File",
             "request": "launch",
-            "mainClass": "${file}"
+            "mainClass": "${file}",
+            "vmArgs": "-enableassertions",
+            "console": "internalConsole",
         },
         {
             "type": "java",
             "name": "Launch Main",
             "request": "launch",
             "mainClass": "shell.Main",
-            "projectName": "TSP"
+            "projectName": "TSP",
+            "vmArgs": "-enableassertions",
+            "console": "internalConsole",
         }
     ]
 }
