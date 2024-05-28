@@ -2708,7 +2708,8 @@ public class Shell extends LinkedList<PointND> {
 	private CutMatchList findCutMatchListFixedCut(Knot knot, VirtualPoint external1,
 			VirtualPoint external2, Segment cutSegment1, VirtualPoint kp1, VirtualPoint cp1, Knot superKnot,
 			Segment kpSegment, ArrayList<Segment> innerNeighborSegments, ArrayList<Segment> neighborSegments,
-			Segment upperCutSegment, Segment neighborCutSegment, VirtualPoint topCutPoint) {
+			Segment upperCutSegment, Segment neighborCutSegment, VirtualPoint topCutPoint)
+			throws SegmentBalanceException {
 
 		totalCalls++;
 		if (cutLookup.containsKey(knot.id, external2.id, kp1.id, cp1.id, superKnot.id)) {
@@ -2754,7 +2755,28 @@ public class Shell extends LinkedList<PointND> {
 				double d1 = s12.distance;
 
 				double delta = d1;
-				if (delta < minDelta) {
+
+				boolean outerNeighbor = false;
+				for (Segment s : neighborSegments) {
+					if (s.contains(cp1)) {
+						outerNeighbor = true;
+					}
+				}
+
+				boolean cutPointsAcross = false;
+				for (Segment s : innerNeighborSegments) {
+					if (s.contains(cp1) && s.contains(kp1)) {
+						cutPointsAcross = true;
+					}
+				}
+
+				boolean neighborIntersect = false;
+				if (innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(kp1)) {
+					neighborIntersect = true;
+				}
+
+				boolean hasSegment = (outerNeighbor) || cutPointsAcross || neighborIntersect;
+				if (delta < minDelta && !hasSegment) {
 					matchSegment2Final = s12;
 					knotPoint1Final = kp1;
 					knotPoint2Final = cp1;
@@ -2922,8 +2944,8 @@ public class Shell extends LinkedList<PointND> {
 			return result;
 
 		} else {
-			float z = 1 / 0;
-			return null;
+			throw new SegmentBalanceException(new CutMatchList(), knot, cutSegment1,
+					superKnot.getSegment(kp1, external1), cutSegment1, superKnot.getSegment(cp1, external2));
 		}
 	}
 
@@ -2955,7 +2977,7 @@ public class Shell extends LinkedList<PointND> {
 	private CutMatchList calculateInternalPathLength(
 			VirtualPoint knotPoint1, VirtualPoint cutPointA, VirtualPoint external1,
 			VirtualPoint knotPoint2, VirtualPoint cutPointB, VirtualPoint external2,
-			Knot knot) {
+			Knot knot) throws SegmentBalanceException {
 
 		buff.add("recutting knot: " + knot);
 		buff.add(
@@ -3056,7 +3078,7 @@ public class Shell extends LinkedList<PointND> {
 	public CutMatchList recutWithInternalNeighbor(VirtualPoint topKnotPoint,
 			VirtualPoint topPoint, VirtualPoint topExternal, VirtualPoint botKnotPoint, VirtualPoint botPoint,
 			VirtualPoint botExternal,
-			Knot knot) {
+			Knot knot) throws SegmentBalanceException {
 
 		int matchKnotAId = smallestCommonKnotLookup[topPoint.id][topKnotPoint.id];
 		Knot matchKnotA = flatKnots.get(matchKnotAId);
@@ -3274,24 +3296,28 @@ public class Shell extends LinkedList<PointND> {
 				buff.add(idx2);
 				buff.add(marchDirection);
 				VirtualPoint curr = knot.knotPoints.get(idx);
-				while (!curr.equals(endPoint)) {
-					curr = knot.knotPoints.get(idx);
-					next = idx + marchDirection;
-					if (marchDirection < 0 && next < 0) {
-						next = knot.knotPoints.size() - 1;
-					} else if (marchDirection > 0 && next >= knot.knotPoints.size()) {
-						next = 0;
+				boolean outsideUpperCutPoint = !minKnot.contains(vp2);
+				if (!outsideUpperCutPoint) {
+					while (!curr.equals(endPoint)) {
+						curr = knot.knotPoints.get(idx);
+						next = idx + marchDirection;
+						if (marchDirection < 0 && next < 0) {
+							next = knot.knotPoints.size() - 1;
+						} else if (marchDirection > 0 && next >= knot.knotPoints.size()) {
+							next = 0;
+						}
+						VirtualPoint nextp = knot.knotPoints.get(next);
+						buff.add(curr + " " + nextp);
+						if (curr.equals(kp2)) {
+							intersect = false;
+						}
+						if (minKnot.contains(nextp)) {
+							break;
+						}
+						idx = next;
 					}
-					VirtualPoint nextp = knot.knotPoints.get(next);
-					buff.add(curr + " " + nextp);
-					if (curr.equals(kp2) || (!minKnot.hasSegment(cut) && curr.equals(innerNeighborSegments))) {
-						intersect = false;
-					}
-					if (minKnot.contains(nextp)) {
-						break;
-					}
-					idx = next;
 				}
+
 				if (intersect) {
 					innerNeighborSegments.add(candidate);
 				}
@@ -3826,8 +3852,6 @@ public class Shell extends LinkedList<PointND> {
 		}
 	}
 
-
-
 	/**
 	 * Gets the distance from a point to its neighboring points in the shell
 	 * 
@@ -4163,6 +4187,5 @@ public class Shell extends LinkedList<PointND> {
 		}
 		return false;
 	}
-
 
 }

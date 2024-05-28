@@ -19,7 +19,6 @@
             "mainClass": "shell.Main",
             "projectName": "TSP",
             "vmArgs": "-enableassertions",
-            "console": "internalConsole",
         }
     ]
 }

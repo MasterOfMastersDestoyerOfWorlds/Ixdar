@@ -22,6 +22,8 @@ import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 
@@ -114,7 +116,13 @@ public class Main extends JComponent {
 			// the cutpoint's minknot
 			// it is not clear what the neighbor should be
 
-			String fileName = "djbouti_8-26";
+			//18-23WH19-22 and 18-23WH20-18: I think that which internal segment we need to remove depends entirely on 
+			//which is connected to the internal knot point, the internal neighbor segment that is connected to kp1 cannot\
+			// be in the final tour but the one that is connected to cp1 can be in the final tour so it should be removed from
+			// the internal neighbors list. it is not clear weather this should hold for knots where the upper cutpoint is contianed
+			// within hte minknot. I think it shouldn't hold, i.e. we should only check this when vp2 is not in the minknot.
+
+			String fileName = "djbouti_14-31";
 			PointSetPath retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
@@ -131,7 +139,7 @@ public class Main extends JComponent {
 			System.out.println(maxShell);
 			boolean calculateKnot = true;
 			boolean drawSubPaths = true;
-			boolean drawMainPath = true;
+			boolean drawMainPath = false;
 			long startTimeKnotFinding = System.currentTimeMillis();
 			if (calculateKnot) {
 				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 5));
@@ -180,7 +188,7 @@ public class Main extends JComponent {
 				}
 			}
 
-			maxShell.buff.printLayer(0);
+			maxShell.buff.printAll();
 			long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
 			double knotCuttingSeconds = ((double) endTimeKnotCutting) / 1000.0;
 			System.out.println(result);
@@ -285,20 +293,21 @@ public class Main extends JComponent {
 		double minX = java.lang.Double.MAX_VALUE, minY = java.lang.Double.MAX_VALUE, maxX = 0, maxY = 0;
 
 		for (PointND pn : ps) {
+			if (!pn.isDummyNode()) {
+				Point2D p = pn.toPoint2D();
 
-			Point2D p = pn.toPoint2D();
-
-			if (p.getX() < minX) {
-				minX = p.getX();
-			}
-			if (p.getY() < minY) {
-				minY = p.getY();
-			}
-			if (p.getX() > maxX) {
-				maxX = p.getX();
-			}
-			if (p.getY() > maxY) {
-				maxY = p.getY();
+				if (p.getX() < minX) {
+					minX = p.getX();
+				}
+				if (p.getY() < minY) {
+					minY = p.getY();
+				}
+				if (p.getX() > maxX) {
+					maxX = p.getX();
+				}
+				if (p.getY() > maxY) {
+					maxY = p.getY();
+				}
 			}
 		}
 
@@ -409,7 +418,8 @@ public class Main extends JComponent {
 			for (VirtualPoint p : cutMatch.knot.knotPoints) {
 				result.add(((Point) p).p);
 			}
-			Main.drawPath(frame, g2, Shell.toPath(result), lineThickness, Color.lightGray, ps, true, false, false, true);
+			Main.drawPath(frame, g2, Shell.toPath(result), lineThickness, Color.lightGray, ps, true, false, false,
+					true);
 
 		}
 
@@ -443,20 +453,21 @@ public class Main extends JComponent {
 		double minX = java.lang.Double.MAX_VALUE, minY = java.lang.Double.MAX_VALUE, maxX = 0, maxY = 0;
 		boolean first = true;
 		for (PointND pn : ps) {
+			if (!pn.isDummyNode()) {
+				Point2D p = pn.toPoint2D();
 
-			Point2D p = pn.toPoint2D();
-
-			if (p.getX() < minX) {
-				minX = p.getX();
-			}
-			if (p.getY() < minY) {
-				minY = p.getY();
-			}
-			if (p.getX() > maxX) {
-				maxX = p.getX();
-			}
-			if (p.getY() > maxY) {
-				maxY = p.getY();
+				if (p.getX() < minX) {
+					minX = p.getX();
+				}
+				if (p.getY() < minY) {
+					minY = p.getY();
+				}
+				if (p.getX() > maxX) {
+					maxX = p.getX();
+				}
+				if (p.getY() > maxY) {
+					maxY = p.getY();
+				}
 			}
 		}
 
@@ -537,20 +548,42 @@ public class Main extends JComponent {
 
 			boolean flag = true, first = true;
 			int index = 0;
+			DistanceMatrix d = null;
+			HashMap<Integer, PointND> lookUp = new HashMap<>();
 			while (line != null) {
 				if (flag == true) {
 					String[] cords = line.split(" ");
-					PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(cords[1]),
-							java.lang.Double.parseDouble(cords[2]));
-					lines.add(pt);
-					ps.add(pt);
-					tsp.add(pt);
-					if (first) {
-						path.moveTo(java.lang.Double.parseDouble(cords[1]), java.lang.Double.parseDouble(cords[2]));
-						first = false;
+					Point2D pt2d = null;
+					if (cords[0].equals("WH")) {
+						System.out.println("WORMHOLEFOUND!");
+						if (d == null) {
+							d = new DistanceMatrix(ps);
+						}
+						PointND wormHole = d.addDummyNode(lookUp.get(java.lang.Integer.parseInt(cords[1])),
+								lookUp.get(java.lang.Integer.parseInt(cords[2])));
+						pt2d = wormHole.toPoint2D();
+						lines.add(wormHole);
+						ps.add(wormHole);
+						tsp.add(wormHole);
+
 					} else {
-						path.lineTo(java.lang.Double.parseDouble(cords[1]), java.lang.Double.parseDouble(cords[2]));
+						PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(cords[1]),
+								java.lang.Double.parseDouble(cords[2]));
+						pt2d = pt.toPoint2D();
+						lookUp.put(index, pt);
+						lines.add(pt);
+						ps.add(pt);
+						tsp.add(pt);
+
+						if (first) {
+							path.moveTo(pt2d.getX(), pt2d.getY());
+							first = false;
+						} else {
+							path.lineTo(pt2d.getX(), pt2d.getY());
+						}
+
 					}
+
 				}
 				if (line.contains("NODE_COORD_SECTION")) {
 					flag = true;
