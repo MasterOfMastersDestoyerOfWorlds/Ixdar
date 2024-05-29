@@ -109,6 +109,11 @@ public class SubGraphs {
 		testMethod("djbouti_18-23WH19-22");
 	}
 
+	@Test
+	public void test_djibouti_8_34WH0_33() {
+		testMethod("djbouti_8-34WH0-33");
+	}
+
 
 	@Test
 	public void test_djibouti_26_31() {

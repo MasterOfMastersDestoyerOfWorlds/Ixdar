@@ -1,8 +1,8 @@
 package shell;
 
-import shell.Shell.CutMatchList;
-import shell.Shell.Knot;
-import shell.Shell.Segment;;
+import shell.CutMatchList;
+import shell.Knot;
+import shell.Segment;;
 
 public class SegmentBalanceException extends Exception {
     public CutMatchList cutMatchList;

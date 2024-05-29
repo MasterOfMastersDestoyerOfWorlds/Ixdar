@@ -440,6 +440,14 @@ Ideally we would be able to have the knot surrounded incorrect context so insert
   
 ---
 
+## Silver into Gold
+When we have a Run that loops back on itself at both ends we have a Knot, but what if we have a Run that only loops back internally? Or a Virtual Point that is next to a knot, and points to every point in its neighboring knot before pointing to other things in the Run? The following section will describe the process of finding Half Knots, or Knots which have all of the characteristics of a Knot once formed except that they do not form a perfect Knot when we are doing Knot finding (i.e. both ends of their Run point to each other). 
+
+We will use the same data structures as the perfect Knots to encapsulate Half Knots, but we will only look for them once either end of our Run has been exhausted. If we find any Half Knots in our Run the remaining Virtual Points will be reset to avoid any pointer confusion.
+
+
+
+
 Finally once we found every Knot and made one large Knot we get:
 
     Knot[

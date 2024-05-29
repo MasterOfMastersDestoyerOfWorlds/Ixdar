@@ -32,9 +32,9 @@ import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
-import shell.Shell.CutMatch;
-import shell.Shell.Point;
-import shell.Shell.VirtualPoint;
+import shell.CutMatch;
+import shell.Point;
+import shell.VirtualPoint;
 
 /**
  * The main class that facilitates running our tsp solver
@@ -122,7 +122,7 @@ public class Main extends JComponent {
 			// the internal neighbors list. it is not clear weather this should hold for knots where the upper cutpoint is contianed
 			// within hte minknot. I think it shouldn't hold, i.e. we should only check this when vp2 is not in the minknot.
 
-			String fileName = "djbouti_14-31";
+			String fileName = "djbouti_8-34WH0-33";
 			PointSetPath retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
@@ -157,18 +157,18 @@ public class Main extends JComponent {
 						VirtualPoint vp = result.get(i);
 						if (vp.isKnot) {
 							System.out.println("Next Knot: " + vp);
-							Shell temp = maxShell.cutKnot((Shell.Knot) vp);
+							Shell temp = maxShell.cutKnot((Knot) vp);
 							System.out.println("Knot: " + temp + " Length: " + temp.getLength());
 							if (drawSubPaths) {
 								temp.drawShell(this, g2, true, minLineThickness * 2, null, retTup.ps);
 							}
 						}
 						if (vp.isRun) {
-							Shell.Run run = (Shell.Run) vp;
+							Run run = (Run) vp;
 							for (VirtualPoint sub : run.knotPoints) {
 								if (sub.isKnot) {
 									System.out.println("Next Knot: " + sub);
-									Shell temp = maxShell.cutKnot((Shell.Knot) sub);
+									Shell temp = maxShell.cutKnot((Knot) sub);
 									if (drawSubPaths) {
 										temp.drawShell(this, g2, true, minLineThickness * 2, null, retTup.ps);
 									}
@@ -383,7 +383,7 @@ public class Main extends JComponent {
 			// Draw Matches
 			g2.setColor(Color.CYAN);
 			g2.setStroke(stroke);
-			for (Shell.Segment s : cutMatch.matchSegments) {
+			for (Segment s : cutMatch.matchSegments) {
 
 				first = ((Point) s.first).p.toPoint2D();
 				last = ((Point) s.last).p.toPoint2D();
@@ -401,7 +401,7 @@ public class Main extends JComponent {
 			// Draw Cuts
 			g2.setColor(Color.RED);
 			g2.setStroke(doubleStroke);
-			for (Shell.Segment s : cutMatch.cutSegments) {
+			for (Segment s : cutMatch.cutSegments) {
 
 				first = ((Point) s.first).p.toPoint2D();
 				last = ((Point) s.last).p.toPoint2D();
