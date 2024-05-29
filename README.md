@@ -425,7 +425,7 @@ Next what should we do if we have two <b>Knots</b> in a new <b>Knot</b>? For exa
           Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ]
     ]
 
-I am not sure why but this seems to be a common failure case, so we need to do something to address it (usually cause both of the super knot's matches point to the same knot). I think if we built the algorithm to be more flat (without Runs) it would not be the case.
+I am not sure why but this seems to be a common failure case, so we need to do something to address it (usually cause both of the Super Knot's matches point to the same knot). I think if we built the algorithm to be more flat (without Runs) it would not be the case.
 
 Ideally we would be able to have the knot surrounded incorrect context so insert one of them into the other:
 
@@ -440,13 +440,13 @@ Ideally we would be able to have the knot surrounded incorrect context so insert
   
 ---
 
-## Silver into Gold
+### Silver into Gold
 When we have a Run that loops back on itself at both ends we have a Knot, but what if we have a Run that only loops back internally? Or a Virtual Point that is next to a knot, and points to every point in its neighboring knot before pointing to other things in the Run? The following section will describe the process of finding Half Knots, or Knots which have all of the characteristics of a Knot once formed except that they do not form a perfect Knot when we are doing Knot finding (i.e. both ends of their Run point to each other). 
 
 We will use the same data structures as the perfect Knots to encapsulate Half Knots, but we will only look for them once either end of our Run has been exhausted. If we find any Half Knots in our Run the remaining Virtual Points will be reset to avoid any pointer confusion.
 
 
-
+### Next Steps
 
 Finally once we found every Knot and made one large Knot we get:
 
@@ -490,7 +490,7 @@ Our cutting algorithm will not work on a nested knot, so if the knot we are tryi
 
 Once we have the two externals and the flat knot <b>K</b> we are trying to cut, we will enter the cutting loop. The idea is we will have a doubly nested loop that iterates over the segments of <b>K</b> making for a N<sup>3</sup> operation. 
 
-If the two cut segments overlap fully (i.e. Segment [a:b] and Segment [b:a] are the cuts) then we will calculate the Agree case (seen below) and if it is a smaller loop than our minimum, replace it. so if we had 
+If the two cut segments overlap fully (i.e. Segment [a:b] and Segment [b:a] are the cuts) then we will calculate the Agree case (seen below) and if it is a smaller loop than our minimum, replace it. so if we had Cut Segment: [a:b]
 
 ... <-> a <-> b <-> ... 
 
@@ -514,6 +514,111 @@ or
 
 once we have calculated all of the possible distance changes we take the smallest one and apply it.
 
+### Finding Cut Point Matches
+
+In our example above it is easy to see that b -> ex1 and d -> ex2 means that b and d have all of their Segments accounted for, we will call this <b>Balanced</b>. an entire Knot having been cut, is balanced if every one of its Points has two matches and each external has one match inside the knot.
+
+From here we will refer to the two points that match to the externals as Knot Points (b and d) and the other Points that were cut from their Segments as Cut Points (a and c).
+
+Our Cut Points a and c in the example above would also be balanced, so in the simple case we know that in order to balance a Knot we can match the Cut Points to each other. If we are only dealing with perfect knots(e.g. a Circle in the plane, triangle, etc.), then simply connecting the cut points is all we need, but if we have nested knots, things get a lot more complicated. Also note that for any bottom knot in the stack, that we can simply connect the Cut Points by definition, by bottom knot I do not mean any flattened knot, but any knot that was flat before we started cutting.
+
+As we flatten our Knots we will generate a list of Sub Knots and Super Knots that represent the optimal path at each stage of the hierarchy, we will use these flattened knots and their relationships to each other in order to find optimal paths in the top knot that we are cutting. 
+
+### Same Knot Different Super Knot
+
+As we flatten the stack we need a way to tell the difference between a Sub Knot and a Super Knot, this is where our next data structure the CutMatchList comes in, in the simple case our CutMatchList would consist of one internal match and two implied matches, the internal match would be between the two Cut Points and the two implied matches would be between the two Knot Points and their externals. 
+
+But life is rarely simple, so when we are recutting a Sub Knot we want to be able to list just the segments that we'd need to cut or match in order to get to the Sub Knot from the Super Knot, with some caveats. We can achieve this by matching all segments that are in the Sub Knot but not the Super Knot and cutting all the Segments that are in the Super Knot whose endpoints are contained in the Sub Knot, but the Sub Knot does not contain the Segment in its Path. 
+
+We need to exclude from this difference calculation any Internal Neighbor Segments and so that we do not break other optimal paths (See [Finding Internal Neighbor Segments](#finding-internal-neighbor-segments) for definition and purpose).
+
+### Balance in All Things
+
+For a CutMatchList to be Balanced we need for the following conditions to hold (some we will actively calculate and some are implied by others):
+
+* After the CutMatch is applied each Point in the Top Knot has exactly two matches
+* Each external will have exactly one match, or exactly two matches if external1 == external2 
+Implied by above:
+* We should not have matched any Segment that already exists in the Top Knot's Path
+* We should not have cut any Segment that does not exist in the Top Knot's Path
+
+### Finding the MinKnot
+The MinKnot is the largest flattened knot which contains all of the points of one Cut Segment(labeled Lower Cut Segment) and does not contain both Knot Points and the other Cut Segment (labeled Upper Cut Segment). Sometimes there can be multiple valid MinKnots if the two Cut Segments do not share any knots even partially. Why is the MinKnot important? If we can recursively Re-Cut the MinKnot, we can find the optimal matches for the Cut Points easily. 
+
+Since the MinKnot contains only one Cut Segment in the majority of cases, we can Re-Cut the minKnot with one fixed Cut Segment(Lower Cut Segment) and one looping Cut Segment(new Cut that we must find to attach to the neighbor (See [Finding Neighbor](#finding-neighbor) for definition and purpose)). If the MinKnot contains both Cut Segments, then match simply. 
+
+### Finding Internal Neighbor Segments
+
+
+<img src="img\wi29_6-25p20cut4-3and2-1.png" alt="wi29_6-25p20cut4-3and2-1" width="85%" style="display: block;margin-left: auto;margin-right: auto;"/>
+
+
+In the Figure Above our MinKnot is Knot[11, 1, 2, 3, 5, 0] and our Cut Segments are Segment[3:4] and Segment[1:2]  with Point 4 and Point 2 as our Knots Points and Points 3 and 1 as our Cut Points.
+
+----
+The Following Segments are what we call Internal Neighbor Segments:
+
+Segment[3:5]
+
+The above segment is defined by the Path in the Super Knot [3 <-> 4 <-> 5]
+
+Segment[11:1]
+
+Segment[5:0]
+
+The above segment is defined by the Path in the Super Knot [5 <-> 6 <-> 8 <-> 9 <-> 10 <-> 11] 
+
+----
+
+These Internal Knot Segments define how the MinKnot interacts with the Knots outside of itself and finding them will allow us to re-cut the MinKnot without recutting it's super knot.
+
+As you can see from the Figure our MinKnot does not just have the Upper Knot Point going off from it, there is also the Path from 11 to 5 which must be maintained in any Cut Match we do on the MinKnot.
+
+The question is how can we find these Internal Neighbor Segments algorithmically and how can we determine which should be maintained and which are fine to overwrite with segments from the MinKnot?
+
+<div style="display:inline-block;align:center;">
+<img src="img\wi29_6-25p20cut4-3and2-1case1.png" alt="wi29_6-25p20cut4-3and2-1case1" width="45%" style=""/>
+<img src="img\wi29_6-25p20cut4-3and2-1case2.png" alt="wi29_6-25p20cut4-3and2-1case2" width="45%" style=""/>
+</div>
+
+Here are the two valid Paths from this cut, Notice that the internal segments that do not go out to the upper knot point (Segment[1:11] and Segment[0:5]) are not touched, but the internal segment that does go out to the upper Knot Point (Segment[3:5]) may or may not exist in the final path depending on which Point 4 matches with. If 4 keeps Segment[4:5], then we do not match Segment[3:5] otherwise we do. 
+
+### The Square Problem
+
+An interesting problem arises when trying to determine which of these internal neighbor segments belong to the upper knot point. Take for example Point 5 in the above figures. 5 is part of Segment[0:5] and Segment[3:5] but only Segment[3:5] belongs to the upper knot point, so how can we tell which way is out of the minKnot and toward the outer loop it defines?
+
+The way to solve this is to store with each inner neighbor segment, the segment that is going out of the minKnot as well as where it comes back into the minKnot, from this we can associate Point 5 and Point 11 together and the direction to march. With this information we can determine the order to traverse the path they define. The marching direction would either be defined by Segment[11:10] or Segment[5:6] for the loop defined by Point 5 and Point 11. 
+
+For the upper knot point's inner segment: Segment[5:3], this would be defined by 5, 3 and Segment[5:4] or Segment[3:4].
+
+So we take one of the marching directions, and the minKnot point within it and march out of the minKnot. If we come across the Upper Knot Point on our march, then we know we can associate those Inner Neighbor Segments with the Upper Knot Point.
+
+### Finding Neighbor
+
+When recutting the minKnot we will know one of the external points automatically, i.e. what ever was the external matching to the Lower Knot Point, but the other will need to be found. In our previous example the neighbor was Point 4, the same as the Upper Knot Point, but this will not always be so easy to decipher. Essentially, we want the first Point marching from the opposite side of where the Upper Cut Segment is. If the Upper Cut Segment doesn't intersect the minKnot then we will take the Upper Cut Point as the neighbor.
+
+### Recutting the MinKnot
+
+Once we've found the neighbor we can re-cut the minKnot, we need to have one cut segment fixed, i.e. the one that was cut from the super knot and one we will find.
+
+Some caveats on which segments we can choose as our second cut segment:
+
+* New Cut Segment must not be in Internal Neighbor Segments
+* The Old Cut Point and New Knot Point must not both be in the list of Internal Neighbor Segments Flattened
+* The New Knot Point cannot be in the Inner Neighbor Segments or the Neighbor Segments
+* The New External Match cannot replicate the Neighbor Segment (Segment that connects to the Neighbor
+* The Old Cut Point and the New Cut Point mst ont be in the list of Internal Neighbor Segments
+
+Other than that there is only left to cycle through the minKnot's Segments and recursively Cut.
+
+### MinKnot with no CutSegment in its Path
+
+### MinKnot without Both CutPoints
+
+### Orphaned Sections
+
+### MinKnot for the Criminally Insane
+
 ### Complexity Limit
 
 Immediately I can see a few questions with this approach:
@@ -524,7 +629,7 @@ A1. This really comes down to how we are defining and finding our knots. Remembe
 
 Q2. Do we really need to look at all of the cut segments, shouldn't we just be able to look at the ones that are closest to the external VirtualPoints?
 
-A2. While such an approach can work for simple cases  that lie in the plane, it does not work in general and the algorithm i've outlined is really the best we can do. Take as an example a circle lying in the plane with a center point at (0,0) and with VirtualPoints distributed on the path of the circle with uneven spacing, lets call this Knot C for circle. Then arrange 3 VirtualPoints far above the circle in a line where their x and y coordinates are 0,0 and they only differ by their z coordinate and let's call this Knot L for line. since the distance from Knot L to any point on Knot C is constant, we must look at every cut segment in  Knot C to find out which will be in hte correct ordering.
+A2. While such an approach can work for simple cases that lie in the plane, it does not work in general and the algorithm i've outlined is really the best we can do. Take as an example a circle lying in the plane with a center point at (0,0) and with VirtualPoints distributed on the path of the circle with uneven spacing, lets call this Knot C for circle. Then arrange 3 VirtualPoints far above the circle in a line where their x and y coordinates are 0,0 and they only differ by their z coordinate and let's call this Knot L for line. since the distance from Knot L to any point on Knot C is constant, we must look at every cut segment in  Knot C to find out which will be in hte correct ordering.
 
 Ok so now we know we must at least look at all of the segments once, but why this business with two cut segments?
 
@@ -533,7 +638,6 @@ Well, let's now mirror Knot L across the XY Plane so that we have Knot L1 above 
 Q3. How do we get a Big O of N<sup>3</sup>?
 
 A3. In the Worst Case there would be  N-4 Knots to cut, and on average I have seen most sets with roughly N/3 Knots. So if we have O(N) Knots, and we are looking at all cut segment pairs in each Knot with time O(N<sup>2</sup>), then O(N)*O(N<sup>2</sup>) = O(N<sup>3</sup>)
-
 
 
 
