@@ -839,7 +839,6 @@ public class Shell extends LinkedList<PointND> {
 								/ (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
 						buff.add(knotName + "_cut" + knotPoint11 + "-" + knotPoint12 + "and" + knotPoint21
 								+ "-" + knotPoint22);
-						buff.printLayer(0);
 						throw new SegmentBalanceException(internalCuts12, knot,
 								knot.getSegment(knotPoint12, knotPoint11), s11,
 								knot.getSegment(knotPoint21, knotPoint22), s12);
@@ -872,7 +871,6 @@ public class Shell extends LinkedList<PointND> {
 								/ (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
 						buff.add(knotName + "_cut" + knotPoint12 + "-" + knotPoint11 + "and" + knotPoint22
 								+ "-" + knotPoint21);
-						buff.printLayer(0);
 						throw new SegmentBalanceException(internalCuts34, knot,
 								knot.getSegment(knotPoint12, knotPoint11), s31,
 								knot.getSegment(knotPoint21, knotPoint22), s32);
@@ -1811,8 +1809,6 @@ public class Shell extends LinkedList<PointND> {
 				System.out.println("Can't make either cut");
 				float z = 1 / 0;
 			}
-			System.out.println(canCutLeft);
-			System.out.println(canCutRight);
 			if ((!canCutLeft || rightCutMatch.delta < leftCutMatch.delta) && canCutRight) {
 				reCut = rightCutMatch;
 			} else {

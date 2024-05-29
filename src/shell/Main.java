@@ -179,7 +179,6 @@ public class Main extends JComponent {
 						}
 					}
 				} catch (SegmentBalanceException sbe) {
-					maxShell.buff.printAll();
 					Shell result = new Shell();
 					for (VirtualPoint p : sbe.topKnot.knotPoints) {
 						result.add(((Point) p).p);
@@ -190,7 +189,7 @@ public class Main extends JComponent {
 				}
 			}
 
-			maxShell.buff.printAll();
+			maxShell.buff.printLayer(0);
 			long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
 			double knotCuttingSeconds = ((double) endTimeKnotCutting) / 1000.0;
 			System.out.println(result);
