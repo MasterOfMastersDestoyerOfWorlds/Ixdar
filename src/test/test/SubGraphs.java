@@ -105,6 +105,12 @@ public class SubGraphs {
 	}
 
 	@Test
+	public void test_djibouti_18_23WH19_23() {
+		testMethod("djbouti_18-23WH19-22");
+	}
+
+
+	@Test
 	public void test_djibouti_26_31() {
 		testMethod("djbouti_26-31");
 	}

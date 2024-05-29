@@ -2756,13 +2756,6 @@ public class Shell extends LinkedList<PointND> {
 
 				double delta = d1;
 
-				boolean outerNeighbor = false;
-				for (Segment s : neighborSegments) {
-					if (s.contains(cp1)) {
-						outerNeighbor = true;
-					}
-				}
-
 				boolean cutPointsAcross = false;
 				for (Segment s : innerNeighborSegments) {
 					if (s.contains(cp1) && s.contains(kp1)) {
@@ -2770,12 +2763,7 @@ public class Shell extends LinkedList<PointND> {
 					}
 				}
 
-				boolean neighborIntersect = false;
-				if (innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(kp1)) {
-					neighborIntersect = true;
-				}
-
-				boolean hasSegment = (outerNeighbor) || cutPointsAcross || neighborIntersect;
+				boolean hasSegment = cutPointsAcross;
 				if (delta < minDelta && !hasSegment) {
 					matchSegment2Final = s12;
 					knotPoint1Final = kp1;
@@ -2944,8 +2932,10 @@ public class Shell extends LinkedList<PointND> {
 			return result;
 
 		} else {
-			throw new SegmentBalanceException(new CutMatchList(), knot, cutSegment1,
-					superKnot.getSegment(kp1, external1), cutSegment1, superKnot.getSegment(cp1, external2));
+			buff.add("No Available CUTS!");
+			throw new SegmentBalanceException(new CutMatchList(), superKnot, cutSegment1,
+					new Segment(kp1, external1, 0.0), upperCutSegment,
+					new Segment(upperCutSegment.getOther(topCutPoint), upperCutSegment.getOther(topCutPoint), 0.0));
 		}
 	}
 
@@ -3159,6 +3149,8 @@ public class Shell extends LinkedList<PointND> {
 			float z = 1 / 0;
 		}
 
+		boolean outsideUpperCutPoint = !minKnot.contains(vp2);
+
 		VirtualPoint n1 = null;
 		VirtualPoint n2 = null;
 		ArrayList<Segment> neighborSegments = new ArrayList<Segment>();
@@ -3296,7 +3288,6 @@ public class Shell extends LinkedList<PointND> {
 				buff.add(idx2);
 				buff.add(marchDirection);
 				VirtualPoint curr = knot.knotPoints.get(idx);
-				boolean outsideUpperCutPoint = !minKnot.contains(vp2);
 				if (!outsideUpperCutPoint) {
 					while (!curr.equals(endPoint)) {
 						curr = knot.knotPoints.get(idx);
@@ -3423,6 +3414,8 @@ public class Shell extends LinkedList<PointND> {
 		}
 		if (!containsFlag && !neighbor.equals(vp2)) {
 			buff.add("niehbgor not in neighborSegments: " + neighbor);
+			buff.add("REEEEEEEEEEEEEEEEEEEEEEEEEEE" + minKnot);
+			buff.add("REEEEEEEEEEEEEEEEEEEEEEEEEEE" + neighborSegments);
 			// float ze = 1 / 0;
 		}
 		if (upperCutSegment.contains(neighbor) && upperCutSegment.contains(vp)) {
@@ -3452,41 +3445,97 @@ public class Shell extends LinkedList<PointND> {
 			buff.add(leftCut);
 			buff.add(rightCut);
 
-			CutMatchList rightCutMatch = findCutMatchListFixedCut(minKnot, ex, neighbor, rightCut, kp, rightPoint, knot,
-					kpSegment,
-					innerNeighborSegments, neighborSegments, upperCutSegment, neighborCut, topPoint);
+			ArrayList<Segment> rightInnerNeighborSegments = new ArrayList<>();
+			if (outsideUpperCutPoint) {
+				for (Segment s : innerNeighborSegments) {
+					if (!s.contains(rightPoint) && (singleNeighborSegmentLookup.containsKey(rightPoint.id)
+							|| singleNeighborSegmentLookup.containsKey(s.getOther(rightPoint).id))) {
+						rightInnerNeighborSegments.add(s);
+					}
+				}
 
-			rightCutMatch.removeCut(cut);
+			} else {
+				rightInnerNeighborSegments = innerNeighborSegments;
+			}
 
-			CutMatchList leftCutMatch = findCutMatchListFixedCut(minKnot, ex, neighbor, leftCut, kp, leftPoint, knot,
-					kpSegment,
-					innerNeighborSegments, neighborSegments, upperCutSegment, neighborCut, topPoint);
-			leftCutMatch.removeCut(cut);
+			ArrayList<Segment> leftInnerNeighborSegments = new ArrayList<>();
+			if (outsideUpperCutPoint) {
+				for (Segment s : innerNeighborSegments) {
+					if (!s.contains(leftPoint) && (singleNeighborSegmentLookup.containsKey(leftPoint.id)
+							|| singleNeighborSegmentLookup.containsKey(s.getOther(leftPoint).id))) {
+						leftInnerNeighborSegments.add(s);
+					}
+				}
 
-			if (rightCutMatch.delta < leftCutMatch.delta) {
+			} else {
+				leftInnerNeighborSegments = innerNeighborSegments;
+			}
+			buff.add(outsideUpperCutPoint);
+			buff.add("cutting left");
+			boolean canCutLeft = !leftInnerNeighborSegments.contains(leftCut);
+			CutMatchList leftCutMatch = null;
+			if (canCutLeft) {
+				leftCutMatch = findCutMatchListFixedCut(minKnot, ex, neighbor, leftCut, kp, leftPoint, knot,
+						kpSegment,
+						leftInnerNeighborSegments, neighborSegments, upperCutSegment, neighborCut, vp2);
+
+				leftCutMatch.removeCut(cut);
+			}
+			buff.add("cutting right");
+
+			boolean canCutRight = !rightInnerNeighborSegments.contains(rightCut);
+			CutMatchList rightCutMatch = null;
+			if (canCutRight) {
+				rightCutMatch = findCutMatchListFixedCut(minKnot, ex, neighbor, rightCut, kp, rightPoint,
+						knot,
+						kpSegment,
+						rightInnerNeighborSegments, neighborSegments, upperCutSegment, neighborCut, vp2);
+				rightCutMatch.removeCut(cut);
+			}
+
+			if(!canCutLeft && !canCutRight){
+				System.out.println("Can't make either cut");
+				float z = 1/0;
+			}
+			System.out.println(canCutLeft);
+			System.out.println(canCutRight);
+			if ((!canCutLeft || rightCutMatch.delta < leftCutMatch.delta) && canCutRight) {
 				reCut = rightCutMatch;
 			} else {
 				reCut = leftCutMatch;
 			}
 			buff.add("cut Left: " + leftCut + "cut Right: " + rightCut);
-			buff.add("chose right? : " + (rightCutMatch.delta < leftCutMatch.delta));
+			buff.add("chose right? : " + ((!canCutLeft || rightCutMatch.delta < leftCutMatch.delta) && canCutRight));
 			buff.add("neighbor : " + neighbor);
 
 			buff.add("LEFTCUT : " + minKnot + " " + " " + ex + " " + " " + neighbor + " " + " " + leftCut
 					+ " " + " " + kp + " " + " " + leftPoint + " " + " " + knot + " " + " " + kpSegment + " "
-					+ innerNeighborSegments + " " + neighborSegments + " " + upperCutSegment + " " + neighborCut);
+					+ leftInnerNeighborSegments + " " + neighborSegments + " " + upperCutSegment + " " + neighborCut);
 
 			buff.add("RightCUT : " + minKnot + " " + " " + ex + " " + " " + neighbor + " " + " " + rightCut
 					+ " " + " " + kp + " " + " " + rightPoint + " " + " " + knot + " " + " " + kpSegment + " "
-					+ innerNeighborSegments + " " + neighborSegments + " " + upperCutSegment + " " + neighborCut);
+					+ rightInnerNeighborSegments + " " + neighborSegments + " " + upperCutSegment + " " + neighborCut);
+
 		} else {
+			ArrayList<Segment> removeList = new ArrayList<>();
+			if (outsideUpperCutPoint) {
+				for (Segment s : innerNeighborSegments) {
+					if (s.contains(vp) && (singleNeighborSegmentLookup.containsKey(vp.id)
+							|| singleNeighborSegmentLookup.containsKey(s.getOther(vp).id))) {
+						removeList.add(s);
+					}
+				}
+				innerNeighborSegments.removeAll(removeList);
 
-			reCut = findCutMatchListFixedCut(minKnot, ex, neighbor, cut, kp, vp, knot, kpSegment,
-					innerNeighborSegments, neighborSegments, upperCutSegment, neighborCut, topPoint);
-
+			}
+			buff.add(vp.id);
+			buff.add(innerNeighborSegments);
+			buff.add(singleNeighborSegmentLookup);
 			buff.add(minKnot + " " + " " + ex + " " + " " + neighbor + " " + " " + cut + " " + " " + kp
 					+ " " + " " + vp + " " + " " + knot + " " + " " + kpSegment + " " + innerNeighborSegments + " "
 					+ neighborSegments + " " + upperCutSegment + " " + neighborCut);
+			reCut = findCutMatchListFixedCut(minKnot, ex, neighbor, cut, kp, vp, knot, kpSegment,
+					innerNeighborSegments, neighborSegments, upperCutSegment, neighborCut, vp2);
 
 		}
 

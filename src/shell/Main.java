@@ -142,7 +142,7 @@ public class Main extends JComponent {
 			boolean drawMainPath = false;
 			long startTimeKnotFinding = System.currentTimeMillis();
 			if (calculateKnot) {
-				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 5));
+				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 67));
 			}
 			maxShell.buff.flush();
 			long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
@@ -179,10 +179,12 @@ public class Main extends JComponent {
 						}
 					}
 				} catch (SegmentBalanceException sbe) {
+					maxShell.buff.printAll();
 					Shell result = new Shell();
 					for (VirtualPoint p : sbe.topKnot.knotPoints) {
 						result.add(((Point) p).p);
 					}
+					System.out.println(sbe);
 					result.drawShell(this, g2, true, minLineThickness * 2, Color.magenta, retTup.ps);
 					drawCutMatch(this, g2, sbe, minLineThickness * 2, retTup.ps);
 				}
