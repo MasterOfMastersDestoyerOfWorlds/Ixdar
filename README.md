@@ -1,5 +1,7 @@
 # Project Gordian
+
 ## Contents
+
 [Preface: A Short Trip Through Time and Space](#preface)
 
 [Chapter 1: Traveling Whatman?](#chapter-1)
@@ -14,13 +16,11 @@
 
 [Appendix A: Djibouti Sorted Segments Lists](#appendix-a)
 
+## Preface
 
-
-
-##  Preface
 ## A Short Trip Through Time and Space
 
-Let's say that we are aliens in some far off star system on the other side of the Milky Way and we want to visit Saturn's Moon Titan. With our current rocket technology it will take us a year to travel to Titan, but, given the way our rocket works, we can't course correct along the way. We need to point to where Titan will be a year from now and be accurate enough to hit the mark when we launch from our home planet. 
+Let's say that we are aliens in some far off star system on the other side of the Milky Way and we want to visit Saturn's Moon Titan. With our current rocket technology it will take us a year to travel to Titan, but, given the way our rocket works, we can't course correct along the way. We need to point to where Titan will be a year from now and be accurate enough to hit the mark when we launch from our home planet.
 
 So how do we figure out where Titan will be? After all, every piece of matter in the universe pulls on each other through gravity. You could imagine listing every planetary body, star, and object with mass in the galaxy, along with their current positions, masses, and current trajectories in a giant computer and calculating how each one will pull on Titan and then if you knew the proper gravitational laws, you could calculate which way Titan would travel for the next timestep and how quickly. But, there is an obvious problem with this strategy, just like all of galaxy is pulling on Titan, it also pulls on itself. Very quickly the positions and trajectories of each celestial body would diverge from reality as each piece of the galaxy is pushed and pulled by every other piece. So you'd have to run the physics of the galaxy faster than the galaxy can produce it,updating each planet and star's position in tandem.
 
@@ -29,21 +29,22 @@ As you have been reading this, I'm sure you've been saying to yourself: "Only an
 Notice what we did: we started with an abstraction of a small moon orbiting a large planet, and as we built up the terrain of space we quickly ascended to the galactic scale. I would argue that much like the first attempt I described failed to build abstractions to help in the calculation, our current understanding of the Traveling Salesman Problem (TSP) also fails and in a similar way. The abstraction of "the orbit" has not yet been illuminated for TSP, and some think that such an abstraction is impossible, but I believe, if you look close enough, the truth is far simpler than many would have you believe.
 
 ## Chapter 1
+
 ## Traveling Whatman?
 
-A long time ago in the pre-internet, there used to be a whole army of american men who would go door to door and try selling useless junk to unsuspecting housewives (think vacuums and knives and other infomercial garbage,... but in your home!). These salesmen had a problem, they wanted to visit every house in their area to maximize the junk they sold, but they also wanted travel the least distance possible in order to minimize the amount of money they spent on gas. (You can already tell that given the framing of the problem, this problem has been befuddling computer scientists and mathematicians for a long time). 
+A long time ago in the pre-internet, there used to be a whole army of american men who would go door to door and try selling useless junk to unsuspecting housewives (think vacuums and knives and other infomercial garbage,... but in your home!). These salesmen had a problem, they wanted to visit every house in their area to maximize the junk they sold, but they also wanted travel the least distance possible in order to minimize the amount of money they spent on gas. (You can already tell that given the framing of the problem, this problem has been befuddling computer scientists and mathematicians for a long time).
 
-"So what? Hasn't my Google Maps app solved this? Simply draw a straight line from A to B and try to follow that line on the roads as close as possible!" 
+"So what? Hasn't my Google Maps app solved this? Simply draw a straight line from A to B and try to follow that line on the roads as close as possible!"
 
 You'd be right if what we were talking about was point to point travel, an algorithm like A* or Dijkstra's has pretty much solved that question. However, the important piece that makes TSP different is we MUST visit every house in our list, in the most optimal order. So instead of looking at all possible paths from A to B through any of the other points C to Z, we are instead looking at all possible paths from A to B to C ... Z in the most optimal ordering of those points. This explodes the problem space to exponential proportions.
 
-### A more precise way of stating the problem would be: 
+### A more precise way of stating the problem would be
 
-We have a graph <b>G</b> with a total of N points: 
+We have a graph <b>G</b> with a total of N points:
 
-<b>G = [ P<sub>1</sub> , P<sub>2</sub> , ... , P<sub>N-1</sub> , P<sub>N</sub> ]</b> 
+<b>G = [ P<sub>1</sub> , P<sub>2</sub> , ... , P<sub>N-1</sub> , P<sub>N</sub> ]</b>
 
-and we have a cost function <b>C( P<sub>a</sub> , P<sub>b</sub> )</b>  which is defined for all points in G. 
+and we have a cost function <b>C( P<sub>a</sub> , P<sub>b</sub> )</b>  which is defined for all points in G.
 
 Find the best ordering <b>O</b> of the points in <b>G</b> such that when summing the cost function over the ordering, this sum <b>C<sub>SUM</sub></b> is minimal when compared to all other possible orderings of <b>G</b>.
 
@@ -53,9 +54,9 @@ For example, if the best ordering, <b>O</b>, was <b>[ P<sub>5</sub> , P<sub>3</s
 
 ### This seems like a pretty abstract problem, why is it worth my time?
 
-Well pretty much anywhere where there are networks and costs, a solution to TSP would be very useful. If we could solve this problem, it would reduce shipping costs, make drug discovery easier, increase internet bandwidth, and reduce the price of energy pretty much overnight just to name a few of the areas TSP touches. 
+Well pretty much anywhere where there are networks and costs, a solution to TSP would be very useful. If we could solve this problem, it would reduce shipping costs, make drug discovery easier, increase internet bandwidth, and reduce the price of energy pretty much overnight just to name a few of the areas TSP touches.
 
-TSP also represents a whole class of problems that are equivalent, and we don't know if we can solve those problems quickly. This class is called <b>NP</b> or Non-Polynomial time problems and represents the boundary region between problems that we know how to solve quickly <b>(Polynomial time problems (P))</b> and problems we know we cannot solve quickly <b>(Exponential time problems (EXP))</b>. So if you hear people say Z<b>P = NP</b>, they are saying that TSP is solvable quickly (by quickly I mean we could write an algorithm that builds the optimal path rather than checking all possible paths (there is a little nuance around <b>Big(O)</b> missing here, but this is a good start)). On the other hand if you hear people say <b>P != NP</b>, they are saying the only way to solve TSP is by checking all possible paths in the network, which is 2^N (N factorial? idr) paths. 
+TSP also represents a whole class of problems that are equivalent, and we don't know if we can solve those problems quickly. This class is called <b>NP</b> or Non-Polynomial time problems and represents the boundary region between problems that we know how to solve quickly <b>(Polynomial time problems (P))</b> and problems we know we cannot solve quickly <b>(Exponential time problems (EXP))</b>. So if you hear people say Z<b>P = NP</b>, they are saying that TSP is solvable quickly (by quickly I mean we could write an algorithm that builds the optimal path rather than checking all possible paths (there is a little nuance around <b>Big(O)</b> missing here, but this is a good start)). On the other hand if you hear people say <b>P != NP</b>, they are saying the only way to solve TSP is by checking all possible paths in the network, which is 2^N (N factorial? idr) paths.
 
 These classifications aren't too important, but I would be remiss if I didn't at least mention them because much of the discourse surrounding TSP is about proving these classifications and how they relate to each other rather than solving TSP. This is important because college students often only get instruction on how to sort problems into these classifications and get taught to not touch any problems in <b>NP</b>. This has largely shaped the programming communities perception of TSP as unsolvable, or only solvable with super-computers. Despite this, we do have examples (I am thinking of the Fast Fourier Transform, but may be mistaken) of problems that were previously thought to be in <b>NP</b> but later moved down to <b>P</b> with considerable insight and skill.
 
@@ -87,18 +88,18 @@ A construction is the idea of making a path directly and submitting it as your a
 
 The closest construction to the "correct construction" that I have found (i.e. the one I think has the most promise) is the <b>Match Twice and Stich Algorithm</b> (MTS) ([Kahng, 2004](#links)). MTS constructs a series of disjoint cycles and stiches them together. The next question, is why does this algorithm fail? I believe that it correctly recognizes that loops within the greedy matches of the graph are an important part of structure of the problem, but since they only have explored disjoint cycles they have missed the recursive element of the problem. This will be explored more in [Chapter 2](#chapter-2) as we start to identify the structures of TSP graphs.
 
-
 #### Iterative
-Traditionally, constructive algorithms have been seen as worse than iterative algorithms because if you take any failed construction (i.e. a construction that does not produce the correct ordering) you can always improve the construction by using an iterative approach (<b>swapping segments of the path with each other until you reach some local minima</b>). This usually results in a sub-optimal minima except for in very small problems, but it gives the illusion of improvement and understanding. 
 
-A common problem I have encountered in writing algorithms like these (k-opt, lowest insertion from convex hull), is that they often work quite well up to a point, but when you try and make the leap to the next harder problem you fail unexpectedly. You are then left with no rationale behind why you failed, aside from that the problem got too big or your initial construction was somehow flawed. 
+Traditionally, constructive algorithms have been seen as worse than iterative algorithms because if you take any failed construction (i.e. a construction that does not produce the correct ordering) you can always improve the construction by using an iterative approach (<b>swapping segments of the path with each other until you reach some local minima</b>). This usually results in a sub-optimal minima except for in very small problems, but it gives the illusion of improvement and understanding.
+
+A common problem I have encountered in writing algorithms like these (k-opt, lowest insertion from convex hull), is that they often work quite well up to a point, but when you try and make the leap to the next harder problem you fail unexpectedly. You are then left with no rationale behind why you failed, aside from that the problem got too big or your initial construction was somehow flawed.
 
 Since your algorithm doesn't really understand the structure of the graph, you are a like a blind man who wants to visit his home at the bottom of a hill. He will get to the bottom of the hill that he is on and declare "I must be close to my house, for I am at the bottom of the hill", when in reality his hill and his house are across town. Sometimes he may even luck out and start on the right hill, but until he can reliably find the right hill, he will be lost.
 
-You should therefore be very skeptical of people who say "We have made a great improvement in the state of the art: our algorithm is within 2% of the optimal ordering!". They very well might be within the bound they stated, but it is very hard to tell how close they actually are to the correct ordering. After all, India and America both have beaches, but to say that you are in India because you can hear the ocean is fallacious indeed. 
-
+You should therefore be very skeptical of people who say "We have made a great improvement in the state of the art: our algorithm is within 2% of the optimal ordering!". They very well might be within the bound they stated, but it is very hard to tell how close they actually are to the correct ordering. After all, India and America both have beaches, but to say that you are in India because you can hear the ocean is fallacious indeed.
 
 ## Chapter 2
+
 ## Mountains of Madness
 
 So far I hope I have conveyed/answered the following:
@@ -116,8 +117,8 @@ Note that in this section I will be defining some of these features in non-tradi
   A <b>Segment</b> (also known as an <b>Edge</b> in graph theory), is a connection between two points and a distance provided by the cost function.
 
 Segment( P<sub>1</sub> , P<sub>2</sub> ) = struct{
-    
-endpoint1 = P<sub>1</sub> 
+
+endpoint1 = P<sub>1</sub>
 
 endpoint2 = P<sub>2</sub>
 
@@ -126,10 +127,11 @@ distance = C( P<sub>1</sub> , P<sub>2</sub> )
 }
 
 ### Point
-Our smallest feature is a <b>Point</b> (also know as a <b>Vertex</b> in graph theory), which is defined as a list of Segments all of the segments in the graph that connect to P<sub>1</sub>: 
+
+Our smallest feature is a <b>Point</b> (also know as a <b>Vertex</b> in graph theory), which is defined as a list of Segments all of the segments in the graph that connect to P<sub>1</sub>:
 
 Point(P<sub>1</sub>) = struct{
-    
+
 sortedSegments = [Segment( P<sub>1</sub> , P<sub>2</sub> ) , Segment( P<sub>1</sub> , P<sub>3</sub> ) , ... , Segment( P<sub>1</sub> , P<sub>N</sub> )]
 
 match1 = P<sub>*</sub>
@@ -144,7 +146,7 @@ The "<b>matches</b>" will be our current best guess of what two points should su
 
 ### Wormholes
 
-A <b>Wormhole</b> is a point that has zero distance to two Points of your choosing and maximal distance to all other Points in the set. 
+A <b>Wormhole</b> is a point that has zero distance to two Points of your choosing and maximal distance to all other Points in the set.
 
 So if we have Points 1 and 2 in the problem set and add Wormhole W "between" 1 and 2, then the new correct ordering would include:
 
@@ -158,14 +160,13 @@ This type of point could arise naturally in any problem set, but here we are cal
 
 We get the first scenario for free just by adding the Wormhole. (Not sure if this is true in general, but many geometrical arguments/algorithms break down with the addition of Wormholes)
 
-Second, if we add a Wormhole between two points that we know are in the correct ordering, then we can change the ordering of our Sorted Segments (and how points will match with each other) without changing the final correct ordering (aside from the wormhole being added). This is useful in testing as it is the smallest change we can make to a problem set and can illuminate potential problems with our algorithm. 
+Second, if we add a Wormhole between two points that we know are in the correct ordering, then we can change the ordering of our Sorted Segments (and how points will match with each other) without changing the final correct ordering (aside from the wormhole being added). This is useful in testing as it is the smallest change we can make to a problem set and can illuminate potential problems with our algorithm.
 
-Finally we can take any ordered subset in a correct ordering and add a Wormhole between the two endpoints of the subset. This will allow us to solve the subset in the same way we would have solved the original set. This is the  equivalent of saying we have points A and B with some set P (where P is the points in the original solution set that lie between A and B), find the most optimal path between A and B that also visits all of the points in P. 
+Finally we can take any ordered subset in a correct ordering and add a Wormhole between the two endpoints of the subset. This will allow us to solve the subset in the same way we would have solved the original set. This is the  equivalent of saying we have points A and B with some set P (where P is the points in the original solution set that lie between A and B), find the most optimal path between A and B that also visits all of the points in P.
 
 W <-> A <-> [ P<sub>1</sub> , P<sub>2</sub>, ... , P<sub>N</sub> ] <-> B <-> W
 
 This is useful as it allows us to take a large problem and break it down into many sub-problems, greatly expanding the amount of data we can test our algorithm on. Before you get an intuition for what groupings are "correct", it is useful to be able to strip out the layers of abstraction to work on smaller ones.
-
 
     As a small aside, you can scale up many incorrect algorithms quickly and miss the fact that they are incorrect if you skip this step, especially if your data set has a bias towards points in the plane or of a certain dimensionality. Wormholes keep us honest.
 
@@ -173,12 +174,11 @@ Below are some links to help you understand a bit more of the math behind what I
 
 General TSP to Metric TSP Reduction:
 
-- https://cstheory.stackexchange.com/questions/12885/guidelines-to-reduce-general-tsp-to-triangle-tsp
-
+* <https://cstheory.stackexchange.com/questions/12885/guidelines-to-reduce-general-tsp-to-triangle-tsp>
 
 TSP with two predetermined endpoints:
 
-- https://stackoverflow.com/questions/36086406/traveling-salesman-tsp-with-set-start-and-end-point
+* <https://stackoverflow.com/questions/36086406/traveling-salesman-tsp-with-set-start-and-end-point>
 
 ### Bigger Structures?
 
@@ -194,9 +194,9 @@ Well before we get to that , lets look at some examples to build some intuition:
 
     13  [Segment[13 : 12], Segment[11 : 13], Segment[14 : 13], Segment[10 : 13], Segment[13 : 15], Segment[9 : 13], ...]
 
-The above lists of sorted Segments are from the Djbouti_38 problem set from the University of Waterloo. In these examples I will denote each point by its final position in the correct ordering. So Point 1 would have neighbors 0 and 2 in the final correct ordering. 
+The above lists of sorted Segments are from the Djbouti_38 problem set from the University of Waterloo. In these examples I will denote each point by its final position in the correct ordering. So Point 1 would have neighbors 0 and 2 in the final correct ordering.
 
-A [Segment](#segment) as a reminder is a relationship between two points and the distance between those points. This definition allows us to sort the segments without losing the relationship that they represent. 
+A [Segment](#segment) as a reminder is a relationship between two points and the distance between those points. This definition allows us to sort the segments without losing the relationship that they represent.
 
 You can see that in the above example if each Point "got it's way" and matched with the two best other points in it's list, then we would have the following set of relationships:
 
@@ -206,17 +206,17 @@ You can see that in the above example if each Point "got it's way" and matched w
 
 13 <-> 11
 
-Instantly we see a problem with the naive approach, we have created a loop, so if we wanted to connect to the other 35 points in  the Djibouti dataset we couldn't! 
+Instantly we see a problem with the naive approach, we have created a loop, so if we wanted to connect to the other 35 points in  the Djibouti dataset we couldn't!
 
 Before we declare defeat, let's try and examine what this loop is telling us:
 
-Well, in a perfect world we would be able to make a loop of size 38 just by looking at each Point's favorite two potential matches. 
+Well, in a perfect world we would be able to make a loop of size 38 just by looking at each Point's favorite two potential matches.
 
     In reality this is the subset of convex hulls in the plane (think Circles or other Polygons) and this subset is much smaller than the unrestricted set of problems we'd like to solve.
 
 From this observation we can also see that if we tried to solve the subset <b>S = [ P<sub>11</sub> , P<sub>12</sub> , P<sub>13</sub> ]</b>, that <b>11 <-> 12 <-> 13</b> would be the correct ordering of <b>S</b>.
 
-At a more general level this loop is telling us that the subset/grouping <b>S</b> wants to connect with itself more than any other points in the graph. So to "resolve" this loop (i.e. find out which segment we should remove) we must find the two Points that want to match with the points in our loop. These outside points will be referred to as the loop's external points or just <b>externals</b> and will be used to determine the <b>cut segment</b>, or segment to remove from the loop. 
+At a more general level this loop is telling us that the subset/grouping <b>S</b> wants to connect with itself more than any other points in the graph. So to "resolve" this loop (i.e. find out which segment we should remove) we must find the two Points that want to match with the points in our loop. These outside points will be referred to as the loop's external points or just <b>externals</b> and will be used to determine the <b>cut segment</b>, or segment to remove from the loop.
 
     Also observe that there is no limit on the size that such a loop could be except that it must have more than 2 points and be less than or equal to the size of the entire point set.
 
@@ -242,10 +242,7 @@ So if we match on the first two slots for each point in this set we'd get hte re
 
 23 -> 21
 
-So its one isn't a perfect loop  like  [11, 12, 13] was, but it might be prudent to mark this structure in the same way. If you look at the third Segment on 20 and 23, they'd like to match with each our before matching outside points. We could predict that our cut Segment would be Segment[23:20], but it might not be. 
-
-
-
+So its one isn't a perfect loop  like  [11, 12, 13] was, but it might be prudent to mark this structure in the same way. If you look at the third Segment on 20 and 23, they'd like to match with each our before matching outside points. We could predict that our cut Segment would be Segment[23:20], but it might not be.
 
 Ok I think we're ready for our first larger structure
 
@@ -254,10 +251,10 @@ Ok I think we're ready for our first larger structure
 A <b>Knot</b> is defined as any subset <b>K</b> of <b>G</b> where all of the Points in <b>K</b> only want to match with each other and a maximum of two external Points.
 
 Knot(P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>) = struct{
-    
+
 knotPoints = [P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>]
 
-sortedSegments = [Segment( P<sub>1</sub> , P<sub>M+1</sub> ) , Segment( P<sub>1</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>1</sub> , P<sub>N</sub> ), 
+sortedSegments = [Segment( P<sub>1</sub> , P<sub>M+1</sub> ) , Segment( P<sub>1</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>1</sub> , P<sub>N</sub> ),
 
 Segment( P<sub>2</sub> , P<sub>M+1</sub> ) , Segment( P<sub>2</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>2</sub> , P<sub>N</sub> ),
 
@@ -272,7 +269,7 @@ match2 = P<sub>*</sub>
 
 }
 
-the sortedSegments are all of the segments from any Point in the <b>K</b> to any point not in <b>K</b>, sorted by distance 
+the sortedSegments are all of the segments from any Point in the <b>K</b> to any point not in <b>K</b>, sorted by distance
 
     Note for optimization: You likely don't need to sort all of the segments since we have already sorted them at each Point. Likely you could get the best 3 segments not pointing to other Points contained in the Knot since we will not go beyond this until we make a new Knot that encapsulates this one.
 
@@ -295,7 +292,7 @@ Not quite, right now we have our base case (one small Knot), and our final desir
     18  [Segment[18 : 17], Segment[19 : 18], Segment[20 : 18], ...]
 
     19  [Segment[19 : 18], Segment[20 : 19], ...]
-------
+-------
     20  [Segment[20 : 21], Segment[20 : 22], Segment[20 : 23], Segment[20 : 18], Segment[20 : 19], ...]
     ...
 
@@ -324,14 +321,14 @@ So we have a core of <B>[14, 15, 16, 17, 18, 19]</b> with two failed endpoint ma
 A <b>Run</b> is just like a <b>Knot</b>, but only its endpoints are exposed.
 
 Run(P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>) = struct{
-    
+
 endpoint1 = P<Sub>1</sub>
 
 endpoint2 = P<Sub>M</sub>
 
 knotPoints = [P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>]
 
-sortedSegments = [Segment( P<sub>1</sub> , P<sub>M+1</sub> ) , Segment( P<sub>1</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>1</sub> , P<sub>N</sub> ), 
+sortedSegments = [Segment( P<sub>1</sub> , P<sub>M+1</sub> ) , Segment( P<sub>1</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>1</sub> , P<sub>N</sub> ),
 
 Segment( P<sub>M</sub> , P<sub>M+1</sub> ) , Segment( P<sub>M</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>M</sub> , P<sub>N</sub> ),
 ]
@@ -348,19 +345,19 @@ Next, so that we can look at [Points](#point) and [Knots](#knot) interchangeably
 
 all of the stuff from [Points](#point), [Knots](#knot), and [Runs](#run) combined and generalized!
 
-
 Now that we have all of our data structures, let's get cracking
 
 ## Chapter 3
+
 ## Mapping the Gordian Knot
 
 Our knot mapping algorithm is as follows:
 
 Main Loop:
 
-1.   Get all of the Virtual Points we haven't visited and run the continue from Knot Finding Loop #1
-2.   The new list of unvisited points is the returned knotList
-3.   If there is only one Virtual Point left, finish, otherwise continue from #1 
+1. Get all of the Virtual Points we haven't visited and run the continue from Knot Finding Loop #1
+2. The new list of unvisited points is the returned knotList
+3. If there is only one Virtual Point left, finish, otherwise continue from #1
 
 Knot Finding Loop:
 
@@ -370,13 +367,13 @@ Knot Finding Loop:
 4. Check if the VPs that our main VP wants to match with will match back
 
    5. If so, update the two VPs with their matches and add them to the runList
-            
+
             a. If we have found a Knot, (both ends of the runList have two matches)  create the Knot from the runList, add it to our knotList, and continue from #1
 
             b. If not set the main VP to the matched VP and continue from #2
 
-    6. If not check if we have already failed once
-      
+   6. If not check if we have already failed once
+
             c. If we have, make a Run from the runList and continue from #1
 
             d.  If we haven't, set the main point to the other end of the runList and continue from #2
@@ -416,7 +413,6 @@ With <b>2</b> and <b>33</b> matching, as well as <b>5</b> and <b>6</b> matching.
 
 If this was a <b>Knot</b> instead of a run then we'd also match <b>7</b> and <b>32</b>
 
-
 Next what should we do if we have two <b>Knots</b> in a new <b>Knot</b>? For example if we have the Knot:
 
     Knot[
@@ -435,16 +431,16 @@ Ideally we would be able to have the knot surrounded incorrect context so insert
 
     Knot[Knot[35 36 37 ] 34 ] 0 1 Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ]] 
 
----
+-------
     I think the recursive insertion process should be that if you have a knot that only points to another knot then insert and keep going down levels till you are at the base knot
   
----
+-------
 
 ### Silver into Gold
-When we have a Run that loops back on itself at both ends we have a Knot, but what if we have a Run that only loops back internally? Or a Virtual Point that is next to a knot, and points to every point in its neighboring knot before pointing to other things in the Run? The following section will describe the process of finding Half Knots, or Knots which have all of the characteristics of a Knot once formed except that they do not form a perfect Knot when we are doing Knot finding (i.e. both ends of their Run point to each other). 
+
+When we have a Run that loops back on itself at both ends we have a Knot, but what if we have a Run that only loops back internally? Or a Virtual Point that is next to a knot, and points to every point in its neighboring knot before pointing to other things in the Run? The following section will describe the process of finding Half Knots, or Knots which have all of the characteristics of a Knot once formed except that they do not form a perfect Knot when we are doing Knot finding (i.e. both ends of their Run point to each other).
 
 We will use the same data structures as the perfect Knots to encapsulate Half Knots, but we will only look for them once either end of our Run has been exhausted. If we find any Half Knots in our Run the remaining Virtual Points will be reset to avoid any pointer confusion.
-
 
 ### Next Steps
 
@@ -466,12 +462,12 @@ Finally once we found every Knot and made one large Knot we get:
 
 The next step is to cut it up according to the external matches
 
-
-
 ## Chapter 4
+
 ## The Sword of Iskandar
-Now that we have our final all-encompassing Knot (i.e. it should contain every point in the set), we need to start cutting it up based on the externals that we matched with the Knot. 
- 
+
+Now that we have our final all-encompassing Knot (i.e. it should contain every point in the set), we need to start cutting it up based on the externals that we matched with the Knot.
+
 Our final Knot doesn't have any externals by definition, so we can simply dissolve it.
 
 The general idea will be this:
@@ -479,7 +475,7 @@ The general idea will be this:
 * Find the next Knot in the list
 * Find its external matches
 * Figure out what segment to cut based on the externals
-* Add the Knot's points into the list 
+* Add the Knot's points into the list
 * Repeat until we don't have any Knots left in the list
   
 There are a few edge cases around how to figure out the cut segment, but for the most part this will work.
@@ -488,19 +484,19 @@ Our cutting algorithm will not work on a nested knot, so if the knot we are tryi
 
 ### Cutting Loop
 
-Once we have the two externals and the flat knot <b>K</b> we are trying to cut, we will enter the cutting loop. The idea is we will have a doubly nested loop that iterates over the segments of <b>K</b> making for a N<sup>3</sup> operation. 
+Once we have the two externals and the flat knot <b>K</b> we are trying to cut, we will enter the cutting loop. The idea is we will have a doubly nested loop that iterates over the segments of <b>K</b> making for a N<sup>3</sup> operation.
 
 If the two cut segments overlap fully (i.e. Segment [a:b] and Segment [b:a] are the cuts) then we will calculate the Agree case (seen below) and if it is a smaller loop than our minimum, replace it. so if we had Cut Segment: [a:b]
 
-... <-> a <-> b <-> ... 
+... <-> a <-> b <-> ...
 
 with two external points ex1 and ex2, then we could have the following path
 
-... <-> a <-> ex1 <-> ... <-> ex2 <-> b <-> ... 
+... <-> a <-> ex1 <-> ... <-> ex2 <-> b <-> ...
 
 If the two cut segments overlap partially (i.e. Segment [a:b] and Segment [b:c] are the cut segments) then ignore this pair as it would leave one point orphaned (unconnected  to the final path).
 
-If the two cut segments are disjoint (i.e. Segment [a:b] and Segment [c:d] are the cut segments) then we need to figure out which will connect to the externals and which will we attach internally, so if we had 
+If the two cut segments are disjoint (i.e. Segment [a:b] and Segment [c:d] are the cut segments) then we need to figure out which will connect to the externals and which will we attach internally, so if we had
 
 ... <-> a <-> b <-> ... <-> c <-> d <-> ...
 
@@ -522,13 +518,13 @@ From here we will refer to the two points that match to the externals as Knot Po
 
 Our Cut Points a and c in the example above would also be balanced, so in the simple case we know that in order to balance a Knot we can match the Cut Points to each other. If we are only dealing with perfect knots(e.g. a Circle in the plane, triangle, etc.), then simply connecting the cut points is all we need, but if we have nested knots, things get a lot more complicated. Also note that for any bottom knot in the stack, that we can simply connect the Cut Points by definition, by bottom knot I do not mean any flattened knot, but any knot that was flat before we started cutting.
 
-As we flatten our Knots we will generate a list of Sub Knots and Super Knots that represent the optimal path at each stage of the hierarchy, we will use these flattened knots and their relationships to each other in order to find optimal paths in the top knot that we are cutting. 
+As we flatten our Knots we will generate a list of Sub Knots and Super Knots that represent the optimal path at each stage of the hierarchy, we will use these flattened knots and their relationships to each other in order to find optimal paths in the top knot that we are cutting.
 
 ### Same Knot Different Super Knot
 
-As we flatten the stack we need a way to tell the difference between a Sub Knot and a Super Knot, this is where our next data structure the CutMatchList comes in, in the simple case our CutMatchList would consist of one internal match and two implied matches, the internal match would be between the two Cut Points and the two implied matches would be between the two Knot Points and their externals. 
+As we flatten the stack we need a way to tell the difference between a Sub Knot and a Super Knot, this is where our next data structure the CutMatchList comes in, in the simple case our CutMatchList would consist of one internal match and two implied matches, the internal match would be between the two Cut Points and the two implied matches would be between the two Knot Points and their externals.
 
-But life is rarely simple, so when we are recutting a Sub Knot we want to be able to list just the segments that we'd need to cut or match in order to get to the Sub Knot from the Super Knot, with some caveats. We can achieve this by matching all segments that are in the Sub Knot but not the Super Knot and cutting all the Segments that are in the Super Knot whose endpoints are contained in the Sub Knot, but the Sub Knot does not contain the Segment in its Path. 
+But life is rarely simple, so when we are recutting a Sub Knot we want to be able to list just the segments that we'd need to cut or match in order to get to the Sub Knot from the Super Knot, with some caveats. We can achieve this by matching all segments that are in the Sub Knot but not the Super Knot and cutting all the Segments that are in the Super Knot whose endpoints are contained in the Sub Knot, but the Sub Knot does not contain the Segment in its Path.
 
 We need to exclude from this difference calculation any Internal Neighbor Segments and so that we do not break other optimal paths (See [Finding Internal Neighbor Segments](#finding-internal-neighbor-segments) for definition and purpose).
 
@@ -537,25 +533,24 @@ We need to exclude from this difference calculation any Internal Neighbor Segmen
 For a CutMatchList to be Balanced we need for the following conditions to hold (some we will actively calculate and some are implied by others):
 
 * After the CutMatch is applied each Point in the Top Knot has exactly two matches
-* Each external will have exactly one match, or exactly two matches if external1 == external2 
+* Each external will have exactly one match, or exactly two matches if external1 == external2
 Implied by above:
 * We should not have matched any Segment that already exists in the Top Knot's Path
 * We should not have cut any Segment that does not exist in the Top Knot's Path
 
 ### Finding the MinKnot
-The MinKnot is the largest flattened knot which contains all of the points of one Cut Segment(labeled Lower Cut Segment) and does not contain both Knot Points and the other Cut Segment (labeled Upper Cut Segment). Sometimes there can be multiple valid MinKnots if the two Cut Segments do not share any knots even partially. Why is the MinKnot important? If we can recursively Re-Cut the MinKnot, we can find the optimal matches for the Cut Points easily. 
 
-Since the MinKnot contains only one Cut Segment in the majority of cases, we can Re-Cut the minKnot with one fixed Cut Segment(Lower Cut Segment) and one looping Cut Segment(new Cut that we must find to attach to the neighbor (See [Finding Neighbor](#finding-neighbor) for definition and purpose)). If the MinKnot contains both Cut Segments, then match simply. 
+The MinKnot is the largest flattened knot which contains all of the points of one Cut Segment(labeled Lower Cut Segment) and does not contain both Knot Points and the other Cut Segment (labeled Upper Cut Segment). Sometimes there can be multiple valid MinKnots if the two Cut Segments do not share any knots even partially. Why is the MinKnot important? If we can recursively Re-Cut the MinKnot, we can find the optimal matches for the Cut Points easily.
+
+Since the MinKnot contains only one Cut Segment in the majority of cases, we can Re-Cut the minKnot with one fixed Cut Segment(Lower Cut Segment) and one looping Cut Segment(new Cut that we must find to attach to the neighbor (See [Finding Neighbor](#finding-neighbor) for definition and purpose)). If the MinKnot contains both Cut Segments, then match simply.
 
 ### Finding Internal Neighbor Segments
 
-
 <img src="img\wi29_6-25p20cut4-3and2-1.png" alt="wi29_6-25p20cut4-3and2-1" width="85%" style="display: block;margin-left: auto;margin-right: auto;"/>
-
 
 In the Figure Above our MinKnot is Knot[11, 1, 2, 3, 5, 0] and our Cut Segments are Segment[3:4] and Segment[1:2]  with Point 4 and Point 2 as our Knots Points and Points 3 and 1 as our Cut Points.
 
-----
+-------
 The Following Segments are what we call Internal Neighbor Segments:
 
 Segment[3:5]
@@ -566,9 +561,9 @@ Segment[11:1]
 
 Segment[5:0]
 
-The above segment is defined by the Path in the Super Knot [5 <-> 6 <-> 8 <-> 9 <-> 10 <-> 11] 
+The above segment is defined by the Path in the Super Knot [5 <-> 6 <-> 8 <-> 9 <-> 10 <-> 11]
 
-----
+-------
 
 These Internal Knot Segments define how the MinKnot interacts with the Knots outside of itself and finding them will allow us to re-cut the MinKnot without recutting it's super knot.
 
@@ -581,13 +576,13 @@ The question is how can we find these Internal Neighbor Segments algorithmically
 <img src="img\wi29_6-25p20cut4-3and2-1case2.png" alt="wi29_6-25p20cut4-3and2-1case2" width="45%" style=""/>
 </div>
 
-Here are the two valid Paths from this cut, Notice that the internal segments that do not go out to the upper knot point (Segment[1:11] and Segment[0:5]) are not touched, but the internal segment that does go out to the upper Knot Point (Segment[3:5]) may or may not exist in the final path depending on which Point 4 matches with. If 4 keeps Segment[4:5], then we do not match Segment[3:5] otherwise we do. 
+Here are the two valid Paths from this cut, Notice that the internal segments that do not go out to the upper knot point (Segment[1:11] and Segment[0:5]) are not touched, but the internal segment that does go out to the upper Knot Point (Segment[3:5]) may or may not exist in the final path depending on which Point 4 matches with. If 4 keeps Segment[4:5], then we do not match Segment[3:5] otherwise we do.
 
 ### The Square Problem
 
 An interesting problem arises when trying to determine which of these internal neighbor segments belong to the upper knot point. Take for example Point 5 in the above figures. 5 is part of Segment[0:5] and Segment[3:5] but only Segment[3:5] belongs to the upper knot point, so how can we tell which way is out of the minKnot and toward the outer loop it defines?
 
-The way to solve this is to store with each inner neighbor segment, the segment that is going out of the minKnot as well as where it comes back into the minKnot, from this we can associate Point 5 and Point 11 together and the direction to march. With this information we can determine the order to traverse the path they define. The marching direction would either be defined by Segment[11:10] or Segment[5:6] for the loop defined by Point 5 and Point 11. 
+The way to solve this is to store with each inner neighbor segment, the segment that is going out of the minKnot as well as where it comes back into the minKnot, from this we can associate Point 5 and Point 11 together and the direction to march. With this information we can determine the order to traverse the path they define. The marching direction would either be defined by Segment[11:10] or Segment[5:6] for the loop defined by Point 5 and Point 11.
 
 For the upper knot point's inner segment: Segment[5:3], this would be defined by 5, 3 and Segment[5:4] or Segment[3:4].
 
@@ -625,10 +620,10 @@ So far we have described how to cut Knots  where we have the following arrangeme
 
  ... <-> cp1 | kp1 <-> ... <-> cp2 | kp2 <-> ...
 
- where cp1= CutPoint1 and kp1 = KnotPoint1 and | = cut 
+ where cp1= CutPoint1 and kp1 = KnotPoint1 and | = cut
 
  this gives us the paths:
- 
+
  ... <-> ex1 <-> kp1 <-> ... <-> cp2
 
  ... <-> ex2 <-> kp2 <-> ... <-> cp1
@@ -663,7 +658,6 @@ But let's not get too excited: let's look at the following example:
 
 <img src="img\wi29_6-25p20p19_wrong_order.png" alt="wi29_6-25p20p19_wrong" width="85%" style="display: block;margin-left: auto;margin-right: auto;"/>
 
-
 <div style="text-align:center;margin-bottom:50px;"> Naive Path</div>
 
 <img src="img\wi29_6-25p20p19.png" alt="wi29_6-25p20p19" width="85%" style="display: block;margin-left: auto;margin-right: auto;"/>
@@ -674,10 +668,7 @@ The only difference between the Correct Path and the Naive Path, is that in the 
 
 However, we can get around the orphan problem by only looking at those cut points who's largest common knot does not include (both knot points, or at least one knot point?) and then we can recut this minKnot like normal. (I think you want to include the lower cut segment if you can).
 
-
 basically anywhere that you can find a minKnot that has one cut segment in it, its a valid CutMatch.
-
-
 
 ### MinKnot for the Criminally Insane
 
@@ -701,22 +692,19 @@ Q3. How do we get a Big O of N<sup>3</sup>?
 
 A3. In the Worst Case there would be  N-4 Knots to cut, and on average I have seen most sets with roughly N/3 Knots. So if we have O(N) Knots, and we are looking at all cut segment pairs in each Knot with time O(N<sup>2</sup>), then O(N)*O(N<sup>2</sup>) = O(N<sup>3</sup>)
 
-
-
-
 ## Links
 
-Look at Section 4 Minimum Bounding Circle By Megiddo: 
+Look at Section 4 Minimum Bounding Circle By Megiddo:
 
-- https://epubs.siam.org/doi/pdf/10.1137/0212052
+* <https://epubs.siam.org/doi/pdf/10.1137/0212052>
 
 Match Twice and Stitch Algorithm:
 
- - https://vlsicad.ucsd.edu/Publications/Journals/j67.pdf
+* <https://vlsicad.ucsd.edu/Publications/Journals/j67.pdf>
 
 Waterloo TSP Dataset:
 
-- http://www.math.uwaterloo.ca/tsp/world/countries.html#LU
+* <http://www.math.uwaterloo.ca/tsp/world/countries.html#LU>
 
 ## Appendix A
 
@@ -799,4 +787,3 @@ Waterloo TSP Dataset:
     36  [Segment[36 : 37], Segment[36 : 35], Segment[36 : 34], Segment[36 : 1], Segment[36 : 0], Segment[36 : 2], Segment[36 : 3], Segment[36 : 33], Segment[36 : 32], Segment[26 : 36], Segment[4 : 36], Segment[36 : 27], Segment[36 : 24], Segment[36 : 25], Segment[36 : 5], Segment[6 : 36], Segment[36 : 31], Segment[30 : 36], Segment[36 : 28], Segment[36 : 7], Segment[29 : 36], Segment[8 : 36], Segment[23 : 36], Segment[20 : 36], Segment[36 : 21], Segment[22 : 36], Segment[36 : 18], Segment[36 : 15], Segment[36 : 17], Segment[9 : 36], Segment[16 : 36], Segment[36 : 12], Segment[14 : 36], Segment[36 : 19], Segment[11 : 36], Segment[10 : 36], Segment[36 : 13]]
 
     37  [Segment[36 : 37], Segment[35 : 37], Segment[34 : 37], Segment[37 : 1], Segment[37 : 0], Segment[2 : 37], Segment[37 : 3], Segment[37 : 33], Segment[32 : 37], Segment[26 : 37], Segment[4 : 37], Segment[27 : 37], Segment[24 : 37], Segment[37 : 25], Segment[5 : 37], Segment[6 : 37], Segment[31 : 37], Segment[37 : 28], Segment[30 : 37], Segment[7 : 37], Segment[29 : 37], Segment[8 : 37], Segment[23 : 37], Segment[20 : 37], Segment[21 : 37], Segment[22 : 37], Segment[37 : 18], Segment[37 : 15], Segment[37 : 17], Segment[9 : 37], Segment[16 : 37], Segment[12 : 37], Segment[14 : 37], Segment[19 : 37], Segment[11 : 37], Segment[10 : 37], Segment[13 : 37]]
-
