@@ -122,7 +122,7 @@ public class Main extends JComponent {
 			// the internal neighbors list. it is not clear weather this should hold for knots where the upper cutpoint is contianed
 			// within hte minknot. I think it shouldn't hold, i.e. we should only check this when vp2 is not in the minknot.
 
-			String fileName = "djbouti_8-34WH0-33";
+			String fileName = "wi29_6-25p20p19";
 			PointSetPath retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
@@ -138,8 +138,8 @@ public class Main extends JComponent {
 			Collections.shuffle(maxShell);
 			System.out.println(maxShell);
 			boolean calculateKnot = true;
-			boolean drawSubPaths = true;
-			boolean drawMainPath = false;
+			boolean drawSubPaths = false;
+			boolean drawMainPath = true;
 			long startTimeKnotFinding = System.currentTimeMillis();
 			if (calculateKnot) {
 				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 67));

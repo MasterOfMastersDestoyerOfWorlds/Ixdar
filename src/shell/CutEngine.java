@@ -392,7 +392,6 @@ public class CutEngine {
                 if (innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(kp2)) {
                     neighborIntersect = true;
                 }
-                shell.buff.add("b: " + cp1 + " " + cp2 + " " + cutPointsAcross);
                 boolean hasSegment = replicatesNeighbor
                         || (innerNeighbor && outerNeighbor) || neighborIntersect || s12.equals(upperCutSegment);
 
@@ -446,7 +445,6 @@ public class CutEngine {
                 if (innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(kp2)) {
                     neighborIntersect2 = true;
                 }
-                shell.buff.add("a: " + cp1 + " " + kp2 + " " + cutPointsAcross2);
                 boolean hasSegment2 = replicatesNeighbor2
                         || (innerNeighbor2 && outerNeighbor2) || neighborIntersect2 || s22.equals(upperCutSegment);
                 // false;//

@@ -613,9 +613,71 @@ Other than that there is only left to cycle through the minKnot's Segments and r
 
 ### MinKnot with no CutSegment in its Path
 
+What if the Lower Cut Segment is not actually in our minKnot? The Points that are in the Lower Cut Segment are guaranteed to be, but the actual Segment may not be in hte MinKnot's Path.
+
+If this is the case we want to make a cut at the segment to the right of the Lower Knot Point and to the left of the lower knot point and pick the lesser length, if the Upper Cut Point  is not in the minKnot then we are in a bit of trouble
+
 ### MinKnot without Both CutPoints
 
 ### Orphaned Sections
+
+So far we have described how to cut Knots  where we have the following arrangement:
+
+ ... <-> cp1 | kp1 <-> ... <-> cp2 | kp2 <-> ...
+
+ where cp1= CutPoint1 and kp1 = KnotPoint1 and | = cut 
+
+ this gives us the paths:
+ 
+ ... <-> ex1 <-> kp1 <-> ... <-> cp2
+
+ ... <-> ex2 <-> kp2 <-> ... <-> cp1
+
+ and all we have to do is figure out what to attach the cutPoints to.
+
+Imagine if we instead cut a knot like this:
+
+ ... <-> cp1 | kp1 <-> ... <-> kp2 | cp2 <-> ...
+
+ or this:
+
+ ... <-> kp1 | cp1 <-> ... <-> cp2 | kp2 <-> ...
+
+Then we'd be left with the strings:
+
+ex1 <-> kp1 <-> ... <-> kp2 <-> ex2
+
+cp1 <-> ... <-> cp2
+
+Now the Path from cp1 to cp2 is orphaned and it is not clear how they should attach to the points between kp1 and kp2
+
+What's worse is that finding out where cp1 through cp2 go is an NP-Hard Operation, so do we need to recursively solve for TSP removing at least 2 points at a time?
+
+We'll there is a little solace in the fact that when cutting a perfect Knot this won't be part of the answer.
+
+But let's not get too excited: let's look at the following example:
+
+<img src="img\wi29_6-25p20p19_right_order.png" alt="wi29_6-25p20p19_right" width="85%" style="display: block;margin-left: auto;margin-right: auto;"/>
+
+<div style="text-align:center;margin-bottom:50px;"> Correct Path</div>
+
+<img src="img\wi29_6-25p20p19_wrong_order.png" alt="wi29_6-25p20p19_wrong" width="85%" style="display: block;margin-left: auto;margin-right: auto;"/>
+
+
+<div style="text-align:center;margin-bottom:50px;"> Naive Path</div>
+
+<img src="img\wi29_6-25p20p19.png" alt="wi29_6-25p20p19" width="85%" style="display: block;margin-left: auto;margin-right: auto;"/>
+
+<div style="text-align:center;margin-bottom:50px;"> Knot Breakdown</div>
+
+The only difference between the Correct Path and the Naive Path, is that in the correct Path we have broken our rule of not orphaning our Cut Points.
+
+However, we can get around the orphan problem by only looking at those cut points who's largest common knot does not include (both knot points, or at least one knot point?) and then we can recut this minKnot like normal. (I think you want to include the lower cut segment if you can).
+
+
+basically anywhere that you can find a minKnot that has one cut segment in it, its a valid CutMatch.
+
+
 
 ### MinKnot for the Criminally Insane
 
