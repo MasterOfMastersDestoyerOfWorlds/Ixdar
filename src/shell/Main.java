@@ -138,11 +138,11 @@ public class Main extends JComponent {
 			Collections.shuffle(maxShell);
 			System.out.println(maxShell);
 			boolean calculateKnot = true;
-			boolean drawSubPaths = false;
+			boolean drawSubPaths = true;
 			boolean drawMainPath = true;
 			long startTimeKnotFinding = System.currentTimeMillis();
 			if (calculateKnot) {
-				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 67));
+				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 4));
 			}
 			maxShell.buff.flush();
 			long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
