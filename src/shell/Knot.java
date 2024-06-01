@@ -202,4 +202,13 @@ public class Knot extends VirtualPoint {
         }
         return false;
     }
+
+    public boolean overlaps(Knot minKnot) {
+        for(VirtualPoint vp : minKnot.knotPoints){
+            if(this.contains(vp)){
+                return true;
+            }
+        }
+        return false;
+    }
 }

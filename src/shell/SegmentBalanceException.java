@@ -20,6 +20,16 @@ public class SegmentBalanceException extends Exception {
         this.ex2 = ex2;
     }
 
+    public SegmentBalanceException(SegmentBalanceException sbe){
+        cutMatchList = sbe.cutMatchList;
+        topKnot = sbe.topKnot;
+        cut1 = sbe.cut1;
+        ex1 = sbe.ex1;
+        cut2 = sbe.cut2;
+        ex2 = sbe.ex2;
+
+    }
+
     @Override
     public String toString() {
         return "SegmentBalanceException: " + topKnot + " cut1: " + cut1 + " ex1: " + ex1 + " cut2: " + cut2 + " ex2: " + ex2;

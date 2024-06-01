@@ -33,6 +33,7 @@ public class CutEngine {
 
     public CutMatchList findCutMatchList(Knot knot, VirtualPoint external1, VirtualPoint external2, Knot superKnot,
             Segment kpSegment) throws SegmentBalanceException {
+
         double minDelta = Double.MAX_VALUE;
         boolean overlapping = true;
         Segment matchSegment1Final = null;
@@ -100,7 +101,7 @@ public class CutEngine {
                     if (!internalCuts12.checkCutMatchBalance(s11, s12, cutSegment1, cutSegment2, external1,
                             external2, knot, new ArrayList<>(), knot, false)) {
                         shell.buff.add(knot);
-                        shell.buff.add("Cut Info: Cut1: knotPoint1: " + knotPoint11 + " cutpointA: " + knotPoint12
+                        shell.buff.add("Cut Info 12: Cut1: knotPoint1: " + knotPoint11 + " cutpointA: " + knotPoint12
                                 + " ex1:" + external1 + " knotPoint2: " + knotPoint21 + " cutPointB: " + knotPoint22
                                 + " ex2: " + external2);
                         shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
@@ -132,7 +133,7 @@ public class CutEngine {
                     if (!internalCuts34.checkCutMatchBalance(s31, s32, cutSegment1, cutSegment2, external1,
                             external2, knot, new ArrayList<>(), knot, false)) {
                         shell.buff.add(knot);
-                        shell.buff.add("Cut Info: Cut1: knotPoint1: " + knotPoint12 + " cutpointA: " + knotPoint11
+                        shell.buff.add("Cut Info 34: Cut1: knotPoint1: " + knotPoint12 + " cutpointA: " + knotPoint11
                                 + " ex1:" + external1 + " knotPoint2: " + knotPoint22 + " cutPointB: " + knotPoint21
                                 + " ex2: " + external2);
                         shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
@@ -146,6 +147,7 @@ public class CutEngine {
                         shell.buff.flush();
                     }
 
+                    shell.buff.flush();
                     shell.buff.add(" 56 -------------------------------------------");
                     // shell.buff.add(
                     // "s31: " + s31 + " s32: " + s32 + " cut1: " + cutSegment1 + " cut2: " +
@@ -187,7 +189,8 @@ public class CutEngine {
                         if (!internalCuts56.checkCutMatchBalance(s51, s52, cutSegment1, cutSegment2, external1,
                                 external2, knot, new ArrayList<>(), knot, false)) {
                             shell.buff.add(knot);
-                            shell.buff.add("Cut Info: Cut1: knotPoint1: " + knotPoint11 + " cutpointA: " + knotPoint12
+                            shell.buff.add("Cut Info 56: Cut1: knotPoint1: " + knotPoint11 + " cutpointA: "
+                                    + knotPoint12
                                     + " ex1:" + external1 + " knotPoint2: " + knotPoint22 + " cutPointB: " + knotPoint21
                                     + " ex2: " + external2);
                             shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
@@ -202,6 +205,8 @@ public class CutEngine {
                         } else {
                             shell.buff.flush();
                         }
+
+                        shell.buff.flush();
 
                     }
 
@@ -278,10 +283,10 @@ public class CutEngine {
                 }
             }
         }
-        if (overlapping)
-
-        {
-            CutMatchList result = new CutMatchList(shell);
+        if (overlapping) {
+            SegmentBalanceException sbe = new SegmentBalanceException(null, knot, cutSegmentFinal,
+                    matchSegment1Final, cutSegmentFinal, matchSegment2Final);
+            CutMatchList result = new CutMatchList(shell, sbe);
             if (superKnot != null) {
                 result.addCut(cutSegmentFinal, matchSegment1Final, matchSegment2Final, knot, knotPoint1Final,
                         knotPoint2Final, superKnot, kpSegment, new ArrayList<>(), new ArrayList<>(), null, null, null,
@@ -292,7 +297,10 @@ public class CutEngine {
             }
             return result;
         } else {
-            CutMatchList result = new CutMatchList(shell);
+
+            SegmentBalanceException sbe = new SegmentBalanceException(null, knot, cutSegmentFinal,
+                    matchSegment1Final, cutSegment2Final, matchSegment2Final);
+            CutMatchList result = new CutMatchList(shell, sbe);
             if (superKnot != null) {
                 result.addTwoCut(cutSegmentFinal, cutSegment2Final, matchSegment1Final, matchSegment2Final, knot,
                         knotPoint1Final, knotPoint2Final, internalCuts, superKnot, kpSegment, new ArrayList<>(),
@@ -317,9 +325,19 @@ public class CutEngine {
     public CutMatchList findCutMatchListFixedCut(Knot knot, VirtualPoint external1,
             VirtualPoint external2, Segment cutSegment1, VirtualPoint kp1, VirtualPoint cp1, Knot superKnot,
             Segment kpSegment, ArrayList<Segment> innerNeighborSegments, ArrayList<Segment> neighborSegments,
-            Segment upperCutSegment, Segment neighborCutSegment, VirtualPoint topCutPoint)
+            Segment upperCutSegment, Segment neighborCutSegment, VirtualPoint topCutPoint,
+            boolean needTwoNeighborMatches, boolean bothKnotPointsInside, VirtualPoint upperKnotPoint)
             throws SegmentBalanceException {
 
+        if (needTwoNeighborMatches) {
+
+            return findCutMatchListFixedCutNeedTwoMatches(knot, external1, external2,
+                    cutSegment1, kp1, cp1, superKnot, kpSegment, innerNeighborSegments,
+                    neighborSegments, upperCutSegment, neighborCutSegment, topCutPoint, bothKnotPointsInside, upperKnotPoint);
+        }
+        SegmentBalanceException sbe = new SegmentBalanceException(null, superKnot, cutSegment1,
+                new Segment(kp1, external1, 0.0), upperCutSegment,
+                new Segment(upperCutSegment.getOther(topCutPoint), upperCutSegment.getOther(topCutPoint), 0.0));
         totalCalls++;
         if (cutLookup.containsKey(knot.id, external2.id, kp1.id, cp1.id, superKnot.id)) {
             resolved++;
@@ -354,10 +372,16 @@ public class CutEngine {
             VirtualPoint knotPoint21 = knot.knotPoints.get(a);
             VirtualPoint knotPoint22 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
             Segment cutSegment2 = knot.getSegment(knotPoint21, knotPoint22);
-            if (cutSegment1.partialOverlaps(cutSegment2)) {
+            // I think that the continue state instead of being do the ct sgments partially
+            // overlapp each other, should instead
+            // be like
+            if (cutSegment1.partialOverlaps(cutSegment2) && !cutSegment2.equals(kpSegment)) {
                 continue;
             }
             if (cutSegment1.equals(cutSegment2)) {
+                if (needTwoNeighborMatches) {
+                    continue;
+                }
 
                 Segment s11 = kp1.getClosestSegment(external1, null);
                 Segment s12 = cp1.getClosestSegment(external2, s11);
@@ -425,7 +449,12 @@ public class CutEngine {
                         || (innerNeighbor && outerNeighbor) || neighborIntersect || s12.equals(upperCutSegment);
 
                 if (hasSegment) {
-                    shell.buff.add("REEE" + " s12: " + s12 + " kp2 :" + kp2 + " kpSegment " + kpSegment);
+                    shell.buff.add("REEE: cutSeg1: " + cutSegment1 + " cutSeg2: " + cutSegment2 + " s12: " + s12
+                            + " kp2 :" + kp2 + " kpSegment " + kpSegment);
+
+                    if (orphanFlag) {
+                        shell.buff.add("Would Orphan");
+                    }
                 }
 
                 CutMatchList internalCuts1 = null;
@@ -482,8 +511,13 @@ public class CutEngine {
                 // ||
                 // kpSegment.contains(cp2);
 
-                if (hasSegment2) {
-                    shell.buff.add("REEE" + " s22: " + s22 + " cp2 :" + cp2 + " kpSegment " + kpSegment);
+                if (orphanFlag2 || hasSegment2) {
+                    shell.buff.add("REEE cutSeg1: " + cutSegment1 + " cutSeg2: " + cutSegment2 + " s22: " + s22
+                            + " cp2 :" + cp2 + " kpSegment " + kpSegment);
+
+                    if (orphanFlag2) {
+                        shell.buff.add("Would Orphan");
+                    }
                 }
 
                 CutMatchList internalCuts2 = null;
@@ -523,7 +557,7 @@ public class CutEngine {
             }
         }
         if (overlapping == 1) {
-            CutMatchList result = new CutMatchList(shell);
+            CutMatchList result = new CutMatchList(shell, sbe);
             shell.buff.add("Im gonna pre: " + neighborSegments);
             result.addCut(cutSegmentFinal, kp1.getClosestSegment(external1, null), matchSegment2Final, knot,
                     knotPoint1Final, knotPoint2Final, superKnot,
@@ -532,7 +566,7 @@ public class CutEngine {
             cutLookup.put(knot.id, external2.id, kp1.id, cp1.id, superKnot.id, result);
             return result;
         } else if (overlapping == 2) {
-            CutMatchList result = new CutMatchList(shell);
+            CutMatchList result = new CutMatchList(shell, sbe);
             result.addTwoCut(cutSegmentFinal, cutSegment2Final, kp1.getClosestSegment(external1, null),
                     matchSegment2Final, knot, knotPoint1Final,
                     knotPoint2Final, internalCuts, superKnot, kpSegment, innerNeighborSegments, neighborSegments,
@@ -542,9 +576,118 @@ public class CutEngine {
 
         } else {
             shell.buff.add("No Available CUTS!");
-            throw new SegmentBalanceException(new CutMatchList(shell), superKnot, cutSegment1,
-                    new Segment(kp1, external1, 0.0), upperCutSegment,
-                    new Segment(upperCutSegment.getOther(topCutPoint), upperCutSegment.getOther(topCutPoint), 0.0));
+            CutMatchList cml = new CutMatchList(shell, sbe);
+            cml.addDumbCutMatch(knot, superKnot);
+            throw new SegmentBalanceException(sbe);
+        }
+    }
+
+    public CutMatchList findCutMatchListFixedCutNeedTwoMatches(Knot knot, VirtualPoint external1,
+            VirtualPoint external2, Segment cutSegment1, VirtualPoint kp1, VirtualPoint cp1, Knot superKnot,
+            Segment kpSegment, ArrayList<Segment> innerNeighborSegments, ArrayList<Segment> neighborSegments,
+            Segment upperCutSegment, Segment neighborCutSegment, VirtualPoint topCutPoint, boolean bothKnotPointsInside,
+            VirtualPoint upperKnotPoint)
+            throws SegmentBalanceException {
+
+        // we are dividing the knot into two sections and all cuts must follow this
+        // pattern:
+        // one section contains knot point 1 and one does not, connect external2 to the
+        // opposite end of both sections
+        // one of the cut segments needs to contain knot point1, so here are the steps I think,
+        //get the knot and the 2 cut segments 
+        //march on the knot away from the cutpoint in cutSegment1 ( could maybe also do index shenanagines,
+        // but might be same time depending on implementation)
+        //once we find a point thats in cutSegment2 we can group it with knotpoint1, lets call this knotpoint1's mirrorpoint or mirrorpoint1
+        //we then connect mirror1 to external2
+        //mirror21 and mirror22 are the other unassigned points in cutsegments 1 and 2
+        //next if the knotpoint2 is on the outside, check the order of cutpoint2 and knotpoint2 to connecting to mirror21 and mirror22
+        //otherwise knotpoint2 should be one of the mirror2's, so connect external2 to the other mirror2 that is not knotPoint2
+
+
+        SegmentBalanceException sbe = new SegmentBalanceException(null, superKnot, cutSegment1,
+                new Segment(kp1, external1, 0.0), upperCutSegment,
+                new Segment(upperCutSegment.getOther(topCutPoint), upperCutSegment.getOther(topCutPoint), 0.0));
+
+        if (!(knot.contains(cutSegment1.first) && knot.contains(cutSegment1.last))) {
+            shell.buff.add(knot);
+            shell.buff.add(cutSegment1);
+            float z = 1 / 0;
+        }
+        if ((knot.contains(external1) || knot.contains(external2))) {
+            float z = 1 / 0;
+        }
+
+        ArrayList<VirtualPoint> innerNeighborSegmentsFlattened = new ArrayList<>();
+        for (Segment s : innerNeighborSegments) {
+            innerNeighborSegmentsFlattened.add(s.first);
+            innerNeighborSegmentsFlattened.add(s.last);
+        }
+        double minDelta = Double.MAX_VALUE;
+        int overlapping = -1;
+        Segment matchSegment2Final = null;
+        Segment matchSegment3Final = null;
+        Segment cutSegmentFinal = null;
+        Segment cutSegment2Final = null;
+        VirtualPoint knotPoint1Final = null;
+        VirtualPoint knotPoint2Final = null;
+        CutMatchList internalCuts = null;
+        for (int a = 0; a < knot.knotPoints.size(); a++) {
+
+            VirtualPoint knotPoint21 = knot.knotPoints.get(a);
+            VirtualPoint knotPoint22 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
+            Segment cutSegment2 = knot.getSegment(knotPoint21, knotPoint22);
+            // I think that the continue state instead of being do the ct sgments partially
+            // overlapp each other, should instead
+            // be like
+            if (cutSegment1.partialOverlaps(cutSegment2) && !cutSegment2.equals(kpSegment)) {
+                continue;
+            }
+            if (cutSegment1.equals(cutSegment2)) {
+                continue;
+            } else {
+                double delta = Double.MAX_VALUE;
+                VirtualPoint cp2 = knotPoint22;
+                VirtualPoint kp2 = knotPoint21;
+
+
+                if (delta < minDelta) {
+                    if (!orphanFlag && !hasSegment) {
+                        matchSegment2Final = s12;
+                        knotPoint1Final = kp1;
+                        knotPoint2Final = kp2;
+                        internalCuts = internalCuts1;
+                        cutSegmentFinal = cutSegment1;
+                        cutSegment2Final = cutSegment2;
+                    } else {
+                        matchSegment2Final = s22;
+                        knotPoint1Final = kp1;
+                        knotPoint2Final = cp2;
+                        internalCuts = internalCuts2;
+                        cutSegmentFinal = cutSegment1;
+                        cutSegment2Final = cutSegment2;
+
+                    }
+
+                    minDelta = delta;
+                    overlapping = 2;
+                }
+
+            }
+        }
+        if (overlapping == 2) {
+            CutMatchList result = new CutMatchList(shell, sbe);
+            result.addTwoCut(cutSegmentFinal, cutSegment2Final, kp1.getClosestSegment(external1, null),
+                    matchSegment2Final, knot, knotPoint1Final,
+                    knotPoint2Final, internalCuts, superKnot, kpSegment, innerNeighborSegments, neighborSegments,
+                    neighborCutSegment, upperCutSegment, topCutPoint, false);
+            cutLookup.put(knot.id, external2.id, kp1.id, cp1.id, superKnot.id, result);
+            return result;
+
+        } else {
+            shell.buff.add("No Available CUTS!");
+            CutMatchList cml = new CutMatchList(shell, sbe);
+            cml.addDumbCutMatch(knot, superKnot);
+            throw new SegmentBalanceException(sbe);
         }
     }
 

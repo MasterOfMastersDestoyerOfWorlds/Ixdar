@@ -14,11 +14,13 @@ class CutMatch {
     Knot superKnot;
     public Segment kpSegment;
     Shell shell;
+    SegmentBalanceException sbe;
 
-    public CutMatch(Shell shell) {
+    public CutMatch(Shell shell, SegmentBalanceException sbe) {
         cutSegments = new ArrayList<>();
         matchSegments = new ArrayList<>();
         this.shell = shell;
+        this.sbe = sbe;
     }
 
     public void updateDelta() {
@@ -32,7 +34,7 @@ class CutMatch {
 
     }
 
-    public void checkValid() {
+    public void checkValid() throws SegmentBalanceException{
         for (Segment s : cutSegments) {
             if (matchSegments.contains(s)) {
                 float zero = 1 / 0;
@@ -61,9 +63,9 @@ class CutMatch {
             }
 
             for (Segment s : matchSegments) {
-                shell.buff.printAll();
                 if (knotSegments.contains(s)) {
-                    float z = 1 / 0;
+                    System.out.println(this);
+                    throw new SegmentBalanceException(sbe);
                 }
             }
         }
@@ -83,7 +85,7 @@ class CutMatch {
     }
 
     public CutMatch copy() {
-        CutMatch copy = new CutMatch(shell);
+        CutMatch copy = new CutMatch(shell, sbe);
         copy.knot = knot;
         copy.delta = delta;
         copy.cutSegments.addAll(cutSegments);
@@ -103,10 +105,14 @@ class CutMatchList {
     ArrayList<CutMatch> cutMatches;
     double delta;
     Shell shell;
+    SegmentBalanceException sbe;
 
-    public CutMatchList(Shell shell) {
+
+    public CutMatchList(Shell shell, SegmentBalanceException sbe) {
         cutMatches = new ArrayList<>();
+        sbe.cutMatchList = this;
         this.shell = shell;
+        this.sbe = sbe;
     }
 
     public String toString() {
@@ -116,8 +122,8 @@ class CutMatchList {
     }
 
     public void addCut(Segment cutSegment, Segment matchSegment1, Segment matchSegment2, Knot knot,
-            VirtualPoint kp1, VirtualPoint kp2) {
-        CutMatch cm = new CutMatch(shell);
+            VirtualPoint kp1, VirtualPoint kp2) throws SegmentBalanceException {
+        CutMatch cm = new CutMatch(shell,sbe);
         cm.cutSegments.add(cutSegment);
         cm.matchSegments.add(matchSegment1);
         cm.matchSegments.add(matchSegment2);
@@ -133,8 +139,8 @@ class CutMatchList {
     public void addCut(Segment cutSegment, Segment matchSegment1, Segment matchSegment2, Knot knot,
             VirtualPoint kp1, VirtualPoint kp2, Knot superKnot, Segment kpSegment,
             ArrayList<Segment> innerNeighborSegments, ArrayList<Segment> neighborSegments,
-            Segment neighborCutSegment, Segment upperCutSegment, VirtualPoint topCutPoint, boolean match1) {
-        CutMatch cm = new CutMatch(shell);
+            Segment neighborCutSegment, Segment upperCutSegment, VirtualPoint topCutPoint, boolean match1) throws SegmentBalanceException {
+        CutMatch cm = new CutMatch(shell, sbe);
         if (match1) {
             cm.matchSegments.add(matchSegment1);
         }
@@ -162,8 +168,8 @@ class CutMatchList {
     }
 
     public void addTwoCut(Segment cutSegment, Segment cutSegment2, Segment matchSegment1, Segment matchSegment2,
-            Knot knot, VirtualPoint kp1, VirtualPoint kp2, CutMatchList cml) {
-        CutMatch cm = new CutMatch(shell);
+            Knot knot, VirtualPoint kp1, VirtualPoint kp2, CutMatchList cml) throws SegmentBalanceException {
+        CutMatch cm = new CutMatch(shell, sbe);
         cm.cutSegments.add(cutSegment);
         cm.cutSegments.add(cutSegment2);
         cm.matchSegments.add(matchSegment1);
@@ -188,8 +194,8 @@ class CutMatchList {
     public void addTwoCut(Segment cutSegment, Segment cutSegment2, Segment matchSegment1, Segment matchSegment2,
             Knot knot, VirtualPoint kp1, VirtualPoint kp2, CutMatchList cml, Knot superKnot, Segment kpSegment,
             ArrayList<Segment> innerNeighborSegments, ArrayList<Segment> neighborSegments,
-            Segment neighborCutSegment, Segment upperCutSegment, VirtualPoint topCutPoint, boolean match1) {
-        CutMatch cm = new CutMatch(shell);
+            Segment neighborCutSegment, Segment upperCutSegment, VirtualPoint topCutPoint, boolean match1) throws SegmentBalanceException {
+        CutMatch cm = new CutMatch(shell, sbe);
         cm.cutSegments.add(cutSegment2);
         if (match1) {
             cm.matchSegments.add(matchSegment1);
@@ -235,8 +241,8 @@ class CutMatchList {
         cm.checkValid();
     }
 
-    public void addSimpleMatch(Segment matchSegment, Knot knot) {
-        CutMatch cm = new CutMatch(shell);
+    public void addSimpleMatch(Segment matchSegment, Knot knot) throws SegmentBalanceException {
+        CutMatch cm = new CutMatch(shell, sbe);
         cm.matchSegments.add(matchSegment);
         cm.knot = knot;
         cm.updateDelta();
@@ -247,7 +253,7 @@ class CutMatchList {
 
     public CutMatch diffKnots(Knot subKnot, Knot superKnot, CutMatch cm, Segment cutSegment, Segment kpSegment,
             ArrayList<Segment> innerNeighborSegments, ArrayList<Segment> neighborSegments,
-            Segment neighborCutSegment, Segment upperCutSegment, VirtualPoint topCutPoint) {
+            Segment neighborCutSegment, Segment upperCutSegment, VirtualPoint topCutPoint) throws SegmentBalanceException {
         shell.buff.add("finding diff");
         shell.buff.add("diff cut: " + cm);
         innerNeighborSegments = new ArrayList<Segment>(innerNeighborSegments);
@@ -326,7 +332,7 @@ class CutMatchList {
         }
 
         if (subKnot.equals(superKnot)) {
-            return new CutMatch(shell);
+            return new CutMatch(shell, sbe);
         }
         ArrayList<Segment> subKnotSegments = new ArrayList<>();
         ArrayList<Segment> diffList = new ArrayList<>();
@@ -375,8 +381,10 @@ class CutMatchList {
         }
         cm.matchSegments.removeAll(toRemoveMatches);
 
-        CutMatch cmNew = new CutMatch(shell);
-
+        CutMatch cmNew = new CutMatch(shell, sbe);
+        // if(superKnot.hasSegment(kpSegment) && subKnot.hasSegment(kpSegment) && !diffList2.contains(kpSegment)){
+        //     diffList2.add(kpSegment);
+        // }
         cmNew.cutSegments.addAll(diffList2);
         cmNew.matchSegments.addAll(diffList);
         cmNew.knot = superKnot;
@@ -393,8 +401,8 @@ class CutMatchList {
         }
     }
 
-    public void addNeighborCut(Segment neighborCut, Knot knot, CutMatchList cml) {
-        CutMatch cm = new CutMatch(shell);
+    public void addNeighborCut(Segment neighborCut, Knot knot, CutMatchList cml) throws SegmentBalanceException {
+        CutMatch cm = new CutMatch(shell, sbe);
         cm.cutSegments.add(neighborCut);
         cm.knot = knot;
 
@@ -461,7 +469,7 @@ class CutMatchList {
     }
 
     public CutMatchList copy() {
-        CutMatchList copy = new CutMatchList(shell);
+        CutMatchList copy = new CutMatchList(shell, sbe);
         copy.delta = delta;
         for (CutMatch cm : cutMatches) {
             CutMatch copyCM = cm.copy();
@@ -558,6 +566,12 @@ class CutMatchList {
             shell.buff.add("breaki " + breaki);
         }
         return flag;
+    }
+
+    public void addDumbCutMatch(Knot knot, Knot superKnot) {
+        CutMatch cm = new CutMatch(shell, sbe);
+        cm.knot = knot;
+        cutMatches.add(cm);
     }
 
     

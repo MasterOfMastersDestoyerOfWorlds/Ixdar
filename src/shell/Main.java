@@ -183,13 +183,21 @@ public class Main extends JComponent {
 					for (VirtualPoint p : sbe.topKnot.knotPoints) {
 						result.add(((Point) p).p);
 					}
+					maxShell.buff.printAll();
+					System.out.println();
 					System.out.println(sbe);
+					//StackTraceElement ste = sbe.getStackTrace()[0];
+					for(StackTraceElement ste : sbe.getStackTrace()){
+						if(ste.getMethodName().equals("cutKnot")){
+							break;
+						}
+					System.out.println("ErrorSource: " + ste.getMethodName() + " " + ste.getFileName() + ":" + ste.getLineNumber());
+					}
+					System.out.println();
 					result.drawShell(this, g2, true, minLineThickness * 2, Color.magenta, retTup.ps);
 					drawCutMatch(this, g2, sbe, minLineThickness * 2, retTup.ps);
 				}
 			}
-
-			maxShell.buff.printLayer(0);
 			long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
 			double knotCuttingSeconds = ((double) endTimeKnotCutting) / 1000.0;
 			System.out.println(result);
@@ -340,6 +348,7 @@ public class Main extends JComponent {
 		midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0 + 8;
 		g2.drawString("X", (int) midCoords[0], (int) midCoords[1]);
 
+		g2.setColor(new Color(210, 105, 30));
 		// Draw x 2
 		first = ((Point) sbe.cut2.first).p.toPoint2D();
 		last = ((Point) sbe.cut2.last).p.toPoint2D();
@@ -364,6 +373,7 @@ public class Main extends JComponent {
 		g2.setColor(Color.GREEN);
 
 		g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
+		drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, sbe.ex1);
 
 		// Draw external segment 2
 
@@ -375,6 +385,8 @@ public class Main extends JComponent {
 		g2.setColor(Color.GREEN);
 
 		g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
+		drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, sbe.ex2);
+
 
 		// Draw Cuts and Matches
 		for (CutMatch cutMatch : sbe.cutMatchList.cutMatches) {
@@ -383,36 +395,14 @@ public class Main extends JComponent {
 			g2.setColor(Color.CYAN);
 			g2.setStroke(stroke);
 			for (Segment s : cutMatch.matchSegments) {
-
-				first = ((Point) s.first).p.toPoint2D();
-				last = ((Point) s.last).p.toPoint2D();
-
-				firstCoords[0] = (-(first.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
-				firstCoords[1] = (-(first.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
-
-				lastCoords[0] = (-(last.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
-				lastCoords[1] = (-(last.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
-
-				g2.drawLine((int) firstCoords[0], (int) firstCoords[1], (int) lastCoords[0], (int) lastCoords[1]);
-
+				drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, s);
 			}
 
 			// Draw Cuts
 			g2.setColor(Color.RED);
 			g2.setStroke(doubleStroke);
 			for (Segment s : cutMatch.cutSegments) {
-
-				first = ((Point) s.first).p.toPoint2D();
-				last = ((Point) s.last).p.toPoint2D();
-
-				firstCoords[0] = (-(first.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
-				firstCoords[1] = (-(first.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
-
-				lastCoords[0] = (-(last.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
-				lastCoords[1] = (-(last.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
-
-				g2.drawLine((int) firstCoords[0], (int) firstCoords[1], (int) lastCoords[0], (int) lastCoords[1]);
-
+				drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, s);
 			}
 			// Draw SubKnot
 			Shell result = new Shell();
@@ -424,6 +414,22 @@ public class Main extends JComponent {
 
 		}
 
+	}
+
+	private void drawSegment(Graphics2D g2, double minX, double minY, double rangeX, double rangeY, double height,
+			double width, int offsetx, int offsety, double[] firstCoords, double[] lastCoords, Segment s) {
+		Point2D first;
+		Point2D last;
+		first = ((Point) s.first).p.toPoint2D();
+		last = ((Point) s.last).p.toPoint2D();
+
+		firstCoords[0] = (-(first.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
+		firstCoords[1] = (-(first.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
+
+		lastCoords[0] = (-(last.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
+		lastCoords[1] = (-(last.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
+
+		g2.drawLine((int) firstCoords[0], (int) firstCoords[1], (int) lastCoords[0], (int) lastCoords[1]);
 	}
 
 	/**
