@@ -15,6 +15,7 @@ import java.awt.geom.Path2D;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
 import java.awt.geom.Point2D.Double;
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -27,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 
+import javax.imageio.ImageIO;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
@@ -43,7 +45,7 @@ public class Main extends JComponent {
 
 	private static final long serialVersionUID = 2722424842956800923L;
 	private static final boolean SCALE = false;
-	private static final int WIDTH = 1000, HEIGHT = WIDTH;
+	private static final int WIDTH = 750, HEIGHT = 750;
 	public static ArrayList<VirtualPoint> result;
 	int minLineThickness = 1;
 
@@ -56,6 +58,8 @@ public class Main extends JComponent {
 	public void paint(Graphics g) {
 		try {
 			Graphics2D g2 = (Graphics2D) g;
+			BufferedImage img = ImageIO.read(new File("decal.png"));
+			g.drawImage(img,  WIDTH-(int)(WIDTH/3.5),  HEIGHT - (int)(HEIGHT/3.5), WIDTH/5, HEIGHT/5, null);
 			// djbouti_8-24 : something is wrong with the match across function leading to
 			// null pointers
 			// djbouti_8-32 : I think I need to re-write the code so we are cutting internal
@@ -205,71 +209,6 @@ public class Main extends JComponent {
 			System.out.println("Knot-cutting time: " + knotCuttingSeconds);
 			System.out.println(
 					"Knot-cutting %: " + 100 * (knotCuttingSeconds / (knotCuttingSeconds + knotFindingSeconds)));
-
-			// Shell conShell = maxShell.copyRecursive();
-
-			/*
-			 * All currently unused code
-			 * 
-			 * Shell hell1 = orgShell.collapseChildOntoShell();
-			 * 
-			 * Shell hell2 = orgShell.getChild().collapseChildOntoShell();
-			 * 
-			 * for( int i = 0 ; i <3; i ++) {
-			 * minShell = minShell.collapseShellOntoParent();
-			 * }
-			 * 
-			 * for( int i = 0 ; i <3; i ++) {
-			 * maxShell = maxShell.collapseChildOntoShell();
-			 * }
-			 */
-
-			// conShell = conShell.collapseAllShells(d); //finds optimal tsp path
-			// System.out.println(conShell);
-
-			// conShell.drawShell(this, g2, false, Color.BLUE, retTup.ps);
-			// maxShell.drawShell(this, g2, true, null, retTup.ps);
-
-			/*
-			 * Shell ndShell =new Shell();
-			 * ndShell.addAll(retTup.ps);
-			 * PointND start = ndShell.get(4), end = ndShell.get(2);
-			 * ndShell.remove(ndShell.get(4));
-			 * ndShell.remove(ndShell.get(2));
-			 * 
-			 * Shell ndTest = Shell.solveBetweenEndpoints(new Segment(start, end), ndShell,
-			 * new Shell());
-			 * System.out.println(ndTest.getLength());
-			 * ndTest.drawShell(this, g2, false, Color.BLUE);
-			 */
-			// conShell2 = conShell2.consensusWithChildren2(true);
-			// conShell = conShell.consensusWithChildren2(true);
-			// Shell hell1 = conShell.collapseChildOntoShell();
-
-			// Shell hell2 = conShell.getChild().collapseChildOntoShell();
-			// Shell.collapseBOntoA(minShell, maxShell).drawShell(this, g2, new Random(),
-			// false);
-
-			// orgShell.drawShell(this, g2, new Random(), true);
-
-			// conShell.getChild().drawShell(this, g2, new Random(), false);
-
-			// hell1.drawShell(this, g2, new Random(), false);
-			// hell2.drawShell(this, g2, new Random(), false);
-
-			// conShell.copy().collapseChildOntoShell().drawShell(this, g2, new Random(),
-			// false, Color.RED);
-
-			// conShell.copy().getChild().collapseChildOntoShell().drawShell(this, g2, new
-			// Random(), false, Color.BLUE);
-
-			// conShell.drawShell(this, g2, new Random(), true, null);
-
-			// Shell.collapseReduce(conShell2.getChild(), conShell2.getChild().getChild(),
-			// false).drawShell(this, g2, new Random(), false, null);
-
-			// conShell.getChild().consensusWithChildren().drawShell(this, g2, new Random(),
-			// false);
 
 			drawPath(this, g2, retTup.path, minLineThickness, Color.RED, retTup.ps, false, false, true, false);
 			if (drawMainPath)
@@ -530,9 +469,11 @@ public class Main extends JComponent {
 	public static void main(String[] args) {
 		JFrame frame = new JFrame("Draw GeneralPath Demo");
 		frame.getContentPane().add(new Main());
+		
+		frame.getContentPane().setBackground(new Color(20,20,20));
 		frame.pack();
 		frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-		frame.setSize(new Dimension(1000, 1000));
+		frame.setSize(new Dimension(WIDTH, HEIGHT));
 		frame.setVisible(true);
 
 	}

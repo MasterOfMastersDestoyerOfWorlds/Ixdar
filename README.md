@@ -1,4 +1,4 @@
-# Project Gordian
+<img src="decal.png" alt="Decal" width="85%" style="display: block;margin-left: auto;margin-right: auto;"/>
 
 ## Contents
 
