@@ -19,7 +19,7 @@ public class InternalPathEngine {
             VirtualPoint knotPoint2, VirtualPoint cutPointB, VirtualPoint external2,
             Knot knot) throws SegmentBalanceException {
 
-        SegmentBalanceException sbe = new SegmentBalanceException(null, knot, new Segment(knotPoint1, cutPointA, 0),
+        SegmentBalanceException sbe = new SegmentBalanceException( shell, null, knot, new Segment(knotPoint1, cutPointA, 0),
                 new Segment(knotPoint1, external1, 0), new Segment(knotPoint2, cutPointB, 0),
                 new Segment(knotPoint2, external2, 0));
 

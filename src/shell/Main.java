@@ -19,6 +19,7 @@ import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -215,6 +216,7 @@ public class Main extends JComponent {
 				orgShell.drawShell(this, g2, false, minLineThickness, Color.BLUE, retTup.ps);
 			System.out.println("Best Length: " + orgShell.getLength());
 			System.out.println("===============================================");
+
 		} catch (Exception e) {
 			e.printStackTrace();
 			SwingUtilities.getWindowAncestor(this)

@@ -103,4 +103,14 @@ public class Segment implements Comparable {
         }
         return false;
     }
+
+    public VirtualPoint getOverlap(Segment other) {
+        // TODO Auto-generated method stub
+        if(other.contains(first)){
+            return first;
+        }else if(other.contains(last)){
+            return last;
+        }
+        return null;
+    }
 }

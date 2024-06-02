@@ -108,7 +108,7 @@ public class CutEngine {
                                 / (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
                         shell.buff.add(shell.knotName + "_cut" + knotPoint11 + "-" + knotPoint12 + "and" + knotPoint21
                                 + "-" + knotPoint22);
-                        throw new SegmentBalanceException(internalCuts12, knot,
+                        throw new SegmentBalanceException( shell, internalCuts12, knot,
                                 knot.getSegment(knotPoint12, knotPoint11), s11,
                                 knot.getSegment(knotPoint21, knotPoint22), s12);
                     } else {
@@ -140,7 +140,7 @@ public class CutEngine {
                                 / (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
                         shell.buff.add(shell.knotName + "_cut" + knotPoint12 + "-" + knotPoint11 + "and" + knotPoint22
                                 + "-" + knotPoint21);
-                        throw new SegmentBalanceException(internalCuts34, knot,
+                        throw new SegmentBalanceException( shell, internalCuts34, knot,
                                 knot.getSegment(knotPoint12, knotPoint11), s31,
                                 knot.getSegment(knotPoint21, knotPoint22), s32);
                     } else {
@@ -199,7 +199,7 @@ public class CutEngine {
                                     .add(shell.knotName + "_cut" + knotPoint11 + "-" + knotPoint12 + "and" + knotPoint22
                                             + "-" + knotPoint21);
 
-                            throw new SegmentBalanceException(internalCuts56, knot,
+                            throw new SegmentBalanceException( shell, internalCuts56, knot,
                                     knot.getSegment(knotPoint12, knotPoint11), s51,
                                     knot.getSegment(knotPoint21, knotPoint22), s52);
                         } else {
@@ -284,7 +284,7 @@ public class CutEngine {
             }
         }
         if (overlapping) {
-            SegmentBalanceException sbe = new SegmentBalanceException(null, knot, cutSegmentFinal,
+            SegmentBalanceException sbe = new SegmentBalanceException( shell, null, knot, cutSegmentFinal,
                     matchSegment1Final, cutSegmentFinal, matchSegment2Final);
             CutMatchList result = new CutMatchList(shell, sbe);
             if (superKnot != null) {
@@ -298,7 +298,7 @@ public class CutEngine {
             return result;
         } else {
 
-            SegmentBalanceException sbe = new SegmentBalanceException(null, knot, cutSegmentFinal,
+            SegmentBalanceException sbe = new SegmentBalanceException( shell, null, knot, cutSegmentFinal,
                     matchSegment1Final, cutSegment2Final, matchSegment2Final);
             CutMatchList result = new CutMatchList(shell, sbe);
             if (superKnot != null) {
@@ -336,7 +336,7 @@ public class CutEngine {
                     neighborSegments, upperCutSegment, neighborCutSegment, topCutPoint, bothKnotPointsInside,
                     upperKnotPoint, upperMatchSegment);
         }
-        SegmentBalanceException sbe = new SegmentBalanceException(null, superKnot, cutSegment1,
+        SegmentBalanceException sbe = new SegmentBalanceException( shell, null, superKnot, cutSegment1,
                 new Segment(kp1, external1, 0.0), upperCutSegment,
                 new Segment(upperCutSegment.getOther(topCutPoint), upperCutSegment.getOther(topCutPoint), 0.0));
         totalCalls++;
@@ -590,7 +590,7 @@ public class CutEngine {
             VirtualPoint upperKnotPoint, Segment upperMatchSegment)
             throws SegmentBalanceException {
 
-        SegmentBalanceException sbe = new SegmentBalanceException(null, superKnot, cutSegment1,
+        SegmentBalanceException sbe = new SegmentBalanceException( shell, null, superKnot, cutSegment1,
                 new Segment(kp1, external1, 0.0), upperCutSegment,
                 new Segment(upperCutSegment.getOther(topCutPoint), upperCutSegment.getOther(topCutPoint), 0.0));
 
@@ -791,7 +791,7 @@ public class CutEngine {
             shell.buff.add("No Available CUTS!");
             CutMatchList cml = new CutMatchList(shell, sbe);
             cml.addDumbCutMatch(knot, superKnot);
-            throw new SegmentBalanceException(sbe);
+            throw new SegmentBalanceException( sbe);
         }
     }
 
