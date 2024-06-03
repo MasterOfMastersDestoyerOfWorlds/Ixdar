@@ -185,6 +185,7 @@ public class InternalPathEngine {
         Segment firstInnerNeighborSegment = null;
         ArrayList<Segment> innerNeighborSegments2 = new ArrayList<>();
         int k = startIdx;
+
         while (true) {
             VirtualPoint k1 = knot.knotPoints.get(k);
             VirtualPoint k2 = knot.getNext(k);
@@ -409,24 +410,25 @@ public class InternalPathEngine {
 
         shell.buff.add("+++++++++++++++++++++bor: " + kp2);
         ArrayList<Pair<Segment, VirtualPoint>> neighborCuts = new ArrayList<>();
-        //TODO: when both knotpoints are on the inside We need to include in neighborCuts the segments which
-        // are connected to the knotPoints after the cuts are done.  
+        // TODO: when both knotpoints are on the inside We need to include in
+        // neighborCuts the segments which
+        // are connected to the knotPoints after the cuts are done.
         for (Segment s : neighborSegments) {
             if (s.contains(neighbor)) {
                 neighborCuts.add(new Pair<>(s, neighbor));
                 continue;
             }
             if (upperCutPointIsOutside) {
-                VirtualPoint candidate =s.getOtherKnot(minKnot);
+                VirtualPoint candidate = s.getOtherKnot(minKnot);
                 boolean isNeighbor = marchContains(candidate, s, neighbor, knot, minKnot);
                 if (isNeighbor) {
                     neighborCuts.add(new Pair<>(s, candidate));
                     continue;
                 }
             }
-            if(bothKnotPointsInside){
-                if(s.contains(kp) || s.contains(kp2)){
-                    VirtualPoint candidate =s.getOtherKnot(minKnot);
+            if (bothKnotPointsInside) {
+                if (s.contains(kp) || s.contains(kp2) || s.contains(vp)) {
+                    VirtualPoint candidate = s.getOtherKnot(minKnot);
                     neighborCuts.add(new Pair<>(s, candidate));
                 }
             }
@@ -496,7 +498,7 @@ public class InternalPathEngine {
             }
             shell.buff.add(upperCutPointIsOutside);
             shell.buff.add("cutting left");
-            boolean canCutLeft = !leftInnerNeighborSegments.contains(leftCut);
+            boolean canCutLeft = !leftInnerNeighborSegments.contains(leftCut) && !rightCut.equals(kpSegment);
             CutMatchList leftCutMatch = null;
             if (canCutLeft) {
                 leftCutMatch = cutEngine.findCutMatchListFixedCut(minKnot, ex, neighbor, leftCut, kp, leftPoint, knot,
@@ -504,11 +506,12 @@ public class InternalPathEngine {
                         leftInnerNeighborSegments, neighborSegments, upperCutSegment, neighborCuts, vp2,
                         upperCutPointIsOutside, bothKnotPointsInside, kp2, knot.getSegment(kp2, ex2));
 
+                leftCutMatch.addCutDiff(leftCut, knot);
                 leftCutMatch.removeCut(cut);
             }
             shell.buff.add("cutting right");
 
-            boolean canCutRight = !rightInnerNeighborSegments.contains(rightCut);
+            boolean canCutRight = !rightInnerNeighborSegments.contains(rightCut) && !leftCut.equals(kpSegment);
             CutMatchList rightCutMatch = null;
             if (canCutRight) {
                 rightCutMatch = cutEngine.findCutMatchListFixedCut(minKnot, ex, neighbor, rightCut, kp, rightPoint,
@@ -516,6 +519,7 @@ public class InternalPathEngine {
                         kpSegment,
                         rightInnerNeighborSegments, neighborSegments, upperCutSegment, neighborCuts, vp2,
                         upperCutPointIsOutside, bothKnotPointsInside, kp2, knot.getSegment(kp2, ex2));
+                rightCutMatch.addCutDiff(rightCut, knot);
                 rightCutMatch.removeCut(cut);
             }
 
@@ -523,24 +527,27 @@ public class InternalPathEngine {
                 System.out.println("Can't make either cut");
                 float z = 1 / 0;
             }
-            if ((!canCutLeft || rightCutMatch.delta < leftCutMatch.delta) && canCutRight) {
+            
+            if (canCutRight &&(!canCutLeft || rightCutMatch.delta < leftCutMatch.delta)) {
                 reCut = rightCutMatch;
             } else {
                 reCut = leftCutMatch;
             }
             shell.buff.add("cut Left: " + leftCut + "cut Right: " + rightCut);
             shell.buff.add(
-                    "chose right? : " + ((!canCutLeft || rightCutMatch.delta < leftCutMatch.delta) && canCutRight));
+                    "chose right? : " + (canCutRight && (!canCutLeft || rightCutMatch.delta < leftCutMatch.delta)));
             shell.buff.add("neighbor : " + neighbor);
 
             shell.buff.add("LEFTCUT : " + minKnot + " " + " " + ex + " " + " " + neighbor + " " + " " + leftCut
                     + " " + " " + kp + " " + " " + leftPoint + " " + " " + knot + " " + " " + kpSegment + " "
-                    + leftInnerNeighborSegments + " " + neighborSegments + " " + upperCutSegment + " " + neighborCuts
+                    + leftInnerNeighborSegments + " " + neighborSegments + " " + upperCutSegment + " "
+                    + pairsToString(neighborCuts)
                     + " " + outsideUpperCutPoint);
 
             shell.buff.add("RightCUT : " + minKnot + " " + " " + ex + " " + " " + neighbor + " " + " " + rightCut
                     + " " + " " + kp + " " + " " + rightPoint + " " + " " + knot + " " + " " + kpSegment + " "
-                    + rightInnerNeighborSegments + " " + neighborSegments + " " + upperCutSegment + " " + neighborCuts
+                    + rightInnerNeighborSegments + " " + neighborSegments + " " + upperCutSegment + " "
+                    + pairsToString(neighborCuts)
                     + " " + outsideUpperCutPoint);
 
         } else {
@@ -573,8 +580,8 @@ public class InternalPathEngine {
 
         }
         if (reCut.delta == 0.0 && upperCutPointIsOutside) {
-            shell.buff.printAll();
-            float z = 1 / 0;
+            new CutMatchList(shell, sbe);
+            throw sbe;
         }
 
         if (reCut.delta == 0.0) {
@@ -616,7 +623,7 @@ public class InternalPathEngine {
         shell.buff.add(idx);
         shell.buff.add(idx2);
         shell.buff.add(marchDirection);
-        marchDirection = - marchDirection;
+        marchDirection = -marchDirection;
         int totalIter = 0;
         while (true) {
             VirtualPoint k1 = knot.knotPoints.get(idx);
@@ -708,9 +715,24 @@ public class InternalPathEngine {
             minKnot = botKnot;
         }
         sizeMinKnot = minKnot.knotPointsFlattened.size();
+        shell.buff.add("checking minKNOT!!!!!!!!!!!!!!!!!!! topKP: " + topKnotPoint + " topCP: " + topPoint + " botKP: "
+                + botKnotPoint + " botCP: " + botPoint);
         for (Knot k : cutEngine.flatKnots.values()) {
+            shell.buff.add(k + " :  "
+                    + (((k.contains(topKnotPoint) && k.contains(topPoint))
+                            ^ (k.contains(botKnotPoint) && k.contains(botPoint)))
+                            || (k.contains(botKnotPoint) && k.contains(topPoint) && !k.contains(botPoint)
+                                    && !k.contains(topKnotPoint))
+                            || (k.contains(topKnotPoint) && k.contains(botPoint) && !k.contains(topPoint)
+                                    && !k.contains(botKnotPoint))));
+
             int size = k.knotPointsFlattened.size();
-            if (size > sizeMinKnot && ((k.contains(topKnotPoint) && k.contains(topPoint)) ^ (k.contains(botKnotPoint) && k.contains(botPoint)))) {
+            if (size > sizeMinKnot && (((k.contains(topKnotPoint) && k.contains(topPoint))
+                    ^ (k.contains(botKnotPoint) && k.contains(botPoint)))
+                    || (k.contains(botKnotPoint) && k.contains(topPoint) && !k.contains(botPoint)
+                            && !k.contains(topKnotPoint))
+                    || (k.contains(topKnotPoint) && k.contains(botPoint) && !k.contains(topPoint)
+                            && !k.contains(botKnotPoint)))) {
                 minKnot = k;
                 sizeMinKnot = size;
             }

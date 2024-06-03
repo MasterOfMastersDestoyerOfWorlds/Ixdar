@@ -19,7 +19,7 @@
 		"scope": "java",
 		"prefix": "buffadd",
 		"body": [
-			"shell.buff.add('$1');",
+			"shell.buff.add(\"$1\");",
 			"$2"
 		],
 		"description": "Add String to Buffer"
