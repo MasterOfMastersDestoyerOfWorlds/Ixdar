@@ -47,13 +47,6 @@ class CutMatch {
                 float zero = 1 / 0;
             }
         }
-        if (superKnot != null) {
-            for (Segment s : matchSegments) {
-                if (!superKnot.contains(s.getOtherKnot(knot))) {
-                    // float z = 1 / 0;
-                }
-            }
-        }
 
         if (superKnot == null) {
             ArrayList<Segment> knotSegments = new ArrayList<>();
@@ -257,11 +250,17 @@ class CutMatchList {
             VirtualPoint topCutPoint)
             throws SegmentBalanceException {
 
+        shell.buff.add("MAKING TWO CUT TWO MATCH ---------------------=================");
+
         CutMatch cm = new CutMatch(shell, sbe);
         cm.cutSegments.add(cutSegment2);
-        cm.matchSegments.add(matchSegmentToUpperCutPoint1);
-        cm.matchSegments.add(matchSegmentToUpperCutPoint2);
-        if (!bothKnotPointsInside) {
+        if (!matchSegmentToUpperCutPoint1.isDegenerate()) {
+            cm.matchSegments.add(matchSegmentToUpperCutPoint1);
+        }
+        if (!matchSegmentToUpperCutPoint2.isDegenerate()) {
+            cm.matchSegments.add(matchSegmentToUpperCutPoint2);
+        }
+        if (!matchSegmentToUpperKnotPoint.isDegenerate()) {
             cm.matchSegments.add(matchSegmentToUpperKnotPoint);
         }
         cm.knot = knot;
@@ -269,6 +268,8 @@ class CutMatchList {
         cm.kp2 = knotPoint2;
         cm.superKnot = superKnot;
         cutMatches.add(cm);
+        shell.buff.add("REEEEEEEEEEEEEEEEEEEEEEEEEEE");
+        shell.buff.add(cm);
         boolean balanced = this.checkCutMatchBalance(matchEx1, matchEx2, cutSegment, cutSegment2,
                 matchEx1.getOther(knotPoint1),
                 matchEx2.getOther(knotPoint2), knot, neighborSegments, superKnot,
@@ -276,12 +277,17 @@ class CutMatchList {
         if (!balanced) {
             CutMatch diff = diffKnots(knot, superKnot, cm, cutSegment, kpSegment, innerNeighborSegments,
                     neighborSegments, neighborCutSegments, upperCutSegment, topCutPoint, true);
+            shell.buff.add("REEEEEEEEEEEEEEEEEEEEEEEEEEE");
+            shell.buff.add(cm);
+
             cm.diff = diff;
             cm.diff.kpSegment = kpSegment;
             cm.cutSegments.addAll(diff.cutSegments);
             cm.matchSegments.addAll(diff.matchSegments);
         }
         cm.updateDelta();
+        shell.buff.add(cm);
+
         cm.checkValid();
         delta += cm.delta;
 
@@ -632,7 +638,7 @@ class CutMatchList {
 
     public void addCutDiff(Segment leftCut, Knot knot) {
         shell.buff.add("making left/right cut: " + leftCut);
-        
+
         if (knot.hasSegment(leftCut)) {
 
             CutMatch cm = new CutMatch(shell, sbe);

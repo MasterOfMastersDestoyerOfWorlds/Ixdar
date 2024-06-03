@@ -30,6 +30,9 @@ public class Segment implements Comparable {
         if (vp.isKnot) {
             Knot knot = (Knot) vp;
             VirtualPoint p = this.getKnotPoint(knot.knotPointsFlattened);
+            if(p == null){
+                Main.shell.buff.printAll();
+            }
             return this.getOther(p);
         } else if (vp.isRun) {
             Run knot = (Run) vp;
@@ -121,5 +124,9 @@ public class Segment implements Comparable {
             }
         }
         return null;
+    }
+
+    public boolean isDegenerate() {
+        return first.equals(last);
     }
 }

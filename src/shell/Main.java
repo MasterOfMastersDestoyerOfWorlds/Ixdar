@@ -49,6 +49,9 @@ public class Main extends JComponent {
 	private static final int WIDTH = 750, HEIGHT = 750;
 	public static ArrayList<VirtualPoint> result;
 	int minLineThickness = 1;
+	boolean calc = false;
+
+	public static Shell shell = null;
 
 	/**
 	 * Creates a visual depiction of the shells/tsp path of the point set
@@ -137,6 +140,7 @@ public class Main extends JComponent {
 			System.out.println(orgShell.getLength());
 
 			Shell maxShell = orgShell.copyShallow();
+			shell = maxShell;
 
 			maxShell.knotName = fileName;
 

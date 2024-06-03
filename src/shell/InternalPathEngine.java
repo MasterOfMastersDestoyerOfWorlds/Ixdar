@@ -136,6 +136,10 @@ public class InternalPathEngine {
         // a single point (the top cut point) as its output and should not contain any
         // of the cut segments.
 
+        
+        boolean bothKnotPointsOutside = !minKnot.contains(kp) && !minKnot.contains(kp2);
+        boolean bothKnotPointsInside = minKnot.contains(kp) && minKnot.contains(kp2);
+
         if (!minKnot.contains(vp2)) {
             VirtualPoint topCutPointMaxKnot = getMaxKnotExclude(vp2, kp2, minKnot);
             shell.buff.add(topCutPointMaxKnot);
@@ -400,11 +404,7 @@ public class InternalPathEngine {
             }
         }
 
-        if (innerNeighborSegments.size() % 2 == 0 && innerNeighborSegments.size() != 0 && !neighbor.equals(vp2)) {
-            // float z = 1 / 0;
-        }
 
-        boolean bothKnotPointsInside = minKnot.contains(kp) && minKnot.contains(kp2);
 
         shell.buff.add("+++++++++++++++++++++bor: " + neighbor);
 
@@ -581,7 +581,7 @@ public class InternalPathEngine {
         }
         if (reCut.delta == 0.0 && upperCutPointIsOutside) {
             new CutMatchList(shell, sbe);
-            throw sbe;
+            throw new SegmentBalanceException(sbe);
         }
 
         if (reCut.delta == 0.0) {
@@ -732,10 +732,16 @@ public class InternalPathEngine {
                     || (k.contains(botKnotPoint) && k.contains(topPoint) && !k.contains(botPoint)
                             && !k.contains(topKnotPoint))
                     || (k.contains(topKnotPoint) && k.contains(botPoint) && !k.contains(topPoint)
-                            && !k.contains(botKnotPoint)))) {
+                            && !k.contains(botKnotPoint))
+                    || (k.contains(topPoint) && k.contains(botPoint) && ! k.contains(topKnotPoint) && !k.contains(botKnotPoint)))) {
                 minKnot = k;
                 sizeMinKnot = size;
             }
+        }
+        if(!minKnot.contains(topKnotPoint) && !minKnot.contains(botKnotPoint)){
+            minKnot = cutEngine.flatKnots.get(shell.smallestCommonKnotLookup[topPoint.id][botKnotPoint.id]);
+            shell.buff.add("could not find suitable minKNot:  " + minKnot);
+            
         }
         return minKnot;
     }
