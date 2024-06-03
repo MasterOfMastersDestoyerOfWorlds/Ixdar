@@ -469,7 +469,7 @@ public class Main extends JComponent {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		JFrame frame = new JFrame("Draw GeneralPath Demo");
+		JFrame frame = new JFrame("Ixdar");
 		frame.getContentPane().add(new Main());
 		
 		frame.getContentPane().setBackground(new Color(20,20,20));

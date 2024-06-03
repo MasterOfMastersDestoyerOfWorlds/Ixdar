@@ -436,6 +436,7 @@ public class Shell extends LinkedList<PointND> {
 		Point tempME;
 		Point tempBP;
 		Segment tempS;
+		
 		if (subList.contains(vp.match1)) {
 			tempMatch = vp.match2;
 			tempME = vp.match2endpoint;

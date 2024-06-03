@@ -113,4 +113,13 @@ public class Segment implements Comparable {
         }
         return null;
     }
+
+    public VirtualPoint containsAny(ArrayList<VirtualPoint> neighbors) {
+        for(VirtualPoint vp : neighbors){
+            if(this.contains(vp)){
+                return vp;
+            }
+        }
+        return null;
+    }
 }
