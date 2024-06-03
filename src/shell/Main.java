@@ -127,7 +127,7 @@ public class Main extends JComponent {
 			// the internal neighbors list. it is not clear weather this should hold for knots where the upper cutpoint is contianed
 			// within hte minknot. I think it shouldn't hold, i.e. we should only check this when vp2 is not in the minknot.
 
-			String fileName = "wi29_6-25p20p19";
+			String fileName = "djbouti_26-32p2-3";
 			PointSetPath retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 

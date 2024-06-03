@@ -170,8 +170,10 @@ public class CutEngine {
 
                     // TODO: We aren't considering when this is the best cut and we'd need to
                     // recisviely cut down from the orphaned points
-                    Knot minKnot = internalPathEngine.findMinKnot(knotPoint11, knotPoint12, knotPoint22, knotPoint21, knot);
-                    Knot smallestCommonKnotPointKnot = flatKnots.get(shell.smallestCommonKnotLookup[knotPoint11.id][knotPoint22.id]);
+                    Knot minKnot = internalPathEngine.findMinKnot(knotPoint11, knotPoint12, knotPoint22, knotPoint21,
+                            knot);
+                    Knot smallestCommonKnotPointKnot = flatKnots
+                            .get(shell.smallestCommonKnotLookup[knotPoint11.id][knotPoint22.id]);
                     if (!minKnot.equals(knot) && !smallestCommonKnotPointKnot.equals(knot)) {
                         Segment s51 = knotPoint11.getClosestSegment(external1, null);
                         Segment s52 = knotPoint22.getClosestSegment(external2, s51);
@@ -644,19 +646,18 @@ public class CutEngine {
             }
             if (cutSegment1.equals(cutSegment2)) {
 
-                continue;
-                // if (!bothKnotPointsInside) {
-                // Segment s12 = knot.getSegment(external2, cp1);
-                // double d1 = s12.distance;
-                // if(d1 < minDelta){
-                // matchSegmentToCutPoint1 = s12;
-                // minDelta = d1;
-                // overlapping = 1;
-                // }
+                if (!bothKnotPointsInside) {
+                    Segment s12 = knot.getSegment(external2, cp1);
+                    double d1 = s12.distance;
+                    if (d1 < minDelta) {
+                        matchSegmentToCutPoint1 = s12;
+                        minDelta = d1;
+                        overlapping = 1;
+                    }
 
-                // } else {
-                // continue;
-                // }
+                } else {
+                    continue;
+                }
             } else {
                 double delta = Double.MAX_VALUE;
                 VirtualPoint cp2 = knotPoint22;
@@ -774,7 +775,7 @@ public class CutEngine {
                             knotPoint3Final = mirror22;
                             cutSegmentFinal = cutSegment1;
                             cutSegment2Final = cutSegment2;
-                        }else{
+                        } else {
                             matchSegmentToCutPoint1 = s21;
                             matchSegmentToCutPoint2 = s22;
                             matchSegmentOuterKnotPointFinal = upperMatchSegment;
@@ -817,7 +818,9 @@ public class CutEngine {
         }
         if (overlapping == 1) {
             CutMatchList result = new CutMatchList(shell, sbe);
-            result.addSimpleMatch(matchSegmentToCutPoint1, superKnot);
+            // TODO: need to make this instead of simple match simple match with diffKnot
+            result.addSimpleMatchDiff(matchSegmentToCutPoint1, knot, superKnot, kpSegment, innerNeighborSegments, neighborSegments,
+            neighborCutSegments, upperCutSegment, topCutPoint);
             return result;
 
         } else if (overlapping == 2) {

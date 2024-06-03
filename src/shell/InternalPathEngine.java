@@ -409,13 +409,24 @@ public class InternalPathEngine {
 
         shell.buff.add("+++++++++++++++++++++bor: " + kp2);
         ArrayList<Pair<Segment, VirtualPoint>> neighborCuts = new ArrayList<>();
+        //TODO: when both knotpoints are on the inside We need to include in neighborCuts the segments which
+        // are connected to the knotPoints after the cuts are done.  
         for (Segment s : neighborSegments) {
             if (s.contains(neighbor)) {
                 neighborCuts.add(new Pair<>(s, neighbor));
-            } else if (upperCutPointIsOutside) {
+                continue;
+            }
+            if (upperCutPointIsOutside) {
                 VirtualPoint candidate =s.getOtherKnot(minKnot);
                 boolean isNeighbor = marchContains(candidate, s, neighbor, knot, minKnot);
                 if (isNeighbor) {
+                    neighborCuts.add(new Pair<>(s, candidate));
+                    continue;
+                }
+            }
+            if(bothKnotPointsInside){
+                if(s.contains(kp) || s.contains(kp2)){
+                    VirtualPoint candidate =s.getOtherKnot(minKnot);
                     neighborCuts.add(new Pair<>(s, candidate));
                 }
             }
@@ -699,12 +710,7 @@ public class InternalPathEngine {
         sizeMinKnot = minKnot.knotPointsFlattened.size();
         for (Knot k : cutEngine.flatKnots.values()) {
             int size = k.knotPointsFlattened.size();
-            if (size > sizeMinKnot && k.contains(botPoint)
-                    && ((!k.contains(topKnotPoint) && k.contains(botKnotPoint))
-                            || (k.contains(topKnotPoint) && !k.contains(botKnotPoint)))
-
-                    && !(k.contains(topKnotPoint) && k.contains(topPoint) && !k.hasSegment(topCut))
-                    && !(k.contains(botKnotPoint) && k.contains(botPoint) && !k.hasSegment(botCut))) {
+            if (size > sizeMinKnot && ((k.contains(topKnotPoint) && k.contains(topPoint)) ^ (k.contains(botKnotPoint) && k.contains(botPoint)))) {
                 minKnot = k;
                 sizeMinKnot = size;
             }
