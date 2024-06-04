@@ -260,7 +260,7 @@ class CutMatchList {
         if (!matchSegmentToUpperCutPoint2.isDegenerate()) {
             cm.matchSegments.add(matchSegmentToUpperCutPoint2);
         }
-        if (!matchSegmentToUpperKnotPoint.isDegenerate()) {
+        if (matchSegmentToUpperKnotPoint != null && !matchSegmentToUpperKnotPoint.isDegenerate()) {
             cm.matchSegments.add(matchSegmentToUpperKnotPoint);
         }
         cm.knot = knot;
@@ -314,7 +314,7 @@ class CutMatchList {
         boolean hasCutSegment = false;
         if (neighborCutSegments.size() > 0) {
             for (int i = 0; i < neighborCutSegments.size(); i++) {
-                shell.buff.add("neighborCutSegs: " + neighborCutSegments);
+                shell.buff.add("neighborCutSegs: " + InternalPathEngine.pairsToString(neighborCutSegments));
                 Segment neighborCutSegment = neighborCutSegments.get(i).getFirst();
 
                 VirtualPoint neighbor = neighborCutSegments.get(i).getSecond();

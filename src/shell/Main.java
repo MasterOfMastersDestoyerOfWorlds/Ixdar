@@ -192,7 +192,7 @@ public class Main extends JComponent {
 					for (VirtualPoint p : sbe.topKnot.knotPoints) {
 						result.add(((Point) p).p);
 					}
-					maxShell.buff.printAll();
+					maxShell.buff.printLayer(0);
 					System.out.println();
 					System.out.println(sbe);
 					//StackTraceElement ste = sbe.getStackTrace()[0];
