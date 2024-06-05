@@ -207,15 +207,15 @@ public class InternalPathEngine {
                 Segment neighborSegment = knot.getSegment(k1, k2);
                 neighborSegments.add(neighborSegment);
                 if (minKnot.hasSegment(knot.getSegment(firstInnerNeighbor, k2))) {
-                    int first = getFirstId(firstInnerNeighbor, k2);
-                    int last = getLastId(firstInnerNeighbor, k2);
+                    int first = Segment.getFirstOrderId(firstInnerNeighbor, k2);
+                    int last = Segment.getLastOrderId(firstInnerNeighbor, k2);
                     neighborSegmentLookup.put(first, last, neighborSegment);
-                    innerNeighborSegmentLookup.put(getFirstId(neighborSegment.first, neighborSegment.last),
-                            getLastId(neighborSegment.first, neighborSegment.last),
+                    innerNeighborSegmentLookup.put(Segment.getFirstOrderId(neighborSegment.first, neighborSegment.last),
+                            Segment.getLastOrderId(neighborSegment.first, neighborSegment.last),
                             minKnot.getSegment(firstInnerNeighbor, k2));
                     innerNeighborSegmentLookup.put(
-                            getFirstId(firstNeighborSegment.first, firstNeighborSegment.last),
-                            getLastId(firstNeighborSegment.first, firstNeighborSegment.last),
+                            Segment.getFirstOrderId(firstNeighborSegment.first, firstNeighborSegment.last),
+                            Segment.getLastOrderId(firstNeighborSegment.first, firstNeighborSegment.last),
                             minKnot.getSegment(firstInnerNeighbor, k2));
                 } else {
                     singleNeighborSegmentLookup.put(k2.id, neighborSegment);
@@ -261,7 +261,7 @@ public class InternalPathEngine {
                 }
 
                 int first = endPoint.id < edgePoint.id ? endPoint.id : edgePoint.id;
-                int last = getLastId(endPoint, edgePoint);
+                int last = Segment.getLastOrderId(endPoint, edgePoint);
                 if (neighborSegmentLookup.containsKey(first, last)) {
                     Segment neighborSegment = neighborSegmentLookup.get(first, last);
                     if (neighborSegment.contains(endPoint)) {
@@ -381,7 +381,7 @@ public class InternalPathEngine {
             }
             if (bothKnotPointsInside) {
                 boolean innerNeighborSegmentHasKnotPoint = false;
-                Segment innerNeighborSegment = innerNeighborSegmentLookup.get(getFirstId(s.first, s.last), getLastId(s.first, s.last));
+                Segment innerNeighborSegment = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(s.first, s.last), Segment.getLastOrderId(s.first, s.last));
                 if(innerNeighborSegment != null){
                     
                     if(innerNeighborSegment.contains(kp) || innerNeighborSegment.contains(kp2) || innerNeighborSegment.contains(vp)){
@@ -458,7 +458,7 @@ public class InternalPathEngine {
             if (canCutLeft) {
                 leftCutMatch = cutEngine.findCutMatchListFixedCut(minKnot, ex, neighbor, leftCut, kp, leftPoint, knot,
                         kpSegment,
-                        leftInnerNeighborSegments, neighborSegments, upperCutSegment, neighborCuts, vp2,
+                        leftInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, upperCutSegment, neighborCuts, vp2,
                         upperCutPointIsOutside, bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment, kp,
                         lowerCutSegment);
 
@@ -473,7 +473,7 @@ public class InternalPathEngine {
                 rightCutMatch = cutEngine.findCutMatchListFixedCut(minKnot, ex, neighbor, rightCut, kp, rightPoint,
                         knot,
                         kpSegment,
-                        rightInnerNeighborSegments, neighborSegments, upperCutSegment, neighborCuts, vp2,
+                        rightInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, upperCutSegment, neighborCuts, vp2,
                         upperCutPointIsOutside, bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment, kp,
                         lowerCutSegment);
                 rightCutMatch.addCutDiff(rightCut, knot);
@@ -530,7 +530,7 @@ public class InternalPathEngine {
                     + " ex2: " + ex2);
 
             reCut = cutEngine.findCutMatchListFixedCut(minKnot, ex, neighbor, cut, kp, vp, knot, kpSegment,
-                    innerNeighborSegments, neighborSegments, upperCutSegment, neighborCuts, vp2, upperCutPointIsOutside,
+                    innerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, upperCutSegment, neighborCuts, vp2, upperCutPointIsOutside,
                     bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment, kp, lowerCutSegment);
 
         }
@@ -559,15 +559,6 @@ public class InternalPathEngine {
             float ze = 1 / 0;
         }
         return reCut;
-    }
-
-    private int getLastId(VirtualPoint firstInnerNeighbor, VirtualPoint k2) {
-        return firstInnerNeighbor.id < k2.id ? k2.id : firstInnerNeighbor.id;
-    }
-
-    private int getFirstId(VirtualPoint firstInnerNeighbor, VirtualPoint k2) {
-        int first = firstInnerNeighbor.id < k2.id ? firstInnerNeighbor.id : k2.id;
-        return first;
     }
 
     private Pair<VirtualPoint, VirtualPoint> marchLookup(Knot knot, VirtualPoint kp2, VirtualPoint vp2,

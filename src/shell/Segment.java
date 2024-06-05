@@ -126,4 +126,30 @@ public class Segment implements Comparable {
     public boolean isDegenerate() {
         return first.equals(last);
     }
+
+    public boolean hasPoints(int i, int j) {
+        if(first.id == i || first.id == j){
+            if(last.id ==i || last.id == j){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static int getFirstOrderId(VirtualPoint firstInnerNeighbor, VirtualPoint k2) {
+        int first = firstInnerNeighbor.id < k2.id ? firstInnerNeighbor.id : k2.id;
+        return first;
+    }
+
+    public static int getLastOrderId(VirtualPoint firstInnerNeighbor, VirtualPoint k2) {
+        return firstInnerNeighbor.id < k2.id ? k2.id : firstInnerNeighbor.id;
+    }
+
+    public static int getFirstOrderId(Segment s) {
+        return getFirstOrderId(s.first, s.last);
+    }
+
+    public static int getLastOrderId(Segment s) {
+        return getLastOrderId(s.first, s.last);
+    }
 }
