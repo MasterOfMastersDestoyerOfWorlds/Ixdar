@@ -1,7 +1,5 @@
 package shell;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.geom.GeneralPath;
@@ -11,18 +9,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Random;
-import org.apache.commons.collections4.map.MultiKeyMap;
-import java.util.Set;
 
 import javax.swing.JComponent;
-
-import org.apache.commons.math3.geometry.euclidean.threed.Rotation;
-import org.apache.commons.math3.linear.MatrixUtils;
-import org.apache.commons.math3.util.Pair;
 
 /**
  * This class represents a list of some points in the point set. Initially each

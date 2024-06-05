@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Random;
 
 import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
@@ -63,7 +64,7 @@ public class Main extends JComponent {
 		try {
 			Graphics2D g2 = (Graphics2D) g;
 			BufferedImage img = ImageIO.read(new File("decal.png"));
-			g.drawImage(img,  WIDTH-(int)(WIDTH/3.5),  HEIGHT - (int)(HEIGHT/3.5), WIDTH/5, HEIGHT/5, null);
+			g.drawImage(img, WIDTH - (int) (WIDTH / 3.5), HEIGHT - (int) (HEIGHT / 3.5), WIDTH / 5, HEIGHT / 5, null);
 			// djbouti_8-24 : something is wrong with the match across function leading to
 			// null pointers
 			// djbouti_8-32 : I think I need to re-write the code so we are cutting internal
@@ -124,11 +125,16 @@ public class Main extends JComponent {
 			// the cutpoint's minknot
 			// it is not clear what the neighbor should be
 
-			//18-23WH19-22 and 18-23WH20-18: I think that which internal segment we need to remove depends entirely on 
-			//which is connected to the internal knot point, the internal neighbor segment that is connected to kp1 cannot\
-			// be in the final tour but the one that is connected to cp1 can be in the final tour so it should be removed from
-			// the internal neighbors list. it is not clear weather this should hold for knots where the upper cutpoint is contianed
-			// within hte minknot. I think it shouldn't hold, i.e. we should only check this when vp2 is not in the minknot.
+			// 18-23WH19-22 and 18-23WH20-18: I think that which internal segment we need to
+			// remove depends entirely on
+			// which is connected to the internal knot point, the internal neighbor segment
+			// that is connected to kp1 cannot\
+			// be in the final tour but the one that is connected to cp1 can be in the final
+			// tour so it should be removed from
+			// the internal neighbors list. it is not clear weather this should hold for
+			// knots where the upper cutpoint is contianed
+			// within hte minknot. I think it shouldn't hold, i.e. we should only check this
+			// when vp2 is not in the minknot.
 
 			String fileName = "wi29_6-25";
 			PointSetPath retTup = importFromFile(new File("./src/test/solutions/" + fileName));
@@ -195,12 +201,13 @@ public class Main extends JComponent {
 					maxShell.buff.printLayer(0);
 					System.out.println();
 					System.out.println(sbe);
-					//StackTraceElement ste = sbe.getStackTrace()[0];
-					for(StackTraceElement ste : sbe.getStackTrace()){
-						if(ste.getMethodName().equals("cutKnot")){
+					// StackTraceElement ste = sbe.getStackTrace()[0];
+					for (StackTraceElement ste : sbe.getStackTrace()) {
+						if (ste.getMethodName().equals("cutKnot")) {
 							break;
 						}
-					System.out.println("ErrorSource: " + ste.getMethodName() + " " + ste.getFileName() + ":" + ste.getLineNumber());
+						System.out.println("ErrorSource: " + ste.getMethodName() + " " + ste.getFileName() + ":"
+								+ ste.getLineNumber());
 					}
 					System.out.println();
 					result.drawShell(this, g2, true, minLineThickness * 2, Color.magenta, retTup.ps);
@@ -332,7 +339,6 @@ public class Main extends JComponent {
 		g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
 		drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, sbe.ex2);
 
-
 		// Draw Cuts and Matches
 		for (CutMatch cutMatch : sbe.cutMatchList.cutMatches) {
 
@@ -340,14 +346,16 @@ public class Main extends JComponent {
 			g2.setColor(Color.CYAN);
 			g2.setStroke(stroke);
 			for (Segment s : cutMatch.matchSegments) {
-				drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, s);
+				drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords,
+						s);
 			}
 
 			// Draw Cuts
 			g2.setColor(Color.RED);
 			g2.setStroke(doubleStroke);
 			for (Segment s : cutMatch.cutSegments) {
-				drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, s);
+				drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords,
+						s);
 			}
 			// Draw SubKnot
 			Shell result = new Shell();
@@ -365,8 +373,16 @@ public class Main extends JComponent {
 			double width, int offsetx, int offsety, double[] firstCoords, double[] lastCoords, Segment s) {
 		Point2D first;
 		Point2D last;
-		first = ((Point) s.first).p.toPoint2D();
-		last = ((Point) s.last).p.toPoint2D();
+		if (s.first.isKnot) {
+			first = ((Point)((Knot)s.first).knotPoints.get(0)).p.toPoint2D();
+		} else {
+			first = ((Point) s.first).p.toPoint2D();
+		}
+		if (s.last.isKnot) {
+			last = ((Point)((Knot)s.last).knotPoints.get(0)).p.toPoint2D();
+		} else {
+			last = ((Point) s.last).p.toPoint2D();
+		}
 
 		firstCoords[0] = (-(first.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
 		firstCoords[1] = (-(first.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
@@ -474,9 +490,11 @@ public class Main extends JComponent {
 	 */
 	public static void main(String[] args) {
 		JFrame frame = new JFrame("Ixdar");
+		ImageIcon img = new ImageIcon("decalSmall.png");
+		frame.setIconImage(img.getImage());
 		frame.getContentPane().add(new Main());
-		
-		frame.getContentPane().setBackground(new Color(20,20,20));
+
+		frame.getContentPane().setBackground(new Color(20, 20, 20));
 		frame.pack();
 		frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		frame.setSize(new Dimension(WIDTH, HEIGHT));

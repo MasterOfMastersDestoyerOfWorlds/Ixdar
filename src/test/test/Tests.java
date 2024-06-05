@@ -6,6 +6,7 @@ import shell.Main;
 import shell.PointND;
 import shell.PointSet;
 import shell.PointSetPath;
+import shell.SegmentBalanceException;
 import shell.Shell;
 import java.io.File;
 import java.util.ArrayList;
@@ -27,11 +28,12 @@ public class Tests {
 
 	/**
 	 * Tests that our solver solves the djibouti problem set correctly
+	 * @throws SegmentBalanceException 
 	 */
 
 	
 	@Test
-	public void testDjiboutiNoRotation() {
+	public void testDjiboutiNoRotation() throws SegmentBalanceException {
 
 		PointSetPath retTup = Main.importFromFile(new File("./src/shell/djbouti"));
 		PointSet ps = new PointSet();
@@ -45,12 +47,7 @@ public class Tests {
 			AB.add(retTup.ps.get(i));
 		}
 
-		System.out.println("before   " + AB);
-		Collections.shuffle(AB , new Random(2));
-		System.out.println("shuffled " + AB);
-		System.out.println("surrounding segment: " + answer.getFirst() + " " + answer.getLast());
-		System.out.println(AB.size());
-		System.out.println();
+		beforePrintsAndShuffle(answer, AB);
 
 		Shell nothing = new Shell();
 
@@ -69,8 +66,17 @@ public class Tests {
 		System.out.println("reee");
 	}
 
+	private void beforePrintsAndShuffle(Shell answer, Shell AB) {
+		System.out.println("before   " + AB);
+		Collections.shuffle(AB , new Random(2));
+		System.out.println("shuffled " + AB);
+		System.out.println("surrounding segment: " + answer.getFirst() + " " + answer.getLast());
+		System.out.println(AB.size());
+		System.out.println();
+	}
+
 	@Test
-	public boolean testDjiboutiN(int n, int rot) {
+	public boolean testDjiboutiN(int n, int rot) throws SegmentBalanceException {
 
 		PointSetPath retTup = Main.importFromFile(new File("./src/shell/djbouti"));
 		PointSet ps = new PointSet();
@@ -96,12 +102,7 @@ public class Tests {
 			}
 		}
 
-		System.out.println("before   " + AB);
-		Collections.shuffle(AB , new Random(6));
-		System.out.println("shuffled " + AB);
-		System.out.println("surrounding segment: " + answer.getFirst() + " " + answer.getLast());
-		System.out.println(AB.size());
-		System.out.println();
+		beforePrintsAndShuffle(AB, answer);
 
 		Shell nothing = new Shell();
 
@@ -168,11 +169,12 @@ public class Tests {
 
 	/**
 	 * Tests that our solver solves the djibouti problem set correctly
+	 * @throws SegmentBalanceException 
 	 */
 	// old: 10038.75729043869 in 3.828s
 	// new: 10178.770192333182 in 20.461s
 	@Test
-	public void testQatar() {
+	public void testQatar() throws SegmentBalanceException {
 		PointSetPath retTup = Main.importFromFile(new File("./src/shell/qa194"));
 		PointSet ps = new PointSet();
 		Shell answer = new Shell();
@@ -185,12 +187,7 @@ public class Tests {
 			AB.add(retTup.ps.get(i));
 		}
 
-		System.out.println("before   " + AB);
-		Collections.shuffle(AB , new Random(2));
-		System.out.println("shuffled " + AB);
-		System.out.println("surrounding segment: " + answer.getFirst() + " " + answer.getLast());
-		System.out.println(AB.size());
-		System.out.println();
+		beforePrintsAndShuffle(answer, AB);
 
 		Shell nothing = new Shell();
 
@@ -204,7 +201,7 @@ public class Tests {
 	}
 
 	@Test
-	public void testWesternSahara() {
+	public void testWesternSahara() throws SegmentBalanceException {
 		PointSetPath retTup = Main.importFromFile(new File("./src/shell/wi29"));
 		PointSet ps = new PointSet();
 		Shell answer = new Shell();
@@ -217,12 +214,7 @@ public class Tests {
 			AB.add(retTup.ps.get(i));
 		}
 
-		System.out.println("before   " + AB);
-		Collections.shuffle(AB , new Random(2));
-		System.out.println("shuffled " + AB);
-		System.out.println("surrounding segment: " + answer.getFirst() + " " + answer.getLast());
-		System.out.println(AB.size());
-		System.out.println();
+		beforePrintsAndShuffle(answer, AB);
 
 		Shell nothing = new Shell();
 
