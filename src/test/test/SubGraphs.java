@@ -200,7 +200,7 @@ public class SubGraphs {
 
 		} catch (SegmentBalanceException sbe) {
 			boolean flag = false;
-			assert (flag) : "Unbalanced CutMatchList: \n" + sbe.cutMatchList + "\n in Knot: " + sbe.topKnot;
+			assert (flag) : "" + sbe.toString();
 		}
 
 		System.out.println("result " + result + " " + result.getLength());

@@ -57,7 +57,7 @@ public class InternalPathEngine {
         shell.buff.add("topKnotPoint: " + topKnotPoint);
         shell.buff.add("botKNotPoint: " + botKnotPoint);
 
-        Knot minKnot = findMinKnot(topKnotPoint, topPoint, botKnotPoint, botPoint, knot);
+        Knot minKnot = findMinKnot(topKnotPoint, topPoint, botKnotPoint, botPoint, knot, sbe);
 
         if (minKnot.equals(knot)) {
             Segment connector = cutPointA.getClosestSegment(cutPointB, null);
@@ -232,7 +232,7 @@ public class InternalPathEngine {
         shell.buff.add("neighborSegmentLookup : " + neighborSegmentLookup);
         shell.buff.add("singleNeighborSegmentLookup : " + singleNeighborSegmentLookup);
         shell.buff.add("innerNeighborSegmentLookup: " + innerNeighborSegmentLookup);
-        
+
         // need to find internal segments here
         ArrayList<Segment> innerNeighborSegments = new ArrayList<>();
         for (int j = 0; j < minKnot.knotPointsFlattened.size(); j++) {
@@ -381,10 +381,12 @@ public class InternalPathEngine {
             }
             if (bothKnotPointsInside) {
                 boolean innerNeighborSegmentHasKnotPoint = false;
-                Segment innerNeighborSegment = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(s.first, s.last), Segment.getLastOrderId(s.first, s.last));
-                if(innerNeighborSegment != null){
-                    
-                    if(innerNeighborSegment.contains(kp) || innerNeighborSegment.contains(kp2) || innerNeighborSegment.contains(vp)){
+                Segment innerNeighborSegment = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(s.first, s.last),
+                        Segment.getLastOrderId(s.first, s.last));
+                if (innerNeighborSegment != null) {
+
+                    if (innerNeighborSegment.contains(kp) || innerNeighborSegment.contains(kp2)
+                            || innerNeighborSegment.contains(vp)) {
                         shell.buff.add("REEEEE: ins:" + innerNeighborSegment + " ns: " + s);
                         innerNeighborSegmentHasKnotPoint = true;
                     }
@@ -458,7 +460,8 @@ public class InternalPathEngine {
             if (canCutLeft) {
                 leftCutMatch = cutEngine.findCutMatchListFixedCut(minKnot, ex, neighbor, leftCut, kp, leftPoint, knot,
                         kpSegment,
-                        leftInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, upperCutSegment, neighborCuts, vp2,
+                        leftInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, upperCutSegment,
+                        neighborCuts, vp2,
                         upperCutPointIsOutside, bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment, kp,
                         lowerCutSegment);
 
@@ -473,7 +476,8 @@ public class InternalPathEngine {
                 rightCutMatch = cutEngine.findCutMatchListFixedCut(minKnot, ex, neighbor, rightCut, kp, rightPoint,
                         knot,
                         kpSegment,
-                        rightInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, upperCutSegment, neighborCuts, vp2,
+                        rightInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, upperCutSegment,
+                        neighborCuts, vp2,
                         upperCutPointIsOutside, bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment, kp,
                         lowerCutSegment);
                 rightCutMatch.addCutDiff(rightCut, knot);
@@ -530,7 +534,8 @@ public class InternalPathEngine {
                     + " ex2: " + ex2);
 
             reCut = cutEngine.findCutMatchListFixedCut(minKnot, ex, neighbor, cut, kp, vp, knot, kpSegment,
-                    innerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, upperCutSegment, neighborCuts, vp2, upperCutPointIsOutside,
+                    innerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, upperCutSegment, neighborCuts,
+                    vp2, upperCutPointIsOutside,
                     bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment, kp, lowerCutSegment);
 
         }
@@ -650,7 +655,7 @@ public class InternalPathEngine {
 
     public Knot findMinKnot(VirtualPoint knotPoint1, VirtualPoint cutPointA, VirtualPoint external1,
             VirtualPoint knotPoint2, VirtualPoint cutPointB, VirtualPoint external2,
-            Knot knot) {
+            Knot knot) throws SegmentBalanceException {
 
         int smallestKnotIdA = shell.smallestKnotLookup[cutPointA.id];
         int smallestKnotIdB = shell.smallestKnotLookup[cutPointB.id];
@@ -669,13 +674,17 @@ public class InternalPathEngine {
             botPoint = cutPointA;
             botKnotPoint = knotPoint1;
         }
-        Knot minKnot = findMinKnot(topKnotPoint, topPoint, botKnotPoint, botPoint, knot);
+
+        SegmentBalanceException sbe = new SegmentBalanceException(shell, null, knot,
+                knot.getSegment(knotPoint1, cutPointA), knotPoint1.getClosestSegment(external1, null),
+                knot.getSegment(cutPointB, knotPoint2), knotPoint2.getClosestSegment(external2, null));
+        Knot minKnot = findMinKnot(topKnotPoint, topPoint, botKnotPoint, botPoint, knot, sbe);
         return minKnot;
 
     }
 
     public Knot findMinKnot(VirtualPoint topKnotPoint, VirtualPoint topPoint, VirtualPoint botKnotPoint,
-            VirtualPoint botPoint, Knot knot) {
+            VirtualPoint botPoint, Knot knot, SegmentBalanceException sbe) throws SegmentBalanceException {
 
         int matchKnotAId = shell.smallestCommonKnotLookup[topPoint.id][topKnotPoint.id];
         Knot matchKnotA = cutEngine.flatKnots.get(matchKnotAId);
@@ -687,6 +696,10 @@ public class InternalPathEngine {
 
         int knotPointKnotId = shell.smallestCommonKnotLookup[topKnotPoint.id][botKnotPoint.id];
         Knot knotPointKnot = cutEngine.flatKnots.get(knotPointKnotId);
+        if (knotPointKnot == null) {
+            CutMatchList cml = new CutMatchList(shell, sbe);
+            throw new SegmentBalanceException(sbe);
+        }
         int kpSize = knotPointKnot.knotPoints.size();
 
         int crossTopKnotId = shell.smallestCommonKnotLookup[topPoint.id][botKnotPoint.id];

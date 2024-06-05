@@ -258,7 +258,7 @@ class CutMatchList {
         if (!matchSegmentToUpperCutPoint1.isDegenerate()) {
             cm.matchSegments.add(matchSegmentToUpperCutPoint1);
         }
-        if (!matchSegmentToUpperCutPoint2.isDegenerate()) {
+        if (matchSegmentToUpperCutPoint2 != null && !matchSegmentToUpperCutPoint2.isDegenerate()) {
             cm.matchSegments.add(matchSegmentToUpperCutPoint2);
         }
         if (matchSegmentToUpperKnotPoint != null && !matchSegmentToUpperKnotPoint.isDegenerate()) {
