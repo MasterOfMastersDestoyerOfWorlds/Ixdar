@@ -133,9 +133,7 @@ public class FixedCutBothCutsOutside extends FixedCut {
             shell.buff.add("cut1: " + cutSegmentFinal + " cut2: " + cutSegment2Final + " matches: " +
                     matchSegmentToCutPoint1 + " " + matchSegmentToCutPoint2 + " " + matchSegmentOuterKnotPointFinal);
             CutMatchList result = new CutMatchList(shell, sbe);
-            result.addTwoCutTwoMatch(cutSegmentFinal, cutSegment2Final,
-                    kp1.getClosestSegment(external1, null), kp1,
-                    upperMatchSegment, upperKnotPoint, new Segment[] {
+            result.addTwoCutTwoMatch(cutSegmentFinal, cutSegment2Final, new Segment[] {
                             matchSegmentToCutPoint1,
                             matchSegmentToCutPoint2,
                             matchSegmentOuterKnotPointFinal,

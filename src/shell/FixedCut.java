@@ -64,9 +64,7 @@ public class FixedCut implements FixedCutInterface {
         this.lowerKnotPoint = c.lowerKnotPoint;
         this.lowerCutSegment = c.lowerCutSegment;
         this.c = c;
-        this.sbe = new SegmentBalanceException(shell, null, superKnot, cutSegment1,
-                new Segment(kp1, external1, 0.0), upperCutSegment,
-                new Segment(upperCutSegment.getOther(topCutPoint), upperCutSegment.getOther(topCutPoint), 0.0));
+        this.sbe = c.sbe;
     }
 
     @Override

@@ -79,8 +79,7 @@ public class FixedCutBothCutsInside extends FixedCut {
             CutMatchList result = new CutMatchList(shell, sbe);
 
             result.addTwoCutTwoMatch(cutSegmentFinal, cutSegment2Final,
-                    kp1.getClosestSegment(external1, null), kp1,
-                    upperMatchSegment, upperKnotPoint, new Segment[] { matchSegmentToCutPoint1,
+                     new Segment[] { matchSegmentToCutPoint1,
                             matchSegmentToCutPoint2,
                             matchSegmentOuterKnotPointFinal },
                     true, c);

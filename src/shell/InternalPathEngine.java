@@ -156,6 +156,7 @@ public class InternalPathEngine {
         }
 
         Segment upperMatchSegment = kp2.getClosestSegment(ex2, null);
+        Segment lowerMatchSegment = kp.getClosestSegment(ex, null);
 
         Segment cut = minKnot.getSegment(vp, kp);
         if (bothCutPointsOutside) {
@@ -460,10 +461,11 @@ public class InternalPathEngine {
             if (canCutLeft) {
                 leftCutMatch = new FixedCut(new CutInfo(shell, minKnot, ex, neighbor, leftCut, kp, leftPoint, knot,
                         kpSegment,
-                        leftInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, upperCutSegment,
+                        leftInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments,
                         neighborCuts, vp2,
-                        upperCutPointIsOutside, bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment, kp,
-                        lowerCutSegment)).findCutMatchListFixedCut();
+                        upperCutPointIsOutside, bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment,
+                        upperCutSegment, kp,
+                        lowerCutSegment, lowerMatchSegment)).findCutMatchListFixedCut();
 
                 leftCutMatch.addCutDiff(leftCut, knot);
                 leftCutMatch.removeCut(cut);
@@ -476,9 +478,10 @@ public class InternalPathEngine {
                 rightCutMatch = new FixedCut(new CutInfo(shell, minKnot, ex, neighbor, rightCut, kp, rightPoint,
                         knot,
                         kpSegment,
-                        rightInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, upperCutSegment,
+                        rightInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments,
                         neighborCuts, vp2,
-                        upperCutPointIsOutside, bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment, kp,
+                        upperCutPointIsOutside, bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment,
+                        upperCutSegment, kp, lowerMatchSegment,
                         lowerCutSegment)).findCutMatchListFixedCut();
                 rightCutMatch.addCutDiff(rightCut, knot);
                 rightCutMatch.removeCut(cut);
@@ -534,9 +537,12 @@ public class InternalPathEngine {
                     + " ex2: " + ex2);
 
             reCut = new FixedCut(new CutInfo(shell, minKnot, ex, neighbor, cut, kp, vp, knot, kpSegment,
-                    innerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, upperCutSegment, neighborCuts,
+                    innerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, neighborCuts,
                     vp2, upperCutPointIsOutside,
-                    bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment, kp, lowerCutSegment)).findCutMatchListFixedCut();
+                    bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment,
+                    upperCutSegment, kp, lowerMatchSegment,
+                    lowerCutSegment))
+                    .findCutMatchListFixedCut();
 
         }
         if (reCut.delta == 0.0 && upperCutPointIsOutside) {
