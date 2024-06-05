@@ -351,7 +351,7 @@ public class Main extends JComponent {
 			}
 
 			// Draw Cuts
-			g2.setColor(Color.RED);
+			g2.setColor(Color.ORANGE);
 			g2.setStroke(doubleStroke);
 			for (Segment s : cutMatch.cutSegments) {
 				drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords,
