@@ -35,6 +35,12 @@ public class StringBuff {
         }
     }
 
+    public void add(boolean condition, Object s) {
+        if (condition) {
+            this.add(s);
+        }
+    }
+
     public void printAll() {
         for (SearchString s : strings) {
             System.out.println(s);
