@@ -241,6 +241,8 @@ class CutMatchList {
             throws SegmentBalanceException {
 
         shell.buff.add("MAKING TWO CUT TWO MATCH ---------------------=================");
+        shell.buff.add("cutSegment1 : " + cutSegment + " cutSegment2: " + cutSegment2 + " " + Utils.printArray(matchSegments));
+        
 
         CutMatch cm = new CutMatch(shell, sbe);
         cm.cutSegments.add(cutSegment2);
@@ -298,7 +300,6 @@ class CutMatchList {
         VirtualPoint topCutPoint = c.topCutPoint;
         innerNeighborSegments = new ArrayList<Segment>(innerNeighborSegments);
         boolean hasCutSegment = false;
-        shell.buff.add("SUPER: !!!!!!!!!!!!!!! " + superKnot);
         if (neighborCutSegments.size() > 0) {
             for (int i = 0; i < neighborCutSegments.size(); i++) {
                 Segment neighborCutSegment = neighborCutSegments.get(i).getFirst();
@@ -417,9 +418,6 @@ class CutMatchList {
                 diffList.add(s);
             }
         }
-
-        shell.buff.add(diffList);
-        shell.buff.add(diffList2);
 
         ArrayList<Segment> toRemoveCuts = new ArrayList<>();
         for (Segment s : cm.cutSegments) {

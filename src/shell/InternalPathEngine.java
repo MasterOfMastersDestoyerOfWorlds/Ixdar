@@ -57,6 +57,31 @@ public class InternalPathEngine {
         shell.buff.add("topKnotPoint: " + topKnotPoint);
         shell.buff.add("botKNotPoint: " + botKnotPoint);
 
+        if(knotPoint1.equals(knotPoint2)){
+            CutMatchList cml = new CutMatchList(shell, sbe);
+            throw new SegmentBalanceException(sbe);
+        }
+        
+        if(topKnotPoint.equals(botKnotPoint)){
+            CutMatchList cml = new CutMatchList(shell, sbe);
+            throw new SegmentBalanceException(sbe);
+        }
+        if(topPoint.equals(botKnotPoint)){
+            CutMatchList cml = new CutMatchList(shell, sbe);
+            throw new SegmentBalanceException(sbe);
+        }
+        
+        if(botPoint.equals(topKnotPoint)){
+            CutMatchList cml = new CutMatchList(shell, sbe);
+            throw new SegmentBalanceException(sbe);
+        }
+        
+        if(botPoint.equals(topPoint)){
+            CutMatchList cml = new CutMatchList(shell, sbe);
+            throw new SegmentBalanceException(sbe);
+        }
+
+
         Knot minKnot = findMinKnot(topKnotPoint, topPoint, botKnotPoint, botPoint, knot, sbe);
 
         if (minKnot.equals(knot)) {
@@ -458,14 +483,15 @@ public class InternalPathEngine {
             shell.buff.add("cutting left");
             boolean canCutLeft = !leftInnerNeighborSegments.contains(leftCut) && !rightCut.equals(kpSegment);
             CutMatchList leftCutMatch = null;
+            CutInfo lc = new CutInfo(shell, minKnot, ex, neighbor, leftCut, kp, leftPoint, knot,
+            kpSegment,
+            leftInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments,
+            neighborCuts, vp2,
+            upperCutPointIsOutside, bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment,
+            upperCutSegment, kp,
+            lowerCutSegment, lowerMatchSegment);
             if (canCutLeft) {
-                leftCutMatch = new FixedCut(new CutInfo(shell, minKnot, ex, neighbor, leftCut, kp, leftPoint, knot,
-                        kpSegment,
-                        leftInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments,
-                        neighborCuts, vp2,
-                        upperCutPointIsOutside, bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment,
-                        upperCutSegment, kp,
-                        lowerCutSegment, lowerMatchSegment)).findCutMatchListFixedCut();
+                leftCutMatch = new FixedCut(lc).findCutMatchListFixedCut();
 
                 leftCutMatch.addCutDiff(leftCut, knot);
                 leftCutMatch.removeCut(cut);
@@ -474,15 +500,16 @@ public class InternalPathEngine {
 
             boolean canCutRight = !rightInnerNeighborSegments.contains(rightCut) && !leftCut.equals(kpSegment);
             CutMatchList rightCutMatch = null;
+            CutInfo rc = new CutInfo(shell, minKnot, ex, neighbor, rightCut, kp, rightPoint,
+            knot,
+            kpSegment,
+            rightInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments,
+            neighborCuts, vp2,
+            upperCutPointIsOutside, bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment,
+            upperCutSegment, kp, lowerMatchSegment,
+            lowerCutSegment);
             if (canCutRight) {
-                rightCutMatch = new FixedCut(new CutInfo(shell, minKnot, ex, neighbor, rightCut, kp, rightPoint,
-                        knot,
-                        kpSegment,
-                        rightInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments,
-                        neighborCuts, vp2,
-                        upperCutPointIsOutside, bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment,
-                        upperCutSegment, kp, lowerMatchSegment,
-                        lowerCutSegment)).findCutMatchListFixedCut();
+                rightCutMatch = new FixedCut(rc).findCutMatchListFixedCut();
                 rightCutMatch.addCutDiff(rightCut, knot);
                 rightCutMatch.removeCut(cut);
             }
@@ -502,17 +529,9 @@ public class InternalPathEngine {
                     "chose right? : " + (canCutRight && (!canCutLeft || rightCutMatch.delta < leftCutMatch.delta)));
             shell.buff.add("neighbor : " + neighbor);
 
-            shell.buff.add("LEFTCUT : " + minKnot + " " + " " + ex + " " + " " + neighbor + " " + " " + leftCut
-                    + " " + " " + kp + " " + " " + leftPoint + " " + " " + knot + " " + " " + kpSegment + " "
-                    + leftInnerNeighborSegments + " " + neighborSegments + " " + upperCutSegment + " "
-                    + pairsToString(neighborCuts)
-                    + " " + outsideUpperCutPoint);
+            shell.buff.add("LEFTCUT : " + lc);
 
-            shell.buff.add("RightCUT : " + minKnot + " " + " " + ex + " " + " " + neighbor + " " + " " + rightCut
-                    + " " + " " + kp + " " + " " + rightPoint + " " + " " + knot + " " + " " + kpSegment + " "
-                    + rightInnerNeighborSegments + " " + neighborSegments + " " + upperCutSegment + " "
-                    + pairsToString(neighborCuts)
-                    + " " + outsideUpperCutPoint);
+            shell.buff.add("RightCUT : " + rc);
 
         } else {
             ArrayList<Segment> removeList = new ArrayList<>();
@@ -526,23 +545,15 @@ public class InternalPathEngine {
                 innerNeighborSegments.removeAll(removeList);
 
             }
-            shell.buff.add(" minKnot: " + minKnot + " | external " + ex + " | neighbor: " + neighbor + " | Lower Cut: "
-                    + cut + " | kp: " + kp
-                    + " | vp: " + vp + " | superKnot: " + knot + " | kpSegment: " + kpSegment
-                    + " \ninnerNeighborSegments: " + innerNeighborSegments + " neighborSegments: "
-                    + neighborSegments + " upperCutSegment: " + upperCutSegment + " neighborCuts: "
-                    + pairsToString(neighborCuts) +
-                    " upperCutPointIsOutside: " + upperCutPointIsOutside + " bothKnotPOintsInside: "
-                    + bothKnotPointsInside + " kp2: " + kp2 + " upperMatchSegment: " + knot.getSegment(kp2, ex2)
-                    + " ex2: " + ex2);
+            CutInfo c = new CutInfo(shell, minKnot, ex, neighbor, cut, kp, vp, knot, kpSegment,
+            innerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, neighborCuts,
+            vp2, upperCutPointIsOutside,
+            bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment,
+            upperCutSegment, kp, lowerMatchSegment,
+            lowerCutSegment);
+            shell.buff.add(c);
 
-            reCut = new FixedCut(new CutInfo(shell, minKnot, ex, neighbor, cut, kp, vp, knot, kpSegment,
-                    innerNeighborSegments, innerNeighborSegmentLookup, neighborSegments, neighborCuts,
-                    vp2, upperCutPointIsOutside,
-                    bothKnotPointsInside, bothCutPointsOutside, kp2, upperMatchSegment,
-                    upperCutSegment, kp, lowerMatchSegment,
-                    lowerCutSegment))
-                    .findCutMatchListFixedCut();
+            reCut = new FixedCut(c).findCutMatchListFixedCut();
 
         }
         if (reCut.delta == 0.0 && upperCutPointIsOutside) {
@@ -708,7 +719,11 @@ public class InternalPathEngine {
         }
         int kpSize = knotPointKnot.knotPoints.size();
 
+
         int crossTopKnotId = shell.smallestCommonKnotLookup[topPoint.id][botKnotPoint.id];
+        System.out.println(cutEngine.flatKnots);
+        System.out.println(topPoint.id + " " + botKnotPoint.id);
+        System.out.println(crossTopKnotId);
         Knot crossTopKnot = cutEngine.flatKnots.get(crossTopKnotId);
         int ctSize = crossTopKnot.knotPoints.size();
 
@@ -774,20 +789,5 @@ public class InternalPathEngine {
         shell.buff.add("RETURNING MINKONT: " + minKnot);
 
         return minKnot;
-    }
-
-    public static <K, V> String pairToString(Pair<K, V> pair) {
-        return "Pair[" + pair.getFirst() + " : " + pair.getSecond() + "]";
-
-    }
-
-    public static <K, V> String pairsToString(ArrayList<Pair<K, V>> pairs) {
-        String str = "[";
-        for (Pair<K, V> p : pairs) {
-            str += pairToString(p) + ",";
-        }
-        str += "]";
-        return str;
-
     }
 }

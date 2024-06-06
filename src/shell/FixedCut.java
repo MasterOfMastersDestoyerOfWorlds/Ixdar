@@ -75,7 +75,7 @@ public class FixedCut implements FixedCutInterface {
                 + " | vp: " + cp1 + " | superKnot: " + superKnot + " | kpSegment: " + kpSegment
                 + " \ninnerNeighborSegments: " + innerNeighborSegments + " neighborSegments: "
                 + neighborSegments + " upperCutSegment: " + upperCutSegment + " neighborCuts: "
-                + InternalPathEngine.pairsToString(neighborCutSegments) +
+                + Utils.pairsToString(neighborCutSegments) +
                 " upperCutPointIsOutside: " + needTwoNeighborMatches + " bothKnotPOintsInside: "
                 + bothKnotPointsInside + " upperKnotPoint: " + upperKnotPoint + " upperMatchSegment: "
                 + upperMatchSegment
@@ -144,12 +144,10 @@ public class FixedCut implements FixedCutInterface {
                         cutSegment2, kp1, upperKnotPoint, knot);
                 shell.buff.add(leftHasOneOut + " " + rightHasOneOut);
                 shell.buff.add("!(leftHasOneOut || rightHasOneOut)" + !(leftHasOneOut || rightHasOneOut));
-                shell.buff.add("!((cutSegment1.contains(kp1) || cutSegment2.contains(kp1)"
-                        + !((cutSegment1.contains(kp1) || cutSegment2.contains(kp1))
-                                && (cutSegment1.contains(upperKnotPoint) || cutSegment2.contains(upperKnotPoint))));
-                boolean skipFlag = true;
-                if (skipFlag || !(leftHasOneOut || rightHasOneOut)
-                        || !((cutSegment1.contains(kp1) || cutSegment2.contains(kp1)))) {
+                shell.buff.add("(cutSegment1.contains(kp1) XOR cutSegment2.contains(kp1)" + kp1 + " " + cutSegment2  + " "
+                        + ((cutSegment2.contains(kp1))));
+                if (!(leftHasOneOut || rightHasOneOut)
+                        || (cutSegment2.contains(kp1))) {
                     shell.buff.add("ONE SIDE WOULD BE UNBALANCED " + cutSegment2);
 
                     continue;

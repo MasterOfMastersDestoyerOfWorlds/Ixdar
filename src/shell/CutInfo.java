@@ -83,7 +83,7 @@ public class CutInfo {
                 + " | vp: " + cp1 + " | superKnot: " + superKnot + " | kpSegment: " + kpSegment
                 + " \ninnerNeighborSegments: " + innerNeighborSegments + " neighborSegments: "
                 + neighborSegments + " upperCutSegment: " + upperCutSegment + " neighborCuts: "
-                + InternalPathEngine.pairsToString(neighborCutSegments) +
+                + Utils.pairsToString(neighborCutSegments) +
                 " upperCutPointIsOutside: " + needTwoNeighborMatches + " bothKnotPOintsInside: "
                 + bothKnotPointsInside + " upperKnotPoint: " + upperKnotPoint + " upperMatchSegment: "
                 + upperMatchSegment
