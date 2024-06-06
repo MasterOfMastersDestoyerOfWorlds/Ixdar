@@ -136,7 +136,10 @@ public class Main extends JComponent {
 			// within hte minknot. I think it shouldn't hold, i.e. we should only check this
 			// when vp2 is not in the minknot.
 
-			String fileName = "wi29_6-25";
+			//djbouti_26-32p2-3_cut7-3and4-6: actually need to match to the other side of the upper knotpoint via marching rather than the knotpoint itself
+			//wi29_6-25: Something is wrong with the difference calculator, it is not cutting the neighbor segments that went unmatched
+
+			String fileName = "djbouti_26-32p2-3";
 			PointSetPath retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
