@@ -269,7 +269,7 @@ class CutMatchList {
         boolean balanced = this.checkCutMatchBalance(c.lowerMatchSegment, c.upperMatchSegment, c.cutSegment1, cutSegment2,
                 c.lowerExternal,
                 c.upperExternal, c.knot, c.neighborSegments, c.superKnot,
-                false, false);
+                false, true);
         if (!balanced) {
             CutMatch diff = diffKnots(cm, c, true);
             cm.diff = diff;

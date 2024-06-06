@@ -93,7 +93,6 @@ public class FixedCutTwoMatches extends FixedCut {
                 innerSegment3 = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(matchSegmentToCutPoint1),
                         Segment.getLastOrderId(matchSegmentToCutPoint1));
             }
-            matchSegmentAcrossFinal = cp1.getClosestSegment(external2, null);
             if (innerSegment1 != null && innerSegment1.equals(innerSegment2)
                     || innerSegment1 != null && innerSegment1.equals(innerSegment3)) {
                 cutSegment2Final = innerSegment1;
@@ -102,6 +101,20 @@ public class FixedCutTwoMatches extends FixedCut {
             } else {
                 cutSegment2Final = innerSegment1;
             }
+
+            Pair<VirtualPoint, VirtualPoint> mirrors = null;
+            if (cutSegment1.contains(upperKnotPoint)) {
+                mirrors = Utils.marchLookup(knot, upperKnotPoint, cutSegment1.getOther(upperKnotPoint),
+                        cutSegment2Final);
+            } else {
+                mirrors = Utils.marchLookup(knot, upperKnotPoint, cutSegment2Final.getOther(upperKnotPoint),
+                        cutSegment1);
+
+            }
+
+
+
+            matchSegmentAcrossFinal = mirrors.getFirst().getClosestSegment(external2, null);
             shell.buff.add(c);
             if (innerSegment1 == null) {
                 CutMatchList cml = new CutMatchList(shell, sbe);
@@ -117,7 +130,8 @@ public class FixedCutTwoMatches extends FixedCut {
                     bothKnotPointsInside, c);
             minDelta = simpleCut.delta;
             result = simpleCut;
-
+            shell.buff.add("simple cut: " + simpleCut);
+            
             shell.buff.add("SIMPLE CUT MATCH: " + matchSegmentAcrossFinal + " matches: "
                     + matchSegmentOuterKnotPointFinal + " " + matchSegmentToCutPoint1 + " " + matchSegmentToCutPoint2
                     + "CUTS: " + cutSegmentFinal + " " + cutSegment2Final + " minDelta " + minDelta + "");
@@ -161,11 +175,12 @@ public class FixedCutTwoMatches extends FixedCut {
                 VirtualPoint mirror21 = cutSegment1.getOther(kp1);
 
                 VirtualPoint mirror22;
-                Pair<VirtualPoint, VirtualPoint> mirrors = Utils.marchLookup(knot, cutSegment1.getOther(kp1), kp1, cutSegment2);
-                
+                Pair<VirtualPoint, VirtualPoint> mirrors = Utils.marchLookup(knot, kp1, cutSegment1.getOther(kp1),
+                        cutSegment2);
+
                 mirror1 = mirrors.getFirst();
                 mirror22 = mirrors.getSecond();
-                
+
                 shell.buff.add(kp1);
                 double d2 = Double.MAX_VALUE, d1 = Double.MAX_VALUE;
                 if (bothKnotPointsInside) {

@@ -103,9 +103,12 @@ public final class Utils {
         }
     }
 
-    public static Pair<VirtualPoint, VirtualPoint> marchLookup(Knot knot, VirtualPoint other, VirtualPoint kp1, Segment cutSegment2) {
-        int idx = knot.knotPoints.indexOf(kp1);
-        int idx2 = knot.knotPoints.indexOf(other);
+    public static Pair<VirtualPoint, VirtualPoint> marchLookup(Knot knot, VirtualPoint start, VirtualPoint away, Segment cutSegment2) {
+        if(!knot.hasSegment(cutSegment2)){
+            return null;
+        }
+        int idx = knot.knotPoints.indexOf(start);
+        int idx2 = knot.knotPoints.indexOf(away);
 
         int marchDirection = idx2 - idx < 0 ? -1 : 1;
         if (idx == 0 && idx2 == knot.knotPoints.size() - 1) {
