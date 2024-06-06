@@ -136,7 +136,7 @@ public class Main extends JComponent {
 			// within hte minknot. I think it shouldn't hold, i.e. we should only check this
 			// when vp2 is not in the minknot.
 
-			String fileName = "djbouti_26-32p2-3";
+			String fileName = "wi29_6-25";
 			PointSetPath retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 

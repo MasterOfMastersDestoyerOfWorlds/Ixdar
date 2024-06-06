@@ -78,7 +78,7 @@ public class FixedCutBothCutsInside extends FixedCut {
                     matchSegmentToCutPoint1 + " " + matchSegmentToCutPoint2 + " " + matchSegmentOuterKnotPointFinal);
             CutMatchList result = new CutMatchList(shell, sbe);
 
-            result.addTwoCutTwoMatch(cutSegmentFinal, cutSegment2Final,
+            result.addTwoCutTwoMatch(cutSegment2Final,
                      new Segment[] { matchSegmentToCutPoint1,
                             matchSegmentToCutPoint2,
                             matchSegmentOuterKnotPointFinal },
