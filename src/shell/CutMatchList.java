@@ -617,6 +617,13 @@ class CutMatchList {
                                 + (val != 2) + " ext1id:  " + external1Point.id + " ext2id:  " + external2Point.id);
             }
         }
+        
+        //TODO: NEED TO CHECK THAT IF WE TRAVERSE FROM KNOT POINT TO KNOT POINT TAT WE HIT ALL OF THE INTERNAL POINTS,
+        //BASICALLY CAN'tHAVE MUTLIPLE CYCLES< UNSURE HOW TO CHECK WITH OUT FORMING A NEW KNOT
+        if(flag){
+            
+        }
+
         if (!flag) {
             shell.buff.add(printBalance, this);
             shell.buff.add(printBalance, balance);

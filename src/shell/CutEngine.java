@@ -156,13 +156,19 @@ public class CutEngine {
                                 / (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
                         shell.buff.add(shell.knotName + "_cut" + knotPoint12 + "-" + knotPoint11 + "and" + knotPoint22
                                 + "-" + knotPoint21);
-                        if (!foundShorter34)
+                        if (!foundShorter34){
                             shell.buff.add("NO SHORTER PATH FOUND THAN SIMPLE CUT");
-                        if (!balanced34)
+                            
+                            throw new ShorterPathNotFoundException(shell, internalCuts34, knot,
+                                    knot.getSegment(knotPoint12, knotPoint11), s31,
+                                    knot.getSegment(knotPoint21, knotPoint22), s32);
+                        }
+                        if (!balanced34){
                             shell.buff.add("SEGMENTS UNBALANCED");
-                        throw new SegmentBalanceException(shell, internalCuts34, knot,
-                                knot.getSegment(knotPoint12, knotPoint11), s31,
-                                knot.getSegment(knotPoint21, knotPoint22), s32);
+                            throw new SegmentBalanceException(shell, internalCuts34, knot,
+                                    knot.getSegment(knotPoint12, knotPoint11), s31,
+                                    knot.getSegment(knotPoint21, knotPoint22), s32);
+                        }
                     } else {
                         shell.buff.flush();
                     }
