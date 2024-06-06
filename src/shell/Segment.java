@@ -2,7 +2,7 @@ package shell;
 
 import java.util.ArrayList;
 
-public class Segment implements Comparable {
+public class Segment implements Comparable<Segment> {
     VirtualPoint first;
     VirtualPoint last;
     double distance;
@@ -55,7 +55,7 @@ public class Segment implements Comparable {
     }
 
     @Override
-    public int compareTo(Object o) {
+    public int compareTo(Segment o) {
         if (o.getClass() == Segment.class) {
             Segment s = (Segment) o;
             if (s.distance < this.distance) {

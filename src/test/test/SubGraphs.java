@@ -2,23 +2,15 @@ package test;
 
 import shell.DistanceMatrix;
 import shell.Main;
-import shell.PointND;
 import shell.PointSet;
 import shell.PointSetPath;
 import shell.SegmentBalanceException;
 import shell.Shell;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Random;
 
-import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestFactory;
-
-import org.junit.Assert;
 
 /**
  * Tests to verify that our tsp solver works as expected
@@ -189,8 +181,6 @@ public class SubGraphs {
 		System.out.println("surrounding segment: " + answer.getFirst() + " " + answer.getLast());
 		System.out.println(AB.size());
 		System.out.println();
-
-		Shell nothing = new Shell();
 
 		DistanceMatrix d = new DistanceMatrix(ps);
 		Shell result = null;

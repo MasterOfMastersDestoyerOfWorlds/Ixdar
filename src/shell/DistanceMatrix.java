@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Vector;
 
 import org.apache.commons.math3.complex.Complex;
 import org.apache.commons.math3.linear.Array2DRowFieldMatrix;
@@ -16,8 +15,6 @@ import org.apache.commons.math3.linear.FieldMatrix;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.apache.commons.math3.linear.RealVector;
 import org.apache.commons.math3.linear.SingularValueDecomposition;
-
-import shell.PointND.Double;
 
 /**
  * A class that represents the distances between all points in the pointset

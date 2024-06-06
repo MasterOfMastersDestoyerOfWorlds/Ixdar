@@ -3,7 +3,6 @@ package test;
 
 import shell.DistanceMatrix;
 import shell.Main;
-import shell.PointND;
 import shell.PointSet;
 import shell.PointSetPath;
 import shell.SegmentBalanceException;
@@ -48,8 +47,6 @@ public class Tests {
 		}
 
 		beforePrintsAndShuffle(answer, AB);
-
-		Shell nothing = new Shell();
 
 		DistanceMatrix d = new DistanceMatrix(ps);
 		//d.addDummyNode(answer.getFirst(), answer.getLast());
@@ -104,8 +101,6 @@ public class Tests {
 
 		beforePrintsAndShuffle(AB, answer);
 
-		Shell nothing = new Shell();
-
 		DistanceMatrix d = new DistanceMatrix(ps);
 		//d.addDummyNode(answer.getFirst(), answer.getLast());
 		Shell result = AB.solveBetweenEndpoints(answer.getFirst(), answer.getLast(), AB, d);
@@ -141,6 +136,7 @@ public class Tests {
 
 		for (int i = n - 1; i < n; i++) {
 
+			@SuppressWarnings("unused")
 			int num = a[i];
 			//7: something wrong with knot detection. I think the thing I had before about the runs turning into knots if both end pointed internally was the correct thing
 					//24 and 25 are transposed when added to their knot
@@ -189,8 +185,6 @@ public class Tests {
 
 		beforePrintsAndShuffle(answer, AB);
 
-		Shell nothing = new Shell();
-
 		DistanceMatrix d = new DistanceMatrix(ps);
 		//d.addDummyNode(answer.getFirst(), answer.getLast());
 		Shell result = AB.tspSolve(AB, d);
@@ -215,8 +209,6 @@ public class Tests {
 		}
 
 		beforePrintsAndShuffle(answer, AB);
-
-		Shell nothing = new Shell();
 
 		DistanceMatrix d = new DistanceMatrix(ps);
 		//d.addDummyNode(answer.getFirst(), answer.getLast());

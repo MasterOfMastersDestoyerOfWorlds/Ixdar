@@ -60,8 +60,7 @@ public final class Utils {
             idx = next;
             totalIter++;
             if (totalIter > knot.knotPoints.size()) {
-                float z = 1 / 0;
-    
+                return null;
             }
         }
     }
@@ -80,7 +79,6 @@ public final class Utils {
         marchDirection = -marchDirection;
         int totalIter = 0;
         while (true) {
-            VirtualPoint k1 = knot.knotPoints.get(idx);
             int next = idx + marchDirection;
             if (marchDirection < 0 && next < 0) {
                 next = knot.knotPoints.size() - 1;
@@ -97,7 +95,7 @@ public final class Utils {
             idx = next;
             totalIter++;
             if (totalIter > knot.knotPoints.size()) {
-                float z = 1 / 0;
+                return false;
     
             }
         }
@@ -139,6 +137,78 @@ public final class Utils {
                 return new Pair<>(curr, nextp);
             }
             idx = next;
+        }
+    }
+
+    public static boolean wouldOrphan(VirtualPoint cutp1, VirtualPoint knotp1, VirtualPoint cutp2, VirtualPoint knotp2,
+            ArrayList<VirtualPoint> knotList) {
+        int cp1 = knotList.indexOf(cutp1);
+        int kp1 = knotList.indexOf(knotp1);
+    
+        int cp2 = knotList.indexOf(cutp2);
+        int kp2 = knotList.indexOf(knotp2);
+    
+        if ((cp1 > kp1 && cp1 < kp2 && cp2 > kp1 && cp2 < kp2)
+                ||
+                (cp1 > kp2 && cp1 < kp1 && cp2 > kp2 && cp2 < kp1)
+                ||
+                (kp1 > cp2 && kp1 < cp1 && kp2 > cp2 && kp2 < cp1)
+                ||
+                (kp1 > cp1 && kp1 < cp2 && kp2 > cp1 && kp2 < cp2)
+                ||
+                (kp1 > cp1 && kp1 > cp2 && kp2 > cp1 && kp2 > cp2)
+                ||
+                (kp1 < cp1 && kp1 < cp2 && kp2 < cp1 && kp2 < cp2)) {
+            return true;
+        }
+    
+        return false;
+    }
+
+    public static boolean marchUntilHasOneKnotPoint(VirtualPoint startPoint, Segment awaySegment,
+            Segment untilSegment, VirtualPoint kp1, VirtualPoint kp2, Knot knot) {
+        int idx = knot.knotPoints.indexOf(startPoint);
+        int idx2 = knot.knotPoints.indexOf(awaySegment.getOther(startPoint));
+        int marchDirection = idx2 - idx < 0 ? -1 : 1;
+        if (idx == 0 && idx2 == knot.knotPoints.size() - 1) {
+            marchDirection = -1;
+        }
+        if (idx2 == 0 && idx == knot.knotPoints.size() - 1) {
+            marchDirection = 1;
+        }
+        marchDirection = -marchDirection;
+        int totalIter = 0;
+        int numKnotPoints = 0;
+        VirtualPoint first = knot.knotPoints.get(idx);
+        if (first.equals(kp1) || first.equals(kp2)) {
+            numKnotPoints++;
+        }
+        while (true) {
+            VirtualPoint k1 = knot.knotPoints.get(idx);
+            int next = idx + marchDirection;
+            if (marchDirection < 0 && next < 0) {
+                next = knot.knotPoints.size() - 1;
+            } else if (marchDirection > 0 && next >= knot.knotPoints.size()) {
+                next = 0;
+            }
+            VirtualPoint k2 = knot.knotPoints.get(next);
+            if (knot.getSegment(k1, k2).equals(untilSegment)) {
+                return true;
+            }
+            if (k2.equals(kp1)) {
+                numKnotPoints++;
+            }
+            if (k2.equals(kp2)) {
+                numKnotPoints++;
+            }
+            if (numKnotPoints >= 2) {
+                return false;
+            }
+            idx = next;
+            totalIter++;
+            if (totalIter > knot.knotPoints.size()) {
+                return false;
+            }
         }
     }
     

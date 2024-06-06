@@ -28,7 +28,6 @@ public abstract class VirtualPoint {
 			int count = idx;
 			ArrayList<Segment> seenGroups = new ArrayList<Segment>();
 			ArrayList<VirtualPoint> seenPoints = new ArrayList<VirtualPoint>();
-			int matchedSegs = 0;
 			for (int i = 0; i < sortedSegments.size(); i++) {
 				Segment s = sortedSegments.get(i);
 				VirtualPoint knotPoint = s.getKnotPoint(knotPointsFlattened);
@@ -43,7 +42,6 @@ public abstract class VirtualPoint {
 						&& (!seenPoints.contains(basePoint))
 						|| potentialSegment.equals(s1) || potentialSegment.equals(s2)) {
 					count--;
-					matchedSegs++;
 					if (count == 0) {
 						return s;
 					}
@@ -154,6 +152,7 @@ public abstract class VirtualPoint {
 			shell.buff.add(this.fullString());
 			shell.buff.add(this.sortedSegments);
 
+			@SuppressWarnings("unused")
 			float zero = 1 / 0;
 			return null;
 		}
@@ -285,6 +284,7 @@ public abstract class VirtualPoint {
 
 		}
 
+		@SuppressWarnings("unused")
 		private void checkValid() {
 			if (match1 == null && match2 != null) {
 				shell.buff.add(this.fullString());

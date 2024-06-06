@@ -52,7 +52,6 @@ class Run extends VirtualPoint {
                 knotPointsFlattened.add(vp);
             }
         }
-        int numPoints = shell.unvisited.size() + shell.visited.size();
 
         // store the segment lists of each point contained in the knot, recursive
         ArrayList<VirtualPoint> endpoints = new ArrayList<>();

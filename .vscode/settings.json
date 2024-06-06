@@ -7,5 +7,6 @@
     "java.debug.settings.showStaticVariables": true,
     "java.debug.settings.showHex": false,
     "editor.find.autoFindInSelection": "multiline",
+    "terminal.integrated.rightClickCopyPaste": false,
     
 }

@@ -30,9 +30,9 @@ public class FixedCutBothCutsOutside extends FixedCut {
                 continue;
             } else {
 
-                boolean leftHasOneOut = CutEngine.marchUntilHasOneKnotPoint(cutSegment1.first, cutSegment1,
+                boolean leftHasOneOut = Utils.marchUntilHasOneKnotPoint(cutSegment1.first, cutSegment1,
                         cutSegment2, kp1, upperKnotPoint, knot);
-                boolean rightHasOneOut = CutEngine.marchUntilHasOneKnotPoint(cutSegment1.last, cutSegment1,
+                boolean rightHasOneOut = Utils.marchUntilHasOneKnotPoint(cutSegment1.last, cutSegment1,
                         cutSegment2, kp1, upperKnotPoint, knot);
                 if (!(leftHasOneOut && rightHasOneOut) || !((cutSegment1.contains(kp1) || cutSegment2.contains(kp1))
                         && (cutSegment1.contains(upperKnotPoint) || cutSegment2.contains(upperKnotPoint)))) {
@@ -82,7 +82,7 @@ public class FixedCutBothCutsOutside extends FixedCut {
                 double d2 = Double.MAX_VALUE;
                 double d1 = Double.MAX_VALUE;
                 if (mirror2 == null || mirror1 == null) {
-                    CutMatchList cml = new CutMatchList(shell, sbe);
+                    new CutMatchList(shell, sbe);
                     throw new SegmentBalanceException(sbe);
                 }
                 Segment s11 = knot.getSegment(leftNeighbor, mirror1);

@@ -1,9 +1,5 @@
 package shell;
 
-import shell.CutMatchList;
-import shell.Knot;
-import shell.Segment;;
-
 public class ShorterPathNotFoundException extends SegmentBalanceException {
     
 
@@ -11,9 +7,8 @@ public class ShorterPathNotFoundException extends SegmentBalanceException {
         super(sbe);
     }
 
-    public ShorterPathNotFoundException(Shell shell, CutMatchList internalCuts12, Knot knot, Segment cut1,
-            Segment ex1, Segment cut2, Segment ex2) {
-        super(shell, internalCuts12, knot, cut1, ex1, cut2, ex2);
+    public ShorterPathNotFoundException(Shell shell, CutMatchList internalCuts12, CutInfo c) {
+        super(shell, internalCuts12, c);
     }
 
     @Override

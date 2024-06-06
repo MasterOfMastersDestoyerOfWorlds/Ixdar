@@ -22,10 +22,8 @@ import javax.swing.JComponent;
 
 public class Shell extends LinkedList<PointND> {
 	private static final long serialVersionUID = -5904334592585016845L;
-	private int ORDER = 1;
 	public static int failed = 0;
-	private boolean maximal, minimal;
-	private Shell parent, child;
+	private Shell child;
 	ArrayList<VirtualPoint> visited;
 	ArrayList<VirtualPoint> unvisited;
 	HashMap<Integer, VirtualPoint> pointMap = new HashMap<Integer, VirtualPoint>();
@@ -42,28 +40,22 @@ public class Shell extends LinkedList<PointND> {
 	boolean skipHalfKnotFlag = true;
 
 	public ArrayList<VirtualPoint> createKnots() {
-		int recurseCount = 0;
 		ArrayList<VirtualPoint> knots = new ArrayList<>();
+		@SuppressWarnings("unchecked")
 		ArrayList<VirtualPoint> toVisit = (ArrayList<VirtualPoint>) unvisited.clone();
 		ArrayList<VirtualPoint> runList = new ArrayList<>();
 		buff.add("runList: " + runList);
 		VirtualPoint mainPoint = toVisit.get(0);
 		buff.add("startPoint: " + mainPoint);
 		boolean endpointReached = false;
-		VirtualPoint runFailedMatch1 = null;
-		VirtualPoint runFailedMatch2 = null;
 		VirtualPoint endPoint1 = null;
 		VirtualPoint endPoint2 = null;
-		boolean knotFound = false;
 		while (toVisit.size() > 0 || runList.size() > 0) {
 			toVisit.remove(mainPoint);
 			buff.add("Main Point is now:" + mainPoint);
 			buff.add("runList:" + runList);
 			buff.add("toVisit:" + toVisit);
 			buff.add("knots:" + knots);
-			if (mainPoint.numMatches > 2) {
-				float zero = 1 / 0;
-			}
 			Segment potentialSegment1 = mainPoint.getPointer(1);
 			Point pointer1 = (Point) potentialSegment1.getOtherKnot(mainPoint.topGroup);
 			buff.add("Point " + mainPoint + " points to: " + pointer1 + " (" + pointer1.topGroup + "):"
@@ -137,7 +129,6 @@ public class Shell extends LinkedList<PointND> {
 				matchSegment = potentialSegment22;
 			}
 			if (matchPoint != null) {
-				recurseCount = 0;
 				buff.add("Point " + matchPoint + " points back" + " | basepoint: " + matchBasePoint
 						+ " endpoint: " + matchEndPoint);
 				if (mainPoint.numMatches == 0) {
@@ -165,7 +156,6 @@ public class Shell extends LinkedList<PointND> {
 					runList.add(matchPoint);
 				}
 				boolean mainIsFull = false;
-				boolean matchIsFull = false;
 				buff.add("Setting Match: " + mainPoint + " : " + matchPoint);
 				buff.add(mainPoint + " has " + mainPoint.numMatches + " matches : " + matchPoint + " has "
 						+ matchPoint.numMatches + " matches");
@@ -177,7 +167,6 @@ public class Shell extends LinkedList<PointND> {
 				if (matchPoint.numMatches == 2) {
 					unvisited.remove(matchPoint);
 					visited.add(matchPoint);
-					matchIsFull = true;
 					if (mainIsFull) {
 						// Knot Found
 						// TODO check if the all of the segments in the runlist have 2 matches to
@@ -211,13 +200,7 @@ public class Shell extends LinkedList<PointND> {
 
 				mainPoint = matchPoint;
 			} else {
-				recurseCount++;
 				if (endpointReached) {
-					if (mainPoint.match1.equals(pointer1.topGroup)) {
-						runFailedMatch2 = pointer2;
-					} else {
-						runFailedMatch2 = pointer1;
-					}
 					endPoint2 = mainPoint;
 					buff.add("Found both end of the run, adding to knot");
 					// I think if we are pointing on either end to ourselves we need to make a knot,
@@ -244,10 +227,8 @@ public class Shell extends LinkedList<PointND> {
 
 					boolean knotFlag = false;
 					buff.add(runList);
-					int size = runList.size();
 					runList = RunListUtils.flattenRunPoints(runList, false);
 					RunListUtils.fixRunList(runList, runList.size() - 1);
-					int size2 = runList.size();
 					for (VirtualPoint vp : runList) {
 						vp.topGroup = vp;
 						vp.group = vp;
@@ -333,14 +314,6 @@ public class Shell extends LinkedList<PointND> {
 						endpointReached = false;
 						halfKnotCount++;
 
-						if (halfKnotCount > 100) {
-							buff.add(runList);
-							buff.add(endPoint2.fullString());
-							buff.add(endPoint1.fullString());
-							buff.add(runFailedMatch2.fullString());
-							buff.add(runFailedMatch1.fullString());
-							float zero = 1 / 0;
-						}
 						continue;
 					}
 
@@ -374,11 +347,6 @@ public class Shell extends LinkedList<PointND> {
 					endpointReached = false;
 				} else {
 
-					if (mainPoint.match1 != null && mainPoint.match1.equals(pointer1.topGroup)) {
-						runFailedMatch1 = pointer2;
-					} else {
-						runFailedMatch1 = pointer1;
-					}
 					endPoint1 = mainPoint;
 					endpointReached = true;
 					if (runList.size() == 0) {
@@ -558,7 +526,6 @@ public class Shell extends LinkedList<PointND> {
 
 	public ArrayList<VirtualPoint> slowSolve(Shell A, DistanceMatrix distanceMatrix, int layers) {
 		this.distanceMatrix = distanceMatrix;
-		Shell result = new Shell();
 		visited = new ArrayList<VirtualPoint>();
 		pointMap = new HashMap<>();
 		unvisited = new ArrayList<VirtualPoint>();
@@ -1030,9 +997,6 @@ public class Shell extends LinkedList<PointND> {
 
 	@Override
 	public boolean addAll(Collection<? extends PointND> c) {
-		for (PointND p : c) {
-			// assert(!this.contains(p)): this.toString() + " " + c.toString();
-		}
 		super.addAll(c);
 		return true;
 	}

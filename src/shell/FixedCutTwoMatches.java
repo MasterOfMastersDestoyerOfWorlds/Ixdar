@@ -16,16 +16,16 @@ public class FixedCutTwoMatches extends FixedCut {
         // SegmentBalanceException(shell, null, superKnot, cutSegment1,
 
         if (upperMatchSegment == null) {
-            CutMatchList cml = new CutMatchList(shell, sbe);
+            new CutMatchList(shell, sbe);
             throw new SegmentBalanceException(sbe);
         }
         if (!(knot.contains(cutSegment1.first) && knot.contains(cutSegment1.last))) {
-            shell.buff.add(knot);
-            shell.buff.add(cutSegment1);
-            float z = 1 / 0;
+            new CutMatchList(shell, sbe);
+            throw new SegmentBalanceException(sbe);
         }
         if ((knot.contains(external1) || knot.contains(external2))) {
-            float z = 1 / 0;
+            new CutMatchList(shell, sbe);
+            throw new SegmentBalanceException(sbe);
         }
 
         ArrayList<VirtualPoint> uniqueNeighborPoints = new ArrayList<>();
@@ -62,24 +62,33 @@ public class FixedCutTwoMatches extends FixedCut {
         Segment matchSegmentAcrossFinal = null;
         Segment cutSegmentFinal = null;
         Segment cutSegment2Final = null;
-        VirtualPoint knotPoint1Final = null;
         CutMatchList result = null;
+        boolean wouldOrphan = Utils.wouldOrphan(c.lowerCutSegment.getOther(c.lowerKnotPoint), c.lowerKnotPoint, c.upperCutPoint, c.upperKnotPoint, c.superKnot.knotPoints);
 
-        if (!bothKnotPointsInside && !neighborSegments.contains(knot.getSegment(cp1, external2))) {
+        shell.buff.add("WOULD ORPHAN? : " + wouldOrphan);
+        
+
+        if (!bothKnotPointsInside && !neighborSegments.contains(knot.getSegment(cp1, external2)) && !wouldOrphan) {
+            shell.buff.add("REE CUT");
+            
             overlapping = 1;
             result = new CutMatchList(shell, sbe);
+            shell.buff.add("ign " + c.lowerMatchSegment + " "  + knot.getSegment(cp1, external2));
+            
             result.addCut(cutSegment1, c.lowerMatchSegment, knot.getSegment(cp1, external2),
                     kp1, cp1, c, false, true);
+                    shell.buff.add("vum " + result);
+                    
             minDelta = result.delta;
         }
-        if (bothKnotPointsInside && !neighborSegments.contains(knot.getSegment(cp1, external2))) {
+        if (bothKnotPointsInside && !neighborSegments.contains(knot.getSegment(cp1, external2)) && !wouldOrphan) {
+            shell.buff.add("complex CUT");
             overlapping = 2;
             Segment innerSegment1 = null;
             Segment innerSegment2 = null;
             Segment innerSegment3 = null;
             if (neighborCutSegments.size() > 0) {
                 matchSegmentToCutPoint1 = neighborCutSegments.get(0).getFirst();
-                knotPoint1Final = matchSegmentToCutPoint1.getOther(neighborCutSegments.get(0).getSecond());
                 innerSegment1 = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(matchSegmentToCutPoint1),
                         Segment.getLastOrderId(matchSegmentToCutPoint1));
             }
@@ -117,7 +126,7 @@ public class FixedCutTwoMatches extends FixedCut {
             matchSegmentAcrossFinal = mirrors.getFirst().getClosestSegment(external2, null);
             shell.buff.add(c);
             if (innerSegment1 == null) {
-                CutMatchList cml = new CutMatchList(shell, sbe);
+                new CutMatchList(shell, sbe);
                 throw new SegmentBalanceException(sbe);
             }
             cutSegmentFinal = cutSegment1;
@@ -154,9 +163,9 @@ public class FixedCutTwoMatches extends FixedCut {
                 continue;
             }
             if (bothKnotPointsInside) {
-                boolean leftHasOneOut = CutEngine.marchUntilHasOneKnotPoint(cutSegment1.first, cutSegment1,
+                boolean leftHasOneOut = Utils.marchUntilHasOneKnotPoint(cutSegment1.first, cutSegment1,
                         cutSegment2, kp1, upperKnotPoint, knot);
-                boolean rightHasOneOut = CutEngine.marchUntilHasOneKnotPoint(cutSegment1.last, cutSegment1,
+                boolean rightHasOneOut = Utils.marchUntilHasOneKnotPoint(cutSegment1.last, cutSegment1,
                         cutSegment2, kp1, upperKnotPoint, knot);
                 if (!(leftHasOneOut && rightHasOneOut) || !((cutSegment1.contains(kp1) || cutSegment2.contains(kp1))
                         && (cutSegment1.contains(upperKnotPoint) || cutSegment2.contains(upperKnotPoint)))) {

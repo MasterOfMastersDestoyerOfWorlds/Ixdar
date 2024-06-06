@@ -65,7 +65,6 @@ public class Knot extends VirtualPoint {
                 knotPointsFlattened.add(vp);
             }
         }
-        int numPoints = shell.unvisited.size() + shell.visited.size();
 
         this.externalVirtualPoints = new ArrayList<>();
         externalVirtualPoints.addAll(knotPointsFlattened);
@@ -73,7 +72,6 @@ public class Knot extends VirtualPoint {
         sortedSegments = new ArrayList<Segment>();
         for (VirtualPoint vp : knotPoints) {
             if (vp.isKnot) {
-                ArrayList<Segment> segments = new ArrayList<Segment>();
                 ArrayList<Segment> vpExternal = vp.sortedSegments;
                 for (Segment s : vpExternal) {
                     if (!(knotPointsFlattened.contains(s.first) && knotPointsFlattened.contains(s.last))) {
@@ -107,9 +105,6 @@ public class Knot extends VirtualPoint {
         }
         sortedSegments.sort(null);
         shell.buff.add(sortedSegments);
-        if (knotmergecount > 10) {
-            float zero = 1 / 0;
-        }
         this.id = shell.pointMap.keySet().size();
         shell.pointMap.put(id, this);
         shell.unvisited.add(this);

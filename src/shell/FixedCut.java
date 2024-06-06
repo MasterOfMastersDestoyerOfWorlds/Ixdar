@@ -55,7 +55,7 @@ public class FixedCut implements FixedCutInterface {
         this.neighborSegments = c.neighborSegments;
         this.upperCutSegment = c.upperCutSegment;
         this.neighborCutSegments = c.neighborCutSegments;
-        this.topCutPoint = c.topCutPoint;
+        this.topCutPoint = c.upperCutPoint;
         this.needTwoNeighborMatches = c.needTwoNeighborMatches;
         this.bothKnotPointsInside = c.bothKnotPointsInside;
         this.bothCutPointsOutside = c.bothCutPointsOutside;
@@ -111,7 +111,8 @@ public class FixedCut implements FixedCutInterface {
             throw new SegmentBalanceException(sbe);
         }
         if ((knot.contains(external1) || knot.contains(external2))) {
-            float z = 1 / 0;
+            new CutMatchList(shell, sbe);
+            throw new SegmentBalanceException(sbe);
         }
 
         ArrayList<VirtualPoint> innerNeighborSegmentsFlattened = new ArrayList<>();
@@ -133,9 +134,9 @@ public class FixedCut implements FixedCutInterface {
             if (cutSegment1.partialOverlaps(cutSegment2) && !cutSegment2.equals(kpSegment)) {
                 shell.buff.add("Checking: " + cutSegment2);
 
-                boolean leftHasOneOut = CutEngine.marchUntilHasOneKnotPoint(cutSegment1.first, cutSegment1,
+                boolean leftHasOneOut = Utils.marchUntilHasOneKnotPoint(cutSegment1.first, cutSegment1,
                         cutSegment2, kp1, upperKnotPoint, knot);
-                boolean rightHasOneOut = CutEngine.marchUntilHasOneKnotPoint(cutSegment1.last, cutSegment1,
+                boolean rightHasOneOut = Utils.marchUntilHasOneKnotPoint(cutSegment1.last, cutSegment1,
                         cutSegment2, kp1, upperKnotPoint, knot);
                 shell.buff.add(leftHasOneOut + " " + rightHasOneOut);
                 shell.buff.add("!(leftHasOneOut || rightHasOneOut)" + !(leftHasOneOut || rightHasOneOut));
@@ -288,11 +289,7 @@ public class FixedCut implements FixedCutInterface {
                 outerNeighbor2 = true;
             }
         }
-
-        if(cutSegment2.hasPoints(5, 0) && external2.id == 4 && external1.id != 6 && upperCutSegment.hasPoints(4, 3) && upperKnotPoint.id == 4 && lowerKnotPoint.id == 1 && lowerCutSegment.hasPoints(10, 1)){
-            float z =1;
-        }
-
+        
         boolean cutPointsAcross2 = false;
         for (Segment s : innerNeighborSegments) {
             if ( s.equals(cutSegment2)) {

@@ -6,39 +6,25 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.Shape;
 import java.awt.event.WindowEvent;
-import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Path2D;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
-import java.awt.geom.Point2D.Double;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
-
-import shell.CutMatch;
-import shell.Point;
-import shell.VirtualPoint;
 
 /**
  * The main class that facilitates running our tsp solver
@@ -139,7 +125,7 @@ public class Main extends JComponent {
 			//djbouti_26-32p2-3_cut7-3and4-6: actually need to match to the other side of the upper knotpoint via marching rather than the knotpoint itself
 			//wi29_6-25: Something is wrong with the difference calculator, it is not cutting the neighbor segments that went unmatched
 
-			String fileName = "djbouti_26-32p2-3";
+			String fileName = "djbouti_8-32";
 			PointSetPath retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 			DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
@@ -275,7 +261,6 @@ public class Main extends JComponent {
 			}
 		}
 
-		Point2D start = null;
 		double rangeX = maxX - minX, rangeY = maxY - minY;
 		double height = SwingUtilities.getWindowAncestor(frame).getHeight(),
 				width = SwingUtilities.getWindowAncestor(frame).getWidth();
@@ -285,7 +270,7 @@ public class Main extends JComponent {
 			width = HEIGHT;
 		}
 
-		int count = 0, offsetx = 100, offsety = 100;
+		int offsetx = 100, offsety = 100;
 
 		double[] firstCoords = new double[2];
 		double[] lastCoords = new double[2];
