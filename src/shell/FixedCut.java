@@ -289,9 +289,13 @@ public class FixedCut implements FixedCutInterface {
             }
         }
 
+        if(cutSegment2.hasPoints(5, 0) && external2.id == 4 && external1.id != 6 && upperCutSegment.hasPoints(4, 3) && upperKnotPoint.id == 4 && lowerKnotPoint.id == 1 && lowerCutSegment.hasPoints(10, 1)){
+            float z =1;
+        }
+
         boolean cutPointsAcross2 = false;
         for (Segment s : innerNeighborSegments) {
-            if (s.contains(cp1) && s.contains(kp2)) {
+            if ( s.equals(cutSegment2)) {
                 cutPointsAcross2 = true;
             }
         }
@@ -300,7 +304,7 @@ public class FixedCut implements FixedCutInterface {
             neighborIntersect2 = true;
         }
         boolean hasSegment2 = replicatesNeighbor2
-                || (innerNeighbor2 && outerNeighbor2) || neighborIntersect2 || s22.equals(upperCutSegment);
+               || neighborIntersect2 || s22.equals(upperCutSegment) || cutPointsAcross2;
         // false;//
         // superKnot.hasSegment(s22)
         // ||
