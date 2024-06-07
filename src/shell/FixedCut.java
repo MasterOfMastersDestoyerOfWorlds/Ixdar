@@ -189,9 +189,6 @@ public class FixedCut implements FixedCutInterface {
 
                 // boolean orphanFlag = wouldOrphan(cp1, kp1, cp2, kp2,
                 // knot.knotPointsFlattened);
-                if(c.cutID == 382 && cutSegment2.hasPoints(0,4)){
-                    float z =1;
-                }
 
                 Segment s11 = kp1.getClosestSegment(external1, null);
                 Segment s12 = kp2.getClosestSegment(external2, s11);
