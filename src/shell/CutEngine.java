@@ -129,7 +129,7 @@ public class CutEngine {
                             throw new SegmentBalanceException(shell, internalCuts12, c1);
                         }
                         if (!foundShorter12) {
-                            shell.buff.add("NO SHORTER PATH FOUND THAN SIMPLE CUT");
+                            shell.buff.add("NO SHORTER PATH FOUND THAN SIMPLE CUT : ");
                             throw new ShorterPathNotFoundException(shell, internalCuts12, c1);
                         }
                     } else {
@@ -297,13 +297,13 @@ public class CutEngine {
         }
         if (overlapping) {
             SegmentBalanceException sbe = new SegmentBalanceException(shell, null, c);
-            CutMatchList result = new CutMatchList(shell, sbe);
+            CutMatchList result = new CutMatchList(shell, sbe, c.superKnot);
             result.addCutMatch(new Segment[] { cutSegmentFinal },
                     new Segment[] { matchSegment1Final, matchSegment2Final }, c);
             return result;
         } else {
             SegmentBalanceException sbe = new SegmentBalanceException(shell, null, c);
-            CutMatchList result = new CutMatchList(shell, sbe);
+            CutMatchList result = new CutMatchList(shell, sbe, c.superKnot);
             result.addCutMatch(new Segment[] { cutSegmentFinal, cutSegment2Final },
                     new Segment[] { matchSegment1Final, matchSegment2Final },
                     internalCuts, c);

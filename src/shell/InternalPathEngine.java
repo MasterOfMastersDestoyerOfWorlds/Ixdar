@@ -55,26 +55,26 @@ public class InternalPathEngine {
         shell.buff.add("botKNotPoint: " + botKnotPoint);
 
         if (knotPoint1.equals(knotPoint2)) {
-            new CutMatchList(shell, sbe);
+            new CutMatchList(shell, sbe, knot);
             throw new SegmentBalanceException(sbe);
         }
 
         if (topKnotPoint.equals(botKnotPoint)) {
-            new CutMatchList(shell, sbe);
+            new CutMatchList(shell, sbe, knot);
             throw new SegmentBalanceException(sbe);
         }
         if (topPoint.equals(botKnotPoint)) {
-            new CutMatchList(shell, sbe);
+            new CutMatchList(shell, sbe, knot);
             throw new SegmentBalanceException(sbe);
         }
 
         if (botPoint.equals(topKnotPoint)) {
-            new CutMatchList(shell, sbe);
+            new CutMatchList(shell, sbe, knot);
             throw new SegmentBalanceException(sbe);
         }
 
         if (botPoint.equals(topPoint)) {
-            new CutMatchList(shell, sbe);
+            new CutMatchList(shell, sbe, knot);
             throw new SegmentBalanceException(sbe);
         }
 
@@ -82,7 +82,7 @@ public class InternalPathEngine {
 
         if (minKnot.equals(knot)) {
             Segment connector = cutPointA.getClosestSegment(cutPointB, null);
-            CutMatchList cutMatchList = new CutMatchList(shell, sbe);
+            CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
             cutMatchList.addSimpleMatch(connector, knot);
             return cutMatchList;
         }
@@ -160,7 +160,7 @@ public class InternalPathEngine {
 
         // if (minKnot.contains(kp) && minKnot.contains(kp2)) {
         // Segment connector = topPoint.getClosestSegment(botPoint, null);
-        // CutMatchList cutMatchList = new CutMatchList(shell, sbe);
+        // CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
         // cutMatchList.addSimpleMatch(connector, knot);
         // return cutMatchList;
         // }
@@ -192,7 +192,7 @@ public class InternalPathEngine {
             shell.buff.add("upper cut equals lower cut");
             shell.buff.add(upperCutSegment);
             shell.buff.add(cut);
-            new CutMatchList(shell, sbe);
+            new CutMatchList(shell, sbe, knot);
             throw new SegmentBalanceException(sbe);
         }
 
@@ -425,7 +425,7 @@ public class InternalPathEngine {
 
         if (upperCutSegment.contains(neighbor) && upperCutSegment.contains(vp)) {
             shell.buff.add("rematching cut segment");
-            new CutMatchList(shell, sbe);
+            new CutMatchList(shell, sbe, knot);
             throw new SegmentBalanceException(sbe);
         }
 
@@ -509,7 +509,7 @@ public class InternalPathEngine {
             }
 
             if (!canCutLeft && !canCutRight) {
-                new CutMatchList(shell, sbe);
+                new CutMatchList(shell, sbe, knot);
                 throw new SegmentBalanceException(sbe);
             }
 
@@ -547,13 +547,13 @@ public class InternalPathEngine {
 
         }
         if (reCut.delta == 0.0 && upperCutPointIsOutside) {
-            new CutMatchList(shell, sbe);
+            new CutMatchList(shell, sbe, knot);
             throw new SegmentBalanceException(sbe);
         }
 
         if (reCut.delta == 0.0) {
             Segment connector = vp2.getClosestSegment(vp, null);
-            CutMatchList cutMatchList = new CutMatchList(shell, sbe);
+            CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
             cutMatchList.addSimpleMatch(connector, knot);
             reCut = cutMatchList;
         }
@@ -617,7 +617,7 @@ public class InternalPathEngine {
         int knotPointKnotId = shell.smallestCommonKnotLookup[topKnotPoint.id][botKnotPoint.id];
         Knot knotPointKnot = cutEngine.flatKnots.get(knotPointKnotId);
         if (knotPointKnot == null) {
-            new CutMatchList(shell, sbe);
+            new CutMatchList(shell, sbe, knot);
             throw new SegmentBalanceException(sbe);
         }
         int kpSize = knotPointKnot.knotPoints.size();

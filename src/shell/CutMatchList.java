@@ -125,12 +125,14 @@ class CutMatchList {
     double delta;
     Shell shell;
     SegmentBalanceException sbe;
+    Knot superKnot;
 
-    public CutMatchList(Shell shell, SegmentBalanceException sbe) {
+    public CutMatchList(Shell shell, SegmentBalanceException sbe, Knot superKnot) {
         cutMatches = new ArrayList<>();
         sbe.cutMatchList = this;
         this.shell = shell;
         this.sbe = sbe;
+        this.superKnot = superKnot;
     }
 
     public String toString() {
@@ -287,8 +289,7 @@ class CutMatchList {
 
         cm.checkValid();
 
-
-        delta += cm.delta;
+        this.updateDelta();
         return cm;
     }
 
@@ -298,8 +299,8 @@ class CutMatchList {
         cm.knot = knot;
         cm.updateDelta();
         cm.checkValid();
-        delta += cm.delta;
         cutMatches.add(cm);
+        this.updateDelta();
     }
 
     public CutMatch diffKnots(CutMatch cm, CutInfo c,
@@ -459,7 +460,16 @@ class CutMatchList {
         delta = 0;
         for (CutMatch cm : cutMatches) {
             cm.updateDelta();
-            delta += cm.delta;
+            for(Segment s : cm.cutSegments){
+                if(this.superKnot.hasSegment(s)){
+                    delta -= s.distance;
+                }
+            }
+            for(Segment s : cm.matchSegments){
+                if(!this.superKnot.hasSegment(s)){
+                    delta += s.distance;
+                }
+            }
         }
     }
 
@@ -531,7 +541,7 @@ class CutMatchList {
     }
 
     public CutMatchList copy() {
-        CutMatchList copy = new CutMatchList(shell, sbe);
+        CutMatchList copy = new CutMatchList(shell, sbe, superKnot);
         copy.delta = delta;
         for (CutMatch cm : cutMatches) {
             CutMatch copyCM = cm.copy();

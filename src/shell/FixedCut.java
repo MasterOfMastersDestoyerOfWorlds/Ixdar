@@ -108,11 +108,11 @@ public class FixedCut implements FixedCutInterface {
         if (!(knot.contains(cutSegment1.first) && knot.contains(cutSegment1.last))) {
             shell.buff.add(knot);
             shell.buff.add(cutSegment1);
-            new CutMatchList(shell, sbe);
+            new CutMatchList(shell, sbe, c.superKnot);
             throw new SegmentBalanceException(sbe);
         }
         if ((knot.contains(external1) || knot.contains(external2))) {
-            new CutMatchList(shell, sbe);
+            new CutMatchList(shell, sbe, c.superKnot);
             throw new SegmentBalanceException(sbe);
         }
 
@@ -163,7 +163,7 @@ public class FixedCut implements FixedCutInterface {
                 shell.buff.add("ONLY YOUUUUUUUUU :" + cutSegment2);
                 Segment s11 = kp1.getClosestSegment(external1, null);
                 Segment s12 = cp1.getClosestSegment(external2, s11);
-                CutMatchList cutMatch = new CutMatchList(shell, sbe);
+                CutMatchList cutMatch = new CutMatchList(shell, sbe, c.superKnot);
                 cutMatch.addCutMatch(new Segment[] {}, new Segment[] { s12 }, c);
                 boolean cutPointsAcross = false;
                 for (Segment s : innerNeighborSegments) {
@@ -207,7 +207,7 @@ public class FixedCut implements FixedCutInterface {
 
                     shell.buff.add("" + internalCuts1);
 
-                    cutMatch1 = new CutMatchList(shell, sbe);
+                    cutMatch1 = new CutMatchList(shell, sbe, c.superKnot);
                     cutMatch1.addTwoCut(cutSegment1, cutSegment2, s11,
                             s12, kp1,
                             kp2, internalCuts1, c, false);
@@ -234,7 +234,7 @@ public class FixedCut implements FixedCutInterface {
                             external2, knot);
                     shell.buff.currentDepth--;
 
-                    cutMatch2 = new CutMatchList(shell, sbe);
+                    cutMatch2 = new CutMatchList(shell, sbe, c.superKnot);
                     cutMatch2.addTwoCut(cutSegment1, cutSegment2, s21,
                             s22, kp1,
                             cp2, internalCuts2, c, false);
@@ -265,7 +265,7 @@ public class FixedCut implements FixedCutInterface {
 
         } else {
             shell.buff.add("No Available CUTS!");
-            CutMatchList cml = new CutMatchList(shell, sbe);
+            CutMatchList cml = new CutMatchList(shell, sbe, c.superKnot);
             cml.addDumbCutMatch(knot, superKnot);
             throw new SegmentBalanceException(sbe);
         }

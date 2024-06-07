@@ -73,7 +73,7 @@ public class FixedCutBothCutsInside extends FixedCut {
         if (overlapping == 2) {
             shell.buff.add("cut1: " + cutSegmentFinal + " cut2: " + cutSegment2Final + " matches: " +
                     matchSegmentToCutPoint1 + " " + matchSegmentToCutPoint2 + " " + matchSegmentOuterKnotPointFinal);
-            CutMatchList result = new CutMatchList(shell, sbe);
+            CutMatchList result = new CutMatchList(shell, sbe, c.superKnot);
 
             result.addCutMatch(new Segment[]{cutSegment2Final},
                      new Segment[] { matchSegmentToCutPoint1,
@@ -83,7 +83,7 @@ public class FixedCutBothCutsInside extends FixedCut {
 
         } else {
             shell.buff.add("No Available CUTS!");
-            CutMatchList cml = new CutMatchList(shell, sbe);
+            CutMatchList cml = new CutMatchList(shell, sbe, c.superKnot);
             cml.addDumbCutMatch(knot, superKnot);
             throw new SegmentBalanceException(sbe);
         }
