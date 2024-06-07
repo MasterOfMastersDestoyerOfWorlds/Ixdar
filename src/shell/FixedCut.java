@@ -271,12 +271,12 @@ public class FixedCut implements FixedCutInterface {
         }
     }
 
-    public boolean canCutSegment(VirtualPoint cp2, Segment s22, VirtualPoint kp2, Segment cutSegment2,
+    public boolean canCutSegment(VirtualPoint kp2, Segment s22, VirtualPoint cp2, Segment cutSegment2,
             ArrayList<VirtualPoint> innerNeighborSegmentsFlattened) {
 
         boolean innerNeighbor2 = false;
         for (Segment s : innerNeighborSegments) {
-            if (s.contains(cp2)) {
+            if (s.contains(kp2)) {
                 innerNeighbor2 = true;
             }
         }
@@ -290,7 +290,7 @@ public class FixedCut implements FixedCutInterface {
 
         boolean outerNeighbor2 = false;
         for (Segment s : neighborSegments) {
-            if (s.contains(cp2)) {
+            if (s.contains(kp2)) {
                 outerNeighbor2 = true;
             }
         }
@@ -303,23 +303,23 @@ public class FixedCut implements FixedCutInterface {
         }
         
         boolean neighborIntersect2 = false;
-        if (innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(cp2)) {
+        if (innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(kp2)) {
             neighborIntersect2 = true;
         }
-        boolean hasSegment2 = replicatesNeighbor2
+        boolean hasSegment2 = replicatesNeighbor2 || innerNeighbor2
                 || neighborIntersect2 || s22.equals(upperCutSegment) || cutPointsAcross2;
         // false;//
         // superKnot.hasSegment(s22)
         // ||
         // kpSegment.contains(cp2);
 
-        if (hasSegment2) {
-            shell.buff.add("REEE cutSeg1: " + cutSegment1 + " cutSeg2: " + cutSegment2 + " s22: " + s22
-                    + " cp2 :" + cp2 + " kpSegment " + kpSegment);
-
-            shell.buff.add("hasSegment2: " + hasSegment2 + " " + replicatesNeighbor2 + " " + innerNeighbor2
+            shell.buff.add("hasSegment2: " + s22+ " " + hasSegment2 + " " + replicatesNeighbor2 + " " + innerNeighbor2
                     + " " + outerNeighbor2 + " " + " " + neighborIntersect2 + " "
                     + s22.equals(upperCutSegment));
+        if (hasSegment2) {
+            shell.buff.add("REEE cutSeg1: " + cutSegment1 + " cutSeg2: " + cutSegment2 + " s22: " + s22
+                    + " cp2 :" + kp2 + " kpSegment " + kpSegment);
+
         }
         return hasSegment2;
     }

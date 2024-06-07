@@ -225,6 +225,15 @@ class CutMatchList {
         cm.matchSegments.removeAll(toRemove2);
         this.updateDelta();
         cm.checkValid();
+        
+        if (!this.checkCutMatchBalance(c.lowerMatchSegment, c.upperMatchSegment, c.cutSegment1,
+                new Segment[] { cutSegment2 }, c,
+                false, false)) {
+                    this.checkCutMatchBalance(c.lowerMatchSegment, c.upperMatchSegment, c.cutSegment1,
+                new Segment[] { cutSegment2 }, c,
+                false, true);
+            throw new SegmentBalanceException(shell, this, c);
+        }
     }
 
     public CutMatch addCutMatch(Segment[] cutSegments,

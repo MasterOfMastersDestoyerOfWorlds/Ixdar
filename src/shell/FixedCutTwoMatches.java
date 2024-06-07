@@ -96,8 +96,11 @@ public class FixedCutTwoMatches extends FixedCut {
                 matchSegmentAcrossFinal = value.getRight().getSecond().getClosestSegment(external2, null);
             }
             matches.add(matchSegmentAcrossFinal);
+            CutInfo flatCut = new CutInfo(c);
+            flatCut.knot = flatCut.superKnot;
             result = new CutMatchList(shell, sbe, c.superKnot);
-            result.addCutMatch(Utils.toSegmentArray(value.getMiddle()), Utils.toSegmentArray(matches), c);
+            Segment m = c.lowerCutPoint.getClosestSegment(c.upperCutPoint, null);
+            result.addCutMatch(new Segment[]{}, new Segment[] {m}, flatCut);
             minDelta = result.delta;
         }
         // TODO: I think the first cut we check against needs to be the simple cut

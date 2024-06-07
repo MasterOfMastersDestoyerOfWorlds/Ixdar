@@ -133,6 +133,43 @@ public class CutInfo {
         this.superKnot = knot;
         // TODO Auto-generated constructor stub
     }
+    public CutInfo(CutInfo c){
+        this.shell = c.shell;
+        this.knot = c.knot;
+        this.superKnot = c.superKnot;
+        this.external1 = c.external1;
+        this.external2 = c.external2;
+        this.cutSegment1 = c.cutSegment1;
+        this.kp1 = c.kp1;
+        this.cp1 = c.cp1;
+        this.kpSegment = c.kpSegment;
+
+        this.cutID = c.cutID;
+
+        this.innerNeighborSegments = c.innerNeighborSegments;
+        this.innerNeighborSegmentLookup = c.innerNeighborSegmentLookup;
+        this.neighborSegments = c.neighborSegments;
+        this.neighborCutSegments = c.neighborCutSegments;
+
+        this.needTwoNeighborMatches = c.needTwoNeighborMatches;
+        this.bothKnotPointsInside = c.bothKnotPointsInside;
+        this.bothCutPointsOutside = c.bothCutPointsOutside;
+
+        this.upperKnotPoint = c.upperKnotPoint;
+        this.upperCutPoint = c.upperCutPoint;
+        this.upperCutSegment = c.upperCutSegment;
+        this.upperMatchSegment = c.upperMatchSegment;
+        this.upperExternal = c.upperExternal;
+
+        this.lowerKnotPoint = c.lowerKnotPoint;
+        this.lowerCutSegment = c.lowerCutSegment;
+        this.lowerCutPoint = c.lowerCutPoint;
+        this.lowerMatchSegment = c.lowerMatchSegment;
+        this.lowerExternal = c.lowerExternal;
+
+        this.sbe = c.sbe;
+
+    }
 
     @Override
     public String toString() {
