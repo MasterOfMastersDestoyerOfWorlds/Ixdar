@@ -1,6 +1,7 @@
 package shell;
 
 import java.util.ArrayList;
+import java.util.Set;
 
 import org.apache.commons.math3.util.Pair;
 
@@ -210,6 +211,33 @@ public final class Utils {
                 return false;
             }
         }
+    }
+
+    public static Segment[] toSegmentArray(ArrayList<Segment> first) {
+        Segment[] array = new Segment[first.size()];
+        for(int i = 0; i < first.size(); i ++){
+            array[i] = first.get(i);
+        }
+        return array;
+    }
+
+    public static Segment[] toSegmentArray(Set<Segment> first) {
+        Segment[] array = new Segment[first.size()];
+        int i = 0;
+        for(Segment s : first){
+            array[i] = s;
+            i ++;
+        }
+        return array;
+    }
+
+    public static boolean setContains(Set<Segment> matches, Segment matchSegmentAcrossFinal) {
+        for (Segment segment : matches) {
+            if(segment.equals(matchSegmentAcrossFinal)){
+                return true;
+            }
+        }
+        return false;
     }
     
 }

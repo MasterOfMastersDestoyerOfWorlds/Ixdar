@@ -1,7 +1,11 @@
 package shell;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.commons.math3.util.Pair;
 
 public class FixedCutTwoMatches extends FixedCut {
@@ -56,94 +60,45 @@ public class FixedCutTwoMatches extends FixedCut {
 
         double minDelta = Double.MAX_VALUE;
         int overlapping = -1;
-        Segment matchSegmentToCutPoint1 = null;
-        Segment matchSegmentToCutPoint2 = null;
-        Segment matchSegmentOuterKnotPointFinal = null;
         Segment matchSegmentAcrossFinal = null;
-        Segment cutSegmentFinal = null;
-        Segment cutSegment2Final = null;
         CutMatchList result = null;
-        boolean wouldOrphan = Utils.wouldOrphan(c.lowerCutSegment.getOther(c.lowerKnotPoint), c.lowerKnotPoint, c.upperCutPoint, c.upperKnotPoint, c.superKnot.knotPoints);
+        boolean wouldOrphan = Utils.wouldOrphan(c.lowerCutSegment.getOther(c.lowerKnotPoint), c.lowerKnotPoint,
+                c.upperCutPoint, c.upperKnotPoint, c.superKnot.knotPoints);
 
         shell.buff.add("WOULD ORPHAN? : " + wouldOrphan);
-        
 
         if (!bothKnotPointsInside && !neighborSegments.contains(knot.getSegment(cp1, external2)) && !wouldOrphan) {
             shell.buff.add("REE CUT");
-            
+
             overlapping = 1;
-            result = new CutMatchList(shell, sbe);
-            shell.buff.add("ign " + c.lowerMatchSegment + " "  + knot.getSegment(cp1, external2));
+
             
-            result.addCut(cutSegment1, c.lowerMatchSegment, knot.getSegment(cp1, external2),
-                    kp1, cp1, c, false, true);
-                    shell.buff.add("vum " + result);
-                    
+           // Triple<ArrayList<Segment>, Segment, Pair<VirtualPoint, VirtualPoint>> value = findSimpleMatch(cutSegment1);
+            result = new CutMatchList(shell, sbe);
+            shell.buff.add("ign " + c.lowerMatchSegment + " " + knot.getSegment(cp1, external2));
+
+            
+            
+            //c.innerNeighborSegmentLookup.values().toArray(new Segment[innerNeighborSegmentLookup.size()])
+            result.addCutMatch(new Segment[]{}, new Segment[]{knot.getSegment(c.lowerCutSegment.getOther(c.lowerKnotPoint), external2),}, c);
+            shell.buff.add("vum " + result);
+
             minDelta = result.delta;
         }
         if (bothKnotPointsInside && !neighborSegments.contains(knot.getSegment(cp1, external2)) && !wouldOrphan) {
-            shell.buff.add("complex CUT");
-            overlapping = 2;
-            Segment innerSegment1 = null;
-            Segment innerSegment2 = null;
-            Segment innerSegment3 = null;
-            if (neighborCutSegments.size() > 0) {
-                matchSegmentToCutPoint1 = neighborCutSegments.get(0).getFirst();
-                innerSegment1 = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(matchSegmentToCutPoint1),
-                        Segment.getLastOrderId(matchSegmentToCutPoint1));
-            }
-            if (neighborCutSegments.size() > 1) {
-                matchSegmentToCutPoint2 = neighborCutSegments.get(1).getFirst();
-                innerSegment2 = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(matchSegmentToCutPoint1),
-                        Segment.getLastOrderId(matchSegmentToCutPoint1));
-            }
-            if (neighborCutSegments.size() > 2) {
-                matchSegmentOuterKnotPointFinal = neighborCutSegments.get(2).getFirst();
-                innerSegment3 = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(matchSegmentToCutPoint1),
-                        Segment.getLastOrderId(matchSegmentToCutPoint1));
-            }
-            if (innerSegment1 != null && innerSegment1.equals(innerSegment2)
-                    || innerSegment1 != null && innerSegment1.equals(innerSegment3)) {
-                cutSegment2Final = innerSegment1;
-            } else if (innerSegment2 != null && innerSegment2.equals(innerSegment3)) {
-                cutSegment2Final = innerSegment2;
-            } else {
-                cutSegment2Final = innerSegment1;
-            }
-
-            Pair<VirtualPoint, VirtualPoint> mirrors = null;
-            if (cutSegment1.contains(upperKnotPoint)) {
-                mirrors = Utils.marchLookup(knot, upperKnotPoint, cutSegment1.getOther(upperKnotPoint),
-                        cutSegment2Final);
-            } else {
-                mirrors = Utils.marchLookup(knot, upperKnotPoint, cutSegment2Final.getOther(upperKnotPoint),
-                        cutSegment1);
-
-            }
-
-
-
-            matchSegmentAcrossFinal = mirrors.getFirst().getClosestSegment(external2, null);
-            shell.buff.add(c);
-            if (innerSegment1 == null) {
-                new CutMatchList(shell, sbe);
-                throw new SegmentBalanceException(sbe);
-            }
-            cutSegmentFinal = cutSegment1;
-            CutMatchList simpleCut = new CutMatchList(shell, sbe);
-            simpleCut.addTwoCutTwoMatch(cutSegment2Final, new Segment[] {
-                    matchSegmentToCutPoint1,
-                    matchSegmentToCutPoint2,
-                    matchSegmentOuterKnotPointFinal,
-                    matchSegmentAcrossFinal },
-                    bothKnotPointsInside, c);
-            minDelta = simpleCut.delta;
-            result = simpleCut;
-            shell.buff.add("simple cut: " + simpleCut);
+            shell.buff.add("complexCut");
             
-            shell.buff.add("SIMPLE CUT MATCH: " + matchSegmentAcrossFinal + " matches: "
-                    + matchSegmentOuterKnotPointFinal + " " + matchSegmentToCutPoint1 + " " + matchSegmentToCutPoint2
-                    + "CUTS: " + cutSegmentFinal + " " + cutSegment2Final + " minDelta " + minDelta + "");
+            overlapping = 2;
+            Triple<Set<Segment>, Segment, Pair<VirtualPoint, VirtualPoint>> value = findSimpleMatch(cutSegment1);
+            matchSegmentAcrossFinal = value.getRight().getFirst().getClosestSegment(external2, null);
+            Set<Segment> matches = value.getLeft();
+            if(Utils.setContains(matches, matchSegmentAcrossFinal)){
+                matchSegmentAcrossFinal = value.getRight().getSecond().getClosestSegment(external2, null);
+            }
+            matches.add(matchSegmentAcrossFinal);
+            result = new CutMatchList(shell, sbe);
+            result.addCutMatch(new Segment[]{value.getMiddle()}, Utils.toSegmentArray(matches), c);
+            minDelta = result.delta;
         }
         // TODO: I think the first cut we check against needs to be the simple cut
         for (int a = 0; a < knot.knotPoints.size(); a++) {
@@ -193,35 +148,23 @@ public class FixedCutTwoMatches extends FixedCut {
                 shell.buff.add(kp1);
                 double d2 = Double.MAX_VALUE, d1 = Double.MAX_VALUE;
                 if (bothKnotPointsInside) {
-                    VirtualPoint mirrorKP = mirror22, mirrorCP = mirror21;
+                    VirtualPoint mirrorCP = mirror21;
 
                     if (mirror21.equals(upperKnotPoint)) {
-                        mirrorKP = mirror21;
                         mirrorCP = mirror22;
                     }
-                    shell.buff.add("cuttSegment2: " + cutSegment2);
-
-                    shell.buff.add("mirror1: " + mirror1);
-                    shell.buff.add("mirrorKP: " + mirrorKP);
-                    shell.buff.add("mirrorCP: " + mirrorCP);
                     if (numUnique == 1) {
                         CutMatchList cutMatch2 = new CutMatchList(shell, sbe);
-                        cutMatch2.addTwoCutTwoMatch(cutSegment2,
+                        cutMatch2.addCutMatch(new Segment[] {cutSegment2},
                                 new Segment[] {
                                         knot.getSegment(external2, mirror1),
-                                        knot.getSegment(external2, mirrorCP) },
-                                bothKnotPointsInside, c);
+                                        knot.getSegment(external2, mirrorCP) }, c);
 
                         d2 = cutMatch2.delta;
                         delta = d2 < delta ? d2 : delta;
 
                         if (delta < minDelta) {
                             result = cutMatch2;
-                            shell.buff.add("d2");
-
-                            cutSegment2Final = cutSegment2;
-                            cutSegmentFinal = cutSegment1;
-
                             minDelta = delta;
                             overlapping = 2;
                         }
@@ -229,35 +172,30 @@ public class FixedCutTwoMatches extends FixedCut {
                     if (numUnique == 2) {
 
                         CutMatchList cutMatch3 = new CutMatchList(shell, sbe);
-                        cutMatch3.addTwoCutTwoMatch(cutSegment2,
+                        cutMatch3.addCutMatch(new Segment[] {cutSegment2},
                                 new Segment[] {
                                         knot.getSegment(external2, mirrorCP),
                                         knot.getSegment(otherNeighborPoint, mirror1) },
-                                bothKnotPointsInside, c);
+                                c);
 
                         double d3 = cutMatch3.delta;
                         delta = d3 < delta ? d3 : delta;
 
                         CutMatchList cutMatch6 = new CutMatchList(shell, sbe);
-                        cutMatch6.addTwoCutTwoMatch(cutSegment2,
+                        cutMatch6.addCutMatch(new Segment[] {cutSegment2},
                                 new Segment[] {
                                         knot.getSegment(external2, mirror1),
                                         knot.getSegment(otherNeighborPoint, mirrorCP) },
-                                bothKnotPointsInside, c);
+                                c);
 
                         double d6 = cutMatch6.delta;
 
                         if (delta < minDelta) {
                             if (delta == d3) {
                                 result = cutMatch3;
-                                shell.buff.add("d3");
                             } else if (delta == d6) {
                                 result = cutMatch6;
-                                shell.buff.add("d6");
                             }
-
-                            cutSegment2Final = cutSegment2;
-                            cutSegmentFinal = cutSegment1;
 
                             minDelta = delta;
                             overlapping = 2;
@@ -266,64 +204,57 @@ public class FixedCutTwoMatches extends FixedCut {
                     }
                     if (numUnique == 3) {
                         CutMatchList cutMatch2 = new CutMatchList(shell, sbe);
-                        cutMatch2.addTwoCutTwoMatch(cutSegment2,
+                        cutMatch2.addCutMatch(new Segment[] {cutSegment2},
                                 new Segment[] {
                                         knot.getSegment(external2, mirror1),
                                         knot.getSegment(external2, otherNeighborPoint),
                                         knot.getSegment(otherNeighborPoint2, mirrorCP) },
-                                bothKnotPointsInside, c);
+                                c);
 
                         d2 = cutMatch2.delta;
                         delta = d2 < delta ? d2 : delta;
 
                         CutMatchList cutMatch3 = new CutMatchList(shell, sbe);
-                        cutMatch3.addTwoCutTwoMatch(cutSegment2,
+                        cutMatch3.addCutMatch(new Segment[] {cutSegment2},
                                 new Segment[] {
                                         knot.getSegment(external2, otherNeighborPoint2),
                                         knot.getSegment(external2, mirrorCP),
                                         knot.getSegment(otherNeighborPoint, mirror1) },
-                                bothKnotPointsInside, c);
+                                c);
 
                         double d3 = cutMatch3.delta;
                         delta = d3 < delta ? d3 : delta;
 
                         CutMatchList cutMatch5 = new CutMatchList(shell, sbe);
-                        cutMatch5.addTwoCutTwoMatch(cutSegment2,
+                        cutMatch5.addCutMatch(new Segment[] {cutSegment2},
                                 new Segment[] {
                                         knot.getSegment(external2, otherNeighborPoint),
                                         knot.getSegment(external2, mirrorCP),
                                         knot.getSegment(otherNeighborPoint2, mirror1) },
-                                bothKnotPointsInside, c);
+                                c);
 
                         double d5 = cutMatch5.delta;
 
                         CutMatchList cutMatch6 = new CutMatchList(shell, sbe);
-                        cutMatch6.addTwoCutTwoMatch(cutSegment2,
+                        cutMatch6.addCutMatch(new Segment[] {cutSegment2},
                                 new Segment[] {
                                         knot.getSegment(external2, otherNeighborPoint2),
                                         knot.getSegment(external2, mirror1),
                                         knot.getSegment(otherNeighborPoint, mirrorCP) },
-                                bothKnotPointsInside, c);
+                                c);
 
                         double d6 = cutMatch6.delta;
 
                         if (delta < minDelta) {
                             if (delta == d2) {
                                 result = cutMatch2;
-                                shell.buff.add("d2");
                             } else if (delta == d3) {
                                 result = cutMatch3;
-                                shell.buff.add("d3");
                             } else if (delta == d5) {
                                 result = cutMatch5;
-                                shell.buff.add("d5");
                             } else if (delta == d6) {
                                 result = cutMatch6;
-                                shell.buff.add("d6");
                             }
-
-                            cutSegment2Final = cutSegment2;
-                            cutSegmentFinal = cutSegment1;
 
                             minDelta = delta;
                             overlapping = 2;
@@ -332,22 +263,22 @@ public class FixedCutTwoMatches extends FixedCut {
                 } else {
 
                     CutMatchList cutMatch1 = new CutMatchList(shell, sbe);
-                    cutMatch1.addTwoCutTwoMatch(cutSegment2,
+                    cutMatch1.addCutMatch(new Segment[] {cutSegment2},
                             new Segment[] {
                                     knot.getSegment(external2, mirror1),
                                     knot.getSegment(external2, mirror21),
                                     knot.getSegment(otherNeighborPoint, mirror22) },
-                            bothKnotPointsInside, c);
+                            c);
                     d1 = cutMatch1.delta;
                     delta = d1 < delta ? d1 : delta;
 
                     CutMatchList cutMatch2 = new CutMatchList(shell, sbe);
-                    cutMatch2.addTwoCutTwoMatch(cutSegment2,
+                    cutMatch2.addCutMatch(new Segment[] {cutSegment2},
                             new Segment[] {
                                     knot.getSegment(external2, mirror1),
                                     knot.getSegment(external2, mirror22),
                                     knot.getSegment(otherNeighborPoint, mirror21) },
-                            bothKnotPointsInside, c);
+                            c);
 
                     d2 = cutMatch2.delta;
                     delta = d2 < delta ? d2 : delta;
@@ -358,8 +289,6 @@ public class FixedCutTwoMatches extends FixedCut {
                         } else {
                             result = cutMatch2;
                         }
-                        cutSegmentFinal = cutSegment1;
-                        cutSegment2Final = cutSegment2;
 
                         minDelta = delta;
                         overlapping = 2;
@@ -383,6 +312,55 @@ public class FixedCutTwoMatches extends FixedCut {
             cml.addDumbCutMatch(knot, superKnot);
             throw new SegmentBalanceException(sbe);
         }
+    }
+
+    public Triple<Set<Segment>, Segment, Pair<VirtualPoint, VirtualPoint>> findSimpleMatch(Segment cutSegment1Segment) {
+        Segment matchSegment1 = null;
+        Segment matchSegment2 = null;
+        Segment matchSegment3 = null;
+        Segment cutSegment2Final = null;
+        Segment innerSegment1 = null;
+        Segment innerSegment2 = null;
+        Segment innerSegment3 = null;
+        Set<Segment> previousMatches = new HashSet<>();
+        if (neighborCutSegments.size() > 0) {
+            matchSegment1 = neighborCutSegments.get(0).getFirst();
+            previousMatches.add(matchSegment1);
+            innerSegment1 = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(matchSegment1),
+                    Segment.getLastOrderId(matchSegment1));
+        }
+        if (neighborCutSegments.size() > 1) {
+            matchSegment2 = neighborCutSegments.get(1).getFirst();
+            previousMatches.add(matchSegment2);
+            innerSegment2 = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(matchSegment2),
+                    Segment.getLastOrderId(matchSegment2));
+        }
+        if (neighborCutSegments.size() > 2) {
+            matchSegment3 = neighborCutSegments.get(2).getFirst();
+            previousMatches.add(matchSegment3);
+            innerSegment3 = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(matchSegment3),
+                    Segment.getLastOrderId(matchSegment3));
+        }
+        if (innerSegment1 != null && innerSegment1.equals(innerSegment2)
+                || innerSegment1 != null && innerSegment1.equals(innerSegment3)) {
+            cutSegment2Final = innerSegment1;
+        } else if (innerSegment2 != null && innerSegment2.equals(innerSegment3)) {
+            cutSegment2Final = innerSegment2;
+        } else {
+            cutSegment2Final = innerSegment1;
+        }
+
+        Pair<VirtualPoint, VirtualPoint> mirrors = null;
+        if (cutSegment1.contains(upperKnotPoint)) {
+            mirrors = Utils.marchLookup(knot, upperKnotPoint, cutSegment1.getOther(upperKnotPoint),
+                    cutSegment2Final);
+        } else {
+            
+            mirrors = Utils.marchLookup(knot, upperKnotPoint, cutSegment2Final.getOther(upperKnotPoint),
+                    cutSegment1);
+        }
+
+        return new ImmutableTriple<>(previousMatches, cutSegment2Final, mirrors);
     }
 
 }

@@ -13,7 +13,7 @@ public class ShorterPathNotFoundException extends SegmentBalanceException {
 
     @Override
     public String toString() {
-        return "ShorterPathNotFoundException: " + topKnot + " cut1: " + cut1 + " ex1: " + ex1 + " cut2: " + cut2 + " ex2: " + ex2 + " cutName: " + cutName + " cut: \n" +cutMatchList;
+        return "ShorterPathNotFoundException: "+ "cutID: " + c.cutID + " " + topKnot + " cut1: " + cut1 + " ex1: " + ex1 + " cut2: " + cut2 + " ex2: " + ex2 + " cutName: " + cutName + " cut: \n" +cutMatchList;
     }
 
 }

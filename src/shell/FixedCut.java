@@ -97,6 +97,7 @@ public class FixedCut implements FixedCutInterface {
             return new FixedCutBothCutsOutside(c).findCutMatchListFixedCut();
 
         }
+        shell.buff.add("findCutMatchListFixed Cut");
         cutEngine.totalCalls++;
         if (cutEngine.cutLookup.containsKey(knot.id, external2.id, kp1.id, cp1.id, superKnot.id)) {
             cutEngine.resolved++;
@@ -128,6 +129,7 @@ public class FixedCut implements FixedCutInterface {
             VirtualPoint knotPoint21 = knot.knotPoints.get(a);
             VirtualPoint knotPoint22 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
             Segment cutSegment2 = knot.getSegment(knotPoint21, knotPoint22);
+
             // I think that the continue state instead of being do the ct sgments partially
             // overlapp each other, should instead
             // be like
@@ -161,8 +163,7 @@ public class FixedCut implements FixedCutInterface {
                 Segment s11 = kp1.getClosestSegment(external1, null);
                 Segment s12 = cp1.getClosestSegment(external2, s11);
                 CutMatchList cutMatch = new CutMatchList(shell, sbe);
-                cutMatch.addCut(cutSegment1, s11, s12,
-                        kp1, cp1, c, false, false);
+                cutMatch.addCutMatch(new Segment[] {}, new Segment[] { s12 }, c);
                 boolean cutPointsAcross = false;
                 for (Segment s : innerNeighborSegments) {
                     if (s.contains(cp1) && s.contains(kp1)) {
@@ -180,6 +181,10 @@ public class FixedCut implements FixedCutInterface {
 
                 }
             } else {
+                if (c.cutID == 334 && cutSegment2.hasPoints(2, 3)) {
+                    float z = 1;
+                }
+                shell.buff.add("Garunteed: " + cutSegment2);
                 double delta = Double.MAX_VALUE;
                 VirtualPoint cp2 = knotPoint22;
                 VirtualPoint kp2 = knotPoint21;
@@ -189,9 +194,9 @@ public class FixedCut implements FixedCutInterface {
 
                 Segment s11 = kp1.getClosestSegment(external1, null);
                 Segment s12 = kp2.getClosestSegment(external2, s11);
-                
+
                 boolean hasSegment = canCutSegment(kp2, s12, cp2, cutSegment2, innerNeighborSegmentsFlattened);
-               
+
                 CutMatchList internalCuts1 = null;
                 CutMatchList cutMatch1 = null;
                 double d1 = Double.MAX_VALUE;
@@ -201,7 +206,9 @@ public class FixedCut implements FixedCutInterface {
                             cp2,
                             external2, knot);
                     shell.buff.currentDepth--;
-                    
+
+                    shell.buff.add("" + internalCuts1);
+
                     cutMatch1 = new CutMatchList(shell, sbe);
                     cutMatch1.addTwoCut(cutSegment1, cutSegment2, s11,
                             s12, kp1,
@@ -217,7 +224,6 @@ public class FixedCut implements FixedCutInterface {
 
                 Segment s21 = kp1.getClosestSegment(external1, null);
                 Segment s22 = cp2.getClosestSegment(external2, s21);
-
 
                 CutMatchList internalCuts2 = null;
                 CutMatchList cutMatch2 = null;
@@ -243,7 +249,7 @@ public class FixedCut implements FixedCutInterface {
                 if (delta < minDelta) {
                     if (!hasSegment && delta == d1) {
                         result = cutMatch1;
-                    } else {
+                    } else if (!hasSegment2 && delta == d2) {
                         result = cutMatch2;
 
                     }
@@ -254,9 +260,9 @@ public class FixedCut implements FixedCutInterface {
 
             }
         }
-        if (result!= null && overlapping == 1) {
+        if (result != null && overlapping == 1) {
             return result;
-        } else if (result!= null && overlapping == 2) {
+        } else if (result != null && overlapping == 2) {
             return result;
 
         } else {
@@ -267,8 +273,9 @@ public class FixedCut implements FixedCutInterface {
         }
     }
 
-    public boolean canCutSegment(VirtualPoint cp2, Segment s22, VirtualPoint kp2, Segment cutSegment2, ArrayList<VirtualPoint>innerNeighborSegmentsFlattened){
-        
+    public boolean canCutSegment(VirtualPoint cp2, Segment s22, VirtualPoint kp2, Segment cutSegment2,
+            ArrayList<VirtualPoint> innerNeighborSegmentsFlattened) {
+
         boolean innerNeighbor2 = false;
         for (Segment s : innerNeighborSegments) {
             if (s.contains(cp2)) {
@@ -289,10 +296,10 @@ public class FixedCut implements FixedCutInterface {
                 outerNeighbor2 = true;
             }
         }
-        
+
         boolean cutPointsAcross2 = false;
         for (Segment s : innerNeighborSegments) {
-            if ( s.equals(cutSegment2)) {
+            if (s.equals(cutSegment2)) {
                 cutPointsAcross2 = true;
             }
         }
@@ -301,7 +308,7 @@ public class FixedCut implements FixedCutInterface {
             neighborIntersect2 = true;
         }
         boolean hasSegment2 = replicatesNeighbor2
-               || neighborIntersect2 || s22.equals(upperCutSegment) || cutPointsAcross2;
+                || neighborIntersect2 || s22.equals(upperCutSegment) || cutPointsAcross2;
         // false;//
         // superKnot.hasSegment(s22)
         // ||

@@ -35,10 +35,120 @@ public class Main extends JComponent {
 	private static final boolean SCALE = false;
 	private static final int WIDTH = 750, HEIGHT = 750;
 	public static ArrayList<VirtualPoint> result;
+
+	static boolean calculateKnot = true;
+	static boolean drawSubPaths = true;
+	boolean drawMainPath = true;
 	int minLineThickness = 1;
 	boolean calc = false;
 
 	public static Shell shell = null;
+	public static Shell maxShell;
+	public static PointSetPath retTup;
+	public static Shell orgShell;
+	public static ArrayList<Shell> subPaths = new ArrayList<>();
+	static SegmentBalanceException drawException;
+	static Shell resultShell;
+
+	/**
+	 * Creates the Jframe where the solution is drawn
+	 * 
+	 * @param args
+	 */
+	public static void main(String[] args) {
+		JFrame frame = new JFrame("Ixdar");
+		ImageIcon img = new ImageIcon("decalSmall.png");
+		frame.setIconImage(img.getImage());
+		frame.getContentPane().add(new Main());
+
+		frame.getContentPane().setBackground(new Color(20, 20, 20));
+		frame.pack();
+		frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+		frame.setSize(new Dimension(WIDTH, HEIGHT));
+		frame.setVisible(true);
+
+		String fileName = "wi29_6-25";
+		retTup = importFromFile(new File("./src/test/solutions/" + fileName));
+		DistanceMatrix d = new DistanceMatrix(retTup.ps);
+
+		orgShell = retTup.tsp;
+
+		System.out.println(orgShell.getLength());
+
+		maxShell = orgShell.copyShallow();
+		shell = maxShell;
+
+		maxShell.knotName = fileName;
+
+		Collections.shuffle(maxShell);
+		System.out.println(maxShell);
+		long startTimeKnotFinding = System.currentTimeMillis();
+		if (calculateKnot) {
+			result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 4));
+		}
+		maxShell.buff.flush();
+		long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
+		double knotFindingSeconds = ((double) endTimeKnotFinding) / 1000.0;
+
+		long startTimeKnotCutting = System.currentTimeMillis();
+
+		if (drawSubPaths) {
+			try {
+
+				for (int i = 0; i < result.size(); i++) {
+					VirtualPoint vp = result.get(i);
+					if (vp.isKnot) {
+						System.out.println("Next Knot: " + vp);
+						Shell temp = maxShell.cutKnot((Knot) vp);
+						System.out.println("Knot: " + temp + " Length: " + temp.getLength());
+						subPaths.add(temp);
+					}
+					if (vp.isRun) {
+						Run run = (Run) vp;
+						for (VirtualPoint sub : run.knotPoints) {
+							if (sub.isKnot) {
+								System.out.println("Next Knot: " + sub);
+								Shell temp = maxShell.cutKnot((Knot) sub);
+								subPaths.add(temp);
+								System.out.println("Knot: " + temp + " Length: " + temp.getLength());
+							}
+
+						}
+					}
+				}
+			} catch (SegmentBalanceException sbe) {
+				Shell result = new Shell();
+				for (VirtualPoint p : sbe.topKnot.knotPoints) {
+					result.add(((Point) p).p);
+				}
+				maxShell.buff.printLayer(0);
+				System.out.println();
+				System.out.println(sbe);
+				// StackTraceElement ste = sbe.getStackTrace()[0];
+				for (StackTraceElement ste : sbe.getStackTrace()) {
+					if (ste.getMethodName().equals("cutKnot")) {
+						break;
+					}
+					System.out.println("ErrorSource: " + ste.getMethodName() + " " + ste.getFileName() + ":"
+							+ ste.getLineNumber());
+				}
+				System.out.println();
+				resultShell = result;
+				drawException = sbe;
+			}
+		}
+		long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
+		double knotCuttingSeconds = ((double) endTimeKnotCutting) / 1000.0;
+		System.out.println(result);
+		System.out.println("Knot-finding time: " + knotFindingSeconds);
+		System.out.println("Knot-cutting time: " + knotCuttingSeconds);
+		System.out.println(
+				"Knot-cutting %: " + 100 * (knotCuttingSeconds / (knotCuttingSeconds + knotFindingSeconds)));
+
+		System.out.println("Best Length: " + orgShell.getLength());
+		System.out.println("===============================================");
+
+	}
 
 	/**
 	 * Creates a visual depiction of the shells/tsp path of the point set
@@ -51,171 +161,24 @@ public class Main extends JComponent {
 			Graphics2D g2 = (Graphics2D) g;
 			BufferedImage img = ImageIO.read(new File("decal.png"));
 			g.drawImage(img, WIDTH - (int) (WIDTH / 3.5), HEIGHT - (int) (HEIGHT / 3.5), WIDTH / 5, HEIGHT / 5, null);
-			// djbouti_8-24 : something is wrong with the match across function leading to
-			// null pointers
-			// djbouti_8-32 : I think I need to re-write the code so we are cutting internal
-			// knots every time we make a new one
-			// the idea of a knot is any section of the graph that would rather connect only
-			// to it's internal members
-			// rather than external ones, with at maximum 2 cut segments to resolve the knot
-			// also think if we are connecting to a knot we need to check all of the
-			// possible length changes of the knot
-			// djbouti_2-7 : need to check both directions when combining knots in a run
-			// djbouti_2-4 : we need to have the half knot checker in action during the
-			// djbouti_8-34:
 
-			// wi29_6-25p20_cut4-5and1-2:should have a one to one match between the internal
-			// neighbor segments and
-			// nieghbor segments sometimes they will double count for example in the case of
-			// one 34 : 1 and 2 : 33
-			// its like a pipe so both neighbor segments (1:2 and 34:33) in knot 0-37 would
-			// match to
-			// internal neighbor segment 34:1 (this concept needs a new name)
-			// in this specific case we are counting internal neighbor segment 5:3
-			// correctly, but are not counting
-			// this cut also brings about the question of should we be cutting 1:0? probably
-			// not but how do we tell?
-			// I think there are actually very few situations in which we want to re cut the
-			// knot more than one layer deep
-
-			// djbouti_8-26_cut9-8and17-1: this is much harder case...philosiphy: i think
-			// that the world of understanding is
-			// shortcutted by this method:
-			// first make an assumption expressed as an if then statement : assumption in
-			// this case, if the minknot does not contain one
-			// of the cutpoints, then that cutpoint is the neighbor.
-			// second find an example that disproves the assumption: i.e. the above cut
-			// third make a new assumption that is closer to the truth and if your are not
-			// sure if it will be closer, then
-			// fork so you do not lose progress
-			// repeat
-			// as a small aside, I started this project with the assumption that a convex
-			// hull in the plane
-			// greedy matched with the internal points could solve tsp, this is obviously
-			// wrong in hindsight
-			// (and maybe even at the time), but I have found that the simpler you keep your
-			// assumptions the
-			// better results you can get.why? I think it is because simple assumptions
-			// often work well enough to get you on your way
-			// and you can only advance1 one frontier of the problem one assumption at a
-			// time
-			// aside 2: people who stand by the phrase "assumptions make an ass out of me
-			// and you" are by definition stupid
-			// the real idea is that if you cannot update your assumptions then you have
-			// failed, but we should revel in
-			// the assumptions we have made and discarded, they are the lifeblood of science
-			// so what is our new assumption? I think it is the following:
-			// if the top cutpoint is not in the minKnot amd the minknot from the cutpoint's
-			// prespective is not equal to the entire knot
-			// then we must recut two knots instead of one the first minknot we found and
-			// the cutpoint's minknot
-			// it is not clear what the neighbor should be
-
-			// 18-23WH19-22 and 18-23WH20-18: I think that which internal segment we need to
-			// remove depends entirely on
-			// which is connected to the internal knot point, the internal neighbor segment
-			// that is connected to kp1 cannot\
-			// be in the final tour but the one that is connected to cp1 can be in the final
-			// tour so it should be removed from
-			// the internal neighbors list. it is not clear weather this should hold for
-			// knots where the upper cutpoint is contianed
-			// within hte minknot. I think it shouldn't hold, i.e. we should only check this
-			// when vp2 is not in the minknot.
-
-			//djbouti_26-32p2-3_cut7-3and4-6: actually need to match to the other side of the upper knotpoint via marching rather than the knotpoint itself
-			//wi29_6-25: Something is wrong with the difference calculator, it is not cutting the neighbor segments that went unmatched
-
-			String fileName = "djbouti_8-32";
-			PointSetPath retTup = importFromFile(new File("./src/test/solutions/" + fileName));
-			DistanceMatrix d = new DistanceMatrix(retTup.ps);
-
-			Shell orgShell = retTup.tsp;
-
-			// orgShell.drawShell(this, g2, true, null, retTup.ps);
-			System.out.println(orgShell.getLength());
-
-			Shell maxShell = orgShell.copyShallow();
-			shell = maxShell;
-
-			maxShell.knotName = fileName;
-
-			Collections.shuffle(maxShell);
-			System.out.println(maxShell);
-			boolean calculateKnot = true;
-			boolean drawSubPaths = true;
-			boolean drawMainPath = true;
-			long startTimeKnotFinding = System.currentTimeMillis();
-			if (calculateKnot) {
-				result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 4));
-			}
-			maxShell.buff.flush();
-			long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
-			double knotFindingSeconds = ((double) endTimeKnotFinding) / 1000.0;
-
-			long startTimeKnotCutting = System.currentTimeMillis();
+			// wi29_6-25: Something is wrong with the difference calculator, it is not
+			// cutting the neighbor segments that went unmatched
 
 			if (drawSubPaths) {
-				try {
-
-					for (int i = 0; i < result.size(); i++) {
-						VirtualPoint vp = result.get(i);
-						if (vp.isKnot) {
-							System.out.println("Next Knot: " + vp);
-							Shell temp = maxShell.cutKnot((Knot) vp);
-							System.out.println("Knot: " + temp + " Length: " + temp.getLength());
-							if (drawSubPaths) {
-								temp.drawShell(this, g2, true, minLineThickness * 2, null, retTup.ps);
-							}
-						}
-						if (vp.isRun) {
-							Run run = (Run) vp;
-							for (VirtualPoint sub : run.knotPoints) {
-								if (sub.isKnot) {
-									System.out.println("Next Knot: " + sub);
-									Shell temp = maxShell.cutKnot((Knot) sub);
-									if (drawSubPaths) {
-										temp.drawShell(this, g2, true, minLineThickness * 2, null, retTup.ps);
-									}
-									System.out.println("Knot: " + temp + " Length: " + temp.getLength());
-								}
-
-							}
-						}
-					}
-				} catch (SegmentBalanceException sbe) {
-					Shell result = new Shell();
-					for (VirtualPoint p : sbe.topKnot.knotPoints) {
-						result.add(((Point) p).p);
-					}
-					maxShell.buff.printLayer(0);
-					System.out.println();
-					System.out.println(sbe);
-					// StackTraceElement ste = sbe.getStackTrace()[0];
-					for (StackTraceElement ste : sbe.getStackTrace()) {
-						if (ste.getMethodName().equals("cutKnot")) {
-							break;
-						}
-						System.out.println("ErrorSource: " + ste.getMethodName() + " " + ste.getFileName() + ":"
-								+ ste.getLineNumber());
-					}
-					System.out.println();
-					result.drawShell(this, g2, true, minLineThickness * 2, Color.magenta, retTup.ps);
-					drawCutMatch(this, g2, sbe, minLineThickness * 2, retTup.ps);
+				for (Shell temp : subPaths) {
+					temp.drawShell(this, g2, true, minLineThickness * 2, null, retTup.ps);
 				}
 			}
-			long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
-			double knotCuttingSeconds = ((double) endTimeKnotCutting) / 1000.0;
-			System.out.println(result);
-			System.out.println("Knot-finding time: " + knotFindingSeconds);
-			System.out.println("Knot-cutting time: " + knotCuttingSeconds);
-			System.out.println(
-					"Knot-cutting %: " + 100 * (knotCuttingSeconds / (knotCuttingSeconds + knotFindingSeconds)));
+
+			if (drawException != null) {
+				resultShell.drawShell(this, g2, true, minLineThickness * 2, Color.magenta, retTup.ps);
+				drawCutMatch(this, g2, drawException, minLineThickness * 2, retTup.ps);
+			}
 
 			drawPath(this, g2, retTup.path, minLineThickness, Color.RED, retTup.ps, false, false, true, false);
 			if (drawMainPath)
 				orgShell.drawShell(this, g2, false, minLineThickness, Color.BLUE, retTup.ps);
-			System.out.println("Best Length: " + orgShell.getLength());
-			System.out.println("===============================================");
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -362,12 +325,12 @@ public class Main extends JComponent {
 		Point2D first;
 		Point2D last;
 		if (s.first.isKnot) {
-			first = ((Point)((Knot)s.first).knotPoints.get(0)).p.toPoint2D();
+			first = ((Point) ((Knot) s.first).knotPoints.get(0)).p.toPoint2D();
 		} else {
 			first = ((Point) s.first).p.toPoint2D();
 		}
 		if (s.last.isKnot) {
-			last = ((Point)((Knot)s.last).knotPoints.get(0)).p.toPoint2D();
+			last = ((Point) ((Knot) s.last).knotPoints.get(0)).p.toPoint2D();
 		} else {
 			last = ((Point) s.last).p.toPoint2D();
 		}
@@ -468,25 +431,6 @@ public class Main extends JComponent {
 		if (drawLines) {
 			g2.draw(scaledpath);
 		}
-
-	}
-
-	/**
-	 * Creates the Jframe where the solution is drawn
-	 * 
-	 * @param args
-	 */
-	public static void main(String[] args) {
-		JFrame frame = new JFrame("Ixdar");
-		ImageIcon img = new ImageIcon("decalSmall.png");
-		frame.setIconImage(img.getImage());
-		frame.getContentPane().add(new Main());
-
-		frame.getContentPane().setBackground(new Color(20, 20, 20));
-		frame.pack();
-		frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-		frame.setSize(new Dimension(WIDTH, HEIGHT));
-		frame.setVisible(true);
 
 	}
 

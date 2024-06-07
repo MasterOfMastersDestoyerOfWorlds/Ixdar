@@ -9,6 +9,7 @@ public class SegmentBalanceException extends Exception {
     public Segment ex2;
     public String cutName;
     public Shell shell;
+    public CutInfo c;
     public SegmentBalanceException(Shell shell, CutMatchList internalCut, CutInfo c) {
         cutMatchList = internalCut;
         topKnot = c.superKnot;
@@ -17,6 +18,7 @@ public class SegmentBalanceException extends Exception {
         this.cut2 = c.upperCutSegment;
         this.ex2 = c.upperMatchSegment;
         this.shell = shell;
+        this.c = c;
         VirtualPoint kp1 = cut1.getOverlap(ex1);
         VirtualPoint kp2 = cut2.getOverlap(ex2);
         cutName = shell.knotName + "_cut" + kp1 + "-" + cut1.getOther(kp1) + "and" + kp2
@@ -30,6 +32,7 @@ public class SegmentBalanceException extends Exception {
         ex1 = sbe.ex1;
         cut2 = sbe.cut2;
         ex2 = sbe.ex2;
+        this.c = sbe.c;
         this.shell = sbe.shell;
         cutName = sbe.cutName;
 
@@ -37,7 +40,7 @@ public class SegmentBalanceException extends Exception {
 
     @Override
     public String toString() {
-        return "SegmentBalanceException: " + topKnot + " cut1: " + cut1 + " ex1: " + ex1 + " cut2: " + cut2 + " ex2: " + ex2 + " cutName: " + cutName;
+        return "SegmentBalanceException: " + "cutID: " + c.cutID + " " + topKnot + " cut1: " + cut1 + " ex1: " + ex1 + " cut2: " + cut2 + " ex2: " + ex2 + " cutName: " + cutName;
     }
 
     public void generateUnitTestFromCut(){
