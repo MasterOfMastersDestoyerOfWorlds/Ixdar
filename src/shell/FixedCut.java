@@ -301,6 +301,7 @@ public class FixedCut implements FixedCutInterface {
                 cutPointsAcross2 = true;
             }
         }
+        
         boolean neighborIntersect2 = false;
         if (innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(cp2)) {
             neighborIntersect2 = true;

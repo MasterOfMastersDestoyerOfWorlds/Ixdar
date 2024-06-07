@@ -125,18 +125,18 @@ class CutMatchList {
     double delta;
     Shell shell;
     SegmentBalanceException sbe;
-    Knot superKnot;
+    Knot topKnot;
 
     public CutMatchList(Shell shell, SegmentBalanceException sbe, Knot superKnot) {
         cutMatches = new ArrayList<>();
         sbe.cutMatchList = this;
         this.shell = shell;
         this.sbe = sbe;
-        this.superKnot = superKnot;
+        this.topKnot = superKnot;
     }
 
     public String toString() {
-        String str = "CML[\n" + cutMatches + " \n]\n totalDelta: " + delta;
+        String str = "CML[ topKnot:" + topKnot + "\n" + cutMatches + " \n]\n totalDelta: " + delta;
         return str;
 
     }
@@ -461,12 +461,12 @@ class CutMatchList {
         for (CutMatch cm : cutMatches) {
             cm.updateDelta();
             for(Segment s : cm.cutSegments){
-                if(this.superKnot.hasSegment(s)){
+                if(this.topKnot.hasSegment(s)){
                     delta -= s.distance;
                 }
             }
             for(Segment s : cm.matchSegments){
-                if(!this.superKnot.hasSegment(s)){
+                if(!this.topKnot.hasSegment(s)){
                     delta += s.distance;
                 }
             }
@@ -541,7 +541,7 @@ class CutMatchList {
     }
 
     public CutMatchList copy() {
-        CutMatchList copy = new CutMatchList(shell, sbe, superKnot);
+        CutMatchList copy = new CutMatchList(shell, sbe, topKnot);
         copy.delta = delta;
         for (CutMatch cm : cutMatches) {
             CutMatch copyCM = cm.copy();
@@ -600,6 +600,11 @@ class CutMatchList {
             }
             allSegments.add(s);
         }
+
+        allSegments.remove(c.upperCutSegment);
+        if (c.upperMatchSegment != null && !allSegments.contains(c.upperMatchSegment)) {
+            allSegments.add(c.upperMatchSegment);
+        }
         for (CutMatch cm : cutMatches) {
             for (Segment s : cm.cutSegments) {
                 balance.put(s.first.id, balance.getOrDefault(s.first.id, 0) - 1);
@@ -612,11 +617,6 @@ class CutMatchList {
                 allSegments.add(s);
             }
         }
-        allSegments.remove(c.upperCutSegment);
-        if (c.upperMatchSegment != null && !allSegments.contains(c.upperMatchSegment)) {
-            allSegments.add(c.upperMatchSegment);
-        }
-
         for (Segment s : allSegments) {
             balance2.put(s.first.id, balance2.getOrDefault(s.first.id, 0) + 1);
             balance2.put(s.last.id, balance2.getOrDefault(s.last.id, 0) + 1);
