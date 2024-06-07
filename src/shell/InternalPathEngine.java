@@ -134,6 +134,7 @@ public class InternalPathEngine {
             ex2 = botExternal;
 
         }
+        
         shell.buff.add("MINKNOT:::::::::::::::::::: " + minKnot);
 
         // TODO: If the cutPoint is the neighbor, we need to find two matches for the

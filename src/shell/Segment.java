@@ -106,17 +106,17 @@ public class Segment implements Comparable<Segment> {
 
     public VirtualPoint getOverlap(Segment other) {
         // TODO Auto-generated method stub
-        if(other.contains(first)){
+        if (other.contains(first)) {
             return first;
-        }else if(other.contains(last)){
+        } else if (other.contains(last)) {
             return last;
         }
         return null;
     }
 
     public VirtualPoint containsAny(ArrayList<VirtualPoint> neighbors) {
-        for(VirtualPoint vp : neighbors){
-            if(this.contains(vp)){
+        for (VirtualPoint vp : neighbors) {
+            if (this.contains(vp)) {
                 return vp;
             }
         }
@@ -128,8 +128,8 @@ public class Segment implements Comparable<Segment> {
     }
 
     public boolean hasPoints(int i, int j) {
-        if(first.id == i || first.id == j){
-            if(last.id ==i || last.id == j){
+        if (first.id == i || first.id == j) {
+            if (last.id == i || last.id == j) {
                 return true;
             }
         }
@@ -151,5 +151,10 @@ public class Segment implements Comparable<Segment> {
 
     public static int getLastOrderId(Segment s) {
         return getLastOrderId(s.first, s.last);
+    }
+
+    @Override
+    public int hashCode() {
+        return first.id*last.id; // or any other constant
     }
 }

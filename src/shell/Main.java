@@ -67,7 +67,7 @@ public class Main extends JComponent {
 		frame.setSize(new Dimension(WIDTH, HEIGHT));
 		frame.setVisible(true);
 
-		String fileName = "wi29_6-25";
+		String fileName = "wi29_5-25";
 		retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 		DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
@@ -147,6 +147,7 @@ public class Main extends JComponent {
 
 		System.out.println("Best Length: " + orgShell.getLength());
 		System.out.println("===============================================");
+		frame.repaint();
 
 	}
 
@@ -170,7 +171,6 @@ public class Main extends JComponent {
 					temp.drawShell(this, g2, true, minLineThickness * 2, null, retTup.ps);
 				}
 			}
-
 			if (drawException != null) {
 				resultShell.drawShell(this, g2, true, minLineThickness * 2, Color.magenta, retTup.ps);
 				drawCutMatch(this, g2, drawException, minLineThickness * 2, retTup.ps);

@@ -190,7 +190,7 @@ class CutMatchList {
         for (CutMatch m : cml.cutMatches) {
             if (m.knot == c.knot) {
                 cm.matchSegments.addAll(m.matchSegments);
-                cm.matchSegments.addAll(m.cutSegments);
+                cm.cutSegments.addAll(m.cutSegments);
             } else {
                 cutMatches.add(m);
             }

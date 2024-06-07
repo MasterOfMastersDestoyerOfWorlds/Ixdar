@@ -124,6 +124,7 @@ public class FixedCut implements FixedCutInterface {
         double minDelta = Double.MAX_VALUE;
         int overlapping = -1;
         CutMatchList result = null;
+
         for (int a = 0; a < knot.knotPoints.size(); a++) {
 
             VirtualPoint knotPoint21 = knot.knotPoints.get(a);
@@ -181,9 +182,6 @@ public class FixedCut implements FixedCutInterface {
 
                 }
             } else {
-                if (c.cutID == 334 && cutSegment2.hasPoints(2, 3)) {
-                    float z = 1;
-                }
                 shell.buff.add("Garunteed: " + cutSegment2);
                 double delta = Double.MAX_VALUE;
                 VirtualPoint cp2 = knotPoint22;
@@ -191,6 +189,9 @@ public class FixedCut implements FixedCutInterface {
 
                 // boolean orphanFlag = wouldOrphan(cp1, kp1, cp2, kp2,
                 // knot.knotPointsFlattened);
+                if(c.cutID == 382 && cutSegment2.hasPoints(0,4)){
+                    float z =1;
+                }
 
                 Segment s11 = kp1.getClosestSegment(external1, null);
                 Segment s12 = kp2.getClosestSegment(external2, s11);
