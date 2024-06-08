@@ -42,13 +42,14 @@ public class CutInfo {
     VirtualPoint lowerCutPoint;
     static int numCuts = 0;
     int cutID;
+    boolean bothKnotPointsOutside;
 
     public CutInfo(Shell shell, Knot knot, VirtualPoint external1, VirtualPoint external2, Segment cutSegment1,
             VirtualPoint kp1,
             VirtualPoint cp1, Knot superKnot, Segment kpSegment, ArrayList<Segment> innerNeighborSegments,
             MultiKeyMap<Integer, Segment> innerNeighborSegmentLookup, ArrayList<Segment> neighborSegments,
             ArrayList<Pair<Segment, VirtualPoint>> neighborCutSegments,
-            VirtualPoint topCutPoint, boolean needTwoNeighborMatches, boolean bothKnotPointsInside,
+            VirtualPoint topCutPoint, boolean needTwoNeighborMatches, boolean bothKnotPointsInside, boolean bothKnotPointsOutside,
             boolean bothCutPointsOutside, VirtualPoint upperKnotPoint, Segment upperMatchSegment,
             Segment upperCutSegment,
             VirtualPoint lowerKnotPoint, Segment lowerMatchSegment, Segment lowerCutSegment) {
@@ -73,6 +74,7 @@ public class CutInfo {
         this.needTwoNeighborMatches = needTwoNeighborMatches;
         this.bothKnotPointsInside = bothKnotPointsInside;
         this.bothCutPointsOutside = bothCutPointsOutside;
+        this.bothKnotPointsOutside = bothKnotPointsOutside;
 
         this.upperKnotPoint = upperKnotPoint;
         this.upperCutPoint = topCutPoint;
@@ -154,6 +156,7 @@ public class CutInfo {
         this.needTwoNeighborMatches = c.needTwoNeighborMatches;
         this.bothKnotPointsInside = c.bothKnotPointsInside;
         this.bothCutPointsOutside = c.bothCutPointsOutside;
+        this.bothKnotPointsOutside = c.bothKnotPointsOutside;
 
         this.upperKnotPoint = c.upperKnotPoint;
         this.upperCutPoint = c.upperCutPoint;

@@ -37,7 +37,8 @@ public class FixedCut implements FixedCutInterface {
     Shell shell;
     CutInfo c;
     CutEngine cutEngine;
-    protected SegmentBalanceException sbe;
+    SegmentBalanceException sbe;
+    boolean bothKnotPointsOutside;
 
     public FixedCut(CutInfo c) {
         this.shell = c.shell;
@@ -59,6 +60,7 @@ public class FixedCut implements FixedCutInterface {
         this.needTwoNeighborMatches = c.needTwoNeighborMatches;
         this.bothKnotPointsInside = c.bothKnotPointsInside;
         this.bothCutPointsOutside = c.bothCutPointsOutside;
+        this.bothKnotPointsOutside = c.bothKnotPointsOutside;
         this.upperKnotPoint = c.upperKnotPoint;
         this.upperMatchSegment = c.upperMatchSegment;
         this.lowerKnotPoint = c.lowerKnotPoint;
@@ -89,13 +91,12 @@ public class FixedCut implements FixedCutInterface {
             shell.buff.add("findCutMatchListFixedCutNeedTwoMatches");
 
             return new FixedCutTwoMatches(c).findCutMatchListFixedCut();
-        } else if (bothKnotPointsInside && !bothCutPointsOutside) {
+        } else if (bothKnotPointsOutside && !bothCutPointsOutside) {
             shell.buff.add("findCutMatchListBothCutsInside");
-            return new FixedCutBothCutsInside(c).findCutMatchListFixedCut();
+            return new FixedCutBothKnotPointsOutside(c).findCutMatchListFixedCut();
         } else if (bothCutPointsOutside) {
             shell.buff.add("findCutMatchListBothCutsOutside");
             return new FixedCutBothCutsOutside(c).findCutMatchListFixedCut();
-
         }
         shell.buff.add("findCutMatchListFixed Cut");
         cutEngine.totalCalls++;
@@ -301,7 +302,7 @@ public class FixedCut implements FixedCutInterface {
                 cutPointsAcross2 = true;
             }
         }
-        
+
         boolean neighborIntersect2 = false;
         if (innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(kp2)) {
             neighborIntersect2 = true;
@@ -313,9 +314,9 @@ public class FixedCut implements FixedCutInterface {
         // ||
         // kpSegment.contains(cp2);
 
-            shell.buff.add("hasSegment2: " + s22+ " " + hasSegment2 + " " + replicatesNeighbor2 + " " + innerNeighbor2
-                    + " " + outerNeighbor2 + " " + " " + neighborIntersect2 + " "
-                    + s22.equals(upperCutSegment));
+        shell.buff.add("hasSegment2: " + s22 + " " + hasSegment2 + " " + replicatesNeighbor2 + " " + innerNeighbor2
+                + " " + outerNeighbor2 + " " + " " + neighborIntersect2 + " "
+                + s22.equals(upperCutSegment));
         if (hasSegment2) {
             shell.buff.add("REEE cutSeg1: " + cutSegment1 + " cutSeg2: " + cutSegment2 + " s22: " + s22
                     + " cp2 :" + kp2 + " kpSegment " + kpSegment);

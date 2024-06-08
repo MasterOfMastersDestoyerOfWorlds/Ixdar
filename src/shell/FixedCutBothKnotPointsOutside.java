@@ -1,8 +1,8 @@
 package shell;
 
-public class FixedCutBothCutsInside extends FixedCut {
+public class FixedCutBothKnotPointsOutside extends FixedCut {
 
-    public FixedCutBothCutsInside(CutInfo c) {
+    public FixedCutBothKnotPointsOutside(CutInfo c) {
         super(c);
     }
 
@@ -16,6 +16,44 @@ public class FixedCutBothCutsInside extends FixedCut {
         Segment matchSegmentOuterKnotPointFinal = null;
         Segment cutSegmentFinal = null;
         Segment cutSegment2Final = null;
+        Knot superKnot = c.superKnot;
+        VirtualPoint upperKnotPoint = c.upperKnotPoint;
+        int ukpidx = superKnot.knotPointsFlattened.indexOf(upperKnotPoint);
+        VirtualPoint vp1 = superKnot.getPrev(ukpidx);
+        VirtualPoint vp2 = superKnot.getNext(ukpidx);
+        VirtualPoint upperNeighbor = null;
+        if(vp1.equals(c.upperCutPoint)){
+            upperNeighbor = vp2;
+        }else{
+            upperNeighbor = vp1;
+        }
+        Segment upperCut = superKnot.getSegment(c.upperKnotPoint, upperNeighbor);
+
+        
+        VirtualPoint lowerKnotPoint = c.lowerKnotPoint;
+        int lkpidx = superKnot.knotPointsFlattened.indexOf(lowerKnotPoint);
+        VirtualPoint vp3 = superKnot.getPrev(lkpidx);
+        VirtualPoint vp4 = superKnot.getNext(lkpidx);
+        VirtualPoint lowerNeighbor = null;
+        if(vp3.equals(c.lowerCutPoint)){
+            lowerNeighbor = vp4;
+        }else{
+            lowerNeighbor = vp3;
+        }
+
+        Segment lowerCut = superKnot.getSegment(c.lowerKnotPoint, lowerNeighbor);
+        shell.buff.add("lowerNieghbor: " + lowerNeighbor);
+        shell.buff.add("lowerCut: " + lowerCut);
+        
+        shell.buff.add("upperNieghbor: " + upperNeighbor);
+        shell.buff.add("upperCut: " + upperCut);
+        
+        
+        if(neighborCutSegments.size() == 0){
+            CutMatchList cml = new CutMatchList(shell, sbe, c.superKnot);
+            cml.addDumbCutMatch(knot, superKnot);
+            throw new SegmentBalanceException(sbe);
+        }
         Segment leftCut = neighborCutSegments.get(0).getFirst();
         VirtualPoint leftNeighbor = neighborCutSegments.get(0).getSecond();
         VirtualPoint leftKnotPoint = leftCut.getOther(leftNeighbor);

@@ -239,5 +239,17 @@ public final class Utils {
         }
         return false;
     }
+
+    public static ArrayList<VirtualPoint> segmentListToPath(ArrayList<Segment> segments) {
+        ArrayList<VirtualPoint> result = new ArrayList<>();
+        for(int i = 0; i <segments.size(); i ++){
+            int prev = i -1 < 0 ? segments.size()-1 : i -1; 
+            Segment s1 = segments.get(prev);
+            Segment s2 = segments.get(i);
+            VirtualPoint p = s1.getOverlap(s2);
+            result.add(p);
+        }
+        return result;
+    }
     
 }

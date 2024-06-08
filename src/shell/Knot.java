@@ -17,27 +17,37 @@ public class Knot extends VirtualPoint {
     // vp1, vp2, ... vpm
 
     public Knot(ArrayList<VirtualPoint> knotPointsToAdd, Shell shell) {
+        constructor(knotPointsToAdd, shell, true);
+    }
+
+    public Knot(ArrayList<VirtualPoint> knotPointsToAdd, Shell shell, boolean setMatches) {
+        constructor(knotPointsToAdd, shell, setMatches);
+    }
+
+    public void constructor(ArrayList<VirtualPoint> knotPointsToAdd, Shell shell, boolean setMatches) {
         this.shell = shell;
-        if (knotPointsToAdd.get(0).match2 == null
-                || knotPointsToAdd.get(knotPointsToAdd.size() - 1).match2 == null) {
-            VirtualPoint vp1 = knotPointsToAdd.get(0);
-            VirtualPoint vp2 = knotPointsToAdd.get(knotPointsToAdd.size() - 1);
-            Segment s = vp1.getClosestSegment(vp2, vp1.s1);
-            Point bp2 = (Point) s.getOtherKnot(vp1);
-            Point bp1 = (Point) s.getOther(bp2);
-            if (vp2.basePoint1 != null && vp2.isKnot && vp2.basePoint1.equals(bp2)) {
-                s = vp1.getClosestSegment(vp2, vp2.s1);
-                bp2 = (Point) s.getOtherKnot(vp1);
-                bp1 = (Point) s.getOther(bp2);
+        if (setMatches) {
+            if (knotPointsToAdd.get(0).match2 == null
+                    || knotPointsToAdd.get(knotPointsToAdd.size() - 1).match2 == null) {
+                VirtualPoint vp1 = knotPointsToAdd.get(0);
+                VirtualPoint vp2 = knotPointsToAdd.get(knotPointsToAdd.size() - 1);
+                Segment s = vp1.getClosestSegment(vp2, vp1.s1);
+                Point bp2 = (Point) s.getOtherKnot(vp1);
+                Point bp1 = (Point) s.getOther(bp2);
+                if (vp2.basePoint1 != null && vp2.isKnot && vp2.basePoint1.equals(bp2)) {
+                    s = vp1.getClosestSegment(vp2, vp2.s1);
+                    bp2 = (Point) s.getOtherKnot(vp1);
+                    bp1 = (Point) s.getOther(bp2);
+                }
+                vp1.setMatch2(vp2, bp2, bp1, s);
+                vp2.setMatch2(vp1, bp1, bp2, s);
             }
-            shell.buff.add(vp1.fullString());
-            shell.buff.add(s);
-            vp1.setMatch2(vp2, bp2, bp1, s);
-            vp2.setMatch2(vp1, bp1, bp2, s);
         }
         sortedSegments = new ArrayList<>();
         ArrayList<VirtualPoint> flattenRunPoints = RunListUtils.flattenRunPoints(knotPointsToAdd, true);
-        RunListUtils.fixRunList(flattenRunPoints, flattenRunPoints.size());
+        if (setMatches) {
+            RunListUtils.fixRunList(flattenRunPoints, flattenRunPoints.size());
+        }
         this.knotPoints = flattenRunPoints;
         isKnot = true;
         isRun = false;
@@ -93,21 +103,26 @@ public class Knot extends VirtualPoint {
                     }
                 }
             }
-            vp.group = this;
-            vp.topGroup = this;
-            for (VirtualPoint flat : vp.knotPointsFlattened) {
-                flat.topGroupVirtualPoint = vp;
+            if (setMatches) {
+                vp.group = this;
+                vp.topGroup = this;
+                for (VirtualPoint flat : vp.knotPointsFlattened) {
+                    flat.topGroupVirtualPoint = vp;
+                }
+                vp.topGroupVirtualPoint = vp;
             }
-            vp.topGroupVirtualPoint = vp;
         }
-        for (VirtualPoint p : knotPointsFlattened) {
-            p.topGroup = this;
+        if (setMatches) {
+            for (VirtualPoint p : knotPointsFlattened) {
+                p.topGroup = this;
+            }
         }
         sortedSegments.sort(null);
-        shell.buff.add(sortedSegments);
         this.id = shell.pointMap.keySet().size();
         shell.pointMap.put(id, this);
-        shell.unvisited.add(this);
+        if (setMatches) {
+            shell.unvisited.add(this);
+        }
     }
 
     public Segment getSegment(VirtualPoint a, VirtualPoint b) {
@@ -199,8 +214,17 @@ public class Knot extends VirtualPoint {
     }
 
     public boolean overlaps(Knot minKnot) {
-        for(VirtualPoint vp : minKnot.knotPoints){
-            if(this.contains(vp)){
+        for (VirtualPoint vp : minKnot.knotPoints) {
+            if (this.contains(vp)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean hasPoint(int i) {
+        for(VirtualPoint vp : knotPointsFlattened){
+            if(vp.id == i){
                 return true;
             }
         }
