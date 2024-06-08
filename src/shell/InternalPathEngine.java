@@ -156,6 +156,10 @@ public class InternalPathEngine {
         boolean bothCutPointsOutside = !minKnot.contains(vp) && !minKnot.contains(vp2);
         boolean bothKnotPointsInside = minKnot.contains(kp) && minKnot.contains(kp2);
 
+        if (bothKnotPointsInside) {
+            findExpandedKnot(knot, minKnot, kp);
+        }
+
         if (!minKnot.contains(vp2)) {
             VirtualPoint topCutPointMaxKnot = getMaxKnotExclude(vp2, kp2, minKnot);
             shell.buff.add(topCutPointMaxKnot);
@@ -187,11 +191,11 @@ public class InternalPathEngine {
         }
 
         if (upperCutSegment.equals(cut)) {
-                shell.buff.add("upper cut equals lower cut");
-                shell.buff.add(upperCutSegment);
-                shell.buff.add(cut);
-                new CutMatchList(shell, sbe, knot);
-                throw new SegmentBalanceException(sbe);
+            shell.buff.add("upper cut equals lower cut");
+            shell.buff.add(upperCutSegment);
+            shell.buff.add(cut);
+            new CutMatchList(shell, sbe, knot);
+            throw new SegmentBalanceException(sbe);
         }
 
         boolean upperCutPointIsOutside = !minKnot.contains(vp2);
@@ -253,7 +257,6 @@ public class InternalPathEngine {
         shell.buff.add("singleNeighborSegmentLookup : " + singleNeighborSegmentLookup);
         shell.buff.add("innerNeighborSegmentLookup: " + innerNeighborSegmentLookup);
 
-        // need to find internal segments here
         ArrayList<Segment> innerNeighborSegments = new ArrayList<>();
         for (int j = 0; j < minKnot.knotPointsFlattened.size(); j++) {
             VirtualPoint k1 = minKnot.knotPoints.get(j);
@@ -447,7 +450,8 @@ public class InternalPathEngine {
             if (upperCutPointIsOutside) {
                 for (Segment s : innerNeighborSegments) {
                     if (!s.contains(rightPoint) && (singleNeighborSegmentLookup.containsKey(rightPoint.id)
-                            || s.contains(rightPoint) && singleNeighborSegmentLookup.containsKey(s.getOther(rightPoint).id))) {
+                            || s.contains(rightPoint)
+                                    && singleNeighborSegmentLookup.containsKey(s.getOther(rightPoint).id))) {
                         rightInnerNeighborSegments.add(s);
                     }
                 }
@@ -460,7 +464,8 @@ public class InternalPathEngine {
             if (upperCutPointIsOutside) {
                 for (Segment s : innerNeighborSegments) {
                     if (!s.contains(leftPoint) && (singleNeighborSegmentLookup.containsKey(leftPoint.id)
-                            || s.contains(leftPoint) && singleNeighborSegmentLookup.containsKey(s.getOther(leftPoint).id))) {
+                            || s.contains(leftPoint)
+                                    && singleNeighborSegmentLookup.containsKey(s.getOther(leftPoint).id))) {
                         leftInnerNeighborSegments.add(s);
                     }
                 }
@@ -556,6 +561,43 @@ public class InternalPathEngine {
             reCut = cutMatchList;
         }
         return reCut;
+    }
+
+    private void findExpandedKnot(Knot knot, Knot minKnot, VirtualPoint knotPoint, Segment upperCutSegment) {
+        int startIdx = knot.knotPoints.indexOf(minKnot.knotPoints.get(0));
+        int endIdx = startIdx - 1 < 0 ? knot.knotPoints.size() - 1 : startIdx - 1;
+        VirtualPoint firstInnerNeighbor = null;
+        Segment firstNeighborSegment = null;
+        int k = startIdx;
+        ArrayList<Segment> loopSegments = new ArrayList<>();
+        ArrayList<Segment> expandedSegments = new ArrayList<>();
+        boolean hasCutSegment = false;
+        while (true) {
+            VirtualPoint k1 = knot.knotPoints.get(k);
+            VirtualPoint k2 = knot.getNext(k);
+            Segment neighborSegment = knot.getSegment(k1, k2);
+            if (minKnot.contains(k1) && !minKnot.contains(k2)) {
+                firstInnerNeighbor = k1;
+                firstNeighborSegment = neighborSegment;
+                loopSegments = new ArrayList<>();
+                hasCutSegment = false;
+            }
+            if (!(minKnot.contains(k2) && minKnot.contains(k1))) {
+                loopSegments.add(neighborSegment);
+                if (neighborSegment.equals(upperCutSegment)) {
+                    hasCutSegment = true;
+                }
+            }
+            if (minKnot.contains(k2) && !minKnot.contains(k1)) {
+                if(!hasCutSegment){
+                    expandedSegments.addAll(loopSegments);
+                }
+            }
+            if (k == endIdx) {
+                break;
+            }
+            k = k + 1 >= knot.knotPoints.size() ? 0 : k + 1;
+        }
     }
 
     private VirtualPoint getMaxKnotExclude(VirtualPoint vp2, VirtualPoint kp2, Knot minKnot) {
