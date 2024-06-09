@@ -137,13 +137,13 @@ public class FixedCutBothCutsOutside extends FixedCut {
                             matchSegmentToCutPoint1,
                             matchSegmentToCutPoint2,
                             matchSegmentOuterKnotPointFinal,
-                    }, c);
+                    }, c, "FixedCutBothCutsOutside");
             return result;
 
         } else {
             shell.buff.add("No Available CUTS!");
             CutMatchList cml = new CutMatchList(shell, sbe, c.superKnot);
-            cml.addDumbCutMatch(knot, superKnot);
+            cml.addDumbCutMatch(knot, superKnot, "FixedCutBothCutsOutsideNoCutsAvailable");
             throw new SegmentBalanceException(sbe);
         }
     }

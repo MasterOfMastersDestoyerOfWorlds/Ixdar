@@ -135,6 +135,10 @@ public class FixedCut implements FixedCutInterface {
             // I think that the continue state instead of being do the ct sgments partially
             // overlapp each other, should instead
             // be like
+
+            if(c.cutID == 6570 && cutSegment2.hasPoints(11, 1)){
+                float z = 1;
+            }
             if (cutSegment1.partialOverlaps(cutSegment2) && !cutSegment2.equals(kpSegment)) {
                 shell.buff.add("Checking: " + cutSegment2);
 
@@ -165,7 +169,7 @@ public class FixedCut implements FixedCutInterface {
                 Segment s11 = kp1.getClosestSegment(external1, null);
                 Segment s12 = cp1.getClosestSegment(external2, s11);
                 CutMatchList cutMatch = new CutMatchList(shell, sbe, c.superKnot);
-                cutMatch.addCutMatch(new Segment[] {}, new Segment[] { s12 }, c);
+                cutMatch.addCutMatch(new Segment[] {}, new Segment[] { s12 }, c, "FixedCutSegmentsFullyOverlap");
                 boolean cutPointsAcross = false;
                 for (Segment s : innerNeighborSegments) {
                     if (s.contains(cp1) && s.contains(kp1)) {
@@ -211,7 +215,7 @@ public class FixedCut implements FixedCutInterface {
                     cutMatch1 = new CutMatchList(shell, sbe, c.superKnot);
                     cutMatch1.addTwoCut(cutSegment1, cutSegment2, s11,
                             s12, kp1,
-                            kp2, internalCuts1, c, false);
+                            kp2, internalCuts1, c, false, "FixedCut");
 
                     d1 = cutMatch1.delta;
 
@@ -238,7 +242,7 @@ public class FixedCut implements FixedCutInterface {
                     cutMatch2 = new CutMatchList(shell, sbe, c.superKnot);
                     cutMatch2.addTwoCut(cutSegment1, cutSegment2, s21,
                             s22, kp1,
-                            cp2, internalCuts2, c, false);
+                            cp2, internalCuts2, c, false, "FixedCut");
 
                     d2 = cutMatch2.delta;
 
@@ -267,7 +271,7 @@ public class FixedCut implements FixedCutInterface {
         } else {
             shell.buff.add("No Available CUTS!");
             CutMatchList cml = new CutMatchList(shell, sbe, c.superKnot);
-            cml.addDumbCutMatch(knot, superKnot);
+            cml.addDumbCutMatch(knot, superKnot, "FixedCutNoAvailableCuts");
             throw new SegmentBalanceException(sbe);
         }
     }

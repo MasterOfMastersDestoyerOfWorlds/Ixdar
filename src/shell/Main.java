@@ -67,7 +67,8 @@ public class Main extends JComponent {
 		frame.setSize(new Dimension(WIDTH, HEIGHT));
 		frame.setVisible(true);
 
-		String fileName = "wi29_6-25";
+		String fileName = "wi29_6-25p20";
+		boolean printAll = false;
 		retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 		DistanceMatrix d = new DistanceMatrix(retTup.ps);
 
@@ -84,7 +85,7 @@ public class Main extends JComponent {
 		System.out.println(maxShell);
 		long startTimeKnotFinding = System.currentTimeMillis();
 		if (calculateKnot) {
-			result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 5));
+			result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 6));
 		}
 		maxShell.buff.flush();
 		long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
@@ -121,7 +122,11 @@ public class Main extends JComponent {
 				for (VirtualPoint p : sbe.topKnot.knotPoints) {
 					result.add(((Point) p).p);
 				}
-				maxShell.buff.printLayer(0);
+				if (printAll) {
+					maxShell.buff.printAll();
+				} else {
+					maxShell.buff.printLayer(0);
+				}
 				System.out.println();
 				System.out.println(sbe);
 				// StackTraceElement ste = sbe.getStackTrace()[0];

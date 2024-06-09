@@ -48,33 +48,19 @@ public class FixedCutBothKnotPointsOutside extends FixedCut {
         shell.buff.add("upperNieghbor: " + upperNeighbor);
         shell.buff.add("upperCut: " + upperCut);
         
+        Segment innerNeighborSegment = knot.getSegment(c.lowerCutPoint, c.upperCutPoint);
         
-        if(neighborCutSegments.size() == 0){
-            CutMatchList cml = new CutMatchList(shell, sbe, c.superKnot);
-            cml.addDumbCutMatch(knot, superKnot);
-            throw new SegmentBalanceException(sbe);
-        }
-        Segment leftCut = neighborCutSegments.get(0).getFirst();
-        VirtualPoint leftNeighbor = neighborCutSegments.get(0).getSecond();
-        VirtualPoint leftKnotPoint = leftCut.getOther(leftNeighbor);
-        VirtualPoint leftCutPoint = cutSegment1.contains(leftKnotPoint) ? cp1 : topCutPoint;
-
-        Segment rightCut = neighborCutSegments.get(1).getFirst();
-        VirtualPoint rightNeighbor = neighborCutSegments.get(1).getSecond();
-        VirtualPoint rightKnotPoint = rightCut.getOther(rightNeighbor);
-        VirtualPoint rightCutPoint = cutSegment1.contains(rightKnotPoint) ? cp1 : topCutPoint;
-
-        Segment s11 = knot.getSegment(leftKnotPoint, rightCutPoint);
-        Segment s12 = knot.getSegment(leftNeighbor, leftCutPoint);
-        Segment s13 = knot.getSegment(rightKnotPoint, rightNeighbor);
-        Segment cut1 = leftCut;
+        Segment s11 = knot.getSegment(c.lowerKnotPoint, c.upperCutPoint);
+        Segment s12 = knot.getSegment(lowerNeighbor, c.lowerCutPoint);
+        Segment s13 = knot.getSegment(c.upperKnotPoint, upperNeighbor);
+        Segment cut1 = lowerCut;
         double d1 = s11.distance + s12.distance + s13.distance + -cut1.distance;
         double delta = d1;
 
-        Segment s21 = knot.getSegment(rightKnotPoint, leftCutPoint);
-        Segment s22 = knot.getSegment(rightNeighbor, rightCutPoint);
-        Segment s23 = knot.getSegment(leftKnotPoint, leftNeighbor);
-        Segment cut2 = rightCut;
+        Segment s21 = knot.getSegment(c.upperKnotPoint, c.lowerCutPoint);
+        Segment s22 = knot.getSegment(upperNeighbor, c.upperCutPoint);
+        Segment s23 = knot.getSegment(c.lowerKnotPoint, lowerNeighbor);
+        Segment cut2 = upperCut;
         double d2 = s21.distance + s22.distance + s23.distance - cut2.distance;
         delta = d2 < delta ? d2 : delta;
 
@@ -85,8 +71,6 @@ public class FixedCutBothKnotPointsOutside extends FixedCut {
                 matchSegmentOuterKnotPointFinal = s13;
                 cutSegment2Final = cut1;
                 shell.buff.add("d1");
-                neighborCutSegments.remove(1);
-                neighborSegments.remove(rightCut);
 
             } else if (delta == d2) {
                 matchSegmentToCutPoint1 = s21;
@@ -94,8 +78,6 @@ public class FixedCutBothKnotPointsOutside extends FixedCut {
                 matchSegmentOuterKnotPointFinal = s23;
                 cutSegment2Final = cut2;
                 shell.buff.add("d2");
-                neighborCutSegments.remove(0);
-                neighborSegments.remove(leftCut);
             }
             shell.buff.add("Group1 cut1: " + cutSegmentFinal + " cut2: " + cut1 + " matches: " +
                     s11 + " " + s12 + " " + s13);
@@ -113,16 +95,16 @@ public class FixedCutBothKnotPointsOutside extends FixedCut {
                     matchSegmentToCutPoint1 + " " + matchSegmentToCutPoint2 + " " + matchSegmentOuterKnotPointFinal);
             CutMatchList result = new CutMatchList(shell, sbe, c.superKnot);
 
-            result.addCutMatch(new Segment[]{cutSegment2Final},
+            result.addCutMatch(new Segment[]{cutSegment2Final, innerNeighborSegment},
                      new Segment[] { matchSegmentToCutPoint1,
                             matchSegmentToCutPoint2,
-                            matchSegmentOuterKnotPointFinal }, c);
+                            matchSegmentOuterKnotPointFinal }, c,"FixedCutBothKnotPointsOutside");
             return result;
 
         } else {
             shell.buff.add("No Available CUTS!");
             CutMatchList cml = new CutMatchList(shell, sbe, c.superKnot);
-            cml.addDumbCutMatch(knot, superKnot);
+            cml.addDumbCutMatch(knot, superKnot, "FixedCutBothKnotPointsOutsideNoAvailableCuts");
             throw new SegmentBalanceException(sbe);
         }
     }

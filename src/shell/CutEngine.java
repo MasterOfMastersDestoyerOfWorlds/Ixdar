@@ -299,14 +299,14 @@ public class CutEngine {
             SegmentBalanceException sbe = new SegmentBalanceException(shell, null, c);
             CutMatchList result = new CutMatchList(shell, sbe, c.superKnot);
             result.addCutMatch(new Segment[] { cutSegmentFinal },
-                    new Segment[] { matchSegment1Final, matchSegment2Final }, c);
+                    new Segment[] { matchSegment1Final, matchSegment2Final }, c, "CutEngineSegmentsFullyOverlap");
             return result;
         } else {
             SegmentBalanceException sbe = new SegmentBalanceException(shell, null, c);
             CutMatchList result = new CutMatchList(shell, sbe, c.superKnot);
             result.addCutMatch(new Segment[] { cutSegmentFinal, cutSegment2Final },
                     new Segment[] { matchSegment1Final, matchSegment2Final },
-                    internalCuts, c);
+                    internalCuts, c, "CutEngine");
             return result;
 
         }
