@@ -62,7 +62,10 @@ public class FixedCutTwoMatches extends FixedCut {
         shell.buff.add("unique neighbor points: " + numUnique +
                 " otherNeghborPoint2: " + otherNeighborPoint2 + " onp: " + otherNeighborPoint + " ex2: " + external2);
 
-    
+        if(c.cutID ==  6594){
+            float z =1;
+        }
+
         double minDelta = Double.MAX_VALUE;
         int overlapping = -1;
         Segment matchSegmentAcrossFinal = null;
