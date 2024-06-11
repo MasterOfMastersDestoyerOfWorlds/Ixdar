@@ -71,7 +71,7 @@ public abstract class VirtualPoint {
 
 		public boolean shouldJoinKnot(Knot k) {
 			shell.buff.add(k.fullString());
-			int desiredCount = k.knotPointsFlattened.size() * this.knotPointsFlattened.size();
+			int desiredCount = k.size() * this.size();
 			boolean oneOutFlag = false;
 			for (Segment s : this.sortedSegments) {
 				VirtualPoint vp = s.getOtherKnot(this);
@@ -95,7 +95,7 @@ public abstract class VirtualPoint {
 
 		public boolean shouldKnotConsume(Knot k) {
 			shell.buff.add(k.fullString());
-			int desiredCount = k.knotPointsFlattened.size() * this.knotPointsFlattened.size();
+			int desiredCount = k.size() * this.size();
 			boolean oneOutFlag = false;
 			for (Segment s : k.sortedSegments) {
 				VirtualPoint vp = s.getOtherKnot(k);
@@ -115,6 +115,9 @@ public abstract class VirtualPoint {
 				}
 			}
 			return true;
+		}
+		public int size(){
+			return knotPointsFlattened.size();
 		}
 
 		public Segment getClosestSegment(VirtualPoint vp, Segment excludeSegment) {

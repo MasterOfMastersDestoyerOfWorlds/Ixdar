@@ -467,7 +467,7 @@ public class Shell extends LinkedList<PointND> {
 	int sameKnotPointCount = 0;
 
 	@SuppressWarnings("unused")
-	public Shell tspSolve(Shell A, DistanceMatrix distanceMatrix) throws SegmentBalanceException {
+	public Shell tspSolve(Shell A, DistanceMatrix distanceMatrix) throws SegmentBalanceException, BalancerException {
 		this.distanceMatrix = distanceMatrix;
 		Shell result = new Shell();
 		visited = new ArrayList<VirtualPoint>();
@@ -563,7 +563,7 @@ public class Shell extends LinkedList<PointND> {
 		return unvisited;
 	}
 
-	public Shell cutKnot(Knot mainKnot) throws SegmentBalanceException {
+	public Shell cutKnot(Knot mainKnot) throws SegmentBalanceException, BalancerException {
 		// seems like there are three cases: combining two knots, (need to remove two
 		// segments and add two with the lowest cost increase)
 		// pulling apart two knot that has two endpoints and want to cut different
@@ -628,7 +628,7 @@ public class Shell extends LinkedList<PointND> {
 	}
 
 	public Shell solveBetweenEndpoints(PointND first, PointND last, Shell A, DistanceMatrix d)
-			throws SegmentBalanceException {
+			throws SegmentBalanceException, BalancerException {
 		PointSet ps = new PointSet();
 
 		assert (!first.equals(last));

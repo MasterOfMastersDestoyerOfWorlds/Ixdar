@@ -18,11 +18,11 @@ public class InternalPathEngine {
     public CutMatchList calculateInternalPathLength(
             VirtualPoint knotPoint1, VirtualPoint cutPointA, VirtualPoint external1,
             VirtualPoint knotPoint2, VirtualPoint cutPointB, VirtualPoint external2,
-            Knot knot) throws SegmentBalanceException {
+            Knot knot, BalanceMap balanceMap) throws SegmentBalanceException, BalancerException {
 
         SegmentBalanceException sbe = new SegmentBalanceException(shell, null,
                 new CutInfo(shell, knotPoint1, cutPointA, knotPoint1.getClosestSegment(cutPointA, null), external1,
-                        knotPoint2, cutPointB, knotPoint2.getClosestSegment(cutPointB, null), external2, knot));
+                        knotPoint2, cutPointB, knotPoint2.getClosestSegment(cutPointB, null), external2, knot, balanceMap));
 
         shell.buff.add("recutting knot: " + knot);
         shell.buff.add(
@@ -45,7 +45,7 @@ public class InternalPathEngine {
         VirtualPoint botPoint = cutPointB;
         VirtualPoint botKnotPoint = knotPoint2;
 
-        if (topKnot.knotPointsFlattened.size() < botKnot.knotPointsFlattened.size()) {
+        if (topKnot.size() < botKnot.size()) {
             topPoint = cutPointB;
             topKnotPoint = knotPoint2;
             botPoint = cutPointA;
@@ -55,30 +55,6 @@ public class InternalPathEngine {
         shell.buff.add("botPoint: " + botPoint);
         shell.buff.add("topKnotPoint: " + topKnotPoint);
         shell.buff.add("botKNotPoint: " + botKnotPoint);
-
-        if (knotPoint1.equals(knotPoint2)) {
-            new CutMatchList(shell, sbe, knot);
-            throw new SegmentBalanceException(sbe);
-        }
-
-        if (topKnotPoint.equals(botKnotPoint)) {
-            new CutMatchList(shell, sbe, knot);
-            throw new SegmentBalanceException(sbe);
-        }
-        if (topPoint.equals(botKnotPoint)) {
-            new CutMatchList(shell, sbe, knot);
-            throw new SegmentBalanceException(sbe);
-        }
-
-        if (botPoint.equals(topKnotPoint)) {
-            new CutMatchList(shell, sbe, knot);
-            throw new SegmentBalanceException(sbe);
-        }
-
-        if (botPoint.equals(topPoint)) {
-            new CutMatchList(shell, sbe, knot);
-            throw new SegmentBalanceException(sbe);
-        }
 
         Knot minKnot = findMinKnot(topKnotPoint, topPoint, botKnotPoint, botPoint, knot, sbe);
 
@@ -96,14 +72,14 @@ public class InternalPathEngine {
         if (topPoint.equals(cutPointA)) {
             reCut = recutWithInternalNeighbor(knotPoint1, cutPointA, external1, knotPoint2, cutPointB, external2,
                     minKnot,
-                    knot, sbe);
+                    knot, sbe, balanceMap);
         } else {
             if (topPoint.id == 15 && botPoint.id == 13 && (knotPoint1.id == 11 || knotPoint2.id == 11)) {
                 // float z = 1 / 0;
             }
             reCut = recutWithInternalNeighbor(knotPoint2, cutPointB, external2, knotPoint1, cutPointA, external1,
                     minKnot,
-                    knot, sbe);
+                    knot, sbe, balanceMap);
 
         }
         return reCut;
@@ -113,7 +89,7 @@ public class InternalPathEngine {
     public CutMatchList recutWithInternalNeighbor(VirtualPoint topKnotPoint,
             VirtualPoint topPoint, VirtualPoint topExternal, VirtualPoint botKnotPoint, VirtualPoint botPoint,
             VirtualPoint botExternal, Knot minKnot,
-            Knot knot, SegmentBalanceException sbe) throws SegmentBalanceException {
+            Knot knot, SegmentBalanceException sbe, BalanceMap balanceMap) throws SegmentBalanceException, BalancerException {
 
         Segment kpSegment = knot.getSegment(topKnotPoint, botKnotPoint);
 
@@ -186,33 +162,6 @@ public class InternalPathEngine {
         // boolean bothKnotPointsOutside = !minKnot.contains(kp) &&
         // !minKnot.contains(kp2);
         Knot prevMinknot = minKnot;
-        VirtualPoint innerPoint = vp2;
-        VirtualPoint outerPoint = null;
-        if (!minKnot.contains(vp2)) {
-            outerPoint = vp2;
-        } else {
-            innerPoint = vp2;
-        }
-        if (!minKnot.contains(vp)) {
-            outerPoint = vp;
-        } else {
-            innerPoint = vp;
-        }
-        if (!minKnot.contains(kp2)) {
-            outerPoint = kp2;
-        } else {
-            innerPoint = kp2;
-        }
-        if (!minKnot.contains(kp)) {
-            outerPoint = kp;
-        } else {
-            innerPoint = kp;
-        }
-
-        if (outerPoint == null || innerPoint == null) {
-            float z = 1 / 0;
-        }
-        minKnot = findExpandedKnot(knot, minKnot, innerPoint, outerPoint, upperCutSegment, sbe);
 
         bothCutPointsOutside = !minKnot.contains(vp) && !minKnot.contains(vp2);
         bothKnotPointsInside = minKnot.contains(kp) && minKnot.contains(kp2);
@@ -282,7 +231,7 @@ public class InternalPathEngine {
         shell.buff.add("innerNeighborSegmentLookup: " + innerNeighborSegmentLookup);
 
         ArrayList<Segment> innerNeighborSegments = new ArrayList<>();
-        for (int j = 0; j < minKnot.knotPointsFlattened.size(); j++) {
+        for (int j = 0; j < minKnot.size(); j++) {
             VirtualPoint k1 = minKnot.knotPoints.get(j);
             VirtualPoint k2 = minKnot.knotPoints.get(j + 1 >= minKnot.knotPoints.size() ? 0 : j + 1);
             Segment candidate = knot.getSegment(k1, k2);
@@ -534,7 +483,7 @@ public class InternalPathEngine {
                     upperCutPointIsOutside, bothKnotPointsInside, bothKnotPointsOutside, bothCutPointsOutside, kp2,
                     upperMatchSegment,
                     upperCutSegment, kp,
-                    lowerMatchSegment, lowerCutSegment);
+                    lowerMatchSegment, lowerCutSegment, balanceMap);
             if (lc.cutID == 852) {
                 float z = 1;
             }
@@ -559,7 +508,7 @@ public class InternalPathEngine {
                     upperCutPointIsOutside, bothKnotPointsInside, bothKnotPointsOutside, bothCutPointsOutside, kp2,
                     upperMatchSegment,
                     upperCutSegment, kp, lowerMatchSegment,
-                    lowerCutSegment);
+                    lowerCutSegment, balanceMap);
             if (canCutRight) {
                 rightCutMatch = new FixedCut(rc).findCutMatchListFixedCut();
                 rightCutMatch.addCutDiff(rightCut, knot, "InternalPathEngineRight");
@@ -598,7 +547,7 @@ public class InternalPathEngine {
                     vp2, upperCutPointIsOutside,
                     bothKnotPointsInside, bothKnotPointsOutside, bothCutPointsOutside, kp2, upperMatchSegment,
                     upperCutSegment, kp, lowerMatchSegment,
-                    lowerCutSegment);
+                    lowerCutSegment, balanceMap);
             shell.buff.add(c);
 
             reCut = new FixedCut(c).findCutMatchListFixedCut();
@@ -618,10 +567,10 @@ public class InternalPathEngine {
         return reCut;
     }
 
-    private Knot findExpandedKnot(Knot knot, Knot minKnot, VirtualPoint innerPoint, VirtualPoint knotPoint,
+    Knot findExpandedKnot(Knot knot, Knot minKnot, VirtualPoint innerPoint, VirtualPoint knotPoint,
             Segment upperCutSegment,
             SegmentBalanceException sbe) throws SegmentBalanceException {
-        if (minKnot.hasPoint(10) && !knot.hasPoint(10) && knot.knotPointsFlattened.size() > 5) {
+        if (minKnot.hasPoint(11) && !knot.hasPoint(11) && knotPoint.id == 5 && knot.size() == 5) {
             float z = 1;
 
         }
@@ -666,15 +615,26 @@ public class InternalPathEngine {
             k = k + 1 >= knot.knotPoints.size() ? 0 : k + 1;
         }
         boolean sameSegs = true;
+        boolean fFlag = true;
         for (Segment s : expandedSegments) {
             if (!minKnot.contains(s.first) || !minKnot.contains(s.last)) {
                 sameSegs = false;
             }
+            if (!knot.contains(s.first) || !knot.contains(s.last)) {
+                fFlag = false;
+            }
         }
-        if (expandedSegments.size() != minKnot.knotPointsFlattened.size() || !sameSegs) {
+        if ((expandedSegments.size() != minKnot.size() || !sameSegs)
+                && (expandedSegments.size() != knot.knotPoints.size() || !fFlag)) {
             ArrayList<VirtualPoint> points = Utils.segmentListToPath(expandedSegments);
             Knot result = new Knot(points, shell, false);
             return result;
+        }
+        
+        for(VirtualPoint vp : minKnot.knotPointsFlattened){
+            if(!knot.contains(vp)){
+                float z = 0;
+            }
         }
         return minKnot;
     }
@@ -684,7 +644,7 @@ public class InternalPathEngine {
         int sizeMinKnot = 1;
         VirtualPoint result = vp2;
         for (Knot k : cutEngine.flatKnots.values()) {
-            int size = k.knotPointsFlattened.size();
+            int size = k.size();
             if (size > sizeMinKnot && !k.contains(kp2) && !k.overlaps(minKnot)) {
                 result = k;
                 sizeMinKnot = size;
@@ -696,7 +656,7 @@ public class InternalPathEngine {
 
     public Knot findMinKnot(VirtualPoint knotPoint1, VirtualPoint cutPointA, VirtualPoint external1,
             VirtualPoint knotPoint2, VirtualPoint cutPointB, VirtualPoint external2,
-            Knot knot) throws SegmentBalanceException {
+            Knot knot, BalanceMap balanceMap) throws SegmentBalanceException {
 
         int smallestKnotIdA = shell.smallestKnotLookup[cutPointA.id];
         int smallestKnotIdB = shell.smallestKnotLookup[cutPointB.id];
@@ -709,14 +669,14 @@ public class InternalPathEngine {
         VirtualPoint botPoint = cutPointB;
         VirtualPoint botKnotPoint = knotPoint2;
 
-        if (topKnot.knotPointsFlattened.size() < botKnot.knotPointsFlattened.size()) {
+        if (topKnot.size() < botKnot.size()) {
             topPoint = cutPointB;
             topKnotPoint = knotPoint2;
             botPoint = cutPointA;
             botKnotPoint = knotPoint1;
         }
         CutInfo c = new CutInfo(shell, knotPoint1, cutPointA, knotPoint1.getClosestSegment(cutPointA, null), external1,
-                knotPoint2, cutPointB, knotPoint2.getClosestSegment(cutPointB, null), external2, knot);
+                knotPoint2, cutPointB, knotPoint2.getClosestSegment(cutPointB, null), external2, knot, balanceMap);
         SegmentBalanceException sbe = new SegmentBalanceException(shell, null, c);
         Knot minKnot = findMinKnot(topKnotPoint, topPoint, botKnotPoint, botPoint, knot, sbe);
         return minKnot;
@@ -729,33 +689,30 @@ public class InternalPathEngine {
         if (topKnotPoint.id == 0 && topPoint.id == 10 && botKnotPoint.id == 1 && botPoint.id == 2 && knot.hasPoint(5)) {
             float z = 0;
         }
+
         int matchKnotAId = shell.smallestCommonKnotLookup[topPoint.id][topKnotPoint.id];
         Knot matchKnotA = cutEngine.flatKnots.get(matchKnotAId);
-        int aSize = matchKnotA.knotPoints.size();
+        int aSize = matchKnotA == null ? Integer.MAX_VALUE : matchKnotA.knotPoints.size();
 
         int matchKnotBId = shell.smallestCommonKnotLookup[botPoint.id][botKnotPoint.id];
         Knot matchKnotB = cutEngine.flatKnots.get(matchKnotBId);
-        int bSize = matchKnotB.knotPoints.size();
+        int bSize = matchKnotB == null ? Integer.MAX_VALUE : matchKnotB.knotPoints.size();
 
         int knotPointKnotId = shell.smallestCommonKnotLookup[topKnotPoint.id][botKnotPoint.id];
         Knot knotPointKnot = cutEngine.flatKnots.get(knotPointKnotId);
-        if (knotPointKnot == null) {
-            new CutMatchList(shell, sbe, knot);
-            throw new SegmentBalanceException(sbe);
-        }
-        int kpSize = knotPointKnot.knotPoints.size();
+        int kpSize = knotPointKnot == null ? Integer.MAX_VALUE : knotPointKnot.knotPoints.size();
 
         int crossTopKnotId = shell.smallestCommonKnotLookup[topPoint.id][botKnotPoint.id];
         Knot crossTopKnot = cutEngine.flatKnots.get(crossTopKnotId);
-        int ctSize = crossTopKnot.knotPoints.size();
+        int ctSize = crossTopKnot == null ? Integer.MAX_VALUE : crossTopKnot.knotPoints.size();
 
         int crossBotKnotId = shell.smallestCommonKnotLookup[topKnotPoint.id][botPoint.id];
         Knot crossBotKnot = cutEngine.flatKnots.get(crossBotKnotId);
-        int cbSize = crossBotKnot.knotPoints.size();
+        int cbSize = crossBotKnot == null ? Integer.MAX_VALUE : crossBotKnot.knotPoints.size();
 
         int cutPointKnotId = shell.smallestCommonKnotLookup[topPoint.id][botPoint.id];
         Knot cutPointKnot = cutEngine.flatKnots.get(cutPointKnotId);
-        int cpSize = cutPointKnot.knotPoints.size();
+        int cpSize = cutPointKnot == null ? Integer.MAX_VALUE : cutPointKnot.knotPoints.size();
 
         int sizeMinKnot;
         Knot minKnot;
@@ -772,7 +729,7 @@ public class InternalPathEngine {
         } else {
             minKnot = cutPointKnot;
         }
-        sizeMinKnot = minKnot.knotPointsFlattened.size();
+        sizeMinKnot = minKnot.size();
         for (Knot k : cutEngine.flatKnots.values()) {
             shell.buff.add(k + " :  "
                     + (((k.contains(topKnotPoint) && k.contains(topPoint))
@@ -786,7 +743,7 @@ public class InternalPathEngine {
                             || (k.contains(topKnotPoint) && k.contains(botKnotPoint) && !k.contains(topPoint)
                                     && !k.contains(botPoint))));
 
-            int size = k.knotPointsFlattened.size();
+            int size = k.size();
             if (size > sizeMinKnot && (((k.contains(topKnotPoint) && k.contains(topPoint))
                     ^ (k.contains(botKnotPoint) && k.contains(botPoint)))
                     || (k.contains(botKnotPoint) && k.contains(topPoint) && !k.contains(botPoint)
@@ -799,6 +756,43 @@ public class InternalPathEngine {
                             && !k.contains(botPoint)))) {
                 minKnot = k;
                 sizeMinKnot = size;
+            }
+        }
+
+        VirtualPoint innerPoint = topPoint;
+        VirtualPoint outerPoint = null;
+        if (!minKnot.contains(topPoint)) {
+            outerPoint = topPoint;
+        } else {
+            innerPoint = topPoint;
+        }
+        if (!minKnot.contains(botPoint)) {
+            outerPoint = botPoint;
+        } else {
+            innerPoint = botPoint;
+        }
+        if (!minKnot.contains(topKnotPoint)) {
+            outerPoint = topKnotPoint;
+        } else {
+            innerPoint = topKnotPoint;
+        }
+        if (!minKnot.contains(botKnotPoint)) {
+            outerPoint = botKnotPoint;
+        } else {
+            innerPoint = botKnotPoint;
+        }
+
+        Segment upperCutSegment = topKnotPoint.getClosestSegment(topPoint, null);
+        if(minKnot.hasPoint(topPoint.id) && minKnot.hasPoint(topKnotPoint.id)){
+            upperCutSegment = botKnotPoint.getClosestSegment(botPoint, null);
+        }
+        if (outerPoint == null || innerPoint == null) {
+        } else {
+            minKnot = findExpandedKnot(knot, minKnot, innerPoint, outerPoint, upperCutSegment, sbe);
+        }
+        for(VirtualPoint vp : minKnot.knotPointsFlattened){
+            if(!knot.contains(vp)){
+                float z = 0;
             }
         }
         return minKnot;

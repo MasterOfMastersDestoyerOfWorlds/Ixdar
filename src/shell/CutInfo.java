@@ -43,6 +43,7 @@ public class CutInfo {
     static int numCuts = 0;
     int cutID;
     boolean bothKnotPointsOutside;
+    public BalanceMap balanceMap;
 
     public CutInfo(Shell shell, Knot knot, VirtualPoint external1, VirtualPoint external2, Segment cutSegment1,
             VirtualPoint kp1,
@@ -52,7 +53,7 @@ public class CutInfo {
             VirtualPoint topCutPoint, boolean needTwoNeighborMatches, boolean bothKnotPointsInside, boolean bothKnotPointsOutside,
             boolean bothCutPointsOutside, VirtualPoint upperKnotPoint, Segment upperMatchSegment,
             Segment upperCutSegment,
-            VirtualPoint lowerKnotPoint, Segment lowerMatchSegment, Segment lowerCutSegment) {
+            VirtualPoint lowerKnotPoint, Segment lowerMatchSegment, Segment lowerCutSegment, BalanceMap balanceMap) {
         this.shell = shell;
         this.knot = knot;
         this.superKnot = superKnot;
@@ -87,6 +88,7 @@ public class CutInfo {
         this.lowerCutPoint = lowerCutSegment.getOther(lowerKnotPoint);
         this.lowerMatchSegment = lowerMatchSegment;
         this.lowerExternal = lowerMatchSegment.getOther(lowerKnotPoint);
+        this.balanceMap = balanceMap;
 
         this.sbe = new SegmentBalanceException(shell, null, this);
     }
@@ -94,7 +96,7 @@ public class CutInfo {
     public CutInfo(Shell shell, VirtualPoint lowerKnotPoint, VirtualPoint lowerCutPoint, Segment lowerCutSegment,
             VirtualPoint lowerExternal,
             VirtualPoint upperKnotPoint, VirtualPoint upperCutPoint, Segment upperCutSegment,
-            VirtualPoint upperExternal, Knot superKnot) {
+            VirtualPoint upperExternal, Knot superKnot, BalanceMap balanceMap) {
         numCuts++;
         cutID = numCuts;
         this.shell = shell;
@@ -118,6 +120,7 @@ public class CutInfo {
         this.upperCutPoint = upperCutPoint;
         this.upperExternal = upperExternal;
         this.upperCutSegment = upperCutSegment;
+        this.balanceMap = balanceMap;
     }
 
     public CutInfo(Shell shell, Segment cutSegmentFinal, Segment matchSegment1Final, Segment cutSegment2Final,
@@ -169,11 +172,11 @@ public class CutInfo {
         this.lowerCutPoint = c.lowerCutPoint;
         this.lowerMatchSegment = c.lowerMatchSegment;
         this.lowerExternal = c.lowerExternal;
+        this.balanceMap = c.balanceMap;
 
         this.sbe = c.sbe;
 
     }
-
     @Override
     public String toString() {
         return "ID: " + cutID + " minKnot: " + knot + " | external " + external1 + " | neighbor: " + external2 + " | cutSegment1: "

@@ -223,11 +223,33 @@ public class Knot extends VirtualPoint {
     }
 
     public boolean hasPoint(int i) {
-        for(VirtualPoint vp : knotPointsFlattened){
-            if(vp.id == i){
+        for (VirtualPoint vp : knotPointsFlattened) {
+            if (vp.id == i) {
                 return true;
             }
         }
         return false;
+    }
+
+    public int size() {
+        return knotPointsFlattened.size();
+    }
+
+    public Segment getOtherSegment(Segment implicitCut, VirtualPoint vp) {
+        for (int a = 0; a < knotPoints.size(); a++) {
+
+            VirtualPoint knotPoint1 = knotPoints.get(a);
+            VirtualPoint knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
+            boolean right = implicitCut.contains(knotPoint1);
+            boolean left = implicitCut.contains(knotPoint2);
+            boolean hasPoint = knotPoint1.equals(vp) || knotPoint2.equals(vp);
+            if (right && !left && hasPoint) {
+                return knotPoint1.getClosestSegment(knotPoint2, null);
+            } else if (left && !right && hasPoint) {
+                return knotPoint2.getClosestSegment(knotPoint1, null);
+            }
+
+        }
+        return null;
     }
 }

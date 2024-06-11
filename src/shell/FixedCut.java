@@ -85,7 +85,7 @@ public class FixedCut implements FixedCutInterface {
     }
 
     public CutMatchList findCutMatchListFixedCut()
-            throws SegmentBalanceException {
+            throws SegmentBalanceException, BalancerException {
 
         if (needTwoNeighborMatches && !bothCutPointsOutside) {
             shell.buff.add("findCutMatchListFixedCutNeedTwoMatches");
@@ -136,7 +136,7 @@ public class FixedCut implements FixedCutInterface {
             // overlapp each other, should instead
             // be like
 
-            if(c.cutID == 6570 && cutSegment2.hasPoints(11, 1)){
+            if (c.cutID == 6570 && cutSegment2.hasPoints(11, 1)) {
                 float z = 1;
             }
             if (cutSegment1.partialOverlaps(cutSegment2) && !cutSegment2.equals(kpSegment)) {
@@ -205,15 +205,25 @@ public class FixedCut implements FixedCutInterface {
                 double d1 = Double.MAX_VALUE;
                 if (!hasSegment) {
                     shell.buff.currentDepth++;
-                    internalCuts1 = cutEngine.internalPathEngine.calculateInternalPathLength(kp1, cp1, external1, kp2,
-                            cp2,
-                            external2, knot);
+                    BalanceMap balanceMap = new BalanceMap(c.balanceMap, knot, sbe);
+                    balanceMap.addCut(kp1, cp1);
+                    balanceMap.addCut(kp2, cp2);
+                    balanceMap.addExternalMatch(kp1);
+                    balanceMap.addExternalMatch(kp2);
+                    if (kp1.equals(kp2)) {
+                        internalCuts1 = new CutMatchList(shell, sbe, superKnot);
+                    } else {
+                        internalCuts1 = cutEngine.internalPathEngine.calculateInternalPathLength(kp1, cp1, external1,
+                                kp2,
+                                cp2,
+                                external2, knot, balanceMap);
+                    }
                     shell.buff.currentDepth--;
 
                     shell.buff.add("" + internalCuts1);
 
                     cutMatch1 = new CutMatchList(shell, sbe, c.superKnot);
-                    cutMatch1.addTwoCut(cutSegment1, cutSegment2, s11,
+                    cutMatch1.addTwoCut(cutSegment1, new Segment[] { cutSegment2 }, s11,
                             s12, kp1,
                             kp2, internalCuts1, c, false, "FixedCut");
 
@@ -234,13 +244,18 @@ public class FixedCut implements FixedCutInterface {
                 boolean hasSegment2 = canCutSegment(cp2, s22, kp2, cutSegment2, innerNeighborSegmentsFlattened);
                 if (!hasSegment2) {
                     shell.buff.currentDepth++;
+                    BalanceMap balanceMap2 = new BalanceMap(c.balanceMap, knot, sbe);
+                    balanceMap2.addCut(kp1, cp1);
+                    balanceMap2.addCut(kp2, cp2);
+                    balanceMap2.addExternalMatch(kp1);
+                    balanceMap2.addExternalMatch(cp2);
                     internalCuts2 = cutEngine.internalPathEngine.calculateInternalPathLength(kp1, cp1, external1, cp2,
                             kp2,
-                            external2, knot);
+                            external2, knot, balanceMap2);
                     shell.buff.currentDepth--;
 
                     cutMatch2 = new CutMatchList(shell, sbe, c.superKnot);
-                    cutMatch2.addTwoCut(cutSegment1, cutSegment2, s21,
+                    cutMatch2.addTwoCut(cutSegment1, new Segment[] { cutSegment2 }, s21,
                             s22, kp1,
                             cp2, internalCuts2, c, false, "FixedCut");
 

@@ -1,5 +1,6 @@
 package test;
 
+import shell.BalancerException;
 import shell.DistanceMatrix;
 import shell.Main;
 import shell.PointSet;
@@ -105,7 +106,6 @@ public class SubGraphs {
 	public void test_djibouti_8_34WH0_33() {
 		testMethod("djbouti_8-34WH0-33");
 	}
-
 
 	@Test
 	public void test_djibouti_26_31() {

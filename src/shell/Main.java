@@ -67,7 +67,7 @@ public class Main extends JComponent {
 		frame.setSize(new Dimension(WIDTH, HEIGHT));
 		frame.setVisible(true);
 
-		String fileName = "wi29_6-25p20";
+		String fileName = "wi29_6-25";
 		boolean printAll = false;
 		retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 		DistanceMatrix d = new DistanceMatrix(retTup.ps);
