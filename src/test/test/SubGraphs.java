@@ -73,6 +73,11 @@ public class SubGraphs {
 	}
 
 	@Test
+	public void test_djibouti_4_8() {
+		testMethod("djbouti_4-8");
+	}
+
+	@Test
 	public void test_djibouti_8_32() {
 		testMethod("djbouti_8-32");
 	}

@@ -14,20 +14,20 @@ public final class Utils {
         }
         str += "]";
         return str;
-    
+
     }
 
     public static <K, V> String pairToString(Pair<K, V> pair) {
         return "Pair[" + pair.getFirst() + " : " + pair.getSecond() + "]";
-    
+
     }
 
-    public static <K> String printArray(K[] array){
-        if(array == null){
+    public static <K> String printArray(K[] array) {
+        if (array == null) {
             return "null";
         }
         String str = "[";
-        for(K entry: array){
+        for (K entry : array) {
             str += entry + ", ";
         }
         str += "]";
@@ -97,13 +97,14 @@ public final class Utils {
             totalIter++;
             if (totalIter > knot.knotPoints.size()) {
                 return false;
-    
+
             }
         }
     }
 
-    public static Pair<VirtualPoint, VirtualPoint> marchLookup(Knot knot, VirtualPoint start, VirtualPoint away, Segment cutSegment2) {
-        if(!knot.hasSegment(cutSegment2)){
+    public static Pair<VirtualPoint, VirtualPoint> marchLookup(Knot knot, VirtualPoint start, VirtualPoint away,
+            Segment cutSegment2) {
+        if (!knot.hasSegment(cutSegment2)) {
             return null;
         }
         int idx = knot.knotPoints.indexOf(start);
@@ -145,10 +146,10 @@ public final class Utils {
             ArrayList<VirtualPoint> knotList) {
         int cp1 = knotList.indexOf(cutp1);
         int kp1 = knotList.indexOf(knotp1);
-    
+
         int cp2 = knotList.indexOf(cutp2);
         int kp2 = knotList.indexOf(knotp2);
-    
+
         if ((cp1 > kp1 && cp1 < kp2 && cp2 > kp1 && cp2 < kp2)
                 ||
                 (cp1 > kp2 && cp1 < kp1 && cp2 > kp2 && cp2 < kp1)
@@ -162,13 +163,16 @@ public final class Utils {
                 (kp1 < cp1 && kp1 < cp2 && kp2 < cp1 && kp2 < cp2)) {
             return true;
         }
-    
+
         return false;
     }
 
     public static boolean marchUntilHasOneKnotPoint(VirtualPoint startPoint, Segment awaySegment,
             Segment untilSegment, VirtualPoint kp1, VirtualPoint kp2, Knot knot) {
         int idx = knot.knotPoints.indexOf(startPoint);
+        if (idx == -1) {
+            float z = 1;
+        }
         int idx2 = knot.knotPoints.indexOf(awaySegment.getOther(startPoint));
         int marchDirection = idx2 - idx < 0 ? -1 : 1;
         if (idx == 0 && idx2 == knot.knotPoints.size() - 1) {
@@ -215,7 +219,7 @@ public final class Utils {
 
     public static Segment[] toSegmentArray(ArrayList<Segment> first) {
         Segment[] array = new Segment[first.size()];
-        for(int i = 0; i < first.size(); i ++){
+        for (int i = 0; i < first.size(); i++) {
             array[i] = first.get(i);
         }
         return array;
@@ -224,16 +228,16 @@ public final class Utils {
     public static Segment[] toSegmentArray(Set<Segment> first) {
         Segment[] array = new Segment[first.size()];
         int i = 0;
-        for(Segment s : first){
+        for (Segment s : first) {
             array[i] = s;
-            i ++;
+            i++;
         }
         return array;
     }
 
     public static boolean setContains(Set<Segment> matches, Segment matchSegmentAcrossFinal) {
         for (Segment segment : matches) {
-            if(segment.equals(matchSegmentAcrossFinal)){
+            if (segment.equals(matchSegmentAcrossFinal)) {
                 return true;
             }
         }
@@ -242,8 +246,8 @@ public final class Utils {
 
     public static ArrayList<VirtualPoint> segmentListToPath(ArrayList<Segment> segments) {
         ArrayList<VirtualPoint> result = new ArrayList<>();
-        for(int i = 0; i <segments.size(); i ++){
-            int prev = i -1 < 0 ? segments.size()-1 : i -1; 
+        for (int i = 0; i < segments.size(); i++) {
+            int prev = i - 1 < 0 ? segments.size() - 1 : i - 1;
             Segment s1 = segments.get(prev);
             Segment s2 = segments.get(i);
             VirtualPoint p = s1.getOverlap(s2);
@@ -251,5 +255,23 @@ public final class Utils {
         }
         return result;
     }
-    
+
+    public static Segment getSegmentInSubKnot(VirtualPoint otherNeighborPoint, Knot knot, Knot superKnot) {
+        int idx = superKnot.knotPointsFlattened.indexOf(otherNeighborPoint);
+        VirtualPoint prev = superKnot.getPrev(idx);
+        VirtualPoint next = superKnot.getNext(idx);
+        if (knot.contains(prev)) {
+            return otherNeighborPoint.getClosestSegment(prev, null);
+        } else if (knot.contains(next)) {
+            return otherNeighborPoint.getClosestSegment(next, null);
+        }
+        return null;
+
+    }
+
+    public static boolean hasNeighbor(CutInfo c, Segment checkSegment21) {
+        return c.innerNeighborSegmentLookup.containsKey(Segment.getFirstOrderId(checkSegment21),
+                Segment.getLastOrderId(checkSegment21));
+    }
+
 }

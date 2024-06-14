@@ -22,7 +22,8 @@ public class InternalPathEngine {
 
         SegmentBalanceException sbe = new SegmentBalanceException(shell, null,
                 new CutInfo(shell, knotPoint1, cutPointA, knotPoint1.getClosestSegment(cutPointA, null), external1,
-                        knotPoint2, cutPointB, knotPoint2.getClosestSegment(cutPointB, null), external2, knot, balanceMap));
+                        knotPoint2, cutPointB, knotPoint2.getClosestSegment(cutPointB, null), external2, knot,
+                        balanceMap));
 
         shell.buff.add("recutting knot: " + knot);
         shell.buff.add(
@@ -60,8 +61,15 @@ public class InternalPathEngine {
 
         if (minKnot.equals(knot)) {
             Segment connector = cutPointA.getClosestSegment(cutPointB, null);
+            if (balanceMap.isBalanced() || knot.hasSegment(connector)) {
+                return new CutMatchList(shell, sbe, knot);
+            }
             CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
-            cutMatchList.addSimpleMatch(connector, knot, "InternalPathEngineMinKnotIsKnot");
+            try {
+                cutMatchList.addSimpleMatch(connector, knot, "InternalPathEngineMinKnotIsKnot");
+            } catch (SegmentBalanceException be) {
+                throw be;
+            }
             return cutMatchList;
         }
         // if neither orphan is on the top level, find their minimal knot in common and
@@ -89,7 +97,8 @@ public class InternalPathEngine {
     public CutMatchList recutWithInternalNeighbor(VirtualPoint topKnotPoint,
             VirtualPoint topPoint, VirtualPoint topExternal, VirtualPoint botKnotPoint, VirtualPoint botPoint,
             VirtualPoint botExternal, Knot minKnot,
-            Knot knot, SegmentBalanceException sbe, BalanceMap balanceMap) throws SegmentBalanceException, BalancerException {
+            Knot knot, SegmentBalanceException sbe, BalanceMap balanceMap)
+            throws SegmentBalanceException, BalancerException {
 
         Segment kpSegment = knot.getSegment(topKnotPoint, botKnotPoint);
 
@@ -148,13 +157,6 @@ public class InternalPathEngine {
             upperCutSegment = knot.getSegment(kp2, vp2);
         }
 
-        if (upperCutSegment.equals(cut)) {
-            shell.buff.add("upper cut equals lower cut");
-            shell.buff.add(upperCutSegment);
-            shell.buff.add(cut);
-            new CutMatchList(shell, sbe, knot);
-            throw new SegmentBalanceException(sbe);
-        }
         VirtualPoint outsideUpperCutPoint = kp2;
         if (upperCutPointIsOutside && minKnot.contains(kp2)) {
             outsideUpperCutPoint = vp2;
@@ -404,11 +406,6 @@ public class InternalPathEngine {
             }
         }
 
-        if (upperCutSegment.contains(neighbor) && upperCutSegment.contains(vp)) {
-            shell.buff.add("rematching cut segment");
-            new CutMatchList(shell, sbe, knot);
-            throw new SegmentBalanceException(sbe);
-        }
 
         // TODO: djbouti_8-26_finalCut_cut9-10and0-2
         // Problem, we are picking the wrong neighbor for the following reason, the
@@ -630,9 +627,9 @@ public class InternalPathEngine {
             Knot result = new Knot(points, shell, false);
             return result;
         }
-        
-        for(VirtualPoint vp : minKnot.knotPointsFlattened){
-            if(!knot.contains(vp)){
+
+        for (VirtualPoint vp : minKnot.knotPointsFlattened) {
+            if (!knot.contains(vp)) {
                 float z = 0;
             }
         }
@@ -783,15 +780,15 @@ public class InternalPathEngine {
         }
 
         Segment upperCutSegment = topKnotPoint.getClosestSegment(topPoint, null);
-        if(minKnot.hasPoint(topPoint.id) && minKnot.hasPoint(topKnotPoint.id)){
+        if (minKnot.hasPoint(topPoint.id) && minKnot.hasPoint(topKnotPoint.id)) {
             upperCutSegment = botKnotPoint.getClosestSegment(botPoint, null);
         }
         if (outerPoint == null || innerPoint == null) {
         } else {
             minKnot = findExpandedKnot(knot, minKnot, innerPoint, outerPoint, upperCutSegment, sbe);
         }
-        for(VirtualPoint vp : minKnot.knotPointsFlattened){
-            if(!knot.contains(vp)){
+        for (VirtualPoint vp : minKnot.knotPointsFlattened) {
+            if (!knot.contains(vp)) {
                 float z = 0;
             }
         }

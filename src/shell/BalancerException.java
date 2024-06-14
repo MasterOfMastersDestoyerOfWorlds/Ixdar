@@ -15,9 +15,10 @@ public class BalancerException extends SegmentBalanceException{
         //TODO Auto-generated constructor stub
     }
 
-    public BalancerException(VirtualPoint vp, SegmentBalanceException sbe) {
+    public BalancerException(VirtualPoint vp, Segment newMatch, SegmentBalanceException sbe, String messageType) {
         super(sbe);
-        errorMsg = "BAD External Match: " + vp;
+        errorMsg = messageType + vp + " " + newMatch;
+        //TODO Auto-generated constructor stub
     }
 
     @Override

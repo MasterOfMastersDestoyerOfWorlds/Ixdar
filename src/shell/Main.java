@@ -67,7 +67,7 @@ public class Main extends JComponent {
 		frame.setSize(new Dimension(WIDTH, HEIGHT));
 		frame.setVisible(true);
 
-		String fileName = "wi29_6-25";
+		String fileName = "djbouti_4-8WH4-6";
 		boolean printAll = false;
 		retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 		DistanceMatrix d = new DistanceMatrix(retTup.ps);
@@ -295,6 +295,24 @@ public class Main extends JComponent {
 		g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
 		drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, sbe.ex2);
 
+		g2.setColor(new Color(238, 130, 238));
+		BalanceMap bm = sbe.c.balanceMap;
+		for (Segment externalMatch : bm.externalMatches) {
+			if (externalMatch.equals(sbe.ex1) || externalMatch.equals(sbe.ex2)) {
+				continue;
+			}
+			VirtualPoint kp = externalMatch.last;
+			if (bm.knot.contains(externalMatch.first)) {
+				kp = externalMatch.first;
+			}
+			Point2D kp2d = ((Point) kp).p.toPoint2D();
+			firstCoords[0] = (-(kp2d.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
+			firstCoords[1] = (-(kp2d.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
+			g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
+			drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords,
+					externalMatch);
+		}
+
 		// Draw Cuts and Matches
 		for (CutMatch cutMatch : sbe.cutMatchList.cutMatches) {
 
@@ -468,12 +486,18 @@ public class Main extends JComponent {
 						if (d == null) {
 							d = new DistanceMatrix(ps);
 						}
-						PointND wormHole = d.addDummyNode(lookUp.get(java.lang.Integer.parseInt(cords[1])),
-								lookUp.get(java.lang.Integer.parseInt(cords[2])));
+						int firstPointId = java.lang.Integer.parseInt(cords[1]);
+						int secondPointId = java.lang.Integer.parseInt(cords[2]);
+						PointND wormHole = d.addDummyNode(lookUp.get(firstPointId),
+								lookUp.get(secondPointId));
+						int insertIdx = firstPointId;
+						if (firstPointId > secondPointId) {
+							insertIdx = secondPointId;
+						}
 						pt2d = wormHole.toPoint2D();
-						lines.add(wormHole);
-						ps.add(wormHole);
-						tsp.add(wormHole);
+						lines.add(insertIdx + 1,wormHole);
+						ps.add(insertIdx + 1,wormHole);
+						tsp.add(insertIdx + 1, wormHole);
 
 					} else {
 						PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(cords[1]),

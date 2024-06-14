@@ -69,7 +69,7 @@ class CutMatch {
             for (Segment s : matchSegments) {
                 if (knotSegments.contains(s)) {
                     shell.buff.add(this);
-                    throw new InvalidCutException(sbe);
+                    throw new InvalidCutException("Matching Segment already in Knot", sbe);
                 }
             }
         } else {
@@ -178,7 +178,7 @@ class CutMatchList {
         this.updateDelta();
         if (!this.checkCutMatchBalance(c.lowerMatchSegment, c.upperMatchSegment, c.cutSegment1,
                 cutSegments, c,
-                false, false)) {
+                false, true)) {
             throw new SegmentBalanceException(shell, this, c);
         }
 
@@ -196,6 +196,9 @@ class CutMatchList {
         if (match1) {
             cm.matchSegments.add(matchSegment1);
         }
+        cm.c = c;
+        cm.originalCutSegments = segments;
+        cm.originalMatchSegments = new Segment[]{matchSegment1, matchSegment2};
         cm.matchSegments.add(matchSegment2);
         cm.knot = c.knot;
         cm.kp1 = kp1;
@@ -478,17 +481,21 @@ class CutMatchList {
     }
 
     public void updateDelta() {
-        delta = 0;
+        delta = 0.0;
+        ArrayList<Segment> seenCuts = new ArrayList<>();
+        ArrayList<Segment> seenMatches = new ArrayList<>();
         for (CutMatch cm : cutMatches) {
             cm.updateDelta();
             for (Segment s : cm.cutSegments) {
-                if (this.topKnot.hasSegment(s)) {
+                if (!seenCuts.contains(s) && this.topKnot.hasSegment(s)) {
                     delta -= s.distance;
+                    seenCuts.add(s);
                 }
             }
             for (Segment s : cm.matchSegments) {
-                if (!this.topKnot.hasSegment(s)) {
+                if (!seenMatches.contains(s) &&  !this.topKnot.hasSegment(s)) {
                     delta += s.distance;
+                    seenMatches.add(s);
                 }
             }
         }
