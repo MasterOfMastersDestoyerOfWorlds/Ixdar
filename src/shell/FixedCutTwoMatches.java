@@ -1,11 +1,6 @@
 package shell;
 
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
-
-import org.apache.commons.lang3.tuple.ImmutableTriple;
-import org.apache.commons.lang3.tuple.Triple;
 import org.apache.commons.math3.util.Pair;
 
 public class FixedCutTwoMatches extends FixedCut {
@@ -73,7 +68,6 @@ public class FixedCutTwoMatches extends FixedCut {
         int numMatchesNeeded = c.balanceMap.getNumMatchesNeeded(external2);
         int numMatchesNeededOther = c.balanceMap.getNumMatchesNeeded(otherNeighborPoint);
 
-
         for (int b = 0; b < knot.knotPoints.size(); b++) {
 
             VirtualPoint knotPoint21 = knot.knotPoints.get(b);
@@ -86,7 +80,8 @@ public class FixedCutTwoMatches extends FixedCut {
             double delta = Double.MAX_VALUE;
 
             CutMatchList cutMatch1 = tryCombo(knotPoint11, knotPoint12, external2, cutSegment1, knotPoint21,
-                    knotPoint22, otherNeighborPoint, cutSegment2, orgCutSegment, otherNeighborSegment, numMatchesNeeded, numMatchesNeededOther);
+                    knotPoint22, otherNeighborPoint, cutSegment2, orgCutSegment, otherNeighborSegment, numMatchesNeeded,
+                    numMatchesNeededOther);
             double d1 = Double.MAX_VALUE;
             if (cutMatch1 != null) {
                 d1 = cutMatch1.delta;
@@ -94,7 +89,8 @@ public class FixedCutTwoMatches extends FixedCut {
             }
 
             CutMatchList cutMatch2 = tryCombo(knotPoint12, knotPoint11, external2, cutSegment1, knotPoint22,
-                    knotPoint21, otherNeighborPoint,cutSegment2, orgCutSegment, otherNeighborSegment, numMatchesNeeded, numMatchesNeededOther);
+                    knotPoint21, otherNeighborPoint, cutSegment2, orgCutSegment, otherNeighborSegment, numMatchesNeeded,
+                    numMatchesNeededOther);
             double d2 = Double.MAX_VALUE;
             if (cutMatch2 != null) {
                 d2 = cutMatch2.delta;
@@ -102,7 +98,8 @@ public class FixedCutTwoMatches extends FixedCut {
             }
 
             CutMatchList cutMatch3 = tryCombo(knotPoint11, knotPoint12, external2, cutSegment1, knotPoint22,
-                    knotPoint21, otherNeighborPoint,cutSegment2, orgCutSegment, otherNeighborSegment, numMatchesNeeded, numMatchesNeededOther);
+                    knotPoint21, otherNeighborPoint, cutSegment2, orgCutSegment, otherNeighborSegment, numMatchesNeeded,
+                    numMatchesNeededOther);
             double d3 = Double.MAX_VALUE;
             if (cutMatch3 != null) {
                 d3 = cutMatch3.delta;
@@ -110,7 +107,8 @@ public class FixedCutTwoMatches extends FixedCut {
             }
 
             CutMatchList cutMatch4 = tryCombo(knotPoint12, knotPoint11, external2, cutSegment1, knotPoint21,
-                    knotPoint22, otherNeighborPoint, cutSegment2, orgCutSegment, otherNeighborSegment, numMatchesNeeded, numMatchesNeededOther);
+                    knotPoint22, otherNeighborPoint, cutSegment2, orgCutSegment, otherNeighborSegment, numMatchesNeeded,
+                    numMatchesNeededOther);
             double d4 = Double.MAX_VALUE;
             if (cutMatch4 != null) {
                 d4 = cutMatch4.delta;
@@ -148,7 +146,8 @@ public class FixedCutTwoMatches extends FixedCut {
 
     public CutMatchList tryCombo(VirtualPoint kp1, VirtualPoint cp1, VirtualPoint external2, Segment cutSegment1,
             VirtualPoint kp2, VirtualPoint cp2, VirtualPoint otherNeighborPoint,
-            Segment cutSegment2, Segment orgCutSegment, Segment otherNeighborSegment, int numMatchesNeeded, int numMatchesNeededOther)
+            Segment cutSegment2, Segment orgCutSegment, Segment otherNeighborSegment, int numMatchesNeeded,
+            int numMatchesNeededOther)
             throws SegmentBalanceException {
         Segment matchSegment11 = kp1.getClosestSegment(external2, null);
         Segment matchSegment12 = kp2.getClosestSegment(otherNeighborPoint, null);
@@ -162,9 +161,10 @@ public class FixedCutTwoMatches extends FixedCut {
             float z = 1;
         }
         boolean canMatch = true;
-        boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, kp2, external2, otherNeighborPoint);
-        boolean wouldBeStartingUnbalanced = c.balanceMap.balancedOmega(kp1, cp1, cutSegment1, kp2, cp2, cutSegment2,
-                knot, c);
+        boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, external2, matchSegment11, kp2, otherNeighborPoint, matchSegment12);
+        boolean wouldBeStartingUnbalanced = c.balanceMap.balancedOmega(kp1, cp1, cutSegment1, external2, matchSegment11,
+                kp2, cp2, cutSegment2, otherNeighborPoint, matchSegment12,
+                knot, c, true);
         boolean failCutMatch = !canMatchExternals || !wouldBeStartingUnbalanced;
         if (failCutMatch
                 || c.balanceMap.cuts.contains(matchSegment11)
@@ -234,60 +234,6 @@ public class FixedCutTwoMatches extends FixedCut {
             }
         }
         return cutMatch1;
-    }
-
-    public Triple<Set<Segment>, Set<Segment>, Pair<VirtualPoint, VirtualPoint>> findSimpleMatch(
-            Segment cutSegment1Segment) {
-        Segment matchSegment1 = null;
-        Segment matchSegment2 = null;
-        Segment matchSegment3 = null;
-        Segment cutSegment2Final = null;
-        Segment innerSegment1 = null;
-        Segment innerSegment2 = null;
-        Segment innerSegment3 = null;
-        Set<Segment> previousMatches = new HashSet<>();
-        Set<Segment> internalCuts = new HashSet<>();
-        if (neighborCutSegments.size() > 0) {
-            matchSegment1 = neighborCutSegments.get(0).getFirst();
-            previousMatches.add(matchSegment1);
-            innerSegment1 = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(matchSegment1),
-                    Segment.getLastOrderId(matchSegment1));
-            internalCuts.add(innerSegment1);
-        }
-        if (neighborCutSegments.size() > 1) {
-            matchSegment2 = neighborCutSegments.get(1).getFirst();
-            previousMatches.add(matchSegment2);
-            innerSegment2 = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(matchSegment2),
-                    Segment.getLastOrderId(matchSegment2));
-            internalCuts.add(innerSegment2);
-        }
-        if (neighborCutSegments.size() > 2) {
-            matchSegment3 = neighborCutSegments.get(2).getFirst();
-            previousMatches.add(matchSegment3);
-            innerSegment3 = innerNeighborSegmentLookup.get(Segment.getFirstOrderId(matchSegment3),
-                    Segment.getLastOrderId(matchSegment3));
-            internalCuts.add(innerSegment3);
-        }
-        if (innerSegment1 != null && innerSegment1.equals(innerSegment2)
-                || innerSegment1 != null && innerSegment1.equals(innerSegment3)) {
-            cutSegment2Final = innerSegment1;
-        } else if (innerSegment2 != null && innerSegment2.equals(innerSegment3)) {
-            cutSegment2Final = innerSegment2;
-        } else {
-            cutSegment2Final = innerSegment1;
-        }
-
-        Pair<VirtualPoint, VirtualPoint> mirrors = null;
-        if (cutSegment1.contains(upperKnotPoint)) {
-            mirrors = Utils.marchLookup(knot, upperKnotPoint, cutSegment1.getOther(upperKnotPoint),
-                    cutSegment2Final);
-        } else {
-
-            mirrors = Utils.marchLookup(knot, upperKnotPoint, cutSegment2Final.getOther(upperKnotPoint),
-                    cutSegment1);
-        }
-
-        return new ImmutableTriple<>(previousMatches, internalCuts, mirrors);
     }
 
 }

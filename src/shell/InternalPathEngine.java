@@ -26,6 +26,7 @@ public class InternalPathEngine {
                         balanceMap));
 
         shell.buff.add("recutting knot: " + knot);
+        
         shell.buff.add(
                 "knotPoint1: " + knotPoint1 + " external1: " + external1);
         shell.buff.add(

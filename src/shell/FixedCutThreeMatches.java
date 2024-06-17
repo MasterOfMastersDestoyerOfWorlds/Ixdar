@@ -165,8 +165,9 @@ public class FixedCutThreeMatches extends FixedCut {
         Segment matchSegment22 = kp2.getClosestSegment(external2, null);
         
         boolean canMatch = true;
-        boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, kp2, external2, otherNeighborPoint);
-        boolean wouldBeStartingUnbalanced  = c.balanceMap.balancedOmega(kp1, cp1, cutSegment1, kp2, cp2, cutSegment2, knot, c);
+        boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, external2, matchSegment11, kp2, otherNeighborPoint, matchSegment12);
+        boolean wouldBeStartingUnbalanced  = c.balanceMap.balancedOmega(kp1, cp1, cutSegment1, external2, matchSegment11,
+         kp2, cp2, cutSegment2, otherNeighborPoint, matchSegment12, knot, c, true);
         boolean failCutMatch = !canMatchExternals || !wouldBeStartingUnbalanced;
         if (failCutMatch
                 || c.balanceMap.cuts.contains(matchSegment11)

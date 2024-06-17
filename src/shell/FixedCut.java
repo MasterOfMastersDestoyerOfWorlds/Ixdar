@@ -84,8 +84,10 @@ public class FixedCut implements FixedCutInterface {
                 + " ex2: " + upperMatchSegment.getOther(upperKnotPoint);
     }
 
-    public CutMatchList findCutMatchListFixedCut()
-            throws SegmentBalanceException, BalancerException {
+    @Override
+    public CutMatchList findCutMatchListFixedCut() throws SegmentBalanceException, BalancerException {
+        // TODO Auto-generated method stubSegmentBalanceException sbe = new
+        // SegmentBalanceException(shell, null, superKnot, cutSegment1,
 
         if (needTwoNeighborMatches && !bothCutPointsOutside) {
             shell.buff.add("findCutMatchListFixedCutNeedTwoMatches");
@@ -101,7 +103,7 @@ public class FixedCut implements FixedCutInterface {
             shell.buff.add("findCutMatchListBothCutsOutside");
             return new FixedCutBothCutsOutside(c).findCutMatchListFixedCut();
         }
-        shell.buff.add("findCutMatchListFixed Cut");
+        shell.buff.add("findCutMatchListFixed Cut ID: " + c.cutID);
         cutEngine.totalCalls++;
         if (cutEngine.cutLookup.containsKey(knot.id, external2.id, kp1.id, cp1.id, superKnot.id)) {
             cutEngine.resolved++;
@@ -129,15 +131,66 @@ public class FixedCut implements FixedCutInterface {
         int overlapping = -1;
         CutMatchList result = null;
 
-        
+        if (upperMatchSegment == null) {
+            new CutMatchList(shell, sbe, c.superKnot);
+            throw new SegmentBalanceException(sbe);
+        }
+        if (!(knot.contains(cutSegment1.first) && knot.contains(cutSegment1.last))) {
+            new CutMatchList(shell, sbe, c.superKnot);
+            throw new SegmentBalanceException(sbe);
+        }
+        if ((knot.contains(external1) || knot.contains(external2))) {
+            new CutMatchList(shell, sbe, c.superKnot);
+            throw new SegmentBalanceException(sbe);
+        }
+
+        ArrayList<VirtualPoint> uniqueNeighborPoints = new ArrayList<>();
+        ArrayList<Segment> uniqueNeighborSegments = new ArrayList<>();
+        VirtualPoint otherNeighborPoint = external2;
+        VirtualPoint otherNeighborPoint2 = external2;
+        Segment otherNeighborSegment = c.superKnot.getOtherSegment(c.upperCutSegment, external2);
+        uniqueNeighborPoints.add(external2);
+        for (Pair<Segment, VirtualPoint> p : neighborCutSegments) {
+            if (!p.getSecond().equals(external2)) {
+                uniqueNeighborPoints.add(p.getSecond());
+                uniqueNeighborSegments.add(p.getFirst());
+            }
+        }
+        shell.buff.add(uniqueNeighborPoints);
+        int numUnique = uniqueNeighborPoints.size();
+        if (numUnique > 1) {
+            uniqueNeighborPoints.remove(external2);
+            otherNeighborPoint = uniqueNeighborPoints.get(0);
+            otherNeighborSegment = uniqueNeighborSegments.get(0);
+        }
+        if (numUnique > 2) {
+            shell.buff.add("REEE " + uniqueNeighborPoints);
+
+            uniqueNeighborPoints.remove(otherNeighborPoint);
+            otherNeighborPoint2 = uniqueNeighborPoints.get(0);
+        }
+        uniqueNeighborPoints.add(otherNeighborPoint);
+        uniqueNeighborPoints.add(external2);
+        shell.buff.add("unique neighbor points: " + numUnique +
+                " otherNeghborPoint2: " + otherNeighborPoint2 + " onp: " + otherNeighborPoint + " ex2: " + external2);
+
+        Segment orgCutSegment = c.upperCutSegment;
+
+        VirtualPoint knotPoint11 = kp1;
+        VirtualPoint knotPoint12 = cp1;
         int numMatchesNeeded = c.balanceMap.getNumMatchesNeeded(external2);
+        int numMatchesNeededOther = c.balanceMap.getNumMatchesNeeded(otherNeighborPoint);
 
-        for (int a = 0; a < knot.knotPoints.size(); a++) {
+        for (int b = 0; b < knot.knotPoints.size(); b++) {
 
-            VirtualPoint knotPoint21 = knot.knotPoints.get(a);
-            VirtualPoint knotPoint22 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
+            VirtualPoint knotPoint21 = knot.knotPoints.get(b);
+            VirtualPoint knotPoint22 = knot.knotPoints.get(b + 1 >= knot.knotPoints.size() ? 0 : b + 1);
+
             Segment cutSegment2 = knot.getSegment(knotPoint21, knotPoint22);
-
+            if (c.cutID == 104) {
+                float z = 1;
+            }
+            double delta = Double.MAX_VALUE;
             // I think that the continue state instead of being do the ct sgments partially
             // overlapp each other, should instead
             // be like
@@ -145,38 +198,17 @@ public class FixedCut implements FixedCutInterface {
             if (c.cutID == 6570 && cutSegment2.hasPoints(11, 1)) {
                 float z = 1;
             }
-            if (cutSegment1.partialOverlaps(cutSegment2) && !cutSegment2.equals(kpSegment)) {
-                shell.buff.add("Checking: " + cutSegment2);
-
-                boolean leftHasOneOut = Utils.marchUntilHasOneKnotPoint(cutSegment1.first, cutSegment1,
-                        cutSegment2, kp1, upperKnotPoint, knot);
-                boolean rightHasOneOut = Utils.marchUntilHasOneKnotPoint(cutSegment1.last, cutSegment1,
-                        cutSegment2, kp1, upperKnotPoint, knot);
-                shell.buff.add(leftHasOneOut + " " + rightHasOneOut);
-                shell.buff.add("!(leftHasOneOut || rightHasOneOut)" + !(leftHasOneOut || rightHasOneOut));
-                shell.buff
-                        .add("(cutSegment1.contains(kp1) XOR cutSegment2.contains(kp1)" + kp1 + " " + cutSegment2 + " "
-                                + ((cutSegment2.contains(kp1) || cutSegment2.contains(c.upperKnotPoint))));
-                boolean skipFlag = true;
-                if (skipFlag || !(leftHasOneOut || rightHasOneOut)
-                        || ((cutSegment2.contains(kp1) || cutSegment2.contains(c.upperKnotPoint)))) {
-                    shell.buff.add("ONE SIDE WOULD BE UNBALANCED " + cutSegment2);
-
-                    continue;
-                }
-
-            }
             if (cutSegment1.equals(cutSegment2)) {
-                boolean canMatchExternals = c.balanceMap.canMatchTo(cp1, kp1, external1, external2);
+                Segment s11 = kp1.getClosestSegment(external1, null);
+                Segment s12 = cp1.getClosestSegment(external2, s11);
+                boolean canMatchExternals = c.balanceMap.canMatchTo(cp1, external1, s11, kp1, external2, s12);
                 boolean wouldBeStartingUnbalanced = c.balanceMap.balancedAlpha(cp1, kp1, cutSegment1, knot, c);
-                boolean failFlag1  = !canMatchExternals || !wouldBeStartingUnbalanced;
+                boolean failFlag1 = !canMatchExternals || !wouldBeStartingUnbalanced;
                 if (needTwoNeighborMatches || failFlag1) {
                     shell.buff.add("Skipping: " + cutSegment2);
                     continue;
                 }
                 shell.buff.add("ONLY YOUUUUUUUUU :" + cutSegment2);
-                Segment s11 = kp1.getClosestSegment(external1, null);
-                Segment s12 = cp1.getClosestSegment(external2, s11);
                 CutMatchList cutMatch = new CutMatchList(shell, sbe, c.superKnot);
                 cutMatch.addCutMatch(new Segment[] {}, new Segment[] { s12 }, c, "FixedCutSegmentsFullyOverlap");
                 boolean cutPointsAcross = false;
@@ -195,100 +227,40 @@ public class FixedCut implements FixedCutInterface {
                     shell.buff.add("UPDATING MINDELTA " + minDelta);
 
                 }
-            } else {
-                shell.buff.add("Garunteed: " + cutSegment2);
-                double delta = Double.MAX_VALUE;
-                VirtualPoint cp2 = knotPoint22;
-                VirtualPoint kp2 = knotPoint21;
-
-                // boolean orphanFlag = wouldOrphan(cp1, kp1, cp2, kp2,
-                // knot.knotPointsFlattened);
-
-                Segment s11 = kp1.getClosestSegment(external1, null);
-                Segment s12 = kp2.getClosestSegment(external2, s11);
-
-                boolean hasSegment = canCutSegment(kp2, s12, cp2, cutSegment2, innerNeighborSegmentsFlattened);
-
-                CutMatchList internalCuts1 = null;
-                CutMatchList cutMatch1 = null;
-                double d1 = Double.MAX_VALUE;
-                if (!hasSegment) {
-                    internalCuts1 = new CutMatchList(shell, sbe, superKnot);
-                    shell.buff.currentDepth++;
-                    BalanceMap balanceMap = new BalanceMap(c.balanceMap, knot, sbe);
-                    balanceMap.addCut(kp2, cp2);
-                    balanceMap.addExternalMatch(kp2, external2);
-                    if (kp1.equals(kp2)) {
-                    } else {
-                        internalCuts1 = cutEngine.internalPathEngine.calculateInternalPathLength(kp1, cp1, external1,
-                                kp2,
-                                cp2,
-                                external2, knot, balanceMap);
-                    }
-                    shell.buff.currentDepth--;
-
-                    shell.buff.add("" + internalCuts1);
-                    try {
-                        cutMatch1 = new CutMatchList(shell, sbe, c.superKnot);
-                        cutMatch1.addTwoCut(cutSegment1, new Segment[] { cutSegment2 }, s11,
-                                s12, kp1,
-                                kp2, internalCuts1, c, false, "FixedCut");
-                    } catch (SegmentBalanceException sbe) {
-                        throw sbe;
-
-                    }
-                    d1 = cutMatch1.delta;
-
-                    delta = d1 < delta ? d1 : delta;
-                }
-
-                // boolean orphanFlag2 = wouldOrphan(cp1, kp1, kp2, cp2,
-                // knot.knotPointsFlattened);
-
-                Segment s21 = kp1.getClosestSegment(external1, null);
-                Segment s22 = cp2.getClosestSegment(external2, s21);
-
-                CutMatchList internalCuts2 = null;
-                CutMatchList cutMatch2 = null;
-                double d2 = Double.MAX_VALUE;
-                boolean hasSegment2 = canCutSegment(cp2, s22, kp2, cutSegment2, innerNeighborSegmentsFlattened);
-                if (!hasSegment2) {
-                    shell.buff.currentDepth++;
-                    BalanceMap balanceMap2 = new BalanceMap(c.balanceMap, knot, sbe);
-                    balanceMap2.addCut(kp2, cp2);
-                    balanceMap2.addExternalMatch(cp2, external2);
-                    internalCuts2 = cutEngine.internalPathEngine.calculateInternalPathLength(kp1, cp1, external1, cp2,
-                            kp2,
-                            external2, knot, balanceMap2);
-                    shell.buff.currentDepth--;
-
-                    cutMatch2 = new CutMatchList(shell, sbe, c.superKnot);
-                    cutMatch2.addTwoCut(cutSegment1, new Segment[] { cutSegment2 }, s21,
-                            s22, kp1,
-                            cp2, internalCuts2, c, false, "FixedCut");
-
-                    d2 = cutMatch2.delta;
-
-                    delta = d2 < delta ? d2 : delta;
-                }
-
-                if (delta < minDelta) {
-                    if (!hasSegment && delta == d1) {
-                        result = cutMatch1;
-                    } else if (!hasSegment2 && delta == d2) {
-                        result = cutMatch2;
-
-                    }
-
-                    minDelta = delta;
-                    overlapping = 2;
-                }
-
             }
+
+            CutMatchList cutMatch1 = tryCombo(knotPoint11, knotPoint12, external1, cutSegment1, knotPoint21,
+                    knotPoint22, otherNeighborPoint, cutSegment2, orgCutSegment, otherNeighborSegment, numMatchesNeeded,
+                    numMatchesNeededOther);
+            double d1 = Double.MAX_VALUE;
+            if (cutMatch1 != null) {
+                d1 = cutMatch1.delta;
+                delta = d1 < delta ? d1 : delta;
+            }
+
+            CutMatchList cutMatch3 = tryCombo(knotPoint11, knotPoint12, external1, cutSegment1, knotPoint22,
+                    knotPoint21, otherNeighborPoint, cutSegment2, orgCutSegment, otherNeighborSegment, numMatchesNeeded,
+                    numMatchesNeededOther);
+            double d3 = Double.MAX_VALUE;
+            if (cutMatch3 != null) {
+                d3 = cutMatch3.delta;
+                delta = d3 < delta ? d3 : delta;
+            }
+
+            if (delta < minDelta) {
+                if (delta == d1) {
+                    result = cutMatch1;
+                }else if (delta == d3) {
+                    result = cutMatch3;
+                }
+                minDelta = delta;
+                overlapping = 2;
+            }
+
         }
-        if (result != null && overlapping == 1) {
+        if (overlapping == 1) {
             return result;
-        } else if (result != null && overlapping == 2) {
+        } else if (overlapping == 2) {
             return result;
 
         } else {
@@ -297,61 +269,72 @@ public class FixedCut implements FixedCutInterface {
             cml.addDumbCutMatch(knot, superKnot, "FixedCutNoAvailableCuts");
             throw new SegmentBalanceException(sbe);
         }
+
     }
 
-    public boolean canCutSegment(VirtualPoint kp2, Segment s22, VirtualPoint cp2, Segment cutSegment2,
-            ArrayList<VirtualPoint> innerNeighborSegmentsFlattened) {
-        // I think this is all to cope with the fact that we didn't have hte balance mapper, we should instead use the same technique as from Fixed Cut Two Matches
-        // Hopefully when we are done the only difference between FCTwoMatches, FixedCut and FCThreeMatches is the number of externals generated, so we should be able
-        // to re-write them to be one function. In Search of a Generalized Cutting Algorithm!
-        boolean innerNeighbor2 = false;
-        for (Segment s : innerNeighborSegments) {
-            if (s.contains(kp2)) {
-                innerNeighbor2 = true;
+    public CutMatchList tryCombo(VirtualPoint kp1, VirtualPoint cp1, VirtualPoint external1, Segment cutSegment1,
+            VirtualPoint kp2, VirtualPoint cp2, VirtualPoint otherNeighborPoint,
+            Segment cutSegment2, Segment orgCutSegment, Segment otherNeighborSegment, int numMatchesNeeded,
+            int numMatchesNeededOther)
+            throws SegmentBalanceException {
+        Segment matchSegment11 = kp1.getClosestSegment(external1, null);
+        Segment matchSegment12 = kp2.getClosestSegment(otherNeighborPoint, null);
+
+        if (kp2.equals(cp2)) {
+            float z = 1;
+        }
+        boolean canMatch = true;
+        if(c.cutID == 104 &&kp2.id == 0){
+            float z = 10;
+        }
+        boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, external1, matchSegment11, kp2, otherNeighborPoint, matchSegment12);
+        boolean canReBalance = c.balanceMap.balancedOmega(kp1, cp1, cutSegment1, external1, matchSegment11,
+                kp2, cp2, cutSegment2, external2, matchSegment12,
+                knot, c, false);
+        boolean failCutMatch = !canMatchExternals || !canReBalance;
+        if (failCutMatch
+                || c.balanceMap.cuts.contains(matchSegment11)
+                || c.balanceMap.cuts.contains(matchSegment12)) {
+            canMatch = false;
+        }
+        CutMatchList cutMatch1 = null;
+        double d1 = Double.MAX_VALUE;
+        if (canMatch) {
+
+            CutMatchList internalCuts = new CutMatchList(shell, sbe, superKnot);
+            BalanceMap balanceMap = new BalanceMap(c.balanceMap, knot, sbe);
+            try {
+                balanceMap.addCut(cutSegment1.first, cutSegment1.last);
+                balanceMap.addCut(cutSegment2.first, cutSegment2.last);
+                balanceMap.addExternalMatch(kp2, otherNeighborPoint);
+            } catch (BalancerException be) {
+                throw be;
+            }
+
+            if (c.cutID == 11 && balanceMap.ID == 5) {
+                float z = 1;
+            }
+            try {
+                internalCuts = cutEngine.internalPathEngine.calculateInternalPathLength(
+                        kp1, cp1, external1,
+                        kp2, cp2, otherNeighborPoint,
+                        knot, balanceMap);
+            } catch (SegmentBalanceException sbe) {
+                throw sbe;
+            }
+            cutMatch1 = new CutMatchList(shell, sbe, c.superKnot);
+            Segment[] cutSegments = new Segment[] { cutSegment1, cutSegment2 };
+            try {
+                cutMatch1.addTwoCut(orgCutSegment, cutSegments,
+                        matchSegment11,
+                        matchSegment12, kp1,
+                        cp1, internalCuts, c, false,
+                        "FixedCut1");
+            } catch (SegmentBalanceException e) {
+                throw e;
             }
         }
-
-        boolean replicatesNeighbor2 = false;
-        for (Segment s : neighborSegments) {
-            if (s.equals(s22)) {
-                replicatesNeighbor2 = false;
-            }
-        }
-
-        boolean outerNeighbor2 = false;
-        for (Segment s : neighborSegments) {
-            if (s.contains(kp2)) {
-                outerNeighbor2 = true;
-            }
-        }
-
-        boolean cutPointsAcross2 = false;
-        for (Segment s : innerNeighborSegments) {
-            if (s.equals(cutSegment2)) {
-                cutPointsAcross2 = true;
-            }
-        }
-
-        boolean neighborIntersect2 = false;
-        if (innerNeighborSegmentsFlattened.contains(cp1) && innerNeighborSegmentsFlattened.contains(kp2)) {
-            neighborIntersect2 = true;
-        }
-        boolean hasSegment2 = replicatesNeighbor2 || innerNeighbor2
-                || neighborIntersect2 || s22.equals(upperCutSegment) || cutPointsAcross2;
-        // false;//
-        // superKnot.hasSegment(s22)
-        // ||
-        // kpSegment.contains(cp2);
-
-        shell.buff.add("hasSegment2: " + s22 + " " + hasSegment2 + " " + replicatesNeighbor2 + " " + innerNeighbor2
-                + " " + outerNeighbor2 + " " + " " + neighborIntersect2 + " "
-                + s22.equals(upperCutSegment));
-        if (hasSegment2) {
-            shell.buff.add("REEE cutSeg1: " + cutSegment1 + " cutSeg2: " + cutSegment2 + " s22: " + s22
-                    + " cp2 :" + kp2 + " kpSegment " + kpSegment);
-
-        }
-        return hasSegment2;
+        return cutMatch1;
     }
 
 }
