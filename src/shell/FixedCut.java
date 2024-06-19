@@ -201,9 +201,10 @@ public class FixedCut implements FixedCutInterface {
             if (cutSegment1.equals(cutSegment2)) {
                 Segment s11 = kp1.getClosestSegment(external1, null);
                 Segment s12 = cp1.getClosestSegment(external2, s11);
-                boolean canMatchExternals = c.balanceMap.canMatchTo(cp1, external1, s11, kp1, external2, s12);
+                boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, external1, s11, cp1, external2, s12, knot);
                 boolean wouldBeStartingUnbalanced = c.balanceMap.balancedAlpha(cp1, kp1, cutSegment1, knot, c);
-                boolean failFlag1 = !canMatchExternals || !wouldBeStartingUnbalanced;
+                boolean failFlag1 = !canMatchExternals || !wouldBeStartingUnbalanced
+                        || c.balanceMap.cuts.contains(s11) || c.balanceMap.cuts.contains(s12);
                 if (needTwoNeighborMatches || failFlag1) {
                     shell.buff.add("Skipping: " + cutSegment2);
                     continue;
@@ -250,7 +251,7 @@ public class FixedCut implements FixedCutInterface {
             if (delta < minDelta) {
                 if (delta == d1) {
                     result = cutMatch1;
-                }else if (delta == d3) {
+                } else if (delta == d3) {
                     result = cutMatch3;
                 }
                 minDelta = delta;
@@ -284,10 +285,11 @@ public class FixedCut implements FixedCutInterface {
             float z = 1;
         }
         boolean canMatch = true;
-        if(c.cutID == 104 &&kp2.id == 0){
+        if (c.cutID == 135) {
             float z = 10;
         }
-        boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, external1, matchSegment11, kp2, otherNeighborPoint, matchSegment12);
+        boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, external1, matchSegment11, kp2, otherNeighborPoint,
+                matchSegment12, knot);
         boolean canReBalance = c.balanceMap.balancedOmega(kp1, cp1, cutSegment1, external1, matchSegment11,
                 kp2, cp2, cutSegment2, external2, matchSegment12,
                 knot, c, false);
@@ -306,7 +308,7 @@ public class FixedCut implements FixedCutInterface {
             try {
                 balanceMap.addCut(cutSegment1.first, cutSegment1.last);
                 balanceMap.addCut(cutSegment2.first, cutSegment2.last);
-                balanceMap.addExternalMatch(kp2, otherNeighborPoint);
+                balanceMap.addExternalMatch(kp2, otherNeighborPoint, c.superKnot);
             } catch (BalancerException be) {
                 throw be;
             }

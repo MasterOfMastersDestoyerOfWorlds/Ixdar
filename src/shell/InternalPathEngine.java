@@ -26,7 +26,7 @@ public class InternalPathEngine {
                         balanceMap));
 
         shell.buff.add("recutting knot: " + knot);
-        
+
         shell.buff.add(
                 "knotPoint1: " + knotPoint1 + " external1: " + external1);
         shell.buff.add(
@@ -407,7 +407,6 @@ public class InternalPathEngine {
             }
         }
 
-
         // TODO: djbouti_8-26_finalCut_cut9-10and0-2
         // Problem, we are picking the wrong neighbor for the following reason, the
         // niebor should be in the
@@ -481,12 +480,31 @@ public class InternalPathEngine {
                     upperCutPointIsOutside, bothKnotPointsInside, bothKnotPointsOutside, bothCutPointsOutside, kp2,
                     upperMatchSegment,
                     upperCutSegment, kp,
-                    lowerMatchSegment, lowerCutSegment, balanceMap);
-            if (lc.cutID == 852) {
+                    lowerMatchSegment, lowerCutSegment, null);
+
+            CutInfo rc = new CutInfo(shell, minKnot, ex, neighbor, rightCut, kp, rightPoint,
+                    knot,
+                    kpSegment,
+                    rightInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments,
+                    neighborCuts, vp2,
+                    upperCutPointIsOutside, bothKnotPointsInside, bothKnotPointsOutside, bothCutPointsOutside, kp2,
+                    upperMatchSegment,
+                    upperCutSegment, kp, lowerMatchSegment,
+                    lowerCutSegment, balanceMap);
+            if (lc.cutID == 135) {
                 float z = 1;
             }
             shell.buff.add("cutting left");
+            BalanceMap balanceMapLeft = new BalanceMap(balanceMap, knot, sbe);
+            lc.balanceMap = balanceMapLeft;
+            boolean wouldBeDefaultUnbalanced = balanceMapLeft.balancedAlpha(kp, leftPoint, leftCut, knot, lc);
+            BalanceMap balanceMapRight = new BalanceMap(balanceMap, knot, sbe);
+            lc.balanceMap = balanceMapRight;
+            boolean wouldBeDefaultUnbalancedRight = balanceMapRight.balancedAlpha(kp, rightPoint, rightCut, knot, rc);
 
+            if (!wouldBeDefaultUnbalanced) {
+                float z = 0;
+            }
             shell.buff.add("LEFTCUT : " + lc);
             if (canCutLeft) {
                 leftCutMatch = new FixedCut(lc).findCutMatchListFixedCut();
@@ -498,15 +516,6 @@ public class InternalPathEngine {
 
             boolean canCutRight = !rightInnerNeighborSegments.contains(rightCut) && !leftCut.equals(kpSegment);
             CutMatchList rightCutMatch = null;
-            CutInfo rc = new CutInfo(shell, minKnot, ex, neighbor, rightCut, kp, rightPoint,
-                    knot,
-                    kpSegment,
-                    rightInnerNeighborSegments, innerNeighborSegmentLookup, neighborSegments,
-                    neighborCuts, vp2,
-                    upperCutPointIsOutside, bothKnotPointsInside, bothKnotPointsOutside, bothCutPointsOutside, kp2,
-                    upperMatchSegment,
-                    upperCutSegment, kp, lowerMatchSegment,
-                    lowerCutSegment, balanceMap);
             if (canCutRight) {
                 rightCutMatch = new FixedCut(rc).findCutMatchListFixedCut();
                 rightCutMatch.addCutDiff(rightCut, knot, "InternalPathEngineRight");

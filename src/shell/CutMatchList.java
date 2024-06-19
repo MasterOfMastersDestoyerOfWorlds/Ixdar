@@ -646,6 +646,17 @@ class CutMatchList {
                 allSegments.add(s);
             }
         }
+        boolean ex1Partial = false;
+        boolean ex2Partial = false;
+        for(Segment externalMatch : c.balanceMap.externalMatches){
+            allSegments.add(externalMatch);
+            if(externalMatch.contains(externalPoint1)){
+                ex1Partial = true;
+            }
+            if(externalMatch.contains(externalPoint2)){
+                ex2Partial = true;
+            }
+        }
         for (Segment s : allSegments) {
             balance2.put(s.first.id, balance2.getOrDefault(s.first.id, 0) + 1);
             balance2.put(s.last.id, balance2.getOrDefault(s.last.id, 0) + 1);
@@ -655,13 +666,13 @@ class CutMatchList {
         int breaki = -1;
         for (Integer i : balance.keySet()) {
             int val = balance.get(i);
-            if (i == externalPoint1.id && !externalPoint1.equals(externalPoint2) && val != 1) {
+            if (i == externalPoint1.id && !externalPoint1.equals(externalPoint2) && !ex1Partial && val != 1) {
                 shell.buff.add(printBalance, "external 1 " + (i == externalPoint1.id) + " "
                         + (!externalPoint1.equals(externalPoint2)) + " "
                         + (val != 1));
                 flag = false;
                 breaki = i;
-            } else if (i == externalPoint2.id && !externalPoint1.equals(externalPoint2) && val != 1) {
+            } else if (i == externalPoint2.id && !externalPoint1.equals(externalPoint2) && !ex2Partial && val != 1) {
                 flag = false;
                 breaki = i;
                 shell.buff.add(printBalance, "external 2 " + (i == externalPoint2.id) + " "

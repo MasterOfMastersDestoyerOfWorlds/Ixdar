@@ -61,8 +61,8 @@ public class CutEngine {
                     SegmentBalanceException sbe = new SegmentBalanceException(shell, null, c1);
                     BalanceMap balanceMap1 = new BalanceMap(knot, sbe);
                     balanceMap1.addCut(knotPoint11, knotPoint12);
-                    balanceMap1.addExternalMatch(knotPoint11, external1);
-                    balanceMap1.addExternalMatch(knotPoint12, external2);
+                    balanceMap1.addExternalMatch(knotPoint11, external1, null);
+                    balanceMap1.addExternalMatch(knotPoint12, external2, null);
                     c1.balanceMap = balanceMap1;
 
                     CutMatchList cutMatch1 = new CutMatchList(shell, sbe, c1.superKnot);
@@ -106,18 +106,18 @@ public class CutEngine {
                             knotPoint22, cutSegment2,
                             external2, knot, null);
                     SegmentBalanceException sbe12 = new SegmentBalanceException(shell, null, c1);
-                    BalanceMap balanceMap12 = new BalanceMap(knot, sbe12);
-                    balanceMap12.addCut(knotPoint11, knotPoint12);
-                    balanceMap12.addCut(knotPoint21, knotPoint22);
-                    balanceMap12.addExternalMatch(knotPoint11, external1);
-                    balanceMap12.addExternalMatch(knotPoint21, external2);
-                    c1.balanceMap = balanceMap12;
+                    BalanceMap balanceMap1 = new BalanceMap(knot, sbe12);
+                    balanceMap1.addCut(knotPoint11, knotPoint12);
+                    balanceMap1.addCut(knotPoint21, knotPoint22);
+                    balanceMap1.addExternalMatch(knotPoint11, external1, null);
+                    balanceMap1.addExternalMatch(knotPoint21, external2, null);
+                    c1.balanceMap = balanceMap1;
                     Segment s11 = knotPoint11.getClosestSegment(external1, null);
                     Segment s12 = knotPoint21.getClosestSegment(external2, s11);
                     shell.buff.add("12 -------------------------------------------");
                     CutMatchList internalCuts12 = internalPathEngine.calculateInternalPathLength(
                             knotPoint11, knotPoint12, external1,
-                            knotPoint21, knotPoint22, external2, knot, balanceMap12);
+                            knotPoint21, knotPoint22, external2, knot, balanceMap1);
                     CutMatchList cutMatch1 = new CutMatchList(shell, sbe12, c1.superKnot);
                     cutMatch1.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },
                             new Segment[] { s12, s11 },
@@ -127,11 +127,18 @@ public class CutEngine {
 
                     CutInfo c2 = new CutInfo(shell, knotPoint21, knotPoint22, cutSegment2, external1, knotPoint11,
                             knotPoint12, cutSegment1,
-                            external2, knot, balanceMap12);
+                            external2, knot, null);
+                    SegmentBalanceException sbe2 = new SegmentBalanceException(shell, null, c2);
+                    BalanceMap balanceMap2 = new BalanceMap(knot, sbe12);
+                    balanceMap2.addCut(knotPoint11, knotPoint12);
+                    balanceMap2.addCut(knotPoint21, knotPoint22);
+                    balanceMap2.addExternalMatch(knotPoint21, external1, null);
+                    balanceMap2.addExternalMatch(knotPoint11, external2, null);
+                    c2.balanceMap = balanceMap2;
 
                     Segment s21 = knotPoint21.getClosestSegment(external1, null);
                     Segment s22 = knotPoint11.getClosestSegment(external2, s21);
-                    CutMatchList cutMatch2 = new CutMatchList(shell, sbe12, c2.superKnot);
+                    CutMatchList cutMatch2 = new CutMatchList(shell, sbe2, c2.superKnot);
                     cutMatch2.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },
                             new Segment[] { s22, s21 },
                             internalCuts12, c2, "CutEngine2");
@@ -170,20 +177,20 @@ public class CutEngine {
                     CutInfo c3 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint22,
                             knotPoint21, cutSegment2,
                             external2, knot, null);
-                    SegmentBalanceException sbe34 = new SegmentBalanceException(shell, null, c3);
-                    BalanceMap balanceMap34 = new BalanceMap(knot, sbe34);
-                    balanceMap34.addCut(knotPoint11, knotPoint12);
-                    balanceMap34.addCut(knotPoint21, knotPoint22);
-                    balanceMap34.addExternalMatch(knotPoint12, external1);
-                    balanceMap34.addExternalMatch(knotPoint22, external2);
-                    c3.balanceMap = balanceMap34;
+                    SegmentBalanceException sbe3 = new SegmentBalanceException(shell, null, c3);
+                    BalanceMap balanceMap3 = new BalanceMap(knot, sbe3);
+                    balanceMap3.addCut(knotPoint11, knotPoint12);
+                    balanceMap3.addCut(knotPoint21, knotPoint22);
+                    balanceMap3.addExternalMatch(knotPoint12, external1, null);
+                    balanceMap3.addExternalMatch(knotPoint22, external2, null);
+                    c3.balanceMap = balanceMap3;
                     Segment s31 = knotPoint12.getClosestSegment(external1, null);
                     Segment s32 = knotPoint22.getClosestSegment(external2, s31);
                     CutMatchList internalCuts34 = internalPathEngine.calculateInternalPathLength(
                             knotPoint12, knotPoint11, external1,
-                            knotPoint22, knotPoint21, external2, knot, balanceMap34);
+                            knotPoint22, knotPoint21, external2, knot, balanceMap3);
 
-                    CutMatchList cutMatch3 = new CutMatchList(shell, sbe34, c3.superKnot);
+                    CutMatchList cutMatch3 = new CutMatchList(shell, sbe3, c3.superKnot);
                     cutMatch3.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },
                             new Segment[] { s32, s31 },
                             internalCuts34, c3, "CutEngine3");
@@ -192,12 +199,20 @@ public class CutEngine {
 
                     CutInfo c4 = new CutInfo(shell, knotPoint22, knotPoint21, cutSegment2, external1, knotPoint12,
                             knotPoint11, cutSegment1,
-                            external2, knot, balanceMap34);
+                            external2, knot, null);
+
+                    SegmentBalanceException sbe4 = new SegmentBalanceException(shell, null, c4);
+                    BalanceMap balanceMap4 = new BalanceMap(knot, sbe4);
+                    balanceMap4.addCut(knotPoint11, knotPoint12);
+                    balanceMap4.addCut(knotPoint21, knotPoint22);
+                    balanceMap4.addExternalMatch(knotPoint22, external1, null);
+                    balanceMap4.addExternalMatch(knotPoint12, external2, null);
+                    c4.balanceMap = balanceMap4;
 
                     Segment s41 = knotPoint22.getClosestSegment(external1, null);
                     Segment s42 = knotPoint12.getClosestSegment(external2, s41);
 
-                    CutMatchList cutMatch4 = new CutMatchList(shell, sbe34, c4.superKnot);
+                    CutMatchList cutMatch4 = new CutMatchList(shell, sbe4, c4.superKnot);
                     cutMatch4.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },
                             new Segment[] { s42, s41 },
                             internalCuts34, c4, "CutEngine4");
@@ -240,8 +255,8 @@ public class CutEngine {
                     BalanceMap balanceMap5 = new BalanceMap(knot, sbe56);
                     balanceMap5.addCut(knotPoint11, knotPoint12);
                     balanceMap5.addCut(knotPoint21, knotPoint22);
-                    balanceMap5.addExternalMatch(knotPoint11, external1);
-                    balanceMap5.addExternalMatch(knotPoint22, external2);
+                    balanceMap5.addExternalMatch(knotPoint11, external1, null);
+                    balanceMap5.addExternalMatch(knotPoint22, external2, null);
                     c5.balanceMap = balanceMap5;
 
                     Knot minKnot = internalPathEngine.findMinKnot(knotPoint11, knotPoint12, external1, knotPoint22,
@@ -289,15 +304,15 @@ public class CutEngine {
 
                         shell.buff.flush();
                         shell.buff.add(" 6 -------------------------------------------");
-                        
+
                         CutInfo c6 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint21,
                                 knotPoint22, cutSegment2, external2, knot, null);
                         SegmentBalanceException sbe6noic = new SegmentBalanceException(shell, null, c6);
                         BalanceMap balanceMap6 = new BalanceMap(knot, sbe56);
                         balanceMap6.addCut(knotPoint11, knotPoint12);
                         balanceMap6.addCut(knotPoint21, knotPoint22);
-                        balanceMap6.addExternalMatch(knotPoint12, external1);
-                        balanceMap6.addExternalMatch(knotPoint21, external2);
+                        balanceMap6.addExternalMatch(knotPoint12, external1, null);
+                        balanceMap6.addExternalMatch(knotPoint21, external2, null);
                         c6.balanceMap = balanceMap6;
                         CutMatchList internalCuts6 = internalPathEngine.calculateInternalPathLength(
                                 knotPoint12, knotPoint11, external1,

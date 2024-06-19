@@ -8,10 +8,14 @@ public class BalanceMap {
     HashMap<Integer, Integer> balance;
     ArrayList<Segment> cuts;
     HashMap<Integer, Integer> externalBalance;
+    HashMap<Integer, Integer> externalGroups;
     ArrayList<Segment> externalMatches;
     SegmentBalanceException sbe;
     static int numCuts = 0;
+    int numGroups = 0;
     int ID;
+    VirtualPoint topExternal1;
+    VirtualPoint topExternal2;
 
     public BalanceMap(Knot knot, SegmentBalanceException sbe) {
         this.knot = knot;
@@ -19,6 +23,7 @@ public class BalanceMap {
         cuts = new ArrayList<>();
         externalBalance = new HashMap<>();
         externalMatches = new ArrayList<>();
+        externalGroups = new HashMap<>();
         for (VirtualPoint vp : knot.knotPointsFlattened) {
             balance.put(vp.id, 2);
             externalBalance.put(vp.id, 0);
@@ -28,7 +33,31 @@ public class BalanceMap {
         this.numCuts++;
     }
 
-    public void addExternalMatch(VirtualPoint vp, VirtualPoint external) throws BalancerException {
+    public BalanceMap(BalanceMap bMap, Knot subKnot, SegmentBalanceException sbe) {
+        knot = subKnot;
+        balance = new HashMap<>();
+        externalBalance = new HashMap<>();
+        cuts = new ArrayList<>(bMap.cuts);
+        externalMatches = new ArrayList<>(bMap.externalMatches);
+        for (VirtualPoint vp : subKnot.knotPointsFlattened) {
+            if (bMap.balance.containsKey(vp.id)) {
+                balance.put(vp.id, 2 - bMap.externalBalance.get(vp.id));
+                externalBalance.put(vp.id, bMap.externalBalance.get(vp.id));
+            } else {
+                balance.put(vp.id, 2);
+                externalBalance.put(vp.id, 0);
+            }
+        }
+        externalGroups = new HashMap<>(bMap.externalGroups);
+        this.sbe = sbe;
+        this.ID = numCuts;
+        this.numGroups = bMap.numGroups;
+        this.topExternal1 = bMap.topExternal1;
+        this.topExternal2 = bMap.topExternal2;
+        numCuts++;
+    }
+
+    public void addExternalMatch(VirtualPoint vp, VirtualPoint external, Knot superKnot) throws BalancerException {
         int newBalance = externalBalance.get(vp.id) + 1;
         Segment newMatch = vp.getClosestSegment(external, null);
         if (newBalance > 2) {
@@ -38,7 +67,57 @@ public class BalanceMap {
         if (externalMatches.contains(newMatch)) {
             throw new BalancerException(vp, newMatch, sbe, "DUP External Match");
         }
+        if (cuts.contains(newMatch)) {
+            throw new BalancerException(vp, newMatch, sbe, "Matching Cut");
+        }
         externalMatches.add(newMatch);
+
+        if (topExternal1 != null && topExternal2 != null
+                && (external.equals(topExternal1) || external.equals(topExternal2))) {
+            float z = 0;
+        }
+
+        int groupId = -1;
+
+        if (superKnot == null) {
+            if (topExternal1 == null) {
+                topExternal1 = external;
+            } else {
+                topExternal2 = external;
+                groupId = externalGroups.get(topExternal1.id);
+                externalGroups.put(vp.id, groupId);
+                externalGroups.put(external.id, groupId);
+            }
+        }
+        if (superKnot != null) {
+            for (VirtualPoint sVP : superKnot.knotPointsFlattened) {
+                if (!knot.contains(sVP)) {
+                    if (externalGroups.containsKey(sVP.id)
+                            && (!externalBalance.containsKey(sVP.id) || externalBalance.get(sVP.id) < 2)) {
+                        groupId = externalGroups.get(sVP.id);
+                        externalGroups.put(vp.id, groupId);
+                    }
+                }
+            }
+        }
+        if (groupId == -1) {
+            if (externalGroups.containsKey(external.id)) {
+                groupId = externalGroups.get(external.id);
+                externalGroups.put(vp.id, groupId);
+            } else {
+                groupId = numGroups;
+                externalGroups.put(vp.id, groupId);
+                externalGroups.put(external.id, groupId);
+                numGroups++;
+            }
+        }
+        if (superKnot != null) {
+            for (VirtualPoint sVP : superKnot.knotPointsFlattened) {
+                if (!knot.contains(sVP)) {
+                    externalGroups.put(sVP.id, groupId);
+                }
+            }
+        }
     }
 
     public void addCut(VirtualPoint vp1, VirtualPoint vp2) throws BalancerException {
@@ -73,9 +152,50 @@ public class BalanceMap {
     }
 
     public boolean canMatchTo(VirtualPoint vp, VirtualPoint ex1, Segment matchSegment1, VirtualPoint vp2,
-            VirtualPoint ex2, Segment matchSegment2) {
+            VirtualPoint ex2, Segment matchSegment2,
+            Knot miKnot) {
+
         if (vp.equals(vp2) && ex1.equals(ex2)) {
             return false;
+        }
+        if (vp.equals(vp2) && externalGroups.get(ex1.id) == externalGroups.get(ex2.id)) {
+            return false;
+        }
+        if (externalGroups.containsKey(vp.id) && externalGroups.containsKey(ex1.id)) {
+            if (externalGroups.get(vp.id) == externalGroups.get(ex1.id) && !externalMatches.contains(matchSegment1)) {
+                return false;
+            }
+        }
+        if (externalGroups.containsKey(vp2.id) && externalGroups.containsKey(ex2.id)) {
+            if (externalGroups.get(vp2.id) == externalGroups.get(ex2.id) && !externalMatches.contains(matchSegment2)) {
+                return false;
+            }
+        }
+        if (vp.equals(vp2) && !externalGroups.containsKey(ex2.id)) {
+            float z = 0;
+            int groupId = -1;
+            if (miKnot.contains(knot.getPrev(ex2))) {
+                VirtualPoint next = knot.getNext(ex2);
+                while (!miKnot.contains(next)) {
+                    if (externalGroups.containsKey(next.id)) {
+                        groupId = externalGroups.get(next.id);
+                        break;
+                    }
+                    next = knot.getNext(next);
+                }
+            } else {
+                VirtualPoint prev = knot.getPrev(ex2);
+                while (!miKnot.contains(prev)) {
+                    if (externalGroups.containsKey(prev.id)) {
+                        groupId = externalGroups.get(prev.id);
+                        break;
+                    }
+                    prev = knot.getPrev(prev);
+                }
+            }
+            if (externalGroups.get(ex1.id) == groupId) {
+                return false;
+            }
         }
         if (vp.equals(vp2) && externalBalance.get(vp.id) == 1 && externalMatches.contains(matchSegment1)) {
             return true;
@@ -86,26 +206,6 @@ public class BalanceMap {
             return true;
         }
         return false;
-    }
-
-    public BalanceMap(BalanceMap bMap, Knot subKnot, SegmentBalanceException sbe) {
-        knot = subKnot;
-        balance = new HashMap<>();
-        externalBalance = new HashMap<>();
-        cuts = new ArrayList<>(bMap.cuts);
-        externalMatches = new ArrayList<>(bMap.externalMatches);
-        for (VirtualPoint vp : subKnot.knotPointsFlattened) {
-            if (bMap.balance.containsKey(vp.id)) {
-                balance.put(vp.id, 2 - bMap.externalBalance.get(vp.id));
-                externalBalance.put(vp.id, bMap.externalBalance.get(vp.id));
-            } else {
-                balance.put(vp.id, 2);
-                externalBalance.put(vp.id, 0);
-            }
-        }
-        this.sbe = sbe;
-        this.ID = numCuts;
-        numCuts++;
     }
 
     @Override

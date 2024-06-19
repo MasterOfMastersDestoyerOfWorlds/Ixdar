@@ -157,11 +157,12 @@ public class FixedCutTwoMatches extends FixedCut {
         if (kp2.equals(cp2)) {
             float z = 1;
         }
-        if (c.cutID == 161) {
+        if (c.cutID == 110) {
             float z = 1;
         }
         boolean canMatch = true;
-        boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, external2, matchSegment11, kp2, otherNeighborPoint, matchSegment12);
+        boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, external2, matchSegment11, kp2, otherNeighborPoint,
+                matchSegment12, knot);
         boolean wouldBeStartingUnbalanced = c.balanceMap.balancedOmega(kp1, cp1, cutSegment1, external2, matchSegment11,
                 kp2, cp2, cutSegment2, otherNeighborPoint, matchSegment12,
                 knot, c, true);
@@ -186,16 +187,23 @@ public class FixedCutTwoMatches extends FixedCut {
             try {
                 balanceMap.addCut(cutSegment1.first, cutSegment1.last);
                 balanceMap.addCut(cutSegment2.first, cutSegment2.last);
-                balanceMap.addExternalMatch(kp1, external2);
-                balanceMap.addExternalMatch(kp2, otherNeighborPoint);
+                balanceMap.addExternalMatch(kp1, external2, c.superKnot);
+                balanceMap.addExternalMatch(kp2, otherNeighborPoint, c.superKnot);
             } catch (BalancerException be) {
                 throw be;
             }
             try {
-                internalCuts = cutEngine.internalPathEngine.calculateInternalPathLength(
-                        c.lowerKnotPoint, c.lowerCutPoint, c.lowerExternal,
-                        kp2, cp2, otherNeighborPoint,
-                        knot, balanceMap);
+                if (balanceMap.externalBalance.get(c.lowerKnotPoint.id) == 2) {
+                    internalCuts = cutEngine.internalPathEngine.calculateInternalPathLength(
+                            c.upperKnotPoint, kp2, c.upperExternal,
+                            kp2, cp2, otherNeighborPoint,
+                            knot, balanceMap);
+                } else {
+                    internalCuts = cutEngine.internalPathEngine.calculateInternalPathLength(
+                            c.lowerKnotPoint, c.lowerCutPoint, c.lowerExternal,
+                            kp2, cp2, otherNeighborPoint,
+                            knot, balanceMap);
+                }
             } catch (SegmentBalanceException sbe) {
                 throw sbe;
             }

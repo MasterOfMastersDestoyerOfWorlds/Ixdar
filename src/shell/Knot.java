@@ -164,7 +164,16 @@ public class Knot extends VirtualPoint {
         return knotPoints.get(idx - 1 < 0 ? knotPoints.size() - 1 : idx - 1);
     }
 
+    public VirtualPoint getPrev(VirtualPoint prev) {
+        int idx = knotPointsFlattened.indexOf(prev);
+        return knotPoints.get(idx - 1 < 0 ? knotPoints.size() - 1 : idx - 1);
+    }
+
     VirtualPoint getNext(int idx) {
+        return knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
+    }
+    public VirtualPoint getNext(VirtualPoint next) {
+        int idx = knotPointsFlattened.indexOf(next);
         return knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
     }
 
@@ -252,4 +261,5 @@ public class Knot extends VirtualPoint {
         }
         return null;
     }
+
 }
