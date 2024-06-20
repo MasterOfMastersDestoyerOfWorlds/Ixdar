@@ -187,7 +187,7 @@ public class FixedCut implements FixedCutInterface {
             VirtualPoint knotPoint22 = knot.knotPoints.get(b + 1 >= knot.knotPoints.size() ? 0 : b + 1);
 
             Segment cutSegment2 = knot.getSegment(knotPoint21, knotPoint22);
-            if (c.cutID == 104) {
+            if (c.cutID == 136) {
                 float z = 1;
             }
             double delta = Double.MAX_VALUE;
@@ -202,7 +202,7 @@ public class FixedCut implements FixedCutInterface {
                 Segment s11 = kp1.getClosestSegment(external1, null);
                 Segment s12 = cp1.getClosestSegment(external2, s11);
                 boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, external1, s11, cp1, external2, s12, knot);
-                boolean wouldBeStartingUnbalanced = c.balanceMap.balancedAlpha(cp1, kp1, cutSegment1, knot, c);
+                boolean wouldBeStartingUnbalanced = c.balanceMap.balancedAlpha(cp1, kp1, cutSegment1, external2, s12, knot, c);
                 boolean failFlag1 = !canMatchExternals || !wouldBeStartingUnbalanced
                         || c.balanceMap.cuts.contains(s11) || c.balanceMap.cuts.contains(s12);
                 if (needTwoNeighborMatches || failFlag1) {

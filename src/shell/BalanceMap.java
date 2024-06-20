@@ -382,17 +382,25 @@ public class BalanceMap {
         return hasPossibleMatch2;
     }
 
-    public boolean balancedAlpha(VirtualPoint kp1, VirtualPoint cp1, Segment cutSegment1, Knot subKnot, CutInfo c) {
+    public boolean balancedAlpha(VirtualPoint kp1, VirtualPoint cp1, Segment cutSegment1, VirtualPoint external1,
+    Segment matchSegment1, Knot subKnot, CutInfo c) {
         int externalsKp1 = (externalBalance.get(kp1.id) + 1);
         int currMatchesKp1 = externalsKp1;
         int kp1Idx = subKnot.knotPointsFlattened.indexOf(kp1);
         Segment prevSegment = kp1.getClosestSegment(subKnot.getPrev(kp1Idx), null);
-        if (!prevSegment.equals(cutSegment1) && !cuts.contains(prevSegment)) {
+        VirtualPoint prevPoint = prevSegment.getOther(kp1);
+        if (!prevSegment.equals(cutSegment1) && !cuts.contains(prevSegment) && externalBalance.get(prevPoint.id) == 0) {
             currMatchesKp1++;
         }
         Segment nextSegment = kp1.getClosestSegment(subKnot.getNext(kp1Idx), null);
-        if (!nextSegment.equals(cutSegment1) && !cuts.contains(nextSegment)) {
+        VirtualPoint nextPoint = nextSegment.getOther(kp1);
+        if (!nextSegment.equals(cutSegment1) && !cuts.contains(nextSegment) && externalBalance.get(nextPoint.id) == 0) {
             currMatchesKp1++;
+        }
+        boolean doubleCount = false;
+        if (externalMatches.contains(matchSegment1)) {
+            currMatchesKp1--;
+            doubleCount = true;
         }
         if (currMatchesKp1 > 2) {
             return false;

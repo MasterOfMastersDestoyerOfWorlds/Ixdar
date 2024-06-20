@@ -490,19 +490,23 @@ public class InternalPathEngine {
                     upperCutPointIsOutside, bothKnotPointsInside, bothKnotPointsOutside, bothCutPointsOutside, kp2,
                     upperMatchSegment,
                     upperCutSegment, kp, lowerMatchSegment,
-                    lowerCutSegment, balanceMap);
+                    lowerCutSegment, null);
             if (lc.cutID == 135) {
                 float z = 1;
             }
             shell.buff.add("cutting left");
             BalanceMap balanceMapLeft = new BalanceMap(balanceMap, knot, sbe);
             lc.balanceMap = balanceMapLeft;
-            boolean wouldBeDefaultUnbalanced = balanceMapLeft.balancedAlpha(kp, leftPoint, leftCut, knot, lc);
+            balanceMapLeft.addCut(kp, leftPoint);
+            boolean wouldBeDefaultBalanced = balanceMapLeft.balancedAlpha(kp, leftPoint, leftCut, ex, kp.getClosestSegment(ex, null), minKnot, lc);
+            canCutLeft = canCutLeft && wouldBeDefaultBalanced;
+            
             BalanceMap balanceMapRight = new BalanceMap(balanceMap, knot, sbe);
-            lc.balanceMap = balanceMapRight;
-            boolean wouldBeDefaultUnbalancedRight = balanceMapRight.balancedAlpha(kp, rightPoint, rightCut, knot, rc);
-
-            if (!wouldBeDefaultUnbalanced) {
+            rc.balanceMap = balanceMapRight; 
+            balanceMapRight.addCut(kp, rightPoint);
+            boolean wouldBeDefaultBalancedRight = balanceMapRight.balancedAlpha(kp, rightPoint, rightCut, ex, kp.getClosestSegment(ex, null), minKnot, rc);
+           
+            if (!wouldBeDefaultBalanced) {
                 float z = 0;
             }
             shell.buff.add("LEFTCUT : " + lc);
@@ -514,7 +518,12 @@ public class InternalPathEngine {
             }
             shell.buff.add("cutting right");
 
+            
+            shell.buff.add("RightCUT : " + rc);
+
+
             boolean canCutRight = !rightInnerNeighborSegments.contains(rightCut) && !leftCut.equals(kpSegment);
+            canCutRight = canCutRight && wouldBeDefaultBalancedRight;
             CutMatchList rightCutMatch = null;
             if (canCutRight) {
                 rightCutMatch = new FixedCut(rc).findCutMatchListFixedCut();
@@ -535,8 +544,6 @@ public class InternalPathEngine {
             shell.buff.add("cut Left: " + leftCut + "cut Right: " + rightCut);
             shell.buff.add(
                     "chose right? : " + (canCutRight && (!canCutLeft || rightCutMatch.delta < leftCutMatch.delta)));
-            shell.buff.add("RightCUT : " + rc);
-
         } else {
             ArrayList<Segment> removeList = new ArrayList<>();
             if (upperCutPointIsOutside) {
