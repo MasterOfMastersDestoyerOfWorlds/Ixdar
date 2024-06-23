@@ -498,13 +498,13 @@ public class InternalPathEngine {
             BalanceMap balanceMapLeft = new BalanceMap(balanceMap, knot, sbe);
             lc.balanceMap = balanceMapLeft;
             balanceMapLeft.addCut(kp, leftPoint);
-            boolean wouldBeDefaultBalanced = balanceMapLeft.balancedAlpha(kp, leftPoint, leftCut, ex, kp.getClosestSegment(ex, null), minKnot, lc);
+            boolean wouldBeDefaultBalanced = balanceMapLeft.balancedBeta(kp, leftPoint, leftCut, ex, kp.getClosestSegment(ex, null), neighbor, minKnot, lc);
             canCutLeft = canCutLeft && wouldBeDefaultBalanced;
             
             BalanceMap balanceMapRight = new BalanceMap(balanceMap, knot, sbe);
             rc.balanceMap = balanceMapRight; 
             balanceMapRight.addCut(kp, rightPoint);
-            boolean wouldBeDefaultBalancedRight = balanceMapRight.balancedAlpha(kp, rightPoint, rightCut, ex, kp.getClosestSegment(ex, null), minKnot, rc);
+            boolean wouldBeDefaultBalancedRight = balanceMapRight.balancedBeta(kp, rightPoint, rightCut, ex, kp.getClosestSegment(ex, null), neighbor, minKnot, rc);
            
             if (!wouldBeDefaultBalanced) {
                 float z = 0;

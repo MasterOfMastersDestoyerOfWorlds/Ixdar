@@ -285,7 +285,7 @@ public class FixedCut implements FixedCutInterface {
             float z = 1;
         }
         boolean canMatch = true;
-        if (c.cutID == 135) {
+        if (c.cutID == 120) {
             float z = 10;
         }
         boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, external1, matchSegment11, kp2, otherNeighborPoint,

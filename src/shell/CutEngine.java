@@ -115,9 +115,17 @@ public class CutEngine {
                     Segment s11 = knotPoint11.getClosestSegment(external1, null);
                     Segment s12 = knotPoint21.getClosestSegment(external2, s11);
                     shell.buff.add("12 -------------------------------------------");
-                    CutMatchList internalCuts12 = internalPathEngine.calculateInternalPathLength(
-                            knotPoint11, knotPoint12, external1,
-                            knotPoint21, knotPoint22, external2, knot, balanceMap1);
+                    CutMatchList internalCuts12 = null;
+                    try {
+                        internalCuts12 = internalPathEngine.calculateInternalPathLength(
+                                knotPoint11, knotPoint12, external1,
+                                knotPoint21, knotPoint22, external2, knot, balanceMap1);
+                    } catch (SegmentBalanceException sbe) {
+
+                        shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
+                                / (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
+                        throw sbe;
+                    }
                     CutMatchList cutMatch1 = new CutMatchList(shell, sbe12, c1.superKnot);
                     cutMatch1.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },
                             new Segment[] { s12, s11 },
@@ -186,9 +194,17 @@ public class CutEngine {
                     c3.balanceMap = balanceMap3;
                     Segment s31 = knotPoint12.getClosestSegment(external1, null);
                     Segment s32 = knotPoint22.getClosestSegment(external2, s31);
-                    CutMatchList internalCuts34 = internalPathEngine.calculateInternalPathLength(
-                            knotPoint12, knotPoint11, external1,
-                            knotPoint22, knotPoint21, external2, knot, balanceMap3);
+                    CutMatchList internalCuts34 = null;
+                    try {
+                        internalCuts34 = internalPathEngine.calculateInternalPathLength(
+                                knotPoint12, knotPoint11, external1,
+                                knotPoint22, knotPoint21, external2, knot, balanceMap3);
+
+                    } catch (SegmentBalanceException sbe) {
+                        shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
+                                / (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
+                        throw sbe;
+                    }
 
                     CutMatchList cutMatch3 = new CutMatchList(shell, sbe3, c3.superKnot);
                     cutMatch3.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },

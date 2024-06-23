@@ -657,6 +657,9 @@ class CutMatchList {
                 ex2Partial = true;
             }
         }
+        for(Segment upperCuts: c.balanceMap.cuts){
+            allSegments.remove(upperCuts);
+        }
         for (Segment s : allSegments) {
             balance2.put(s.first.id, balance2.getOrDefault(s.first.id, 0) + 1);
             balance2.put(s.last.id, balance2.getOrDefault(s.last.id, 0) + 1);
