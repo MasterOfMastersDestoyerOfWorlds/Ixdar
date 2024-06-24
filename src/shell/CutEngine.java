@@ -201,6 +201,8 @@ public class CutEngine {
                                 knotPoint22, knotPoint21, external2, knot, balanceMap3);
 
                     } catch (SegmentBalanceException sbe) {
+                        shell.buff.add("Original Cut Info 34: " + c3);
+                        
                         shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
                                 / (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
                         throw sbe;

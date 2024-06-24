@@ -294,7 +294,7 @@ public class BalanceMap {
             CutInfo c, boolean wouldFormLoop) {
 
         if (cutSegment1.hasPoints(0, 3) &&
-                cutSegment2.hasPoints(1, 0) && kp1.id == 0 && kp2.id == 0 && c.cutID == 104) {
+                cutSegment2.hasPoints(1, 3) && kp1.id == 0 && kp2.id == 3 && c.cutID == 16) {
             float z = 1;
         }
 
@@ -315,7 +315,10 @@ public class BalanceMap {
             return false;
         }
         boolean hasTwoPossibleMatchesCp1 = currMatchesCp1 >= 2;
-        int possibleMatchCount = 0;
+        int possibleMatchCount = currMatchesCp1;
+        if (cp1.equals(kp2)) {
+            possibleMatchCount++;
+        }
         if (!hasTwoPossibleMatchesCp1) {
             ArrayList<VirtualPoint> allCutPoints = new ArrayList<>();
             if (cutSegment1.contains(cp1)) {
@@ -347,11 +350,13 @@ public class BalanceMap {
                     }
                     possibleMatchCount++;
                     if (possibleMatchCount >= 2) {
-                        hasTwoPossibleMatchesCp1 = true;
+                        break;
                     }
-                    break;
                 }
             }
+        }
+        if (possibleMatchCount >= 2) {
+            hasTwoPossibleMatchesCp1 = true;
         }
         if (!hasTwoPossibleMatchesCp1) {
             return false;
