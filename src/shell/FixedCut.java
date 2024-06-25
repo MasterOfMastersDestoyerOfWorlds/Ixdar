@@ -228,6 +228,7 @@ public class FixedCut implements FixedCutInterface {
                     shell.buff.add("UPDATING MINDELTA " + minDelta);
 
                 }
+                continue;
             }
 
             CutMatchList cutMatch1 = tryCombo(knotPoint11, knotPoint12, external1, cutSegment1, knotPoint21,

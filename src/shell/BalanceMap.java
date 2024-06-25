@@ -422,6 +422,71 @@ public class BalanceMap {
             return false;
         }
 
+        int currMatchesCp2 = externalBalance.get(cp2.id);
+        int cp2Idx = subKnot.knotPointsFlattened.indexOf(cp2);
+        Segment prevSegmentCp2 = cp2.getClosestSegment(subKnot.getPrev(cp2Idx), null);
+        if (!prevSegmentCp2.equals(cutSegment1) && !prevSegmentCp2.equals(cutSegment2)
+                && !cuts.contains(prevSegmentCp2)) {
+            currMatchesCp2++;
+        }
+
+        Segment nextSegmentCp2 = cp2.getClosestSegment(subKnot.getNext(cp2Idx), null);
+        if (!nextSegmentCp2.equals(cutSegment1) && !nextSegmentCp2.equals(cutSegment2)
+                && !cuts.contains(nextSegmentCp2)) {
+            currMatchesCp2++;
+        }
+        if (currMatchesCp2 > 2) {
+            return false;
+        }
+        boolean hasTwoPossibleMatchesCp2 = currMatchesCp2 >= 2;
+        int possibleMatchCountCp2 = currMatchesCp2;
+        if (cp2.equals(kp1)) {
+            possibleMatchCountCp2++;
+        }
+        if (!hasTwoPossibleMatchesCp2) {
+            ArrayList<VirtualPoint> allCutPoints = new ArrayList<>();
+            if (cutSegment1.contains(cp2)) {
+                allCutPoints.add(cutSegment1.getOther(cp2));
+            }
+            if (cutSegment2.contains(cp2)) {
+                
+                allCutPoints.add(kp2);
+            }
+            for (Segment s : cuts) {
+                if (s.contains(cp2)) {
+                    allCutPoints.add(s.getOther(cp2));
+                }
+            }
+            for (VirtualPoint vp : subKnot.knotPointsFlattened) {
+                if (!vp.equals(cp2)) {
+                    int lockedInMatches = externalBalance.get(vp.id);
+                    if (vp.equals(kp2) || vp.equals(kp1)) {
+                        lockedInMatches++;
+                    }
+                    if (lockedInMatches >= 2) {
+                        continue;
+                    }
+                    if (allCutPoints.contains(vp)) {
+                        continue;
+                    }
+                    if (externalGroups.containsKey(cp2.id) && externalGroups.containsKey(vp.id)
+                            && externalGroups.get(cp2.id) == externalGroups.get(vp.id)) {
+                        continue;
+                    }
+                    possibleMatchCountCp2++;
+                    if (possibleMatchCountCp2 >= 2) {
+                        break;
+                    }
+                }
+            }
+        }
+        if (possibleMatchCountCp2 >= 2) {
+            hasTwoPossibleMatchesCp2 = true;
+        }
+        if (!hasTwoPossibleMatchesCp2) {
+            return false;
+        }
+
         // checking if cp1 is good
 
         int externalsKp2 = (externalBalance.get(kp2.id) + 1);

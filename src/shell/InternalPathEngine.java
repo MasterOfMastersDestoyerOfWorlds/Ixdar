@@ -563,7 +563,7 @@ public class InternalPathEngine {
                     upperCutSegment, kp, lowerMatchSegment,
                     lowerCutSegment, balanceMap);
             shell.buff.add(c);
-            if(c.cutID == 149){
+            if(c.cutID == 147){
                 float z = 0;
             }   
             reCut = new FixedCut(c).findCutMatchListFixedCut();
