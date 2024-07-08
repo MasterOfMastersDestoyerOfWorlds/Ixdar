@@ -203,7 +203,7 @@ class CutMatchList {
         cm.knot = c.knot;
         cm.kp1 = kp1;
         cm.kp2 = kp2;
-        cm.superKnot = c.superKnot;
+        cm.superKnot = c.superKnot; 
         cutMatches.add(cm);
         for (CutMatch m : cml.cutMatches) {
             if (m.knot == c.knot) {
@@ -214,10 +214,14 @@ class CutMatchList {
             }
         }
         boolean balanced = this.checkCutMatchBalance(matchSegment1, matchSegment2, cutSegment, segments, c, true,
-                false);
+                true);
         shell.buff.add("BALANCE :" + balanced);
+
+        if(c.cutID == 173){
+            float z = 0;
+        }
         if (!balanced) {
-            CutMatch diff = diffKnots(cm, c, false, cutType);
+            CutMatch diff = diffKnots(cm, c, c.needTwoNeighborMatches, cutType);
             cm.cutSegments.addAll(diff.cutSegments);
             cm.matchSegments.addAll(diff.matchSegments);
             cm.diff = diff;
@@ -287,7 +291,7 @@ class CutMatchList {
                 cutSegments, c,
                 false, true);
         if (!balanced) {
-            CutMatch diff = diffKnots(cm, c, true, cutType);
+            CutMatch diff = diffKnots(cm, c, c.needTwoNeighborMatches, cutType);
             cm.diff = diff;
             cm.diff.kpSegment = c.kpSegment;
             cm.cutSegments.addAll(diff.cutSegments);
@@ -332,7 +336,6 @@ class CutMatchList {
             throws SegmentBalanceException {
         Knot subKnot = c.knot;
         Knot superKnot = c.superKnot;
-        Segment kpSegment = c.kpSegment;
         ArrayList<Segment> innerNeighborSegments = c.innerNeighborSegments;
         MultiKeyMap<Integer, Segment> innerNeighborSegmentLookup = c.innerNeighborSegmentLookup;
         ArrayList<Segment> neighborSegments = c.neighborSegments;
@@ -341,7 +344,7 @@ class CutMatchList {
         VirtualPoint topCutPoint = c.upperCutPoint;
         innerNeighborSegments = new ArrayList<Segment>(innerNeighborSegments);
         boolean hasCutSegment = false;
-        if (neighborCutSegments.size() > 0) {
+        if (neighborCutSegments.size() > 0) {//
             for (int i = 0; i < neighborCutSegments.size(); i++) {
                 Segment neighborCutSegment = neighborCutSegments.get(i).getFirst();
 
@@ -435,7 +438,7 @@ class CutMatchList {
             Segment s = superKnot.getSegment(knotPoint11, knotPoint12);
             superKnotSegments.add(s);
             if (!subKnotSegments.contains(s) && !cm.matchSegments.contains(s) && subKnot.contains(knotPoint11)
-                    && subKnot.contains(knotPoint12) && !s.equals(kpSegment)
+                    && subKnot.contains(knotPoint12) 
                     && !innerNeighborSegments.contains(s)
                     && !(innerNeighborSegmentsFlattened.contains(knotPoint12)
                             && innerNeighborSegmentsFlattened.contains(knotPoint11))) {
@@ -446,7 +449,7 @@ class CutMatchList {
 
         for (Segment s : subKnotSegments) {
             if (!superKnotSegments.contains(s) && !cm.cutSegments.contains(s) && !s.equals(c.cutSegment1)
-                    && !s.equals(kpSegment) && !innerNeighborSegments.contains(s)) {
+                    && !innerNeighborSegments.contains(s)) {
                 diffList.add(s);
             }
         }

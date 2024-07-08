@@ -234,6 +234,12 @@ public class BalanceMap {
         } else if (!vp.equals(vp2) && externalBalance.get(vp.id) < 2 && externalBalance.get(vp2.id) < 2) {
             return true;
         }
+        else if(!vp.equals(vp2) && externalMatches.contains(matchSegment2) && externalBalance.get(vp.id) < 2){
+            return true;
+        }
+        else if(!vp.equals(vp2) && externalMatches.contains(matchSegment1) && externalBalance.get(vp2.id) < 2){
+            return true;
+        }
         return false;
     }
 

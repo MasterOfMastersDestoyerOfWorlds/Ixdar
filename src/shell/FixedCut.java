@@ -199,10 +199,13 @@ public class FixedCut implements FixedCutInterface {
                 float z = 1;
             }
             if (cutSegment1.equals(cutSegment2)) {
+
+
                 Segment s11 = kp1.getClosestSegment(external1, null);
                 Segment s12 = cp1.getClosestSegment(external2, s11);
                 boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, external1, s11, cp1, external2, s12, knot);
-                boolean wouldBeStartingUnbalanced = c.balanceMap.balancedAlpha(cp1, kp1, cutSegment1, external2, s12, knot, c);
+                boolean wouldBeStartingUnbalanced = c.balanceMap.balancedAlpha(cp1, kp1, cutSegment1, external2, s12,
+                        knot, c);
                 boolean failFlag1 = !canMatchExternals || !wouldBeStartingUnbalanced
                         || c.balanceMap.cuts.contains(s11) || c.balanceMap.cuts.contains(s12);
                 if (needTwoNeighborMatches || failFlag1) {
@@ -230,7 +233,6 @@ public class FixedCut implements FixedCutInterface {
                 }
                 continue;
             }
-
             CutMatchList cutMatch1 = tryCombo(knotPoint11, knotPoint12, external1, cutSegment1, knotPoint21,
                     knotPoint22, otherNeighborPoint, cutSegment2, orgCutSegment, otherNeighborSegment, numMatchesNeeded,
                     numMatchesNeededOther);
@@ -279,6 +281,7 @@ public class FixedCut implements FixedCutInterface {
             Segment cutSegment2, Segment orgCutSegment, Segment otherNeighborSegment, int numMatchesNeeded,
             int numMatchesNeededOther)
             throws SegmentBalanceException {
+
         Segment matchSegment11 = kp1.getClosestSegment(external1, null);
         Segment matchSegment12 = kp2.getClosestSegment(otherNeighborPoint, null);
 

@@ -157,7 +157,7 @@ public class FixedCutTwoMatches extends FixedCut {
         if (kp2.equals(cp2)) {
             float z = 1;
         }
-        if (c.cutID == 133 && kp1.id == 0 && cp1.id == 1 && kp2.id == 2 && cp2.id == 1 ) {
+        if (c.cutID == 164 && kp2.id == 1 && cp2.id == 3) {
             float z = 1;
         }
         boolean canMatch = true;
