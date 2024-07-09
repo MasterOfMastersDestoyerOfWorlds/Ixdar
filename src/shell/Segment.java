@@ -155,6 +155,23 @@ public class Segment implements Comparable<Segment> {
 
     @Override
     public int hashCode() {
-        return first.id*last.id; // or any other constant
+        return first.id * last.id; // or any other constant
+    }
+
+    public boolean hasPoint(Integer i) {
+        if (first.id == i || last.id == i) {
+                return true;
+        }
+        return false;
+    }
+
+    public VirtualPoint getPoint(Integer i) {
+        if (first.id == i) {
+            return first;
+        }
+        if (last.id == i) {
+            return last;
+        }
+        return null;
     }
 }

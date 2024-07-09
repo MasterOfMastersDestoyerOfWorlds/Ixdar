@@ -9,7 +9,9 @@ public class BalanceMap {
     ArrayList<Segment> cuts;
     HashMap<Integer, Integer> externalBalance;
     HashMap<Integer, Integer> externalGroups;
+    HashMap<Integer, Integer> externalGroupCount;
     ArrayList<Segment> externalMatches;
+    ArrayList<VirtualPoint> externals;
     SegmentBalanceException sbe;
     static int numCuts = 0;
     int numGroups = 0;
@@ -25,6 +27,8 @@ public class BalanceMap {
         externalBalance = new HashMap<>();
         externalMatches = new ArrayList<>();
         externalGroups = new HashMap<>();
+        externalGroupCount = new HashMap<>();
+        externals = new ArrayList<>();
         for (VirtualPoint vp : knot.knotPointsFlattened) {
             balance.put(vp.id, 2);
             externalBalance.put(vp.id, 0);
@@ -50,6 +54,8 @@ public class BalanceMap {
             }
         }
         externalGroups = new HashMap<>(bMap.externalGroups);
+        externalGroupCount = new HashMap<>(bMap.externalGroupCount);
+        externals = new ArrayList<>(bMap.externals);
         this.sbe = sbe;
         this.ID = numCuts;
         this.numGroups = bMap.numGroups;
@@ -81,7 +87,7 @@ public class BalanceMap {
             throw new BalancerException(vp, newMatch, sbe, "Matching Cut");
         }
         externalMatches.add(newMatch);
-
+        externals.add(external);
         if (topExternal1 != null && topExternal2 != null
                 && (external.equals(topExternal1) || external.equals(topExternal2))) {
             float z = 0;
@@ -97,6 +103,7 @@ public class BalanceMap {
                 groupId = externalGroups.get(topExternal1.id);
                 externalGroups.put(vp.id, groupId);
                 externalGroups.put(external.id, groupId);
+                externalGroupCount.put(groupId, 2);
             }
         }
         // not sure what this was supposed to do
@@ -116,6 +123,7 @@ public class BalanceMap {
             if (vpHasGrouping && !externalHasGrouping) {
                 groupId = externalGroups.get(vp.id);
                 externalGroups.put(external.id, groupId);
+                externalGroupCount.put(groupId, 2);
             } else if (externalHasGrouping && vpHasGrouping) {
                 groupId = groupIdExternal < groupIdVp ? groupIdExternal : groupIdVp;
                 for (Integer key : externalGroups.keySet()) {
@@ -133,6 +141,7 @@ public class BalanceMap {
                 groupId = numGroups;
                 externalGroups.put(vp.id, groupId);
                 externalGroups.put(external.id, groupId);
+                externalGroupCount.put(groupId, 1);
                 numGroups++;
             }
         }
