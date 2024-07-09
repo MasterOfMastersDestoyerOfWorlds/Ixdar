@@ -596,6 +596,10 @@ class CutMatchList {
 
     public boolean checkCutMatchBalance(Segment s1, Segment s2, Segment cutSegment1, Segment[] cutSegments,
             CutInfo c, boolean doubleCount, boolean printBalance) {
+
+        if(c.cutID == 48){
+            float z = 0;
+        }
         HashMap<Integer, Integer> balance = new HashMap<>();
         HashMap<Integer, Integer> balance2 = new HashMap<>();
         Set<Segment> allSegments = new HashSet<>();

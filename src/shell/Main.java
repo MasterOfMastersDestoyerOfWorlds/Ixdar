@@ -67,11 +67,11 @@ public class Main extends JComponent {
 		frame.setSize(new Dimension(WIDTH, HEIGHT));
 		frame.setVisible(true);
 
-		String fileName = "djbouti_4-8WH4-6";
+		String fileName = "djbouti_8-32";
 		boolean printAll = false;
 		retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 		DistanceMatrix d = retTup.d;
-		if(retTup == null){
+		if(retTup.d == null){
 			d = new DistanceMatrix(retTup.ps);
 		}
 

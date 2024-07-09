@@ -90,6 +90,13 @@ public class CutInfo {
         this.lowerExternal = lowerMatchSegment.getOther(lowerKnotPoint);
         this.balanceMap = balanceMap;
 
+        if(upperMatchSegment.hasPoints(0, 2) && lowerMatchSegment.hasPoints(1, 2)){
+            float z = 0;
+        }
+        if(lowerMatchSegment.hasPoints(0, 2) && upperMatchSegment.hasPoints(1, 2)){
+            float z = 0;
+        }
+
         this.sbe = new SegmentBalanceException(shell, null, this);
     }
 
@@ -117,6 +124,12 @@ public class CutInfo {
 
         this.upperKnotPoint = upperKnotPoint;
         this.upperMatchSegment = upperKnotPoint.getClosestSegment(upperExternal, lowerMatchSegment);
+        if(upperMatchSegment.hasPoints(0, 2) && lowerMatchSegment.hasPoints(1, 2)){
+            float z = 0;
+        }
+        if(lowerMatchSegment.hasPoints(0, 2) && upperMatchSegment.hasPoints(1, 2)){
+            float z = 0;
+        }
         this.upperCutPoint = upperCutPoint;
         this.upperExternal = upperExternal;
         this.upperCutSegment = upperCutSegment;
@@ -135,6 +148,12 @@ public class CutInfo {
         this.lowerMatchSegment = matchSegment1Final;
         this.upperCutSegment = cutSegment2Final;
         this.upperMatchSegment = matchSegment2Final;
+        if(upperMatchSegment.hasPoints(0, 2) && lowerMatchSegment.hasPoints(1, 2)){
+            float z = 0;
+        }
+        if(lowerMatchSegment.hasPoints(0, 2) && upperMatchSegment.hasPoints(1, 2)){
+            float z = 0;
+        }
         this.superKnot = knot;
         // TODO Auto-generated constructor stub
     }
@@ -175,6 +194,14 @@ public class CutInfo {
         this.balanceMap = c.balanceMap;
 
         this.sbe = c.sbe;
+
+        if(upperMatchSegment.hasPoints(0, 2) && lowerMatchSegment.hasPoints(1, 2)){
+            float z = 0;
+        }
+        if(lowerMatchSegment.hasPoints(0, 2) && upperMatchSegment.hasPoints(1, 2)){
+            float z = 0;
+        }
+
 
     }
     @Override
