@@ -174,6 +174,9 @@ public class FixedCut implements FixedCutInterface {
         shell.buff.add("unique neighbor points: " + numUnique +
                 " otherNeghborPoint2: " + otherNeighborPoint2 + " onp: " + otherNeighborPoint + " ex2: " + external2);
 
+            if (c.cutID == 241) {
+                float z = 1;
+            }
         Segment orgCutSegment = c.upperCutSegment;
 
         VirtualPoint knotPoint11 = kp1;
@@ -187,9 +190,7 @@ public class FixedCut implements FixedCutInterface {
             VirtualPoint knotPoint22 = knot.knotPoints.get(b + 1 >= knot.knotPoints.size() ? 0 : b + 1);
 
             Segment cutSegment2 = knot.getSegment(knotPoint21, knotPoint22);
-            if (c.cutID == 136) {
-                float z = 1;
-            }
+
             double delta = Double.MAX_VALUE;
             // I think that the continue state instead of being do the ct sgments partially
             // overlapp each other, should instead
@@ -199,7 +200,6 @@ public class FixedCut implements FixedCutInterface {
                 float z = 1;
             }
             if (cutSegment1.equals(cutSegment2)) {
-
 
                 Segment s11 = kp1.getClosestSegment(external1, null);
                 Segment s12 = cp1.getClosestSegment(external2, s11);
@@ -289,7 +289,7 @@ public class FixedCut implements FixedCutInterface {
             float z = 1;
         }
         boolean canMatch = true;
-        if (c.cutID == 120) {
+        if (c.cutID == 241) {
             float z = 10;
         }
         boolean canMatchExternals = c.balanceMap.canMatchTo(kp1, external1, matchSegment11, kp2, otherNeighborPoint,

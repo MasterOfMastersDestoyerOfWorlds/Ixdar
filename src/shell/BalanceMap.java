@@ -233,11 +233,9 @@ public class BalanceMap {
             return true;
         } else if (!vp.equals(vp2) && externalBalance.get(vp.id) < 2 && externalBalance.get(vp2.id) < 2) {
             return true;
-        }
-        else if(!vp.equals(vp2) && externalMatches.contains(matchSegment2) && externalBalance.get(vp.id) < 2){
+        } else if (!vp.equals(vp2) && externalMatches.contains(matchSegment2) && externalBalance.get(vp.id) < 2) {
             return true;
-        }
-        else if(!vp.equals(vp2) && externalMatches.contains(matchSegment1) && externalBalance.get(vp2.id) < 2){
+        } else if (!vp.equals(vp2) && externalMatches.contains(matchSegment1) && externalBalance.get(vp2.id) < 2) {
             return true;
         }
         return false;
@@ -299,64 +297,72 @@ public class BalanceMap {
             VirtualPoint cp2, Segment cutSegment2, VirtualPoint external2, Segment matchSegment2, Knot subKnot,
             CutInfo c, boolean wouldFormLoop) {
 
-        if (cutSegment1.hasPoints(0, 3) &&
-                cutSegment2.hasPoints(1, 3) && kp1.id == 0 && kp2.id == 3 && c.cutID == 16) {
+        if (cutSegment1.hasPoints(0, 3) && cutSegment2.hasPoints(1, 3)
+                && kp1.id == 0 && kp2.id == 3 && c.cutID == 16) {
             float z = 1;
         }
 
         int currMatchesCp1 = externalBalance.get(cp1.id);
-        int cp1Idx = subKnot.knotPointsFlattened.indexOf(cp1);
-        Segment prevSegmentCp1 = cp1.getClosestSegment(subKnot.getPrev(cp1Idx), null);
-        if (!prevSegmentCp1.equals(cutSegment1) && !prevSegmentCp1.equals(cutSegment2)
-                && !cuts.contains(prevSegmentCp1)) {
-            currMatchesCp1++;
-        }
+        boolean hasTwoPossibleMatchesCp1 = true;
+        int possibleMatchCount = 0;
+        if (currMatchesCp1 < 2) {
+            int cp1Idx = subKnot.knotPointsFlattened.indexOf(cp1);
+            Segment prevSegmentCp1 = cp1.getClosestSegment(subKnot.getPrev(cp1Idx), null);
+            VirtualPoint prevOtherCp1 = prevSegmentCp1.getOther(cp1);
+            if (!prevSegmentCp1.equals(cutSegment1) && !prevSegmentCp1.equals(cutSegment2)
+                    && !cuts.contains(prevSegmentCp1)
+                    && !(externalBalance.get(prevOtherCp1.id) == 2)) {
+                currMatchesCp1++;
+            }
 
-        Segment nextSegmentCp1 = cp1.getClosestSegment(subKnot.getNext(cp1Idx), null);
-        if (!nextSegmentCp1.equals(cutSegment1) && !nextSegmentCp1.equals(cutSegment2)
-                && !cuts.contains(nextSegmentCp1)) {
-            currMatchesCp1++;
-        }
-        if (currMatchesCp1 > 2) {
-            return false;
-        }
-        boolean hasTwoPossibleMatchesCp1 = currMatchesCp1 >= 2;
-        int possibleMatchCount = currMatchesCp1;
-        if (cp1.equals(kp2)) {
-            possibleMatchCount++;
-        }
-        if (!hasTwoPossibleMatchesCp1) {
-            ArrayList<VirtualPoint> allCutPoints = new ArrayList<>();
-            if (cutSegment1.contains(cp1)) {
-                allCutPoints.add(kp1);
+            Segment nextSegmentCp1 = cp1.getClosestSegment(subKnot.getNext(cp1Idx), null);
+            VirtualPoint nextOtherCp1 = nextSegmentCp1.getOther(cp1);
+            if (!nextSegmentCp1.equals(cutSegment1) && !nextSegmentCp1.equals(cutSegment2)
+                    && !cuts.contains(nextSegmentCp1)
+                    && !(externalBalance.get(nextOtherCp1.id) == 2)) {
+                currMatchesCp1++;
             }
-            if (cutSegment2.contains(cp1)) {
-                allCutPoints.add(cutSegment2.getOther(cp1));
+            if (currMatchesCp1 > 2) {
+                return false;
             }
-            for (Segment s : cuts) {
-                if (s.contains(cp1)) {
-                    allCutPoints.add(s.getOther(cp1));
+            hasTwoPossibleMatchesCp1 = currMatchesCp1 >= 2;
+            possibleMatchCount = currMatchesCp1;
+            if (cp1.equals(kp2)) {
+                possibleMatchCount++;
+            }
+            if (!hasTwoPossibleMatchesCp1) {
+                ArrayList<VirtualPoint> allCutPoints = new ArrayList<>();
+                if (cutSegment1.contains(cp1)) {
+                    allCutPoints.add(kp1);
                 }
-            }
-            for (VirtualPoint vp : subKnot.knotPointsFlattened) {
-                if (!vp.equals(cp1)) {
-                    int lockedInMatches = externalBalance.get(vp.id);
-                    if (vp.equals(kp2) || vp.equals(kp1)) {
-                        lockedInMatches++;
+                if (cutSegment2.contains(cp1)) {
+                    allCutPoints.add(cutSegment2.getOther(cp1));
+                }
+                for (Segment s : cuts) {
+                    if (s.contains(cp1)) {
+                        allCutPoints.add(s.getOther(cp1));
                     }
-                    if (lockedInMatches >= 2) {
-                        continue;
-                    }
-                    if (allCutPoints.contains(vp)) {
-                        continue;
-                    }
-                    if (externalGroups.containsKey(cp1.id) && externalGroups.containsKey(vp.id)
-                            && externalGroups.get(cp1.id) == externalGroups.get(vp.id)) {
-                        continue;
-                    }
-                    possibleMatchCount++;
-                    if (possibleMatchCount >= 2) {
-                        break;
+                }
+                for (VirtualPoint vp : subKnot.knotPointsFlattened) {
+                    if (!vp.equals(cp1)) {
+                        int lockedInMatches = externalBalance.get(vp.id);
+                        if (vp.equals(kp2) || vp.equals(kp1)) {
+                            lockedInMatches++;
+                        }
+                        if (lockedInMatches >= 2) {
+                            continue;
+                        }
+                        if (allCutPoints.contains(vp)) {
+                            continue;
+                        }
+                        if (externalGroups.containsKey(cp1.id) && externalGroups.containsKey(vp.id)
+                                && externalGroups.get(cp1.id) == externalGroups.get(vp.id)) {
+                            continue;
+                        }
+                        possibleMatchCount++;
+                        if (possibleMatchCount >= 2) {
+                            break;
+                        }
                     }
                 }
             }
@@ -379,11 +385,15 @@ public class BalanceMap {
         int currMatchesKp1 = externalsKp1;
         int kp1Idx = subKnot.knotPointsFlattened.indexOf(kp1);
         Segment prevSegment = kp1.getClosestSegment(subKnot.getPrev(kp1Idx), null);
-        if (!prevSegment.equals(cutSegment1) && !prevSegment.equals(cutSegment2) && !cuts.contains(prevSegment)) {
+        VirtualPoint prevOther = prevSegment.getOther(kp1);
+        if (!prevSegment.equals(cutSegment1) && !prevSegment.equals(cutSegment2) && !cuts.contains(prevSegment)
+                && !(externalBalance.get(prevOther.id) == 2)) {
             currMatchesKp1++;
         }
         Segment nextSegment = kp1.getClosestSegment(subKnot.getNext(kp1Idx), null);
-        if (!nextSegment.equals(cutSegment1) && !nextSegment.equals(cutSegment2) && !cuts.contains(nextSegment)) {
+        VirtualPoint nextOther = nextSegment.getOther(kp1);
+        if (!nextSegment.equals(cutSegment1) && !nextSegment.equals(cutSegment2) && !cuts.contains(nextSegment)
+                && !(externalBalance.get(nextOther.id) == 2)) {
             currMatchesKp1++;
         }
         if (currMatchesKp1 > 2) {
@@ -431,14 +441,18 @@ public class BalanceMap {
         int currMatchesCp2 = externalBalance.get(cp2.id);
         int cp2Idx = subKnot.knotPointsFlattened.indexOf(cp2);
         Segment prevSegmentCp2 = cp2.getClosestSegment(subKnot.getPrev(cp2Idx), null);
+        VirtualPoint prevOtherCp2 = prevSegmentCp2.getOther(cp2);
         if (!prevSegmentCp2.equals(cutSegment1) && !prevSegmentCp2.equals(cutSegment2)
-                && !cuts.contains(prevSegmentCp2)) {
+                && !cuts.contains(prevSegmentCp2)
+                && !(externalBalance.get(prevOtherCp2.id) == 2)) {
             currMatchesCp2++;
         }
 
         Segment nextSegmentCp2 = cp2.getClosestSegment(subKnot.getNext(cp2Idx), null);
+        VirtualPoint nextOtherCp2 = nextSegmentCp2.getOther(cp2);
         if (!nextSegmentCp2.equals(cutSegment1) && !nextSegmentCp2.equals(cutSegment2)
-                && !cuts.contains(nextSegmentCp2)) {
+                && !cuts.contains(nextSegmentCp2)
+                && !(externalBalance.get(nextOtherCp2.id) == 2)) {
             currMatchesCp2++;
         }
         if (currMatchesCp2 > 2) {
@@ -455,7 +469,7 @@ public class BalanceMap {
                 allCutPoints.add(cutSegment1.getOther(cp2));
             }
             if (cutSegment2.contains(cp2)) {
-                
+
                 allCutPoints.add(kp2);
             }
             for (Segment s : cuts) {
@@ -499,11 +513,15 @@ public class BalanceMap {
         int currMatchesKp2 = externalsKp2;
         int Kp2Idx = subKnot.knotPointsFlattened.indexOf(kp2);
         Segment prevSegment2 = kp2.getClosestSegment(subKnot.getPrev(Kp2Idx), null);
-        if (!prevSegment2.equals(cutSegment1) && !prevSegment2.equals(cutSegment2) && !cuts.contains(prevSegment2)) {
+        VirtualPoint prevOther2 = prevSegment2.getOther(kp2);
+        if (!prevSegment2.equals(cutSegment1) && !prevSegment2.equals(cutSegment2) && !cuts.contains(prevSegment2)
+                && !(externalBalance.get(prevOther2.id) == 2)) {
             currMatchesKp2++;
         }
         Segment nextSegment2 = kp2.getClosestSegment(subKnot.getNext(Kp2Idx), null);
-        if (!nextSegment2.equals(cutSegment1) && !nextSegment2.equals(cutSegment2) && !cuts.contains(nextSegment2)) {
+        VirtualPoint nextOther2 = nextSegment2.getOther(kp2);
+        if (!nextSegment2.equals(cutSegment1) && !nextSegment2.equals(cutSegment2) && !cuts.contains(nextSegment2)
+                && !(externalBalance.get(nextOther2.id) == 2)) {
             currMatchesKp2++;
         }
         if (currMatchesKp2 > 2) {

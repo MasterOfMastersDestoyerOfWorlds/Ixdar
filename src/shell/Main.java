@@ -70,7 +70,10 @@ public class Main extends JComponent {
 		String fileName = "djbouti_4-8WH4-6";
 		boolean printAll = false;
 		retTup = importFromFile(new File("./src/test/solutions/" + fileName));
-		DistanceMatrix d = new DistanceMatrix(retTup.ps);
+		DistanceMatrix d = retTup.d;
+		if(retTup == null){
+			d = new DistanceMatrix(retTup.ps);
+		}
 
 		orgShell = retTup.tsp;
 
@@ -495,8 +498,8 @@ public class Main extends JComponent {
 							insertIdx = secondPointId;
 						}
 						pt2d = wormHole.toPoint2D();
-						lines.add(insertIdx + 1,wormHole);
-						ps.add(insertIdx + 1,wormHole);
+						lines.add(insertIdx + 1, wormHole);
+						ps.add(insertIdx + 1, wormHole);
 						tsp.add(insertIdx + 1, wormHole);
 
 					} else {
@@ -526,7 +529,7 @@ public class Main extends JComponent {
 
 			}
 			br.close();
-			return new PointSetPath(ps, path, tsp);
+			return new PointSetPath(ps, path, tsp, d);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

@@ -9,16 +9,19 @@ public class PointSetPath {
 	public PointSet ps;
 	public Path2D path;
 	public Shell tsp;
+	public DistanceMatrix d;
 
 	/**
 	 * Initializes the path and pointset variables
 	 * @param ps
 	 * @param path
+	 * @param d 
 	 */
-	public PointSetPath(PointSet ps, Path2D path, Shell tsp) {
+	public PointSetPath(PointSet ps, Path2D path, Shell tsp, DistanceMatrix d) {
 		this.path = path;
 		this.ps = ps;
 		this.tsp = tsp;
+		this.d = d;
 	}
 
 	/* All of this is currently unused but keeping it for history and future use purposes

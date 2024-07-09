@@ -187,9 +187,12 @@ class CutMatchList {
     public void addTwoCut(Segment cutSegment, Segment[] segments, Segment matchSegment1, Segment matchSegment2,
             VirtualPoint kp1, VirtualPoint kp2, CutMatchList cml, CutInfo c, boolean match1, String cutType)
             throws SegmentBalanceException {
+        if (c.cutID == 287) {
+            float z = 0;
+        }
         CutMatch cm = new CutMatch(cutType, shell, sbe);
         for (Segment s : segments) {
-            if (!cutSegment.equals(s) && !cm.cutSegments.contains(s)) {
+            if (!c.balanceMap.cuts.contains(s) && !cm.cutSegments.contains(s)) {
                 cm.cutSegments.add(s);
             }
         }
@@ -198,12 +201,12 @@ class CutMatchList {
         }
         cm.c = c;
         cm.originalCutSegments = segments;
-        cm.originalMatchSegments = new Segment[]{matchSegment1, matchSegment2};
+        cm.originalMatchSegments = new Segment[] { matchSegment1, matchSegment2 };
         cm.matchSegments.add(matchSegment2);
         cm.knot = c.knot;
         cm.kp1 = kp1;
         cm.kp2 = kp2;
-        cm.superKnot = c.superKnot; 
+        cm.superKnot = c.superKnot;
         cutMatches.add(cm);
         for (CutMatch m : cml.cutMatches) {
             if (m.knot == c.knot) {
@@ -216,8 +219,7 @@ class CutMatchList {
         boolean balanced = this.checkCutMatchBalance(matchSegment1, matchSegment2, cutSegment, segments, c, true,
                 true);
         shell.buff.add("BALANCE :" + balanced);
-
-        if(c.cutID == 173){
+        if(c.cutID == 287){
             float z = 0;
         }
         if (!balanced) {
@@ -290,6 +292,7 @@ class CutMatchList {
         boolean balanced = this.checkCutMatchBalance(c.lowerMatchSegment, c.upperMatchSegment, c.cutSegment1,
                 cutSegments, c,
                 false, true);
+
         if (!balanced) {
             CutMatch diff = diffKnots(cm, c, c.needTwoNeighborMatches, cutType);
             cm.diff = diff;
@@ -354,7 +357,9 @@ class CutMatchList {
                 if (neighbor.equals(topKnotPoint)) {
                     totalNeighborSegments.add(upperCutSegment);
                 }
-                if (!topCutPoint.equals(neighbor) || (topCutPoint.equals(neighbor) && needTwoNeighborMatches)) {
+                if (!topCutPoint.equals(neighbor) || (topCutPoint.equals(neighbor) && needTwoNeighborMatches)
+                        || (topCutPoint.equals(neighbor) && !needTwoNeighborMatches
+                                && !neighborCutSegment.equals(upperCutSegment))) {
                     VirtualPoint innerNeighbor = neighborCutSegment.getOther(neighbor);
                     int neighborSegmentsTarget = 1;
                     if (topCutPoint.equals(neighbor) && needTwoNeighborMatches) {
@@ -422,7 +427,7 @@ class CutMatchList {
             return new CutMatch(cutType, shell, sbe);
         }
         ArrayList<Segment> subKnotSegments = new ArrayList<>();
-        ArrayList<Segment> diffList = new ArrayList<>();
+        ArrayList<Segment> diffMatchList = new ArrayList<>();
         for (int a = 0; a < subKnot.knotPoints.size(); a++) {
             VirtualPoint knotPoint11 = subKnot.knotPoints.get(a);
             VirtualPoint knotPoint12 = subKnot.knotPoints.get(a + 1 >= subKnot.knotPoints.size() ? 0 : a + 1);
@@ -430,27 +435,32 @@ class CutMatchList {
             subKnotSegments.add(s);
 
         }
+
+
         ArrayList<Segment> superKnotSegments = new ArrayList<>();
-        ArrayList<Segment> diffList2 = new ArrayList<>();
+        ArrayList<Segment> diffCutList = new ArrayList<>();
         for (int a = 0; a < superKnot.knotPoints.size(); a++) {
             VirtualPoint knotPoint11 = superKnot.knotPoints.get(a);
             VirtualPoint knotPoint12 = superKnot.knotPoints.get(a + 1 >= superKnot.knotPoints.size() ? 0 : a + 1);
             Segment s = superKnot.getSegment(knotPoint11, knotPoint12);
             superKnotSegments.add(s);
             if (!subKnotSegments.contains(s) && !cm.matchSegments.contains(s) && subKnot.contains(knotPoint11)
-                    && subKnot.contains(knotPoint12) 
+                    && subKnot.contains(knotPoint12)
                     && !innerNeighborSegments.contains(s)
                     && !(innerNeighborSegmentsFlattened.contains(knotPoint12)
                             && innerNeighborSegmentsFlattened.contains(knotPoint11))) {
 
-                diffList2.add(s);
+                diffCutList.add(s);
             }
         }
 
         for (Segment s : subKnotSegments) {
             if (!superKnotSegments.contains(s) && !cm.cutSegments.contains(s) && !s.equals(c.cutSegment1)
                     && !innerNeighborSegments.contains(s)) {
-                diffList.add(s);
+                if (!(c.balanceMap.externalBalance.get(s.first.id) == 2)
+                        && !(c.balanceMap.externalBalance.get(s.last.id) == 2)) {
+                    diffMatchList.add(s);
+                }
             }
         }
 
@@ -461,6 +471,7 @@ class CutMatchList {
             }
         }
         cm.cutSegments.removeAll(toRemoveCuts);
+
         ArrayList<Segment> toRemoveMatches = new ArrayList<>();
         for (Segment s : cm.matchSegments) {
             if (superKnotSegments.contains(s)) {
@@ -475,8 +486,8 @@ class CutMatchList {
         // !diffList2.contains(kpSegment)){
         // diffList2.add(kpSegment);
         // }
-        cmNew.cutSegments.addAll(diffList2);
-        cmNew.matchSegments.addAll(diffList);
+        cmNew.cutSegments.addAll(diffCutList);
+        cmNew.matchSegments.addAll(diffMatchList);
         cmNew.knot = superKnot;
         cmNew.updateDelta();
         cmNew.checkValid();
@@ -496,7 +507,7 @@ class CutMatchList {
                 }
             }
             for (Segment s : cm.matchSegments) {
-                if (!seenMatches.contains(s) &&  !this.topKnot.hasSegment(s)) {
+                if (!seenMatches.contains(s) && !this.topKnot.hasSegment(s)) {
                     delta += s.distance;
                     seenMatches.add(s);
                 }
@@ -651,16 +662,16 @@ class CutMatchList {
         }
         boolean ex1Partial = false;
         boolean ex2Partial = false;
-        for(Segment externalMatch : c.balanceMap.externalMatches){
+        for (Segment externalMatch : c.balanceMap.externalMatches) {
             allSegments.add(externalMatch);
-            if(externalMatch.contains(externalPoint1)){
+            if (externalMatch.contains(externalPoint1)) {
                 ex1Partial = true;
             }
-            if(externalMatch.contains(externalPoint2)){
+            if (externalMatch.contains(externalPoint2)) {
                 ex2Partial = true;
             }
         }
-        for(Segment upperCuts: c.balanceMap.cuts){
+        for (Segment upperCuts : c.balanceMap.cuts) {
             allSegments.remove(upperCuts);
         }
         for (Segment s : allSegments) {
