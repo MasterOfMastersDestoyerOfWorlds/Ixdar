@@ -191,12 +191,17 @@ public class FixedCutThreeMatches extends FixedCut {
                 balanceMap.addCut(cutSegment2.first, cutSegment2.last);
                 balanceMap.addExternalMatch(kp1, external2, c.superKnot);
                 balanceMap.addExternalMatch(kp2, otherNeighborPoint, c.superKnot);
+
+            } catch (BalancerException be) {
+                throw be;
+            }
+            try {
                 internalCuts = cutEngine.internalPathEngine.calculateInternalPathLength(
                         kp1, cp1, external2,
                         kp2, cp2, otherNeighborPoint,
                         knot, balanceMap);
-            } catch (BalancerException be) {
-                throw be;
+            } catch (SegmentBalanceException sbe){
+                throw sbe;
             }
             if (matchSegment11.distance + matchSegment12.distance < matchSegment21.distance
                     + matchSegment22.distance && canMatch) {
