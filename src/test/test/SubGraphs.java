@@ -22,9 +22,15 @@ public class SubGraphs {
 	 * Tests that our solver solves the djibouti problem set correctly
 	 */
 
+	 @Test
+	 public void test_circle_5() {
+		 testMethod("circle_5");
+	 }
+ 
+
 	@Test
-	public void test_djibouti() {
-		testMethod("djbouti");
+	public void test_circle_10() {
+		testMethod("circle_10");
 	}
 
 	@Test

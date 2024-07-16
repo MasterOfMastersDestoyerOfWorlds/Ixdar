@@ -67,11 +67,11 @@ public class Main extends JComponent {
 		frame.setSize(new Dimension(WIDTH, HEIGHT));
 		frame.setVisible(true);
 
-		String fileName = "wi29_5-25";
+		String fileName = "circle_5";
 		boolean printAll = false;
 		retTup = importFromFile(new File("./src/test/solutions/" + fileName));
 		DistanceMatrix d = retTup.d;
-		if(retTup.d == null){
+		if (retTup.d == null) {
 			d = new DistanceMatrix(retTup.ps);
 		}
 
@@ -484,7 +484,32 @@ public class Main extends JComponent {
 				if (flag == true) {
 					String[] cords = line.split(" ");
 					Point2D pt2d = null;
-					if (cords[0].equals("WH")) {
+					if (cords[0].equals("CIRCLE")) {
+						System.out.println("CIRCLE FOUND!");
+						double xCenter = java.lang.Double.parseDouble(cords[1]);
+						double yCenter = java.lang.Double.parseDouble(cords[2]);
+						double radius = java.lang.Double.parseDouble(cords[3]);
+						int numPoints = java.lang.Integer.parseInt(cords[4]);
+						double radians = 2 * Math.PI / ((double) numPoints);
+						for (int i = 0; i < numPoints; i++) {
+							double xCoord = radius * Math.cos(i * radians) + xCenter;
+							double yCoord = radius * Math.sin(i * radians) + yCenter;
+							PointND pt = new PointND.Double(index, xCoord, yCoord);
+							pt2d = pt.toPoint2D();
+							lookUp.put(index, pt);
+							lines.add(pt);
+							ps.add(pt);
+							tsp.add(pt);
+
+							if (first) {
+								path.moveTo(pt2d.getX(), pt2d.getY());
+								first = false;
+							} else {
+								path.lineTo(pt2d.getX(), pt2d.getY());
+							}
+							index++;
+						}
+					} else if (cords[0].equals("WH")) {
 						System.out.println("WORMHOLEFOUND!");
 						if (d == null) {
 							d = new DistanceMatrix(ps);
@@ -501,6 +526,13 @@ public class Main extends JComponent {
 						lines.add(insertIdx + 1, wormHole);
 						ps.add(insertIdx + 1, wormHole);
 						tsp.add(insertIdx + 1, wormHole);
+
+						if (first) {
+							path.moveTo(pt2d.getX(), pt2d.getY());
+							first = false;
+						} else {
+							path.lineTo(pt2d.getX(), pt2d.getY());
+						}
 
 					} else {
 						PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(cords[1]),
