@@ -6,6 +6,8 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.WindowEvent;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.GeneralPath;
@@ -19,6 +21,11 @@ import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Random;
+import java.util.Set;
+
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
@@ -29,11 +36,13 @@ import javax.swing.WindowConstants;
 /**
  * The main class that facilitates running our tsp solver
  */
-public class Main extends JComponent {
+public class Main extends JComponent implements KeyListener {
 
 	private static final long serialVersionUID = 2722424842956800923L;
-	private static final boolean SCALE = false;
 	private static final int WIDTH = 750, HEIGHT = 750;
+	private static double SCALEFACTOR = 1;
+	private static double PAN_X = 0;
+	private static double PAN_Y = 0;
 	public static ArrayList<VirtualPoint> result;
 
 	static boolean calculateKnot = true;
@@ -49,24 +58,32 @@ public class Main extends JComponent {
 	public static ArrayList<Shell> subPaths = new ArrayList<>();
 	static SegmentBalanceException drawException;
 	static Shell resultShell;
+	static JFrame frame;
+	static Main main;
+	private static Color stickyColor;
 
 	/**
 	 * Creates the Jframe where the solution is drawn
 	 * 
 	 * @param args
 	 */
-	public static void main(String[] args) {
-		JFrame frame = new JFrame("Ixdar");
+
+	public Main() {
+		frame = new JFrame("Ixdar");
 		ImageIcon img = new ImageIcon("decalSmall.png");
 		frame.setIconImage(img.getImage());
-		frame.getContentPane().add(new Main());
+		frame.getContentPane().add(this);
 
 		frame.getContentPane().setBackground(new Color(20, 20, 20));
 		frame.pack();
 		frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		frame.setSize(new Dimension(WIDTH, HEIGHT));
 		frame.setVisible(true);
+		frame.addKeyListener(this);
+	}
 
+	public static void main(String[] args) {
+		main = new Main();
 		String fileName = "circle_5";
 		boolean printAll = false;
 		retTup = importFromFile(new File("./src/test/solutions/" + fileName));
@@ -155,6 +172,8 @@ public class Main extends JComponent {
 
 		System.out.println("Best Length: " + orgShell.getLength());
 		System.out.println("===============================================");
+		Random colorSeed = new Random();
+		stickyColor = new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
 		frame.repaint();
 
 	}
@@ -166,17 +185,58 @@ public class Main extends JComponent {
 	 */
 	@Override
 	public void paint(Graphics g) {
+		double SHIFT_MOD = 1;
+		if (pressedKeys.contains(KeyEvent.VK_SHIFT)) {
+			SHIFT_MOD = 2;
+		}
+		if (!pressedKeys.isEmpty()) {
+			for (Iterator<Integer> it = pressedKeys.iterator(); it.hasNext();) {
+				switch (it.next()) {
+					case KeyEvent.VK_W:
+					case KeyEvent.VK_UP:
+						PAN_Y += 25 * SHIFT_MOD;
+						break;
+					case KeyEvent.VK_A:
+					case KeyEvent.VK_LEFT:
+						PAN_X += 25 * SHIFT_MOD;
+						break;
+					case KeyEvent.VK_S:
+					case KeyEvent.VK_DOWN:
+						PAN_Y -= 25 * SHIFT_MOD;
+						break;
+					case KeyEvent.VK_D:
+					case KeyEvent.VK_RIGHT:
+						PAN_X -= 25 * SHIFT_MOD;
+						break;
+					case KeyEvent.VK_EQUALS:
+						SCALEFACTOR += 0.05 * SHIFT_MOD;
+						break;
+					case KeyEvent.VK_MINUS:
+						SCALEFACTOR -= 0.05 * SHIFT_MOD;
+						break;
+					case KeyEvent.VK_R:
+						SCALEFACTOR = 1;
+						PAN_X = 0;
+						PAN_Y = 0;
+						break;
+				}
+			}
+		}
 		try {
 			Graphics2D g2 = (Graphics2D) g;
 			BufferedImage img = ImageIO.read(new File("decal.png"));
-			g.drawImage(img, WIDTH - (int) (WIDTH / 3.5), HEIGHT - (int) (HEIGHT / 3.5), WIDTH / 5, HEIGHT / 5, null);
+			double height = SwingUtilities.getWindowAncestor(this).getHeight(),
+					width = SwingUtilities.getWindowAncestor(this).getWidth();
+			g.drawImage(img, ((int) width) - (int) (width / 3.5), ((int) height) - (int) (height / 3.5), 150, 150,
+					null);
 
 			// wi29_6-25: Something is wrong with the difference calculator, it is not
 			// cutting the neighbor segments that went unmatched
 
 			if (drawSubPaths) {
 				for (Shell temp : subPaths) {
-					temp.drawShell(this, g2, true, minLineThickness * 2, null, retTup.ps);
+					temp.drawShell(this, g2, true, minLineThickness * 2,
+							stickyColor, retTup.ps);
 				}
 			}
 			if (drawException != null) {
@@ -193,7 +253,28 @@ public class Main extends JComponent {
 			SwingUtilities.getWindowAncestor(this)
 					.dispatchEvent(new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));
 		}
+		if (!pressedKeys.isEmpty()) {
+			frame.repaint();
+		}
 
+	}
+
+	private final Set<Integer> pressedKeys = new HashSet<>();
+
+	@Override
+	public void keyPressed(KeyEvent e) {
+		pressedKeys.add(e.getKeyCode());
+
+		frame.repaint();
+	}
+
+	@Override
+	public void keyTyped(KeyEvent e) {
+	}
+
+	@Override
+	public void keyReleased(KeyEvent e) {
+		pressedKeys.remove(e.getKeyCode());
 	}
 
 	private void drawCutMatch(JComponent frame, Graphics2D g2, SegmentBalanceException sbe, int lineThickness,
@@ -233,15 +314,10 @@ public class Main extends JComponent {
 		}
 
 		double rangeX = maxX - minX, rangeY = maxY - minY;
-		double height = SwingUtilities.getWindowAncestor(frame).getHeight(),
-				width = SwingUtilities.getWindowAncestor(frame).getWidth();
+		double height = HEIGHT * SCALEFACTOR,
+				width = WIDTH * SCALEFACTOR;
 
-		if (!SCALE) {
-			height = WIDTH;
-			width = HEIGHT;
-		}
-
-		int offsetx = 100, offsety = 100;
+		int offsetx = 100 + (int) PAN_X, offsety = 100 + (int) PAN_Y;
 
 		double[] firstCoords = new double[2];
 		double[] lastCoords = new double[2];
@@ -419,15 +495,10 @@ public class Main extends JComponent {
 		PathIterator pi = path.getPathIterator(null);
 		Point2D start = null;
 		double rangeX = maxX - minX, rangeY = maxY - minY;
-		double height = SwingUtilities.getWindowAncestor(frame).getHeight(),
-				width = SwingUtilities.getWindowAncestor(frame).getWidth();
+		double height = HEIGHT * SCALEFACTOR,
+				width = WIDTH * SCALEFACTOR;
 
-		if (!SCALE) {
-			height = WIDTH;
-			width = HEIGHT;
-		}
-
-		int count = 0, offsetx = 100, offsety = 100;
+		int count = 0, offsetx = 100 + (int) PAN_X, offsety = 100 + (int) PAN_Y;
 		while (!pi.isDone()) {
 			double[] coords = new double[2];
 			pi.currentSegment(coords);
@@ -568,4 +639,5 @@ public class Main extends JComponent {
 		return null;
 
 	}
+
 }
