@@ -2,6 +2,7 @@ package test;
 
 import shell.BalancerException;
 import shell.DistanceMatrix;
+import shell.FileManagement;
 import shell.Main;
 import shell.PointSet;
 import shell.PointSetPath;
@@ -27,10 +28,19 @@ public class SubGraphs {
 		 testMethod("circle_5");
 	 }
  
+	 @Test
+	 public void test_circle_5_in_arc() {
+		 testMethod("circle_in_5_arc");
+	 }
 
 	@Test
 	public void test_circle_10() {
 		testMethod("circle_10");
+	}
+
+	@Test
+	public void test_two_circle_in_10() {
+		testMethod("two_circle_in_10");
 	}
 
 	@Test
@@ -174,7 +184,7 @@ public class SubGraphs {
 	}
 
 	public void testMethod(String fileName) {
-		PointSetPath retTup = Main.importFromFile(new File("./src/test/solutions/" + fileName));
+		PointSetPath retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
 		PointSet ps = new PointSet();
 		Shell answer = new Shell();
 		int n = retTup.ps.size();

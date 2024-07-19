@@ -394,7 +394,7 @@ public class Shell extends LinkedList<PointND> {
 		Point tempME;
 		Point tempBP;
 		Segment tempS;
-		
+
 		if (subList.contains(vp.match1)) {
 			tempMatch = vp.match2;
 			tempME = vp.match2endpoint;
@@ -579,10 +579,6 @@ public class Shell extends LinkedList<PointND> {
 
 	}
 
-
-
-
-
 	public Integer[][] smallestCommonKnotLookup;
 	public Integer[] smallestKnotLookup;
 
@@ -723,14 +719,14 @@ public class Shell extends LinkedList<PointND> {
 	 *                     color)
 	 */
 	public void drawShell(JComponent frame, Graphics2D g2, boolean drawChildren, int lineThickness, Color c,
-			PointSet ps) {
+			PointSet ps, Camera camera) {
 		if (c == null) {
 			Random colorSeed = new Random();
-			Main.drawPath(frame, g2, toPath(this), lineThickness,
+			Drawing.drawPath(frame, g2, toPath(this), lineThickness,
 					new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps,
-					true, false, false, false);
+					true, false, false, false, camera);
 		} else {
-			Main.drawPath(frame, g2, toPath(this), lineThickness, c, ps, true, false, false, false);
+			Drawing.drawPath(frame, g2, toPath(this), lineThickness, c, ps, true, false, false, false, camera);
 		}
 	}
 
@@ -876,13 +872,13 @@ public class Shell extends LinkedList<PointND> {
 		Path2D path = new GeneralPath();
 		boolean first = true;
 		for (PointND p : shell) {
-			Point2D p2d = p.toPoint2D();
-			if (first) {
-				path.moveTo(p2d.getX(), p2d.getY());
-				first = false;
-			} else {
-				path.lineTo(p2d.getX(), p2d.getY());
-			}
+				Point2D p2d = p.toPoint2D();
+				if (first) {
+					path.moveTo(p2d.getX(), p2d.getY());
+					first = false;
+				} else {
+					path.lineTo(p2d.getX(), p2d.getY());
+				}
 
 		}
 		return path;

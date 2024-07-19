@@ -559,6 +559,9 @@ public abstract class PointND implements Cloneable {
 	 * @return a {@code Point2D} that consists of the first 2 coordinates of this point
 	 */
 	public Point2D toPoint2D() {
+		if(this.isDummyNode){
+			return new Point2D.Double(-1000000, -1000000);
+		}
 		return new Point2D.Double(getCoord(0), getCoord(1));
 	}
 

@@ -1,26 +1,21 @@
 package shell;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 import java.awt.event.WindowEvent;
-import java.awt.geom.Ellipse2D;
-import java.awt.geom.GeneralPath;
-import java.awt.geom.Path2D;
-import java.awt.geom.PathIterator;
-import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Random;
@@ -30,19 +25,17 @@ import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JRootPane;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 /**
  * The main class that facilitates running our tsp solver
  */
-public class Main extends JComponent implements KeyListener {
+public class Main extends JComponent implements KeyListener, MouseListener, MouseWheelListener {
 
 	private static final long serialVersionUID = 2722424842956800923L;
-	private static final int WIDTH = 750, HEIGHT = 750;
-	private static double SCALEFACTOR = 1;
-	private static double PAN_X = 0;
-	private static double PAN_Y = 0;
 	public static ArrayList<VirtualPoint> result;
 
 	static boolean calculateKnot = true;
@@ -61,6 +54,8 @@ public class Main extends JComponent implements KeyListener {
 	static JFrame frame;
 	static Main main;
 	private static Color stickyColor;
+	int queuedMouseWheelTicks = 0;
+	Camera camera;
 
 	/**
 	 * Creates the Jframe where the solution is drawn
@@ -77,16 +72,26 @@ public class Main extends JComponent implements KeyListener {
 		frame.getContentPane().setBackground(new Color(20, 20, 20));
 		frame.pack();
 		frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-		frame.setSize(new Dimension(WIDTH, HEIGHT));
+		camera = new Camera(750, 750, 1, 0, 0);
+		frame.setSize(new Dimension(camera.Width, camera.Height));
 		frame.setVisible(true);
 		frame.addKeyListener(this);
+		frame.addMouseListener(this);
+		frame.addMouseWheelListener(this);
+
+		JRootPane rootPane = frame.getRootPane();
+		rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+				KeyStroke.getKeyStroke(KeyEvent.VK_P, InputEvent.CTRL_DOWN_MASK),
+				"printScreen");
+		rootPane.getActionMap().put("printScreen",
+				new PrintScreenAction(frame));
 	}
 
 	public static void main(String[] args) {
 		main = new Main();
-		String fileName = "circle_5";
+		String fileName = "three_circle_in_10";
 		boolean printAll = false;
-		retTup = importFromFile(new File("./src/test/solutions/" + fileName));
+		retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
 		DistanceMatrix d = retTup.d;
 		if (retTup.d == null) {
 			d = new DistanceMatrix(retTup.ps);
@@ -105,7 +110,7 @@ public class Main extends JComponent implements KeyListener {
 		System.out.println(maxShell);
 		long startTimeKnotFinding = System.currentTimeMillis();
 		if (calculateKnot) {
-			result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 6));
+			result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 10));
 		}
 		maxShell.buff.flush();
 		long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
@@ -169,9 +174,9 @@ public class Main extends JComponent implements KeyListener {
 		System.out.println("Knot-cutting time: " + knotCuttingSeconds);
 		System.out.println(
 				"Knot-cutting %: " + 100 * (knotCuttingSeconds / (knotCuttingSeconds + knotFindingSeconds)));
-
 		System.out.println("Best Length: " + orgShell.getLength());
 		System.out.println("===============================================");
+		System.out.println(maxShell.cutEngine.flatKnots);
 		Random colorSeed = new Random();
 		stickyColor = new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
 		frame.repaint();
@@ -194,33 +199,41 @@ public class Main extends JComponent implements KeyListener {
 				switch (it.next()) {
 					case KeyEvent.VK_W:
 					case KeyEvent.VK_UP:
-						PAN_Y += 25 * SHIFT_MOD;
+						camera.PanY += 25 * SHIFT_MOD;
 						break;
 					case KeyEvent.VK_A:
 					case KeyEvent.VK_LEFT:
-						PAN_X += 25 * SHIFT_MOD;
+						camera.PanX += 25 * SHIFT_MOD;
 						break;
 					case KeyEvent.VK_S:
 					case KeyEvent.VK_DOWN:
-						PAN_Y -= 25 * SHIFT_MOD;
+						camera.PanY -= 25 * SHIFT_MOD;
 						break;
 					case KeyEvent.VK_D:
 					case KeyEvent.VK_RIGHT:
-						PAN_X -= 25 * SHIFT_MOD;
+						camera.PanX -= 25 * SHIFT_MOD;
 						break;
 					case KeyEvent.VK_EQUALS:
-						SCALEFACTOR += 0.05 * SHIFT_MOD;
+						camera.ScaleFactor += 0.05 * SHIFT_MOD;
 						break;
 					case KeyEvent.VK_MINUS:
-						SCALEFACTOR -= 0.05 * SHIFT_MOD;
+						camera.ScaleFactor -= 0.05 * SHIFT_MOD;
 						break;
 					case KeyEvent.VK_R:
-						SCALEFACTOR = 1;
-						PAN_X = 0;
-						PAN_Y = 0;
+						camera.ScaleFactor = 1;
+						camera.PanX = 0;
+						camera.PanY = 0;
 						break;
 				}
 			}
+		}
+		if (queuedMouseWheelTicks < 0) {
+			camera.ScaleFactor += 0.05 * SHIFT_MOD;
+			queuedMouseWheelTicks++;
+		}
+		if (queuedMouseWheelTicks > 0) {
+			camera.ScaleFactor -= 0.05 * SHIFT_MOD;
+			queuedMouseWheelTicks--;
 		}
 		try {
 			Graphics2D g2 = (Graphics2D) g;
@@ -236,17 +249,18 @@ public class Main extends JComponent implements KeyListener {
 			if (drawSubPaths) {
 				for (Shell temp : subPaths) {
 					temp.drawShell(this, g2, true, minLineThickness * 2,
-							stickyColor, retTup.ps);
+							stickyColor, retTup.ps, camera);
 				}
 			}
 			if (drawException != null) {
-				resultShell.drawShell(this, g2, true, minLineThickness * 2, Color.magenta, retTup.ps);
-				drawCutMatch(this, g2, drawException, minLineThickness * 2, retTup.ps);
+				resultShell.drawShell(this, g2, true, minLineThickness * 2, Color.magenta, retTup.ps, camera);
+				Drawing.drawCutMatch(this, g2, drawException, minLineThickness * 2, retTup.ps, camera);
 			}
 
-			drawPath(this, g2, retTup.path, minLineThickness, Color.RED, retTup.ps, false, false, true, false);
+			Drawing.drawPath(this, g2, retTup.path, minLineThickness, Color.RED, retTup.ps, false, false, true, false,
+					camera);
 			if (drawMainPath)
-				orgShell.drawShell(this, g2, false, minLineThickness, Color.BLUE, retTup.ps);
+				orgShell.drawShell(this, g2, false, minLineThickness, Color.BLUE, retTup.ps, camera);
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -275,369 +289,39 @@ public class Main extends JComponent implements KeyListener {
 	@Override
 	public void keyReleased(KeyEvent e) {
 		pressedKeys.remove(e.getKeyCode());
+		if (e.getKeyCode() == KeyEvent.VK_C) {
+			Random colorSeed = new Random();
+			stickyColor = new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
+		}
 	}
 
-	private void drawCutMatch(JComponent frame, Graphics2D g2, SegmentBalanceException sbe, int lineThickness,
-			PointSet ps) {
-
-		BasicStroke stroke = new BasicStroke(lineThickness);
-
-		BasicStroke doubleStroke = new BasicStroke(lineThickness * 2);
-		g2.setStroke(stroke);
-
-		// Draw x 1
-
-		Font font = new Font("San-Serif", Font.PLAIN, 20);
-		g2.setFont(font);
-
-		g2.setColor(Color.RED);
-
-		double minX = java.lang.Double.MAX_VALUE, minY = java.lang.Double.MAX_VALUE, maxX = 0, maxY = 0;
-
-		for (PointND pn : ps) {
-			if (!pn.isDummyNode()) {
-				Point2D p = pn.toPoint2D();
-
-				if (p.getX() < minX) {
-					minX = p.getX();
-				}
-				if (p.getY() < minY) {
-					minY = p.getY();
-				}
-				if (p.getX() > maxX) {
-					maxX = p.getX();
-				}
-				if (p.getY() > maxY) {
-					maxY = p.getY();
-				}
-			}
-		}
-
-		double rangeX = maxX - minX, rangeY = maxY - minY;
-		double height = HEIGHT * SCALEFACTOR,
-				width = WIDTH * SCALEFACTOR;
-
-		int offsetx = 100 + (int) PAN_X, offsety = 100 + (int) PAN_Y;
-
-		double[] firstCoords = new double[2];
-		double[] lastCoords = new double[2];
-		double[] midCoords = new double[2];
-
-		Point2D first = ((Point) sbe.cut1.first).p.toPoint2D();
-		Point2D last = ((Point) sbe.cut1.last).p.toPoint2D();
-
-		firstCoords[0] = (-(first.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
-		firstCoords[1] = (-(first.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
-
-		lastCoords[0] = (-(last.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
-		lastCoords[1] = (-(last.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
-		midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0 - 8;
-		midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0 + 8;
-		g2.drawString("X", (int) midCoords[0], (int) midCoords[1]);
-
-		g2.setColor(new Color(210, 105, 30));
-		// Draw x 2
-		first = ((Point) sbe.cut2.first).p.toPoint2D();
-		last = ((Point) sbe.cut2.last).p.toPoint2D();
-
-		firstCoords[0] = (-(first.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
-		firstCoords[1] = (-(first.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
-
-		lastCoords[0] = (-(last.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
-		lastCoords[1] = (-(last.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
-		midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0 - 8;
-		midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0 + 8;
-
-		g2.drawString("X", (int) midCoords[0], (int) midCoords[1]);
-
-		// Draw external segment 1
-
-		Point2D knotPoint1 = ((Point) sbe.ex1.getKnotPoint(sbe.topKnot.knotPointsFlattened)).p.toPoint2D();
-
-		firstCoords[0] = (-(knotPoint1.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
-		firstCoords[1] = (-(knotPoint1.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
-
-		g2.setColor(Color.GREEN);
-
-		g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
-		drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, sbe.ex1);
-
-		// Draw external segment 2
-
-		Point2D knotPoint2 = ((Point) sbe.ex2.getKnotPoint(sbe.topKnot.knotPointsFlattened)).p.toPoint2D();
-
-		firstCoords[0] = (-(knotPoint2.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
-		firstCoords[1] = (-(knotPoint2.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
-
-		g2.setColor(Color.GREEN);
-
-		g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
-		drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, sbe.ex2);
-
-		g2.setColor(new Color(238, 130, 238));
-		BalanceMap bm = sbe.c.balanceMap;
-		for (Segment externalMatch : bm.externalMatches) {
-			if (externalMatch.equals(sbe.ex1) || externalMatch.equals(sbe.ex2)) {
-				continue;
-			}
-			VirtualPoint kp = externalMatch.last;
-			if (bm.knot.contains(externalMatch.first)) {
-				kp = externalMatch.first;
-			}
-			Point2D kp2d = ((Point) kp).p.toPoint2D();
-			firstCoords[0] = (-(kp2d.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
-			firstCoords[1] = (-(kp2d.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
-			g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
-			drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords,
-					externalMatch);
-		}
-
-		// Draw Cuts and Matches
-		for (CutMatch cutMatch : sbe.cutMatchList.cutMatches) {
-
-			// Draw Matches
-			g2.setColor(Color.CYAN);
-			g2.setStroke(stroke);
-			for (Segment s : cutMatch.matchSegments) {
-				drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords,
-						s);
-			}
-
-			// Draw Cuts
-			g2.setColor(Color.ORANGE);
-			g2.setStroke(doubleStroke);
-			for (Segment s : cutMatch.cutSegments) {
-				drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords,
-						s);
-			}
-			// Draw SubKnot
-			Shell result = new Shell();
-			for (VirtualPoint p : cutMatch.knot.knotPoints) {
-				result.add(((Point) p).p);
-			}
-			Main.drawPath(frame, g2, Shell.toPath(result), lineThickness, Color.lightGray, ps, true, false, false,
-					true);
-
-		}
-
+	@Override
+	public void mouseClicked(MouseEvent e) {
+		System.out.println("Click: " + e.getX() + " , " + e.getY());
 	}
 
-	private void drawSegment(Graphics2D g2, double minX, double minY, double rangeX, double rangeY, double height,
-			double width, int offsetx, int offsety, double[] firstCoords, double[] lastCoords, Segment s) {
-		Point2D first;
-		Point2D last;
-		if (s.first.isKnot) {
-			first = ((Point) ((Knot) s.first).knotPoints.get(0)).p.toPoint2D();
-		} else {
-			first = ((Point) s.first).p.toPoint2D();
-		}
-		if (s.last.isKnot) {
-			last = ((Point) ((Knot) s.last).knotPoints.get(0)).p.toPoint2D();
-		} else {
-			last = ((Point) s.last).p.toPoint2D();
-		}
-
-		firstCoords[0] = (-(first.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
-		firstCoords[1] = (-(first.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
-
-		lastCoords[0] = (-(last.getX() - minX) * (width) / rangeX + width + offsetx) / 1.5;
-		lastCoords[1] = (-(last.getY() - minY) * (height) / rangeY + height + offsety) / 1.5;
-
-		g2.drawLine((int) firstCoords[0], (int) firstCoords[1], (int) lastCoords[0], (int) lastCoords[1]);
+	@Override
+	public void mousePressed(MouseEvent e) {
+		System.out.println("Holding: " + e.getX() + " , " + e.getY());
 	}
 
-	/**
-	 * Draws the tsp path of the pointset ps
-	 * 
-	 * @param frame
-	 * @param g2
-	 * @param path
-	 * @param color
-	 * @param ps
-	 * @param drawLines
-	 * @param drawCircles
-	 * @param drawNumbers
-	 */
-	public static void drawPath(JComponent frame, Graphics2D g2, Path2D path, int lineThickness, Color color,
-			PointSet ps,
-			boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed) {
-		g2.setPaint(color);
-
-		BasicStroke stroke = new BasicStroke(lineThickness);
-		if (dashed) {
-			stroke = new BasicStroke(lineThickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[] { 9 },
-					0);
-		}
-		g2.setStroke(stroke);
-
-		GeneralPath scaledpath = new GeneralPath();
-		double minX = java.lang.Double.MAX_VALUE, minY = java.lang.Double.MAX_VALUE, maxX = 0, maxY = 0;
-		boolean first = true;
-		for (PointND pn : ps) {
-			if (!pn.isDummyNode()) {
-				Point2D p = pn.toPoint2D();
-
-				if (p.getX() < minX) {
-					minX = p.getX();
-				}
-				if (p.getY() < minY) {
-					minY = p.getY();
-				}
-				if (p.getX() > maxX) {
-					maxX = p.getX();
-				}
-				if (p.getY() > maxY) {
-					maxY = p.getY();
-				}
-			}
-		}
-
-		PathIterator pi = path.getPathIterator(null);
-		Point2D start = null;
-		double rangeX = maxX - minX, rangeY = maxY - minY;
-		double height = HEIGHT * SCALEFACTOR,
-				width = WIDTH * SCALEFACTOR;
-
-		int count = 0, offsetx = 100 + (int) PAN_X, offsety = 100 + (int) PAN_Y;
-		while (!pi.isDone()) {
-			double[] coords = new double[2];
-			pi.currentSegment(coords);
-			pi.next();
-			coords[0] = (-(coords[0] - minX) * (width) / rangeX + width + offsetx) / 1.5;
-			coords[1] = (-(coords[1] - minY) * (height) / rangeY + height + offsety) / 1.5;
-			if (drawCircles) {
-				g2.draw(new Ellipse2D.Double(coords[0] - 5, coords[1] - 5, 10, 10));
-			}
-			if (drawNumbers) {
-				Font font = new Font("Serif", Font.PLAIN, 12);
-				g2.setFont(font);
-
-				g2.drawString("" + count, (int) coords[0] - 5, (int) coords[1] - 5);
-			}
-			if (first) {
-				scaledpath.moveTo(coords[0], coords[1]);
-				first = false;
-				start = new Point2D.Double(coords[0], coords[1]);
-			} else {
-				scaledpath.lineTo(coords[0], coords[1]);
-			}
-
-			count++;
-		}
-		scaledpath.lineTo(start.getX(), start.getY());
-		if (drawLines) {
-			g2.draw(scaledpath);
-		}
-
+	@Override
+	public void mouseReleased(MouseEvent e) {
+		System.out.println("Released: " + e.getX() + " , " + e.getY());
 	}
 
-	/**
-	 * Imports the point set and optimal tsp path from a file
-	 * 
-	 * @param f
-	 * @return the optimal PointSetPath
-	 */
-	public static PointSetPath importFromFile(File f) {
-		try {
+	@Override
+	public void mouseEntered(MouseEvent e) {
+	}
 
-			BufferedReader br = new BufferedReader(new FileReader(f));
-			ArrayList<PointND> lines = new ArrayList<PointND>();
-			String line = br.readLine();
-			PointSet ps = new PointSet();
-			Path2D path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
-			Shell tsp = new Shell();
+	@Override
+	public void mouseExited(MouseEvent e) {
+	}
 
-			boolean flag = true, first = true;
-			int index = 0;
-			DistanceMatrix d = null;
-			HashMap<Integer, PointND> lookUp = new HashMap<>();
-			while (line != null) {
-				if (flag == true) {
-					String[] cords = line.split(" ");
-					Point2D pt2d = null;
-					if (cords[0].equals("CIRCLE")) {
-						System.out.println("CIRCLE FOUND!");
-						double xCenter = java.lang.Double.parseDouble(cords[1]);
-						double yCenter = java.lang.Double.parseDouble(cords[2]);
-						double radius = java.lang.Double.parseDouble(cords[3]);
-						int numPoints = java.lang.Integer.parseInt(cords[4]);
-						double radians = 2 * Math.PI / ((double) numPoints);
-						for (int i = 0; i < numPoints; i++) {
-							double xCoord = radius * Math.cos(i * radians) + xCenter;
-							double yCoord = radius * Math.sin(i * radians) + yCenter;
-							PointND pt = new PointND.Double(index, xCoord, yCoord);
-							pt2d = pt.toPoint2D();
-							lookUp.put(index, pt);
-							lines.add(pt);
-							ps.add(pt);
-							tsp.add(pt);
-
-							if (first) {
-								path.moveTo(pt2d.getX(), pt2d.getY());
-								first = false;
-							} else {
-								path.lineTo(pt2d.getX(), pt2d.getY());
-							}
-							index++;
-						}
-					} else if (cords[0].equals("WH")) {
-						System.out.println("WORMHOLEFOUND!");
-						if (d == null) {
-							d = new DistanceMatrix(ps);
-						}
-						int firstPointId = java.lang.Integer.parseInt(cords[1]);
-						int secondPointId = java.lang.Integer.parseInt(cords[2]);
-						PointND wormHole = d.addDummyNode(lookUp.get(firstPointId),
-								lookUp.get(secondPointId));
-						int insertIdx = firstPointId;
-						if (firstPointId > secondPointId) {
-							insertIdx = secondPointId;
-						}
-						pt2d = wormHole.toPoint2D();
-						lines.add(insertIdx + 1, wormHole);
-						ps.add(insertIdx + 1, wormHole);
-						tsp.add(insertIdx + 1, wormHole);
-
-						if (first) {
-							path.moveTo(pt2d.getX(), pt2d.getY());
-							first = false;
-						} else {
-							path.lineTo(pt2d.getX(), pt2d.getY());
-						}
-
-					} else {
-						PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(cords[1]),
-								java.lang.Double.parseDouble(cords[2]));
-						pt2d = pt.toPoint2D();
-						lookUp.put(index, pt);
-						lines.add(pt);
-						ps.add(pt);
-						tsp.add(pt);
-
-						if (first) {
-							path.moveTo(pt2d.getX(), pt2d.getY());
-							first = false;
-						} else {
-							path.lineTo(pt2d.getX(), pt2d.getY());
-						}
-
-					}
-
-				}
-				if (line.contains("NODE_COORD_SECTION")) {
-					flag = true;
-				}
-				line = br.readLine();
-				index++;
-
-			}
-			br.close();
-			return new PointSetPath(ps, path, tsp, d);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return null;
-
+	@Override
+	public void mouseWheelMoved(MouseWheelEvent e) {
+		queuedMouseWheelTicks += e.getWheelRotation();
+		repaint();
 	}
 
 }

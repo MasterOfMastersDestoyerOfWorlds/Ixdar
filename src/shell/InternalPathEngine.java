@@ -38,6 +38,8 @@ public class InternalPathEngine {
 
         int smallestKnotIdA = shell.smallestKnotLookup[cutPointA.id];
         int smallestKnotIdB = shell.smallestKnotLookup[cutPointB.id];
+        int smallestKnotIdKp1 = shell.smallestKnotLookup[knotPoint1.id];
+        int smallestKnotIdKp2 = shell.smallestKnotLookup[knotPoint2.id];
 
         Knot topKnot = cutEngine.flatKnots.get(smallestKnotIdA);
         VirtualPoint topPoint = cutPointA;
@@ -60,7 +62,7 @@ public class InternalPathEngine {
 
         Knot minKnot = findMinKnot(topKnotPoint, topPoint, botKnotPoint, botPoint, knot, sbe);
 
-        if (minKnot.equals(knot)) {
+        if (true) {
             Segment connector = cutPointA.getClosestSegment(cutPointB, null);
             if (balanceMap.isBalanced() || knot.hasSegment(connector)) {
                 return new CutMatchList(shell, sbe, knot);
