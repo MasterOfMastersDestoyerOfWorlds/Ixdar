@@ -699,10 +699,10 @@ class CutMatchList {
                 for (Segment s : c.balanceMap.externalMatches) {
 
                     if (s.hasPoint(i)) {
-                        count2 ++;
+                        count2++;
                     }
                 }
-                if(count2 == 2){
+                if (count2 == 2) {
                     appearsTwice = true;
                 }
             }
@@ -771,6 +771,23 @@ class CutMatchList {
             cm.knot = knot;
             cutMatches.add(cm);
             this.updateDelta();
+        }
+    }
+
+    public void addLists(ArrayList<Segment> cutSegments, ArrayList<Segment> matchSegments, Knot knot, String cutType)
+            throws SegmentBalanceException {
+
+        CutMatch cm = new CutMatch(cutType, shell, sbe);
+        cm.cutSegments.addAll(cutSegments);
+        cm.matchSegments.addAll(matchSegments);
+        cm.knot = knot;
+        cm.updateDelta();
+        cm.checkValid();
+        cutMatches.add(cm);
+        this.updateDelta();
+        Segment[] cutSegmentsFinal = new Segment[cutSegments.size()];
+        for (int i = 0; i < cutSegments.size(); i++) {
+            cutSegmentsFinal[i] = cutSegments.get(i);
         }
     }
 
