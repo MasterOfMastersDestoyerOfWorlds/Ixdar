@@ -985,7 +985,6 @@ public class Shell extends LinkedList<PointND> {
 
 	@Override
 	public boolean add(PointND e) {
-		assert (!this.contains(e));
 		super.add(e);
 		return true;
 

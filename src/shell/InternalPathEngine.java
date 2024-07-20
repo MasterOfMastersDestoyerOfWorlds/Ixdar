@@ -197,7 +197,7 @@ public class InternalPathEngine {
 
         q.add(routeInfo.get(cutPoint1.id));
 
-        if (cutPoint1.id == 0 && cutPoint2.id == 5 && knotPoint1.id == 1 && knotPoint2.id == 10) {
+        if (cutPoint1.id == 0 && cutPoint2.id == 4 && knotPoint1.id == 1 && knotPoint2.id == 9) {
             float z = 0;
         }
 
@@ -249,9 +249,10 @@ public class InternalPathEngine {
                         if (!settled.contains(prevNeighbor.id) && !u.node.equals(prevNeighbor)
                                 && !prevNeighbor.equals(cutPoint2)) {
                             Segment acrossSeg = prevNeighbor.getClosestSegment(u.node, null);
-                            if (!knot.hasSegment(acrossSeg)) {
+                            Segment cutSeg = prevNeighbor.getClosestSegment(v.node, null);
+                            if (!knot.hasSegment(acrossSeg)
+                                    && !(cutSeg.contains(knotPoint2) && cutSeg.contains(cutPoint2))) {
                                 edgeDistance = acrossSeg.distance;
-                                Segment cutSeg = prevNeighbor.getClosestSegment(v.node, null);
                                 double cutDistance = cutSeg.distance;
                                 newDistancePrevNeighbor = u.delta + edgeDistance - cutDistance;
                                 if (newDistancePrevNeighbor < v.delta) {
@@ -262,13 +263,17 @@ public class InternalPathEngine {
                         }
 
                         VirtualPoint nextNeighbor = knot.getNext(v.node);
+
                         if (!settled.contains(nextNeighbor.id)
                                 && !u.node.equals(nextNeighbor)
                                 && !nextNeighbor.equals(cutPoint2)) {
                             Segment acrossSeg = nextNeighbor.getClosestSegment(u.node, null);
-                            if (!knot.hasSegment(acrossSeg)) {
+
+                            Segment cutSeg = nextNeighbor.getClosestSegment(v.node, null);
+                            if (!knot.hasSegment(acrossSeg)
+                                    && !(cutSeg.contains(knotPoint2) && cutSeg.contains(cutPoint2))) {
                                 edgeDistance = acrossSeg.distance;
-                                Segment cutSeg = nextNeighbor.getClosestSegment(v.node, null);
+
                                 double cutDistance = cutSeg.distance;
                                 newDistanceNextNeighbor = u.delta + edgeDistance - cutDistance;
                                 if (newDistanceNextNeighbor < v.delta) {

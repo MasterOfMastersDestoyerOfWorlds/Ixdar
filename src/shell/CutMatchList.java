@@ -179,6 +179,8 @@ class CutMatchList {
         if (!this.checkCutMatchBalance(c.lowerMatchSegment, c.upperMatchSegment, c.cutSegment1,
                 cutSegments, c,
                 false, true)) {
+            shell.buff.add(internalCuts);
+            
             throw new SegmentBalanceException(shell, this, c);
         }
 
@@ -780,6 +782,8 @@ class CutMatchList {
         CutMatch cm = new CutMatch(cutType, shell, sbe);
         cm.cutSegments.addAll(cutSegments);
         cm.matchSegments.addAll(matchSegments);
+        cm.originalCutSegments = cutSegments.toArray(new Segment[cutSegments.size()]);
+        cm.originalMatchSegments = matchSegments.toArray(new Segment[matchSegments.size()]);
         cm.knot = knot;
         cm.updateDelta();
         cm.checkValid();
