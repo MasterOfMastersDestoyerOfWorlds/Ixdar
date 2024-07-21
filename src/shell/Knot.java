@@ -12,6 +12,7 @@ public class Knot extends VirtualPoint {
     public int size;
     public ArrayList<VirtualPoint> knotPoints; // [ vp1, vp2, ... vpm];
     public HashMap<Integer, VirtualPoint> pointToInternalKnot;
+    public ArrayList<Segment> manifoldSegments;
 
     // [[s1, ..., sn-1], [s1, ..., sn-1], ... m]; sorted and remove
     // vp1, vp2, ... vpm
@@ -123,6 +124,14 @@ public class Knot extends VirtualPoint {
         if (setMatches) {
             shell.unvisited.add(this);
         }
+        manifoldSegments = new ArrayList<>();
+        if (knotPointsFlattened.size() == knotPoints.size()) {
+            for (int a = 0; a < knotPoints.size(); a++) {
+                VirtualPoint knotPoint1 = knotPoints.get(a);
+                VirtualPoint knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
+                manifoldSegments.add(knotPoint1.getClosestSegment(knotPoint2, null));
+            }
+        }
     }
 
     public Segment getSegment(VirtualPoint a, VirtualPoint b) {
@@ -172,6 +181,7 @@ public class Knot extends VirtualPoint {
     VirtualPoint getNext(int idx) {
         return knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
     }
+
     public VirtualPoint getNext(VirtualPoint next) {
         int idx = knotPointsFlattened.indexOf(next);
         return knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);

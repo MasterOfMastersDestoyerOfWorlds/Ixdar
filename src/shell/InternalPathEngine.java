@@ -23,7 +23,7 @@ public class InternalPathEngine {
     public CutMatchList calculateInternalPathLength(
             VirtualPoint knotPoint1, VirtualPoint cutPoint1, VirtualPoint external1,
             VirtualPoint knotPoint2, VirtualPoint cutPoint2, VirtualPoint external2,
-            Knot knot, BalanceMap balanceMap) throws SegmentBalanceException, BalancerException {
+            Knot knot, BalanceMap balanceMap, CutInfo c) throws SegmentBalanceException, BalancerException {
 
         SegmentBalanceException sbe = new SegmentBalanceException(shell, null,
                 new CutInfo(shell, knotPoint1, cutPoint1, knotPoint1.getClosestSegment(cutPoint1, null), external1,
@@ -302,7 +302,17 @@ public class InternalPathEngine {
             cutSegments.add(cutSegment);
             curr = routeInfo.get(curr.previous.id);
         }
-
+        // TODO: need to check if the cut match list produces a cycle and throw a
+        // Segment Balance Exception
+        DisjointUnionSets unionSet = new DisjointUnionSets(knotPoints);
+        for(Segment s : matchSegments){
+            unionSet.union(s.first.id, s.last.id);
+        }
+        for(Segment s : knot.manifoldSegments){
+            if(!cutSegments.contains(s)){
+                unionSet.union(s.first.id, s.last.id);
+            }
+        }
         float z = 0;
 
         CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
@@ -310,6 +320,11 @@ public class InternalPathEngine {
             cutMatchList.addLists(cutSegments, matchSegments, knot, "InternalPathEngine");
         } catch (SegmentBalanceException be) {
             throw be;
+        }
+        
+        if(unionSet.find(cutPoint1.id) != unionSet.find(cutPoint2.id)){
+            //Multiple Cycles found!
+            throw new SegmentBalanceException(shell, cutMatchList, c);
         }
         return cutMatchList;
         // if neither orphan is on the top level, find their minimal knot in common and
@@ -358,5 +373,76 @@ public class InternalPathEngine {
             return 0;
         }
 
+    }
+
+    class DisjointUnionSets {
+        HashMap<Integer, Integer> rank, parent;
+
+        // Constructor
+        public DisjointUnionSets(ArrayList<VirtualPoint> knotPoints) {
+            rank = new HashMap<Integer, Integer>();
+            parent = new HashMap<Integer, Integer>();
+            for (int i = 0; i < knotPoints.size(); i++) {
+                // Initially, all elements are in
+                // their own set.
+                int id = knotPoints.get(i).id;
+                parent.put(id, id);
+            }
+        }
+
+        // Returns representative of x's set
+        int find(int x) {
+            // Finds the representative of the set
+            // that x is an element of
+            if (parent.get(x) != x) {
+                // if x is not the parent of itself
+                // Then x is not the representative of
+                // his set,
+                parent.put(x, find(parent.get(x)));
+
+                // so we recursively call Find on its parent
+                // and move i's node directly under the
+                // representative of this set
+            }
+
+            return parent.get(x);
+        }
+
+        // Unites the set that includes x and the set
+        // that includes x
+        void union(int x, int y) {
+            // Find representatives of two sets
+            int xRoot = find(x), yRoot = find(y);
+
+            // Elements are in the same set, no need
+            // to unite anything.
+            if (xRoot == yRoot)
+                return;
+
+            // If x's rank is less than y's rank
+            if (rank.getOrDefault(xRoot, 0) < rank.getOrDefault(yRoot, 0))
+
+                // Then move x under y so that depth
+                // of tree remains less
+                parent.put(xRoot, yRoot);
+
+            // Else if y's rank is less than x's rank
+            else if (rank.getOrDefault(yRoot, 0) < rank.getOrDefault(xRoot, 0))
+
+                // Then move y under x so that depth of
+                // tree remains less
+                parent.put(yRoot, xRoot);
+
+            else // if ranks are the same
+            {
+                // Then move y under x (doesn't matter
+                // which one goes where)
+                parent.put(yRoot, xRoot);
+
+                // And increment the result tree's
+                // rank by 1
+                rank.put(xRoot, rank.getOrDefault(xRoot, 0) + 1);
+            }
+        }
     }
 }
