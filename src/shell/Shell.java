@@ -635,7 +635,7 @@ public class Shell extends LinkedList<PointND> {
 		}
 		ps.addAll(A);
 		DistanceMatrix d1 = new DistanceMatrix(ps, d);
-		PointND dummy = d1.addDummyNode(first, last);
+		PointND dummy = d1.addDummyNode(-1,first, last);
 		ps.add(dummy);
 		Shell answer = new Shell();
 		answer.add(first);

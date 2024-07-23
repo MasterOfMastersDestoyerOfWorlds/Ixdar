@@ -23,15 +23,20 @@ public class SubGraphs {
 	 * Tests that our solver solves the djibouti problem set correctly
 	 */
 
-	 @Test
-	 public void test_circle_5() {
-		 testMethod("circle_5");
-	 }
- 
-	 @Test
-	 public void test_circle_5_in_arc() {
-		 testMethod("circle_in_5_arc");
-	 }
+	@Test
+	public void test_circle_5() {
+		testMethod("circle_5");
+	}
+
+	@Test
+	public void test_circle_in_5() {
+		testMethod("circle_in_5");
+	}
+
+	@Test
+	public void test_circle_in_5_arc() {
+		testMethod("circle_in_5_arc");
+	}
 
 	@Test
 	public void test_circle_10() {
@@ -41,6 +46,16 @@ public class SubGraphs {
 	@Test
 	public void test_two_circle_in_10() {
 		testMethod("two_circle_in_10");
+	}
+
+	@Test
+	public void test_two_circle_in_10_arc() {
+		testMethod("two_circle_in_10_arc");
+	}
+
+	@Test
+	public void test_three_circle_in_10() {
+		testMethod("three_circle_in_10");
 	}
 
 	@Test
@@ -64,8 +79,18 @@ public class SubGraphs {
 	}
 
 	@Test
+	public void test_djibouti_4_8() {
+		testMethod("djbouti_4-8");
+	}
+
+	@Test
+	public void test_djibouti_4_8WH_4_6() {
+		testMethod("djbouti_4-8WH4-6");
+	}
+
+	@Test
 	public void test_djibouti_7_32() {
-		testMethod("djbouti_3-32");
+		testMethod("djbouti_7-32");
 	}
 
 	@Test
@@ -75,7 +100,7 @@ public class SubGraphs {
 
 	@Test
 	public void test_djibouti_8_20() {
-		testMethod("djbouti_8-14");
+		testMethod("djbouti_8-20");
 	}
 
 	@Test
@@ -85,12 +110,7 @@ public class SubGraphs {
 
 	@Test
 	public void test_djibouti_8_26() {
-		testMethod("djbouti_8-24");
-	}
-
-	@Test
-	public void test_djibouti_4_8() {
-		testMethod("djbouti_4-8");
+		testMethod("djbouti_8-26");
 	}
 
 	@Test
@@ -101,6 +121,11 @@ public class SubGraphs {
 	@Test
 	public void test_djibouti_8_34() {
 		testMethod("djbouti_8-34");
+	}
+
+	@Test
+	public void test_djibouti_8_34WH0_33() {
+		testMethod("djbouti_8-34WH0-33");
 	}
 
 	@Test
@@ -121,11 +146,6 @@ public class SubGraphs {
 	@Test
 	public void test_djibouti_18_23WH19_22() {
 		testMethod("djbouti_18-23WH19-22");
-	}
-
-	@Test
-	public void test_djibouti_8_34WH0_33() {
-		testMethod("djbouti_8-34WH0-33");
 	}
 
 	@Test
@@ -151,6 +171,11 @@ public class SubGraphs {
 	@Test
 	public void test_wi29_5_25x3() {
 		testMethod("wi29_5-25x3");
+	}
+
+	@Test
+	public void test_wi29_5_28() {
+		testMethod("wi29_5-28");
 	}
 
 	@Test
@@ -185,15 +210,17 @@ public class SubGraphs {
 
 	public void testMethod(String fileName) {
 		PointSetPath retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
-		PointSet ps = new PointSet();
 		Shell answer = new Shell();
 		int n = retTup.ps.size();
 
 		Shell AB = new Shell();
-		for (int i = 0; i < n && i < retTup.ps.size(); i++) {
-			ps.add(retTup.ps.get(i));
-			answer.add(retTup.ps.get(i));
-			AB.add(retTup.ps.get(i));
+		for (int i = 0; i < n && i < retTup.tsp.size(); i++) {
+			answer.add(retTup.tsp.get(i));
+			AB.add(retTup.tsp.get(i));
+		}
+
+		if (fileName == "circle_in_5_arc") {
+			float z = 0;
 		}
 
 		System.out.println("before   " + AB);
@@ -203,7 +230,10 @@ public class SubGraphs {
 		System.out.println(AB.size());
 		System.out.println();
 
-		DistanceMatrix d = new DistanceMatrix(ps);
+		DistanceMatrix d = retTup.d;
+		if (retTup.d == null) {
+			d = new DistanceMatrix(retTup.ps);
+		}
 		Shell result = null;
 
 		try {

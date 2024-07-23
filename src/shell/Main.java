@@ -40,7 +40,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 
 	static boolean calculateKnot = true;
 	static boolean drawSubPaths = true;
-	boolean drawMainPath = false;
+	boolean drawMainPath = true;
 	int minLineThickness = 1;
 	boolean calc = false;
 
@@ -89,9 +89,10 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 
 	public static void main(String[] args) {
 		main = new Main();
-		String fileName = "two_circle_in_10_arc";
+		String fileName = "three_circle_in_10";
 		boolean printAll = false;
 		retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
+		
 		DistanceMatrix d = retTup.d;
 		if (retTup.d == null) {
 			d = new DistanceMatrix(retTup.ps);

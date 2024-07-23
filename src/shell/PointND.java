@@ -225,8 +225,8 @@ public abstract class PointND implements Cloneable {
 		 * @param ds the n coordinates of the newly constructed {@code PointND}
 		 * @param ID for comparison purposes across basis
 		 */
-		public Double(int ID, double... fs) {
-			this.setID(ID);
+				public Double(int ID, double... fs) {
+				this.setID(ID);
 			int ind = 1;
 		    for (int i = fs.length-1; i >=0; i--) { 
 		        if (fs[i] != 0) { 

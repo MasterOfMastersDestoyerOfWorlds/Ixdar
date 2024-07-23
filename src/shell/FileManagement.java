@@ -42,6 +42,7 @@ public class FileManagement {
             int index = 0;
             DistanceMatrix d = null;
             HashMap<Integer, PointND> lookUp = new HashMap<>();
+            ArrayList<Integer> answerOrder = new ArrayList<>();
             while (line != null) {
                 if (flag == true) {
                     String[] cords = line.split(" ");
@@ -105,7 +106,7 @@ public class FileManagement {
                         }
                         int firstPointId = java.lang.Integer.parseInt(cords[1]);
                         int secondPointId = java.lang.Integer.parseInt(cords[2]);
-                        PointND wormHole = d.addDummyNode(lookUp.get(firstPointId),
+                        PointND wormHole = d.addDummyNode(index, lookUp.get(firstPointId),
                                 lookUp.get(secondPointId));
                         int insertIdx = firstPointId;
                         if (firstPointId > secondPointId) {
@@ -115,6 +116,7 @@ public class FileManagement {
                         lines.add(insertIdx + 1, wormHole);
                         ps.add(insertIdx + 1, wormHole);
                         tsp.add(insertIdx + 1, wormHole);
+                        lookUp.put(wormHole.getID(), wormHole);
 
                         if (first) {
                             path.moveTo(pt2d.getX(), pt2d.getY());
@@ -124,7 +126,12 @@ public class FileManagement {
                         }
 
                         index++;
-                    } else {
+                    } else if(cords[0].equals("ANS")){
+                        for(int i = 1; i < cords.length; i ++){
+                            answerOrder.add(java.lang.Integer.parseInt(cords[i]));
+                        }
+                    }
+                     else {
                         PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(cords[1]),
                                 java.lang.Double.parseDouble(cords[2]));
                         pt2d = pt.toPoint2D();
@@ -151,6 +158,19 @@ public class FileManagement {
 
             }
             br.close();
+            System.out.println(tsp);
+            System.out.println(lookUp);
+            if(answerOrder.size() > 0){
+                Shell newAns = new Shell();
+                int insertLoc = 0;
+                for(Integer i : answerOrder){
+                    PointND vp = lookUp.get(i);
+                    newAns.add(insertLoc, vp);
+                    insertLoc ++;
+                }
+                tsp = newAns;
+            }
+
             return new PointSetPath(ps, path, tsp, d);
         } catch (Exception e) {
             e.printStackTrace();
