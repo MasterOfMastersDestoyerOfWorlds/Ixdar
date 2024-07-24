@@ -135,14 +135,14 @@ public class InternalPathEngine {
             routeInfo.put(k1.id, r);
         }
 
-        paintState(State.toKP1, knot, knotPoint1, cutPoint1, cutSegment2, routeInfo);
-        paintState(State.toCP1, knot, cutPoint1, knotPoint1, cutSegment2, routeInfo);
-        paintState(State.toKP2, knot, knotPoint2, cutPoint2, cutSegment1, routeInfo);
-        paintState(State.toCP2, knot, cutPoint2, knotPoint2, cutSegment1, routeInfo);
+        paintState(State.toKP1, true, knot, knotPoint1, cutPoint1, cutSegment2, routeInfo);
+        paintState(State.toCP1, false, knot, cutPoint1, knotPoint1, cutSegment2, routeInfo);
+        paintState(State.toKP2, true, knot, knotPoint2, cutPoint2, cutSegment1, routeInfo);
+        paintState(State.toCP2, false, knot, cutPoint2, knotPoint2, cutSegment1, routeInfo);
 
         q.add(routeInfo.get(cutPoint1.id));
 
-        if (cutPoint1.id == 1 && knotPoint1.id == 0 && cutPoint2.id == 3 && knotPoint2.id == 2) {
+        if (cutPoint1.id == 5 && knotPoint1.id == 2 && cutPoint2.id == 3 && knotPoint2.id == 7) {
             float z = 0;
         }
 
@@ -189,7 +189,10 @@ public class InternalPathEngine {
                     RouteInfo prevRoute = routeInfo.get(prevNeighbor.id);
                     if (!settled.contains(prevNeighbor.id)
                             && !u.node.equals(prevNeighbor)
-                            && !(u.prevState == prevRoute.prevState)) {
+                            && !(u.prevState == prevRoute.prevState)
+                            && !(prevNeighbor.id != cutPoint2.id && u.nextIsTowardKnotPoint
+                                    && prevRoute.prevIsTowardKnotPoint
+                                    && u.nextState == opposite(prevRoute.prevState))) {
                         Segment acrossSeg = prevNeighbor.getClosestSegment(u.node, null);
                         Segment cutSeg = prevNeighbor.getClosestSegment(v.node, null);
                         if (!knot.hasSegment(acrossSeg)) {
@@ -213,10 +216,13 @@ public class InternalPathEngine {
 
                     VirtualPoint nextNeighbor = v.nextNeighbor;
 
-                    RouteInfo nextRouteInfo = routeInfo.get(nextNeighbor.id);
+                    RouteInfo nextRoute = routeInfo.get(nextNeighbor.id);
                     if (!settled.contains(nextNeighbor.id)
                             && !u.node.equals(nextNeighbor)
-                            && !(u.prevState == nextRouteInfo.nextState)) {
+                            && !(u.prevState == nextRoute.nextState)
+                            && !(nextNeighbor.id != cutPoint2.id && u.nextIsTowardKnotPoint
+                                    && nextRoute.nextIsTowardKnotPoint)
+                            && u.nextState == opposite(nextRoute.nextState)) {
                         Segment acrossSeg = nextNeighbor.getClosestSegment(u.node, null);
 
                         Segment cutSeg = nextNeighbor.getClosestSegment(v.node, null);
@@ -243,7 +249,10 @@ public class InternalPathEngine {
 
                     if (!settled.contains(prevNeighbor.id)
                             && !u.node.equals(prevNeighbor)
-                            && !(u.nextState == prevRoute.prevState)) {
+                            && !(u.nextState == prevRoute.prevState)
+                            && !(prevNeighbor.id != cutPoint2.id && u.prevIsTowardKnotPoint
+                                    && prevRoute.prevIsTowardKnotPoint
+                                    && u.prevState == opposite(prevRoute.prevState))) {
                         Segment acrossSeg = prevNeighbor.getClosestSegment(u.node, null);
                         Segment cutSeg = prevNeighbor.getClosestSegment(v.node, null);
                         if (!knot.hasSegment(acrossSeg)) {
@@ -267,7 +276,10 @@ public class InternalPathEngine {
 
                     if (!settled.contains(nextNeighbor.id)
                             && !u.node.equals(nextNeighbor)
-                            && !(u.nextState == nextRouteInfo.nextState)) {
+                            && !(u.nextState == nextRoute.nextState)
+                            && !(nextNeighbor.id != cutPoint2.id && u.prevIsTowardKnotPoint
+                                    && nextRoute.nextIsTowardKnotPoint
+                                    && u.prevState == opposite(nextRoute.nextState))) {
                         Segment acrossSeg = nextNeighbor.getClosestSegment(u.node, null);
 
                         Segment cutSeg = nextNeighbor.getClosestSegment(v.node, null);
@@ -296,7 +308,7 @@ public class InternalPathEngine {
             }
         }
 
-        if (cutPoint1.id == 1 && knotPoint1.id == 0 && cutPoint2.id == 6 && knotPoint2.id == 5) {
+        if (cutPoint1.id == 5 && knotPoint1.id == 2 && cutPoint2.id == 3 && knotPoint2.id == 7) {
             float z = 0;
         }
         // now we build the route back to the start from knotPoint2
@@ -311,11 +323,23 @@ public class InternalPathEngine {
             }
             Segment matchSegment = null, cutSegment = null;
             if (prevCutSide) {
+                if (curr.prevCutAncestor == null) {
+                    float z = 0;
+
+                    CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
+                    throw new SegmentBalanceException(shell, cutMatchList, c);
+                }
                 matchSegment = curr.prevNeighbor.getClosestSegment(curr.prevCutAncestor, null);
                 cutSegment = curr.prevNeighbor.getClosestSegment(curr.node, null);
                 prevCutSide = curr.prevCutAncestorCutIsPrev;
                 curr = routeInfo.get(curr.prevCutAncestor.id);
             } else {
+                if (curr.nextCutAncestor == null) {
+                    float z = 0;
+
+                    CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
+                    throw new SegmentBalanceException(shell, cutMatchList, c);
+                }
                 matchSegment = curr.nextNeighbor.getClosestSegment(curr.nextCutAncestor, null);
                 cutSegment = curr.nextNeighbor.getClosestSegment(curr.node, null);
                 prevCutSide = curr.nextCutAncestorCutIsPrev;
@@ -349,7 +373,7 @@ public class InternalPathEngine {
 
         if (unionSet.find(cutPoint1.id) != unionSet.find(cutPoint2.id)) {
             // Multiple Cycles found!
-            throw new SegmentBalanceException(shell, cutMatchList, c);
+            throw new MultipleCyclesFoundException(shell, cutMatchList, c);
         }
         return cutMatchList;
         // if neither orphan is on the top level, find their minimal knot in common and
@@ -358,7 +382,24 @@ public class InternalPathEngine {
 
     }
 
-    public void paintState(State state, Knot knot, VirtualPoint knotPoint, VirtualPoint cutPoint, Segment cutSegment,
+    public State opposite(State state) {
+        switch (state) {
+            case toKP1:
+                return State.toKP2;
+            case toKP2:
+                return State.toKP1;
+            case toCP1:
+                return State.toCP2;
+            case toCP2:
+                return State.toCP1;
+            default:
+                return State.None;
+        }
+
+    }
+
+    public void paintState(State state, boolean isTowardKnotPoint, Knot knot, VirtualPoint knotPoint,
+            VirtualPoint cutPoint, Segment cutSegment,
             HashMap<Integer, RouteInfo> routeInfo) {
 
         int idx = knot.knotPoints.indexOf(knotPoint);
@@ -378,10 +419,14 @@ public class InternalPathEngine {
             if (cutSegment.contains(curr) && cutSegment.contains(prev2)) {
                 break;
             }
+            RouteInfo r = routeInfo.get(curr.id);
             if (marchDirection == 1) {
-                routeInfo.get(curr.id).prevState = state;
+                r.prevState = state;
+                r.prevIsTowardKnotPoint = isTowardKnotPoint;
+
             } else {
-                routeInfo.get(curr.id).nextState = state;
+                r.nextState = state;
+                r.nextIsTowardKnotPoint = isTowardKnotPoint;
             }
             prev2 = curr;
             int next = idx + marchDirection;
@@ -408,6 +453,8 @@ public class InternalPathEngine {
     }
 
     public class RouteInfo implements Comparable<RouteInfo> {
+        public boolean nextIsTowardKnotPoint;
+        public boolean prevIsTowardKnotPoint;
         public boolean nextCutAncestorCutIsPrev;
         public boolean prevCutAncestorCutIsPrev;
         public State prevState = State.None;

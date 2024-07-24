@@ -290,7 +290,6 @@ public class CutEngine {
                     balanceMap5.addExternalMatch(knotPoint22, externalPoint52, null);
                     c5.balanceMap = balanceMap5;
 
-                   
                     double d5 = Double.MAX_VALUE, d6 = Double.MAX_VALUE;
                     CutMatchList cutMatch6 = null, cutMatch5 = null;
                     Knot smallestCommonKnotPointKnot = flatKnots
@@ -300,10 +299,8 @@ public class CutEngine {
                     int smallestKnotIdB = shell.smallestKnotLookup[knotPoint22.id];
                     int smallestKnotIdKp1 = shell.smallestKnotLookup[knotPoint21.id];
                     int smallestKnotIdKp2 = shell.smallestKnotLookup[knotPoint12.id];
-                    if (false && !smallestCommonKnotPointKnot.equals(knot)
-                            && !((smallestKnotIdA == smallestKnotIdB && smallestKnotIdB == smallestKnotIdKp1
-                                    && smallestKnotIdKp1 == smallestKnotIdKp2))) {
-
+                    boolean skip = true;
+                    if (!skip) {
                         CutMatchList internalCuts5 = internalPathEngine.calculateInternalPathLength(
                                 knotPoint11, knotPoint12, externalPoint51,
                                 knotPoint22, knotPoint21, externalPoint52, knot, balanceMap5, c5);
@@ -361,10 +358,8 @@ public class CutEngine {
                                 new Segment[] { s62, s61 },
                                 internalCuts6, c6, "CutEngine6");
                         d6 = cutMatch6.delta;
-
-                        shell.buff.flush();
-
                     }
+                    shell.buff.flush();
 
                     if (delta < minDelta) {
                         if (delta == d1) {
