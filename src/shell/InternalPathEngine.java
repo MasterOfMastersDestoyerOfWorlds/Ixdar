@@ -114,7 +114,7 @@ public class InternalPathEngine {
          * by cutpoint2 and knotpoint2
          */
         ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
-        HashMap<Integer, RouteInfo> routeInfo = new HashMap<>();
+        HashMap<Integer, RouteInfo> routeMap = new HashMap<>();
         PriorityQueue<RouteInfo> q = new PriorityQueue<RouteInfo>();
         Set<Integer> settled = new HashSet<Integer>();
         int numPoints = knot.size();
@@ -125,24 +125,25 @@ public class InternalPathEngine {
             VirtualPoint prevNeighbor = knot.getPrev(k1);
             RouteInfo r = new RouteInfo(k1, Double.MAX_VALUE, prevNeighbor, nextNeighbor, null, null);
             if (k1.equals(cutPoint1)) {
-                r.update(0, null, null, knotPoint1.equals(knot.getPrev(cutPoint1)));
-                if (r.ancestorCutIsPrev) {
-                    r.prevCutDelta = 0;
+                boolean knotPointIsPrev = knotPoint1.equals(knot.getPrev(cutPoint1));
+                r.update(0, null, null, knotPointIsPrev ? RouteType.prevEven : RouteType.nextEven, RouteType.None);
+                if (knotPointIsPrev) {
+                    r.prevEven.delta = 0;
                 } else {
-                    r.nextCutDelta = 0;
+                    r.nextEven.delta = 0;
                 }
             }
-            routeInfo.put(k1.id, r);
+            routeMap.put(k1.id, r);
         }
 
-        paintState(State.toKP1, true, knot, knotPoint1, cutPoint1, cutSegment2, routeInfo);
-        paintState(State.toCP1, false, knot, cutPoint1, knotPoint1, cutSegment2, routeInfo);
-        paintState(State.toKP2, true, knot, knotPoint2, cutPoint2, cutSegment1, routeInfo);
-        paintState(State.toCP2, false, knot, cutPoint2, knotPoint2, cutSegment1, routeInfo);
+        paintState(State.toKP1, true, knot, knotPoint1, cutPoint1, cutSegment2, routeMap);
+        paintState(State.toCP1, false, knot, cutPoint1, knotPoint1, cutSegment2, routeMap);
+        paintState(State.toKP2, true, knot, knotPoint2, cutPoint2, cutSegment1, routeMap);
+        paintState(State.toCP2, false, knot, cutPoint2, knotPoint2, cutSegment1, routeMap);
 
-        q.add(routeInfo.get(cutPoint1.id));
+        q.add(routeMap.get(cutPoint1.id));
 
-        if (cutPoint1.id == 5 && knotPoint1.id == 2 && cutPoint2.id == 3 && knotPoint2.id == 7) {
+        if (cutPoint1.id == 15 && knotPoint1.id == 14 && cutPoint2.id == 5 && knotPoint2.id == 6) {
             float z = 0;
         }
 
@@ -167,9 +168,9 @@ public class InternalPathEngine {
 
             // All the neighbors of v
             for (int i = 0; i < knotPoints.size(); i++) {
-                RouteInfo v = routeInfo.get(knotPoints.get(i).id);
-                int nodeId2 = u.id;
-                int nodeId = v.id;
+                RouteInfo v = routeMap.get(knotPoints.get(i).id);
+                int uNode = u.id;
+                int vNode = v.id;
                 // If current node hasn't already been processed
                 if (!settled.contains(v.id)) {
                     // we need to also keep track of the orientation of the cut on u's side,
@@ -185,121 +186,39 @@ public class InternalPathEngine {
 
                     // the first set is we attempt to compare against is u if it was cut and
                     // separated from its previous
-                    VirtualPoint prevNeighbor = v.prevNeighbor;
-                    RouteInfo prevRoute = routeInfo.get(prevNeighbor.id);
-                    if (!settled.contains(prevNeighbor.id)
-                            && !u.node.equals(prevNeighbor)
-                            && !(u.prevState == prevRoute.prevState)
-                            && !(prevNeighbor.id != cutPoint2.id && u.nextIsTowardKnotPoint
-                                    && prevRoute.prevIsTowardKnotPoint
-                                    && u.nextState == opposite(prevRoute.prevState))) {
-                        Segment acrossSeg = prevNeighbor.getClosestSegment(u.node, null);
-                        Segment cutSeg = prevNeighbor.getClosestSegment(v.node, null);
-                        if (!knot.hasSegment(acrossSeg)) {
-                            double edgeDistance = acrossSeg.distance;
-                            double cutDistance = cutSeg.distance;
+                    RouteType[] routes = new RouteType[] { RouteType.prevEven, RouteType.nextEven };
+                    for (RouteType vRouteType : routes) {
+                        for (RouteType uRouteType : routes) {
+                            Route vRoute = v.getRoute(vRouteType);
+                            Route uRoute = u.getRoute(uRouteType);
+                            VirtualPoint prevNeighbor = vRoute.neighbor;
+                            Route prevRoute = routeMap.get(prevNeighbor.id).getRoute(vRouteType);
+                            if (!settled.contains(prevNeighbor.id)
+                                    && !u.node.equals(prevNeighbor)
+                                    && !(uRoute.state == prevRoute.state)
+                                    && !(prevNeighbor.id != cutPoint2.id
+                                            && u.getKnotState() == opposite(prevRoute.state))) {
+                                Segment acrossSeg = prevNeighbor.getClosestSegment(u.node, null);
+                                Segment cutSeg = prevNeighbor.getClosestSegment(v.node, null);
+                                if (!knot.hasSegment(acrossSeg)) {
+                                    double edgeDistance = acrossSeg.distance;
+                                    double cutDistance = cutSeg.distance;
 
-                            double newDistancePrevNeighbor = u.prevCutDelta + edgeDistance - cutDistance;
-                            if (u.prevCutDelta == Double.MAX_VALUE) {
-                                newDistancePrevNeighbor = Double.MAX_VALUE;
-                            }
-                            if (newDistancePrevNeighbor < v.delta) {
-                                v.update(newDistancePrevNeighbor, u.node, prevNeighbor, true);
-                            }
-                            if (newDistancePrevNeighbor < v.prevCutDelta) {
+                                    double newDistancePrevNeighbor = uRoute.delta + edgeDistance - cutDistance;
+                                    if (uRoute.delta == Double.MAX_VALUE) {
+                                        newDistancePrevNeighbor = Double.MAX_VALUE;
+                                    }
+                                    if (newDistancePrevNeighbor < v.delta) {
+                                        v.update(newDistancePrevNeighbor, u.node, prevNeighbor, vRouteType, uRouteType);
+                                    }
+                                    if (newDistancePrevNeighbor < vRoute.delta) {
 
-                                v.updatePrevCut(newDistancePrevNeighbor, u.node, true);
-                            }
-                        }
+                                        v.updateRoute(newDistancePrevNeighbor, u.node, vRouteType, uRouteType);
+                                    }
+                                }
 
-                    }
-
-                    VirtualPoint nextNeighbor = v.nextNeighbor;
-
-                    RouteInfo nextRoute = routeInfo.get(nextNeighbor.id);
-                    if (!settled.contains(nextNeighbor.id)
-                            && !u.node.equals(nextNeighbor)
-                            && !(u.prevState == nextRoute.nextState)
-                            && !(nextNeighbor.id != cutPoint2.id && u.nextIsTowardKnotPoint
-                                    && nextRoute.nextIsTowardKnotPoint)
-                            && u.nextState == opposite(nextRoute.nextState)) {
-                        Segment acrossSeg = nextNeighbor.getClosestSegment(u.node, null);
-
-                        Segment cutSeg = nextNeighbor.getClosestSegment(v.node, null);
-                        if (!knot.hasSegment(acrossSeg)) {
-                            double edgeDistance = acrossSeg.distance;
-
-                            double cutDistance = cutSeg.distance;
-                            double newDistanceNextNeighbor = u.prevCutDelta + edgeDistance - cutDistance;
-
-                            if (u.prevCutDelta == Double.MAX_VALUE) {
-                                newDistanceNextNeighbor = Double.MAX_VALUE;
-                            }
-                            if (newDistanceNextNeighbor < v.delta) {
-                                v.update(newDistanceNextNeighbor, u.node, nextNeighbor, true);
-                            }
-                            if (newDistanceNextNeighbor < v.nextCutDelta) {
-                                v.updateNextCut(newDistanceNextNeighbor, u.node, true);
                             }
                         }
-
-                    }
-
-                    // now we check as if u was separated from its next neighbor
-
-                    if (!settled.contains(prevNeighbor.id)
-                            && !u.node.equals(prevNeighbor)
-                            && !(u.nextState == prevRoute.prevState)
-                            && !(prevNeighbor.id != cutPoint2.id && u.prevIsTowardKnotPoint
-                                    && prevRoute.prevIsTowardKnotPoint
-                                    && u.prevState == opposite(prevRoute.prevState))) {
-                        Segment acrossSeg = prevNeighbor.getClosestSegment(u.node, null);
-                        Segment cutSeg = prevNeighbor.getClosestSegment(v.node, null);
-                        if (!knot.hasSegment(acrossSeg)) {
-                            double edgeDistance = acrossSeg.distance;
-                            double cutDistance = cutSeg.distance;
-                            double newDistancePrevNeighbor = u.nextCutDelta + edgeDistance - cutDistance;
-
-                            if (u.nextCutDelta == Double.MAX_VALUE) {
-                                newDistancePrevNeighbor = Double.MAX_VALUE;
-                            }
-                            if (newDistancePrevNeighbor < v.delta) {
-                                v.update(newDistancePrevNeighbor, u.node, prevNeighbor, false);
-                            }
-                            if (newDistancePrevNeighbor < v.prevCutDelta) {
-
-                                v.updatePrevCut(newDistancePrevNeighbor, u.node, false);
-                            }
-                        }
-
-                    }
-
-                    if (!settled.contains(nextNeighbor.id)
-                            && !u.node.equals(nextNeighbor)
-                            && !(u.nextState == nextRoute.nextState)
-                            && !(nextNeighbor.id != cutPoint2.id && u.prevIsTowardKnotPoint
-                                    && nextRoute.nextIsTowardKnotPoint
-                                    && u.prevState == opposite(nextRoute.nextState))) {
-                        Segment acrossSeg = nextNeighbor.getClosestSegment(u.node, null);
-
-                        Segment cutSeg = nextNeighbor.getClosestSegment(v.node, null);
-                        if (!knot.hasSegment(acrossSeg)) {
-                            double edgeDistance = acrossSeg.distance;
-
-                            double cutDistance = cutSeg.distance;
-                            double newDistanceNextNeighbor = u.nextCutDelta + edgeDistance - cutDistance;
-
-                            if (u.nextCutDelta == Double.MAX_VALUE) {
-                                newDistanceNextNeighbor = Double.MAX_VALUE;
-                            }
-                            if (newDistanceNextNeighbor < v.delta) {
-                                v.update(newDistanceNextNeighbor, u.node, nextNeighbor, false);
-                            }
-                            if (newDistanceNextNeighbor < v.nextCutDelta) {
-                                v.updateNextCut(newDistanceNextNeighbor, u.node, false);
-                            }
-                        }
-
                     }
 
                     // Add the current node to the queue
@@ -308,43 +227,32 @@ public class InternalPathEngine {
             }
         }
 
-        if (cutPoint1.id == 5 && knotPoint1.id == 2 && cutPoint2.id == 3 && knotPoint2.id == 7) {
+        if (cutPoint1.id == 0 && knotPoint1.id == 2 && cutPoint2.id == 5 && knotPoint2.id == 6) {
             float z = 0;
         }
         // now we build the route back to the start from knotPoint2
 
-        RouteInfo curr = routeInfo.get(knotPoint2.id);
+        RouteInfo curr = routeMap.get(knotPoint2.id);
         ArrayList<Segment> cutSegments = new ArrayList<>();
         ArrayList<Segment> matchSegments = new ArrayList<>();
-        boolean prevCutSide = curr.prevNeighbor.id == cutPoint2.id;
+
+        RouteType prevCutSide = curr.prevEven.neighbor.id == cutPoint2.id ? RouteType.prevEven : RouteType.nextEven;
         while (curr.id != cutPoint1.id) {
             if (curr.matchedNeighbor == null) {
                 float z = 0;
             }
             Segment matchSegment = null, cutSegment = null;
-            if (prevCutSide) {
-                if (curr.prevCutAncestor == null) {
-                    float z = 0;
+            Route route = curr.getRoute(prevCutSide);
+            if (route.ancestor == null) {
+                float z = 0;
 
-                    CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
-                    throw new SegmentBalanceException(shell, cutMatchList, c);
-                }
-                matchSegment = curr.prevNeighbor.getClosestSegment(curr.prevCutAncestor, null);
-                cutSegment = curr.prevNeighbor.getClosestSegment(curr.node, null);
-                prevCutSide = curr.prevCutAncestorCutIsPrev;
-                curr = routeInfo.get(curr.prevCutAncestor.id);
-            } else {
-                if (curr.nextCutAncestor == null) {
-                    float z = 0;
-
-                    CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
-                    throw new SegmentBalanceException(shell, cutMatchList, c);
-                }
-                matchSegment = curr.nextNeighbor.getClosestSegment(curr.nextCutAncestor, null);
-                cutSegment = curr.nextNeighbor.getClosestSegment(curr.node, null);
-                prevCutSide = curr.nextCutAncestorCutIsPrev;
-                curr = routeInfo.get(curr.nextCutAncestor.id);
+                CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
+                throw new SegmentBalanceException(shell, cutMatchList, c);
             }
+            matchSegment = route.neighbor.getClosestSegment(route.ancestor, null);
+            cutSegment = route.neighbor.getClosestSegment(curr.node, null);
+            prevCutSide = route.ancestorRouteType;
+            curr = routeMap.get(route.ancestor.id);
             matchSegments.add(matchSegment);
             cutSegments.add(cutSegment);
         }
@@ -363,7 +271,8 @@ public class InternalPathEngine {
             }
         }
         float z = 0;
-
+        cutSegments.remove(cutSegment1);
+        cutSegments.remove(cutSegment2);
         CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
         try {
             cutMatchList.addLists(cutSegments, matchSegments, knot, "InternalPathEngine");
@@ -421,12 +330,12 @@ public class InternalPathEngine {
             }
             RouteInfo r = routeInfo.get(curr.id);
             if (marchDirection == 1) {
-                r.prevState = state;
-                r.prevIsTowardKnotPoint = isTowardKnotPoint;
+                r.prevEven.state = state;
+                r.nextOdd.state = state;
 
             } else {
-                r.nextState = state;
-                r.nextIsTowardKnotPoint = isTowardKnotPoint;
+                r.nextEven.state = state;
+                r.prevOdd.state = state;
             }
             prev2 = curr;
             int next = idx + marchDirection;
@@ -452,25 +361,45 @@ public class InternalPathEngine {
 
     }
 
-    public class RouteInfo implements Comparable<RouteInfo> {
-        public boolean nextIsTowardKnotPoint;
-        public boolean prevIsTowardKnotPoint;
-        public boolean nextCutAncestorCutIsPrev;
-        public boolean prevCutAncestorCutIsPrev;
-        public State prevState = State.None;
-        public State nextState = State.None;
+    public enum RouteType {
+        prevOdd,
+        prevEven,
+        nextOdd,
+        nextEven,
+        None;
+    }
 
-        public VirtualPoint prevNeighbor;
-        public double prevCutDelta;
-        public VirtualPoint prevCutAncestor;
-
-        public VirtualPoint nextNeighbor;
-        public double nextCutDelta;
-        public VirtualPoint nextCutAncestor;
-
+    public class Route {
+        public RouteType routeType;
+        public RouteType ancestorRouteType = RouteType.None;
+        public State state = State.None;
+        public VirtualPoint neighbor;
         public double delta;
         public VirtualPoint ancestor;
-        public boolean ancestorCutIsPrev;
+
+        public Route(RouteType routeType, double delta, VirtualPoint neighbor) {
+            this.routeType = routeType;
+            this.delta = delta;
+            this.neighbor = neighbor;
+        }
+    }
+
+    public class RouteInfo implements Comparable<RouteInfo> {
+
+        // need to ad a concept of teh winding number to this model, which would flip
+        // the state of the prev/ next depending on weather the winding number is even
+        // or odd
+        //
+
+        public Route prevOdd;
+        public Route prevEven;
+        public Route nextOdd;
+        public Route nextEven;
+
+        public double delta;
+        public RouteType minRoute = RouteType.None;
+        public RouteType ancestorRouteType;
+        public VirtualPoint ancestor;
         public VirtualPoint matchedNeighbor;
 
         public VirtualPoint node;
@@ -481,37 +410,46 @@ public class InternalPathEngine {
             this.node = node;
             this.id = node.id;
             this.delta = delta;
-            this.prevCutDelta = Double.MAX_VALUE;
-            this.nextCutDelta = Double.MAX_VALUE;
-            this.prevNeighbor = prevNeighbor;
-            this.nextNeighbor = nextNeighbor;
+            this.prevOdd = new Route(RouteType.prevOdd, Double.MAX_VALUE, prevNeighbor);
+            this.prevEven = new Route(RouteType.prevEven, Double.MAX_VALUE, prevNeighbor);
+            this.nextOdd = new Route(RouteType.nextOdd, Double.MAX_VALUE, nextNeighbor);
+            this.nextEven = new Route(RouteType.nextEven, Double.MAX_VALUE, nextNeighbor);
             this.ancestor = ancestor;
             this.matchedNeighbor = matchedNeighbor;
         }
 
-        public void update(double delta, VirtualPoint ancestor, VirtualPoint matchedNeighbor,
-                boolean ancestorCutIsPrev) {
+        public void update(double delta, VirtualPoint ancestor, VirtualPoint matchedNeighbor, RouteType routeType,
+                RouteType ancestorRouteType) {
             if (delta < this.delta) {
                 this.delta = delta;
+                this.minRoute = routeType;
                 this.ancestor = ancestor;
                 this.matchedNeighbor = matchedNeighbor;
-                this.ancestorCutIsPrev = ancestorCutIsPrev;
+                this.ancestorRouteType = ancestorRouteType;
             }
         }
 
-        public void updatePrevCut(double prevCutDelta, VirtualPoint prevCutAncestor, boolean prevCutAncestorCutIsPrev) {
-            if (prevCutDelta < this.prevCutDelta) {
-                this.prevCutDelta = prevCutDelta;
-                this.prevCutAncestor = prevCutAncestor;
-                this.prevCutAncestorCutIsPrev = prevCutAncestorCutIsPrev;
+        public void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType) {
+            Route route = getRoute(routeType);
+            if (delta < route.delta) {
+                route.delta = delta;
+                route.ancestorRouteType = ancestorRouteType;
+                route.ancestor = ancestor;
             }
         }
 
-        public void updateNextCut(double nextCutDelta, VirtualPoint nextCutAncestor, boolean nextCutAncestorCutIsPrev) {
-            if (nextCutDelta < this.nextCutDelta) {
-                this.nextCutDelta = nextCutDelta;
-                this.nextCutAncestor = nextCutAncestor;
-                this.nextCutAncestorCutIsPrev = nextCutAncestorCutIsPrev;
+        public Route getRoute(RouteType routeType) {
+            switch (routeType) {
+                case prevEven:
+                    return prevEven;
+                case prevOdd:
+                    return prevOdd;
+                case nextEven:
+                    return nextEven;
+                case nextOdd:
+                    return nextOdd;
+                default:
+                    return null;
             }
         }
 
@@ -526,6 +464,15 @@ public class InternalPathEngine {
             }
 
             return 0;
+        }
+
+        public State getKnotState() {
+            if (prevEven.state == State.toKP1 || prevEven.state == State.toKP2) {
+                return prevEven.state;
+            } else if (nextEven.state == State.toKP1 || nextEven.state == State.toKP2) {
+                return nextEven.state;
+            }
+            return State.None;
         }
 
     }
