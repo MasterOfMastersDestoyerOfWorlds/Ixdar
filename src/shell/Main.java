@@ -111,7 +111,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 		System.out.println(maxShell);
 		long startTimeKnotFinding = System.currentTimeMillis();
 		if (calculateKnot) {
-			result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 10));
+			result = new ArrayList<>(maxShell.slowSolve(maxShell, d, 6));
 		}
 		maxShell.buff.flush();
 		long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;

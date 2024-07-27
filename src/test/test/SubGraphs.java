@@ -51,6 +51,12 @@ public class SubGraphs {
 	@Test
 	public void test_two_circle_in_10_arc() {
 		testMethod("two_circle_in_10_arc");
+
+	}
+
+	@Test
+	public void test_two_circle_in_10_wh() {
+		testMethod("two_circle_in_10_wh");
 	}
 
 	@Test
