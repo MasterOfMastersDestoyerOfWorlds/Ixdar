@@ -14,8 +14,6 @@
 
 [Links and References](#links)
 
-[Appendix A: Djibouti Sorted Segments Lists](#appendix-a)
-
 ## Preface
 
 ## A Short Trip Through Time and Space
@@ -601,19 +599,27 @@ Our final Knot doesn't have any externals by definition, so we can simply dissol
 
 The general idea will be this:
 
-* Find the next Knot in the list
-* Find its external matches
-* Figure out what segment to cut based on the externals
-* Add the Knot's points into the list
-* Repeat until we don't have any Knots left in the list
-  
-There are a few edge cases around how to figure out the cut segment, but for the most part this will work.
+* Dive into the first knot in the list until we find a knot with no sub-Knots.
+* Find the base Knot's external matches.
+* Figure out what segments to cut based on the externals.
+* Figure out which side of each segment to match to from the externals (these matched points will be labeled KnotPoints).
+* Figure out how to connect the unmatched points (referred to as CutPoints) to each other.
+* Add the minimal ordering into the list of the sub Knot's parent.
+* Repeat until we don't have any Knots left in the list.
 
 Our cutting algorithm will not work on a nested knot, so if the knot we are trying to cut has a height greater than 1 we will need to recursively cut it internally.
 
 ### Cutting Loop
 
-Once we have the two externals and the flat knot <b>K</b> we are trying to cut, we will enter the cutting loop. The idea is we will have a doubly nested loop that iterates over the segments of <b>K</b> making for a N<sup>3</sup> operation.
+    Key:
+
+    a <-> b direct connection between a and b
+
+    a <-> ... <-> b points in between a and b not explicitly represented
+
+    a | b cut in the connection manifold between a and b
+
+Once we have the two externals and the flat knot <b>K</b> we are trying to cut, we will enter the cutting loop. The idea is we will have a doubly nested loop that iterates over the segments of <b>K</b> making for a N<sup>3</sup> operation (once the recursive nature of the Knot is taken into account).
 
 If the two cut segments overlap fully (i.e. Segment [a:b] and Segment [b:a] are the cuts) then we will calculate the Agree case (seen below) and if it is a smaller loop than our minimum, replace it. so if we had Cut Segment: [a:b]
 
@@ -629,177 +635,75 @@ If the two cut segments are disjoint (i.e. Segment [a:b] and Segment [c:d] are t
 
 ... <-> a <-> b <-> ... <-> c <-> d <-> ...
 
-with two external points ex1 and ex2, then we could have the following paths
+with two external points ex1 and ex2, then we could have the following paths:
 
-... <-> a <-> ex1 <-> ... <-> ex2 <-> c <-> ... <-> b <-> d <-> ...
+    1.
+
+    ... <-> ex2 <-> a <-> ... <-> d | b <-> ... c <-> ex1 <-> ...
 
 or
 
-... <-> a <-> c <-> ... <-> b <-> ex1 <-> ... <-> ex2 <-> d <-> ...
+    2.
 
-once we have calculated all of the possible distance changes we take the smallest one and apply it.
+    ... <-> ex2 <-> d <-> ... <-> a | c <-> ... b <-> ex1 <-> ...
+
+or
+
+    3.
+
+    | a <-> ... <-> d | ... <-> ex2 <-> b <-> ... <-> c <-> ex1 <-> ...
+
+or
+
+    4.
+
+    | b <-> ... <-> c | ... <-> ex2 <-> a <-> ... <-> d <-> ex1 <-> ...
+
+The relationship and ordering in the points not connected to the externals is unknown in this preliminary state and will be explored further later.
+
+The differences of which KnotPoint connects to which External Point are not represented here as they do not effect the internal state of the resulting Knot.
+
+The Four States shown above are as follows:
+
+1. CutPoint2(d) and KnotPoint1(a) are connected to each other but are not connected to CutPoint1(b) or KnotPoint2(c) with KnotPoint1 and KnotPoint2 being connected to the externals.
+
+2. CutPoint1(a) and KnotPoint2(d) are connected to each other but are not connected to CutPoint2(c) or KnotPoint1(b) with KnotPoint1 and KnotPoint2 being connected to the externals.
+
+3. CutPoint1(a) and CutPoint2(d) are connected to each other but are not connected to KnotPoint1(b) or KnotPoint2(c) with KnotPoint1 and KnotPoint2 being connected to each other and and the externals.
+
+4. CutPoint1(b) and CutPoint2(c) are connected to each other but are not connected to KnotPoint1(a) or KnotPoint2(d) with KnotPoint1 and KnotPoint2 being connected to each other and and the externals.
+
+Once we have calculated all of the possible distance changes (and how the internal structure changes the distance) we take the smallest one and apply it.
 
 ### Finding Cut Point Matches
 
-In our example above it is easy to see that b -> ex1 and d -> ex2 means that b and d have all of their Segments accounted for, we will call this <b>Balanced</b>. an entire Knot having been cut, is balanced if every one of its Points has two matches and each external has one match inside the knot.
+In our example #1 above it is easy to see that a -> ex1 and c -> ex2 means that a and c have all of their Segments accounted for, we will call this <b>Balanced</b>. An entire Knot having been cut, is balanced if every one of its Points has two matches and each external has one match inside the knot.
 
-From here we will refer to the two points that match to the externals as Knot Points (b and d) and the other Points that were cut from their Segments as Cut Points (a and c).
+From here we will refer to the two points that match to the externals as Knot Points (a and c) and the other Points that were cut from their Segments as Cut Points (b and d).
 
-Our Cut Points a and c in the example above would also be balanced, so in the simple case we know that in order to balance a Knot we can match the Cut Points to each other. If we are only dealing with perfect knots(e.g. a Circle in the plane, triangle, etc.), then simply connecting the cut points is all we need, but if we have nested knots, things get a lot more complicated. Also note that for any bottom knot in the stack, that we can simply connect the Cut Points by definition, by bottom knot I do not mean any flattened knot, but any knot that was flat before we started cutting.
-
-As we flatten our Knots we will generate a list of Sub Knots and Super Knots that represent the optimal path at each stage of the hierarchy, we will use these flattened knots and their relationships to each other in order to find optimal paths in the top knot that we are cutting.
+Our Cut Points b and d in the example above would be unbalanced since we haven't decided what their new neighbors would be. But in the simple case we know that in order to balance a Knot we can match the Cut Points to each other. If we are only dealing with perfect knots(e.g. a Circle in the plane, triangle, etc.), then simply connecting the cut points is all we need, but if we have nested knots, things get a lot more complicated. Also note that for any bottom knot in the stack, that we can simply connect the Cut Points by definition, since every other point in the knot is already matched to its favorite other two points.
 
 ### Same Knot Different Super Knot
 
 As we flatten the stack we need a way to tell the difference between a Sub Knot and a Super Knot, this is where our next data structure the CutMatchList comes in, in the simple case our CutMatchList would consist of one internal match and two implied matches, the internal match would be between the two Cut Points and the two implied matches would be between the two Knot Points and their externals.
 
-But life is rarely simple, so when we are recutting a Sub Knot we want to be able to list just the segments that we'd need to cut or match in order to get to the Sub Knot from the Super Knot, with some caveats. We can achieve this by matching all segments that are in the Sub Knot but not the Super Knot and cutting all the Segments that are in the Super Knot whose endpoints are contained in the Sub Knot, but the Sub Knot does not contain the Segment in its Path.
-
-We need to exclude from this difference calculation any Internal Neighbor Segments and so that we do not break other optimal paths (See [Finding Internal Neighbor Segments](#finding-internal-neighbor-segments) for definition and purpose).
-
 ### Balance in All Things
 
 For a CutMatchList to be Balanced we need for the following conditions to hold (some we will actively calculate and some are implied by others):
 
-* After the CutMatch is applied each Point in the Top Knot has exactly two matches
+* After the CutMatch is applied each Point in the Knot has exactly two matches
 * Each external will have exactly one match, or exactly two matches if external1 == external2
+* After the CutMatch is applied, KnotPoint1 and KnotPoint2 should be connected to each other just by the segments in the Knot
 Implied by above:
-* We should not have matched any Segment that already exists in the Top Knot's Path
-* We should not have cut any Segment that does not exist in the Top Knot's Path
+* We should not have matched any Segment that already exists in the Knot's Path
+* We should not have cut any Segment that does not exist in the Knot's Path
+* We should not have matched between KnotPoint1 and KnotPoint2
+* We should not have cut between KnotPoint1 and CutPoint1 or KnotPoint2 and CutPoint2 as it is repetitious
+* We should not have multiple cycles in the  Knot
 
-### Finding the MinKnot
+### The Winds and the Tides
 
-The MinKnot is the largest flattened knot which contains all of the points of one Cut Segment(labeled Lower Cut Segment) and does not contain both Knot Points and the other Cut Segment (labeled Upper Cut Segment). Sometimes there can be multiple valid MinKnots if the two Cut Segments do not share any knots even partially. Why is the MinKnot important? If we can recursively Re-Cut the MinKnot, we can find the optimal matches for the Cut Points easily.
-
-Since the MinKnot contains only one Cut Segment in the majority of cases, we can Re-Cut the minKnot with one fixed Cut Segment(Lower Cut Segment) and one looping Cut Segment(new Cut that we must find to attach to the neighbor (See [Finding Neighbor](#finding-neighbor) for definition and purpose)). If the MinKnot contains both Cut Segments, then match simply.
-
-### Finding Internal Neighbor Segments
-
-<img src="img\wi29_6-25p20cut4-3and2-1.png" alt="wi29_6-25p20cut4-3and2-1" width="85%" style="display: block;margin-left: auto;margin-right: auto;"/>
-
-In the Figure Above our MinKnot is Knot[11, 1, 2, 3, 5, 0] and our Cut Segments are Segment[3:4] and Segment[1:2]  with Point 4 and Point 2 as our Knots Points and Points 3 and 1 as our Cut Points.
-
--------
-The Following Segments are what we call Internal Neighbor Segments:
-
-Segment[3:5]
-
-The above segment is defined by the Path in the Super Knot [3 <-> 4 <-> 5]
-
-Segment[11:1]
-
-Segment[5:0]
-
-The above segment is defined by the Path in the Super Knot [5 <-> 6 <-> 8 <-> 9 <-> 10 <-> 11]
-
--------
-
-These Internal Knot Segments define how the MinKnot interacts with the Knots outside of itself and finding them will allow us to re-cut the MinKnot without recutting it's super knot.
-
-As you can see from the Figure our MinKnot does not just have the Upper Knot Point going off from it, there is also the Path from 11 to 5 which must be maintained in any Cut Match we do on the MinKnot.
-
-The question is how can we find these Internal Neighbor Segments algorithmically and how can we determine which should be maintained and which are fine to overwrite with segments from the MinKnot?
-
-<div style="display:inline-block;align:center;">
-<img src="img\wi29_6-25p20cut4-3and2-1case1.png" alt="wi29_6-25p20cut4-3and2-1case1" width="45%" style=""/>
-<img src="img\wi29_6-25p20cut4-3and2-1case2.png" alt="wi29_6-25p20cut4-3and2-1case2" width="45%" style=""/>
-</div>
-
-Here are the two valid Paths from this cut, Notice that the internal segments that do not go out to the upper knot point (Segment[1:11] and Segment[0:5]) are not touched, but the internal segment that does go out to the upper Knot Point (Segment[3:5]) may or may not exist in the final path depending on which Point 4 matches with. If 4 keeps Segment[4:5], then we do not match Segment[3:5] otherwise we do.
-
-### The Square Problem
-
-An interesting problem arises when trying to determine which of these internal neighbor segments belong to the upper knot point. Take for example Point 5 in the above figures. 5 is part of Segment[0:5] and Segment[3:5] but only Segment[3:5] belongs to the upper knot point, so how can we tell which way is out of the minKnot and toward the outer loop it defines?
-
-The way to solve this is to store with each inner neighbor segment, the segment that is going out of the minKnot as well as where it comes back into the minKnot, from this we can associate Point 5 and Point 11 together and the direction to march. With this information we can determine the order to traverse the path they define. The marching direction would either be defined by Segment[11:10] or Segment[5:6] for the loop defined by Point 5 and Point 11.
-
-For the upper knot point's inner segment: Segment[5:3], this would be defined by 5, 3 and Segment[5:4] or Segment[3:4].
-
-So we take one of the marching directions, and the minKnot point within it and march out of the minKnot. If we come across the Upper Knot Point on our march, then we know we can associate those Inner Neighbor Segments with the Upper Knot Point.
-
-### Finding Neighbor
-
-When recutting the minKnot we will know one of the external points automatically, i.e. what ever was the external matching to the Lower Knot Point, but the other will need to be found. In our previous example the neighbor was Point 4, the same as the Upper Knot Point, but this will not always be so easy to decipher. Essentially, we want the first Point marching from the opposite side of where the Upper Cut Segment is. If the Upper Cut Segment doesn't intersect the minKnot then we will take the Upper Cut Point as the neighbor.
-
-### Recutting the MinKnot
-
-Once we've found the neighbor we can re-cut the minKnot, we need to have one cut segment fixed, i.e. the one that was cut from the super knot and one we will find.
-
-Some caveats on which segments we can choose as our second cut segment:
-
-* New Cut Segment must not be in Internal Neighbor Segments
-* The Old Cut Point and New Knot Point must not both be in the list of Internal Neighbor Segments Flattened
-* The New Knot Point cannot be in the Inner Neighbor Segments or the Neighbor Segments
-* The New External Match cannot replicate the Neighbor Segment (Segment that connects to the Neighbor
-* The Old Cut Point and the New Cut Point mst ont be in the list of Internal Neighbor Segments
-
-Other than that there is only left to cycle through the minKnot's Segments and recursively Cut.
-
-### MinKnot with no CutSegment in its Path
-
-What if the Lower Cut Segment is not actually in our minKnot? The Points that are in the Lower Cut Segment are guaranteed to be, but the actual Segment may not be in hte MinKnot's Path.
-
-If this is the case we want to make a cut at the segment to the right of the Lower Knot Point and to the left of the lower knot point and pick the lesser length, if the Upper Cut Point  is not in the minKnot then we are in a bit of trouble
-
-### MinKnot without Both CutPoints
-
-### Orphaned Sections
-
-So far we have described how to cut Knots  where we have the following arrangement:
-
- ... <-> cp1 | kp1 <-> ... <-> cp2 | kp2 <-> ...
-
- where cp1= CutPoint1 and kp1 = KnotPoint1 and | = cut
-
- this gives us the paths:
-
- ... <-> ex1 <-> kp1 <-> ... <-> cp2
-
- ... <-> ex2 <-> kp2 <-> ... <-> cp1
-
- and all we have to do is figure out what to attach the cutPoints to.
-
-Imagine if we instead cut a knot like this:
-
- ... <-> cp1 | kp1 <-> ... <-> kp2 | cp2 <-> ...
-
- or this:
-
- ... <-> kp1 | cp1 <-> ... <-> cp2 | kp2 <-> ...
-
-Then we'd be left with the strings:
-
-ex1 <-> kp1 <-> ... <-> kp2 <-> ex2
-
-cp1 <-> ... <-> cp2
-
-Now the Path from cp1 to cp2 is orphaned and it is not clear how they should attach to the points between kp1 and kp2
-
-What's worse is that finding out where cp1 through cp2 go is an NP-Hard Operation, so do we need to recursively solve for TSP removing at least 2 points at a time?
-
-We'll there is a little solace in the fact that when cutting a perfect Knot this won't be part of the answer.
-
-But let's not get too excited: let's look at the following example:
-
-<img src="img\wi29_6-25p20p19_right_order.png" alt="wi29_6-25p20p19_right" width="85%" style="display: block;margin-left: auto;margin-right: auto;"/>
-
-<div style="text-align:center;margin-bottom:50px;"> Correct Path</div>
-
-<img src="img\wi29_6-25p20p19_wrong_order.png" alt="wi29_6-25p20p19_wrong" width="85%" style="display: block;margin-left: auto;margin-right: auto;"/>
-
-<div style="text-align:center;margin-bottom:50px;"> Naive Path</div>
-
-<img src="img\wi29_6-25p20p19.png" alt="wi29_6-25p20p19" width="85%" style="display: block;margin-left: auto;margin-right: auto;"/>
-
-<div style="text-align:center;margin-bottom:50px;"> Knot Breakdown</div>
-
-The only difference between the Correct Path and the Naive Path, is that in the correct Path we have broken our rule of not orphaning our Cut Points.
-
-However, we can get around the orphan problem by only looking at those cut points who's largest common knot does not include (both knot points, or at least one knot point?) and then we can recut this minKnot like normal. (I think you want to include the lower cut segment if you can).
-
-basically anywhere that you can find a minKnot that has one cut segment in it, its a valid CutMatch.
-
-### MinKnot for the Criminally Insane
+Now that the framework for cutting the recursive Knot into one Knot has been laid out, we need to look athte internal structure of the knots we are cutting, 
 
 ### Complexity Limit
 
@@ -853,85 +757,3 @@ Match Twice and Stitch Algorithm:
 Waterloo TSP Dataset:
 
 * <http://www.math.uwaterloo.ca/tsp/world/countries.html#LU>
-
-## Appendix A
-
-## Djibouti Sorted Segment List
-
-    0  [Segment[1 : 0], Segment[34 : 0], Segment[35 : 0], Segment[36 : 0], Segment[37 : 0], Segment[2 : 0], Segment[3 : 0], Segment[4 : 0], Segment[33 : 0], Segment[32 : 0], Segment[6 : 0], Segment[5 : 0], Segment[26 : 0], Segment[7 : 0], Segment[24 : 0], Segment[27 : 0], Segment[25 : 0], Segment[31 : 0], Segment[8 : 0], Segment[30 : 0], Segment[28 : 0], Segment[29 : 0], Segment[23 : 0], Segment[20 : 0], Segment[21 : 0], Segment[22 : 0], Segment[9 : 0], Segment[18 : 0], Segment[15 : 0], Segment[0 : 17], Segment[12 : 0], Segment[16 : 0], Segment[11 : 0], Segment[14 : 0], Segment[19 : 0], Segment[10 : 0], Segment[13 : 0]]
-
-    1  [Segment[1 : 0], Segment[34 : 1], Segment[35 : 1], Segment[36 : 1], Segment[37 : 1], Segment[2 : 1], Segment[3 : 1], Segment[4 : 1], Segment[33 : 1], Segment[32 : 1], Segment[5 : 1], Segment[6 : 1], Segment[26 : 1], Segment[27 : 1], Segment[7 : 1], Segment[24 : 1], Segment[25 : 1], Segment[31 : 1], Segment[8 : 1], Segment[30 : 1], Segment[28 : 1], Segment[29 : 1], Segment[23 : 1], Segment[20 : 1], Segment[21 : 1], Segment[9 : 1], Segment[22 : 1], Segment[15 : 1], Segment[18 : 1], Segment[1 : 17], Segment[12 : 1], Segment[16 : 1], Segment[11 : 1], Segment[14 : 1], Segment[19 : 1], Segment[10 : 1], Segment[13 : 1]]
-
-    2  [Segment[2 : 3], Segment[4 : 2], Segment[2 : 33], Segment[2 : 32], Segment[2 : 5], Segment[2 : 1], Segment[2 : 34], Segment[2 : 35], Segment[36 : 2], Segment[2 : 37], Segment[6 : 2], Segment[2 : 0], Segment[2 : 7], Segment[2 : 27], Segment[26 : 2], Segment[8 : 2], Segment[2 : 31], Segment[30 : 2], Segment[2 : 28], Segment[29 : 2], Segment[2 : 25], Segment[2 : 24], Segment[9 : 2], Segment[2 : 15], Segment[2 : 12], Segment[23 : 2], Segment[11 : 2], Segment[20 : 2], Segment[21 : 2], Segment[10 : 2], Segment[2 : 17], Segment[2 : 18], Segment[22 : 2], Segment[14 : 2], Segment[16 : 2], Segment[2 : 13], Segment[2 : 19]]
-
-    3  [Segment[2 : 3], Segment[4 : 3], Segment[33 : 3], Segment[5 : 3], Segment[32 : 3], Segment[3 : 1], Segment[34 : 3], Segment[35 : 3], Segment[6 : 3], Segment[36 : 3], Segment[37 : 3], Segment[3 : 0], Segment[7 : 3], Segment[27 : 3], Segment[8 : 3], Segment[26 : 3], Segment[31 : 3], Segment[30 : 3], Segment[28 : 3], Segment[29 : 3], Segment[25 : 3], Segment[24 : 3], Segment[9 : 3], Segment[12 : 3], Segment[15 : 3], Segment[11 : 3], Segment[23 : 3], Segment[20 : 3], Segment[21 : 3], Segment[10 : 3], Segment[3 : 17], Segment[18 : 3], Segment[14 : 3], Segment[22 : 3], Segment[16 : 3], Segment[13 : 3], Segment[19 : 3], Segment[3 : 38]]
-
-    4  s  [Segment[4 : 5], Segment[4 : 3], Segment[4 : 6], Segment[4 : 2], Segment[4 : 7], Segment[4 : 33], Segment[4 : 32], Segment[4 : 8], Segment[4 : 1], Segment[4 : 34], Segment[4 : 35], Segment[4 : 0], Segment[4 : 36], Segment[4 : 37], Segment[4 : 31], Segment[4 : 27], Segment[26 : 4], Segment[30 : 4], Segment[4 : 28], Segment[4 : 9], Segment[29 : 4], Segment[4 : 25], Segment[4 : 24], Segment[4 : 12], Segment[4 : 11], Segment[4 : 10], Segment[4 : 15], Segment[4 : 14], Segment[4 : 23], Segment[4 : 20], Segment[4 : 21], Segment[4 : 17], Segment[16 : 4], Segment[4 : 18], Segment[4 : 22], Segment[4 : 13], Segment[4 : 19]]
-
-    5  [Segment[4 : 5], Segment[6 : 5], Segment[5 : 7], Segment[5 : 3], Segment[2 : 5], Segment[8 : 5], Segment[5 : 33], Segment[5 : 32], Segment[5 : 1], Segment[5 : 34], Segment[35 : 5], Segment[36 : 5], Segment[5 : 37], Segment[31 : 5], Segment[5 : 0], Segment[5 : 27], Segment[26 : 5], Segment[30 : 5], Segment[9 : 5], Segment[5 : 28], Segment[29 : 5], Segment[5 : 25], Segment[5 : 12], Segment[24 : 5], Segment[10 : 5], Segment[11 : 5], Segment[5 : 15], Segment[14 : 5], Segment[5 : 17], Segment[16 : 5], Segment[13 : 5], Segment[20 : 5], Segment[23 : 5], Segment[21 : 5], Segment[5 : 18], Segment[22 : 5], Segment[5 : 19]]
-
-    6  [Segment[6 : 7], Segment[4 : 6], Segment[6 : 5], Segment[8 : 6], Segment[6 : 3], Segment[6 : 2], Segment[6 : 33], Segment[6 : 32], Segment[6 : 1], Segment[6 : 0], Segment[6 : 34], Segment[6 : 35], Segment[6 : 36], Segment[6 : 37], Segment[6 : 31], Segment[6 : 9], Segment[6 : 27], Segment[26 : 6], Segment[30 : 6], Segment[6 : 28], Segment[29 : 6], Segment[6 : 25], Segment[6 : 10], Segment[6 : 24], Segment[6 : 12], Segment[6 : 11], Segment[6 : 15], Segment[6 : 14], Segment[23 : 6], Segment[20 : 6], Segment[6 : 21], Segment[6 : 17], Segment[6 : 13], Segment[16 : 6], Segment[6 : 18], Segment[6 : 22], Segment[6 : 19]]
-
-    7  [Segment[6 : 7], Segment[5 : 7], Segment[8 : 7], Segment[4 : 7], Segment[7 : 3], Segment[2 : 7], Segment[7 : 33], Segment[7 : 32], Segment[7 : 1], Segment[7 : 0], Segment[7 : 34], Segment[9 : 7], Segment[35 : 7], Segment[36 : 7], Segment[7 : 37], Segment[31 : 7], Segment[7 : 27], Segment[26 : 7], Segment[30 : 7], Segment[7 : 28], Segment[29 : 7], Segment[10 : 7], Segment[7 : 25], Segment[7 : 12], Segment[11 : 7], Segment[24 : 7], Segment[7 : 15], Segment[14 : 7], Segment[13 : 7], Segment[23 : 7], Segment[16 : 7], Segment[7 : 17], Segment[20 : 7], Segment[21 : 7], Segment[7 : 18], Segment[22 : 7], Segment[7 : 19]]
-
-    8  [Segment[8 : 7], Segment[8 : 5], Segment[8 : 6], Segment[4 : 8], Segment[8 : 9], Segment[8 : 33], Segment[8 : 3], Segment[8 : 32], Segment[8 : 2], Segment[8 : 31], Segment[8 : 1], Segment[8 : 34], Segment[8 : 27], Segment[8 : 35], Segment[30 : 8], Segment[8 : 36], Segment[8 : 0], Segment[8 : 37], Segment[8 : 10], Segment[26 : 8], Segment[8 : 28], Segment[29 : 8], Segment[8 : 12], Segment[8 : 11], Segment[8 : 25], Segment[8 : 24], Segment[8 : 15], Segment[8 : 13], Segment[8 : 14], Segment[16 : 8], Segment[8 : 17], Segment[8 : 18], Segment[20 : 8], Segment[8 : 21], Segment[23 : 8], Segment[8 : 22], Segment[8 : 19]]
-
-    9  [Segment[9 : 10], Segment[8 : 9], Segment[9 : 11], Segment[9 : 12], Segment[9 : 7], Segment[9 : 5], Segment[6 : 9], Segment[4 : 9], Segment[9 : 33], Segment[9 : 32], Segment[9 : 31], Segment[9 : 3], Segment[9 : 2], Segment[30 : 9], Segment[9 : 28], Segment[9 : 27], Segment[29 : 9], Segment[9 : 13], Segment[26 : 9], Segment[9 : 34], Segment[9 : 1], Segment[9 : 35], Segment[9 : 36], Segment[9 : 37], Segment[9 : 0], Segment[9 : 14], Segment[9 : 15], Segment[9 : 25], Segment[16 : 9], Segment[9 : 24], Segment[9 : 17], Segment[9 : 18], Segment[20 : 9], Segment[9 : 21], Segment[23 : 9], Segment[22 : 9], Segment[9 : 19]]
-
-    10  [Segment[9 : 10], Segment[11 : 10], Segment[10 : 12], Segment[8 : 10], Segment[10 : 13], Segment[10 : 7], Segment[10 : 5], Segment[6 : 10], Segment[4 : 10], Segment[10 : 31], Segment[10 : 32], Segment[10 : 33], Segment[30 : 10], Segment[10 : 3], Segment[10 : 2], Segment[10 : 28], Segment[29 : 10], Segment[10 : 27], Segment[14 : 10], Segment[26 : 10], Segment[10 : 34], Segment[10 : 1], Segment[10 : 35], Segment[10 : 36], Segment[10 : 37], Segment[10 : 15], Segment[10 : 0], Segment[16 : 10], Segment[10 : 25], Segment[10 : 17], Segment[10 : 24], Segment[10 : 18], Segment[20 : 10], Segment[10 : 21], Segment[23 : 10], Segment[22 : 10], Segment[10 : 19]]
-
-    11  [Segment[11 : 12], Segment[11 : 13], Segment[11 : 10], Segment[9 : 11], Segment[11 : 14], Segment[11 : 31], Segment[30 : 11], Segment[8 : 11], Segment[11 : 28], Segment[29 : 11], Segment[11 : 32], Segment[11 : 33], Segment[11 : 5], Segment[11 : 27], Segment[11 : 15], Segment[4 : 11], Segment[11 : 7], Segment[26 : 11], Segment[6 : 11], Segment[11 : 3], Segment[16 : 11], Segment[11 : 2], Segment[11 : 34], Segment[11 : 36], Segment[11 : 35], Segment[11 : 37], Segment[11 : 25], Segment[11 : 1], Segment[11 : 17], Segment[11 : 0], Segment[11 : 18], Segment[11 : 24], Segment[20 : 11], Segment[11 : 21], Segment[11 : 19], Segment[23 : 11], Segment[22 : 11]]
-
-    12  [Segment[11 : 12], Segment[13 : 12], Segment[9 : 12], Segment[10 : 12], Segment[14 : 12], Segment[30 : 12], Segment[31 : 12], Segment[12 : 28], Segment[29 : 12], Segment[8 : 12], Segment[12 : 32], Segment[12 : 15], Segment[12 : 27], Segment[12 : 33], Segment[5 : 12], Segment[26 : 12], Segment[4 : 12], Segment[16 : 12], Segment[7 : 12], Segment[12 : 3], Segment[6 : 12], Segment[2 : 12], Segment[12 : 25], Segment[34 : 12], Segment[36 : 12], Segment[35 : 12], Segment[12 : 37], Segment[12 : 17], Segment[12 : 1], Segment[12 : 0], Segment[12 : 18], Segment[24 : 12], Segment[20 : 12], Segment[21 : 12], Segment[19 : 12], Segment[23 : 12], Segment[22 : 12]]
-
-    13  [Segment[13 : 12], Segment[11 : 13], Segment[14 : 13], Segment[10 : 13], Segment[13 : 15], Segment[9 : 13], Segment[30 : 13], Segment[29 : 13], Segment[16 : 13], Segment[13 : 28], Segment[13 : 31], Segment[13 : 27], Segment[13 : 32], Segment[8 : 13], Segment[13 : 33], Segment[26 : 13], Segment[13 : 17], Segment[13 : 5], Segment[4 : 13], Segment[13 : 3], Segment[2 : 13], Segment[13 : 7], Segment[13 : 25], Segment[6 : 13], Segment[13 : 18], Segment[13 : 34], Segment[36 : 13], Segment[13 : 37], Segment[13 : 35], Segment[13 : 1], Segment[13 : 0], Segment[20 : 13], Segment[13 : 19], Segment[13 : 24], Segment[21 : 13], Segment[23 : 13], Segment[22 : 13]]
-    
-    14  [Segment[14 : 15], Segment[16 : 14], Segment[14 : 13], Segment[29 : 14], Segment[14 : 28], Segment[30 : 14], Segment[14 : 12], Segment[14 : 17], Segment[14 : 31], Segment[11 : 14], Segment[14 : 27], Segment[26 : 14], Segment[14 : 18], Segment[14 : 25], Segment[14 : 32], Segment[14 : 33], Segment[9 : 14], Segment[14 : 19], Segment[14 : 5], Segment[20 : 14], Segment[14 : 3], Segment[14 : 2], Segment[14 : 21], Segment[8 : 14], Segment[4 : 14], Segment[14 : 37], Segment[14 : 10], Segment[14 : 36], Segment[14 : 34], Segment[14 : 35], Segment[14 : 24], Segment[6 : 14], Segment[14 : 1], Segment[14 : 7], Segment[23 : 14], Segment[22 : 14], Segment[14 : 0]]
-
-    15  [Segment[16 : 15], Segment[14 : 15], Segment[15 : 17], Segment[29 : 15], Segment[28 : 15], Segment[30 : 15], Segment[18 : 15], Segment[31 : 15], Segment[27 : 15], Segment[26 : 15], Segment[25 : 15], Segment[19 : 15], Segment[20 : 15], Segment[32 : 15], Segment[12 : 15], Segment[21 : 15], Segment[33 : 15], Segment[13 : 15], Segment[11 : 15], Segment[24 : 15], Segment[37 : 15], Segment[36 : 15], Segment[34 : 15], Segment[35 : 15], Segment[23 : 15], Segment[22 : 15], Segment[15 : 3], Segment[2 : 15], Segment[5 : 15], Segment[4 : 15], Segment[15 : 1], Segment[8 : 15], Segment[15 : 0], Segment[9 : 15], Segment[6 : 15], Segment[7 : 15], Segment[10 : 15]]
-
-    16  [Segment[16 : 15], Segment[16 : 17], Segment[16 : 14], Segment[16 : 18], Segment[29 : 16], Segment[16 : 28], Segment[30 : 16], Segment[16 : 19], Segment[16 : 31], Segment[16 : 27], Segment[16 : 25], Segment[16 : 26], Segment[16 : 20], Segment[16 : 21], Segment[16 : 13], Segment[16 : 12], Segment[16 : 32], Segment[16 : 33], Segment[16 : 22], Segment[16 : 24], Segment[16 : 23], Segment[16 : 11], Segment[16 : 37], Segment[16 : 36], Segment[16 : 35], Segment[16 : 34], Segment[16 : 3], Segment[16 : 2], Segment[16 : 5], Segment[16 : 4], Segment[16 : 1], Segment[16 : 0], Segment[16 : 8], Segment[16 : 9], Segment[16 : 6], Segment[16 : 7], Segment[16 : 10]]
-
-    17  [Segment[18 : 17], Segment[16 : 17], Segment[15 : 17], Segment[19 : 17], Segment[20 : 17], Segment[21 : 17], Segment[25 : 17], Segment[29 : 17], Segment[28 : 17], Segment[14 : 17], Segment[30 : 17], Segment[26 : 17], Segment[22 : 17], Segment[27 : 17], Segment[23 : 17], Segment[31 : 17], Segment[24 : 17], Segment[32 : 17], Segment[33 : 17], Segment[37 : 17], Segment[36 : 17], Segment[35 : 17], Segment[34 : 17], Segment[2 : 17], Segment[3 : 17], Segment[1 : 17], Segment[12 : 17], Segment[0 : 17], Segment[5 : 17], Segment[4 : 17], Segment[13 : 17], Segment[11 : 17], Segment[6 : 17], Segment[8 : 17], Segment[7 : 17], Segment[9 : 17], Segment[10 : 17]]
-
-    18  [Segment[18 : 17], Segment[19 : 18], Segment[20 : 18], Segment[21 : 18], Segment[22 : 18], Segment[25 : 18], Segment[16 : 18], Segment[23 : 18], Segment[18 : 15], Segment[24 : 18], Segment[29 : 18], Segment[26 : 18], Segment[18 : 28], Segment[27 : 18], Segment[30 : 18], Segment[31 : 18], Segment[14 : 18], Segment[37 : 18], Segment[36 : 18], Segment[35 : 18], Segment[34 : 18], Segment[32 : 18], Segment[18 : 33], Segment[18 : 1], Segment[2 : 18], Segment[18 : 3], Segment[18 : 0], Segment[4 : 18], Segment[5 : 18], Segment[12 : 18], Segment[6 : 18], Segment[13 : 18], Segment[8 : 18], Segment[7 : 18], Segment[11 : 18], Segment[9 : 18], Segment[10 : 18]]
-
-    19  [Segment[19 : 18], Segment[20 : 19], Segment[21 : 19], Segment[19 : 17], Segment[22 : 19], Segment[23 : 19], Segment[16 : 19], Segment[19 : 25], Segment[19 : 15], Segment[24 : 19], Segment[29 : 19], Segment[26 : 19], Segment[19 : 28], Segment[19 : 27], Segment[30 : 19], Segment[14 : 19], Segment[31 : 19], Segment[19 : 37], Segment[36 : 19], Segment[35 : 19], Segment[19 : 34], Segment[19 : 32], Segment[19 : 33], Segment[19 : 1], Segment[19 : 0], Segment[2 : 19], Segment[19 : 3], Segment[4 : 19], Segment[5 : 19], Segment[19 : 12], Segment[6 : 19], Segment[13 : 19], Segment[8 : 19], Segment[7 : 19], Segment[11 : 19], Segment[9 : 19], Segment[10 : 19]]
-
-    20  [Segment[20 : 21], Segment[20 : 22], Segment[20 : 23], Segment[20 : 18], Segment[20 : 19], Segment[20 : 25], Segment[20 : 24], Segment[20 : 17], Segment[26 : 20], Segment[20 : 27], Segment[20 : 15], Segment[29 : 20], Segment[20 : 28], Segment[16 : 20], Segment[20 : 37], Segment[20 : 36], Segment[20 : 35], Segment[30 : 20], Segment[20 : 34], Segment[20 : 31], Segment[20 : 1], Segment[20 : 32], Segment[20 : 0], Segment[20 : 33], Segment[20 : 2], Segment[20 : 3], Segment[20 : 14], Segment[4 : 20], Segment[20 : 5], Segment[20 : 6], Segment[20 : 7], Segment[20 : 8], Segment[20 : 12], Segment[20 : 11], Segment[20 : 13], Segment[20 : 9], Segment[20 : 10]]
-
-    21  [Segment[20 : 21], Segment[22 : 21], Segment[23 : 21], Segment[21 : 18], Segment[21 : 19], Segment[21 : 24], Segment[21 : 25], Segment[21 : 17], Segment[26 : 21], Segment[21 : 27], Segment[29 : 21], Segment[21 : 15], Segment[21 : 28], Segment[16 : 21], Segment[21 : 37], Segment[36 : 21], Segment[21 : 35], Segment[21 : 34], Segment[30 : 21], Segment[21 : 31], Segment[21 : 1], Segment[21 : 0], Segment[21 : 32], Segment[21 : 33], Segment[21 : 2], Segment[21 : 3], Segment[14 : 21], Segment[4 : 21], Segment[21 : 5], Segment[6 : 21], Segment[21 : 7], Segment[8 : 21], Segment[21 : 12], Segment[11 : 21], Segment[9 : 21], Segment[21 : 13], Segment[10 : 21]]
-
-    22  [Segment[23 : 22], Segment[22 : 21], Segment[20 : 22], Segment[22 : 24], Segment[22 : 18], Segment[22 : 19], Segment[22 : 25], Segment[22 : 17], Segment[26 : 22], Segment[22 : 37], Segment[22 : 36], Segment[22 : 27], Segment[22 : 35], Segment[22 : 34], Segment[29 : 22], Segment[22 : 28], Segment[22 : 15], Segment[16 : 22], Segment[22 : 1], Segment[30 : 22], Segment[22 : 0], Segment[22 : 31], Segment[22 : 32], Segment[22 : 33], Segment[22 : 2], Segment[22 : 3], Segment[4 : 22], Segment[22 : 14], Segment[22 : 5], Segment[6 : 22], Segment[22 : 7], Segment[8 : 22], Segment[22 : 12], Segment[22 : 11], Segment[22 : 9], Segment[22 : 13], Segment[22 : 10]]
-
-    23  [Segment[23 : 22], Segment[23 : 21], Segment[20 : 23], Segment[23 : 24], Segment[23 : 25], Segment[23 : 18], Segment[23 : 19], Segment[23 : 17], Segment[26 : 23], Segment[23 : 37], Segment[23 : 36], Segment[23 : 35], Segment[23 : 34], Segment[23 : 27], Segment[23 : 1], Segment[29 : 23], Segment[23 : 28], Segment[23 : 0], Segment[30 : 23], Segment[23 : 15], Segment[23 : 31], Segment[23 : 32], Segment[16 : 23], Segment[23 : 33], Segment[23 : 2], Segment[23 : 3], Segment[4 : 23], Segment[23 : 5], Segment[23 : 6], Segment[23 : 14], Segment[23 : 7], Segment[23 : 8], Segment[23 : 12], Segment[23 : 9], Segment[23 : 11], Segment[23 : 13], Segment[23 : 10]]
-
-    24  [Segment[24 : 25], Segment[23 : 24], Segment[24 : 37], Segment[36 : 24], Segment[35 : 24], Segment[21 : 24], Segment[20 : 24], Segment[24 : 34], Segment[22 : 24], Segment[26 : 24], Segment[24 : 1], Segment[24 : 0], Segment[24 : 27], Segment[24 : 18], Segment[2 : 24], Segment[24 : 3], Segment[24 : 32], Segment[24 : 28], Segment[24 : 33], Segment[29 : 24], Segment[31 : 24], Segment[30 : 24], Segment[24 : 17], Segment[4 : 24], Segment[24 : 19], Segment[24 : 5], Segment[24 : 15], Segment[6 : 24], Segment[16 : 24], Segment[24 : 7], Segment[8 : 24], Segment[14 : 24], Segment[9 : 24], Segment[24 : 12], Segment[11 : 24], Segment[13 : 24], Segment[10 : 24]]
-
-    25  [Segment[26 : 25], Segment[24 : 25], Segment[27 : 25], Segment[25 : 28], Segment[29 : 25], Segment[37 : 25], Segment[36 : 25], Segment[20 : 25], Segment[35 : 25], Segment[34 : 25], Segment[21 : 25], Segment[30 : 25], Segment[31 : 25], Segment[23 : 25], Segment[25 : 18], Segment[32 : 25], Segment[25 : 33], Segment[25 : 17], Segment[25 : 1], Segment[22 : 25], Segment[2 : 25], Segment[25 : 3], Segment[25 : 0], Segment[25 : 15], Segment[4 : 25], Segment[19 : 25], Segment[16 : 25], Segment[5 : 25], Segment[6 : 25], Segment[14 : 25], Segment[7 : 25], Segment[8 : 25], Segment[12 : 25], Segment[9 : 25], Segment[11 : 25], Segment[13 : 25], Segment[10 : 25]]
-
-    27  [Segment[26 : 27], Segment[31 : 27], Segment[27 : 28], Segment[30 : 27], Segment[29 : 27], Segment[27 : 32], Segment[27 : 33], Segment[27 : 25], Segment[27 : 37], Segment[36 : 27], Segment[34 : 27], Segment[27 : 3], Segment[35 : 27], Segment[2 : 27], Segment[5 : 27], Segment[4 : 27], Segment[27 : 1], Segment[24 : 27], Segment[27 : 15], Segment[27 : 0], Segment[6 : 27], Segment[8 : 27], Segment[7 : 27], Segment[27 : 17], Segment[16 : 27], Segment[27 : 18], Segment[14 : 27], Segment[20 : 27], Segment[21 : 27], Segment[12 : 27], Segment[23 : 27], Segment[9 : 27], Segment[11 : 27], Segment[22 : 27], Segment[19 : 27], Segment[13 : 27], Segment[10 : 27]]
-
-    26  [Segment[26 : 27], Segment[26 : 28], Segment[26 : 31], Segment[29 : 26], Segment[30 : 26], Segment[26 : 25], Segment[26 : 32], Segment[26 : 33], Segment[26 : 37], Segment[26 : 36], Segment[26 : 34], Segment[26 : 35], Segment[26 : 2], Segment[26 : 3], Segment[26 : 1], Segment[26 : 24], Segment[26 : 4], Segment[26 : 5], Segment[26 : 0], Segment[26 : 15], Segment[26 : 6], Segment[26 : 17], Segment[26 : 20], Segment[26 : 18], Segment[26 : 7], Segment[26 : 8], Segment[26 : 21], Segment[16 : 26], Segment[26 : 23], Segment[26 : 14], Segment[26 : 22], Segment[26 : 12], Segment[26 : 9], Segment[26 : 19], Segment[26 : 11], Segment[26 : 13], Segment[26 : 10]]
-
-    28  [Segment[29 : 28], Segment[30 : 28], Segment[31 : 28], Segment[27 : 28], Segment[26 : 28], Segment[32 : 28], Segment[33 : 28], Segment[28 : 15], Segment[25 : 28], Segment[28 : 3], Segment[2 : 28], Segment[37 : 28], Segment[36 : 28], Segment[34 : 28], Segment[14 : 28], Segment[35 : 28], Segment[16 : 28], Segment[28 : 17], Segment[5 : 28], Segment[4 : 28], Segment[28 : 1], Segment[24 : 28], Segment[18 : 28], Segment[12 : 28], Segment[8 : 28], Segment[28 : 0], Segment[6 : 28], Segment[20 : 28], Segment[7 : 28], Segment[11 : 28], Segment[21 : 28], Segment[9 : 28], Segment[23 : 28], Segment[13 : 28], Segment[22 : 28], Segment[19 : 28], Segment[10 : 28]]
-
-    29  [Segment[29 : 28], Segment[30 : 29], Segment[29 : 31], Segment[29 : 27], Segment[29 : 26], Segment[29 : 15], Segment[29 : 32], Segment[29 : 25], Segment[29 : 33], Segment[29 : 16], Segment[29 : 14], Segment[29 : 17], Segment[29 : 3], Segment[29 : 2], Segment[29 : 37], Segment[29 : 36], Segment[29 : 34], Segment[29 : 35], Segment[29 : 5], Segment[29 : 4], Segment[29 : 18], Segment[29 : 1], Segment[29 : 24], Segment[29 : 12], Segment[29 : 8], Segment[29 : 0], Segment[29 : 20], Segment[29 : 6], Segment[29 : 11], Segment[29 : 21], Segment[29 : 7], Segment[29 : 9], Segment[29 : 23], Segment[29 : 13], Segment[29 : 19], Segment[29 : 22], Segment[29 : 10]]
-    
-    30  [Segment[30 : 28], Segment[30 : 29], Segment[30 : 31], Segment[30 : 27], Segment[30 : 26], Segment[30 : 32], Segment[30 : 33], Segment[30 : 15], Segment[30 : 25], Segment[30 : 3], Segment[30 : 2], Segment[30 : 5], Segment[30 : 34], Segment[30 : 36], Segment[30 : 37], Segment[30 : 35], Segment[30 : 4], Segment[30 : 14], Segment[30 : 16], Segment[30 : 12], Segment[30 : 17], Segment[30 : 1], Segment[30 : 8], Segment[30 : 6], Segment[30 : 24], Segment[30 : 0], Segment[30 : 7], Segment[30 : 11], Segment[30 : 18], Segment[30 : 9], Segment[30 : 20], Segment[30 : 21], Segment[30 : 13], Segment[30 : 23], Segment[30 : 22], Segment[30 : 19], Segment[30 : 10]]
-
-    31  [Segment[30 : 31], Segment[31 : 28], Segment[31 : 27], Segment[29 : 31], Segment[26 : 31], Segment[31 : 32], Segment[31 : 33], Segment[31 : 3], Segment[2 : 31], Segment[31 : 5], Segment[31 : 25], Segment[4 : 31], Segment[31 : 34], Segment[36 : 31], Segment[31 : 37], Segment[35 : 31], Segment[31 : 15], Segment[8 : 31], Segment[31 : 1], Segment[6 : 31], Segment[31 : 7], Segment[31 : 12], Segment[31 : 0], Segment[14 : 31], Segment[16 : 31], Segment[9 : 31], Segment[31 : 24], Segment[11 : 31], Segment[31 : 17], Segment[31 : 18], Segment[20 : 31], Segment[21 : 31], Segment[13 : 31], Segment[23 : 31], Segment[10 : 31], Segment[22 : 31], Segment[31 : 19]]
-
-    32  [Segment[32 : 33], Segment[32 : 3], Segment[2 : 32], Segment[5 : 32], Segment[31 : 32], Segment[4 : 32], Segment[27 : 32], Segment[26 : 32], Segment[34 : 32], Segment[30 : 32], Segment[35 : 32], Segment[36 : 32], Segment[32 : 37], Segment[32 : 28], Segment[32 : 1], Segment[6 : 32], Segment[29 : 32], Segment[8 : 32], Segment[7 : 32], Segment[32 : 0], Segment[32 : 25], Segment[9 : 32], Segment[24 : 32], Segment[32 : 15], Segment[12 : 32], Segment[11 : 32], Segment[14 : 32], Segment[32 : 17], Segment[16 : 32], Segment[20 : 32], Segment[32 : 18], Segment[10 : 32], Segment[21 : 32], Segment[23 : 32], Segment[22 : 32], Segment[13 : 32], Segment[19 : 32]]
-
-    33  [Segment[38 : 33], Segment[32 : 33], Segment[33 : 3], Segment[2 : 33], Segment[5 : 33], Segment[4 : 33], Segment[27 : 33], Segment[31 : 33], Segment[26 : 33], Segment[34 : 33], Segment[35 : 33], Segment[36 : 33], Segment[37 : 33], Segment[6 : 33], Segment[33 : 1], Segment[30 : 33], Segment[33 : 28], Segment[7 : 33], Segment[8 : 33], Segment[29 : 33], Segment[33 : 0], Segment[25 : 33], Segment[9 : 33], Segment[24 : 33], Segment[33 : 15], Segment[12 : 33], Segment[11 : 33], Segment[14 : 33], Segment[33 : 17], Segment[16 : 33], Segment[10 : 33], Segment[20 : 33], Segment[18 : 33], Segment[21 : 33], Segment[23 : 33], Segment[22 : 33], Segment[13 : 33], Segment[19 : 33]]
-
-    0  [Segment[1 : 0], Segment[34 : 0], Segment[35 : 0], Segment[36 : 0], Segment[37 : 0], Segment[2 : 0], Segment[3 : 0], Segment[4 : 0], Segment[33 : 0], Segment[32 : 0], Segment[6 : 0], Segment[5 : 0], Segment[26 : 0], Segment[7 : 0], Segment[24 : 0], Segment[27 : 0], Segment[25 : 0], Segment[31 : 0], Segment[8 : 0], Segment[30 : 0], Segment[28 : 0], Segment[29 : 0], Segment[23 : 0], Segment[20 : 0], Segment[21 : 0], Segment[22 : 0], Segment[9 : 0], Segment[18 : 0], Segment[15 : 0], Segment[0 : 17], Segment[12 : 0], Segment[16 : 0], Segment[11 : 0], Segment[14 : 0], Segment[19 : 0], Segment[10 : 0], Segment[13 : 0]]
-
-    1  [Segment[1 : 0], Segment[34 : 1], Segment[35 : 1], Segment[36 : 1], Segment[37 : 1], Segment[2 : 1], Segment[3 : 1], Segment[4 : 1], Segment[33 : 1], Segment[32 : 1], Segment[5 : 1], Segment[6 : 1], Segment[26 : 1], Segment[27 : 1], Segment[7 : 1], Segment[24 : 1], Segment[25 : 1], Segment[31 : 1], Segment[8 : 1], Segment[30 : 1], Segment[28 : 1], Segment[29 : 1], Segment[23 : 1], Segment[20 : 1], Segment[21 : 1], Segment[9 : 1], Segment[22 : 1], Segment[15 : 1], Segment[18 : 1], Segment[1 : 17], Segment[12 : 1], Segment[16 : 1], Segment[11 : 1], Segment[14 : 1], Segment[19 : 1], Segment[10 : 1], Segment[13 : 1]]
-
-    35  [Segment[36 : 35], Segment[35 : 37], Segment[35 : 34], Segment[35 : 1], Segment[35 : 0], Segment[2 : 35], Segment[35 : 3], Segment[35 : 33], Segment[35 : 32], Segment[26 : 35], Segment[4 : 35], Segment[35 : 27], Segment[35 : 24], Segment[35 : 25], Segment[35 : 5], Segment[6 : 35], Segment[35 : 31], Segment[35 : 7], Segment[30 : 35], Segment[35 : 28], Segment[29 : 35], Segment[8 : 35], Segment[23 : 35], Segment[20 : 35], Segment[21 : 35], Segment[22 : 35], Segment[35 : 18], Segment[35 : 15], Segment[35 : 17], Segment[9 : 35], Segment[16 : 35], Segment[35 : 12], Segment[14 : 35], Segment[35 : 19], Segment[11 : 35], Segment[10 : 35], Segment[13 : 35]]
-
-    36  [Segment[36 : 37], Segment[36 : 35], Segment[36 : 34], Segment[36 : 1], Segment[36 : 0], Segment[36 : 2], Segment[36 : 3], Segment[36 : 33], Segment[36 : 32], Segment[26 : 36], Segment[4 : 36], Segment[36 : 27], Segment[36 : 24], Segment[36 : 25], Segment[36 : 5], Segment[6 : 36], Segment[36 : 31], Segment[30 : 36], Segment[36 : 28], Segment[36 : 7], Segment[29 : 36], Segment[8 : 36], Segment[23 : 36], Segment[20 : 36], Segment[36 : 21], Segment[22 : 36], Segment[36 : 18], Segment[36 : 15], Segment[36 : 17], Segment[9 : 36], Segment[16 : 36], Segment[36 : 12], Segment[14 : 36], Segment[36 : 19], Segment[11 : 36], Segment[10 : 36], Segment[36 : 13]]
-
-    37  [Segment[36 : 37], Segment[35 : 37], Segment[34 : 37], Segment[37 : 1], Segment[37 : 0], Segment[2 : 37], Segment[37 : 3], Segment[37 : 33], Segment[32 : 37], Segment[26 : 37], Segment[4 : 37], Segment[27 : 37], Segment[24 : 37], Segment[37 : 25], Segment[5 : 37], Segment[6 : 37], Segment[31 : 37], Segment[37 : 28], Segment[30 : 37], Segment[7 : 37], Segment[29 : 37], Segment[8 : 37], Segment[23 : 37], Segment[20 : 37], Segment[21 : 37], Segment[22 : 37], Segment[37 : 18], Segment[37 : 15], Segment[37 : 17], Segment[9 : 37], Segment[16 : 37], Segment[12 : 37], Segment[14 : 37], Segment[19 : 37], Segment[11 : 37], Segment[10 : 37], Segment[13 : 37]]
