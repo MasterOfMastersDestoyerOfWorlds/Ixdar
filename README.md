@@ -703,7 +703,73 @@ Implied by above:
 
 ### The Winds and the Tides
 
-Now that the framework for cutting the recursive Knot into one Knot has been laid out, we need to look athte internal structure of the knots we are cutting, 
+Now that the framework for cutting the recursive Knot into one Knot has been laid out, we need to look at the internal structure of the knots we are cutting. To understand the all of the possible internal routes from KnotPoint1 to KnotPoint2 is a NP Hard problem and to actually fully explore this space would take N Factorial time. But, we are in luck! since the manifold of the knot is already a nearly optimal route we can abuse this fact to get the really optimal route in N^3 time. 
+
+<img src="img\HoleGame_Setup.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Initial State of the Hole Filling Game</p>
+
+This was not initially obvious to me but there is a game we can play that would give us the right answer and its rules are as follows. Imagine that the hole in the Knot between CutPoint1 and KnotPoint1 is a movable hole centered at CutPoint1. Moving the hole to Point P with Neighboring Points P_prev and P_next consists of cutting the Segment between P and P_prev (S_a) or P and P_next (S_b) and matching between CutPoint1 and P-prev (S_x) or CutPoint1 and P_next (S_y) respectively, the cost of moving the hole would then be S_x - S_a or S_y - S_b respectively.
+
+<img src="img\HoleGame_OneMove.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Hole Filling Game after 1 move</p>
+
+The object of the game is then to find the the shortest set of hole moves such that the hole ends up filling the other hole formed by KnotPoint2 and CutPoint2 centered on CutPoint2 without forming multiple cycles in the graph.
+
+<img src="img\HoleGame_Finished.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> A possible shortest path from the Hole Filling Game</p>
+
+The beauty of such an approach is that standard shortest path algorithms like Djikstra's or Floyd-Warshall will give us the minimal set of cuts and matches to form the optimal ordering of the Knot in N^3 Time! This is only possible because of the stipulation on the recursive Knot structure that every Virtual Point must only have 2 neighbors and that those neighbors must not want to be inside the Virtual Point, i.e. that we have a natural abstraction in our concept of a Virtual Point and a Knot. 
+
+I should also Note that this is the optimal ordering with KnotPoint1 and KnotPoint2 as endpoints, so if we will have to look at all of the possible combinations of assignments of KP1, CP1, CP2, and KP2 to the points in the graph (There are 4 x N^2 such assignments, meaning that our Big O complexity for cutting a Knot is O(4 x N^5 x M)) where M is the number of Knots in the structure (at most the sum of N/3 + N/9 + N/27 + ... = ~N/2).
+
+### The Fly in the Ointment
+
+The problem with naively applying shortest path algorithms to this game is in the requirement to not form multiple cycles in the graph. Lets give an example to show what I mean. The first failure case where this comes up is the following:
+
+<img src="img\HoleGame_SelfLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> A loop is formed in the Hole Filling Game</p>
+
+You will notice if we go directly to CP2 from the current CutPoint, Point P, then we will have multiple loops formed in the graph such that CP1 and CP2 are not connected. Also we have split the graph into three separate parts instead of the two we desire, any further match that does not match with a point between P and CP1 or to CP2 would keep the graph in three pieces(matching to CP2 woul make it into two pieces again). However, if we go from Point P to any point in that loop, we will fix the situation and then can exit to CP2 and complete the path without multiple loops.
+
+<img src="img\HoleGame_SelfLoop_Fixed.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Loop is broken and we can again exit</p>
+
+Another failure case is as follows:
+
+<img src="img\HoleGame_Disconnected.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> KnotPoints are connected to each other instead of a CutPoint</p>
+
+In the example above, if we exit now we will again form a 2 cycles in the graph instead of one but for a different reason, that both Knot Points are connected to each other and both CutPoints are connected to each other but neither CutPoint is connected to a KnotPoint. And similarly to the first "loop" failure case, if we match to any of the points between KP1 and KP2, we would fix the situation and could again exit to CP2. I would like to call this state in the Hole Filling Game <b>Disconnected</b> and the initial state of the Hole Filling Game <b>Connected</b>. It should also be easy to see that we can start the Hole Filling Game from a disconnected state!
+
+<img src="img\HoleGame_DisconnectedStart.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Hole Filling Game starting out disconnected</p>
+
+It is also easy to see that we can end up in a disconnected and loop state rather easily by forming a loop with any subset of the points between CP1 and CP2:
+
+<img src="img\HoleGame_DisconnectedLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Hole Filling Game disconnected with a loop</p>
+
+To be able to exit again to CP2 we'd need to match to any point in the loop and match to one point between KP1 and KP2.
+
+It is also important to note that we can always plan a route that does not form any loops but has the same matches and cuts represented. For example if we take the figure below as State #1 
+
+<img src="img\HoleGame_SelfLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> A loop is formed in State #1 (Blue)</p>
+
+And the next figure as State #2 (with the second move marked in Yellow)
+
+<img src="img\HoleGame_SelfLoop_Fixed_State2.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Loop is broken and we can again exit in State #2 (Yellow)</p>
+
+And the next figure as State #3 (with the third move marked in Purple)
+
+<img src="img\HoleGame_SelfLoop_Fixed_State3.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Hole Filling Game is completed in  State #3 (Purple)</p>
+
+If instead we had flipped the order of the blue and yellow state we would have never formed a loop or become disconnected and we would have been able to represent the same matches in the same order.
+
+<img src="img\HoleGame_NoLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Hole Filling Game is completed without forming a loop</p>
 
 ### Complexity Limit
 
