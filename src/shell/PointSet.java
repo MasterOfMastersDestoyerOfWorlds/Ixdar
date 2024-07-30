@@ -151,4 +151,15 @@ public class PointSet extends ArrayList<PointND> {
 		return max;
 	}
 
+	public ArrayList<VirtualPoint> toArrayList(Shell shell) {
+		ArrayList<VirtualPoint> list = new ArrayList<>();
+		for(PointND p : this){
+			Point vp = new Point(p, shell);
+			list.add(vp);
+			shell.pointMap.put(p.getID(), vp);
+		}
+		return list;
+
+	}
+
 }

@@ -771,6 +771,69 @@ If instead we had flipped the order of the blue and yellow state we would have n
 <img src="img\HoleGame_NoLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Hole Filling Game is completed without forming a loop</p>
 
+If you are cutting and matching to points between CP1 and KP2 and matching from a hole on the same side to prevent a loop you must do the following:
+
+1. If the starting hole (H_1) is oriented such that the CutPoint (CP1 in the example) is in the clockwise direction compared to it's previously matched point (KP1 in the example), the resulting hole (H_3) must be oriented such that it's new CutPoint (the point with the blue arrow) is in the counter-clockwise direction from its previously matched point (the point with the yellow arrow).
+
+2. If the starting hole (H_3) is oriented such that the CutPoint (the point with the blue arrow) is in the counter-clockwise direction compared to it's previously matched point (the point with the yellow arrow), the resulting hole (H_4) must be oriented such that it's new CutPoint (the point with the yellow arrow) is in the clockwise direction from its previously matched point (the point on the right of the yellow X).
+
+In the above rules, it doesn't really matter which direction is clockwise or counter-clockwise, just that they are opposite directions of traversing the Path.
+
+Ok, so we sort of know how to prevent getting in the looped state, the question then is do the same rules apply for preventing the disconnected state?
+
+Let's consider the following example:
+
+<img src="img\HoleGame_Dis_Fixed.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Hole Filling Game is completed by becoming disconnected and then connected again</p>
+
+Here we see a perfectly valid solution to the hole cutting game that very well may be the shortest path from CP1 to CP2, but we had to disconnect the path in order to make it! There is no way to rearrange the ordering of H_3 and H_4 so that the path does become disconnected at some point. So unlike the loops where the ordering of the cuts means that we don't have to worry about exploring them, we do have to explore the space of disconnected cut matches.
+
+This means that to arrive any any point there are four possible states:
+
+1. the previous neighbor was matched to and the path is connected
+2. the previous neighbor was matched to and the path is disconnected
+3. the next neighbor was matched to and the path is connected
+4. the next neighbor was matched to and the path is disconnected
+
+The next question is how do we know when we've moved from connected to disconnected and visa versa.
+
+Well as a primer let's see what all of the hole moves we can make from CP1 would transfer our state to. We will mark holes that are connected in blue and all of the ones that are disconnected as yellow.
+
+<img src="img\HoleGame_ConnectionMap.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+
+It seems that if we are in the connected state with our hole being oriented in the clockwise direction and we match to a point between KP1 and CP2 then we need to check if our hole is clockwise or counter-clockwise, if it counter-clockwise then we will enter the disconnected state and if it is clockwise then we will remain in the connected state.
+
+Now lets go to one of the disconnected holes (shown in pink) and see where we can reconnect it (shown in blue).
+
+<img src="img\HoleGame_ConnectionMap2.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+
+So it seems that if we match to any other point in any hole orientation except the ones between the disconnected CutPoint and CutPoint2 then we can reconnect the path.
+
+Finally let's check one of the connected holes (shown in pink) and see how to connect (shown in blue) and disconnect (shown in yellow) this one.
+
+<img src="img\HoleGame_ConnectionMap3.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+
+Ok let's go one level deeper where the our pink starting point (marked with a pink arrow) is connected:
+
+<img src="img\HoleGame_ConnectionMap4.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+
+So again it seems that we can flip from connected to disconnected on any of the points between our matched neighbor and CP2 in the counter-clockwise direction
+
+Ok let's now look at the same path with the opposite hole cut that is disconnected. (the starting point is marked with a pink arrow).
+
+<img src="img\HoleGame_ConnectionMap5.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+
+What we can see is that trying ot get back to the connected state is dependent on the path that  we took to arrive at the disconnected state! this means that the problem is a lot harder than simply looking at clockwise versus counter-clockwise! Does this mean that we have to look at every path in totality?
+
+<img src="img\HoleGame_ConnectionMap6.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Connection order: CP1->5 | 6->1 | 2->4 or 2->6 </p>
+
+To show this point more clearly if we connect from 2 to 4 (green line disregard the purple one) in the figure above, then (KP1->4->2->3->KP2) are the pairs that would be able to get back to the connected state, where as if we connected from 2 to 6 (purple line disregard the green one) then (KP1->4->5->CP1->1->6->2->3->KP2)
+
+So what have we learned?  We'll I think it's two things, the test of wether we can flip from connected to disconnected is dependent on two things, the location of our current connected hole and the  
+
+if yellow is curr and blue is prev then its the left of yellow  until kp1 is knot side and the right of blue until kp2 is knot side
+
 ### Complexity Limit
 
 Immediately I can see a few questions with this approach:

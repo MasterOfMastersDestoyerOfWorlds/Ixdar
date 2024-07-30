@@ -26,11 +26,11 @@ public class Shell extends LinkedList<PointND> {
 	private Shell child;
 	ArrayList<VirtualPoint> visited;
 	ArrayList<VirtualPoint> unvisited;
-	HashMap<Integer, VirtualPoint> pointMap = new HashMap<Integer, VirtualPoint>();
-	DistanceMatrix distanceMatrix;
+	public HashMap<Integer, VirtualPoint> pointMap = new HashMap<Integer, VirtualPoint>();
+	public DistanceMatrix distanceMatrix;
 	String knotName;
 
-	CutEngine cutEngine = new CutEngine(this);
+	public CutEngine cutEngine = new CutEngine(this);
 
 	StringBuff buff = new StringBuff();
 
@@ -38,6 +38,12 @@ public class Shell extends LinkedList<PointND> {
 	int runCount = 0;
 
 	boolean skipHalfKnotFlag = true;
+
+	public Shell (){
+		pointMap = new HashMap<>();
+		unvisited = new ArrayList<VirtualPoint>();
+		visited = new ArrayList<VirtualPoint>();
+	}
 
 	public ArrayList<VirtualPoint> createKnots() {
 		ArrayList<VirtualPoint> knots = new ArrayList<>();
@@ -466,19 +472,15 @@ public class Shell extends LinkedList<PointND> {
 	int halfKnotCount = 0;
 	int sameKnotPointCount = 0;
 
-	@SuppressWarnings("unused")
-	public Shell tspSolve(Shell A, DistanceMatrix distanceMatrix) throws SegmentBalanceException, BalancerException {
+	public void initPoints(DistanceMatrix distanceMatrix){
 		this.distanceMatrix = distanceMatrix;
-		Shell result = new Shell();
-		visited = new ArrayList<VirtualPoint>();
-		pointMap = new HashMap<>();
-		unvisited = new ArrayList<VirtualPoint>();
 		int numPoints = distanceMatrix.size();
 		buff.add(numPoints);
 		// create all of the points
 		for (int i = 0; i < numPoints; i++) {
-			Point p = new Point(distanceMatrix.getPoints().get(i), this);
-			pointMap.put(i, p);
+			PointND pnd = distanceMatrix.getPoints().get(i);
+			Point p = new Point(pnd, this);
+			pointMap.put(pnd.getID(), p);
 		}
 		// create and sort the segment lists
 		String sortedString = "";
@@ -495,6 +497,16 @@ public class Shell extends LinkedList<PointND> {
 			sortedString += p1.id + " " + p1.sortedSegments.toString() + "~";
 		}
 		buff.add(sortedString);
+	}
+
+	@SuppressWarnings("unused")
+	public Shell tspSolve(Shell A, DistanceMatrix distanceMatrix) throws SegmentBalanceException, BalancerException {
+		
+		Shell result = new Shell();
+		visited = new ArrayList<VirtualPoint>();
+		pointMap = new HashMap<>();
+		unvisited = new ArrayList<VirtualPoint>();
+		initPoints(distanceMatrix);
 		int idx = 0;
 		while (unvisited.size() > 1) {
 			ArrayList<VirtualPoint> knots = createKnots();

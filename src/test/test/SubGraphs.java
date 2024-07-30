@@ -1,10 +1,7 @@
 package test;
 
-import shell.BalancerException;
 import shell.DistanceMatrix;
 import shell.FileManagement;
-import shell.Main;
-import shell.PointSet;
 import shell.PointSetPath;
 import shell.SegmentBalanceException;
 import shell.Shell;
@@ -225,9 +222,6 @@ public class SubGraphs {
 			AB.add(retTup.tsp.get(i));
 		}
 
-		if (fileName == "circle_in_5_arc") {
-			float z = 0;
-		}
 
 		System.out.println("before   " + AB);
 		Collections.shuffle(AB, new Random(2));

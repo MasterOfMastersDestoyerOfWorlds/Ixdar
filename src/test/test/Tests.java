@@ -3,6 +3,7 @@ package test;
 
 import shell.BalancerException;
 import shell.DistanceMatrix;
+import shell.FileManagement;
 import shell.Main;
 import shell.PointSet;
 import shell.PointSetPath;
@@ -36,7 +37,7 @@ public class Tests {
 	@Test
 	public void testDjiboutiNoRotation() throws SegmentBalanceException, BalancerException {
 
-		PointSetPath retTup = Main.importFromFile(new File("./src/shell/djbouti"));
+		PointSetPath retTup = FileManagement.importFromFile(new File("./src/shell/djbouti"));
 		PointSet ps = new PointSet();
 		Shell answer = new Shell();
 		int n = retTup.ps.size();
@@ -77,7 +78,7 @@ public class Tests {
 	@Test
 	public boolean testDjiboutiN(int n, int rot) throws SegmentBalanceException, BalancerException {
 
-		PointSetPath retTup = Main.importFromFile(new File("./src/shell/djbouti"));
+		PointSetPath retTup = FileManagement.importFromFile(new File("./src/shell/djbouti"));
 		PointSet ps = new PointSet();
 		Shell answer = new Shell();
 
@@ -174,7 +175,7 @@ public class Tests {
 	// new: 10178.770192333182 in 20.461s
 	@Test
 	public void testQatar() throws SegmentBalanceException, BalancerException {
-		PointSetPath retTup = Main.importFromFile(new File("./src/shell/qa194"));
+		PointSetPath retTup = FileManagement.importFromFile(new File("./src/shell/qa194"));
 		PointSet ps = new PointSet();
 		Shell answer = new Shell();
 		int n = retTup.ps.size();
@@ -199,7 +200,7 @@ public class Tests {
 
 	@Test
 	public void testWesternSahara() throws SegmentBalanceException, BalancerException {
-		PointSetPath retTup = Main.importFromFile(new File("./src/shell/wi29"));
+		PointSetPath retTup = FileManagement.importFromFile(new File("./src/shell/wi29"));
 		PointSet ps = new PointSet();
 		Shell answer = new Shell();
 		int n = retTup.ps.size();

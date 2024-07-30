@@ -43,29 +43,83 @@ public class InternalPathEngine {
         shell.buff.add(
                 "flatKnots: " + cutEngine.flatKnots);
 
-        int smallestKnotIdA = shell.smallestKnotLookup[cutPoint1.id];
-        int smallestKnotIdB = shell.smallestKnotLookup[cutPoint2.id];
-        int smallestKnotIdKp1 = shell.smallestKnotLookup[knotPoint1.id];
-        int smallestKnotIdKp2 = shell.smallestKnotLookup[knotPoint2.id];
-
-        Knot topKnot = cutEngine.flatKnots.get(smallestKnotIdA);
-        VirtualPoint topPoint = cutPoint1;
-        VirtualPoint topKnotPoint = knotPoint1;
-
-        Knot botKnot = cutEngine.flatKnots.get(smallestKnotIdB);
-        VirtualPoint botPoint = cutPoint2;
-        VirtualPoint botKnotPoint = knotPoint2;
-
-        if (topKnot.size() < botKnot.size()) {
-            topPoint = cutPoint2;
-            topKnotPoint = knotPoint2;
-            botPoint = cutPoint1;
-            botKnotPoint = knotPoint1;
+        if (cutPoint1.id == 3 && knotPoint1.id == 7 && cutPoint2.id == 5 && knotPoint2.id == 2) {
+            float z = 0;
         }
-        shell.buff.add("topPoint: " + topPoint);
-        shell.buff.add("botPoint: " + botPoint);
-        shell.buff.add("topKnotPoint: " + topKnotPoint);
-        shell.buff.add("botKNotPoint: " + botKnotPoint);
+        HashMap<Integer, RouteInfo> routeMap = ixdar(knotPoint1, cutPoint1, external1, knotPoint2, cutPoint2, external2,
+                knot, knotPointsConnected, cutSegment1, cutSegment2, -1);
+        // now we build the route back to the start from knotPoint2
+
+        RouteInfo curr = routeMap.get(knotPoint2.id);
+        ArrayList<Segment> cutSegments = new ArrayList<>();
+        ArrayList<Segment> matchSegments = new ArrayList<>();
+        RouteType prevCutSide = RouteType.None;
+        if (curr.prevC.neighbor.id == cutPoint2.id) {
+            prevCutSide = RouteType.prevC;
+        } else {
+            prevCutSide = RouteType.nextC;
+        }
+        int totalIter = 0;
+        while (curr.id != cutPoint1.id && totalIter < knot.size()) {
+            if (curr.matchedNeighbor == null) {
+                float z = 0;
+            }
+            Segment matchSegment = null, cutSegment = null;
+            Route route = curr.getRoute(prevCutSide);
+            if (route.ancestor == null) {
+                float z = 0;
+
+                CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
+                throw new SegmentBalanceException(shell, cutMatchList, c);
+            }
+            matchSegment = route.neighbor.getClosestSegment(route.ancestor, null);
+            cutSegment = route.neighbor.getClosestSegment(curr.node, null);
+            prevCutSide = route.ancestorRouteType;
+            curr = routeMap.get(route.ancestor.id);
+            matchSegments.add(matchSegment);
+            cutSegments.add(cutSegment);
+            totalIter++;
+        }
+        // TODO: need to check if the cut match list produces a cycle and throw a
+        // Segment Balance Exception
+
+        ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
+        DisjointUnionSets unionSet = new DisjointUnionSets(knotPoints);
+        for (Segment s : matchSegments) {
+            if (s == null) {
+                float z = 0;
+            }
+            unionSet.union(s.first.id, s.last.id);
+        }
+        for (Segment s : knot.manifoldSegments) {
+            if (!cutSegments.contains(s)) {
+                unionSet.union(s.first.id, s.last.id);
+            }
+        }
+        float z = 0;
+        cutSegments.remove(cutSegment1);
+        cutSegments.remove(cutSegment2);
+        CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
+        try {
+            cutMatchList.addLists(cutSegments, matchSegments, knot, "InternalPathEngine");
+        } catch (SegmentBalanceException be) {
+            throw be;
+        }
+
+        if (unionSet.find(cutPoint1.id) != unionSet.find(cutPoint2.id)) {
+            // Multiple Cycles found!
+            throw new MultipleCyclesFoundException(shell, cutMatchList, matchSegments, cutSegments, c);
+        }
+        return cutMatchList;
+        // if neither orphan is on the top level, find their minimal knot in common and
+        // recut it with the external that matched to the knot and its still matched
+        // neighbor
+
+    }
+
+    public HashMap<Integer, RouteInfo> ixdar(VirtualPoint knotPoint1, VirtualPoint cutPoint1, VirtualPoint external1,
+            VirtualPoint knotPoint2, VirtualPoint cutPoint2, VirtualPoint external2,
+            Knot knot, boolean knotPointsConnected, Segment cutSegment1, Segment cutSegment2, int steps) {
         /*
          * THE SWORD OF ISKANDAR
          * function Dijkstra(Graph, source):
@@ -128,7 +182,7 @@ public class InternalPathEngine {
             if (k1.equals(cutPoint1)) {
                 boolean knotPointIsPrev = knotPoint1.equals(knot.getPrev(cutPoint1));
                 if (knotPointsConnected) {
-                    r.update(0, null, null, knotPointIsPrev ? RouteType.prevConnected : RouteType.nextConnected,
+                    r.update(0, null, null, knotPointIsPrev ? RouteType.prevC : RouteType.nextC,
                             RouteType.None);
                     if (knotPointIsPrev) {
                         r.prevC.delta = 0;
@@ -136,7 +190,7 @@ public class InternalPathEngine {
                         r.nextC.delta = 0;
                     }
                 } else {
-                    r.update(0, null, null, knotPointIsPrev ? RouteType.prevDisconnected : RouteType.nextDisconnected,
+                    r.update(0, null, null, knotPointIsPrev ? RouteType.prevDC : RouteType.nextDC,
                             RouteType.None);
                     if (knotPointIsPrev) {
                         r.prevDC.delta = 0;
@@ -166,7 +220,9 @@ public class InternalPathEngine {
         VirtualPoint cutPoint2PrevNeighbor = routeMap.get(cutPoint2.id).prevC.neighbor;
         VirtualPoint cutPoint2NextNeighbor = routeMap.get(cutPoint2.id).nextC.neighbor;
         while (settled.size() != numPoints) {
-
+            if(steps != -1 && settled.size() == steps){
+                break;
+            }
             // Terminating condition check when
             // the priority queue is empty, return
             if (q.isEmpty())
@@ -192,7 +248,7 @@ public class InternalPathEngine {
                 boolean isNotSettled = !settled.contains(v.id);
                 boolean canRouteToExit = isNotSettled || v.id == knotPoint2.id;
                 if (canRouteToExit) {
-                    RouteType[] routes = new RouteType[] { RouteType.prevConnected, RouteType.nextConnected };
+                    RouteType[] routes = new RouteType[] { RouteType.prevC, RouteType.prevDC, RouteType.nextC, RouteType.nextDC };
                     for (RouteType vRouteType : routes) {
                         for (RouteType uRouteType : routes) {
                             Route vRoute = v.getRoute(vRouteType);
@@ -217,16 +273,11 @@ public class InternalPathEngine {
                                     && isPrev(vRouteType)) {
                                 continue;
                             }
-                            if (uNode == 2 && vNode == 1 && uRouteType == RouteType.prevConnected && cutPoint1.id == 2
-                                    && knotPoint1.id == 1 && external1.id == 5 && cutPoint2.id == 0
-                                    && knotPoint2.id == 11) {
-                                float z = 0;
-                            }
                             // what you want for the next one to be "connected" is for the states to be
                             // opposite of each other
                             // i.e. one of the u or neighbor states is a pointing toward a knot point and
                             // the other toward a cut point
-                            boolean skip = true;
+                            boolean skip = false;
                             if (!skip) {
                                 if (!(neighbor.id == cutPoint2.id && isConnected(uRouteType))) {
                                     if (n.group != u.group) {
@@ -290,86 +341,18 @@ public class InternalPathEngine {
                 }
             }
         }
-
-        if (cutPoint1.id == 3 && knotPoint1.id == 7 && cutPoint2.id == 5 && knotPoint2.id == 2) {
-            float z = 0;
-        }
-        // now we build the route back to the start from knotPoint2
-
-        RouteInfo curr = routeMap.get(knotPoint2.id);
-        ArrayList<Segment> cutSegments = new ArrayList<>();
-        ArrayList<Segment> matchSegments = new ArrayList<>();
-        RouteType prevCutSide = RouteType.None;
-        if (curr.prevC.neighbor.id == cutPoint2.id) {
-            prevCutSide = RouteType.prevConnected;
-        } else {
-            prevCutSide = RouteType.nextConnected;
-        }
-        int totalIter = 0;
-        while (curr.id != cutPoint1.id && totalIter < knot.size()) {
-            if (curr.matchedNeighbor == null) {
-                float z = 0;
-            }
-            Segment matchSegment = null, cutSegment = null;
-            Route route = curr.getRoute(prevCutSide);
-            if (route.ancestor == null) {
-                float z = 0;
-
-                CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
-                throw new SegmentBalanceException(shell, cutMatchList, c);
-            }
-            matchSegment = route.neighbor.getClosestSegment(route.ancestor, null);
-            cutSegment = route.neighbor.getClosestSegment(curr.node, null);
-            prevCutSide = route.ancestorRouteType;
-            curr = routeMap.get(route.ancestor.id);
-            matchSegments.add(matchSegment);
-            cutSegments.add(cutSegment);
-            totalIter++;
-        }
-        // TODO: need to check if the cut match list produces a cycle and throw a
-        // Segment Balance Exception
-        DisjointUnionSets unionSet = new DisjointUnionSets(knotPoints);
-        for (Segment s : matchSegments) {
-            if (s == null) {
-                float z = 0;
-            }
-            unionSet.union(s.first.id, s.last.id);
-        }
-        for (Segment s : knot.manifoldSegments) {
-            if (!cutSegments.contains(s)) {
-                unionSet.union(s.first.id, s.last.id);
-            }
-        }
-        float z = 0;
-        cutSegments.remove(cutSegment1);
-        cutSegments.remove(cutSegment2);
-        CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
-        try {
-            cutMatchList.addLists(cutSegments, matchSegments, knot, "InternalPathEngine");
-        } catch (SegmentBalanceException be) {
-            throw be;
-        }
-
-        if (unionSet.find(cutPoint1.id) != unionSet.find(cutPoint2.id)) {
-            // Multiple Cycles found!
-            throw new MultipleCyclesFoundException(shell, cutMatchList, matchSegments, cutSegments, c);
-        }
-        return cutMatchList;
-        // if neither orphan is on the top level, find their minimal knot in common and
-        // recut it with the external that matched to the knot and its still matched
-        // neighbor
-
+        return routeMap;
     }
 
     public boolean isConnected(RouteType rType) {
         switch (rType) {
-            case prevConnected:
+            case prevC:
                 return true;
-            case nextConnected:
+            case nextC:
                 return true;
-            case prevDisconnected:
+            case prevDC:
                 return false;
-            case nextDisconnected:
+            case nextDC:
                 return false;
             case None:
                 return false;
@@ -380,13 +363,13 @@ public class InternalPathEngine {
 
     public boolean isNext(RouteType rType) {
         switch (rType) {
-            case prevConnected:
+            case prevC:
                 return false;
-            case nextConnected:
+            case nextC:
                 return true;
-            case prevDisconnected:
+            case prevDC:
                 return false;
-            case nextDisconnected:
+            case nextDC:
                 return true;
             case None:
                 return false;
@@ -397,13 +380,13 @@ public class InternalPathEngine {
 
     public boolean isPrev(RouteType rType) {
         switch (rType) {
-            case prevConnected:
+            case prevC:
                 return true;
-            case nextConnected:
+            case nextC:
                 return false;
-            case prevDisconnected:
+            case prevDC:
                 return true;
-            case nextDisconnected:
+            case nextDC:
                 return false;
             case None:
                 return false;
@@ -430,14 +413,14 @@ public class InternalPathEngine {
 
     public RouteType oppositeRoute(RouteType state) {
         switch (state) {
-            case prevConnected:
-                return RouteType.nextConnected;
-            case nextConnected:
-                return RouteType.prevConnected;
-            case prevDisconnected:
-                return RouteType.nextDisconnected;
-            case nextDisconnected:
-                return RouteType.prevDisconnected;
+            case prevC:
+                return RouteType.nextC;
+            case nextC:
+                return RouteType.prevC;
+            case prevDC:
+                return RouteType.nextDC;
+            case nextDC:
+                return RouteType.prevDC;
             default:
                 return RouteType.None;
         }
@@ -527,10 +510,10 @@ public class InternalPathEngine {
     }
 
     public enum RouteType {
-        prevDisconnected,
-        prevConnected,
-        nextDisconnected,
-        nextConnected,
+        prevDC,
+        prevC,
+        nextDC,
+        nextC,
         None;
     }
 
@@ -579,10 +562,10 @@ public class InternalPathEngine {
             this.node = node;
             this.id = node.id;
             this.delta = delta;
-            this.prevC = new Route(RouteType.prevConnected, Double.MAX_VALUE, prevNeighbor);
-            this.nextC = new Route(RouteType.nextConnected, Double.MAX_VALUE, nextNeighbor);
-            this.prevDC = new Route(RouteType.prevDisconnected, Double.MAX_VALUE, prevNeighbor);
-            this.nextDC = new Route(RouteType.prevDisconnected, Double.MAX_VALUE, nextNeighbor);
+            this.prevC = new Route(RouteType.prevC, Double.MAX_VALUE, prevNeighbor);
+            this.nextC = new Route(RouteType.nextC, Double.MAX_VALUE, nextNeighbor);
+            this.prevDC = new Route(RouteType.prevDC, Double.MAX_VALUE, prevNeighbor);
+            this.nextDC = new Route(RouteType.prevDC, Double.MAX_VALUE, nextNeighbor);
             this.ancestor = ancestor;
             this.matchedNeighbor = matchedNeighbor;
         }
@@ -617,13 +600,13 @@ public class InternalPathEngine {
 
         public Route getRoute(RouteType routeType) {
             switch (routeType) {
-                case prevConnected:
+                case prevC:
                     return prevC;
-                case nextConnected:
+                case nextC:
                     return nextC;
-                case prevDisconnected:
+                case prevDC:
                     return prevDC;
-                case nextDisconnected:
+                case nextDC:
                     return nextDC;
                 default:
                     return null;

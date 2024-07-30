@@ -72,6 +72,33 @@ public class FileManagement {
                             }
                             index++;
                         }
+                    } else if (cords[0].equals("LINE")) {
+                        System.out.println("LINE FOUND!");
+                        double xStart = java.lang.Double.parseDouble(cords[1]);
+                        double yStart = java.lang.Double.parseDouble(cords[2]);
+                        double xEnd = java.lang.Double.parseDouble(cords[3]);
+                        double yEnd = java.lang.Double.parseDouble(cords[4]);
+                        int numPoints = java.lang.Integer.parseInt(cords[5]);
+                        double slopeX = (xEnd - xStart) / ((double) numPoints);
+                        double slopeY = (yEnd - yStart) / ((double) numPoints);
+                        for (int i = 0; i < numPoints; i++) {
+                            double xCoord = (slopeX*i) + xStart;
+                            double yCoord = (slopeY*i) + yStart;
+                            PointND pt = new PointND.Double(index, xCoord, yCoord);
+                            pt2d = pt.toPoint2D();
+                            lookUp.put(index, pt);
+                            lines.add(pt);
+                            ps.add(pt);
+                            tsp.add(pt);
+
+                            if (first) {
+                                path.moveTo(pt2d.getX(), pt2d.getY());
+                                first = false;
+                            } else {
+                                path.lineTo(pt2d.getX(), pt2d.getY());
+                            }
+                            index++;
+                        }
                     } else if (cords[0].equals("ARC")) {
                         System.out.println("CIRCLE FOUND!");
                         double xCenter = java.lang.Double.parseDouble(cords[1]);
@@ -126,12 +153,11 @@ public class FileManagement {
                         }
 
                         index++;
-                    } else if(cords[0].equals("ANS")){
-                        for(int i = 1; i < cords.length; i ++){
+                    } else if (cords[0].equals("ANS")) {
+                        for (int i = 1; i < cords.length; i++) {
                             answerOrder.add(java.lang.Integer.parseInt(cords[i]));
                         }
-                    }
-                     else {
+                    } else {
                         PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(cords[1]),
                                 java.lang.Double.parseDouble(cords[2]));
                         pt2d = pt.toPoint2D();
@@ -160,13 +186,13 @@ public class FileManagement {
             br.close();
             System.out.println(tsp);
             System.out.println(lookUp);
-            if(answerOrder.size() > 0){
+            if (answerOrder.size() > 0) {
                 Shell newAns = new Shell();
                 int insertLoc = 0;
-                for(Integer i : answerOrder){
+                for (Integer i : answerOrder) {
                     PointND vp = lookUp.get(i);
                     newAns.add(insertLoc, vp);
-                    insertLoc ++;
+                    insertLoc++;
                 }
                 tsp = newAns;
             }

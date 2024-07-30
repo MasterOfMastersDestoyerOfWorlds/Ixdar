@@ -24,7 +24,7 @@ public class CutEngine {
     int cutKnotNum = 0;
 
     Shell shell;
-    InternalPathEngine internalPathEngine;
+    public InternalPathEngine internalPathEngine;
 
     public CutEngine(Shell shell) {
         this.shell = shell;

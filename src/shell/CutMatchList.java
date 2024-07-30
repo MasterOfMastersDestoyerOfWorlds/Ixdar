@@ -127,7 +127,7 @@ class CutMatch {
     }
 }
 
-class CutMatchList {
+public class CutMatchList {
 
     ArrayList<CutMatch> cutMatches;
     double delta;
