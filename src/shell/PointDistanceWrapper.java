@@ -1,6 +1,6 @@
 package shell;
 
-public class PointDistanceWrapper<T> implements Comparable{
+public class PointDistanceWrapper<T> implements Comparable<T>{
 	Double distance;
 	T s;
 
@@ -10,6 +10,7 @@ public class PointDistanceWrapper<T> implements Comparable{
 	}
 
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public int compareTo(Object o) {
 		return this.distance.compareTo(((PointDistanceWrapper<T>)o).distance);
@@ -19,6 +20,7 @@ public class PointDistanceWrapper<T> implements Comparable{
 		return s.toString();
 	}
 	
+	@SuppressWarnings("unchecked")
 	public boolean equals(Object obj) {
 		if(obj instanceof PointDistanceWrapper<?>) {
 			return s.equals(((PointDistanceWrapper<T>) obj).s);

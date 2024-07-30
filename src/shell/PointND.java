@@ -225,8 +225,8 @@ public abstract class PointND implements Cloneable {
 		 * @param ds the n coordinates of the newly constructed {@code PointND}
 		 * @param ID for comparison purposes across basis
 		 */
-		public Double(int ID, double... fs) {
-			this.setID(ID);
+				public Double(int ID, double... fs) {
+				this.setID(ID);
 			int ind = 1;
 		    for (int i = fs.length-1; i >=0; i--) { 
 		        if (fs[i] != 0) { 
@@ -559,6 +559,9 @@ public abstract class PointND implements Cloneable {
 	 * @return a {@code Point2D} that consists of the first 2 coordinates of this point
 	 */
 	public Point2D toPoint2D() {
+		if(this.isDummyNode){
+			return new Point2D.Double(-1000000, -1000000);
+		}
 		return new Point2D.Double(getCoord(0), getCoord(1));
 	}
 

@@ -1,24 +1,10 @@
 package shell;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
-
-import org.apache.commons.math3.util.Pair;
-
-import shell.PointND.Double;
 
 
 
@@ -26,6 +12,7 @@ import shell.PointND.Double;
  * A set of all of the points in the current TSP problem
  */
 public class PointSet extends ArrayList<PointND> {
+	@SuppressWarnings("unused")
 	private int getLargestDim() {
 		int maxDim = 0;
 		for (PointND p : this) {
@@ -57,6 +44,7 @@ public class PointSet extends ArrayList<PointND> {
 	}
 
 
+	@SuppressWarnings("unused")
 	private void printShellsWithKeys(ArrayList<Shell> shells, HashMap<Integer, Integer> locs) {
 		Set<Integer> set = new HashSet<Integer>();
 		System.out.println("Shells {------------------------------------- ");
@@ -67,6 +55,7 @@ public class PointSet extends ArrayList<PointND> {
 		System.out.println("}---------------------------------------------");
 	}
 
+	@SuppressWarnings("unused")
 	private ArrayList<Shell> getShellsWithKeys(ArrayList<Shell> shells, HashMap<Integer, Integer> locs) {
 		Set<Integer> set = new HashSet<Integer>();
 		ArrayList<Shell> retVal = new ArrayList<Shell>();
@@ -160,6 +149,17 @@ public class PointSet extends ArrayList<PointND> {
 			}
 		}
 		return max;
+	}
+
+	public ArrayList<VirtualPoint> toArrayList(Shell shell) {
+		ArrayList<VirtualPoint> list = new ArrayList<>();
+		for(PointND p : this){
+			Point vp = new Point(p, shell);
+			list.add(vp);
+			shell.pointMap.put(p.getID(), vp);
+		}
+		return list;
+
 	}
 
 }
