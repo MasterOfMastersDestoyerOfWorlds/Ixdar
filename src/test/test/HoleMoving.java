@@ -45,6 +45,12 @@ public class HoleMoving {
 		testMethod("lines", "lines_kp1_10_kp2_9_layer_1", 1, 10, 0, 9, 19, true);
 	}
 
+	@Test
+	public void test_lines_kp1_10_kp2_9_layer_2() {
+		testMethod("lines", "lines_kp1_10_kp2_9_layer_2", 2, 10, 0, 9, 19, true);
+	}
+
+
 	public void testMethod(String fileName, String stateFile, int layer, int kp1, int cp1, int kp2, int cp2,
 			boolean knotPointsConnected) {
 		PointSetPath retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
@@ -81,7 +87,7 @@ public class HoleMoving {
 
 		HashMap<Integer, RouteInfo> routeMap = AB.cutEngine.internalPathEngine.ixdar(
 				knotPoint1, cutPoint1, external1,
-				knotPoint2, cutPoint2, external2, k, knotPointsConnected, cutSegment1, cutSegment2, 1);
+				knotPoint2, cutPoint2, external2, k, knotPointsConnected, cutSegment1, cutSegment2, layer);
 
 		try {
 
@@ -93,8 +99,9 @@ public class HoleMoving {
 				int id = java.lang.Integer.parseInt(cords[0]);
 				RouteInfo r = routeMap.get(id);
 				checkRoute(r, cords, 1, "prevC", id, AB);
-				//checkRoute(r, cords, 4, "prevDC", id, AB);
+				checkRoute(r, cords, 4, "prevDC", id, AB);
 				checkRoute(r, cords, 7, "nextC", id, AB);
+				checkRoute(r, cords, 10, "nextDC", id, AB);
 
 				line = br.readLine();
 

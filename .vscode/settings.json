@@ -8,5 +8,6 @@
     "java.debug.settings.showHex": false,
     "editor.find.autoFindInSelection": "multiline",
     "terminal.integrated.rightClickCopyPaste": false,
+    "java.debug.settings.showQualifiedNames": true,
     
 }

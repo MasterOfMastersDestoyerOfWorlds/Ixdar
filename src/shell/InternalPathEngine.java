@@ -211,6 +211,23 @@ public class InternalPathEngine {
                 cutSegment1, routeMap);
         paintState(State.toCP2, knotPointsConnected ? Group.None : Group.None, knot, cutPoint2, knotPoint2, cutSegment1,
                 routeMap);
+        ArrayList<VirtualPoint> leftGroup = new ArrayList<VirtualPoint>();
+        ArrayList<VirtualPoint> rightGroup = new ArrayList<VirtualPoint>();
+        for (RouteInfo r : routeMap.values()) {
+            if (r.group == Group.Left) {
+                leftGroup.add(r.node);
+            } else {
+                rightGroup.add(r.node);
+            }
+        }
+
+        for (RouteInfo r : routeMap.values()) {
+            if (r.group == Group.Left) {
+                r.assignGroup(leftGroup, rightGroup);
+            } else {
+                r.assignGroup(rightGroup, leftGroup);
+            }
+        }
 
         q.add(routeMap.get(cutPoint1.id));
 
@@ -220,7 +237,7 @@ public class InternalPathEngine {
         VirtualPoint cutPoint2PrevNeighbor = routeMap.get(cutPoint2.id).prevC.neighbor;
         VirtualPoint cutPoint2NextNeighbor = routeMap.get(cutPoint2.id).nextC.neighbor;
         while (settled.size() != numPoints) {
-            if(steps != -1 && settled.size() == steps){
+            if (steps != -1 && settled.size() == steps) {
                 break;
             }
             // Terminating condition check when
@@ -247,12 +264,27 @@ public class InternalPathEngine {
                 int vNode = v.id;
                 boolean isNotSettled = !settled.contains(v.id);
                 boolean canRouteToExit = isNotSettled || v.id == knotPoint2.id;
+
+                // TODO: Generate an exception if we update prevC and prevDC or nextC and nextDC
+                // from the same uRoute
                 if (canRouteToExit) {
-                    RouteType[] routes = new RouteType[] { RouteType.prevC, RouteType.prevDC, RouteType.nextC, RouteType.nextDC };
-                    for (RouteType vRouteType : routes) {
-                        for (RouteType uRouteType : routes) {
+                    RouteType[] routes = new RouteType[] { RouteType.prevC, RouteType.prevDC, RouteType.nextC,
+                            RouteType.nextDC };
+
+                    for (RouteType uRouteType : routes) {
+                        boolean wroteToPrev = false;
+                        boolean wroteToNext = false;
+                        for (RouteType vRouteType : routes) {
                             Route vRoute = v.getRoute(vRouteType);
+
+                            boolean vIsPrev = isPrev(vRouteType);
+                            boolean vIsNext = isNext(vRouteType);
+                            boolean vIsConnected = isConnected(vRouteType);
+
                             Route uRoute = u.getRoute(uRouteType);
+                            boolean uIsPrev = isPrev(uRouteType);
+                            boolean uIsNext = isNext(uRouteType);
+                            boolean uIsConnected = isConnected(uRouteType);
 
                             VirtualPoint neighbor = vRoute.neighbor;
                             RouteInfo n = routeMap.get(neighbor.id);
@@ -265,52 +297,71 @@ public class InternalPathEngine {
                             }
                             if (n.group == u.group
                                     && n.distFromPrevSource < u.distFromPrevSource
-                                    && isNext(vRouteType)) {
+                                    && vIsNext) {
                                 continue;
                             }
                             if (n.group == u.group
                                     && n.distFromPrevSource > u.distFromPrevSource
-                                    && isPrev(vRouteType)) {
+                                    && vIsPrev) {
                                 continue;
                             }
                             // what you want for the next one to be "connected" is for the states to be
                             // opposite of each other
                             // i.e. one of the u or neighbor states is a pointing toward a knot point and
                             // the other toward a cut point
+
+                            if (v.id == 8 && u.id == 0) {
+                                float z = 0;
+                            }
                             boolean skip = false;
                             if (!skip) {
-                                if (!(neighbor.id == cutPoint2.id && isConnected(uRouteType))) {
-                                    if (n.group != u.group) {
-                                        if (!isConnected(uRouteType) && isKnot(n.getOtherState(nRoute.state))
-                                                && !isConnected(vRouteType)) {
-                                            continue;
-                                        }
-                                        if (isConnected(uRouteType) && !isKnot(n.getOtherState(nRoute.state))
-                                                && isConnected(vRouteType)) {
-                                            continue;
-                                        }
+                                if (neighbor.id == cutPoint2.id && v.id == knotPoint2.id) {
+                                    if (!uIsConnected || !vIsConnected) {
+                                        continue;
                                     }
-                                    if (n.group == u.group) {
+                                } else if (n.group != u.group) {
+                                    if (!uIsConnected && !vIsConnected) {
+                                        continue;
+                                    }
+                                    if (uIsConnected && uIsPrev && vIsNext && vIsConnected) {
+                                        continue;
+                                    }
+                                    if (uIsConnected && uIsNext && vIsPrev && vIsConnected) {
+                                        continue;
+                                    }
+                                    if (uIsConnected && uIsPrev && vIsPrev && !vIsConnected) {
+                                        continue;
+                                    }
+                                    if (uIsConnected && uIsNext && vIsNext && !vIsConnected) {
+                                        continue;
+                                    }
+                                } else if (n.group == u.group) {
+                                    if (uIsConnected && !vIsConnected) {
+                                        continue;
+                                    }
+                                    if (!uIsConnected && vIsConnected) {
+                                        continue;
+                                    }
 
-                                        if (!isConnected(uRouteType) && !isKnot(n.getOtherState(nRoute.state))
-                                                && isConnected(vRouteType)) {
-                                            continue;
-                                        }
-                                        if (isConnected(uRouteType)
-                                                && ((!isKnot(uRoute.state) && !isKnot(n.getOtherState(nRoute.state)))
-                                                        || (isKnot(uRoute.state)
-                                                                && isKnot(n.getOtherState(nRoute.state))))
-                                                && isConnected(vRouteType)) {
-                                            continue;
-                                        }
+                                    if (!uIsConnected && !isKnot(n.getOtherState(nRoute.state))
+                                            && vIsConnected) {
+                                        continue;
+                                    }
+                                    if (uIsConnected
+                                            && ((!isKnot(uRoute.state) && !isKnot(n.getOtherState(nRoute.state)))
+                                                    || (isKnot(uRoute.state)
+                                                            && isKnot(n.getOtherState(nRoute.state))))
+                                            && vIsConnected) {
+                                        continue;
                                     }
                                 }
+
                             }
 
                             if (!(settled.contains(neighbor.id) && neighbor != cutPoint2)
-                                    && !u.node.equals(neighbor)
-                                    && !(neighbor.id != cutPoint2.id
-                                            && u.getKnotState() == opposite(n.getOtherState(nRoute.state)))) {
+                                    && !u.node.equals(neighbor)) {
+                                // && !(neighbor.id != cutPoint2.id
+                                // && u.getKnotState() == opposite(n.getOtherState(nRoute.state)))) {
                                 Segment acrossSeg = neighbor.getClosestSegment(u.node, null);
                                 Segment cutSeg = neighbor.getClosestSegment(v.node, null);
                                 if (!knot.hasSegment(acrossSeg)) {
@@ -326,22 +377,35 @@ public class InternalPathEngine {
                                     }
                                     if (newDistancePrevNeighbor < vRoute.delta) {
 
-                                        v.updateRoute(newDistancePrevNeighbor, u.node, vRouteType, uRouteType);
+                                        v.updateRoute(newDistancePrevNeighbor, u.node, vRouteType, uRouteType, uRoute);
+                                    }
+                                    if (vIsPrev) {
+                                        if (wroteToPrev) {
+                                            float z = 1 / 0;
+                                        }
+                                        wroteToPrev = true;
+                                    }
+                                    if (vIsNext) {
+                                        if (wroteToNext) {
+                                            float z = 1 / 0;
+                                        }
+                                        wroteToNext = true;
                                     }
                                 }
-
                             }
+
                         }
                     }
+                }
 
-                    // Add the current node to the queue
-                    if (isNotSettled) {
-                        q.add(v);
-                    }
+                // Add the current node to the queue
+                if (isNotSettled) {
+                    q.add(v);
                 }
             }
         }
         return routeMap;
+
     }
 
     public boolean isConnected(RouteType rType) {
@@ -524,6 +588,8 @@ public class InternalPathEngine {
         public VirtualPoint neighbor;
         public double delta;
         public VirtualPoint ancestor;
+        public ArrayList<VirtualPoint> ourGroup;
+        public ArrayList<VirtualPoint> otherGroup;
 
         public Route(RouteType routeType, double delta, VirtualPoint neighbor) {
             this.routeType = routeType;
@@ -570,6 +636,17 @@ public class InternalPathEngine {
             this.matchedNeighbor = matchedNeighbor;
         }
 
+        public void assignGroup(ArrayList<VirtualPoint> ourGroup, ArrayList<VirtualPoint> otherGroup) {
+            prevC.ourGroup = ourGroup;
+            prevC.otherGroup = otherGroup;
+            prevDC.ourGroup = ourGroup;
+            prevDC.otherGroup = otherGroup;
+            nextC.ourGroup = ourGroup;
+            nextC.otherGroup = otherGroup;
+            nextDC.ourGroup = ourGroup;
+            nextDC.otherGroup = otherGroup;
+        }
+
         public State getOtherState(State state) {
             if (prevC.state == state) {
                 return nextC.state;
@@ -589,13 +666,77 @@ public class InternalPathEngine {
             }
         }
 
-        public void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType) {
+        public void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType,
+                Route ancestorRoute) {
             Route route = getRoute(routeType);
             if (delta < route.delta) {
                 route.delta = delta;
                 route.ancestorRouteType = ancestorRouteType;
                 route.ancestor = ancestor;
+
+                if (isNext(routeType)) {
+                    if (ancestorRoute.ourGroup.contains(this.node)) {
+                        ArrayList<VirtualPoint> grp = ancestorRoute.ourGroup;
+                        int rotateIdx = grp.indexOf(this.node);
+                        route.otherGroup = ancestorRoute.otherGroup;
+                        ArrayList<VirtualPoint> reverseList = new ArrayList<VirtualPoint>();
+                        for (int i = rotateIdx + 1; i < grp.size(); i++) {
+                            reverseList.add(grp.get(i));
+                        }
+                        for (int i = 0; i < rotateIdx + 1; i++) {
+                            reverseList.add(0, grp.get(i));
+                        }
+                        route.ourGroup = reverseList;
+                    } else {
+
+                        ArrayList<VirtualPoint> grp = ancestorRoute.otherGroup;
+                        ArrayList<VirtualPoint> otherGrp = ancestorRoute.ourGroup;
+                        int rotateIdx = grp.indexOf(this.node);
+                        route.otherGroup = ancestorRoute.otherGroup;
+                        ArrayList<VirtualPoint> remainList = new ArrayList<VirtualPoint>();
+                        for (int i = 0; i < rotateIdx + 1; i++) {
+                            remainList.add(0, grp.get(i));
+                        }
+                        ArrayList<VirtualPoint> reverseList = new ArrayList<VirtualPoint>(otherGrp);
+                        for (int i = rotateIdx + 1; i < grp.size(); i++) {
+                            reverseList.add(0, grp.get(i));
+                        }
+                        route.ourGroup = remainList;
+                        route.otherGroup = reverseList;
+                    }
+                }else{
+                    if (ancestorRoute.ourGroup.contains(this.node)) {
+                        ArrayList<VirtualPoint> grp = ancestorRoute.ourGroup;
+                        int rotateIdx = grp.indexOf(this.node);
+                        route.otherGroup = ancestorRoute.otherGroup;
+                        ArrayList<VirtualPoint> reverseList = new ArrayList<VirtualPoint>();
+                        for (int i = 0; i < rotateIdx; i++) {
+                            reverseList.add(grp.get(i));
+                        }
+                        for (int i = rotateIdx; i < grp.size(); i++) {
+                            reverseList.add(0, grp.get(i));
+                        }
+                        route.ourGroup = reverseList;
+                    } else {
+
+                        ArrayList<VirtualPoint> grp = ancestorRoute.otherGroup;
+                        ArrayList<VirtualPoint> otherGrp = ancestorRoute.ourGroup;
+                        int rotateIdx = grp.indexOf(this.node);
+                        route.otherGroup = ancestorRoute.otherGroup;
+                        ArrayList<VirtualPoint> remainList = new ArrayList<VirtualPoint>();
+                        for (int i = rotateIdx; i < grp.size(); i++) {
+                            remainList.add(grp.get(i));
+                        }
+                        ArrayList<VirtualPoint> reverseList = new ArrayList<VirtualPoint>(otherGrp);
+                        for (int i = rotateIdx - 1 ; i >= 0; i--) {
+                            reverseList.add(0, grp.get(i));
+                        }
+                        route.ourGroup = remainList;
+                        route.otherGroup = reverseList;
+                    }
+                }
             }
+
         }
 
         public Route getRoute(RouteType routeType) {
