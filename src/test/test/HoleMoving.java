@@ -42,21 +42,21 @@ public class HoleMoving {
 
 	@Test
 	public void test_lines_kp1_10_kp2_9_layer_1() {
-		testMethod("lines", "lines_kp1_10_kp2_9_layer_1", 1, 10, 0, 9, 19, true);
+		testMethod("lines", "lines_kp1_10_kp2_9_layer_1.csv", 1, 10, 0, 9, 19, true, 0 , RouteType.nextC);
 	}
 
 	@Test
 	public void test_lines_kp1_10_kp2_9_layer_2() {
-		testMethod("lines", "lines_kp1_10_kp2_9_layer_2", 2, 10, 0, 9, 19, true);
+		testMethod("lines", "lines_kp1_10_kp2_9_layer_2.csv", 2, 10, 0, 9, 19, true, 1, RouteType.prevC);
 	}
 	@Test
 	public void test_two_circles_kp1_5_kp2_10_layer_1() {
-		testMethod("two_circle_in_10", "two_circles_kp1_5_kp2_10_layer_1", 1, 5, 4, 10, 19, true);
+		testMethod("two_circle_in_10", "two_circles_kp1_5_kp2_10_layer_1.csv", 1, 5, 4, 10, 19, true, 4, RouteType.nextC);
 	}
 
 
 	public void testMethod(String fileName, String stateFile, int layer, int kp1, int cp1, int kp2, int cp2,
-			boolean knotPointsConnected) {
+			boolean knotPointsConnected, int sourcePoint, RouteType routeType) {
 		PointSetPath retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
 		Shell answer = new Shell();
 		int n = retTup.ps.size();
@@ -91,7 +91,7 @@ public class HoleMoving {
 
 		HashMap<Integer, RouteInfo> routeMap = AB.cutEngine.internalPathEngine.ixdar(
 				knotPoint1, cutPoint1, external1,
-				knotPoint2, cutPoint2, external2, k, knotPointsConnected, cutSegment1, cutSegment2, layer);
+				knotPoint2, cutPoint2, external2, k, knotPointsConnected, cutSegment1, cutSegment2, layer, sourcePoint, routeType);
 
 		try {
 
@@ -99,7 +99,7 @@ public class HoleMoving {
 			ArrayList<PointND> lines = new ArrayList<PointND>();
 			String line = br.readLine();
 			while (line != null) {
-				String[] cords = line.split(" ");
+				String[] cords = line.split(",");
 				int id = java.lang.Integer.parseInt(cords[0]);
 				RouteInfo r = routeMap.get(id);
 				checkRoute(r, cords, 1, "prevC", id, AB);

@@ -47,7 +47,7 @@ public class InternalPathEngine {
             float z = 0;
         }
         HashMap<Integer, RouteInfo> routeMap = ixdar(knotPoint1, cutPoint1, external1, knotPoint2, cutPoint2, external2,
-                knot, knotPointsConnected, cutSegment1, cutSegment2, -1);
+                knot, knotPointsConnected, cutSegment1, cutSegment2, -1, -1, RouteType.None);
         // now we build the route back to the start from knotPoint2
 
         RouteInfo curr = routeMap.get(knotPoint2.id);
@@ -119,7 +119,7 @@ public class InternalPathEngine {
 
     public HashMap<Integer, RouteInfo> ixdar(VirtualPoint knotPoint1, VirtualPoint cutPoint1, VirtualPoint external1,
             VirtualPoint knotPoint2, VirtualPoint cutPoint2, VirtualPoint external2,
-            Knot knot, boolean knotPointsConnected, Segment cutSegment1, Segment cutSegment2, int steps) {
+            Knot knot, boolean knotPointsConnected, Segment cutSegment1, Segment cutSegment2, int steps, int sourcePoint, RouteType routeType) {
         /*
          * THE SWORD OF ISKANDAR
          * function Dijkstra(Graph, source):
@@ -228,9 +228,11 @@ public class InternalPathEngine {
         }
 
         q.add(routeMap.get(cutPoint1.id));
-
+        RouteInfo u = null;
         while (settled.size() != numPoints) {
             if (steps != -1 && settled.size() == steps) {
+                assert sourcePoint == u.id;
+                //assert u.prevC.routeType == routeType;
                 break;
             }
             // Terminating condition check when
@@ -240,7 +242,7 @@ public class InternalPathEngine {
 
             // Removing the minimum distance node
             // from the priority queue
-            RouteInfo u = q.remove();
+            u = q.remove();
 
             // Adding the node whose distance is
             // finalized
