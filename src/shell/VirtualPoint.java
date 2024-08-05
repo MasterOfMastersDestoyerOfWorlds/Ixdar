@@ -16,7 +16,7 @@ public abstract class VirtualPoint {
 		ArrayList<VirtualPoint> knotPointsFlattened;
 		ArrayList<Segment> sortedSegments;
 		Segment s2;
-		int id;
+		public int id;
 		boolean isKnot;
 		boolean isRun;
 		VirtualPoint group;

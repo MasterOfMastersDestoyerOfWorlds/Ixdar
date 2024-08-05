@@ -49,6 +49,10 @@ public class HoleMoving {
 	public void test_lines_kp1_10_kp2_9_layer_2() {
 		testMethod("lines", "lines_kp1_10_kp2_9_layer_2", 2, 10, 0, 9, 19, true);
 	}
+	@Test
+	public void test_two_circles_kp1_5_kp2_10_layer_1() {
+		testMethod("two_circle_in_10", "two_circles_kp1_5_kp2_10_layer_1", 1, 5, 4, 10, 19, true);
+	}
 
 
 	public void testMethod(String fileName, String stateFile, int layer, int kp1, int cp1, int kp2, int cp2,
@@ -137,7 +141,7 @@ public class HoleMoving {
 		Route route = r.getRoute(RouteType.valueOf(routeName));
 		if (ancestor == null) {
 			assert (route.ancestor == null)
-					: "Point Id: " + id + " " + routeName + " ancestor: " + route.ancestor + " expected: " + null;
+					: "Point Id: " + id  + " neighbor: " + route.neighbor.id + " " + routeName + " ancestor: " + route.ancestor + " expected: " + null;
 		} else {
 			if (route.ancestor == null) {
 				boolean flag = false;
