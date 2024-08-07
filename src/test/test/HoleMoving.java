@@ -53,6 +53,12 @@ public class HoleMoving {
 	}
 
 	@Test
+	public void djibouti_14_31_kp1_3_kp2_0_layer_1() {
+		testMethod("djbouti_14-31-simple", "djibouti_14_31_kp1_3_kp2_0_layer_1.csv", -1, 3, 4, 0, 5, false, -1,
+				RouteType.nextC);
+	}
+
+	@Test
 	public void test_wi29_5_25_kp1_0_kp2_3_layer_1() {
 		testMethod("wi29_5-25-simple", "wi29_5_25_kp1_0_kp2_3_layer_1.csv", 1, 5, 6, 2, 3, true, 6, RouteType.prevC);
 	}

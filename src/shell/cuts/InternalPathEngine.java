@@ -67,10 +67,11 @@ public class InternalPathEngine {
         } else {
             prevCutSide = RouteType.nextC;
         }
+
+        Route route = curr.getRoute(prevCutSide);
         int totalIter = 0;
-        while (curr.id != cutPoint1.id && totalIter < knot.size()) {
+        while (!(curr.id == cutPoint1.id && route.neighbor.id == knotPoint1.id) && totalIter < knot.size()) {
             Segment matchSegment = null, cutSegment = null;
-            Route route = curr.getRoute(prevCutSide);
             if (route.ancestor == null) {
                 CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
                 throw new SegmentBalanceException(shell, cutMatchList, c);
@@ -81,6 +82,7 @@ public class InternalPathEngine {
             curr = routeMap.get(route.ancestor.id);
             matchSegments.add(matchSegment);
             cutSegments.add(cutSegment);
+            route = curr.getRoute(prevCutSide);
             totalIter++;
         }
         // TODO: need to check if the cut match list produces a cycle and throw a
@@ -92,7 +94,7 @@ public class InternalPathEngine {
             unionSet.union(s.first.id, s.last.id);
         }
         for (Segment s : knot.manifoldSegments) {
-            if (!cutSegments.contains(s)) {
+            if (!cutSegments.contains(s) && !s.equals(cutSegment1) && !s.equals(cutSegment2)) {
                 unionSet.union(s.first.id, s.last.id);
             }
         }
@@ -106,6 +108,19 @@ public class InternalPathEngine {
         }
 
         if (unionSet.find(cutPoint1.id) != unionSet.find(cutPoint2.id)) {
+            // Multiple Cycles found!
+            throw new MultipleCyclesFoundException(shell, cutMatchList, matchSegments, cutSegments, c);
+        }
+
+        if (unionSet.find(cutPoint1.id) != unionSet.find(knotPoint1.id)) {
+            // Multiple Cycles found!
+            throw new MultipleCyclesFoundException(shell, cutMatchList, matchSegments, cutSegments, c);
+        }
+        if (unionSet.find(cutPoint2.id) != unionSet.find(knotPoint2.id)) {
+            // Multiple Cycles found!
+            throw new MultipleCyclesFoundException(shell, cutMatchList, matchSegments, cutSegments, c);
+        }
+        if (unionSet.find(knotPoint1.id) != unionSet.find(knotPoint2.id)) {
             // Multiple Cycles found!
             throw new MultipleCyclesFoundException(shell, cutMatchList, matchSegments, cutSegments, c);
         }
@@ -209,10 +224,10 @@ public class InternalPathEngine {
         ArrayList<VirtualPoint> leftGroup = paintState(State.toKP1, knotPointsConnected ? Group.Left : Group.Left, knot,
                 knotPoint1, cutPoint1, cutSegment2,
                 routeMap);
-        ArrayList<VirtualPoint> rightGroup = paintState(State.toCP1, knotPointsConnected ? Group.Right : Group.None,
+        ArrayList<VirtualPoint> rightGroup = paintState(State.toCP1, knotPointsConnected ? Group.Right : Group.Right,
                 knot, cutPoint1, knotPoint1,
                 cutSegment2, routeMap);
-        ArrayList<VirtualPoint> tmp = paintState(State.toKP2, knotPointsConnected ? Group.None : Group.Right, knot,
+        ArrayList<VirtualPoint> tmp = paintState(State.toKP2, knotPointsConnected ? Group.None : Group.None, knot,
                 knotPoint2, cutPoint2,
                 cutSegment1, routeMap);
         if (rightGroup.size() == 0) {
@@ -267,9 +282,9 @@ public class InternalPathEngine {
                 RouteInfo v = routeMap.get(knotPoints.get(i).id);
                 RouteType[] routes = new RouteType[] { RouteType.prevC, RouteType.prevDC, RouteType.nextC,
                         RouteType.nextDC };
-                if(uParent.id == 16 && u.routeType == RouteType.prevDC && v.id == 14){
-                    float z =0;
-                }
+                // if(uParent.id == 16 && u.routeType == RouteType.prevDC && v.id == 14){
+                // float z =0;
+                // }
                 for (RouteType vRouteType : routes) {
                     Route vRoute = v.getRoute(vRouteType);
                     boolean isNotSettled = !settled.contains(vRoute.routeId);
@@ -290,7 +305,11 @@ public class InternalPathEngine {
                             continue;
                         }
                         boolean uIsConnected = u.routeType.isConnected();
+                        if (u.ourGroup == null) {
+                            float z = 0;
+                        }
                         boolean neighborInGroup = u.ourGroup.contains(neighbor);
+
                         Route nRoute = n.getRoute(vRouteType.oppositeRoute());
                         if (v.id == cutPoint1.id && neighbor.id == knotPoint1.id) {
                             continue;
@@ -404,7 +423,7 @@ public class InternalPathEngine {
                 // Add the current node to the queue
             }
         }
-        if(steps != -1 || sourcePoint != -1){
+        if (steps != -1 || sourcePoint != -1) {
             assert foundSourcePoint : "SourcePoint: " + sourcePoint + " not Found";
         }
         return routeMap;
