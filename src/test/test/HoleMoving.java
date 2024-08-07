@@ -32,22 +32,31 @@ public class HoleMoving {
 
 	@Test
 	public void test_lines_kp1_10_kp2_9_layer_1() {
-		testMethod("lines", "lines_kp1_10_kp2_9_layer_1.csv", 1, 10, 0, 9, 19, true, 0 , RouteType.nextC);
+		testMethod("lines", "lines_kp1_10_kp2_9_layer_1.csv", 1, 10, 0, 9, 19, true, 0, RouteType.nextC);
 	}
 
 	@Test
 	public void test_lines_kp1_10_kp2_9_layer_2() {
 		testMethod("lines", "lines_kp1_10_kp2_9_layer_2.csv", 2, 10, 0, 9, 19, true, 1, RouteType.prevC);
 	}
+
 	@Test
 	public void test_two_circles_kp1_5_kp2_10_layer_1() {
-		testMethod("two_circle_in_10", "two_circles_kp1_5_kp2_10_layer_1.csv", 1, 5, 4, 10, 19, true, 4, RouteType.nextC);
+		testMethod("two_circle_in_10", "two_circles_kp1_5_kp2_10_layer_1.csv", 1, 5, 4, 10, 19, true, 4,
+				RouteType.nextC);
+	}
+
+	@Test
+	public void two_circles_kp1_5_kp2_10_after_16() {
+		testMethod("two_circle_in_10", "two_circles_kp1_5_kp2_10_after_16.csv", -1, 5, 4, 10, 19, true, 16,
+				RouteType.prevDC);
 	}
 
 	@Test
 	public void test_wi29_5_25_kp1_0_kp2_3_layer_1() {
 		testMethod("wi29_5-25-simple", "wi29_5_25_kp1_0_kp2_3_layer_1.csv", 1, 5, 6, 2, 3, true, 6, RouteType.prevC);
 	}
+
 	@Test
 	public void test_wi29_5_25_kp1_0_kp2_3_layer_2() {
 		testMethod("wi29_5-25-simple", "wi29_5_25_kp1_0_kp2_3_layer_2.csv", 2, 5, 6, 2, 3, true, 0, RouteType.nextC);
@@ -57,6 +66,7 @@ public class HoleMoving {
 	public void test_wi29_5_25_kp1_0_kp2_3_layer_3() {
 		testMethod("wi29_5-25-simple", "wi29_5_25_kp1_0_kp2_3_layer_3.csv", 3, 5, 6, 2, 3, true, 4, RouteType.nextDC);
 	}
+
 	@Test
 	public void test_wi29_5_25_kp1_0_kp2_3_layer_4() {
 		testMethod("wi29_5-25-simple", "wi29_5_25_kp1_0_kp2_3_layer_4.csv", 4, 5, 6, 2, 3, true, 1, RouteType.nextC);
@@ -66,10 +76,6 @@ public class HoleMoving {
 	public void test_wi29_5_25_kp1_0_kp2_3_layer_5() {
 		testMethod("wi29_5-25-simple", "wi29_5_25_kp1_0_kp2_3_layer_5.csv", 5, 5, 6, 2, 3, true, 4, RouteType.prevC);
 	}
-
-
-
-
 
 	public void testMethod(String fileName, String stateFile, int layer, int kp1, int cp1, int kp2, int cp2,
 			boolean knotPointsConnected, int sourcePoint, RouteType routeType) {
@@ -107,7 +113,8 @@ public class HoleMoving {
 
 		HashMap<Integer, RouteInfo> routeMap = AB.cutEngine.internalPathEngine.ixdar(
 				knotPoint1, cutPoint1, external1,
-				knotPoint2, cutPoint2, external2, k, knotPointsConnected, cutSegment1, cutSegment2, layer, sourcePoint, routeType);
+				knotPoint2, cutPoint2, external2, k, knotPointsConnected, cutSegment1, cutSegment2, layer, sourcePoint,
+				routeType);
 
 		try {
 
@@ -156,13 +163,16 @@ public class HoleMoving {
 		Route route = r.getRoute(RouteType.valueOf(routeName));
 		if (ancestor == null) {
 			assert (route.ancestor == null)
-					: "Point Id: " + id  + " neighbor: " + route.neighbor.id + " " + routeName + " ancestor: " + route.ancestor + " expected: " + null;
+					: "Point Id: " + id + " neighbor: " + route.neighbor.id + " " + routeName + " ancestor: "
+							+ route.ancestor + " expected: " + null;
 		} else {
 			if (route.ancestor == null) {
 				boolean flag = false;
-				assert (flag) :  "Point Id: " + id + " neighbor: " + route.neighbor.id + " " + " " + routeName + " ancestor: " + route.ancestor + " expected: " + ancestor;
+				assert (flag) : "Point Id: " + id + " neighbor: " + route.neighbor.id + " " + " " + routeName
+						+ " ancestor: " + route.ancestor + " expected: " + ancestor;
 			}
-			assert (route.ancestor.equals(ancestor))  :  "Point Id: " + id + " " + routeName + " ancestor: " + route.ancestor + " expected: " + ancestor;
+			assert (route.ancestor.equals(ancestor)) : "Point Id: " + id + " neighbor: " + route.neighbor.id + " " + " "
+					+ routeName + " ancestor: " + route.ancestor + " expected: " + ancestor;
 		}
 		assert (Math.abs(route.delta - delta) < 0.1) : "Point Id: " + id + " " + routeName + " delta: " +
 				route.delta + " expected: " + delta;

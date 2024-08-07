@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.PriorityQueue;
 import java.util.Set;
 
-
 import shell.BalanceMap;
 import shell.Shell;
 import shell.enums.Group;
@@ -232,10 +231,18 @@ public class InternalPathEngine {
 
         RouteInfo uParent = null;
         Route u = null;
+        boolean foundSourcePoint = false;
         while (settled.size() != numPoints * 4) {
             if (steps != -1 && settled.size() == steps) {
                 assert sourcePoint == uParent.id : "last layer node was: " + uParent.id + " expected: " + sourcePoint;
-                assert u.routeType == routeType : "last layer node route type was: " + u.routeType + " expected: " + routeType;
+                assert u.routeType == routeType
+                        : "last layer node route type was: " + u.routeType + " expected: " + routeType;
+                foundSourcePoint = true;
+                break;
+            }
+            if (steps == -1 && sourcePoint != -1 && uParent != null && uParent.id == sourcePoint
+                    && u.routeType == routeType) {
+                foundSourcePoint = true;
                 break;
             }
             // Terminating condition check when
@@ -260,7 +267,9 @@ public class InternalPathEngine {
                 RouteInfo v = routeMap.get(knotPoints.get(i).id);
                 RouteType[] routes = new RouteType[] { RouteType.prevC, RouteType.prevDC, RouteType.nextC,
                         RouteType.nextDC };
-
+                if(uParent.id == 16 && u.routeType == RouteType.prevDC && v.id == 14){
+                    float z =0;
+                }
                 for (RouteType vRouteType : routes) {
                     Route vRoute = v.getRoute(vRouteType);
                     boolean isNotSettled = !settled.contains(vRoute.routeId);
@@ -339,7 +348,7 @@ public class InternalPathEngine {
                                 if (!between && !vIsConnected) {
                                     continue;
                                 }
-                                if (between && vIsConnected) {
+                                if (between && vIsConnected && uIsConnected) {
                                     continue;
                                 }
                             } else {
@@ -395,10 +404,12 @@ public class InternalPathEngine {
                 // Add the current node to the queue
             }
         }
+        if(steps != -1 || sourcePoint != -1){
+            assert foundSourcePoint : "SourcePoint: " + sourcePoint + " not Found";
+        }
         return routeMap;
 
     }
-
 
     public ArrayList<VirtualPoint> paintState(State state, Group group, Knot knot, VirtualPoint knotPoint,
             VirtualPoint cutPoint, Segment cutSegment,
