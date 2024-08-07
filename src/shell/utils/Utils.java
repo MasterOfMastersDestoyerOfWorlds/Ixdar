@@ -1,9 +1,14 @@
-package shell;
+package shell.utils;
 
 import java.util.ArrayList;
 import java.util.Set;
 
 import org.apache.commons.math3.util.Pair;
+
+import shell.cuts.CutInfo;
+import shell.knot.Knot;
+import shell.knot.Segment;
+import shell.knot.VirtualPoint;
 
 public final class Utils {
 
@@ -170,9 +175,6 @@ public final class Utils {
     public static boolean marchUntilHasOneKnotPoint(VirtualPoint startPoint, Segment awaySegment,
             Segment untilSegment, VirtualPoint kp1, VirtualPoint kp2, Knot knot) {
         int idx = knot.knotPoints.indexOf(startPoint);
-        if (idx == -1) {
-            float z = 1;
-        }
         int idx2 = knot.knotPoints.indexOf(awaySegment.getOther(startPoint));
         int marchDirection = idx2 - idx < 0 ? -1 : 1;
         if (idx == 0 && idx2 == knot.knotPoints.size() - 1) {

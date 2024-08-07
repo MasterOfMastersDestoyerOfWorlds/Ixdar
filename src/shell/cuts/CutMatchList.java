@@ -1,4 +1,4 @@
-package shell;
+package shell.cuts;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -8,128 +8,15 @@ import java.util.Set;
 import org.apache.commons.collections4.map.MultiKeyMap;
 import org.apache.commons.math3.util.Pair;
 
-class CutMatch {
-    public ArrayList<Segment> cutSegments;
-    public ArrayList<Segment> matchSegments;
-    public Knot knot;
-    VirtualPoint kp1;
-    VirtualPoint kp2;
-    CutMatch diff;
-    double delta;
-    Knot superKnot;
-    public Segment kpSegment;
-    Shell shell;
-    SegmentBalanceException sbe;
-
-    Segment[] originalCutSegments;
-    Segment[] originalMatchSegments;
-    CutInfo c;
-    String cutType;
-
-    public CutMatch(String cutType, Shell shell, SegmentBalanceException sbe) {
-        cutSegments = new ArrayList<>();
-        matchSegments = new ArrayList<>();
-        this.shell = shell;
-        this.sbe = sbe;
-        this.cutType = cutType;
-    }
-
-    public void updateDelta() {
-        delta = 0;
-        for (Segment s : cutSegments) {
-            delta -= s.distance;
-        }
-        for (Segment s : matchSegments) {
-            delta += s.distance;
-        }
-
-    }
-
-    public void checkValid() throws SegmentBalanceException {
-        for (Segment s : cutSegments) {
-            if (matchSegments.contains(s)) {
-                throw new InvalidCutException(sbe);
-            }
-        }
-        for (Segment s : matchSegments) {
-            if (cutSegments.contains(s)) {
-                throw new InvalidCutException(sbe);
-            }
-        }
-
-        if (superKnot == null) {
-            ArrayList<Segment> knotSegments = new ArrayList<>();
-            for (int a = 0; a < knot.knotPoints.size(); a++) {
-                VirtualPoint knotPoint11 = knot.knotPoints.get(a);
-                VirtualPoint knotPoint12 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
-                Segment s = knot.getSegment(knotPoint11, knotPoint12);
-                knotSegments.add(s);
-            }
-
-            for (Segment s : matchSegments) {
-                if (knotSegments.contains(s)) {
-                    shell.buff.add(this);
-                    throw new InvalidCutException("Matching Segment already in Knot", sbe);
-                }
-            }
-        } else {
-            ArrayList<Segment> superKnotSegments = new ArrayList<>();
-            for (int a = 0; a < superKnot.knotPoints.size(); a++) {
-                VirtualPoint knotPoint11 = superKnot.knotPoints.get(a);
-                VirtualPoint knotPoint12 = superKnot.knotPoints.get(a + 1 >= superKnot.knotPoints.size() ? 0 : a + 1);
-                Segment s = superKnot.getSegment(knotPoint11, knotPoint12);
-                superKnotSegments.add(s);
-            }
-            for (Segment s : cutSegments) {
-                if (!superKnotSegments.contains(s)) {
-                    shell.buff.add(this);
-                    // throw new InvalidCutException(sbe);
-                }
-            }
-
-        }
-    }
-
-    public String toString() {
-        String id = "-1";
-        if (c != null) {
-            id = c.cutID + "";
-        }
-        String str = "CM[\n" +
-                "cutSegments: " + cutSegments + " \n" +
-                "matchSegments: " + matchSegments + " \n" +
-                "knot: " + knot + " \n" +
-                "super: " + superKnot + " \n" +
-                "diff: " + diff + " \n" +
-                "kpSegment: " + kpSegment + " \n" +
-                "delta: " + delta + " \n" +
-                "original cuts: " + Utils.printArray(originalCutSegments) + " \n" +
-                "original matches: " + Utils.printArray(originalMatchSegments) + " \n" +
-                "Cut ID:" + id + " \n" +
-                "Cut Type: " + cutType + " \n]";
-        return str;
-
-    }
-
-    public CutMatch copy() {
-        CutMatch copy = new CutMatch(cutType, shell, sbe);
-        copy.knot = knot;
-        copy.delta = delta;
-        copy.cutSegments.addAll(cutSegments);
-        copy.matchSegments.addAll(matchSegments);
-        if (diff != null) {
-            copy.diff = diff.copy();
-        }
-        copy.superKnot = superKnot;
-        copy.kp1 = kp1;
-        copy.kp2 = kp2;
-        return copy;
-    }
-}
+import shell.Shell;
+import shell.exceptions.SegmentBalanceException;
+import shell.knot.Knot;
+import shell.knot.Segment;
+import shell.knot.VirtualPoint;
 
 public class CutMatchList {
 
-    ArrayList<CutMatch> cutMatches;
+    public ArrayList<CutMatch> cutMatches;
     double delta;
     Shell shell;
     SegmentBalanceException sbe;
@@ -189,9 +76,6 @@ public class CutMatchList {
     public void addTwoCut(Segment cutSegment, Segment[] segments, Segment matchSegment1, Segment matchSegment2,
             VirtualPoint kp1, VirtualPoint kp2, CutMatchList cml, CutInfo c, boolean match1, String cutType)
             throws SegmentBalanceException {
-        if (c.cutID == 287) {
-            float z = 0;
-        }
         CutMatch cm = new CutMatch(cutType, shell, sbe);
         for (Segment s : segments) {
             if (!c.balanceMap.cuts.contains(s) && !cm.cutSegments.contains(s)) {
@@ -221,9 +105,6 @@ public class CutMatchList {
         boolean balanced = this.checkCutMatchBalance(matchSegment1, matchSegment2, cutSegment, segments, c, true,
                 true);
         shell.buff.add("BALANCE :" + balanced);
-        if (c.cutID == 287) {
-            float z = 0;
-        }
         if (!balanced) {
             CutMatch diff = diffKnots(cm, c, c.needTwoNeighborMatches, cutType);
             cm.cutSegments.addAll(diff.cutSegments);
@@ -598,9 +479,6 @@ public class CutMatchList {
     public boolean checkCutMatchBalance(Segment s1, Segment s2, Segment cutSegment1, Segment[] cutSegments,
             CutInfo c, boolean doubleCount, boolean printBalance) {
 
-        if (c.cutID == 48) {
-            float z = 0;
-        }
         HashMap<Integer, Integer> balance = new HashMap<>();
         HashMap<Integer, Integer> balance2 = new HashMap<>();
         Set<Segment> allSegments = new HashSet<>();
@@ -636,9 +514,6 @@ public class CutMatchList {
             balance.put(s2.first.id, balance.getOrDefault(s2.first.id, 0) + 1);
             balance.put(s2.last.id, balance.getOrDefault(s2.last.id, 0) + 1);
             allSegments.add(s2);
-        }
-        if (c.cutID == 164) {
-            float z = 0;
         }
 
         for (Segment s : c.neighborSegments) {
@@ -679,9 +554,6 @@ public class CutMatchList {
         balance = balance2;
         boolean flag = true;
         int breaki = -1;
-        if (c.cutID == 175) {
-            float z = 0;
-        }
         for (Integer i : balance.keySet()) {
             int val = balance.get(i);
             boolean isExternal = false;

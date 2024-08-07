@@ -1,18 +1,27 @@
-package shell;
+package shell.cuts;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
-import java.util.Queue;
 import java.util.Set;
 
-import org.apache.commons.collections4.map.MultiKeyMap;
-import org.apache.commons.math3.util.Pair;
 
-import shell.InternalPathEngine.Route;
-import shell.InternalPathEngine.RouteType;
+import shell.BalanceMap;
+import shell.Shell;
+import shell.enums.Group;
+import shell.enums.RouteType;
+import shell.enums.State;
+import shell.exceptions.BalancerException;
+import shell.exceptions.MultipleCyclesFoundException;
+import shell.exceptions.SegmentBalanceException;
+import shell.knot.Knot;
+import shell.knot.Segment;
+import shell.knot.VirtualPoint;
+import shell.route.Route;
+import shell.route.RouteInfo;
+import shell.route.RoutePair;
 
 public class InternalPathEngine {
     Shell shell;
@@ -46,9 +55,6 @@ public class InternalPathEngine {
         shell.buff.add(
                 "flatKnots: " + cutEngine.flatKnots);
 
-        if (cutPoint1.id == 3 && knotPoint1.id == 7 && cutPoint2.id == 5 && knotPoint2.id == 2) {
-            float z = 0;
-        }
         HashMap<Integer, RouteInfo> routeMap = ixdar(knotPoint1, cutPoint1, external1, knotPoint2, cutPoint2, external2,
                 knot, knotPointsConnected, cutSegment1, cutSegment2, -1, -1, RouteType.None);
         // now we build the route back to the start from knotPoint2
@@ -64,14 +70,9 @@ public class InternalPathEngine {
         }
         int totalIter = 0;
         while (curr.id != cutPoint1.id && totalIter < knot.size()) {
-            if (curr.matchedNeighbor == null) {
-                float z = 0;
-            }
             Segment matchSegment = null, cutSegment = null;
             Route route = curr.getRoute(prevCutSide);
             if (route.ancestor == null) {
-                float z = 0;
-
                 CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
                 throw new SegmentBalanceException(shell, cutMatchList, c);
             }
@@ -89,9 +90,6 @@ public class InternalPathEngine {
         ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
         DisjointUnionSets unionSet = new DisjointUnionSets(knotPoints);
         for (Segment s : matchSegments) {
-            if (s == null) {
-                float z = 0;
-            }
             unionSet.union(s.first.id, s.last.id);
         }
         for (Segment s : knot.manifoldSegments) {
@@ -99,7 +97,6 @@ public class InternalPathEngine {
                 unionSet.union(s.first.id, s.last.id);
             }
         }
-        float z = 0;
         cutSegments.remove(cutSegment1);
         cutSegments.remove(cutSegment2);
         CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
@@ -261,19 +258,10 @@ public class InternalPathEngine {
             // All the neighbors of v
             for (int i = 0; i < knotPoints.size(); i++) {
                 RouteInfo v = routeMap.get(knotPoints.get(i).id);
-                int uNode = uParent.id;
-                int vNode = v.id;
-                if (vNode == 16) {
-                    float z = 0;
-                }
                 RouteType[] routes = new RouteType[] { RouteType.prevC, RouteType.prevDC, RouteType.nextC,
                         RouteType.nextDC };
 
                 for (RouteType vRouteType : routes) {
-                    if (uParent.id == 4 && cutPoint2.id == 4 && cutPoint1.id == 20 && knotPoint1.id == 5
-                            && knotPoint2.id == 3) {
-                        float z = 0;
-                    }
                     Route vRoute = v.getRoute(vRouteType);
                     boolean isNotSettled = !settled.contains(vRoute.routeId);
                     boolean canRouteToExit = isNotSettled || v.id == knotPoint2.id;
@@ -287,22 +275,14 @@ public class InternalPathEngine {
                         Segment acrossSeg = neighbor.getClosestSegment(uParent.node, null);
                         Segment cutSeg = neighbor.getClosestSegment(v.node, null);
 
-                        boolean vIsPrev = isPrev(vRouteType);
-                        boolean vIsNext = isNext(vRouteType);
-                        boolean vIsConnected = isConnected(vRouteType);
+                        boolean vIsConnected = vRouteType.isConnected();
 
                         if (u.delta == Double.MAX_VALUE) {
                             continue;
                         }
-                        boolean uIsPrev = isPrev(u.routeType);
-                        boolean uIsNext = isNext(u.routeType);
-                        boolean uIsConnected = isConnected(u.routeType);
+                        boolean uIsConnected = u.routeType.isConnected();
                         boolean neighborInGroup = u.ourGroup.contains(neighbor);
-                        Route nRoute = n.getRoute(oppositeRoute(vRouteType));
-                        if (uParent.id == 4 && u.routeType == RouteType.prevC && v.id == 5
-                                && vRouteType == RouteType.nextDC) {
-                            float z = 0;
-                        }
+                        Route nRoute = n.getRoute(vRouteType.oppositeRoute());
                         if (v.id == cutPoint1.id && neighbor.id == knotPoint1.id) {
                             continue;
                         }
@@ -322,9 +302,6 @@ public class InternalPathEngine {
                             continue;
                         }
                         if (neighborInGroup) {
-                            if (n.id == 2 && uParent.id == 4 && cutPoint1.id == 5 && cutPoint2.id == 0) {
-                                float z = 0;
-                            }
                             int nIdx = u.ourGroup.indexOf(neighbor);
                             int vIdx = u.ourGroup.indexOf(v.node);
                             if (nIdx < vIdx) {
@@ -348,9 +325,6 @@ public class InternalPathEngine {
                                 if (!(knotPoint1.id == knotPoint.id || knotPoint2.id == knotPoint.id)) {
                                     knotPoint = grp.get(grp.size() - 1);
                                     knotPointIdx = grp.size() - 1;
-                                    if (!(knotPoint1.id == knotPoint.id || knotPoint2.id == knotPoint.id)) {
-                                        float z = 1 / 0;
-                                    }
                                 }
                                 int neighborIdx = grp.indexOf(neighbor);
                                 int vIdx = grp.indexOf(v.node);
@@ -376,14 +350,14 @@ public class InternalPathEngine {
                                     continue;
                                 }
 
-                                if (!uIsConnected && !isKnot(n.getOtherState(nRoute.state))
+                                if (!uIsConnected && !n.getOtherState(nRoute.state).isKnot()
                                         && vIsConnected) {
                                     continue;
                                 }
                                 if (uIsConnected
-                                        && ((!isKnot(u.state) && !isKnot(n.getOtherState(nRoute.state)))
-                                                || (isKnot(u.state)
-                                                        && isKnot(n.getOtherState(nRoute.state))))
+                                        && ((!u.state.isKnot() && !n.getOtherState(nRoute.state).isKnot())
+                                                || (u.state.isKnot()
+                                                        && n.getOtherState(nRoute.state).isKnot()))
                                         && vIsConnected) {
                                     continue;
                                 }
@@ -399,9 +373,6 @@ public class InternalPathEngine {
                                 double cutDistance = cutSeg.distance;
 
                                 double newDistancePrevNeighbor = u.delta + edgeDistance - cutDistance;
-                                if (Math.abs(newDistancePrevNeighbor - 15.524177) < 0.01) {
-                                    float z = 0;
-                                }
                                 if (u.delta == Double.MAX_VALUE) {
                                     newDistancePrevNeighbor = Double.MAX_VALUE;
                                 }
@@ -412,24 +383,6 @@ public class InternalPathEngine {
 
                                     v.updateRoute(newDistancePrevNeighbor, uParent.node, vRouteType, u.routeType, u);
                                 }
-                            }
-
-                            if (v.prevC.ancestor == null
-                                    && !(v.prevC.delta == 0 || v.prevC.delta == Double.MAX_VALUE)) {
-                                float z = 1 / 0;
-                            }
-                            if (v.prevDC.ancestor == null
-                                    && !(v.prevDC.delta == 0 || v.prevDC.delta == Double.MAX_VALUE)) {
-                                float z = 1 / 0;
-                            }
-
-                            if (v.nextC.ancestor == null
-                                    && !(v.nextC.delta == 0 || v.nextC.delta == Double.MAX_VALUE)) {
-                                float z = 1 / 0;
-                            }
-                            if (v.nextDC.ancestor == null
-                                    && !(v.nextDC.delta == 0 || v.nextDC.delta == Double.MAX_VALUE)) {
-                                float z = 1 / 0;
                             }
 
                         }
@@ -446,138 +399,6 @@ public class InternalPathEngine {
 
     }
 
-    private int idTransform(int id, RouteType rType) {
-        int base = id * 4;
-        switch (rType) {
-            case prevC:
-                return base + 0;
-            case nextC:
-                return base + 1;
-            case prevDC:
-                return base + 2;
-            case nextDC:
-                return base + 3;
-            default:
-                return -1;
-
-        }
-    }
-
-    private RouteType idTransToType(int id) {
-        int base = id % 4;
-        switch (base) {
-            case 0:
-                return RouteType.prevC;
-            case 1:
-                return RouteType.nextC;
-            case 2:
-                return RouteType.prevDC;
-            case 3:
-                return RouteType.nextDC;
-            default:
-                return RouteType.None;
-
-        }
-    }
-
-    public boolean isConnected(RouteType rType) {
-        switch (rType) {
-            case prevC:
-                return true;
-            case nextC:
-                return true;
-            case prevDC:
-                return false;
-            case nextDC:
-                return false;
-            case None:
-                return false;
-
-        }
-        return false;
-    }
-
-    public boolean isNext(RouteType rType) {
-        switch (rType) {
-            case prevC:
-                return false;
-            case nextC:
-                return true;
-            case prevDC:
-                return false;
-            case nextDC:
-                return true;
-            case None:
-                return false;
-
-        }
-        return false;
-    }
-
-    public boolean isPrev(RouteType rType) {
-        switch (rType) {
-            case prevC:
-                return true;
-            case nextC:
-                return false;
-            case prevDC:
-                return true;
-            case nextDC:
-                return false;
-            case None:
-                return false;
-
-        }
-        return false;
-    }
-
-    public State opposite(State state) {
-        switch (state) {
-            case toKP1:
-                return State.toKP2;
-            case toKP2:
-                return State.toKP1;
-            case toCP1:
-                return State.toCP2;
-            case toCP2:
-                return State.toCP1;
-            default:
-                return State.None;
-        }
-
-    }
-
-    public RouteType oppositeRoute(RouteType state) {
-        switch (state) {
-            case prevC:
-                return RouteType.nextC;
-            case nextC:
-                return RouteType.prevC;
-            case prevDC:
-                return RouteType.nextDC;
-            case nextDC:
-                return RouteType.prevDC;
-            default:
-                return RouteType.None;
-        }
-
-    }
-
-    public boolean isKnot(State state) {
-        switch (state) {
-            case toKP1:
-                return true;
-            case toKP2:
-                return true;
-            case toCP1:
-                return false;
-            case toCP2:
-                return false;
-            default:
-                return false;
-        }
-
-    }
 
     public ArrayList<VirtualPoint> paintState(State state, Group group, Knot knot, VirtualPoint knotPoint,
             VirtualPoint cutPoint, Segment cutSegment,
@@ -633,77 +454,6 @@ public class InternalPathEngine {
         return result;
     }
 
-    public enum State {
-        toKP1,
-        toCP1,
-        toKP2,
-        toCP2,
-        None,
-
-    }
-
-    public enum Group {
-        Left,
-        Right,
-        None,
-
-    }
-
-    public enum RouteType {
-        prevDC,
-        prevC,
-        nextDC,
-        nextC,
-        None;
-    }
-
-    public class Route implements Comparable<Route> {
-        public RouteType routeType;
-        public RouteType ancestorRouteType = RouteType.None;
-        public State state = State.None;
-        public VirtualPoint neighbor;
-        public double delta;
-        public VirtualPoint ancestor;
-        public ArrayList<VirtualPoint> ourGroup;
-        public ArrayList<VirtualPoint> otherGroup;
-        public ArrayList<Segment> cuts;
-        public ArrayList<Segment> matches;
-        public int routeId;
-        public RouteInfo parent;
-
-        public Route(RouteType routeType, double delta, VirtualPoint neighbor, int pointId, RouteInfo parent) {
-            this.routeType = routeType;
-            this.delta = delta;
-            this.neighbor = neighbor;
-            this.parent = parent;
-            cuts = new ArrayList<>();
-            matches = new ArrayList<>();
-            routeId = idTransform(pointId, routeType);
-
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-
-            if (obj == null) {
-                return false;
-            }
-            if (obj.getClass() != Route.class) {
-                return false;
-            } else {
-                Route r2 = (Route) obj;
-
-                return (this.routeId == r2.routeId);
-            }
-        }
-
-        @Override
-        public int compareTo(Route o) {
-            return Double.compare(delta, o.delta);
-        }
-
-    }
-
     class RouteComparator implements Comparator<RoutePair> {
 
         // Overriding compare()method of Comparator
@@ -712,238 +462,6 @@ public class InternalPathEngine {
         public int compare(RoutePair o1, RoutePair o2) {
             return Double.compare(o1.delta, o2.delta);
         }
-    }
-
-    public class RouteInfo implements Comparable<RouteInfo> {
-
-        // need to ad a concept of teh winding number to this model, which would flip
-        // the state of the prev/ next depending on weather the winding number is even
-        // or odd
-        //
-
-        public Group group;
-        public Route prevC;
-        public Route prevDC;
-        public Route nextC;
-        public Route nextDC;
-        int distFromPrevSource;
-        int distFromNextSource;
-
-        public VirtualPoint knotPoint1;
-        public VirtualPoint knotPoint2;
-        public VirtualPoint cutPoint1;
-        public VirtualPoint cutPoint2;
-
-        public double delta;
-        public RouteType minRoute = RouteType.None;
-        public RouteType ancestorRouteType;
-        public VirtualPoint ancestor;
-        public VirtualPoint matchedNeighbor;
-
-        public VirtualPoint node;
-        public int id;
-
-        public RouteInfo(VirtualPoint node, double delta, VirtualPoint prevNeighbor, VirtualPoint nextNeighbor,
-                VirtualPoint ancestor, VirtualPoint matchedNeighbor, VirtualPoint knotPoint1, VirtualPoint knotPoint2,
-                VirtualPoint cutPoint1, VirtualPoint cutPoint2) {
-            this.node = node;
-            this.id = node.id;
-            this.delta = delta;
-            this.prevC = new Route(RouteType.prevC, Double.MAX_VALUE, prevNeighbor, node.id, this);
-            this.nextC = new Route(RouteType.nextC, Double.MAX_VALUE, nextNeighbor, node.id, this);
-            this.prevDC = new Route(RouteType.prevDC, Double.MAX_VALUE, prevNeighbor, node.id, this);
-            this.nextDC = new Route(RouteType.nextDC, Double.MAX_VALUE, nextNeighbor, node.id, this);
-            this.ancestor = ancestor;
-            this.matchedNeighbor = matchedNeighbor;
-            this.knotPoint1 = knotPoint1;
-            this.knotPoint2 = knotPoint2;
-            this.cutPoint1 = cutPoint1;
-            this.cutPoint2 = cutPoint2;
-        }
-
-        public void assignGroup(ArrayList<VirtualPoint> ourGroup, ArrayList<VirtualPoint> otherGroup) {
-            prevC.ourGroup = ourGroup;
-            prevC.otherGroup = otherGroup;
-            prevDC.ourGroup = ourGroup;
-            prevDC.otherGroup = otherGroup;
-            nextC.ourGroup = ourGroup;
-            nextC.otherGroup = otherGroup;
-            nextDC.ourGroup = ourGroup;
-            nextDC.otherGroup = otherGroup;
-        }
-
-        public State getOtherState(State state) {
-            if (prevC.state == state) {
-                return nextC.state;
-            } else {
-                return prevC.state;
-            }
-        }
-
-        public void update(double delta, VirtualPoint ancestor, VirtualPoint matchedNeighbor, RouteType routeType,
-                RouteType ancestorRouteType) {
-            if (delta < this.delta) {
-                this.delta = delta;
-                this.minRoute = routeType;
-                this.ancestor = ancestor;
-                this.matchedNeighbor = matchedNeighbor;
-                this.ancestorRouteType = ancestorRouteType;
-                if (this.delta != 0.0 && ancestor == null) {
-                    float z = 1 / 0;
-                }
-            }
-        }
-
-        public void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType,
-                Route ancestorRoute) {
-            Route route = getRoute(routeType);
-            if (delta < route.delta) {
-                route.delta = delta;
-                route.ancestorRouteType = ancestorRouteType;
-                route.ancestor = ancestor;
-                if (ancestor == null) {
-                    float z = 1 / 0;
-                }
-
-                if (route.ancestor == null) {
-                    float z = 1 / 0;
-                }
-                if (ancestorRoute.delta == Double.MAX_VALUE) {
-                    float z = 1 / 0;
-                }
-                if (ancestorRouteType != ancestorRoute.routeType) {
-                    float z = 1 / 0;
-                }
-                VirtualPoint neighbor = route.neighbor;
-                VirtualPoint node = this.node;
-
-                route.cuts = new ArrayList<>(ancestorRoute.cuts);
-                Segment newCut = node.getClosestSegment(neighbor, null);
-                if (ancestorRoute.cuts.contains(newCut)) {
-                    float z = 1 / 0;
-                }
-                route.cuts.add(0, newCut);
-                route.matches = new ArrayList<>(ancestorRoute.matches);
-                route.matches.add(0, ancestor.getClosestSegment(neighbor, null));
-
-                if (ancestorRoute.ourGroup.contains(node)) {
-                    ArrayList<VirtualPoint> grp = ancestorRoute.ourGroup;
-                    int idxNeighbor = grp.indexOf(neighbor);
-                    int rotateIdx = grp.indexOf(node);
-
-                    route.otherGroup = ancestorRoute.otherGroup;
-
-                    ArrayList<VirtualPoint> reverseList = new ArrayList<VirtualPoint>();
-                    if (idxNeighbor > rotateIdx || idxNeighbor == -1) {
-                        for (int i = rotateIdx + 1; i < grp.size(); i++) {
-                            reverseList.add(grp.get(i));
-                        }
-                        for (int i = 0; i < rotateIdx + 1; i++) {
-                            reverseList.add(0, grp.get(i));
-                        }
-                        route.ourGroup = reverseList;
-                    } else {
-                        for (int i = 0; i < rotateIdx; i++) {
-                            reverseList.add(grp.get(i));
-                        }
-                        for (int i = rotateIdx; i < grp.size(); i++) {
-                            reverseList.add(0, grp.get(i));
-                        }
-                        route.ourGroup = reverseList;
-                    }
-                } else {
-
-                    ArrayList<VirtualPoint> grp = ancestorRoute.otherGroup;
-                    ArrayList<VirtualPoint> otherGrp = ancestorRoute.ourGroup;
-                    int idxNeighbor = grp.indexOf(neighbor);
-                    int rotateIdx = grp.indexOf(node);
-                    route.otherGroup = ancestorRoute.otherGroup;
-                    ArrayList<VirtualPoint> remainList = new ArrayList<VirtualPoint>();
-                    ArrayList<VirtualPoint> reverseList = new ArrayList<VirtualPoint>(otherGrp);
-                    if (idxNeighbor > rotateIdx || idxNeighbor == -1) {
-                        for (int i = 0; i < rotateIdx + 1; i++) {
-                            remainList.add(0, grp.get(i));
-                        }
-                        for (int i = rotateIdx + 1; i < grp.size(); i++) {
-                            reverseList.add(0, grp.get(i));
-                        }
-                    } else {
-                        for (int i = rotateIdx; i < grp.size(); i++) {
-                            remainList.add(grp.get(i));
-                        }
-                        for (int i = rotateIdx - 1; i >= 0; i--) {
-                            reverseList.add(0, grp.get(i));
-                        }
-                    }
-                    route.ourGroup = remainList;
-                    route.otherGroup = reverseList;
-                }
-                if (!route.ourGroup.get(0).equals(node)) {
-                    float z = 1 / 0;
-                }
-
-                if (!isConnected(routeType) && !((route.otherGroup.get(route.otherGroup.size() - 1).equals(knotPoint1)
-                        && route.otherGroup.get(0).equals(knotPoint2))
-                        || (route.otherGroup.get(0).equals(knotPoint1)
-                                && route.otherGroup.get(route.otherGroup.size() - 1).equals(knotPoint2)))) {
-                    float z = 1 / 0;
-                }
-                if (isConnected(routeType) && !(route.ourGroup.get(route.ourGroup.size() - 1).equals(knotPoint1)
-                        || route.ourGroup.get(route.ourGroup.size() - 1).equals(knotPoint2)
-                        || route.ourGroup.get(0).equals(knotPoint1)
-                        || route.ourGroup.get(0).equals(knotPoint2))) {
-                    float z = 1 / 0;
-                }
-                if (!neighbor.equals(cutPoint2)
-                        && !((route.ourGroup.contains(neighbor) && route.ourGroup.contains(ancestor))
-                                || (route.otherGroup.contains(neighbor) && route.otherGroup.contains(ancestor)))) {
-
-                    float z = 1 / 0;
-                }
-                if (node.equals(knotPoint1) && route.ourGroup.size() > 1) {
-                    float z = 1 / 0;
-                }
-            }
-
-        }
-
-        public Route getRoute(RouteType routeType) {
-            switch (routeType) {
-                case prevC:
-                    return prevC;
-                case nextC:
-                    return nextC;
-                case prevDC:
-                    return prevDC;
-                case nextDC:
-                    return nextDC;
-                default:
-                    return null;
-            }
-        }
-
-        @Override
-        public int compareTo(RouteInfo other) {
-            if (this.delta < other.delta) {
-                return -1;
-            }
-
-            if (this.delta > other.delta) {
-                return 1;
-            }
-
-            return 0;
-        }
-
-        public State getKnotState() {
-            if (prevC.state == State.toKP1 || prevC.state == State.toKP2) {
-                return prevC.state;
-            } else if (nextC.state == State.toKP1 || nextC.state == State.toKP2) {
-                return nextC.state;
-            }
-            return State.None;
-        }
-
     }
 
     class DisjointUnionSets {

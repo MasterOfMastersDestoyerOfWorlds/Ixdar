@@ -14,6 +14,19 @@ import java.util.Random;
 
 import javax.swing.JComponent;
 
+import shell.cuts.CutEngine;
+import shell.exceptions.BalancerException;
+import shell.exceptions.SegmentBalanceException;
+import shell.knot.Knot;
+import shell.knot.Point;
+import shell.knot.Run;
+import shell.knot.Segment;
+import shell.knot.VirtualPoint;
+import shell.ui.Camera;
+import shell.ui.Drawing;
+import shell.utils.RunListUtils;
+import shell.utils.StringBuff;
+
 /**
  * This class represents a list of some points in the point set. Initially each
  * shell is a convex hull, but they are eventually combined together to form the
@@ -25,14 +38,14 @@ public class Shell extends LinkedList<PointND> {
 	public static int failed = 0;
 	private Shell child;
 	ArrayList<VirtualPoint> visited;
-	ArrayList<VirtualPoint> unvisited;
+	public ArrayList<VirtualPoint> unvisited;
 	public HashMap<Integer, VirtualPoint> pointMap = new HashMap<Integer, VirtualPoint>();
 	public DistanceMatrix distanceMatrix;
-	String knotName;
+	public String knotName;
 
 	public CutEngine cutEngine = new CutEngine(this);
 
-	StringBuff buff = new StringBuff();
+	public StringBuff buff = new StringBuff();
 
 	int breakCount = 0;
 	int runCount = 0;

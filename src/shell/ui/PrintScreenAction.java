@@ -1,4 +1,4 @@
-package shell;
+package shell.ui;
 
 import java.awt.event.ActionEvent;
 import java.awt.image.BufferedImage;

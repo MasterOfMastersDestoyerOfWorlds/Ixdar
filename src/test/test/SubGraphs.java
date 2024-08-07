@@ -2,9 +2,10 @@ package test;
 
 import shell.DistanceMatrix;
 import shell.FileManagement;
-import shell.PointSetPath;
-import shell.SegmentBalanceException;
 import shell.Shell;
+import shell.exceptions.SegmentBalanceException;
+import shell.ui.PointSetPath;
+
 import java.io.File;
 import java.util.Collections;
 import java.util.Random;

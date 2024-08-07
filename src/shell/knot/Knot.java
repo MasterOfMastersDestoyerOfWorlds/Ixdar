@@ -1,7 +1,10 @@
-package shell;
+package shell.knot;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+
+import shell.Shell;
+import shell.utils.RunListUtils;
 
 public class Knot extends VirtualPoint {
 
@@ -169,7 +172,7 @@ public class Knot extends VirtualPoint {
         return null;
     }
 
-    VirtualPoint getPrev(int idx) {
+    public VirtualPoint getPrev(int idx) {
         return knotPoints.get(idx - 1 < 0 ? knotPoints.size() - 1 : idx - 1);
     }
 
@@ -178,7 +181,7 @@ public class Knot extends VirtualPoint {
         return knotPoints.get(idx - 1 < 0 ? knotPoints.size() - 1 : idx - 1);
     }
 
-    VirtualPoint getNext(int idx) {
+    public VirtualPoint getNext(int idx) {
         return knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
     }
 

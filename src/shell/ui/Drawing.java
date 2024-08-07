@@ -1,4 +1,4 @@
-package shell;
+package shell.ui;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -11,6 +11,17 @@ import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
 
 import javax.swing.JComponent;
+
+import shell.BalanceMap;
+import shell.PointND;
+import shell.PointSet;
+import shell.Shell;
+import shell.cuts.CutMatch;
+import shell.exceptions.SegmentBalanceException;
+import shell.knot.Knot;
+import shell.knot.Point;
+import shell.knot.Segment;
+import shell.knot.VirtualPoint;
 
 public class Drawing {
 

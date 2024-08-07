@@ -1,4 +1,8 @@
-package shell;
+package shell.exceptions;
+
+import shell.Shell;
+import shell.cuts.CutInfo;
+import shell.cuts.CutMatchList;
 
 public class InvalidCutException extends SegmentBalanceException {
     

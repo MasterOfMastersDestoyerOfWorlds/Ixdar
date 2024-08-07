@@ -1,5 +1,10 @@
-package shell;
+package shell.utils;
 import java.util.ArrayList;
+
+import shell.knot.Point;
+import shell.knot.Run;
+import shell.knot.Segment;
+import shell.knot.VirtualPoint;
 
 public final class RunListUtils{
 	public static ArrayList<VirtualPoint> flattenRunPoints(ArrayList<VirtualPoint> knotPoints, boolean knot) {

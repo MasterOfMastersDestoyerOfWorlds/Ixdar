@@ -3,22 +3,14 @@ package shell;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import javax.imageio.ImageIO;
-import javax.swing.JFrame;
+import shell.ui.PointSetPath;
 
-import java.awt.event.ActionEvent;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
-import java.awt.image.BufferedImage;
-import java.beans.PropertyChangeListener;
-
-import javax.swing.AbstractAction;
-import javax.swing.Action;
 
 public class FileManagement {
 

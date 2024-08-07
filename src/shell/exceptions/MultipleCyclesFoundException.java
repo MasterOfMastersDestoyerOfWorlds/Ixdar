@@ -1,6 +1,11 @@
-package shell;
+package shell.exceptions;
 
 import java.util.ArrayList;
+
+import shell.Shell;
+import shell.cuts.CutInfo;
+import shell.cuts.CutMatchList;
+import shell.knot.Segment;
 
 public class MultipleCyclesFoundException extends SegmentBalanceException {
     ArrayList<Segment> matchSegments;

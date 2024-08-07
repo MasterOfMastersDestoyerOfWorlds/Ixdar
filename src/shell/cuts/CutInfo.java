@@ -1,9 +1,17 @@
-package shell;
+package shell.cuts;
 
 import java.util.ArrayList;
 
 import org.apache.commons.collections4.map.MultiKeyMap;
 import org.apache.commons.math3.util.Pair;
+
+import shell.BalanceMap;
+import shell.Shell;
+import shell.exceptions.SegmentBalanceException;
+import shell.knot.Knot;
+import shell.knot.Segment;
+import shell.knot.VirtualPoint;
+import shell.utils.Utils;
 
 public class CutInfo {
     Knot knot;
@@ -12,12 +20,12 @@ public class CutInfo {
     Segment cutSegment1;
     VirtualPoint kp1;
     VirtualPoint cp1;
-    Knot superKnot;
+    public Knot superKnot;
 
     Segment kpSegment;
     ArrayList<Segment> innerNeighborSegments;
 
-    MultiKeyMap<Integer, Segment> innerNeighborSegmentLookup;
+    public MultiKeyMap<Integer, Segment> innerNeighborSegmentLookup;
     ArrayList<Segment> neighborSegments;
 
     ArrayList<Pair<Segment, VirtualPoint>> neighborCutSegments;
@@ -30,18 +38,18 @@ public class CutInfo {
 
     VirtualPoint upperKnotPoint;
     VirtualPoint upperExternal;
-    Segment upperCutSegment;
-    Segment upperMatchSegment;
+    public Segment upperCutSegment;
+    public Segment upperMatchSegment;
 
     VirtualPoint lowerKnotPoint;
     VirtualPoint lowerExternal;
-    Segment lowerCutSegment;
-    Segment lowerMatchSegment;
+    public Segment lowerCutSegment;
+    public Segment lowerMatchSegment;
     Shell shell;
     SegmentBalanceException sbe;
     VirtualPoint lowerCutPoint;
     static int numCuts = 0;
-    int cutID;
+    public int cutID;
     boolean bothKnotPointsOutside;
     public BalanceMap balanceMap;
 
@@ -90,13 +98,6 @@ public class CutInfo {
         this.lowerExternal = lowerMatchSegment.getOther(lowerKnotPoint);
         this.balanceMap = balanceMap;
 
-        if(upperMatchSegment.hasPoints(0, 2) && lowerMatchSegment.hasPoints(1, 2)){
-            float z = 0;
-        }
-        if(lowerMatchSegment.hasPoints(0, 2) && upperMatchSegment.hasPoints(1, 2)){
-            float z = 0;
-        }
-
         this.sbe = new SegmentBalanceException(shell, null, this);
     }
 
@@ -124,12 +125,6 @@ public class CutInfo {
 
         this.upperKnotPoint = upperKnotPoint;
         this.upperMatchSegment = upperKnotPoint.getClosestSegment(upperExternal, lowerMatchSegment);
-        if(upperMatchSegment.hasPoints(0, 2) && lowerMatchSegment.hasPoints(1, 2)){
-            float z = 0;
-        }
-        if(lowerMatchSegment.hasPoints(0, 2) && upperMatchSegment.hasPoints(1, 2)){
-            float z = 0;
-        }
         this.upperCutPoint = upperCutPoint;
         this.upperExternal = upperExternal;
         this.upperCutSegment = upperCutSegment;
@@ -148,12 +143,6 @@ public class CutInfo {
         this.lowerMatchSegment = matchSegment1Final;
         this.upperCutSegment = cutSegment2Final;
         this.upperMatchSegment = matchSegment2Final;
-        if(upperMatchSegment.hasPoints(0, 2) && lowerMatchSegment.hasPoints(1, 2)){
-            float z = 0;
-        }
-        if(lowerMatchSegment.hasPoints(0, 2) && upperMatchSegment.hasPoints(1, 2)){
-            float z = 0;
-        }
         this.superKnot = knot;
         // TODO Auto-generated constructor stub
     }
@@ -194,13 +183,6 @@ public class CutInfo {
         this.balanceMap = c.balanceMap;
 
         this.sbe = c.sbe;
-
-        if(upperMatchSegment.hasPoints(0, 2) && lowerMatchSegment.hasPoints(1, 2)){
-            float z = 0;
-        }
-        if(lowerMatchSegment.hasPoints(0, 2) && upperMatchSegment.hasPoints(1, 2)){
-            float z = 0;
-        }
 
 
     }

@@ -1,33 +1,23 @@
 package test;
 
-import shell.BalanceMap;
-import shell.BalancerException;
-import shell.CutInfo;
-import shell.CutMatchList;
 import shell.DistanceMatrix;
 import shell.FileManagement;
-import shell.InternalPathEngine.Route;
-import shell.InternalPathEngine.RouteInfo;
-import shell.InternalPathEngine.RouteType;
-import shell.Knot;
-import shell.Point;
+import shell.enums.RouteType;
+import shell.knot.Knot;
+import shell.knot.Segment;
+import shell.knot.VirtualPoint;
+import shell.route.Route;
+import shell.route.RouteInfo;
+import shell.ui.PointSetPath;
 import shell.PointND;
-import shell.PointSet;
-import shell.PointSetPath;
-import shell.Segment;
-import shell.SegmentBalanceException;
 import shell.Shell;
-import shell.VirtualPoint;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
@@ -122,7 +112,6 @@ public class HoleMoving {
 		try {
 
 			BufferedReader br = new BufferedReader(new FileReader(new File("./src/test/routeMap/" + stateFile)));
-			ArrayList<PointND> lines = new ArrayList<PointND>();
 			String line = br.readLine();
 			while (line != null) {
 				String[] cords = line.split(",");

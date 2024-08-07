@@ -1,9 +1,19 @@
-package shell;
+package shell.cuts;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.apache.commons.collections4.map.MultiKeyMap;
+
+import shell.BalanceMap;
+import shell.Shell;
+import shell.exceptions.BalancerException;
+import shell.exceptions.SegmentBalanceException;
+import shell.exceptions.ShorterPathNotFoundException;
+import shell.knot.Knot;
+import shell.knot.Point;
+import shell.knot.Segment;
+import shell.knot.VirtualPoint;
 
 public class CutEngine {
 
@@ -35,9 +45,7 @@ public class CutEngine {
             Segment kpSegment) throws SegmentBalanceException, BalancerException {
 
         double minDelta = Double.MAX_VALUE;
-        boolean overlapping = true;
         CutMatchList result = null;
-        String resultloc = "";
 
         for (int a = 0; a < knot.knotPoints.size(); a++) {
             for (int b = 0; b < knot.knotPoints.size(); b++) {
@@ -91,13 +99,10 @@ public class CutEngine {
                     if (delta < minDelta) {
                         if (d1 < d2) {
                             result = cutMatch1;
-                            resultloc = "overlap1";
                         } else {
                             result = cutMatch2;
-                            resultloc = "overlap2";
                         }
                         minDelta = delta;
-                        overlapping = true;
                     }
                 } else {
                     double delta = Double.MAX_VALUE;
@@ -292,13 +297,6 @@ public class CutEngine {
 
                     double d5 = Double.MAX_VALUE, d6 = Double.MAX_VALUE;
                     CutMatchList cutMatch6 = null, cutMatch5 = null;
-                    Knot smallestCommonKnotPointKnot = flatKnots
-                            .get(shell.smallestCommonKnotLookup[knotPoint11.id][knotPoint22.id]);
-
-                    int smallestKnotIdA = shell.smallestKnotLookup[knotPoint11.id];
-                    int smallestKnotIdB = shell.smallestKnotLookup[knotPoint22.id];
-                    int smallestKnotIdKp1 = shell.smallestKnotLookup[knotPoint21.id];
-                    int smallestKnotIdKp2 = shell.smallestKnotLookup[knotPoint12.id];
                     boolean skip = true;
                     if (!skip) {
                         CutMatchList internalCuts5 = internalPathEngine.calculateInternalPathLength(
@@ -341,7 +339,6 @@ public class CutEngine {
                         CutInfo c6 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, externalPoint61,
                                 knotPoint21,
                                 knotPoint22, cutSegment2, externalPoint62, knot, null);
-                        SegmentBalanceException sbe6noic = new SegmentBalanceException(shell, null, c6);
                         BalanceMap balanceMap6 = new BalanceMap(knot, sbe56);
                         balanceMap6.addCut(knotPoint11, knotPoint12);
                         balanceMap6.addCut(knotPoint21, knotPoint22);
@@ -377,7 +374,6 @@ public class CutEngine {
                         }
 
                         minDelta = delta;
-                        overlapping = false;
                     }
 
                 }

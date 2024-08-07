@@ -30,6 +30,16 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
+import shell.exceptions.SegmentBalanceException;
+import shell.knot.Knot;
+import shell.knot.Point;
+import shell.knot.Run;
+import shell.knot.VirtualPoint;
+import shell.ui.Camera;
+import shell.ui.Drawing;
+import shell.ui.PointSetPath;
+import shell.ui.PrintScreenAction;
+
 /**
  * The main class that facilitates running our tsp solver
  */

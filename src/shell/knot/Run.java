@@ -1,9 +1,12 @@
-package shell;
+package shell.knot;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 
-class Run extends VirtualPoint {
+import shell.Shell;
+import shell.utils.RunListUtils;
+
+public class Run extends VirtualPoint {
     public int size;
     public ArrayList<VirtualPoint> knotPoints; // [ vp1, vp2, ... vpm];
     public HashMap<Integer, VirtualPoint> pointToInternalKnot;

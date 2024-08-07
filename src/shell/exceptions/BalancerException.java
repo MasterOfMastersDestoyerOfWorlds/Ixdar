@@ -1,4 +1,7 @@
-package shell;
+package shell.exceptions;
+
+import shell.knot.Segment;
+import shell.knot.VirtualPoint;
 
 public class BalancerException extends SegmentBalanceException{
 

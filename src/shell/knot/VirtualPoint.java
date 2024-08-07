@@ -1,26 +1,28 @@
 
-package shell;
+package shell.knot;
 
 import java.util.ArrayList;
 
+import shell.Shell;
+
 public abstract class VirtualPoint {
-		int numMatches;
-		Point match1endpoint;
-		VirtualPoint match1;
-		Point basePoint1;
-		Segment s1;
-		Point match2endpoint;
-		VirtualPoint match2;
-		Point basePoint2;
-		ArrayList<VirtualPoint> externalVirtualPoints;
-		ArrayList<VirtualPoint> knotPointsFlattened;
-		ArrayList<Segment> sortedSegments;
-		Segment s2;
+		public int numMatches;
+		public Point match1endpoint;
+		public VirtualPoint match1;
+		public Point basePoint1;
+		public Segment s1;
+		public Point match2endpoint;
+		public VirtualPoint match2;
+		public Point basePoint2;
+		public ArrayList<VirtualPoint> externalVirtualPoints;
+		public ArrayList<VirtualPoint> knotPointsFlattened;
+		public ArrayList<Segment> sortedSegments;
+		public Segment s2;
 		public int id;
-		boolean isKnot;
-		boolean isRun;
-		VirtualPoint group;
-		VirtualPoint topGroup;
+		public boolean isKnot;
+		public boolean isRun;
+		public VirtualPoint group;
+		public VirtualPoint topGroup;
 		VirtualPoint topGroupVirtualPoint;
 		Shell shell;
 

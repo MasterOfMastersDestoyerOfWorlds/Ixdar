@@ -1,14 +1,14 @@
 package test;
 
 
-import shell.BalancerException;
 import shell.DistanceMatrix;
 import shell.FileManagement;
-import shell.Main;
 import shell.PointSet;
-import shell.PointSetPath;
-import shell.SegmentBalanceException;
 import shell.Shell;
+import shell.exceptions.BalancerException;
+import shell.exceptions.SegmentBalanceException;
+import shell.ui.PointSetPath;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;

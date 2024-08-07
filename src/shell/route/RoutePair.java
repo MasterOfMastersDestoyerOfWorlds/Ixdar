@@ -1,10 +1,8 @@
-package shell;
-
-import shell.InternalPathEngine.Route;
+package shell.route;
 
 public class RoutePair {
-    double delta;
-    Route route;
+    public double delta;
+    public Route route;
 
     public RoutePair(Route vRoute) {
         route = vRoute;

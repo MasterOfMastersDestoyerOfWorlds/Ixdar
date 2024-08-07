@@ -1,11 +1,11 @@
-package shell;
+package shell.knot;
 
 import java.util.ArrayList;
 
 public class Segment implements Comparable<Segment> {
-    VirtualPoint first;
-    VirtualPoint last;
-    double distance;
+    public VirtualPoint first;
+    public VirtualPoint last;
+    public double distance;
 
     public Segment(VirtualPoint first,
             VirtualPoint last,
@@ -16,7 +16,7 @@ public class Segment implements Comparable<Segment> {
 
     }
 
-    VirtualPoint getOther(VirtualPoint vp) {
+    public VirtualPoint getOther(VirtualPoint vp) {
         if (vp.equals(first)) {
             return last;
         }
@@ -26,7 +26,7 @@ public class Segment implements Comparable<Segment> {
         return null;
     }
 
-    VirtualPoint getOtherKnot(VirtualPoint vp) {
+    public VirtualPoint getOtherKnot(VirtualPoint vp) {
         if (vp.isKnot) {
             Knot knot = (Knot) vp;
             VirtualPoint p = this.getKnotPoint(knot.knotPointsFlattened);
@@ -40,11 +40,11 @@ public class Segment implements Comparable<Segment> {
         }
     }
 
-    boolean contains(VirtualPoint vp) {
+    public boolean contains(VirtualPoint vp) {
         return first.equals(vp) || last.equals(vp);
     }
 
-    VirtualPoint getKnotPoint(ArrayList<VirtualPoint> knotPointsFlattened) {
+    public VirtualPoint getKnotPoint(ArrayList<VirtualPoint> knotPointsFlattened) {
         if (knotPointsFlattened.contains(first)) {
             return first;
         }

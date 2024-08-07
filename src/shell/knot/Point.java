@@ -1,6 +1,9 @@
-package shell;
+package shell.knot;
 
 import java.util.ArrayList;
+
+import shell.PointND;
+import shell.Shell;
 
 public class Point extends VirtualPoint {
     public PointND p;
