@@ -52,4 +52,10 @@ public class Route implements Comparable<Route> {
         return Double.compare(delta, o.delta);
     }
 
+    @Override
+    public String toString() {
+        return routeType.name() + "," + (ancestor == null ? "NULL"
+                : ancestor.id) + "," + (delta == Double.MAX_VALUE ? "INF" : delta);
+    }
+
 }

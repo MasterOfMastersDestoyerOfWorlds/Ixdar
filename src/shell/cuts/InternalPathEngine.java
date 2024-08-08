@@ -20,6 +20,7 @@ import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.route.Route;
 import shell.route.RouteInfo;
+import shell.route.RouteMap;
 import shell.route.RoutePair;
 
 public class InternalPathEngine {
@@ -131,7 +132,7 @@ public class InternalPathEngine {
 
     }
 
-    public HashMap<Integer, RouteInfo> ixdar(VirtualPoint knotPoint1, VirtualPoint cutPoint1, VirtualPoint external1,
+    public RouteMap<Integer, RouteInfo> ixdar(VirtualPoint knotPoint1, VirtualPoint cutPoint1, VirtualPoint external1,
             VirtualPoint knotPoint2, VirtualPoint cutPoint2, VirtualPoint external2,
             Knot knot, boolean knotPointsConnected, Segment cutSegment1, Segment cutSegment2, int steps,
             int sourcePoint, RouteType routeType) {
@@ -184,7 +185,7 @@ public class InternalPathEngine {
          * by cutpoint2 and knotpoint2
          */
         ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
-        HashMap<Integer, RouteInfo> routeMap = new HashMap<>();
+        RouteMap<Integer, RouteInfo> routeMap = new RouteMap<>();
         PriorityQueue<RoutePair> q = new PriorityQueue<RoutePair>(new RouteComparator());
         Set<Integer> settled = new HashSet<Integer>();
         int numPoints = knot.size();
@@ -289,12 +290,16 @@ public class InternalPathEngine {
                     Route vRoute = v.getRoute(vRouteType);
                     boolean isNotSettled = !settled.contains(vRoute.routeId);
                     boolean canRouteToExit = isNotSettled || v.id == knotPoint2.id;
-
+                    if (uParent.id == 1 && u.routeType == RouteType.prevC && v.id == 0 && vRoute.routeType == RouteType.prevC) {
+                        float z = 0;
+                    }
                     // TODO: Generate an exception if we update prevC and prevDC or nextC and nextDC
                     // from the same uRoute
                     if (canRouteToExit) {
 
                         VirtualPoint neighbor = vRoute.neighbor;
+
+
                         RouteInfo n = routeMap.get(neighbor.id);
                         Segment acrossSeg = neighbor.getClosestSegment(uParent.node, null);
                         Segment cutSeg = neighbor.getClosestSegment(v.node, null);
@@ -305,9 +310,6 @@ public class InternalPathEngine {
                             continue;
                         }
                         boolean uIsConnected = u.routeType.isConnected();
-                        if (u.ourGroup == null) {
-                            float z = 0;
-                        }
                         boolean neighborInGroup = u.ourGroup.contains(neighbor);
 
                         Route nRoute = n.getRoute(vRouteType.oppositeRoute());
@@ -371,21 +373,34 @@ public class InternalPathEngine {
                                     continue;
                                 }
                             } else {
+
+
+                                ArrayList<VirtualPoint> grp = u.ourGroup;
+                                VirtualPoint knotPoint = grp.get(0);
+                                int knotPointIdx = 0;
+                                if (!(knotPoint1.id == knotPoint.id || knotPoint2.id == knotPoint.id)) {
+                                    knotPoint = grp.get(grp.size() - 1);
+                                    knotPointIdx = grp.size() - 1;
+                                }
+                                int neighborIdx = grp.indexOf(neighbor);
+                                int vIdx = grp.indexOf(v.node);
+                                boolean between = false;
+                                if ((neighborIdx >= knotPointIdx && neighborIdx < vIdx) ||
+                                        (neighborIdx <= knotPointIdx && neighborIdx > vIdx)) {
+                                    between = true;
+                                }
                                 if (uIsConnected && !vIsConnected) {
                                     continue;
                                 }
                                 if (!uIsConnected && vIsConnected) {
                                     continue;
                                 }
-
                                 if (!uIsConnected && !n.getOtherState(nRoute.state).isKnot()
                                         && vIsConnected) {
                                     continue;
                                 }
                                 if (uIsConnected
-                                        && ((!u.state.isKnot() && !n.getOtherState(nRoute.state).isKnot())
-                                                || (u.state.isKnot()
-                                                        && n.getOtherState(nRoute.state).isKnot()))
+                                        && !between
                                         && vIsConnected) {
                                     continue;
                                 }

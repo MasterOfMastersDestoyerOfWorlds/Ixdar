@@ -237,5 +237,10 @@ public class RouteInfo implements Comparable<RouteInfo> {
         }
         return State.None;
     }
+    @Override
+    public String toString() {
+        return node.id + "," + prevC.toString() + "," + prevDC.toString() + "," + nextC.toString() + "," + nextDC.toString();
+        
+    }
 
 }
