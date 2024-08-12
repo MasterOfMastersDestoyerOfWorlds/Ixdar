@@ -84,13 +84,18 @@ public class HoleMoving {
 		testMethod("wi29_5-25-simple", "wi29_5_25_kp1_0_kp2_3_layer_5.csv", 5, 5, 6, 2, 3, true, 4, RouteType.prevC);
 	}
 
-
-	
 	@Test
 	public void wi29_6_25p20_kp1_4_kp2_7_layer_1() {
 		testMethod("wi29_6-25p20", "wi29_6_25p20_kp1_4_kp2_7_layer_1.csv", -1, 4, 5, 7, 6, false, 1,
+				RouteType.nextC);
+	}
+
+	@Test
+	public void circle_in_5_arc_kp1_2_kp2_6_layer_1() {
+		testMethod("circle_in_5_arc", "circle_in_5_arc_kp1_2_kp2_6_layer_1.csv", 1, 2, 3, 6, 5, true, 3,
 				RouteType.prevC);
 	}
+
 	public void testMethod(String fileName, String stateFile, int layer, int kp1, int cp1, int kp2, int cp2,
 			boolean knotPointsConnected, int sourcePoint, RouteType routeType) {
 		PointSetPath retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
@@ -126,8 +131,8 @@ public class HoleMoving {
 		VirtualPoint external2 = wh;
 
 		RouteMap<Integer, RouteInfo> routeMap = AB.cutEngine.internalPathEngine.ixdar(
-				knotPoint1, cutPoint1, external1,
-				knotPoint2, cutPoint2, external2, k, knotPointsConnected, cutSegment1, cutSegment2, layer, sourcePoint,
+				knotPoint1, cutPoint1,
+				knotPoint2, cutPoint2, k, knotPointsConnected, cutSegment1, cutSegment2, layer, sourcePoint,
 				routeType);
 
 		try {

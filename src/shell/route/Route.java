@@ -14,6 +14,7 @@ public class Route implements Comparable<Route> {
     public VirtualPoint neighbor;
     public double delta;
     public VirtualPoint ancestor;
+    public ArrayList<Route> ancestors;
     public ArrayList<VirtualPoint> ourGroup;
     public ArrayList<VirtualPoint> otherGroup;
     public ArrayList<Segment> cuts;
@@ -26,10 +27,18 @@ public class Route implements Comparable<Route> {
         this.delta = delta;
         this.neighbor = neighbor;
         this.parent = parent;
+        ancestors = new ArrayList<>();
         cuts = new ArrayList<>();
         matches = new ArrayList<>();
         routeId = routeType.idTransform(pointId);
 
+    }
+
+    public void reset(){
+        delta = Double.MAX_VALUE;
+        ancestors = new ArrayList<>();
+        cuts = new ArrayList<>();
+        matches = new ArrayList<>();
     }
 
     @Override

@@ -8,7 +8,7 @@ import shell.enums.State;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 
-public class RouteInfo implements Comparable<RouteInfo> {
+public class RouteInfo{
 
     // need to ad a concept of teh winding number to this model, which would flip
     // the state of the prev/ next depending on weather the winding number is even
@@ -20,6 +20,7 @@ public class RouteInfo implements Comparable<RouteInfo> {
     public Route prevDC;
     public Route nextC;
     public Route nextDC;
+    public Route[] routes;
     public int distFromPrevSource;
     public int distFromNextSource;
 
@@ -27,12 +28,6 @@ public class RouteInfo implements Comparable<RouteInfo> {
     public VirtualPoint knotPoint2;
     public VirtualPoint cutPoint1;
     public VirtualPoint cutPoint2;
-
-    public double delta;
-    public RouteType minRoute = RouteType.None;
-    public RouteType ancestorRouteType;
-    public VirtualPoint ancestor;
-    public VirtualPoint matchedNeighbor;
 
     public VirtualPoint node;
     public int id;
@@ -42,13 +37,11 @@ public class RouteInfo implements Comparable<RouteInfo> {
             VirtualPoint cutPoint1, VirtualPoint cutPoint2) {
         this.node = node;
         this.id = node.id;
-        this.delta = delta;
         this.prevC = new Route(RouteType.prevC, Double.MAX_VALUE, prevNeighbor, node.id, this);
         this.nextC = new Route(RouteType.nextC, Double.MAX_VALUE, nextNeighbor, node.id, this);
         this.prevDC = new Route(RouteType.prevDC, Double.MAX_VALUE, prevNeighbor, node.id, this);
         this.nextDC = new Route(RouteType.nextDC, Double.MAX_VALUE, nextNeighbor, node.id, this);
-        this.ancestor = ancestor;
-        this.matchedNeighbor = matchedNeighbor;
+        routes = new Route[]{prevC, prevDC, nextC, nextDC};
         this.knotPoint1 = knotPoint1;
         this.knotPoint2 = knotPoint2;
         this.cutPoint1 = cutPoint1;
@@ -64,28 +57,6 @@ public class RouteInfo implements Comparable<RouteInfo> {
         nextC.otherGroup = otherGroup;
         nextDC.ourGroup = ourGroup;
         nextDC.otherGroup = otherGroup;
-    }
-
-    public State getOtherState(State state) {
-        if (prevC.state == state) {
-            return nextC.state;
-        } else {
-            return prevC.state;
-        }
-    }
-
-    public void update(double delta, VirtualPoint ancestor, VirtualPoint matchedNeighbor, RouteType routeType,
-            RouteType ancestorRouteType) {
-        if (delta < this.delta) {
-            this.delta = delta;
-            this.minRoute = routeType;
-            this.ancestor = ancestor;
-            this.matchedNeighbor = matchedNeighbor;
-            this.ancestorRouteType = ancestorRouteType;
-            if (this.delta != 0.0 && ancestor == null) {
-                float z = 1 / 0;
-            }
-        }
     }
 
     public void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType,
@@ -110,7 +81,8 @@ public class RouteInfo implements Comparable<RouteInfo> {
             }
             VirtualPoint neighbor = route.neighbor;
             VirtualPoint node = this.node;
-
+            route.ancestors = new ArrayList<>(ancestorRoute.ancestors);
+            route.ancestors.add(ancestorRoute);
             route.cuts = new ArrayList<>(ancestorRoute.cuts);
             Segment newCut = node.getClosestSegment(neighbor, null);
             if (ancestorRoute.cuts.contains(newCut)) {
@@ -118,7 +90,12 @@ public class RouteInfo implements Comparable<RouteInfo> {
             }
             route.cuts.add(0, newCut);
             route.matches = new ArrayList<>(ancestorRoute.matches);
-            route.matches.add(0, ancestor.getClosestSegment(neighbor, null));
+            Segment newMatch = ancestor.getClosestSegment(neighbor, null);
+            
+            if (ancestorRoute.matches.contains(newMatch)) {
+                float z = 1 / 0;
+            }
+            route.matches.add(0,newMatch);
 
             if (ancestorRoute.ourGroup.contains(node)) {
                 ArrayList<VirtualPoint> grp = ancestorRoute.ourGroup;
@@ -214,28 +191,6 @@ public class RouteInfo implements Comparable<RouteInfo> {
             default:
                 return null;
         }
-    }
-
-    @Override
-    public int compareTo(RouteInfo other) {
-        if (this.delta < other.delta) {
-            return -1;
-        }
-
-        if (this.delta > other.delta) {
-            return 1;
-        }
-
-        return 0;
-    }
-
-    public State getKnotState() {
-        if (prevC.state == State.toKP1 || prevC.state == State.toKP2) {
-            return prevC.state;
-        } else if (nextC.state == State.toKP1 || nextC.state == State.toKP2) {
-            return nextC.state;
-        }
-        return State.None;
     }
     @Override
     public String toString() {
