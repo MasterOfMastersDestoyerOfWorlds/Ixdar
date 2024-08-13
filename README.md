@@ -830,6 +830,10 @@ What we can see is that trying ot get back to the connected state is dependent o
 
 To show this point more clearly if we connect from 2 to 4 (green line disregard the purple one) in the figure above, then (KP1->4->2->3->KP2) are the pairs that would be able to get back to the connected state, where as if we connected from 2 to 6 (purple line disregard the green one) then (KP1->4->5->CP1->1->6->2->3->KP2)
 
+But we should still notice that the counter-clockwise to clockwise relationship moving from connected to disconnected still holds, the hard part is we don't know which will be self loops and which will be disconnected unless we know the path we took to get there.
+
+This is wrong! you can see this easily by making a cut on the same side  and then you have changed the orientation of the hole but the same paths acrossthe divide would change to disconnected.
+
 So what have we learned?  We'll I think it's two things, the test of wether we can flip from connected to disconnected is dependent on two things, the location of our current connected hole and the  
 
 if yellow is curr and blue is prev then its the left of yellow  until kp1 is knot side and the right of blue until kp2 is knot side

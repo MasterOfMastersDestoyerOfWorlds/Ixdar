@@ -3,15 +3,22 @@ package shell;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import shell.cuts.CutInfo;
+import shell.exceptions.BalancerException;
+import shell.exceptions.SegmentBalanceException;
+import shell.knot.Knot;
+import shell.knot.Segment;
+import shell.knot.VirtualPoint;
+
 public class BalanceMap {
-    Knot knot;
+    public Knot knot;
     HashMap<Integer, Integer> balance;
-    ArrayList<Segment> cuts;
-    HashMap<Integer, Integer> externalBalance;
+    public ArrayList<Segment> cuts;
+    public HashMap<Integer, Integer> externalBalance;
     HashMap<Integer, Integer> externalGroups;
     HashMap<Integer, Integer> externalGroupCount;
-    ArrayList<Segment> externalMatches;
-    ArrayList<VirtualPoint> externals;
+    public ArrayList<Segment> externalMatches;
+    public ArrayList<VirtualPoint> externals;
     SegmentBalanceException sbe;
     static int numCuts = 0;
     int numGroups = 0;
@@ -20,6 +27,7 @@ public class BalanceMap {
     VirtualPoint topExternal2;
     static int callNumber;
 
+    @SuppressWarnings("static-access")
     public BalanceMap(Knot knot, SegmentBalanceException sbe) {
         this.knot = knot;
         balance = new HashMap<>();
@@ -66,9 +74,6 @@ public class BalanceMap {
 
     public void addExternalMatch(VirtualPoint vp, VirtualPoint external, Knot superKnot) throws BalancerException {
         callNumber++;
-        if (callNumber == 115) {
-            float z = 1;
-        }
         int newBalance = externalBalance.get(vp.id) + 1;
 
         Integer groupIdExternal = externalGroups.get(external.id);
@@ -88,10 +93,6 @@ public class BalanceMap {
         }
         externalMatches.add(newMatch);
         externals.add(external);
-        if (topExternal1 != null && topExternal2 != null
-                && (external.equals(topExternal1) || external.equals(topExternal2))) {
-            float z = 0;
-        }
 
         int groupId = -1;
 
@@ -210,7 +211,6 @@ public class BalanceMap {
             }
         }
         if (vp.equals(vp2) && !externalGroups.containsKey(ex2.id)) {
-            float z = 0;
             int groupId = -1;
             if (miKnot.contains(knot.getPrev(ex2))) {
                 VirtualPoint next = knot.getNext(ex2);
@@ -267,19 +267,6 @@ public class BalanceMap {
 
     public boolean canCutSegments(VirtualPoint cutPoint1, Segment cutSegment1, VirtualPoint cutPoint2,
             Segment cutSegment2) {
-        VirtualPoint vp1 = cutSegment1.first;
-        VirtualPoint vp2 = cutSegment1.last;
-        int matchesNeeded1 = Math.max(balance.get(vp1.id) - 1, 0) - (2 - externalBalance.get(vp1.id));
-        int matchesNeeded2 = Math.max(balance.get(vp2.id) - 1, 0) - (2 - externalBalance.get(vp2.id));
-        int matchesNeed = Math.max(balance.get(cutPoint1.id) - 1, 0) - (2 - externalBalance.get(cutPoint1.id));
-
-        VirtualPoint vp3 = cutSegment2.first;
-        VirtualPoint vp4 = cutSegment2.last;
-        int matchesNeeded3 = cutSegment1.contains(vp3) ? 0
-                : Math.max(balance.get(vp3.id) - 1, 0) - (2 - externalBalance.get(vp3.id));
-        int matchesNeeded4 = cutSegment1.contains(vp4) ? 0
-                : Math.max(balance.get(vp4.id) - 1, 0) - (2 - externalBalance.get(vp4.id));
-        int matchesNeed2 = Math.max(balance.get(cutPoint2.id) - 1, 0) - (2 - externalBalance.get(cutPoint2.id));
         int nonLockedPoints = 0;
         for (VirtualPoint p : knot.knotPointsFlattened) {
             if (externalBalance.get(p.id) == 2) {
@@ -305,11 +292,6 @@ public class BalanceMap {
             VirtualPoint kp2,
             VirtualPoint cp2, Segment cutSegment2, VirtualPoint external2, Segment matchSegment2, Knot subKnot,
             CutInfo c, boolean wouldFormLoop) {
-
-        if (cutSegment1.hasPoints(0, 3) && cutSegment2.hasPoints(1, 3)
-                && kp1.id == 0 && kp2.id == 3 && c.cutID == 16) {
-            float z = 1;
-        }
 
         int currMatchesCp1 = externalBalance.get(cp1.id);
         boolean hasTwoPossibleMatchesCp1 = true;
@@ -590,10 +572,8 @@ public class BalanceMap {
         if (!nextSegment.equals(cutSegment1) && !cuts.contains(nextSegment) && externalBalance.get(nextPoint.id) == 0) {
             currMatchesKp1++;
         }
-        boolean doubleCount = false;
         if (externalMatches.contains(matchSegment1)) {
             currMatchesKp1--;
-            doubleCount = true;
         }
         if (currMatchesKp1 > 2) {
             return false;
@@ -642,10 +622,8 @@ public class BalanceMap {
         if (!nextSegment.equals(cutSegment1) && !cuts.contains(nextSegment) && externalBalance.get(nextPoint.id) == 0) {
             currMatchesKp1++;
         }
-        boolean doubleCount = false;
         if (externalMatches.contains(matchSegment1)) {
             currMatchesKp1--;
-            doubleCount = true;
         }
         if (currMatchesKp1 > 2) {
             return false;
@@ -677,10 +655,6 @@ public class BalanceMap {
         }
         if (!hasPossibleMatch) {
             return false;
-        }
-
-        if (c.cutID == 120) {
-            float z = 1;
         }
         int currMatchesCp1 = externalBalance.get(cp1.id);
         int cp1Idx = subKnot.knotPointsFlattened.indexOf(cp1);

@@ -6,6 +6,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
+import shell.knot.Point;
+import shell.knot.VirtualPoint;
+
 
 
 /**

@@ -2,9 +2,10 @@ package test;
 
 import shell.DistanceMatrix;
 import shell.FileManagement;
-import shell.PointSetPath;
-import shell.SegmentBalanceException;
 import shell.Shell;
+import shell.exceptions.SegmentBalanceException;
+import shell.ui.PointSetPath;
+
 import java.io.File;
 import java.util.Collections;
 import java.util.Random;
@@ -59,6 +60,11 @@ public class SubGraphs {
 	@Test
 	public void test_three_circle_in_10() {
 		testMethod("three_circle_in_10");
+	}
+
+	@Test
+	public void test_djibouti() {
+		testMethod("djbouti");
 	}
 
 	@Test
