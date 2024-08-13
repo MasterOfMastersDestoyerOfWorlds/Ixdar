@@ -222,10 +222,4 @@ public class Tests {
 		System.out.println("ans " + answer + " " + answer.getLength());
 		Assert.assertTrue(result.getLength() < 27603);
 	}
-
-	@Test
-	public void fuck() {
-		Assert.assertTrue("null", true);
-	}
-
 }

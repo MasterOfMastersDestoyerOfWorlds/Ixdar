@@ -63,6 +63,11 @@ public class SubGraphs {
 	}
 
 	@Test
+	public void test_djibouti() {
+		testMethod("djbouti");
+	}
+
+	@Test
 	public void test_djibouti_1_34() {
 		testMethod("djbouti_1-34");
 	}

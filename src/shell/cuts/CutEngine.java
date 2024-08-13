@@ -42,8 +42,7 @@ public class CutEngine {
         this.internalPathEngine = new InternalPathEngine(shell, this);
     }
 
-    public CutMatchList findCutMatchList(Knot knot, VirtualPoint external1, VirtualPoint external2, Knot superKnot,
-            Segment kpSegment) throws SegmentBalanceException, BalancerException {
+    public CutMatchList findCutMatchList(Knot knot, VirtualPoint external1, VirtualPoint external2) throws SegmentBalanceException, BalancerException {
         if (knot.id == 40) {
             float z = 0;
         }
@@ -436,6 +435,10 @@ public class CutEngine {
                 }
             }
         }
+
+        if(knot.id == 65 ){
+            float z = 0;
+        }
         return result;
 
     }
@@ -490,7 +493,7 @@ public class CutEngine {
                     }
                 }
 
-                CutMatchList cutMatchList = findCutMatchList(knot, external1, external2, null, null);
+                CutMatchList cutMatchList = findCutMatchList(knot, external1, external2);
                 external1.reset(knot);
                 external2.reset(knot);
 

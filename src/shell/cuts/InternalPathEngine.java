@@ -65,8 +65,6 @@ public class InternalPathEngine {
         }
 
         RouteInfo curr = routeMap.get(knotPoint2.id);
-        ArrayList<Segment> cutSegments = new ArrayList<>();
-        ArrayList<Segment> matchSegments = new ArrayList<>();
         RouteType prevCutSide = RouteType.None;
         if (curr.prevC.neighbor.id == cutPoint2.id) {
             prevCutSide = RouteType.prevC;
@@ -75,25 +73,9 @@ public class InternalPathEngine {
         }
 
         Route route = curr.getRoute(prevCutSide);
-        int totalIter = 0;
-        while (!(curr.id == cutPoint1.id && route.neighbor.id == knotPoint1.id) && totalIter < knot.size()) {
-            Segment matchSegment = null, cutSegment = null;
-            if (route.ancestor == null) {
-                CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
-                throw new SegmentBalanceException(shell, cutMatchList, c);
-            }
-            matchSegment = route.ancestor.getClosestSegment(route.neighbor, null);
-            cutSegment = route.neighbor.getClosestSegment(curr.node, null);
-            prevCutSide = route.ancestorRouteType;
-            curr = routeMap.get(route.ancestor.id);
-            matchSegments.add(matchSegment);
-            cutSegments.add(cutSegment);
-            route = curr.getRoute(prevCutSide);
-            totalIter++;
-        }
-        // TODO: need to check if the cut match list produces a cycle and throw a
-        // Segment Balance Exception
-
+        ArrayList<Segment> cutSegments = route.cuts;
+        ArrayList<Segment> matchSegments = route.matches;
+       
         ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
         DisjointUnionSets unionSet = new DisjointUnionSets(knotPoints);
         for (Segment s : matchSegments) {
@@ -130,6 +112,7 @@ public class InternalPathEngine {
             // Multiple Cycles found!
             throw new MultipleCyclesFoundException(shell, cutMatchList, matchSegments, cutSegments, c);
         }
+
         return cutMatchList;
         // if neither orphan is on the top level, find their minimal knot in common and
         // recut it with the external that matched to the knot and its still matched
@@ -460,14 +443,6 @@ public class InternalPathEngine {
                         if (!isNotSettled && !cutSeg.equals(cutSegment2)) {
 
                             settled.remove(vRoute.routeId);
-                            for (RouteInfo r : routeMap.values()) {
-                                for (Route route : r.routes) {
-                                    if (route.ancestors.contains(vRoute)) {
-                                        route.reset();
-                                        settled.remove(route.routeId);
-                                    }
-                                }
-                            }
                             isNotSettled = true;
                         }
 

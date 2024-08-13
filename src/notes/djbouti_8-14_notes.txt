@@ -1,0 +1,54 @@
+Knot[
+    Knot[
+        Knot[ 1 0 32 31 30 29 27 28 5 8 7 6 4 3 2 ] Knot[ 21 22 26 25 23 24 ]  20 19 Knot[ 13 14 17 18 16 15 ] Knot[ 11 9 10 12 ]
+    ]
+]
+Knot[
+    Knot[
+        Knot[0 1 Knot[Knot[30 31 32 ] 29 ] ]  
+        Knot[
+                Knot[27 Knot[28 2 3 ] ] 
+                Knot[Knot[4 5 6 ] 7 8 ] 
+            ] 
+    ]
+        
+    Knot[21 22 Knot[Knot[23 24 25 ] 26 ] ] 
+    
+    20 19 
+    
+    Knot[13 14 Knot[Knot[15 16 17 ] 18 ] ] 
+    
+    Knot[Knot[9 10 11 ] 12 ] ]
+
+    I am going to guess that the problem is with the largest knot   id: 65
+
+    ok so it seems like our cutting algorithm is actually correct, but our knot structure is incorrect because:
+
+    we can see in the knot labeled Knot-B that Knot-C has all of its points closer to all of the points in Knot-D than any point in Knot-F
+
+    this means that we have broken our contract of only choosing the two closest parrallel external points as our grouping, 
+    so Knots C and D should be in a knot by themselves.
+
+
+
+Knot-A[
+    Knot-B[
+        Knot-C[
+            Knot[0 1 Knot[Knot[35 36 37 ] 34 ] ] Knot[Knot[32 Knot[33 2 3 ] ] Knot[Knot[4 5 6 ] 7 8 ] ] 
+        ] 
+        
+        Knot-D[
+            26 27 Knot[Knot[28 29 30 ] 31 ] 
+        ]
+
+        25 24 
+        
+        Knot-E[
+            18 19 Knot[Knot[20 21 22 ] 23 ] 
+        ] 
+        
+        Knot-F[
+            Knot[14 15 16 ] 17 
+        ] 
+    ] 
+    Knot[11 12 13 ] 10 9 ]
