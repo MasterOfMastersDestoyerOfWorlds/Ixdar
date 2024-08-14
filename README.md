@@ -466,11 +466,11 @@ match2 = P<sub>*</sub>
 
 }
 
-Next, so that we can look at [Points](#point) and [Knots](#Knot) interchangeably, lets make some interface or abstract class above both of them (and any other structures we want to add later):
+Next, so that we can look at [Points](#point) and [Knots](#knot) interchangeably, lets make some interface or abstract class above both of them (and any other structures we want to add later):
 
 ### Virtual Point
 
-all of the stuff from [Points](#point), [Knots](#Knot), and [Runs](#run) combined and generalized!
+all of the stuff from [Points](#point), [Knots](#knot), and [Runs](#run) combined and generalized!
 
 Now that we have all of our data structures, let's get cracking
 
@@ -775,22 +775,31 @@ If instead we had flipped the order of the blue and yellow state (notice below t
 <img src="img\HoleGame_NoLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Hole-Filling Game is completed without forming a loop</p>
 
-If you are cutting and matching to points between CP1 and KP2 and matching from a hole on the same side to prevent a loop you must do the following:
+So in order to prevent self-loops we need to keep a ordered list of the current state of the two groups, with the current cutPoint at the start of the list, so for example, before we make any cuts we'd have the following two groups:
 
-1. If the starting hole (H_1) is oriented such that the CutPoint (CP1 in the example) is in the clockwise direction compared to it's previously matched point (KP1 in the example), the resulting hole (H_3) must be oriented such that it's new CutPoint (the point with the blue arrow) is in the counter-clockwise direction from its previously matched point (the point with the yellow arrow).
+    OurGroup: [CP1, 1, 2, 3, KP2]
+    OtherGroup: [KP1, 4, 5, 6, CP2]
 
-2. If the starting hole (H_3) is oriented such that the CutPoint (the point with the blue arrow) is in the counter-clockwise direction compared to it's previously matched point (the point with the yellow arrow), the resulting hole (H_4) must be oriented such that it's new CutPoint (the point with the yellow arrow) is in the clockwise direction from its previously matched point (the point on the right of the yellow X).
+And after making the blue cut we'd have:
 
-In the above rules, it doesn't really matter which direction is clockwise or counter-clockwise, just that they are opposite directions of traversing the Path.
+    blue cut's OurGroup: [1, CP1, 2, 3, KP2]
+    blue cut's OtherGroup: [KP1, 4, 5, 6, CP2]
 
-Ok, so we sort of know how to prevent getting in the looped state, the question then is do the same rules apply for preventing the disconnected state?
+And after making the yellow cut we'd have:
+
+    yellow cut's OurGroup: [2, CP1, 1, 3, KP2]
+    yellow cut's OtherGroup: [KP1, 4, 5, 6, CP2]
+
+We can easily see that as long as our cut is oriented such that the new CutPoint (in yellow that would be Point 2 at index 2 of the blue cut's grouping) is earlier in the list than it's matched neighbor (in yellow that would be Point 3 at index 3 of the blue cut's grouping), then we cannot create a self-loop.
+
+We now know how to prevent getting into the self-looped state, the question then is do the same rules apply for preventing the disconnected state?
 
 Let's consider the following example:
 
 <img src="img\HoleGame_Dis_Fixed.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Hole-Filling Game is completed by becoming disconnected and then connected again</p>
 
-Here we see a perfectly valid solution to the hole cutting game that very well may be the shortest path from CP1 to CP2, but we had to disconnect the path in order to make it! There is no way to rearrange the ordering of H_3 and H_4 so that the path does become disconnected at some point. So unlike the loops where the ordering of the cuts means that we don't have to worry about exploring them, we do have to explore the space of disconnected cut matches.
+Here we see a perfectly valid solution to the hole cutting game that very well may be the shortest path from CP1 to CP2, but we had to disconnect the path in order to make it! After making the move to H_3 the graph would be disconnected, and after making the move to H_4, the graph would be connected again. There is no way to rearrange the ordering of H_3 and H_4 so that the path does become disconnected at some point. So unlike the self-loops where the ordering of the cuts means that we don't have to worry about exploring them, we do have to explore the space of disconnected cut matches.
 
 This means that to arrive any any point there are four possible states:
 
@@ -805,42 +814,108 @@ Well as a primer let's see what all of the hole moves we can make from CP1 would
 
 <img src="img\HoleGame_ConnectionMap.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 
-It seems that if we are in the connected state with our hole being oriented in the clockwise direction and we match to a point between KP1 and CP2 then we need to check if our hole is clockwise or counter-clockwise, if it counter-clockwise then we will enter the disconnected state and if it is clockwise then we will remain in the connected state.
+If we consider the holes around Point 5, let's look at how OurGroup and the OtherGroup would be effected by the disconnected hole versus the connected hole:
+
+Start:
+
+    OurGroup: [CP1, 1, 2, 3, KP2]
+    OtherGroup: [KP1, 4, 5, 6, CP2]
+
+e.g. 1: Cut Segment[4:5] and Match Segment[CP1:5], new CutPoint is Point 4 and is Connected:
+
+    OurGroup: [4, KP1]
+    OtherGroup: [CP2, 6, 5, CP1, 1, 2, 3, KP2]
+
+e.g. 2: Cut Segment[6:5] and Match Segment[CP1:5], new CutPoint is Point 6 and is Disconnected:
+
+    OurGroup: [6, CP2]
+    OtherGroup: [KP1, 4, 5, CP1, 1, 2, 3, KP2]
+
+A preliminary rule might be the following: If we are matching to the other group, check whether the matched neighbor point (5 in the above examples), is between the KnotPoint (KP2) and the new CutPoint (4 or 6), if it is between them (like in e.g. 2), and we are coming from a connected state (Start), we must go to a disconnected state.
 
 Now lets go to one of the disconnected holes (shown in pink) and see where we can reconnect it (shown in blue).
 
 <img src="img\HoleGame_ConnectionMap2.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 
-So it seems that if we match to any other point in any hole orientation except the ones between the disconnected CutPoint and CutPoint2 then we can reconnect the path.
+So it seems that if we move to any other hole in the OtherGroup from our disconnected state, then we can only reconnect the path, regardless of the orientation of the hole. Also notice any moves to holes in OurGroup from the disconnected state will remain disconnected.
 
-Finally let's check one of the connected holes (shown in pink) and see how to connect (shown in blue) and disconnect (shown in yellow) this one.
+Start:
 
-<img src="img\HoleGame_ConnectionMap3.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+    OurGroup: [5, 6, CP2]
+    OtherGroup: [KP1, 4, CP1, 1, 2, 3, KP2]
 
-Ok let's go one level deeper where the our pink starting point (marked with a pink arrow) is connected:
+e.g. 1: Cut Segment[1:2] and Match Segment[2:5], new CutPoint is Point 1 and is Connected:
 
-<img src="img\HoleGame_ConnectionMap4.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+    OurGroup: [1, CP1, 4, KP1]
+    OtherGroup: [CP2, 6, 5, 2, 3, KP2]
 
-So again it seems that we can flip from connected to disconnected on any of the points between our matched neighbor and CP2 in the counter-clockwise direction
+e.g. 2: Cut Segment[2:3] and Match Segment[2:5], new CutPoint is Point 3 and is Connected:
 
-Ok let's now look at the same path with the opposite hole cut that is disconnected. (the starting point is marked with a pink arrow).
+    OurGroup: [3, KP2]
+    OtherGroup: [KP1, 4, CP1, 1, 2, 5, 6, CP2]
 
-<img src="img\HoleGame_ConnectionMap5.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+A good question would be: do we need to keep track of how the groups were changed as we move the hole through the graph or is there a simpler way to encapsulate this information?
 
-What we can see is that trying ot get back to the connected state is dependent on the path that  we took to arrive at the disconnected state! this means that the problem is a lot harder than simply looking at clockwise versus counter-clockwise! Does this mean that we have to look at every path in totality?
+Put more simply: do the states that we can match to from the current CutPoint depend on how we got to the CutPoint? I think the answer is yes and here is an example to show why:
 
 <img src="img\HoleGame_ConnectionMap6.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Connection order: CP1->5 | 6->1 | 2->4 or 2->6 </p>
 
-To show this point more clearly if we connect from 2 to 4 (green line disregard the purple one) in the figure above, then (KP1->4->2->3->KP2) are the pairs that would be able to get back to the connected state, where as if we connected from 2 to 6 (purple line disregard the green one) then (KP1->4->5->CP1->1->6->2->3->KP2)
+If we have arrived at Point 2 with it's neighbor Point 1 being matched to, and we choose to connect from 2 to 4 (green line disregard the purple one) in the figure above, we'd have the following Groups:
 
-But we should still notice that the counter-clockwise to clockwise relationship moving from connected to disconnected still holds, the hard part is we don't know which will be self loops and which will be disconnected unless we know the path we took to get there.
+Start:
 
-This is wrong! you can see this easily by making a cut on the same side  and then you have changed the orientation of the hole but the same paths acrossthe divide would change to disconnected.
+    OurGroup: [2, 3, KP2]
+    OtherGroup: [CP2, 6, 1, CP1, 5, 4, KP1]
 
-So what have we learned?  We'll I think it's two things, the test of wether we can flip from connected to disconnected is dependent on two things, the location of our current connected hole and the  
+e.g. 1 in green: Cut Segment[4:5] and Match Segment[2:4], new CutPoint is 5 and is Disconnected:
 
-if yellow is curr and blue is prev then its the left of yellow  until kp1 is Knot side and the right of blue until kp2 is Knot side
+    OurGroup: [CP2, 6, 1, CP1, 5]
+    OtherGroup: [KP1, 4, 2, 3, KP2]
+
+If instead we chose to connect from 2 to 6 (purple line disregard the green one) then we have a completely different set of groupings:
+
+e.g. 2 in purple: Cut Segment[CP2:6] and Match Segment[2:6], new CutPoint is CP2 and is Disconnected:
+
+    OurGroup: [CP2]
+    OtherGroup: [KP1, 4, 5, CP1, 1, 6, 2, 3, KP2]
+
+This radical swing which points would allow us to reconnect precludes any simple answers (for example, you could think of a winding number of the hole, or only connect from counter clockwise to clockwise holes, etc.) that might allow us to not have to keep track of the path we arrived on. Why is this important? Well, it means that unless there is some simple way to determine what segments we can match to, then the path's options of where to connect to are limited by the previous connections in the path. This means that something like Floyd-Warshall, where we are trying to compute all possible point to point shortest paths could not work given the current rules of the Hole-Filling Game, so we must re-calculate our modified Dijkstra's shortest path for every pair of Cut Segments in the manifold and every assignment, aside from parity, of KnotPoints and CutPoints applied to the Cut Segments.
+
+The rules that allow us to maintain good state transitions are as follows:
+
+1. Don't move to the Disconnected State when connecting to our goal Hole(formed by the Segment[KP2:CP2] with the new CutPoint being KP2 and the matched neighbor being CP2)
+
+2. If the matched neighbor is in our group we cannot move from Connected to disconnected or visa versa
+
+3. If the matched neighbor is in the other group and the source point is disconnected, we must become Connected
+
+4. If the matched neighbor is in the other group and is between the new CutPoint and the KnotPoint and the source point is Connected, we must become Disconnected
+
+5. If the matched neighbor is in the other group and is not between the new CutPoint and the KnotPoint and the source point is Connected, we must remain Connected
+
+### All I Have are Negative Thoughts
+
+Now that we know our way around the problem of multiple cycles and self-loops, we have to face a larger and harder to reason about problem, most Shortest Path Algorithms, like Dijkstra's, do not work for graphs with negative weights. Since at every move we are cutting a segment and adding a segment; some of our costs for moving the hole will have a negative value, this happens any time that the Cut Segment is longer than the Match Segment. So what can we do about this? Well we have a few options, and none of them are particularly attractive given that our ability to move to a specific point in a specific state is path dependent. Our options are as follows:
+
+1. Implement backtracking in Dijkstra's so that if we ever find a shorter input to a settled point, remove it from the settled list (what I went with since it is easy and supports the path dependent nature of the problem), since we are in a fully connected graph this should give us the shortest path. However we will have to store at each Point, the path we used to get there. This is because if we add backtracking we can no longer reconstruct the shortest path just by going from the end Point to the start Point in our path representation. I am not sure wether this will always give the best path, but I have not seen it fail.
+
+2. Use Johnson's Algorithm (Bellman-Ford with a zero distance Wormhole Point) to remake the graph as a positive weight graph without considering the path dependence and then run our modified Dijkstra's now taking into account the path dependence and self-loop rules to form a valid path. This could probably work, I think you'd only need to do this once per knot manifold and seems to have better time and accuracy guarantees than our Dijkstra's with backtracking. However there is a problem with this as Johnson's Algorithm does not support negative weight cycles (a cycle whose weights sum to a negative number), so we'd have to prove that we cannot make a negative weight cycle. We'd also have to figure out how we can traverse this graph, like for example one rule would be a Point in one state cannot tavel to itself in another state, but are there other rules that make path dependence?
+
+3. Use Bellman-Ford directly for each shortest path, (based on preliminary testing, doesn't seem to finish or finished with multiple cycles, didn't figure out why, likely because of path dependence?)
+
+4. Replicate Negative-Weight Single-Source Shortest Paths in Near-linear Time paper (see [Links #3](#links)) (seems like it would be fast, not sure if it would work with the path dependence, they also have only provided pseudo code )
+
+### Algorithm Speedup Potential
+
+The algorithm described in this section is roughly a 4*N^7 operation so what are some areas we can speed it up?
+
+1. Remove repeated segment pairs from the main loop (2x speedup)
+2. Add worker pool for every dijkstra's call we make (algorithm is somewhat embarrassingly parallel)
+3. Remove error handling
+4. Figure out how to turn into positive weight graph so we can disregard all settled Points.
+5. Find some way to calculate all shortest paths for a manifold at once instead of in series (seems unlikely given path dependence)
+6. for less accuracy dependent problems could use heuristic of distance to KnotPoints from externals plus distance between CutPoints as best measure of where to calculate internal structure.
 
 ### Complexity Limit
 
@@ -863,34 +938,20 @@ Q3. How do we get a Big O of N<sup>3</sup>?
 A3. In the Worst Case there would be  N-4 Knots to cut, and on average I have seen most sets with roughly N/3 Knots. So if we have O(N) Knots, and we are looking at all cut segment pairs in each Knot with time O(N<sup>2</sup>), then O(N)*O(N<sup>2</sup>) = O(N<sup>3</sup>)
 ^^ I think this is wrong and only correct assumeing that we use simply connections instead of recursive ones :(
 
-## Chapter 5
-
-## Plan D! Its diabolical! Its lemon scented!
-
-ok, so I have realized that there is a way to connect any two cutpoints optimally without going through exp space, the first step is to realize that at least in the plane , we must only connect to other points within the cutpoints smallest Knot or route along the super Knots toward the other cutpoint again only going via internal other points in the smallest Knot, this prevents us from crossing our own path in the plane. However, the restrictions I have laid out would not work on N-dimensionally embeded graphs, so what shall we do?
-
-Well I think the plan should be to run dijkstras from cutpoint to cutpoint, with the caveate that the enterance to a node is only found in its neighbors. So if we have cutpoint 1 in Knot[1 2 3 4] where 2 is a Knot point, and we want to go to cutpoint 5 in Knot[Knot[1 2 3 4] 5 6] with flattened Knot Knot[1 2 3 4 5 6] and Knot point 2 being 4, then two could only be reached by cutting 1 and 3, 3 could only be reach by cutting 2 and 4, and 5 could only be reach by cutting 4 and 6, if we store the previous best node, which side we are cutting and the total min distance, then we can run a modified version of dijkstras that should find the correct route from 1 to 5 and all of the cuts we'd have to make along the way by backtracking from the other cut point to the starting one.
-
-Ok the method that I have outlined in Chapter 4 for cutting and combining the Knots would be correct if we had exponential time or space (I think the recurisve tree size always means that even if we do dynamic programming that we will fail), so whats next? Well lets start with some idealized examples and see if we can build to a general system for cutting.
-
-### Example One: The Circle
-
-<img src="img\snap103.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-
-if we have some Circle with N Points describing its sruface then we are done, Our Knot finding code can easily find this greedy match solution and there is no hierarchy to it.
-
-### Example Two: The Inscribed Circles
-
 ## Links
 
-Look at Section 4 Minimum Bounding Circle By Megiddo:
+1. Look at Section 4 Minimum Bounding Circle By Megiddo:
 
 * <https://epubs.siam.org/doi/pdf/10.1137/0212052>
 
-Match Twice and Stitch Algorithm:
+2. Match Twice and Stitch Algorithm:
 
 * <https://vlsicad.ucsd.edu/Publications/Journals/j67.pdf>
 
-Waterloo TSP Dataset:
+3. Negative-Weight Single-Source Shortest Paths in Near-linear Time
+
+* <https://arxiv.org/pdf/2203.03456>
+
+4. Waterloo TSP Dataset:
 
 * <http://www.math.uwaterloo.ca/tsp/world/countries.html#LU>

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.apache.commons.collections4.map.MultiKeyMap;
+import org.apache.commons.math3.util.Pair;
 
 import shell.BalanceMap;
 import shell.Shell;
@@ -18,19 +19,6 @@ import shell.knot.VirtualPoint;
 
 public class CutEngine {
 
-    // TODO: Need to overhaul cut knots here is the idea:
-    // we get the two external points and loop through a double nested for loop
-    // across the knot's segments to cut
-    // store the info for each cut segment in a list or just store the min length
-    // change, with some minimum set of variables and whether we need to
-    // join across or not
-    // if the inner segment ""xor'ed"" with the outer segment is partially
-    // overlapping,
-    // then we do not evaluate it, if it is fully overlapping or not overlapping
-    // then evaluate
-    // should be roughly N^3 operation N^2 to cut a Knot Times M knots M ~= N/3
-    // worst case M = N-3
-
     public HashMap<Integer, Knot> flatKnots = new HashMap<>();
     int cutKnotNum = 0;
 
@@ -43,14 +31,11 @@ public class CutEngine {
     }
 
     public CutMatchList findCutMatchList(Knot knot, VirtualPoint external1, VirtualPoint external2) throws SegmentBalanceException, BalancerException {
-        if (knot.id == 40) {
-            float z = 0;
-        }
         double minDelta = Double.MAX_VALUE;
         CutMatchList result = null;
-
+        ArrayList<Pair<Segment, Segment>> segmentPairs = new ArrayList<>();
         for (int a = 0; a < knot.knotPoints.size(); a++) {
-            for (int b = 0; b < knot.knotPoints.size(); b++) {
+            for (int b = a; b < knot.knotPoints.size(); b++) {
                 VirtualPoint knotPoint11 = knot.knotPoints.get(a);
                 VirtualPoint knotPoint12 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
                 Segment cutSegment1 = knot.getSegment(knotPoint11, knotPoint12);
@@ -58,6 +43,8 @@ public class CutEngine {
                 VirtualPoint knotPoint21 = knot.knotPoints.get(b);
                 VirtualPoint knotPoint22 = knot.knotPoints.get(b + 1 >= knot.knotPoints.size() ? 0 : b + 1);
                 Segment cutSegment2 = knot.getSegment(knotPoint21, knotPoint22);
+                Pair<Segment, Segment> p = new Pair<Segment, Segment>(cutSegment1, cutSegment2);
+                segmentPairs.add(p);
                 if (cutSegment1.partialOverlaps(cutSegment2)) {
                     continue;
                 }
@@ -302,10 +289,6 @@ public class CutEngine {
                     boolean skip = false;
                     if (!skip) {
                        
-                       
-                        if (knot.id == 40 && knotPoint22.id == 1 && knotPoint11.id == 20) {
-                            float z = 0;
-                        }
                         CutMatchList internalCuts56 = internalPathEngine.calculateInternalPathLength(
                                 knotPoint11, knotPoint12, externalPoint51,
                                 knotPoint22, knotPoint21, externalPoint52, knot, balanceMap5, c5, false);
@@ -435,10 +418,7 @@ public class CutEngine {
                 }
             }
         }
-
-        if(knot.id == 65 ){
-            float z = 0;
-        }
+        float z = 0;
         return result;
 
     }
