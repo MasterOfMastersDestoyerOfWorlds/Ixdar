@@ -99,7 +99,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 
 	public static void main(String[] args) {
 		main = new Main();
-		String fileName = "djbouti";
+		String fileName = "djbouti_8-14";
 		boolean printAll = false;
 		retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
 		
