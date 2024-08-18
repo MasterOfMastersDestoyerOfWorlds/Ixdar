@@ -2,12 +2,12 @@ package shell.cuts;
 
 import java.util.ArrayList;
 
-import shell.Shell;
 import shell.exceptions.InvalidCutException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.shell.Shell;
 import shell.utils.Utils;
 
 public class CutMatch {

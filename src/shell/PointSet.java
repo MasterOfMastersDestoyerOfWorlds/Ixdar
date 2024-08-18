@@ -8,6 +8,7 @@ import java.util.Set;
 
 import shell.knot.Point;
 import shell.knot.VirtualPoint;
+import shell.shell.Shell;
 
 
 

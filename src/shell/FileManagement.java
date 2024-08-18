@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import shell.shell.Shell;
 import shell.ui.PointSetPath;
 
 import java.awt.geom.GeneralPath;

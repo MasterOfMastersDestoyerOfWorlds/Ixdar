@@ -82,16 +82,16 @@ In the Match Twice and Stitch paper, an algorithm for finding m distinct cycles 
 
 How can you know that when you stitch two cycles together, that they will form the correct minimal cycle of the two sets? Even in the example seen above this is unlikely to be the correct cycle and to actually check the correct cycle under this scheme you'd need to check 2^k possible cycles where k is the number of elements in the union of the two combining cycles. I think the causal reason why this is hard is that this is an unnatural abstraction, if you think about the case where you have two cycles that are circles in the plane and their boundaries are close to each other, the cycles formed will be two circles, but along the boundary between the two midpoints of the circles, those points will want to match more closely with points from the opposite circle than with all of the points in their own circle.
 
-The problem with many similar algorithms (greedy match, any colony, minimum spanning tree transformation, etc.) is that you can know that an answer is within some bound of the correct one, but there is no framework for causal reasoning on why a given solution is wrong, we simply say that the algorithm didn't work for this set and then use some form of k-opt segment swap to minimize the answer (look ma it is getting shorter!). This is the general problem with using heuristics  rather than looking for root causes, iteration is at the heart of scientific thought and if you have no theoretical framework to wrap around a problem, then there is no place to iterate you theory when you find an exception to it. It is the difference between engineering and science. *WARNING BASELESS RANT INCOMING* I think for all of its sins, the greatest one in Computer Science is that we often rely too much on engineering efforts rather than the scientific and mathematical efforts of our fields namesake. We as a field seek short term gain in fitness functions (wether is path length in TSP research or benchmark success in Machine Learning) instead of long term understanding of deeper truths. If we continually throw aside understanding at the feet of greater compute power then we do not deserve to be called scientists. The opposite tendency, to only rely on proofs is simarly flawed and I find many of the claims of Complexity theory to fall into this categorey, never really saying anything of use and building no intuition(which is inherently unprovable), except what is directly derrivable from previously shown results. If an answer to PvsNP exists, I expect that it will be a leap of logic unlike what we have seen before not a neatly built bridge of small results from PvsNp to P=NP or P!=NP. Since most Complexity theorists are trying to prove P!=NP because of a series of reductio ad absurdum (which as Schrodinger found out in the quantum realm, the world is often more absurd than the limits of imagination), There is a dirth of academic research trying to use the structure of relationships to map out what NP problems can be solved in P. As far as I can tell, the notion that Optimal tours might behave and change in the same ways that a precision watch would change to a replacement of gears, is lost on most people. We as a field either jump to statistical arguments or quasi-mathematical arguments neither of which seem to build actual understandable models of what is going on in a perfect circuit. (I say quasi here since very little of complexity theory deals with the actual nature of programs, geometrical structures and the like, instead falling back to the most broad of arguments, making it closer to the philosophy of old than the mathematics and science of the early 20th century, [GTC](http://ramakrishnadas.cs.uchicago.edu/gctcacm.pdf) seems promising on the P!=NP front and I need to read more about it).
+The problem with many similar algorithms (greedy match, any colony, minimum spanning tree transformation, etc.) is that you can know that an answer is within some bound of the correct one, but there is no framework for causal reasoning on why a given solution is wrong, we simply say that the algorithm didn't work for this set and then use some form of k-opt segment swap to minimize the answer (look ma it is getting shorter!). This is the general problem with using heuristics  rather than looking for root causes, iteration is at the heart of scientific thought and if you have no theoretical framework to wrap around a problem, then there is no place to iterate your theory when you find an exception to it. It is the difference between engineering and science. *WARNING BASELESS RANT INCOMING* I think for all of its sins, the greatest one in Computer Science is that we often rely too much on engineering efforts rather than the scientific and mathematical efforts of our fields namesake. We as a field seek short term gain in fitness functions (wether the fitness function is path length in TSP research or benchmark success in Machine Learning) instead of long term understanding of deeper truths. If we continually throw aside understanding at the feet of greater compute power then we do not deserve to be called scientists. The opposite tendency, to only rely on proofs is similarly flawed and I find many of the claims of Complexity theory to fall into this category of never really saying anything of use and building no intuition(which is inherently unprovable), except what is directly derivable from previously shown results. If an answer to P vs NP exists, I expect that it will be a leap of logic unlike what we have seen before not a neatly built bridge of small results from P vs NP to P=NP or P!=NP. Since most Complexity theorists are trying to prove P!=NP because of a series of reductio ad absurdum (which as Schrodinger found out in the quantum realm, the world is often more absurd than the limits of human imagination), there is a dirth of academic research trying to use the structure of relationships to map out what NP problems can be solved in P. As far as I can tell, the notion that Optimal tours might behave and change in the same ways that a precision watch would change to a replacement of gears, is lost on most people. We as a field either jump to statistical arguments or quasi-mathematical arguments neither of which seem to build actual understandable models of what is going on in a perfect circuit. (I say quasi here since very little of complexity theory deals with the actual nature of programs, geometrical structures and the like, instead falling back to the most broad of arguments, making it closer to the philosophy of old than the mathematics and science of the early 20th century, [GTC](http://ramakrishnadas.cs.uchicago.edu/gctcacm.pdf) seems promising on the P!=NP front and I need to read more about it).
 
-Why not clusters? There is a lot of literature on how to find clusters in graphs and they sort of have the property we are looking for that an ideal k-clustering of a graph is a natural abstraction. Two problems arise when considering clusters, first is how do we choose k, i.e. how do we know how many clusters there are in the graph? This is not a trivial problem and in general we can show that there is no correct answer by the simple fact that if we choose k to be n then we have n natural abstractions one for each point adn if we choose k to be 1 then we have one natural abstraction in the whole set, both of these are perfectly valid and easy to compute natural abstracts, but non-useful. Ok so maybe instead of using something like k means we use a hierarchical clustering algorithm like the [nearest-neighbor chain algorithm](https://en.wikipedia.org/wiki/Nearest-neighbor_chain_algorithm). This method would work better since we don't have to divine the number of clusters in the graph, but there is still a pretty serious problem with an approach like this. Since clusters have no ordering except points are either in the cluster or out of it, how would we form a cycle out of a cluster? If our smallest cluster in the hierarchy is some size m where m < n, then we'd still have 2^m possible cycles to choose from in order to find the optimal, and if we add up all of our k smallest clusters where k clusters consume the entire set, then we'd have 2^m_1 + 2^m_2 + ... + 2^m_k cycles to choose from. one we had all of these cycles, were is still no guarantee that we could combine them in any easy way so we'd have to also do a pairwise 2^m_a + 2^m_b combination step (where a and ba are two of the cycles found in the previous step) to get the final correct cycle. So is there any clustering method that could lead use to a natural abstraction that is easy to find, and useful in solving our problem? If we want to have a good natural abstraction, it would be useful if the abstraction had the correct cycle for the subset be incidental to the formation of the abstraction, much like in the plane the correct cycle of a convex hull subset is found simply by finding the convex hull. I don't know of any clustering algorithm that has that property (doesn't mean one doesn't exist) since clusters are mainly concerned with membership rather than ordering, so let's focus our efforts elsewhere.
+Why not clusters? There is a lot of literature on how to find clusters in graphs and they sort of have the property we are looking for that an ideal k-clustering of a graph is a natural abstraction. Two problems arise when considering clusters, first is how do we choose k, i.e. how do we know how many clusters there are in the graph? This is not a trivial problem and in general we can show that there is no correct answer by the simple fact that if we choose k to be n then we have n natural abstractions one for each point and if we choose k to be 1 then we have one natural abstraction in the whole set, both of these are perfectly valid and easy to compute natural abstracts, but non-useful. Ok so maybe instead of using something like k means we use a hierarchical clustering algorithm like the [nearest-neighbor chain algorithm](https://en.wikipedia.org/wiki/Nearest-neighbor_chain_algorithm). This method would work better since we don't have to divine the number of clusters in the graph, but there is still a pretty serious problem with an approach like this. Since clusters have no ordering except points are either in the cluster or out of it, how would we form a cycle out of a cluster? If our smallest cluster in the hierarchy is some size m where m < n, then we'd still have 2^m possible cycles to choose from in order to find the optimal, and if we add up all of our k smallest clusters where k clusters consume the entire set, then we'd have 2^m_1 + 2^m_2 + ... + 2^m_k cycles to choose from. one we had all of these cycles, were is still no guarantee that we could combine them in any easy way so we'd have to also do a pairwise 2^m_a + 2^m_b combination step (where a and ba are two of the cycles found in the previous step) to get the final correct cycle. So is there any clustering method that could lead use to a natural abstraction that is easy to find, and useful in solving our problem? If we want to have a good natural abstraction, it would be useful if the abstraction had the correct cycle for the subset be incidental to the formation of the abstraction, much like in the plane the correct cycle of a convex hull subset is found simply by finding the convex hull. I don't know of any clustering algorithm that has that property (doesn't mean one doesn't exist) since clusters are mainly concerned with membership rather than ordering, so let's focus our efforts elsewhere.
 
 Another idea might be to make an ear decomposition (See Figure Below) using the matchings of our graph as the "edges" of the decomposition. Once we have some an ear decomposition we could then cut the resulting decomposition into a single path. Since our Graph is fully connected we'd also have to ensure that we only assign two edges per vertex greedily once our seed cycle is found in order to not multiple form cycles in the resulting path.
 
 <img src="img\EarDecomposition.png" alt="EarDecomposition" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Example of an Ear decomposition of a partially connected graph </p>
 
-I think this is moving in the right direction, since we have a nested structure to work with, we are moving toward a natural abstraction, but for similar reasoning to why convex hulling is an unnatural abstraction, this method would also be unnatural. This can be seen by the simple fact that there is no unique ear decomposition and any cycle we choose as the seed cycle (e.g. G_1 in the above Figure) would be valid. In many graphs in the waterloo dataset there are multiple cycles of matchings that could serve as the seed cycle. This necessarily means that you'd end up splitting one of the cycles of matchings into two ears breaking the naturalness of the abstraction.If we could guarantee that our matching ear decomposition would only stack more ears on top of each other, breaking no matching cycles, then this would be a promising technique and investigating the proper cutting algorithm would be the next step, but since this property is broken even by small graphs, this technique warrants no further investigation.
+I think this is moving in the right direction, since we have a nested structure to work with, we are moving toward a natural abstraction, but for similar reasoning to why convex hulling is an unnatural abstraction, this method would also be unnatural. This can be seen by the simple fact that there is no unique ear decomposition and any cycle we choose as the seed cycle (e.g. G_1 in the above Figure) would be valid. In many graphs in the waterloo dataset there are multiple cycles of matchings that could serve as the seed cycle. This necessarily means that you'd end up splitting one of the cycles of matchings into two ears breaking the naturalness of the abstraction. If we could guarantee that our matching ear decomposition would only stack more ears on top of each other, breaking no matching cycles, then this would be a promising technique and investigating the proper cutting algorithm would be the next step, but since this property is broken even by small graphs, this technique warrants no further investigation.
 
 ### The Gordian Knot
 
@@ -99,61 +99,59 @@ Okay, What could the natural abstraction be? Well I think it has the following f
 
 A Way to think about this structure is that it is similar to the ear matching decomposition, but generalizes it to multiple seed cycles.
 
-Even this is not quite a true description of the structure, since what we are really trying to do is: Once we form a cycle we need to also make this cycle into a point for use in finding new cycles. The recursive nature of the data structure is necessary to ensure that it is a natural abstraction and the cyclic nature of the abstraction ensures that , at least in the base case, we will be able to find the correct tsp tour with ease. Finally the constraint that there should only be one in and one out (meaning that the Virtual Point is a member of a super cycle) ensures that we will be able to merge tsp cycles with relative but unfortunately recursive ease. Why does merging cycles require recursion? Well I'm not sure that recursion  is the right tool, but it is the best one I have. This is quite similar to the situation we find ourselves in with graphs and cycles, if we have any recursive structure,  find and building up the correct path will be at least an n^2 endeavour and at most an n^2 + (n-1)^2 + ... + 1^2 ~= n^3 operation. Why n^3? because, in the worst case, we have two externals points that we need to check every point in the cycle against to find the right cut, and when we find the right cut we cannot simply match the cutpoints together. Matching the cutpoints together is useful until a point, but once the Knot has more than one cyclic layer, it is not usually the correct answer. In a pure cycle it is the correct answer.
+Even this is not quite a true description of the structure, since what we are really trying to do is: Once we form a cycle we need to also make this cycle into a point for use in finding new cycles. The recursive nature of the data structure is necessary to ensure that it is a natural abstraction and the cyclic nature of the abstraction ensures that , at least in the base case, we will be able to find the correct tsp tour with ease. Finally the constraint that there should only be one in and one out (meaning that the Virtual Point is a member of a super cycle) ensures that we will be able to merge tsp cycles in polynomial time. [See Chapter 4 for details on merging](#chapter-4).
 
-Does a Knot necessarily exist in a fully connected graph embedded in Euclidean Space?
+<img src="img\layers.gif" alt="layers" width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Example of a nested Knot structure, moving up through the layers</p>
 
-if we have points p_1, p_2, ..., p_6
-and each set of odd even pairs WOLG match to each other but not to their next best matches, e.g.
-So what possible matching could we have?
+<img src="img\wi29_numbers.png" alt="layers" width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> wi29 dataset numbers</p>
 
-p_6 <- p_1 <-> p_2 -> p_3
-p_5 <- p_4 <-> p_3 -> p_6
-p_1 <- p_5 <-> p_6 -> p_4
-implies that:
-S[1,6] > S[6,4] > S[4,5] > S[1,5] > S[1,6]
-which breaks the triangle inequality
-
-p_3 <- p_1 <-> p_2 -> p_3
-p_5 <- p_4 <-> p_3 -> p_6
-p_1 <- p_5 <-> p_6 -> p_4
-
-implies that:
-S[1,3] > S[3,6] > S[6,4] > S[4,5] > S[1,5] > S[1,3]
-which breaks the triangle inequality
-
-p_4 <- p_1 <-> p_2 -> p_3
-p_5 <- p_4 <-> p_3 -> p_6
-p_1 <- p_5 <-> p_6 -> p_4
-
-implies that:
-S[1,4] > S[4,5] > S[5,1] > S[1,4]
-which breaks the triangle inequality.
-
-p_6 <- p_1 <-> p_2 -> p_3
-p_2 <- p_4 <-> p_3 -> p_6
-p_1 <- p_5 <-> p_6 -> p_4
-
-S[2,3] > S[3,6] > S[6,4] > S[4,2] > S[2,3]
-
-p_6 <- p_1 <-> p_2 -> p_5
-p_2 <- p_4 <-> p_3 -> p_6
-p_1 <- p_5 <-> p_6 -> p_4
-
-S[2,5] > S[5,1] > S[6,1] > S[4,6] > S[2,4] > S[2,5]
-
-p_6 <- p_1 <-> p_2 -> p_6
-p_2 <- p_4 <-> p_3 -> p_6
-p_1 <- p_5 <-> p_6 -> p_4
-
-S[2,6] > S[6,4] > S[4,2] > S[2,6]
-
-...
-etc.
-
-We can see from the above that if there is no terminating match where one of the endpoints matches to another pair successfully, then we must break the triangle inequality it's not the triangle inequality, maybe that too, but we create a contradiction of increasing numbers such that a > b > c > a .
-
-So we've shown we need at least one extra full match to resolve this, does that mean we must have a Knot?
+    Knot(flattens to: {6 5 4 3 2 1 0 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7})[
+        Knot(flattens to: {21 22 23 24 25 26 27 28 2 0 1 5 6 4 3 20})[
+            Knot(flattens to: {22 23 24 21})[
+                Knot[22 23 24 ] 
+                21 
+            ],
+            Knot(flattens to: {3 4 6 5 1 0 2 28 27 26 25})[
+                Knot(flattens to: {3 2 28 0 1 5 6 4})[
+                    3,
+                    Knot(flattens to: {6 4 2 28 0 1 5})[
+                        6,
+                        Knot(flattens to: {5 4 2 28 0 1})[
+                            5,
+                            4,
+                            Knot(flattens to: {2 1 0 28})[
+                                Knot[0 2 1 ],
+                                28 
+                            ] 
+                        ] 
+                    ] 
+                ],
+                Knot[27 26 25 ] 
+            ],
+            20 
+        ],
+        Knot(flattens to: {9 8 7 19 18 17 16 15 14 13 12 11 10})[
+            Knot(flattens to: {7 19 18 17 16 15 13 14 9 8})[
+                Knot(flattens to: {19 7 14 13 15 16 17 18})[
+                    19, 
+                    7, 
+                    Knot(flattens to: {14 13 15 16 17 18})[
+                        Knot(flattens to: {14 13 15 16 17})[
+                            Knot[13 15 14 ], 
+                            16, 
+                            17
+                        ], 
+                        18 
+                    ] 
+                ],
+                9, 
+                8 
+            ],
+            Knot[10 11 12 ] 
+        ] 
+    ]
 
 ## Chapter 1
 
@@ -233,13 +231,13 @@ So far I hope I have conveyed/answered the following:
 
 * What is The Traveling Salesman Problem(TSP)?
 * Why should I care about TSP?
-* The solution to TSP, if one exists, lies in building up abstractions like a topographer builds terrain on a map, rather than iterative improvement. The terrain features should be invarriants in the graph (for a good starting place look at cycles)
+* The solution to TSP, if one exists, lies in building up abstractions like a topographer builds terrain on a map, rather than iterative improvement. The terrain features should be invariants in the graph (for a good starting place look at cycles)
 
 So the next question would be: <B>What terrain features exist on our map?</b>
 
 Note that in this section I will be defining some of these features in non-traditional ways if you are coming from graph theory. This is so that our data-structures can more readily fit the problem at hand. If there is overlap, I will redefine these terms so that we can distinguish them from their more basic versions you would have seen in algorithms like <b>BFS, DFS</b> and the like.
 
-### Segment
+### [Segment](.\src\shell\knot\Segment.java)
   
   A <b>Segment</b> (also known as an <b>Edge</b> in graph theory), is a connection between two points and a distance provided by the cost function.
 
@@ -253,7 +251,7 @@ distance = C( P<sub>1</sub> , P<sub>2</sub> )
 
 }
 
-### Point
+### [Point](.\src\shell\knot\Point.java)
 
 Our smallest feature is a <b>Point</b> (also know as a <b>Vertex</b> in graph theory), which is defined as a list of Segments all of the segments in the graph that connect to P<sub>1</sub>:
 
@@ -272,6 +270,8 @@ Many of the proceeding algorithms will rely on the fact that sortedSegments is s
 The "<b>matches</b>" will be our current best guess of what two points should surround P<sub>1</sub> in our final ordering. Right now they will just be pointers to other points, but as we add more terrain features we will need to add more supporting data to prevent recalculation of what the best match is.
 
 ### Wormholes
+
+[DistanceMatrix:addDummyPoint()](.\src\shell\DistanceMatrix.java#L177)
 
 A <b>Wormhole</b> is a point that has zero distance to two Points of your choosing and maximal distance to all other Points in the set.
 
@@ -373,7 +373,9 @@ So its one isn't a perfect loop  like  [11, 12, 13] was, but it might be prudent
 
 Ok I think we're ready for our first larger structure
 
-### Knot
+### [Knot](.\src\shell\knot\Knot.java)
+
+
 
 A <b>Knot</b> is defined as any subset <b>K</b> of <b>G</b> where all of the Points in <b>K</b> only want to match with each other and a maximum of two external Points.
 
@@ -443,7 +445,9 @@ So we have a core of <B>[14, 15, 16, 17, 18, 19]</b> with two failed endpoint ma
 
     Note that it is debatable whether you need this structure, but for organizational purposes let's include it.
 
-### Run
+### [Run](.\src\shell\knot\Run.java)
+
+
 
 A <b>Run</b> is just like a <b>Knot</b>, but only its endpoints are exposed.
 
@@ -468,7 +472,7 @@ match2 = P<sub>*</sub>
 
 Next, so that we can look at [Points](#point) and [Knots](#knot) interchangeably, lets make some interface or abstract class above both of them (and any other structures we want to add later):
 
-### Virtual Point
+### [Virtual Point](.\src\shell\knot\VirtualPoint.java)
 
 all of the stuff from [Points](#point), [Knots](#knot), and [Runs](#run) combined and generalized!
 
@@ -481,12 +485,15 @@ Now that we have all of our data structures, let's get cracking
 Our Knot mapping algorithm is as follows:
 
 Main Loop:
+[Shell:slowSolve()](.\src\shell\Shell.java#L552)
+
 
 1. Get all of the Virtual Points we haven't visited and run the continue from Knot Finding Loop #1
 2. The new list of unvisited points is the returned KnotList
 3. If there is only one Virtual Point left, finish, otherwise continue from #1
 
 Knot Finding Loop:
+[Shell:createKnots()](.\src\shell\Shell.java#L61)
 
 1. Get a Virtual Point(VP) that we haven't looked at yet
 2. If we have looked at every VP return the KnotList and continue from Main Loop #2
@@ -910,12 +917,12 @@ Now that we know our way around the problem of multiple cycles and self-loops, w
 
 The algorithm described in this section is roughly a 4*N^7 operation so what are some areas we can speed it up?
 
-1. Remove repeated segment pairs from the main loop (2x speedup)
-2. Add worker pool for every dijkstra's call we make (algorithm is somewhat embarrassingly parallel)
-3. Remove error handling
-4. Figure out how to turn into positive weight graph so we can disregard all settled Points.
-5. Find some way to calculate all shortest paths for a manifold at once instead of in series (seems unlikely given path dependence)
-6. for less accuracy dependent problems could use heuristic of distance to KnotPoints from externals plus distance between CutPoints as best measure of where to calculate internal structure.
+1. &#9745; Remove repeated segment pairs from the main loop (2x speedup)
+2. &#9744; Add worker pool for every dijkstra's call we make (algorithm is somewhat embarrassingly parallel)
+3. &#9744; Remove error handling
+4. &#9744; Figure out how to turn into positive weight graph so we can disregard all settled Points.
+5. &#9744; Find some way to calculate all shortest paths for a manifold at once instead of in series (seems unlikely given path dependence)
+6. &#9744; For less accuracy dependent problems could use heuristic of distance to KnotPoints from externals plus distance between CutPoints as best measure of where to calculate internal structure changing from N^7 to N^3 operation.
 
 ### Complexity Limit
 

@@ -10,6 +10,7 @@
     "terminal.integrated.rightClickCopyPaste": false,
     "java.debug.settings.showQualifiedNames": true,
     "editor.links": true,
+    "debug.autoExpandLazyVariables": "on",
     "java.format.settings.url": "eclipse-formatter.xml"
     
 }

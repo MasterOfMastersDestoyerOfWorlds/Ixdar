@@ -3,7 +3,7 @@ package shell.knot;
 import java.util.ArrayList;
 
 import shell.PointND;
-import shell.Shell;
+import shell.shell.Shell;
 
 public class Point extends VirtualPoint {
     public PointND p;
@@ -28,6 +28,11 @@ public class Point extends VirtualPoint {
     public Point getNearestBasePoint(VirtualPoint vp) {
         assert (basePoint1 != null);
         return basePoint1;
+    }
+    
+    @Override
+    public int getHeight(){
+        return 0;
     }
 
     @Override

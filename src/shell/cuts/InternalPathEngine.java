@@ -8,7 +8,6 @@ import java.util.PriorityQueue;
 import java.util.Set;
 
 import shell.BalanceMap;
-import shell.Shell;
 import shell.enums.Group;
 import shell.enums.RouteType;
 import shell.enums.State;
@@ -22,6 +21,7 @@ import shell.route.Route;
 import shell.route.RouteInfo;
 import shell.route.RouteMap;
 import shell.route.RoutePair;
+import shell.shell.Shell;
 
 public class InternalPathEngine {
     Shell shell;

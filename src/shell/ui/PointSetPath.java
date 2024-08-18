@@ -4,7 +4,7 @@ import java.awt.geom.Path2D;
 
 import shell.DistanceMatrix;
 import shell.PointSet;
-import shell.Shell;
+import shell.shell.Shell;
 
 /**
  * The optimal tsp path in a pointset ps

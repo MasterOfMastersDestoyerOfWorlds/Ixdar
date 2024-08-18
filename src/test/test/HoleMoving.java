@@ -9,9 +9,10 @@ import shell.knot.VirtualPoint;
 import shell.route.Route;
 import shell.route.RouteInfo;
 import shell.route.RouteMap;
+import shell.shell.Shell;
 import shell.ui.PointSetPath;
 import shell.PointND;
-import shell.Shell;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;

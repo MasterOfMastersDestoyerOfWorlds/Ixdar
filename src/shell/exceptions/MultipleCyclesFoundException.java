@@ -2,10 +2,10 @@ package shell.exceptions;
 
 import java.util.ArrayList;
 
-import shell.Shell;
 import shell.cuts.CutInfo;
 import shell.cuts.CutMatchList;
 import shell.knot.Segment;
+import shell.shell.Shell;
 
 public class MultipleCyclesFoundException extends SegmentBalanceException {
     ArrayList<Segment> matchSegments;

@@ -3,7 +3,7 @@ package shell.knot;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import shell.Shell;
+import shell.shell.Shell;
 import shell.utils.RunListUtils;
 
 public class Knot extends VirtualPoint {
@@ -16,6 +16,7 @@ public class Knot extends VirtualPoint {
     public ArrayList<VirtualPoint> knotPoints; // [ vp1, vp2, ... vpm];
     public HashMap<Integer, VirtualPoint> pointToInternalKnot;
     public ArrayList<Segment> manifoldSegments;
+    int height;
 
     // [[s1, ..., sn-1], [s1, ..., sn-1], ... m]; sorted and remove
     // vp1, vp2, ... vpm
@@ -135,6 +136,14 @@ public class Knot extends VirtualPoint {
                 manifoldSegments.add(knotPoint1.getClosestSegment(knotPoint2, null));
             }
         }
+        height = 0;
+        for(VirtualPoint vp : knotPoints){
+            int pHeight = vp.getHeight();
+            if(pHeight > height){
+                height = pHeight;
+            }
+        }
+        height++;
     }
 
     public Segment getSegment(VirtualPoint a, VirtualPoint b) {
@@ -252,7 +261,10 @@ public class Knot extends VirtualPoint {
         }
         return false;
     }
-
+    @Override
+    public int getHeight(){
+        return height;
+    }
     public int size() {
         return knotPointsFlattened.size();
     }

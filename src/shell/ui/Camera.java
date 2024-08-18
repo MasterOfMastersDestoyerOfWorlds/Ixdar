@@ -6,6 +6,8 @@ public class Camera {
     public double ScaleFactor;
     public double PanX;
     public double PanY;
+    public double defaultPanX;
+    public double defaultPanY;
 
     public Camera(int Height, int Width, double ScaleFactor, double PanX, double PanY) {
         this.Height = Height;

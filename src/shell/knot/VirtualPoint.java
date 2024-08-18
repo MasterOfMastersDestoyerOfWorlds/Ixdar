@@ -3,7 +3,7 @@ package shell.knot;
 
 import java.util.ArrayList;
 
-import shell.Shell;
+import shell.shell.Shell;
 
 public abstract class VirtualPoint {
 		public int numMatches;

@@ -15,13 +15,13 @@ import javax.swing.JComponent;
 import shell.BalanceMap;
 import shell.PointND;
 import shell.PointSet;
-import shell.Shell;
 import shell.cuts.CutMatch;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.shell.Shell;
 
 public class Drawing {
 
@@ -68,7 +68,7 @@ public class Drawing {
         double rangeX = maxX - minX, rangeY = maxY - minY;
         double height = camera.Height * camera.ScaleFactor,
                 width = camera.Width * camera.ScaleFactor;
-        int offsetx = 100 + (int) camera.PanX, offsety = 100 + (int) camera.PanY;
+        int offsetx = 0 + (int) camera.PanX, offsety = 0 + (int) camera.PanY;
 
         if (rangeX > rangeY) {
             offsety += (((double) rangeY) / ((double) rangeX) * height / 2);
@@ -219,14 +219,14 @@ public class Drawing {
      * @param drawCircles
      * @param drawNumbers
      */
-    public static void drawPath(JComponent frame, Graphics2D g2, Path2D path, int lineThickness, Color color,
+    public static void drawPath(JComponent frame, Graphics2D g2, Path2D path, float lineThickness, Color color,
             PointSet ps,
             boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed, Camera camera) {
         g2.setPaint(color);
 
         BasicStroke stroke = new BasicStroke(lineThickness);
         if (dashed) {
-            stroke = new BasicStroke(lineThickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[] { 9 },
+            stroke = new BasicStroke(lineThickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 0, new float[] { 9 },
                     0);
         }
         g2.setStroke(stroke);
@@ -260,7 +260,7 @@ public class Drawing {
         meanY = meanY / numPoints;
         PathIterator pi = path.getPathIterator(null);
         Point2D start = null;
-        int count = 0, offsetx = 100 + (int) camera.PanX, offsety = 100 + (int) camera.PanY;
+        int count = 0, offsetx = 0 + (int) camera.PanX, offsety = 0 + (int) camera.PanY;
 
         double height = camera.Height * camera.ScaleFactor,
                 width = camera.Width * camera.ScaleFactor;

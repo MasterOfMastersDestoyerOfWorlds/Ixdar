@@ -1,11 +1,11 @@
 package shell.exceptions;
 
-import shell.Shell;
 import shell.cuts.CutInfo;
 import shell.cuts.CutMatchList;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.shell.Shell;
 
 public class SegmentBalanceException extends Exception {
     public CutMatchList cutMatchList;

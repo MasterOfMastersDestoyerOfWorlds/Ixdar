@@ -6,11 +6,11 @@ import org.apache.commons.collections4.map.MultiKeyMap;
 import org.apache.commons.math3.util.Pair;
 
 import shell.BalanceMap;
-import shell.Shell;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.shell.Shell;
 import shell.utils.Utils;
 
 public class CutInfo {
