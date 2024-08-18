@@ -7,6 +7,6 @@ public class ShellComparator implements Comparator<ShellPair> {
     // for descending order of cgpa
     @Override
     public int compare(ShellPair o1, ShellPair o2) {
-        return Integer.compare(o1.priority, o2.priority);
+        return -1*Integer.compare(o1.priority, o2.priority);
     }
 }
