@@ -173,4 +173,14 @@ public final class RunListUtils{
 
 		}
 	}
+
+    public static boolean containsIDs(ArrayList<VirtualPoint> runList, ArrayList<Integer> integers) {
+		int numIds = integers.size();
+		for(VirtualPoint vp : runList){
+			if(integers.contains(vp.id)){
+				numIds --;
+			}
+		}
+		return numIds <= 0;
+    }
 }

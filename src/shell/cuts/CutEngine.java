@@ -47,6 +47,11 @@ public class CutEngine {
                 VirtualPoint knotPoint21 = knot.knotPoints.get(b);
                 VirtualPoint knotPoint22 = knot.knotPoints.get(b + 1 >= knot.knotPoints.size() ? 0 : b + 1);
                 Segment cutSegment2 = knot.getSegment(knotPoint21, knotPoint22);
+
+                
+                if(knot.id == 34 && cutSegment1.hasPoints(9, 7) && cutSegment2.hasPoints(6, 4)){
+                    float z = 0;
+                }
                 Pair<Segment, Segment> p = new Pair<Segment, Segment>(cutSegment1, cutSegment2);
                 segmentPairs.add(p);
                 if (cutSegment1.partialOverlaps(cutSegment2)) {
@@ -321,6 +326,7 @@ public class CutEngine {
                                 new Segment[] { s52, s51 },
                                 internalCuts56, c5, "CutEngine5");
                         d5 = cutMatch5.delta;
+                        delta = d5 < delta ? d5 : delta;
 
                         Segment s61 = knotPoint22.getClosestSegment(external1, null);
                         Segment s62 = knotPoint11.getClosestSegment(external2, s61);
@@ -371,6 +377,7 @@ public class CutEngine {
                                 new Segment[] { s72, s71 },
                                 internalCuts78, c7, "CutEngine7");
                         d7 = cutMatch7.delta;
+                        delta = d7 < delta ? d7 : delta;
 
                         Segment s81 = knotPoint21.getClosestSegment(external1, null);
                         Segment s82 = knotPoint12.getClosestSegment(external2, s81);
@@ -423,6 +430,9 @@ public class CutEngine {
 
                 }
             }
+        }
+        if(knot.id == 34){
+            float z = 0;
         }
         float z = 0;
         return result;

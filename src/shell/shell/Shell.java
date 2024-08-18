@@ -67,11 +67,15 @@ public class Shell extends LinkedList<PointND> {
 		ArrayList<VirtualPoint> toVisit = (ArrayList<VirtualPoint>) unvisited.clone();
 		ArrayList<VirtualPoint> runList = new ArrayList<>();
 		VirtualPoint mainPoint = toVisit.get(0);
+
 		boolean endpointReached = false;
 		VirtualPoint endPoint1 = null;
 		VirtualPoint endPoint2 = null;
 		while (toVisit.size() > 0 || runList.size() > 0) {
 			toVisit.remove(mainPoint);
+			if(mainPoint.id == 67){
+				float z = 0;
+			}
 			Segment potentialSegment1 = mainPoint.getPointer(1);
 			Point pointer1 = (Point) potentialSegment1.getOtherKnot(mainPoint.topGroup);
 
@@ -165,6 +169,11 @@ public class Shell extends LinkedList<PointND> {
 					mainIsFull = true;
 				}
 				if (matchPoint.numMatches == 2) {
+
+					if (RunListUtils.containsIDs(runList,
+							new ArrayList<Integer>(Arrays.asList(new Integer[] { 57, 58 })))) {
+						float z = 0;
+					}
 					unvisited.remove(matchPoint);
 					visited.add(matchPoint);
 					if (mainIsFull) {
@@ -206,6 +215,10 @@ public class Shell extends LinkedList<PointND> {
 						}
 					}
 					if (runList.size() > 2) {
+						if (RunListUtils.containsIDs(runList,
+								new ArrayList<Integer>(Arrays.asList(new Integer[] { 37, 55, 19, 20, 56 })))) {
+							float z = 0;
+						}
 						for (int i = 0; i < runList.size() && runList.size() > 1; i++) {
 							VirtualPoint vp = runList.get(i);
 							Segment s1 = vp.getFirstUnmatched(runList);
@@ -226,7 +239,14 @@ public class Shell extends LinkedList<PointND> {
 									makeHalfKnot(runList, vp, other);
 									i = -1;
 								}
-							} else if (vp.match1.isKnot && vp.shouldJoinKnot((Knot) vp.match1)) {
+							} else if (vp.isKnot && runList.contains(other) &&
+									other.shouldKnotConsumeExclude((Knot) vp, runList)) {
+								knotFlag = true;
+								makeHalfKnot(runList, vp, other);
+								i = -1;
+							}
+
+							else if (vp.match1.isKnot && vp.shouldJoinKnot((Knot) vp.match1)) {
 
 								knotFlag = true;
 								makeHalfKnot(runList, vp, vp.match1);
@@ -310,6 +330,9 @@ public class Shell extends LinkedList<PointND> {
 			int tempi = otherIdx;
 			otherIdx = vpIdx;
 			vpIdx = tempi;
+		}
+		if (vpIdx == -1) {
+			float z = 0;
 		}
 		ArrayList<VirtualPoint> subList = new ArrayList<VirtualPoint>(
 				runList.subList(vpIdx, otherIdx + 1));
