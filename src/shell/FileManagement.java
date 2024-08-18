@@ -1,10 +1,13 @@
 package shell;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import shell.shell.Shell;
 import shell.ui.PointSetPath;
@@ -75,8 +78,8 @@ public class FileManagement {
                         double slopeX = (xEnd - xStart) / ((double) numPoints);
                         double slopeY = (yEnd - yStart) / ((double) numPoints);
                         for (int i = 0; i < numPoints; i++) {
-                            double xCoord = (slopeX*i) + xStart;
-                            double yCoord = (slopeY*i) + yStart;
+                            double xCoord = (slopeX * i) + xStart;
+                            double yCoord = (slopeY * i) + yStart;
                             PointND pt = new PointND.Double(index, xCoord, yCoord);
                             pt2d = pt.toPoint2D();
                             lookUp.put(index, pt);
@@ -198,8 +201,40 @@ public class FileManagement {
 
     }
 
-    public static void exportNewToFile() {
+    public static void appendAns(File f, Shell ans) {
 
+        List<String> lines = new ArrayList<String>();
+        String line = null;
+        try {
+            FileReader fr = new FileReader(f);
+            BufferedReader br = new BufferedReader(fr);
+            boolean foundAns = false;
+            String ansLine = "ANS ";
+            for (int i = 0; i < ans.size(); i++) {
+                ansLine += ans.get(i).getID() + " ";
+            }
+            while ((line = br.readLine()) != null) {
+                if (line.contains("ANS ")) {
+                    line = ansLine;
+                    foundAns = true;
+                }
+                lines.add(line + "\n");
+            }
+            if (!foundAns) {
+                lines.add(ansLine + "\n");
+            }
+            fr.close();
+            br.close();
+
+            FileWriter fw = new FileWriter(f);
+            BufferedWriter out = new BufferedWriter(fw);
+            for (String s : lines)
+                out.write(s);
+            out.flush();
+            out.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 
 }

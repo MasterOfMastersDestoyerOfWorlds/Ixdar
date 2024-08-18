@@ -71,6 +71,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 	static Shell resultShell;
 	static JFrame frame;
 	static Main main;
+	static File currFile;
 	private static Color stickyColor;
 	int queuedMouseWheelTicks = 0;
 	Camera camera;
@@ -104,8 +105,9 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 
 	public static void main(String[] args) {
 		main = new Main();
-		String fileName = "djbouti_8-14";
-		retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
+		String fileName = "djbouti_14-31";
+		currFile = new File("./src/test/solutions/" + fileName);
+		retTup = FileManagement.importFromFile(currFile);
 
 		DistanceMatrix d = retTup.d;
 		if (retTup.d == null) {
@@ -139,7 +141,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 				calculateSubPaths();
 				totalLayers = shell.cutEngine.totalLayers;
 			}
-			if(startWithAnswer){
+			if (startWithAnswer) {
 				metroDrawLayer = totalLayers;
 			}
 			Set<Integer> knotIds = shell.cutEngine.flatKnots.keySet();
@@ -221,7 +223,6 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 				}
 			}
 		}
-		System.out.println(metroDrawLayer);
 		if (queuedMouseWheelTicks < 0) {
 			camera.ScaleFactor += 0.05 * SHIFT_MOD;
 			queuedMouseWheelTicks++;
@@ -385,6 +386,18 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 				metroDrawLayer--;
 				if (metroDrawLayer < 1) {
 					metroDrawLayer = 1;
+				}
+			}
+		}
+		if (e.getKeyCode() == KeyEvent.VK_O) {
+			drawMainPath = !drawMainPath;
+		}
+		if (e.getKeyCode() == KeyEvent.VK_U) {
+			if (subPaths.size() == 1) {
+				Shell ans = subPaths.get(0);
+				if (orgShell.getLength() > ans.getLength()) {
+					FileManagement.appendAns(currFile, ans);
+					orgShell = ans;
 				}
 			}
 		}
