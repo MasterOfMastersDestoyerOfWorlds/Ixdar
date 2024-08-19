@@ -16,7 +16,9 @@ public class Knot extends VirtualPoint {
     public ArrayList<VirtualPoint> knotPoints; // [ vp1, vp2, ... vpm];
     public HashMap<Integer, VirtualPoint> pointToInternalKnot;
     public ArrayList<Segment> manifoldSegments;
+    public ArrayList<Long> manifoldSegmentIds;
     int height;
+    public int numKnots;
 
     // [[s1, ..., sn-1], [s1, ..., sn-1], ... m]; sorted and remove
     // vp1, vp2, ... vpm
@@ -129,21 +131,32 @@ public class Knot extends VirtualPoint {
             shell.unvisited.add(this);
         }
         manifoldSegments = new ArrayList<>();
+        manifoldSegmentIds = new ArrayList<>();
         if (knotPointsFlattened.size() == knotPoints.size()) {
             for (int a = 0; a < knotPoints.size(); a++) {
                 VirtualPoint knotPoint1 = knotPoints.get(a);
                 VirtualPoint knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
-                manifoldSegments.add(knotPoint1.getClosestSegment(knotPoint2, null));
+                Segment s = knotPoint1.getClosestSegment(knotPoint2, null);
+                manifoldSegments.add(s);
+                manifoldSegmentIds.add(s.id);
             }
         }
         height = 0;
-        for(VirtualPoint vp : knotPoints){
+        for (VirtualPoint vp : knotPoints) {
             int pHeight = vp.getHeight();
-            if(pHeight > height){
+            if (pHeight > height) {
                 height = pHeight;
             }
         }
         height++;
+        numKnots = 0;
+        for(VirtualPoint vp: knotPoints){
+            if(vp.isKnot){
+                Knot k = (Knot)vp;
+                numKnots += k.numKnots;
+            }
+        }
+        numKnots++;
     }
 
     public Segment getSegment(VirtualPoint a, VirtualPoint b) {
@@ -231,17 +244,24 @@ public class Knot extends VirtualPoint {
     }
 
     public boolean hasSegment(Segment cut) {
+        if (manifoldSegments.size() == 0) {
+            for (int a = 0; a < knotPoints.size(); a++) {
 
-        for (int a = 0; a < knotPoints.size(); a++) {
+                VirtualPoint knotPoint1 = knotPoints.get(a);
+                VirtualPoint knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
+                if (cut.contains(knotPoint1) && cut.contains(knotPoint2)) {
+                    return true;
+                }
 
-            VirtualPoint knotPoint1 = knotPoints.get(a);
-            VirtualPoint knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
-            if (cut.contains(knotPoint1) && cut.contains(knotPoint2)) {
-                return true;
             }
-
+        }else{
+            return manifoldSegments.contains(cut);
         }
         return false;
+    }
+
+    public boolean hasSegmentManifold(Segment cut) {
+        return manifoldSegmentIds.contains(cut.id);
     }
 
     public boolean overlaps(Knot minKnot) {
@@ -261,10 +281,8 @@ public class Knot extends VirtualPoint {
         }
         return false;
     }
-    @Override
-    public int getHeight(){
-        return height;
-    }
+
+
     public int size() {
         return knotPointsFlattened.size();
     }

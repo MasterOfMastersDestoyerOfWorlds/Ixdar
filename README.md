@@ -924,26 +924,43 @@ The algorithm described in this section is roughly a 4*N^7 operation so what are
 5. &#9744; Find some way to calculate all shortest paths for a manifold at once instead of in series (seems unlikely given path dependence)
 6. &#9744; For less accuracy dependent problems could use heuristic of distance to KnotPoints from externals plus distance between CutPoints as best measure of where to calculate internal structure changing from N^7 to N^3 operation.
 
-### Complexity Limit
+Expanding on #6 we can throw out a bunch of the cutSegment pairs based on the following idea:
 
-Immediately I can see a few questions with this approach:
+the maximum distance that a specific cut segment pair could have would be:
 
-Q1.  Why do we only need to look at a maximum of two cut segments? For example in the Match Twice and Stitch Algorithm they have many cut segments that they apply.
+maxDist(S1[KP1:CP1], S2[KP2:CP2], EX1, EX2) = Seg[KP1:EX1] + Seg[KP2:EX2] - S1 - S2 + Seg[CP1:CP2]
 
-A1. This really comes down to how we are defining and finding our Knots. Remember that a Knot is not any cycle in the graph, even though it is a cycle. A Knot is defined as a subset of the graph that only want to match with itself and a maximum of two external VirtualPoints. Given this definition, if we find our Knots correctly, then this cutting algorithm will produce the optimal result.
+assuming that the graph is metric and the minimum distance would be
 
-Q2. Do we really need to look at all of the cut segments, shouldn't we just be able to look at the ones that are closest to the external VirtualPoints?
+minDist(S3[KP3:CP3], S4[KP4:CP4], EX1, EX2) = Seg[KP3:EX3] + Seg[KP4:EX4] - S3 - S4 - Seg[CP3:CP4]
 
-A2. While such an approach can work for simple cases that lie in the plane, it does not work in general and the algorithm i've outlined is really the best we can do. Take as an example a circle lying in the plane with a center point at (0,0) and with VirtualPoints distributed on the path of the circle with uneven spacing, lets call this Knot C for circle. Then arrange 3 VirtualPoints far above the circle in a line where their x and y coordinates are 0,0 and they only differ by their z coordinate and let's call this Knot L for line. since the distance from Knot L to any point on Knot C is constant, we must look at every cut segment in  Knot C to find out which will be in hte correct ordering.
+so if minDist(S3, S4, EX1, EX2) > maxDist(S1, S2, EX1, EX2)
+where S1,S2 minmizes maxDist over the manifold, then we know that we cannot choose S3, S4 as our cut Segments
+and therefore do not have to calculate the internals.
 
-Ok so now we know we must at least look at all of the segments once, but why this business with two cut segments?
+This would only work for segment pairs that start in the connected state however,
+for disconnected I could imagine a similar test where you pick the simplest matching scheme possible that must exist:
+if KP2's neighbor is KPN2
+and KP1's Neighbor is KPN1
 
-Well, let's now mirror Knot L across the XY Plane so that we have Knot L1 above it and Knot L2 below it. now if we want to cut Knot K we must also consider all of the disjoint segments that would have to match across the circle internally as well.
+CP1 -> KP2 | KPN2 -> CP2
+or
+CP1 -> KPN1 | KP1 -> CP2
+and choose the min
 
-Q3. How do we get a Big O of N<sup>3</sup>?
+maxDist(S1, S2, EX1, EX2) = Seg[KP1:EX1] + Seg[KP2:EX2] - S1 - S2 + Min(Seg[CP1:KP2] + Seg[CP2:KPN2] - Seg[KP2:KPN2], Seg[CP2:KP1] + Seg[CP1:KPN1] - Seg[KP1:KPN1])
 
-A3. In the Worst Case there would be  N-4 Knots to cut, and on average I have seen most sets with roughly N/3 Knots. So if we have O(N) Knots, and we are looking at all cut segment pairs in each Knot with time O(N<sup>2</sup>), then O(N)*O(N<sup>2</sup>) = O(N<sup>3</sup>)
-^^ I think this is wrong and only correct assumeing that we use simply connections instead of recursive ones :(
+and minDist(S3, S4, EX1, EX2) = Seg[KP3:EX1] + Seg[KP4:EX2] - S3 - S4 + Min(- Seg[CP3:KP4] - Seg[CP4:KPN4] - Seg[KP4:KPN4], - Seg[CP4:KP3] - Seg[CP3:KPN3] - Seg[KP3:KPN3])
+
+is this true^^?
+
+So the maxDist for a disconnected segment pair
+
+and for the segment overlap's we know the distance outright and maxDist = minDist
+
+maxDist(S1, S1, EX1, EX2) =  Seg[KP1:EX1] + Seg[KP2:EX2] - S1 = minDist (S1, S1, EX1, EX2)
+
+given the setup of our data structure the minDist ans
 
 ## Links
 

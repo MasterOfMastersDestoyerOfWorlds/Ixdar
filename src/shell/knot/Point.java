@@ -1,6 +1,7 @@
 package shell.knot;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import shell.PointND;
 import shell.shell.Shell;
@@ -23,6 +24,7 @@ public class Point extends VirtualPoint {
         knotPointsFlattened = new ArrayList<VirtualPoint>();
         knotPointsFlattened.add(this);
         sortedSegments = new ArrayList<Segment>();
+        segmentLookup = new HashMap<>();
     }
 
     public Point getNearestBasePoint(VirtualPoint vp) {

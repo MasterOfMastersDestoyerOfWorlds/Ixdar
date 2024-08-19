@@ -6,6 +6,8 @@ public class Segment implements Comparable<Segment> {
     public VirtualPoint first;
     public VirtualPoint last;
     public double distance;
+    public long id;
+    public static int numSegments=0;
 
     public Segment(VirtualPoint first,
             VirtualPoint last,
@@ -13,7 +15,9 @@ public class Segment implements Comparable<Segment> {
         this.first = first;
         this.last = last;
         this.distance = distance;
-
+        long a = first.id;
+        long b = last.id;
+        id = a >= b ? a * a + a + b : b + a + b * b;
     }
 
     public VirtualPoint getOther(VirtualPoint vp) {
@@ -83,9 +87,9 @@ public class Segment implements Comparable<Segment> {
             return false;
         } else {
             Segment s2 = (Segment) obj;
-
-            return (this.first.id == s2.first.id && this.last.id == s2.last.id)
-                    || (this.first.id == s2.last.id && this.last.id == s2.first.id);
+            return this.id == s2.id;
+            // return (this.first.id == s2.first.id && this.last.id == s2.last.id)
+            //         || (this.first.id == s2.last.id && this.last.id == s2.first.id);
         }
     }
 

@@ -33,11 +33,13 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
+import shell.cuts.CutEngine;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.VirtualPoint;
+import shell.route.RouteInfo;
 import shell.route.RoutePair;
 import shell.shell.Shell;
 import shell.shell.ShellPair;
@@ -102,10 +104,11 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 				new PrintScreenAction(frame));
 		init = true;
 	}
-	//cut 5-3 and 2-0 or 18-16 and 15-13
+
+	// cut 5-3 and 2-0 or 18-16 and 15-13
 	public static void main(String[] args) {
 		main = new Main();
-		String fileName = "qa194_180-6WH";
+		String fileName = "djbouti_4-8WH4-6";
 		currFile = new File("./src/test/solutions/" + fileName);
 		retTup = FileManagement.importFromFile(currFile);
 
@@ -168,11 +171,29 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 
 		long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
 		double knotCuttingSeconds = ((double) endTimeKnotCutting) / 1000.0;
+		double ixdarSeconds = ((double) shell.cutEngine.internalPathEngine.totalTimeIxdar) / 1000.0;
+		double ixdarProfileSeconds = ((double) shell.cutEngine.internalPathEngine.profileTimeIxdar) / 1000.0;
 		System.out.println(result);
 		System.out.println("Knot-finding time: " + knotFindingSeconds);
 		System.out.println("Knot-cutting time: " + knotCuttingSeconds);
+		System.out.println("Ixdar time: " + ixdarSeconds);
+		System.out.println("Ixdar counted: " + CutEngine.countCalculated);
+		System.out.println("Ixdar skip: " + CutEngine.countSkipped);
+		System.out.println("Ixdar Calls:" + shell.cutEngine.internalPathEngine.ixdarCalls);
+		System.out.println("maxSettledSize: " + RouteInfo.maxSettledSize);
+		
+		System.out.println("comparisons " + String.format("%,d", shell.cutEngine.internalPathEngine.comparisons));
+		System.out.println("N " + shell.size());
+
 		System.out.println(
 				"Knot-cutting %: " + 100 * (knotCuttingSeconds / (knotCuttingSeconds + knotFindingSeconds)));
+
+		System.out.println(
+				"Ixdar %: " + 100 * (ixdarSeconds / (knotCuttingSeconds + knotFindingSeconds)));
+
+		System.out.println("Ixdar profile time: " + ixdarProfileSeconds);
+		System.out.println(
+				"Ixdar Profile %: " + 100 * (ixdarProfileSeconds / (ixdarSeconds)));
 		System.out.println("Best Length: " + orgShell.getLength());
 		System.out.println("===============================================");
 		System.out.println(shell.cutEngine.flatKnots);
@@ -400,6 +421,9 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 					orgShell = ans;
 				}
 			}
+		}
+		if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+			calculateSubPaths();
 		}
 	}
 

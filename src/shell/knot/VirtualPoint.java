@@ -3,6 +3,7 @@ package shell.knot;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 import shell.shell.Shell;
 import shell.utils.RunListUtils;
@@ -19,6 +20,7 @@ public abstract class VirtualPoint {
 	public ArrayList<VirtualPoint> externalVirtualPoints;
 	public ArrayList<VirtualPoint> knotPointsFlattened;
 	public ArrayList<Segment> sortedSegments;
+	public HashMap<Long, Segment> segmentLookup;
 	public Segment s2;
 	public int id;
 	public boolean isKnot;
@@ -212,16 +214,20 @@ public abstract class VirtualPoint {
 				}
 			}
 		}
-		shell.buff.add("no better segment found");
-		shell.buff.add(excludeSegment);
-		shell.buff.add(vp.fullString());
-		shell.buff.add(vp.sortedSegments);
-		shell.buff.add(this.fullString());
-		shell.buff.add(this.sortedSegments);
 
 		@SuppressWarnings("unused")
 		float zero = 1 / 0;
 		return null;
+	}
+	public Segment getSegment(VirtualPoint vp) {
+		long a = this.id;
+		long b = vp.id;
+        long id = a >= b ? a * a + a + b : b + a + b * b;
+		Segment look = this.segmentLookup.get(id);
+		if(look == null){
+			float z = 0;
+		}
+		return look;
 	}
 
 	public Point getNearestBasePoint(VirtualPoint vp) {
