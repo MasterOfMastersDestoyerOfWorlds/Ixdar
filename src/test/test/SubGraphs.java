@@ -216,7 +216,106 @@ public class SubGraphs {
 	public void test_wi29_9_25p20() {
 		testMethod("wi29_9-25p20");
 	}
+	
+	@Test
+	public void test_qa194_0_14() {
+		testMethod("qa194_0-14");
+	}
+	@Test
+	public void test_qa194_0_20() {
+		testMethod("qa194_0-20");
+	}
+	@Test
+	public void test_qa194_20_40() {
+		testMethod("qa194_20-40");
+	}
+	@Test
+	public void test_qa194_20_40WH() {
+		testMethod("qa194_20-40WH");
+	}
+	@Test
+	public void test_qa194_20_60() {
+		testMethod("qa194_20-60");
+	}
+	@Test
+	public void test_qa194_20_60WH() {
+		testMethod("qa194_20-60WH");
+	}
+	@Test
+	public void test_qa194_40_60() {
+		testMethod("qa194_40-60");
+	}
+	@Test
+	public void test_qa194_40_60WH() {
+		testMethod("qa194_40-60WH");
+	}
+	@Test
+	public void test_qa194_60_80() {
+		testMethod("qa194_60-80");
+	}
+	@Test
+	public void test_qa194_60_80WH() {
+		testMethod("qa194_60-80WH");
+	}
+	@Test
+	public void test_qa194_69_100() {
+		testMethod("qa194_69-100");
+	}	
+	@Test
+	public void test_qa194_87_100() {
+		testMethod("qa194_87-100");
+	}
+	@Test
+	public void test_qa194_100_120() {
+		testMethod("qa194_100-120");
+	}
+	@Test
+	public void test_qa194_100_120WH() {
+		testMethod("qa194_100-120WH");
+	}
 
+	@Test
+	public void test_qa194_120_140() {
+		testMethod("qa194_120-140");
+	}
+	@Test
+	public void test_qa194_120_140WH() {
+		testMethod("qa194_120-140WH");
+	}
+	@Test
+	public void test_qa194_120_160() {
+		testMethod("qa194_120-160");
+	}
+	@Test
+	public void test_qa194_120_160WH() {
+		testMethod("qa194_120-160WH");
+	}
+	@Test
+	public void test_qa194_140_160() {
+		testMethod("qa194_140-160");
+	}
+	@Test
+	public void test_qa194_140_160WH() {
+		testMethod("qa194_140-160WH");
+	}
+
+	@Test
+	public void test_qa194_160_180() {
+		testMethod("qa194_160-180");
+	}
+	@Test
+	public void test_qa194_160_180WH() {
+		testMethod("qa194_160-180WH");
+	}
+	
+	@Test
+	public void test_qa194_180_6() {
+		testMethod("qa194_180-6");
+	}
+	@Test
+	public void test_qa194_180_6WH() {
+		testMethod("qa194_180-6WH");
+	}
 	public void testMethod(String fileName) {
 		PointSetPath retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
 		Shell answer = new Shell();

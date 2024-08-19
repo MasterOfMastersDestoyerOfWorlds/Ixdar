@@ -105,7 +105,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 	//cut 5-3 and 2-0 or 18-16 and 15-13
 	public static void main(String[] args) {
 		main = new Main();
-		String fileName = "djbouti";
+		String fileName = "qa194_180-6WH";
 		currFile = new File("./src/test/solutions/" + fileName);
 		retTup = FileManagement.importFromFile(currFile);
 
@@ -126,7 +126,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 		System.out.println(shell);
 		long startTimeKnotFinding = System.currentTimeMillis();
 		if (calculateKnot) {
-			result = new ArrayList<>(shell.slowSolve(shell, d, 6));
+			result = new ArrayList<>(shell.slowSolve(shell, d, 10));
 		}
 		shell.buff.flush();
 		long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
