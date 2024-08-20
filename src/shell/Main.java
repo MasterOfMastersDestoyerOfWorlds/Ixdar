@@ -108,7 +108,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 	// cut 5-3 and 2-0 or 18-16 and 15-13
 	public static void main(String[] args) {
 		main = new Main();
-		String fileName = "djbouti_4-8WH4-6";
+		String fileName = "wi29";
 		currFile = new File("./src/test/solutions/" + fileName);
 		retTup = FileManagement.importFromFile(currFile);
 
@@ -158,6 +158,9 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 				Shell knotShell = new Shell();
 				for (VirtualPoint p : k.knotPointsFlattened) {
 					knotShell.add(((Point) p).p);
+				}
+				if(totalLayers - layerNum <0){
+					float z = 0;
 				}
 				metroPathsHeight.add(new ShellPair(knotShell, heightNum));
 				metroPathsLayer.add(new ShellPair(knotShell, totalLayers - layerNum));

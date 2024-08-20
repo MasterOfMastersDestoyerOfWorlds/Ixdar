@@ -246,15 +246,19 @@ public abstract class VirtualPoint {
 	public int getHeight() {
 		if (this.isKnot) {
 			Knot k = (Knot) this;
+			int max = 1;
 			for (VirtualPoint vp : k.knotPoints) {
 				if (vp.isKnot) {
-					return 2;
+					int h = vp.getHeight() + 1;
+					if(h > max){
+						max = h;
+					}
 				}
 			}
+			return max;
 		} else {
 			return 1;
 		}
-		return 1;
 	}
 
 	public void setMatch1(VirtualPoint matchPoint, Point matchEndPoint, Point matchBasePoint,

@@ -49,7 +49,7 @@ public class InternalPathEngine {
 
         long startTimeIxdar = System.currentTimeMillis();
         HashMap<Integer, RouteInfo> routeMap = ixdar(knotPoint1, cutPoint1, knotPoint2, cutPoint2,
-                knot, knotPointsConnected, cutSegment1, cutSegment2, -1, -1, RouteType.None);
+                knot, knotPointsConnected, cutSegment1, cutSegment2, -1, -1, RouteType.None, c.shell.cutEngine.flatKnotsNumKnots.get(knot.id));
         ixdarCalls++;
         long endTimeIxdar = System.currentTimeMillis() - startTimeIxdar;
         totalTimeIxdar += endTimeIxdar;
@@ -61,7 +61,7 @@ public class InternalPathEngine {
             prevCutSide = RouteType.nextC;
         }
 
-        Route route = curr.getRoute(prevCutSide);
+            Route route = curr.getRoute(prevCutSide);
         ArrayList<Segment> cutSegments = route.cuts;
         ArrayList<Segment> matchSegments = route.matches;
         ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
@@ -77,10 +77,7 @@ public class InternalPathEngine {
         cutSegments.remove(cutSegment1);
         cutSegments.remove(cutSegment2);
 
-        if(c.shell.cutEngine.flatKnotsNumKnots.get(knot.id) == null){
-            float z = 0;
-        }
-        if(matchSegments.size() >c.shell.cutEngine.flatKnotsNumKnots.get(knot.id)+1){
+        if(matchSegments.size() >c.shell.cutEngine.flatKnotsNumKnots.get(knot.id)){
             int i =  c.shell.cutEngine.flatKnotsHeight.get(knot.id)+1;
             if(c.shell.cutEngine.flatKnotsNumKnots.get(knot.id) == null){
                 float z = 0;
@@ -107,7 +104,7 @@ public class InternalPathEngine {
     public RouteMap<Integer, RouteInfo> ixdar(VirtualPoint knotPoint1, VirtualPoint cutPoint1,
             VirtualPoint knotPoint2, VirtualPoint cutPoint2,
             Knot knot, boolean knotPointsConnected, Segment cutSegment1, Segment cutSegment2, int steps,
-            int sourcePoint, RouteType routeType) {
+            int sourcePoint, RouteType routeType, int knotNumber) {
 
         ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
         RouteMap<Integer, RouteInfo> routeMap = new RouteMap<>();
@@ -164,10 +161,18 @@ public class InternalPathEngine {
                 r.assignGroup(rightGroup, leftGroup);
             }
         }
+        RouteInfo curr = routeMap.get(knotPoint2.id);
+        RouteType prevCutSide = RouteType.None;
+        if (curr.prevC.neighbor.id == cutPoint2.id) {
+            prevCutSide = RouteType.prevC;
+        } else {
+            prevCutSide = RouteType.nextC;
+        }
 
+        Route endRoute = curr.getRoute(prevCutSide);
         RouteInfo uParent = null;
         Route u = null;
-        while (settled.size() < numPoints * 4) {
+        while (settled.size() < numPoints * 4 && endRoute.matches.size() < knotNumber) {
             if (q.size() == 0) {
                 break;
             }
