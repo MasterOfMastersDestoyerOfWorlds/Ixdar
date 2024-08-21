@@ -29,8 +29,13 @@ public class SubGraphs {
 		testMethod("lines_0-4");
 	}
 	@Test
-	public void test_boxWH() {
+	public void test_box_WH() {
 		testMethod("box_WH");
+	}
+
+	@Test
+	public void test_box_WH_2x() {
+		testMethod("box_WH-2x");
 	}
 	@Test
 	public void test_circle_5() {

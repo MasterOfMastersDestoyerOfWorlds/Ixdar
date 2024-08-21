@@ -33,6 +33,8 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
+import org.apache.commons.lang3.ObjectUtils.Null;
+
 import shell.cuts.CutEngine;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
@@ -108,7 +110,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 	// cut 5-3 and 2-0 or 18-16 and 15-13
 	public static void main(String[] args) {
 		main = new Main();
-		String fileName = "djbouti";
+		String fileName = "threecircle_in_10";
 		currFile = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(currFile);
 
@@ -116,7 +118,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 		if (retTup.d == null) {
 			d = new DistanceMatrix(retTup.ps);
 		}
-
+		float z1 = 0;
 		orgShell = retTup.tsp;
 
 		System.out.println(orgShell.getLength());
@@ -273,7 +275,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 			if (drawMainPath) {
 				orgShell.drawShell(this, g2, false, minLineThickness, Color.BLUE, retTup.ps, camera);
 			}
-			if (drawMetroDiagram) {
+			if (drawMetroDiagram && shell != null) {
 				if (metroDrawLayer == shell.cutEngine.totalLayers) {
 					for (Shell temp : subPaths) {
 						temp.drawShell(this, g2, true, minLineThickness * 2,

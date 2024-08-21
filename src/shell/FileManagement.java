@@ -80,8 +80,8 @@ public class FileManagement {
                         double xEnd = java.lang.Double.parseDouble(cords[3]);
                         double yEnd = java.lang.Double.parseDouble(cords[4]);
                         int numPoints = java.lang.Integer.parseInt(cords[5]);
-                        double slopeX = (xEnd - xStart) / ((double) numPoints);
-                        double slopeY = (yEnd - yStart) / ((double) numPoints);
+                        double slopeX = (xEnd - xStart) / ((double) numPoints-1);
+                        double slopeY = (yEnd - yStart) / ((double) numPoints-1);
                         for (int i = 0; i < numPoints; i++) {
                             double xCoord = (slopeX * i) + xStart;
                             double yCoord = (slopeY * i) + yStart;
