@@ -515,6 +515,7 @@ public class Shell extends LinkedList<PointND> {
 	}
 
 	public Integer[][] smallestCommonKnotLookup;
+	public Integer[][] largestUncommonKnotLookup;
 	public Integer[] smallestKnotLookup;
 
 	public void updateSmallestKnot(Knot knotNew) {

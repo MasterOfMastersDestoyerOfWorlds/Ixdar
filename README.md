@@ -962,13 +962,19 @@ maxDist(S1, S1, EX1, EX2) =  Seg[KP1:EX1] + Seg[KP2:EX2] - S1 = minDist (S1, S1,
 
 given the setup of our data structure the minDist ans
 
-The other thing that seems to really help: see [PerfTesting](.\PerfTesting-Ixdar.csv)
+The other thing that seems to really help: see [PerfTesting](.\PerfTesting-Ixdar.csv) for more details.
 
-is the weird fact that path length (in number of CutMatches) seems to scale with the number of Knots that CutPoint1 has to travel through in order to get to CutPoint2
+Is the weird fact that path length (in number of CutMatches) seems to scale with the number of Knots that CutPoint1 has to travel through in order to get to CutPoint2, which I will call the Knot Distance. At most the shortest path from CP1 to CP2 can be the Knot Distance when the cuts start in the connected state and the Knot Distance + 1 when the cuts start in the disconnected state.
 
 it is also true, at least in the data set that I have assembled, that the path length cannot exceed the number of internal knots contained in the knot manifold.
 
 I am unsure of how you would divine this number, but 10_rings wen from : 9,772,481,590 comparisons to 28,948,904 comparisions (300x FASTER!) by limiting the path search length to 1, this means all paths longer than 1 are disregarded, when considering circles or flat knots this seems obvious, if you have any circle with two externals on either side of it then the optimal path must connect the two CutPoints directly:
+
+A Rough estimate can be found using the following formula:
+
+Knot Distance = Height of MinKnot that contains CP1 and CP2 - Height of MinKnot that contains CutSeg1 and CutSeg2 + 1 if connected or +2 if Disconnected
+
+what's more is that we only have to look at cut matches in the same minKnot as the 
 
 <img src="img\snap158.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Circle with external Wormhole in the top Left corner connecting 5 and 0 (circle_in_5_arc)</p>

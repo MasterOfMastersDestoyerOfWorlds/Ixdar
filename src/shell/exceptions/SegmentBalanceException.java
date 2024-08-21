@@ -29,7 +29,7 @@ public class SegmentBalanceException extends Exception {
         VirtualPoint kp1 = cut1.getOverlap(ex1);
         VirtualPoint kp2 = cut2.getOverlap(ex2);
         cutName = shell.knotName + "_cut" + kp1 + "-" + cut1.getOther(kp1) + "and" + kp2
-                                            + "-" + cut2.getOther(kp2);
+                                            + "-" + cut2.getOther(kp2) + "\n" + cutMatchList;
     }
 
     public SegmentBalanceException(SegmentBalanceException sbe){

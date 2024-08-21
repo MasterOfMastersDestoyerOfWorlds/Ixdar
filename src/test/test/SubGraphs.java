@@ -20,7 +20,18 @@ public class SubGraphs {
 	/**
 	 * Tests that our solver solves the djibouti problem set correctly
 	 */
-
+	@Test
+	public void test_lines() {
+		testMethod("lines");
+	}
+	@Test
+	public void test_lines_0_4() {
+		testMethod("lines_0-4");
+	}
+	@Test
+	public void test_boxWH() {
+		testMethod("box_WH");
+	}
 	@Test
 	public void test_circle_5() {
 		testMethod("circle_5");
@@ -42,24 +53,24 @@ public class SubGraphs {
 	}
 
 	@Test
-	public void test_two_circle_in_10() {
-		testMethod("two_circle_in_10");
+	public void test_twocircle_in_10() {
+		testMethod("twocircle_in_10");
 	}
 
 	@Test
-	public void test_two_circle_in_10_arc() {
-		testMethod("two_circle_in_10_arc");
+	public void test_twocircle_in_10_arc() {
+		testMethod("twocircle_in_10_arc");
 
 	}
 
 	@Test
-	public void test_two_circle_in_10_wh() {
-		testMethod("two_circle_in_10_wh");
+	public void test_twocircle_in_10_wh() {
+		testMethod("twocircle_in_10_wh");
 	}
 
 	@Test
-	public void test_three_circle_in_10() {
-		testMethod("three_circle_in_10");
+	public void test_threecircle_in_10() {
+		testMethod("threecircle_in_10");
 	}
 
 	@Test
@@ -201,7 +212,10 @@ public class SubGraphs {
 	public void test_wi29_6_25p20p19() {
 		testMethod("wi29_6-25p20p19");
 	}
-
+	@Test
+	public void test_wi29_6_21() {
+		testMethod("wi29_6-21");
+	}
 	@Test
 	public void test_wi29_6_28() {
 		testMethod("wi29_6-28");
@@ -317,7 +331,7 @@ public class SubGraphs {
 		testMethod("qa194_180-6WH");
 	}
 	public void testMethod(String fileName) {
-		PointSetPath retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
+		PointSetPath retTup = FileManagement.importFromFile(FileManagement.getTestFile(fileName));
 		Shell answer = new Shell();
 		int n = retTup.ps.size();
 

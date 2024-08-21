@@ -18,6 +18,11 @@ import java.awt.geom.Point2D;
 
 public class FileManagement {
 
+    public static File getTestFile(String fileName){
+        String[] parts = fileName.split("_");
+        return new File("./src/test/solutions/" + parts[0] + "/" + fileName);
+    }
+
     /**
      * Imports the point set and optimal tsp path from a file
      * 

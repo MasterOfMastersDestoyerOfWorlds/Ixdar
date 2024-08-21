@@ -43,16 +43,65 @@ public class CutEngine {
         double minDelta = Double.MAX_VALUE;
         CutMatchList result = null;
         ArrayList<Pair<Segment, Segment>> segmentPairs = new ArrayList<>();
+        for (int a = 0; a < knot.knotPoints.size(); a++) {
 
+            VirtualPoint knotPoint11 = knot.knotPoints.get(a);
+            VirtualPoint knotPoint12 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
+            Segment cutSegment1 = knotPoint11.getClosestSegment(knotPoint12, null);
+            Segment s11 = knotPoint11.getClosestSegment(external1, null);
+            Segment s12 = knotPoint12.getClosestSegment(external2, s11);
+
+            CutInfo c1 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, external1, knotPoint12,
+                    knotPoint11, cutSegment1,
+                    external2, knot, null);
+            SegmentBalanceException sbe = new SegmentBalanceException(shell, null, c1);
+            BalanceMap balanceMap1 = new BalanceMap(knot, sbe);
+            balanceMap1.addCut(knotPoint11, knotPoint12);
+            balanceMap1.addExternalMatch(knotPoint11, external1, null);
+            balanceMap1.addExternalMatch(knotPoint12, external2, null);
+            c1.balanceMap = balanceMap1;
+
+            CutMatchList cutMatch1 = new CutMatchList(shell, sbe, c1.superKnot);
+            cutMatch1.addCutMatch(new Segment[] { cutSegment1 },
+                    new Segment[] { s11, s12 }, c1,
+                    "CutEngineSegmentsFullyOverlap1");
+            double d1 = cutMatch1.delta;
+
+            Segment s21 = knotPoint12.getClosestSegment(external1, null);
+            Segment s22 = knotPoint11.getClosestSegment(external2, s21);
+
+            CutInfo c2 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint11,
+                    knotPoint12, cutSegment1,
+                    external2, knot, balanceMap1);
+
+            CutMatchList cutMatch2 = new CutMatchList(shell, sbe, c2.superKnot);
+            cutMatch2.addCutMatch(new Segment[] { cutSegment1 },
+                    new Segment[] { s21, s22 }, c2,
+                    "CutEngineSegmentsFullyOverlap2");
+            double d2 = cutMatch2.delta;
+
+            double delta = d2;
+            if (d1 < d2) {
+                delta = d1;
+            }
+            if (delta < minDelta) {
+                if (d1 < d2) {
+                    result = cutMatch1;
+                } else {
+                    result = cutMatch2;
+                }
+                minDelta = delta;
+            }
+        }
         for (int a = 0; a < knot.knotPoints.size(); a++) {
             for (int b = a; b < knot.knotPoints.size(); b++) {
                 VirtualPoint knotPoint11 = knot.knotPoints.get(a);
                 VirtualPoint knotPoint12 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
-                Segment cutSegment1 = knot.getSegment(knotPoint11, knotPoint12);
+                Segment cutSegment1 = knotPoint11.getClosestSegment(knotPoint12, null);
 
                 VirtualPoint knotPoint21 = knot.knotPoints.get(b);
                 VirtualPoint knotPoint22 = knot.knotPoints.get(b + 1 >= knot.knotPoints.size() ? 0 : b + 1);
-                Segment cutSegment2 = knot.getSegment(knotPoint21, knotPoint22);
+                Segment cutSegment2 = knotPoint21.getClosestSegment(knotPoint22, null);
 
                 if (knot.id == 34 && cutSegment1.hasPoints(9, 7) && cutSegment2.hasPoints(6, 4)) {
                     float z = 0;
@@ -63,53 +112,13 @@ public class CutEngine {
                     continue;
                 }
                 if (cutSegment1.equals(cutSegment2)) {
-                    Segment s11 = knotPoint11.getClosestSegment(external1, null);
-                    Segment s12 = knotPoint12.getClosestSegment(external2, s11);
-
-                    CutInfo c1 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, external1, knotPoint12,
-                            knotPoint11, cutSegment1,
-                            external2, knot, null);
-                    SegmentBalanceException sbe = new SegmentBalanceException(shell, null, c1);
-                    BalanceMap balanceMap1 = new BalanceMap(knot, sbe);
-                    balanceMap1.addCut(knotPoint11, knotPoint12);
-                    balanceMap1.addExternalMatch(knotPoint11, external1, null);
-                    balanceMap1.addExternalMatch(knotPoint12, external2, null);
-                    c1.balanceMap = balanceMap1;
-
-                    CutMatchList cutMatch1 = new CutMatchList(shell, sbe, c1.superKnot);
-                    cutMatch1.addCutMatch(new Segment[] { cutSegment1 },
-                            new Segment[] { s11, s12 }, c1,
-                            "CutEngineSegmentsFullyOverlap1");
-                    double d1 = cutMatch1.delta;
-
-                    Segment s21 = knotPoint12.getClosestSegment(external1, null);
-                    Segment s22 = knotPoint11.getClosestSegment(external2, s21);
-
-                    CutInfo c2 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint11,
-                            knotPoint12, cutSegment1,
-                            external2, knot, balanceMap1);
-
-                    CutMatchList cutMatch2 = new CutMatchList(shell, sbe, c2.superKnot);
-                    cutMatch2.addCutMatch(new Segment[] { cutSegment1 },
-                            new Segment[] { s21, s22 }, c2,
-                            "CutEngineSegmentsFullyOverlap2");
-                    double d2 = cutMatch2.delta;
-
-                    double delta = d2;
-                    if (d1 < d2) {
-                        delta = d1;
-                    }
-                    if (delta < minDelta) {
-                        if (d1 < d2) {
-                            result = cutMatch1;
-                        } else {
-                            result = cutMatch2;
-                        }
-                        minDelta = delta;
-                    }
+                    continue;
                 } else {
                     double delta = Double.MAX_VALUE;
 
+                    if(external1.id == 11){
+                        float z = 0;
+                    }
                     double regDelta = -cutSegment1.distance - cutSegment2.distance;
                     Segment s11 = knotPoint11.getClosestSegment(external1, null);
                     Segment s12 = knotPoint21.getClosestSegment(external2, s11);
@@ -373,9 +382,6 @@ public class CutEngine {
                         CutMatchList internalCuts56 = internalPathEngine.calculateInternalPathLength(
                                 knotPoint11, knotPoint12, externalPoint51,
                                 knotPoint22, knotPoint21, externalPoint52, knot, balanceMap5, c5, false);
-                        if (internalCuts56.delta == 0.0) {
-                            throw new SegmentBalanceException(shell, internalCuts56, c5);
-                        }
 
                         if (!internalCuts56.checkCutMatchBalance(s51, s52, cutSegment1, new Segment[] { cutSegment2 },
                                 c5, false,
@@ -532,11 +538,11 @@ public class CutEngine {
                 VirtualPoint external1 = knot.match1;
                 VirtualPoint external2 = knot.match2;
 
-                if (( knot.getHeight() > 1)) {
+                if ((knot.getHeight() > 1)) {
                     shell.buff.add("Need to simplify knots internally before matching : knot: " + knot
                             + " external1: " + external1 + " external2: " + external2);
                     Knot knotNew = flattenKnots(knot, external1, external2, knotList, layerNum);
-                    if(knotNew.getHeight() > 1){
+                    if (knotNew.getHeight() > 1) {
                         float z = 0;
                     }
                     int prevIdx = knotList.indexOf(knotNew) - 1;
