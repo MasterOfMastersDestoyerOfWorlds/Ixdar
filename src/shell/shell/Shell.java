@@ -73,7 +73,7 @@ public class Shell extends LinkedList<PointND> {
 		VirtualPoint endPoint2 = null;
 		while (toVisit.size() > 0 || runList.size() > 0) {
 			toVisit.remove(mainPoint);
-			if(mainPoint.id == 67){
+			if (mainPoint.id == 67) {
 				float z = 0;
 			}
 			Segment potentialSegment1 = mainPoint.getPointer(1);
@@ -202,6 +202,12 @@ public class Shell extends LinkedList<PointND> {
 				mainPoint = matchPoint;
 			} else {
 				if (endpointReached) {
+					if (runList.size() == 2 && toVisit.size() == 0 && runList.get(0).isKnot && runList.get(1).isKnot) {
+
+						Knot k = new Knot(runList, this);
+						knots.add(k);
+						return knots;
+					}
 					endPoint2 = mainPoint;
 
 					boolean knotFlag = false;

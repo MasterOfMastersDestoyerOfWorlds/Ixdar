@@ -55,7 +55,7 @@ For planetary bodies it is, if not clear, fuzzily clear, that the natural abstra
 
 If we think back to the Earth and Moon as our perfect natural abstraction, we see that the Moon (and even the Sun, Jupiter and most of the planets at various times) cause tides on the earths oceans. If you think of an ideal spherical liquid earth, then it is obvious that the tides would also extend to the very core of the Planet. And indeed it has been noted by petroleum engineers and miners working in the earths crust that they have to deal with larger pressures from the surrounding rock twice a day mirroring the tides. But, If instead of all of the Earth being made of Water, it was made of different liquids or solids with different densities and tensile strengths, then at each density level we'd need to calculate a different tidal force and bulge made by the tide. Another note: it is believed that the tidal force on Jupiter's volcanic moon Io is caused by the fluctuation in and addition of tidal stress from Jupiter and the nearby moons of Europa, Ganymede and Callisto causing immense amounts of friction in the interior and surface of Io.
 
-<img src="img\tides.png" alt="MatchTwiceAndStitch" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\tides.png" alt="MatchTwiceAndStitch" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 
 <p style="text-align:center"> Stress forces on the surface of a planetary body due to the tides</p>
 
@@ -77,7 +77,7 @@ Even in the plane the convex hull may be an unnatural abstraction. think about a
 
 In the Match Twice and Stitch paper, an algorithm for finding m distinct cycles is proposed. Two problems arise with the proposed algorithm, the first problem is that it is not guaranteed that you can form m distinct cycles by the method outlined. These points outside the cycles means that there is no guarantee that the algorithm can be run on any set. And the second problem arises at the stitching phase of the algorithm (Stitching here means greedily alternating between the points along the boundary of 2 cycles, repeat until there is only one cycle).
 
-<img src="img\MatchTwiceAndStitch.png" alt="MatchTwiceAndStitch" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\MatchTwiceAndStitch.png" alt="MatchTwiceAndStitch" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Example of stitching two cycles together from the match and stitch paper</p>
 
 How can you know that when you stitch two cycles together, that they will form the correct minimal cycle of the two sets? Even in the example seen above this is unlikely to be the correct cycle and to actually check the correct cycle under this scheme you'd need to check 2^k possible cycles where k is the number of elements in the union of the two combining cycles. I think the causal reason why this is hard is that this is an unnatural abstraction, if you think about the case where you have two cycles that are circles in the plane and their boundaries are close to each other, the cycles formed will be two circles, but along the boundary between the two midpoints of the circles, those points will want to match more closely with points from the opposite circle than with all of the points in their own circle.
@@ -88,7 +88,7 @@ Why not clusters? There is a lot of literature on how to find clusters in graphs
 
 Another idea might be to make an ear decomposition (See Figure Below) using the matchings of our graph as the "edges" of the decomposition. Once we have some an ear decomposition we could then cut the resulting decomposition into a single path. Since our Graph is fully connected we'd also have to ensure that we only assign two edges per vertex greedily once our seed cycle is found in order to not multiple form cycles in the resulting path.
 
-<img src="img\EarDecomposition.png" alt="EarDecomposition" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\EarDecomposition.png" alt="EarDecomposition" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Example of an Ear decomposition of a partially connected graph </p>
 
 I think this is moving in the right direction, since we have a nested structure to work with, we are moving toward a natural abstraction, but for similar reasoning to why convex hulling is an unnatural abstraction, this method would also be unnatural. This can be seen by the simple fact that there is no unique ear decomposition and any cycle we choose as the seed cycle (e.g. G_1 in the above Figure) would be valid. In many graphs in the waterloo dataset there are multiple cycles of matchings that could serve as the seed cycle. This necessarily means that you'd end up splitting one of the cycles of matchings into two ears breaking the naturalness of the abstraction. If we could guarantee that our matching ear decomposition would only stack more ears on top of each other, breaking no matching cycles, then this would be a promising technique and investigating the proper cutting algorithm would be the next step, but since this property is broken even by small graphs, this technique warrants no further investigation.
@@ -101,10 +101,10 @@ A Way to think about this structure is that it is similar to the ear matching de
 
 Even this is not quite a true description of the structure, since what we are really trying to do is: Once we form a cycle we need to also make this cycle into a point for use in finding new cycles. The recursive nature of the data structure is necessary to ensure that it is a natural abstraction and the cyclic nature of the abstraction ensures that , at least in the base case, we will be able to find the correct tsp tour with ease. Finally the constraint that there should only be one in and one out (meaning that the Virtual Point is a member of a super cycle) ensures that we will be able to merge tsp cycles in polynomial time. [See Chapter 4 for details on merging](#chapter-4).
 
-<img src="img\layers.gif" alt="layers" width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\layers.gif" alt="layers" width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Example of a nested Knot structure, moving up through the layers</p>
 
-<img src="img\wi29_numbers.png" alt="layers" width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\wi29_numbers.png" alt="layers" width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> wi29 dataset numbers</p>
 
     Knot(flattens to: {6 5 4 3 2 1 0 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7})[
@@ -375,8 +375,6 @@ Ok I think we're ready for our first larger structure
 
 ### [Knot](.\src\shell\knot\Knot.java)
 
-
-
 A <b>Knot</b> is defined as any subset <b>K</b> of <b>G</b> where all of the Points in <b>K</b> only want to match with each other and a maximum of two external Points.
 
 Knot(P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>) = struct{
@@ -447,8 +445,6 @@ So we have a core of <B>[14, 15, 16, 17, 18, 19]</b> with two failed endpoint ma
 
 ### [Run](.\src\shell\knot\Run.java)
 
-
-
 A <b>Run</b> is just like a <b>Knot</b>, but only its endpoints are exposed.
 
 Run(P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>) = struct{
@@ -486,7 +482,6 @@ Our Knot mapping algorithm is as follows:
 
 Main Loop:
 [Shell:slowSolve()](.\src\shell\Shell.java#L552)
-
 
 1. Get all of the Virtual Points we haven't visited and run the continue from Knot Finding Loop #1
 2. The new list of unvisited points is the returned KnotList
@@ -716,17 +711,17 @@ Now that the framework for cutting the recursive Knot into one Knot has been lai
 
     Keep in mind that we will have to repeat this for N^2/2 combinations of cut segments and so this is more like N^5 time. Also remember that we need to do this for ~N/3 Knots so this is more like N^6 time. Also keep in mind that we will have to calculate the path dependence on every cut match we make, so this is more like N^7 time. Finally note that if you could figure out a way to separate any of these caveats from their context (Similar to how Floyd-Warshall calculates all possible shortest paths at once) then you could significantly reduce the runtime of the algorithm described below.
 
-<img src="img\HoleGame_Setup.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_Setup.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Initial State of the Hole-Filling Game</p>
 
 To solve the problem stated above let's imagine a Hole-Filling Game, where the objective is to move the hole at CP1, KP1 to KP2, CP2 in the least possible distance and making both holes disappear. The following describes the valid moves in the game: Imagine that the hole in the Knot between CutPoint1 and KnotPoint1 is a movable hole centered at CutPoint1. Moving the hole to <b>Point P</b> (marked with a blue arrow below) with Neighboring Points P_prev and P_next consists of cutting the Segment between P and P_prev (S_a) or P and P_next (S_b) and matching between CutPoint1 and P-prev (S_x) or CutPoint1 and P_next (S_y) respectively, the cost of moving the hole would then be S_x - S_a or S_y - S_b respectively.
 
-<img src="img\HoleGame_OneMove.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_OneMove.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Hole-Filling Game after 1 move, cutting S_b (P to P_next) and matching S_y (CP1 to P_next)</p>
 
 The object of the game is then to find the the shortest set of hole moves such that the hole ends up filling the other hole formed by KnotPoint2 and CutPoint2 centered on KnotPoint2 without forming multiple cycles in the graph.
 
-<img src="img\HoleGame_Finished.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_Finished.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> A possible shortest path from the Hole-Filling Game</p>
 
 The beauty of such an approach is that standard shortest path algorithms like Dijkstra's or Floyd-Warshall will give us the minimal set of cuts and matches to form the optimal ordering of the Knot in K^3 Time, where K is the number of Points in current Knot's the manifold! This is only possible because of the stipulation on the recursive Knot structure that every Virtual Point must only have two neighbors and that those neighbors must not "want" to be inside the Virtual Point, i.e. that we have a natural abstraction in our concept of a Virtual Point and a Knot.
@@ -737,49 +732,49 @@ I should also Note that there are 4 possible assignments, excluding parity dupli
 
 The problem with naively applying shortest path algorithms to this Hole-Filling Game is two-fold: First, avoiding forming multiple cycles in our answer tour is not a trivial problem to solve (i.e. it will increase the exponent of our runtime and prevent us from using more performant algorithms). Second, the possibility of negative weights (we must subtract the cut segment distance from the match segment distance in each move) means we will have to modify our search algorithm to accommodate for backtracking. Let's start with the problem of multiple cycles, as it dominates the structure of our answer. The first multiple cycle failure case is illustrated in the following:
 
-<img src="img\HoleGame_SelfLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_SelfLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> A loop is formed in the Hole-Filling Game</p>
 
 You will notice if we go directly to CP2 from the current CutPoint, Point P, then we will have multiple loops formed in the graph such that CP1 and CP2 are not connected (more generally we'd want to check using Union-Find that all endpoints are connected). We have split the graph into three separate parts instead of the two we desire, any further match that does not match with a point between P and CP1 or to CP2 would keep the graph in three pieces (matching to CP2 would make it into two pieces again). However, if we go from Point P to any point in that loop, we will fix the situation and then can exit to CP2 and complete the path without multiple loops.
 
-<img src="img\HoleGame_SelfLoop_Fixed.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_SelfLoop_Fixed.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Loop is broken and we can again exit</p>
 
 Another failure case is as follows:
 
-<img src="img\HoleGame_Disconnected.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_Disconnected.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> KnotPoints are connected to each other instead of a CutPoint</p>
 
 In the example above, if we exit now we will again form two cycles in the graph instead of one but for a different reason, that both Knot Points are connected to each other and both CutPoints are connected to each other but neither CutPoint is connected to a KnotPoint. And similarly to the first "self-loop" failure case, if we match to any of the points between KP1 and KP2, we would fix the situation and could again exit to CP2. I would like to call this state in the Hole-Filling Game, where we cannot exit to CP2 without forming multiple cycles in the graph, <b>Disconnected</b> and the initial state of the Hole-Filling Game, where we can connect to CP2 and exit without issue, <b>Connected</b>. It should also be easy to see that we can start the Hole-Filling Game from a disconnected state!
 
-<img src="img\HoleGame_DisconnectedStart.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_DisconnectedStart.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Hole-Filling Game starting out disconnected</p>
 
 It is also easy to see that we can end up in a disconnected and self-loop state rather easily by forming a loop with any subset of the points between CP1 and CP2:
 
-<img src="img\HoleGame_DisconnectedLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_DisconnectedLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Hole-Filling Game disconnected with a loop</p>
 
 To be able to exit again to CP2 from state above, we'd need to match to any point in the self-loop (i.e. any of the points between the end of hte blue arc) and match to one point between KP1 and KP2 to transition from Disconnected to Connected.
 
 It is also important to note that we can always plan a route that does not form any self-loops but has the same matches and cuts represented by a self-loop that was formed and then broken. For example, if we take the figure below as State #1.
 
-<img src="img\HoleGame_SelfLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_SelfLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> A loop is formed in State #1 (Blue)</p>
 
 And the next figure as State #2 (with the second move marked in Yellow)
 
-<img src="img\HoleGame_SelfLoop_Fixed_State2.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_SelfLoop_Fixed_State2.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Loop is broken and we can again exit in State #2 (Yellow)</p>
 
 And the next figure as State #3 (with the third move marked in Purple)
 
-<img src="img\HoleGame_SelfLoop_Fixed_State3.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_SelfLoop_Fixed_State3.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Hole-Filling Game is completed in  State #3 (Purple)</p>
 
 If instead we had flipped the order of the blue and yellow state (notice below that the blue and yellow arrows have swapped spots) we would have never formed a self-loop and we would have been able to represent the same match cuts in a different order, but without the possibility of exiting before fixing the erroneous self-loop.
 
-<img src="img\HoleGame_NoLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_NoLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Hole-Filling Game is completed without forming a loop</p>
 
 So in order to prevent self-loops we need to keep a ordered list of the current state of the two groups, with the current cutPoint at the start of the list, so for example, before we make any cuts we'd have the following two groups:
@@ -803,7 +798,7 @@ We now know how to prevent getting into the self-looped state, the question then
 
 Let's consider the following example:
 
-<img src="img\HoleGame_Dis_Fixed.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_Dis_Fixed.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Hole-Filling Game is completed by becoming disconnected and then connected again</p>
 
 Here we see a perfectly valid solution to the hole cutting game that very well may be the shortest path from CP1 to CP2, but we had to disconnect the path in order to make it! After making the move to H_3 the graph would be disconnected, and after making the move to H_4, the graph would be connected again. There is no way to rearrange the ordering of H_3 and H_4 so that the path does become disconnected at some point. So unlike the self-loops where the ordering of the cuts means that we don't have to worry about exploring them, we do have to explore the space of disconnected cut matches.
@@ -819,7 +814,7 @@ The next question is how do we know when we've moved from connected to disconnec
 
 Well as a primer let's see what all of the hole moves we can make from CP1 would transfer our state to. We will mark holes that are connected in blue and all of the ones that are disconnected as yellow.
 
-<img src="img\HoleGame_ConnectionMap.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_ConnectionMap.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 
 If we consider the holes around Point 5, let's look at how OurGroup and the OtherGroup would be effected by the disconnected hole versus the connected hole:
 
@@ -842,7 +837,7 @@ A preliminary rule might be the following: If we are matching to the other group
 
 Now lets go to one of the disconnected holes (shown in pink) and see where we can reconnect it (shown in blue).
 
-<img src="img\HoleGame_ConnectionMap2.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_ConnectionMap2.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 
 So it seems that if we move to any other hole in the OtherGroup from our disconnected state, then we can only reconnect the path, regardless of the orientation of the hole. Also notice any moves to holes in OurGroup from the disconnected state will remain disconnected.
 
@@ -865,7 +860,7 @@ A good question would be: do we need to keep track of how the groups were change
 
 Put more simply: do the states that we can match to from the current CutPoint depend on how we got to the CutPoint? I think the answer is yes and here is an example to show why:
 
-<img src="img\HoleGame_ConnectionMap6.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_ConnectionMap6.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Connection order: CP1->5 | 6->1 | 2->4 or 2->6 </p>
 
 If we have arrived at Point 2 with it's neighbor Point 1 being matched to, and we choose to connect from 2 to 4 (green line disregard the purple one) in the figure above, we'd have the following Groups:
@@ -923,14 +918,78 @@ Why the number of Knots?
 
 it is because the path length of any shortest path in the Hole Moving game is capped by moving through every knot from CutPoint1 to CutPoint2. To see this let's look at an example of dataset rings_4:
 
-<img src="img\rings_4_solution.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\rings_4_solution.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> rings_4 solution starting from 8</p>
 
 The shortest CutMatch Path between the two most distant CutPoints possible (8 and 33) only has a length of 5, despite existing in a set of 40 points, and this is equal to the number of knots in the set! If we are in metric space we can expect that this will be true in general since a knot is formed from tightly coupled pairs and so the shortest path between two CutPoints will always have to travel through the Knots that connect them.
 
 We can get an even lower bound on the path length by considering that the two CutPoints will rarely be as far from each other as possible, so if we can count the distance in the number of Knots between CP1 and CP2 (Knot Distance or KD), then we can set that number as our maximum path length and exclude all longer paths. For most CutPoint pairs this will be a significantly smaller number than the total number of Knots below the Knot we are cutting. Think about how for example, all of the CutPoint pairs in the top ring would only need a maximum of 2 connections (1 if starting connected and 2 if disconnected). All of the pairs in the second Ring would similarly only ever need 2 to 3 connections (2 if starting connected and 3 if starting disconnected). To illustrate this point more clearly let's look at some examples:
 
+### Traversing between Knots
 
+<img src="readme_img\twocircles_start_connected_1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex1: twocircles with cuts Seg[5:4] and Seg[10:19] starting from CP:4 in the connected state</p>
+
+<img src="readme_img\twocircles_start_connected_2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex2: twocircles with cuts Seg[5:4] and Seg[10:19] starting from CP:5 in the connected state</p>
+
+<img src="readme_img\twocircles_start_disconnected_1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex3: twocircles with cuts Seg[5:4] and Seg[10:19] starting from CP:4 in the disconnected state</p>
+
+<img src="readme_img\twocircles_start_disconnected_2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex4: twocircles with cuts Seg[5:4] and Seg[10:19] starting from CP:5 in the disconnected state</p>
+
+A few things to notice:
+
+* Moving from the Left Knot to the Right Knot flips the state from connected to disconnected and visa versa
+* Wether we need to re-connect our path depends on wether we arrive to the Right Knot in the disconnected state, not on our starting state.
+    * Ex2 starts out connected, but becomes disconnected by the time we arrive at the Right Knot.
+    * Ex3 starts out disconnected but becomes connected by the time we arrive at the Right Knot.
+    * Side Note: you can notice the same effect in the rings_4 example, where if we are traversing all four knots we end up disconnected, but if instead our destination was only three knots away from the start (Say CP:23) then we would not need to reconnect the path.
+* There is exactly one segment in each example that straddles the Knot border and will allow us to transfer between knots without forming multiple cycles in the graph.
+    * in Ex1 if we had instead connected from 4 to 0 and cut to 15 we'd form multiple cycles in the graph.
+    * in Ex2 if we had instead connected from 5 to 9 and cut to 16 we'd form multiple cycles in the graph.
+    * in Ex3 if we had instead connected from 4 to 0 and cut to 15 we'd form multiple cycles in the graph.
+    * in Ex4 if we had instead connected from 5 to 9 and cut to 16 we'd form multiple cycles in the graph.
+    * This is a restatement of what we learned in [The Fly in the Ointment](#the-fly-in-the-ointment) with the added knowledge that there is only one cut segment that moves us to the next Knot without breaking the knot contract (that a knot is more tightly coupled to itself than its neighbors).
+
+### Traversing from the edge of the border of a Knot
+
+<img src="readme_img\twocircles_border_connected1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex5: twocircles with cuts Seg[0:15] and Seg[10:11] starting from CP:15 in the connected state</p>
+
+<img src="readme_img\twocircles_border_disconnected2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex6: twocircles with cuts Seg[0:15] and Seg[10:11] starting from CP:15 in the disconnected state</p>
+
+<img src="readme_img\twocircles_border_connected2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex7: twocircles with cuts Seg[9:16] and Seg[10:11] starting from CP:16 in the connected state</p>
+
+<img src="readme_img\twocircles_border_disconnected1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex8: twocircles with cuts Seg[9:16] and Seg[10:11] starting from CP:16 in the disconnected state</p>
+
+You should notice that these paths are essentially the same as the paths in the previous section after we moved from the Left Knot to the Right Knot.
+
+### Traversing across the border of a Knot
+
+<img src="readme_img\twocircles_cross_border1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex7: twocircles with cuts Seg[9:16] and Seg[10:11] starting from CP:9 in the connected state</p>
+
+<img src="readme_img\twocircles_cross_border2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex8: twocircles with cuts Seg[0:15] and Seg[10:11] starting from CP:16 in the disconnected state</p>
+
+### Traversing within the border of a Knot
+
+<img src="readme_img\twocircles_border_to_border_connected1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex7: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:16 in the connected state</p>
+
+<img src="readme_img\twocircles_border_to_border_disconnected2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex8: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:16 in the disconnected state</p>
+
+<img src="readme_img\twocircles_border_to_border_connected2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex9: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:9 in the connected state</p>
+
+<img src="readme_img\twocircles_border_to_border_disconnected1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex10: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:9 in the disconnected state</p>
 
 ### Algorithm Speedup Potential NOTES
 
@@ -993,11 +1052,9 @@ A Rough estimate can be found using the following formula:
 
 Knot Distance = Height of MinKnot that contains CP1 and CP2 - Height of MinKnot that contains CutSeg1 and CutSeg2 + 1 if connected or +2 if Disconnected
 
-what's more is that we only have to look at cut matches in the same minKnot as the 
+what's more is that we only have to look at cut matches in the same minKnot as the
 
-
-
-<img src="img\snap158.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\snap158.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Circle with external Wormhole in the top Left corner connecting 5 and 0 (circle_in_5_arc)</p>
 
 ## Links
