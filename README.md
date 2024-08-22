@@ -911,9 +911,28 @@ Now that we know our way around the problem of multiple cycles and self-loops, w
 
 3. Use Bellman-Ford directly for each shortest path, (based on preliminary testing, doesn't seem to finish or finished with multiple cycles, didn't figure out why, likely because of path dependence?)
 
-4. Replicate Negative-Weight Single-Source Shortest Paths in Near-linear Time paper (see [Links #3](#links)) (seems like it would be fast, not sure if it would work with the path dependence, they also have only provided pseudo code )
+4. Replicate Negative-Weight Single-Source Shortest Paths in Near-linear Time paper (see [Links #3](#links)) (seems like it would be fast, not sure if it would work with the path dependence, they also have only provided pseudo code)
 
-### Algorithm Speedup Potential
+The problem with any of these approaches is negative cycles and the path dependence described in the previous section. it is clear that we must have negative cycles in the graph since if we have any three cut match pairs with Match Segments shorter than their Cut Segments, we would have a negative cycle, so this rules out options 1 and 2. This also rules out any standard path finding algorithm like Dijkstra's since finding the shortest path in a a graph with negative cycles is equivalent to the longest path problem and therefore in NP.
+
+So what have we done so far if we choose to implement option 1?
+
+Effectively we have taken a problem that scales with 2^n and turned it into a problem that scales exponentially with the number of Knots in the set.
+
+Why the number of Knots?
+
+it is because the path length of any shortest path in the Hole Moving game is capped by moving through every knot from CutPoint1 to CutPoint2. To see this let's look at an example of dataset rings_4:
+
+<img src="img\rings_4_solution.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> rings_4 solution starting from 8</p>
+
+The shortest CutMatch Path between the two most distant CutPoints possible (8 and 33) only has a length of 5, despite existing in a set of 40 points, and this is equal to the number of knots in the set! If we are in metric space we can expect that this will be true in general since a knot is formed from tightly coupled pairs and so the shortest path between two CutPoints will always have to travel through the Knots that connect them.
+
+We can get an even lower bound on the path length by considering that the two CutPoints will rarely be as far from each other as possible, so if we can count the distance in the number of Knots between CP1 and CP2 (Knot Distance or KD), then we can set that number as our maximum path length and exclude all longer paths. For most CutPoint pairs this will be a significantly smaller number than the total number of Knots below the Knot we are cutting. Think about how for example, all of the CutPoint pairs in the top ring would only need a maximum of 2 connections (1 if starting connected and 2 if disconnected). All of the pairs in the second Ring would similarly only ever need 2 to 3 connections (2 if starting connected and 3 if starting disconnected). To illustrate this point more clearly let's look at some examples:
+
+
+
+### Algorithm Speedup Potential NOTES
 
 The algorithm described in this section is roughly a 4*N^7 operation so what are some areas we can speed it up?
 
@@ -975,6 +994,8 @@ A Rough estimate can be found using the following formula:
 Knot Distance = Height of MinKnot that contains CP1 and CP2 - Height of MinKnot that contains CutSeg1 and CutSeg2 + 1 if connected or +2 if Disconnected
 
 what's more is that we only have to look at cut matches in the same minKnot as the 
+
+
 
 <img src="img\snap158.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Circle with external Wormhole in the top Left corner connecting 5 and 0 (circle_in_5_arc)</p>

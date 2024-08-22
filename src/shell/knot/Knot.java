@@ -305,4 +305,12 @@ public class Knot extends VirtualPoint {
         return null;
     }
 
+    public double getLength(){
+        double d = 0.0;
+        for(Segment s: manifoldSegments){
+            d += s.distance;
+        }
+        return d;
+    }
+
 }

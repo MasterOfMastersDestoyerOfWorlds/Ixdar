@@ -49,19 +49,21 @@ public class InternalPathEngine {
                         balanceMap));
         CutEngine ce = c.shell.cutEngine;
         Knot smallestKnot1 = ce.flatKnots.get(c.shell.smallestKnotLookup[cutPoint1.id]);
+        int smallestKnot1Height = ce.flatKnotsHeight.get(smallestKnot1.id);
         Knot smallestKnot2 = ce.flatKnots.get(c.shell.smallestKnotLookup[cutPoint2.id]);
+        int smallestKnot2Height = ce.flatKnotsHeight.get(smallestKnot2.id);
         Knot smallestCommonKnot = ce.flatKnots
                 .get(c.shell.smallestCommonKnotLookup[cutPoint2.id][cutPoint1.id]);
-        int knotLayer = Math.max(1,
-                ce.flatKnotsHeight.get(smallestCommonKnot.id) - ce.flatKnotsHeight.get(smallestKnot1.id) + ce.flatKnotsHeight.get(smallestCommonKnot.id)
-                - ce.flatKnotsHeight.get(smallestKnot2.id))
+        int smallestCommonKnotHeight = ce.flatKnotsHeight.get(smallestCommonKnot.id);
+        int knotLayer = Math.max(1, smallestCommonKnotHeight - smallestKnot1Height + smallestCommonKnotHeight
+                - smallestKnot2Height)
                 + (knotPointsConnected ? 0 : 1);
         if (smallestKnot2.contains(cutPoint1)) {
-            knotLayer = Math.max(1,ce.flatKnotsHeight.get(smallestKnot2.id) - ce.flatKnotsHeight.get(smallestKnot1.id) + 1
+            knotLayer = Math.max(1, smallestKnot2Height - smallestKnot1Height + 1
                     + (knotPointsConnected ? 0 : 1));
         }
         if (smallestKnot1.contains(cutPoint2)) {
-            knotLayer = Math.max(1,ce.flatKnotsHeight.get(smallestKnot1.id) - ce.flatKnotsHeight.get(smallestKnot2.id) + 1
+            knotLayer = Math.max(1, smallestKnot1Height - smallestKnot2Height + 1
                     + (knotPointsConnected ? 0 : 1));
         }
         if (smallestKnot1.id == smallestKnot2.id) {
@@ -76,7 +78,8 @@ public class InternalPathEngine {
         }
         long startTimeIxdar = System.currentTimeMillis();
         HashMap<Integer, RouteInfo> routeMap = ixdar(knotPoint1, cutPoint1, knotPoint2, cutPoint2,
-                knot, knotPointsConnected, cutSegment1, cutSegment2, -1, -1, RouteType.None, knotLayer);
+                knot, knotPointsConnected, cutSegment1, cutSegment2, -1, -1, RouteType.None, knotLayer,
+                smallestCommonKnot);
         ixdarCalls++;
         long endTimeIxdar = System.currentTimeMillis() - startTimeIxdar;
         totalTimeIxdar += endTimeIxdar;
@@ -104,7 +107,7 @@ public class InternalPathEngine {
         cutSegments.remove(cutSegment1);
         cutSegments.remove(cutSegment2);
 
-        if (matchSegments.size() > knotLayer) {
+        if (matchSegments.size() != knotLayer) {
             float z = 0;
         }
         if (matchSegments.size() > c.shell.cutEngine.flatKnotsNumKnots.get(knot.id)) {
@@ -113,6 +116,9 @@ public class InternalPathEngine {
                 float z = 0;
             }
             int j = c.shell.cutEngine.flatKnotsNumKnots.get(knot.id) + 1;
+            float z = 0;
+        }
+        if (matchSegments.size() == 0) {
             float z = 0;
         }
         CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
@@ -126,7 +132,7 @@ public class InternalPathEngine {
                 || unionSet.find(cutPoint1.id) != unionSet.find(knotPoint1.id)
                 || unionSet.find(cutPoint2.id) != unionSet.find(knotPoint2.id)
                 || unionSet.find(knotPoint1.id) != unionSet.find(knotPoint2.id)) {
-                    System.out.println(knotLayer);
+            System.out.println(knotLayer);
             throw new MultipleCyclesFoundException(shell, cutMatchList, matchSegments, cutSegments, c);
         }
         return cutMatchList;
@@ -135,7 +141,7 @@ public class InternalPathEngine {
     public RouteMap<Integer, RouteInfo> ixdar(VirtualPoint knotPoint1, VirtualPoint cutPoint1,
             VirtualPoint knotPoint2, VirtualPoint cutPoint2,
             Knot knot, boolean knotPointsConnected, Segment cutSegment1, Segment cutSegment2, int steps,
-            int sourcePoint, RouteType routeType, int knotNumber) {
+            int sourcePoint, RouteType routeType, int knotNumber, Knot smallestCommonKnot) {
 
         ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
         RouteMap<Integer, RouteInfo> routeMap = new RouteMap<>();
@@ -203,6 +209,7 @@ public class InternalPathEngine {
         Route endRoute = curr.getRoute(prevCutSide);
         RouteInfo uParent = null;
         Route u = null;
+
         while (settled.size() < numPoints * 4 && endRoute.matches.size() < knotNumber) {
             if (q.size() == 0) {
                 break;
@@ -221,6 +228,7 @@ public class InternalPathEngine {
                 if (uParent.id == v.id) {
                     continue;
                 }
+
                 RouteType[] routes = new RouteType[] { RouteType.prevC, RouteType.prevDC, RouteType.nextC,
                         RouteType.nextDC };
                 for (RouteType vRouteType : routes) {
@@ -236,7 +244,10 @@ public class InternalPathEngine {
                             continue;
                         }
                     }
-
+                    // if(knotPointsConnected && !(smallestCommonKnot.contains(neighbor) ||
+                    // smallestCommonKnot.contains(v.node))){
+                    // continue;
+                    // }
                     if (u.delta == Double.MAX_VALUE) {
                         continue;
                     }

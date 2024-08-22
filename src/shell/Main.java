@@ -110,7 +110,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 	// cut 5-3 and 2-0 or 18-16 and 15-13
 	public static void main(String[] args) {
 		main = new Main();
-		String fileName = "threecircle_in_10";
+		String fileName = "rings_4";
 		currFile = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(currFile);
 
