@@ -80,6 +80,7 @@ public class InternalPathEngine {
             }
         }
         long startTimeIxdar = System.currentTimeMillis();
+         knotLayer = shell.cutEngine.flatKnots.size();
         HashMap<Integer, RouteInfo> routeMap = ixdar(knotPoint1, cutPoint1, knotPoint2, cutPoint2,
                 knot, knotPointsConnected, cutSegment1, cutSegment2, -1, -1, RouteType.None, knotLayer,
                 smallestCommonKnot);

@@ -17,7 +17,7 @@ import shell.shell.Shell;
 public class CutMatchList {
 
     public ArrayList<CutMatch> cutMatches;
-    double delta;
+    public double delta;
     Shell shell;
     SegmentBalanceException sbe;
     Knot topKnot;

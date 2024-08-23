@@ -1,5 +1,6 @@
 package shell;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
@@ -64,10 +65,12 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 	static boolean calculateKnot = true;
 	boolean drawMainPath = false;
 	static boolean drawMetroDiagram = true;
+	static boolean drawMetroDiagram2 = true;
 	static boolean startWithAnswer = true;
 	int minLineThickness = 1;
 	boolean calc = false;
 	static boolean manifold = false;
+	static boolean drawCutMatch = true;
 
 	public static Shell shell;
 	public static PointSetPath retTup;
@@ -76,6 +79,8 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 	static PriorityQueue<ShellPair> metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
 	static PriorityQueue<ShellPair> metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
 	public static ArrayList<Color> metroColors = new ArrayList<>();
+	public static ArrayList<Color> metro2Colors = new ArrayList<>();
+	public static HashMap<Integer, Integer> colorLookup = new HashMap<>();
 	static int metroDrawLayer = -1;
 	static SegmentBalanceException drawException;
 	static Shell resultShell;
@@ -99,6 +104,8 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 	public Main() {
 
 		fileName = "djbouti_8-34-manifold";
+		currFile = FileManagement.getTestFile(fileName);
+		retTup = FileManagement.importFromFile(currFile);
 		frame = new JFrame("Ixdar : " + fileName);
 		ImageIcon img = new ImageIcon("decalSmall.png");
 		frame.setIconImage(img.getImage());
@@ -107,7 +114,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 		frame.getContentPane().setBackground(new Color(20, 20, 20));
 		frame.pack();
 		frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-		camera = new Camera(750, 750, 1, 0, 0);
+		camera = new Camera(750, 750, 1, 0, 0, retTup.ps);
 		frame.setSize(new Dimension(camera.Width, camera.Height));
 		frame.setVisible(true);
 		frame.addKeyListener(this);
@@ -132,8 +139,6 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 	// cut 5-3 and 2-0 or 18-16 and 15-13
 	public static void main(String[] args) {
 		main = new Main();
-		currFile = FileManagement.getTestFile(fileName);
-		retTup = FileManagement.importFromFile(currFile);
 
 		DistanceMatrix d = retTup.d;
 		if (retTup.d == null) {
@@ -150,7 +155,6 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 		if (retTup.manifold) {
 			manifold = true;
 			calculateKnot = false;
-			drawMetroDiagram = false;
 		}
 		orgShell = retTup.tsp;
 
@@ -220,6 +224,17 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 		long startTimeKnotCutting = System.currentTimeMillis();
 
 		Random colorSeed = new Random();
+		if (drawMetroDiagram2) {
+			int numKnots = shell.cutEngine.flatKnots.size();
+			float startHue = colorSeed.nextFloat();
+			float step = 1.0f / ((float) numKnots);
+			int i = 0;
+			for (Knot k : shell.cutEngine.flatKnots.values()) {
+				metro2Colors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
+				colorLookup.put(k.id, i);
+				i++;
+			}
+		}
 		if (drawMetroDiagram) {
 			int totalLayers = shell.cutEngine.totalLayers;
 			if (totalLayers == -1) {
@@ -244,8 +259,8 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 				if (totalLayers - layerNum < 0) {
 					float z = 0;
 				}
-				metroPathsHeight.add(new ShellPair(knotShell, heightNum));
-				metroPathsLayer.add(new ShellPair(knotShell, totalLayers - layerNum));
+				metroPathsHeight.add(new ShellPair(knotShell, k, heightNum));
+				metroPathsLayer.add(new ShellPair(knotShell, k, totalLayers - layerNum));
 			}
 			float startHue = colorSeed.nextFloat();
 			float step = 1.0f / ((float) totalLayers);
@@ -281,6 +296,11 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 				"Ixdar Profile %: " + 100 * (ixdarProfileSeconds / (ixdarSeconds)));
 		System.out.println("Best Length: " + orgShell.getLength());
 		System.out.println("===============================================");
+
+		if(manifold){
+			System.out.println("Manifold Length: " + (orgShell.getLength() + manifoldCutMatch.delta));
+
+		}
 		System.out.println(shell.cutEngine.flatKnots);
 		stickyColor = new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
 		stickyColor = Color.CYAN;
@@ -354,8 +374,9 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 						false,
 						camera);
 			}
-			if (manifold && manifoldCutMatch != null) {
-				Drawing.drawCutMatch(this, g2, manifoldCutMatch, manifoldBalanceMap, manifoldCutSegment1, manifoldCutSegment2, manifoldExSegment1, manifoldExSegment2,
+			if (drawCutMatch && manifold && manifoldCutMatch != null) {
+				Drawing.drawCutMatch(this, g2, manifoldCutMatch, manifoldBalanceMap, manifoldCutSegment1,
+						manifoldCutSegment2, manifoldExSegment1, manifoldExSegment2,
 						manifoldKnot, minLineThickness * 2, retTup.ps, camera);
 			}
 			if (drawMainPath) {
@@ -363,9 +384,14 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 			}
 			if (drawMetroDiagram && shell != null) {
 				if (metroDrawLayer == shell.cutEngine.totalLayers) {
-					for (Shell temp : subPaths) {
-						temp.drawShell(this, g2, true, minLineThickness * 2,
-								stickyColor, retTup.ps, camera);
+
+					if (drawMetroDiagram2 && manifold) {
+						Drawing.drawGradientPath(g2, manifoldKnot, shell, camera, minLineThickness);
+					} else {
+						for (Shell temp : subPaths) {
+							temp.drawShell(this, g2, true, minLineThickness * 2,
+									stickyColor, retTup.ps, camera);
+						}
 					}
 				} else {
 					PriorityQueue<ShellPair> newQueue = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -377,11 +403,19 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 							continue;
 						}
 						if (metroDrawLayer < 0) {
-							temp.shell.drawShell(this, g2, true, 2 + 1f * temp.priority,
-									metroColors.get(temp.priority), retTup.ps, camera);
+							if (drawMetroDiagram2) {
+								Drawing.drawGradientPath(g2, temp.k, shell, camera, minLineThickness);
+							} else {
+								temp.shell.drawShell(this, g2, true, 2 + 1f * temp.priority,
+										metroColors.get(temp.priority), retTup.ps, camera);
+							}
 						} else {
-							temp.shell.drawShell(this, g2, true, minLineThickness * 2,
-									metroColors.get(temp.priority), retTup.ps, camera);
+							if (drawMetroDiagram2) {
+								Drawing.drawGradientPath(g2, temp.k, shell, camera, minLineThickness);
+							} else {
+								temp.shell.drawShell(this, g2, true, minLineThickness * 2,
+										metroColors.get(temp.priority), retTup.ps, camera);
+							}
 
 						}
 					}
@@ -474,6 +508,17 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 					metroColors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
 				}
 			}
+			float startHue = colorSeed.nextFloat();
+			float step = 1.0f / ((float) shell.cutEngine.flatKnots.size());
+			for (int i = 0; i < metro2Colors.size(); i++) {
+				metro2Colors.set(i, Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
+			}
+		}
+		if (e.getKeyCode() == KeyEvent.VK_B) {
+			drawCutMatch = !drawCutMatch;
+		}
+		if (e.getKeyCode() == KeyEvent.VK_N) {
+			drawMetroDiagram2 = !drawMetroDiagram2;
 		}
 		if (e.getKeyCode() == KeyEvent.VK_M) {
 			if (metroDrawLayer != -1) {
