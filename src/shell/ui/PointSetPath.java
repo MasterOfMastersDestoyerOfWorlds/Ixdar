@@ -14,18 +14,26 @@ public class PointSetPath {
 	public Path2D path;
 	public Shell tsp;
 	public DistanceMatrix d;
+	public boolean manifold;
+	public int kp1;
+	public int cp1;
+	public int kp2;
+	public int cp2;
+
 
 	/**
 	 * Initializes the path and pointset variables
-	 * @param ps
-	 * @param path
-	 * @param d 
 	 */
-	public PointSetPath(PointSet ps, Path2D path, Shell tsp, DistanceMatrix d) {
+	public PointSetPath(PointSet ps, Path2D path, Shell tsp, DistanceMatrix d, boolean manifold, int kp1, int cp1, int kp2, int cp2) {
 		this.path = path;
 		this.ps = ps;
 		this.tsp = tsp;
 		this.d = d;
+		this.manifold = manifold;
+		this.kp1 = kp1;
+		this.cp1 = cp1;
+		this.kp2 = kp2;
+		this.cp2 = cp2;
 	}
 
 	/* All of this is currently unused but keeping it for history and future use purposes

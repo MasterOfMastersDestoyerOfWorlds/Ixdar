@@ -116,7 +116,7 @@ public class CutEngine {
                 } else {
                     double delta = Double.MAX_VALUE;
 
-                    if(external1.id == 11){
+                    if (external1.id == 11) {
                         float z = 0;
                     }
                     double regDelta = -cutSegment1.distance - cutSegment2.distance;

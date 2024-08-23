@@ -972,24 +972,47 @@ You should notice that these paths are essentially the same as the paths in the 
 ### Traversing across the border of a Knot
 
 <img src="readme_img\twocircles_cross_border1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> Ex7: twocircles with cuts Seg[9:16] and Seg[10:11] starting from CP:9 in the connected state</p>
+<p style="text-align:center"> Ex9: twocircles with cuts Seg[9:16] and Seg[10:11] starting from CP:9 in the connected state</p>
 
 <img src="readme_img\twocircles_cross_border2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> Ex8: twocircles with cuts Seg[0:15] and Seg[10:11] starting from CP:16 in the disconnected state</p>
+<p style="text-align:center"> Ex10: twocircles with cuts Seg[0:15] and Seg[10:11] starting from CP:16 in the disconnected state</p>
+
+When we are trying to move across the border of a knot it can be be tricky if we start on the opposite end of the border,. in Example 9 we can see that CP9 cannot traverse to 15 without forming multiple cycles in the graph  and matching to 15 while cutting to 0 does not move us toward our goal. So what is the rule here? I think it is this, we need to check all of the moves between 9 and the Right Knot and all of the moves between 9 and its own Knot and then to the right Knot, a n^2 operation. As we can see from Example 10, sometimes the border point CP:0 is the correct point to move to the next Knot from, but sometimes it is not as in Ex9. But most likely if our final answer lies in this border region, then we have se up our Knot structure incorrectly to see what I mean look at the following solution of the same Knot with a wormhole between 15 and 11:
+
+<img src="readme_img\twocircles_WH_15_11.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center">twocircles with a Wormhole between 15 and 11</p>
+
+Knot[16 17 18 19 10 11 20 15 Knot[9 8 7 6 5 4 3 2 1 0 ] 14 13 12 ]
+
+As we can see in the above diagram the entire structure of the Knot has changed and a simple CutMatch (with only 1 CutSegment instead of 2) between 0 and 15 and 1 and 14 is all thats needed to find the correct path. To solve this diagram we wouldn't even need to play the Hole Filling Game at all! We know this because we can find the shortest internal Segment (let's say Segment[0:2]) within the Left Knot and realize that it is a greater distance than Segment[0:15] + Segment[1:14] - Segment[0:1]! So we don't even need to calculate the shortest path for much of our Left Knot CutSegment pairs.
 
 ### Traversing within the border of a Knot
 
 <img src="readme_img\twocircles_border_to_border_connected1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> Ex7: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:16 in the connected state</p>
+<p style="text-align:center"> Ex11: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:16 in the connected state</p>
 
 <img src="readme_img\twocircles_border_to_border_disconnected2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> Ex8: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:16 in the disconnected state</p>
+<p style="text-align:center"> Ex12: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:16 in the disconnected state</p>
 
 <img src="readme_img\twocircles_border_to_border_connected2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> Ex9: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:9 in the connected state</p>
+<p style="text-align:center"> Ex13: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:9 in the connected state</p>
 
 <img src="readme_img\twocircles_border_to_border_disconnected1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> Ex10: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:9 in the disconnected state</p>
+<p style="text-align:center"> Ex14: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:9 in the disconnected state</p>
+
+### Highways and Country Roads
+
+Ok so we've seen with some consistency and a few caveats that we can traverse regular Knots and there are only a few possible paths that we can take from source to destination. This is the reason behind the upper bound we placed on the path length. But is it equally true for more irregular Knots? and what are the exact conditions behind forming the shortest Hole-Moving Game path? To figure this out let's look at some examples:
+
+<img src="readme_img\djbouti_8-34.png" alt="djbouti_8-34.png"  width="60%" style="max-width: 700px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center">djbouti_8-34 Knot Manifold</p>
+
+<img src="readme_img\paths.gif" alt="paths"  width="60%" style="max-width: 700px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center">All of paths from KnotPoint  7 to each other possible KnotPoint in djbouti_8-34 rotating clockwise</p>
+
+
+
+
 
 ### Algorithm Speedup Potential NOTES
 

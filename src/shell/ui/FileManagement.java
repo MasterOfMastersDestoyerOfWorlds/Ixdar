@@ -1,4 +1,4 @@
-package shell;
+package shell.ui;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -9,8 +9,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import shell.DistanceMatrix;
+import shell.PointND;
+import shell.PointSet;
 import shell.shell.Shell;
-import shell.ui.PointSetPath;
 
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Path2D;
@@ -38,7 +40,8 @@ public class FileManagement {
             PointSet ps = new PointSet();
             Path2D path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
             Shell tsp = new Shell();
-
+            boolean manifold = false;
+            int kp1 = -1, cp1 = -1, kp2 = -1, cp2 = -1;
             boolean flag = true, first = true;
             int index = 0;
             DistanceMatrix d = null;
@@ -154,6 +157,14 @@ public class FileManagement {
                         }
 
                         index++;
+                    } else if (cords[0].equals("MANIFOLD")) {
+                        System.out.println("MANIFOLD FOUND!");
+                        kp1 = java.lang.Integer.parseInt(cords[1]);
+                        cp1 = java.lang.Integer.parseInt(cords[2]);
+                        kp2 = java.lang.Integer.parseInt(cords[3]);
+                        cp2 = java.lang.Integer.parseInt(cords[4]);
+                        manifold = true;
+                        
                     } else if (cords[0].equals("ANS")) {
                         for (int i = 1; i < cords.length; i++) {
                             answerOrder.add(java.lang.Integer.parseInt(cords[i]));
@@ -198,7 +209,7 @@ public class FileManagement {
                 tsp = newAns;
             }
 
-            return new PointSetPath(ps, path, tsp, d);
+            return new PointSetPath(ps, path, tsp, d, manifold, kp1, cp1, kp2, cp2);
         } catch (Exception e) {
             e.printStackTrace();
         }

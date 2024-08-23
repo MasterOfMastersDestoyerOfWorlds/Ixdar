@@ -513,6 +513,15 @@ public class Shell extends LinkedList<PointND> {
 	public Shell cutKnot(Knot mainKnot) throws SegmentBalanceException, BalancerException {
 		cutEngine.totalLayers = mainKnot.getHeight();
 		ArrayList<VirtualPoint> knotList = cutEngine.cutKnot(mainKnot.knotPoints, 1);
+		Knot knot = new Knot(knotList, this);
+        if (!cutEngine.flatKnots.containsKey(knot.id)) {
+            this.updateSmallestKnot(knot);
+            this.updateSmallestCommonKnot(knot);
+            cutEngine.flatKnots.put(knot.id, knot);
+            cutEngine.flatKnotsHeight.put(knot.id, knot.getHeight());
+            cutEngine.flatKnotsLayer.put(knot.id, 0);
+            cutEngine.flatKnotsNumKnots.put(knot.id, knot.numKnots);
+        }
 		Shell result = new Shell();
 		for (VirtualPoint p : knotList) {
 			result.add(((Point) p).p);

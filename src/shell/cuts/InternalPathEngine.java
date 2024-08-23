@@ -54,6 +54,9 @@ public class InternalPathEngine {
         int smallestKnot2Height = ce.flatKnotsHeight.get(smallestKnot2.id);
         Knot smallestCommonKnot = ce.flatKnots
                 .get(c.shell.smallestCommonKnotLookup[cutPoint2.id][cutPoint1.id]);
+                if(smallestCommonKnot == null){
+                    float z = 0;
+                }
         int smallestCommonKnotHeight = ce.flatKnotsHeight.get(smallestCommonKnot.id);
         int knotLayer = Math.max(1, smallestCommonKnotHeight - smallestKnot1Height + smallestCommonKnotHeight
                 - smallestKnot2Height)
