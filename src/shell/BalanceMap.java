@@ -88,9 +88,6 @@ public class BalanceMap {
         if (externalMatches.contains(newMatch)) {
             throw new BalancerException(vp, newMatch, sbe, "DUP External Match");
         }
-        if (cuts.contains(newMatch)) {
-            throw new BalancerException(vp, newMatch, sbe, "Matching Cut");
-        }
         externalMatches.add(newMatch);
         externals.add(external);
 

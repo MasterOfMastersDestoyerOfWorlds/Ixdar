@@ -87,6 +87,12 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 	int queuedMouseWheelTicks = 0;
 	Camera camera;
 	static CutMatchList manifoldCutMatch;
+	private static Knot manifoldKnot;
+	private static Segment manifoldCutSegment1;
+	private static Segment manifoldCutSegment2;
+	private static Segment manifoldExSegment1;
+	private static Segment manifoldExSegment2;
+	private static BalanceMap manifoldBalanceMap;
 
 	boolean init;
 
@@ -160,45 +166,46 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 		if (manifold) {
 
 			result = new ArrayList<>(shell.slowSolve(shell, d, 10));
-			if(result.size() > 1){
-			manifold = false;
-			calculateKnot = true;
+			if (result.size() > 1) {
+				manifold = false;
+				calculateKnot = true;
 			}
 			calculateSubPaths();
 			Shell top = subPaths.get(0);
-			Knot k = shell.cutEngine.flatKnots.values().iterator().next();
+			manifoldKnot = shell.cutEngine.flatKnots.values().iterator().next();
 
-			for(Knot f : shell.cutEngine.flatKnots.values()){
-				if(f.knotPointsFlattened.size() >  k.size()){
-					k = f;
+			for (Knot f : shell.cutEngine.flatKnots.values()) {
+				if (f.knotPointsFlattened.size() > manifoldKnot.size()) {
+					manifoldKnot = f;
 				}
-			} 
+			}
 			PointND wormHole = d.addDummyNode(d.size(), retTup.ps.getByID(retTup.kp1), retTup.ps.getByID(retTup.kp2));
-			VirtualPoint wh = shell.pointMap.get(wormHole.getID());
 			VirtualPoint knotPoint1 = shell.pointMap.get(retTup.kp1);
 			VirtualPoint cutPoint1 = shell.pointMap.get(retTup.cp1);
 			VirtualPoint knotPoint2 = shell.pointMap.get(retTup.kp2);
 			VirtualPoint cutPoint2 = shell.pointMap.get(retTup.cp2);
-			Segment cutSegment1 = k.getSegment(knotPoint1, cutPoint1);
-			Segment cutSegment2 = k.getSegment(knotPoint2, cutPoint2);
+			manifoldCutSegment1 = manifoldKnot.getSegment(knotPoint1, cutPoint1);
+			manifoldCutSegment2 = manifoldKnot.getSegment(knotPoint2, cutPoint2);
+			manifoldExSegment1 = manifoldKnot.getSegment(knotPoint1, knotPoint1);
+			manifoldExSegment2 = manifoldKnot.getSegment(knotPoint2, knotPoint2);
 
-			VirtualPoint external1 = wh;
-			VirtualPoint external2 = wh;
-			CutInfo c1 = new CutInfo(shell, knotPoint1, cutPoint1, cutSegment1, external1,
+			VirtualPoint external1 = knotPoint1;
+			VirtualPoint external2 = knotPoint2;
+			CutInfo c1 = new CutInfo(shell, knotPoint1, cutPoint1, manifoldCutSegment1, external1,
 					knotPoint2,
-					cutPoint2, cutSegment2,
-					external2, k, null);
+					cutPoint2, manifoldCutSegment2,
+					external2, manifoldKnot, null);
 			SegmentBalanceException sbe12 = new SegmentBalanceException(shell, null, c1);
-			BalanceMap balanceMap1 = new BalanceMap(k, sbe12);
+			manifoldBalanceMap = new BalanceMap(manifoldKnot, sbe12);
 			try {
-				balanceMap1.addCut(knotPoint1, cutPoint1);
-				balanceMap1.addCut(knotPoint2, cutPoint2);
-				balanceMap1.addExternalMatch(knotPoint1, external1, null);
-				balanceMap1.addExternalMatch(knotPoint2, external2, null);
-				c1.balanceMap = balanceMap1;
+				manifoldBalanceMap.addCut(knotPoint1, cutPoint1);
+				manifoldBalanceMap.addCut(knotPoint2, cutPoint2);
+				manifoldBalanceMap.addExternalMatch(knotPoint1, knotPoint1, null);
+				manifoldBalanceMap.addExternalMatch(knotPoint2, knotPoint2, null);
+				c1.balanceMap = manifoldBalanceMap;
 				manifoldCutMatch = shell.cutEngine.internalPathEngine.calculateInternalPathLength(
 						knotPoint1, cutPoint1, external1,
-						knotPoint2, cutPoint2, external2, k, balanceMap1, c1, true);
+						knotPoint2, cutPoint2, external2, manifoldKnot, manifoldBalanceMap, c1, true);
 			} catch (SegmentBalanceException sbe) {
 				segmentBalanceExceptionHandler(sbe);
 			}
@@ -346,6 +353,10 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 				Drawing.drawPath(this, g2, retTup.path, minLineThickness, Color.RED, retTup.ps, false, false, true,
 						false,
 						camera);
+			}
+			if (manifold && manifoldCutMatch != null) {
+				Drawing.drawCutMatch(this, g2, manifoldCutMatch, manifoldBalanceMap, manifoldCutSegment1, manifoldCutSegment2, manifoldExSegment1, manifoldExSegment2,
+						manifoldKnot, minLineThickness * 2, retTup.ps, camera);
 			}
 			if (drawMainPath) {
 				orgShell.drawShell(this, g2, false, minLineThickness, Color.BLUE, retTup.ps, camera);

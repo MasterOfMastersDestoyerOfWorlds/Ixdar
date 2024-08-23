@@ -16,6 +16,7 @@ import shell.BalanceMap;
 import shell.PointND;
 import shell.PointSet;
 import shell.cuts.CutMatch;
+import shell.cuts.CutMatchList;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Point;
@@ -26,6 +27,10 @@ import shell.shell.Shell;
 public class Drawing {
 
     public static void drawCutMatch(JComponent frame, Graphics2D g2, SegmentBalanceException sbe, int lineThickness,
+    PointSet ps, Camera camera) {
+        drawCutMatch(frame, g2, sbe.cutMatchList, sbe.c.balanceMap, sbe.cut1, sbe.cut2, sbe.ex1, sbe.ex2, sbe.topKnot, lineThickness, ps, camera);
+    }
+    public static void drawCutMatch(JComponent frame, Graphics2D g2, CutMatchList cml, BalanceMap balanceMap, Segment cut1, Segment cut2, Segment ex1, Segment ex2, Knot topKnot,  int lineThickness,
             PointSet ps, Camera camera) {
 
         BasicStroke stroke = new BasicStroke(lineThickness);
@@ -83,8 +88,8 @@ public class Drawing {
         double[] lastCoords = new double[2];
         double[] midCoords = new double[2];
 
-        Point2D first = ((Point) sbe.cut1.first).p.toPoint2D();
-        Point2D last = ((Point) sbe.cut1.last).p.toPoint2D();
+        Point2D first = ((Point) cut1.first).p.toPoint2D();
+        Point2D last = ((Point) cut1.last).p.toPoint2D();
 
         firstCoords[0] = ((first.getX() - minX) * (width) / rangeX + offsetx) / 1.5;
         firstCoords[1] = ((first.getY() - minY) * (height) / rangeY + offsety) / 1.5;
@@ -97,8 +102,8 @@ public class Drawing {
 
         g2.setColor(new Color(210, 105, 30));
         // Draw x 2
-        first = ((Point) sbe.cut2.first).p.toPoint2D();
-        last = ((Point) sbe.cut2.last).p.toPoint2D();
+        first = ((Point) cut2.first).p.toPoint2D();
+        last = ((Point) cut2.last).p.toPoint2D();
 
         firstCoords[0] = ((first.getX() - minX) * (width) / rangeX + offsetx) / 1.5;
         firstCoords[1] = ((first.getY() - minY) * (height) / rangeY + offsety) / 1.5;
@@ -112,7 +117,7 @@ public class Drawing {
 
         // Draw external segment 1
 
-        Point2D knotPoint1 = ((Point) sbe.ex1.getKnotPoint(sbe.topKnot.knotPointsFlattened)).p.toPoint2D();
+        Point2D knotPoint1 = ((Point) ex1.getKnotPoint(topKnot.knotPointsFlattened)).p.toPoint2D();
 
         firstCoords[0] = ((knotPoint1.getX() - minX) * (width) / rangeX + offsetx) / 1.5;
         firstCoords[1] = ((knotPoint1.getY() - minY) * (height) / rangeY + offsety) / 1.5;
@@ -120,11 +125,11 @@ public class Drawing {
         g2.setColor(Color.GREEN);
 
         g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
-        drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, sbe.ex1);
+        drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, ex1);
 
         // Draw external segment 2
 
-        Point2D knotPoint2 = ((Point) sbe.ex2.getKnotPoint(sbe.topKnot.knotPointsFlattened)).p.toPoint2D();
+        Point2D knotPoint2 = ((Point) ex2.getKnotPoint(topKnot.knotPointsFlattened)).p.toPoint2D();
 
         firstCoords[0] = ((knotPoint2.getX() - minX) * (width) / rangeX + offsetx) / 1.5;
         firstCoords[1] = ((knotPoint2.getY() - minY) * (height) / rangeY + offsety) / 1.5;
@@ -132,28 +137,27 @@ public class Drawing {
         g2.setColor(Color.GREEN);
 
         g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
-        drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, sbe.ex2);
+        drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords, ex2);
 
-        g2.setColor(new Color(238, 130, 238));
-        BalanceMap bm = sbe.c.balanceMap;
-        for (Segment externalMatch : bm.externalMatches) {
-            if (externalMatch.equals(sbe.ex1) || externalMatch.equals(sbe.ex2)) {
-                continue;
-            }
-            VirtualPoint kp = externalMatch.last;
-            if (bm.knot.contains(externalMatch.first)) {
-                kp = externalMatch.first;
-            }
-            Point2D kp2d = ((Point) kp).p.toPoint2D();
-            firstCoords[0] = ((kp2d.getX() - minX) * (width) / rangeX + offsetx) / 1.5;
-            firstCoords[1] = ((kp2d.getY() - minY) * (height) / rangeY + offsety) / 1.5;
-            g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
-            drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords,
-                    externalMatch);
-        }
+        // g2.setColor(new Color(238, 130, 238));
+        // for (Segment externalMatch : balanceMap.externalMatches) {
+        //     if (externalMatch.equals(ex1) || externalMatch.equals(ex2)) {
+        //         continue;
+        //     }
+        //     VirtualPoint kp = externalMatch.last;
+        //     if (balanceMap.knot.contains(externalMatch.first)) {
+        //         kp = externalMatch.first;
+        //     }
+        //     Point2D kp2d = ((Point) kp).p.toPoint2D();
+        //     firstCoords[0] = ((kp2d.getX() - minX) * (width) / rangeX + offsetx) / 1.5;
+        //     firstCoords[1] = ((kp2d.getY() - minY) * (height) / rangeY + offsety) / 1.5;
+        //     g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
+        //     drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety, firstCoords, lastCoords,
+        //             externalMatch);
+        // }
 
         // Draw Cuts and Matches
-        for (CutMatch cutMatch : sbe.cutMatchList.cutMatches) {
+        for (CutMatch cutMatch : cml.cutMatches) {
 
             // Draw Matches
             g2.setColor(Color.CYAN);
@@ -175,8 +179,8 @@ public class Drawing {
             for (VirtualPoint p : cutMatch.knot.knotPoints) {
                 result.add(((Point) p).p);
             }
-            Drawing.drawPath(frame, g2, Shell.toPath(result), lineThickness, Color.lightGray, ps, true, false, false,
-                    true, camera);
+            // Drawing.drawPath(frame, g2, Shell.toPath(result), lineThickness, Color.lightGray, ps, true, false, false,
+            //         true, camera);
 
         }
 

@@ -518,7 +518,7 @@ public class Shell extends LinkedList<PointND> {
             this.updateSmallestKnot(knot);
             this.updateSmallestCommonKnot(knot);
             cutEngine.flatKnots.put(knot.id, knot);
-            cutEngine.flatKnotsHeight.put(knot.id, knot.getHeight());
+            cutEngine.flatKnotsHeight.put(knot.id, mainKnot.getHeight());
             cutEngine.flatKnotsLayer.put(knot.id, 0);
             cutEngine.flatKnotsNumKnots.put(knot.id, knot.numKnots);
         }
