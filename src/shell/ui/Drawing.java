@@ -232,60 +232,20 @@ public class Drawing {
         }
         g2.setStroke(stroke);
 
+        camera.calculateCameraTransform();
         GeneralPath scaledpath = new GeneralPath();
-        double minX = java.lang.Double.MAX_VALUE, minY = java.lang.Double.MAX_VALUE, maxX = 0, maxY = 0;
         boolean first = true;
-        double meanX = 0, meanY = 0, numPoints = 0;
-        for (PointND pn : ps) {
-            if (!pn.isDummyNode()) {
-                Point2D p = pn.toPoint2D();
 
-                if (p.getX() < minX) {
-                    minX = p.getX();
-                }
-                if (p.getY() < minY) {
-                    minY = p.getY();
-                }
-                meanX += p.getX();
-                if (p.getX() > maxX) {
-                    maxX = p.getX();
-                }
-                if (p.getY() > maxY) {
-                    maxY = p.getY();
-                }
-                meanY += p.getY();
-                numPoints++;
-            }
-        }
-        meanX = meanX / numPoints;
-        meanY = meanY / numPoints;
         PathIterator pi = path.getPathIterator(null);
         Point2D start = null;
-        int count = 0, offsetx = 0 + (int) camera.PanX, offsety = 0 + (int) camera.PanY;
-
-        double height = camera.Height * camera.ScaleFactor,
-                width = camera.Width * camera.ScaleFactor;
-
-        // g2.drawLine((int)((width+offsetx)/1.5), (int)0, (int)((width+offsetx)/1.5),
-        // (int)((height+offsety)/1.5));
-        // g2.drawLine(0, (int)((height+offsety)/1.5), (int)((width+offsetx)/1.5),
-        // (int)((height+offsety)/1.5));
-        double rangeX = maxX - minX, rangeY = maxY - minY;
-        if (rangeX > rangeY) {
-            offsety += (((double) rangeY) / ((double) rangeX) * height / 2);
-            rangeY = rangeX;
-
-        } else {
-            offsetx += (((double) rangeX) / ((double) rangeY) * width / 2);
-            rangeX = rangeY;
-        }
+        int count = 0;
         while (!pi.isDone()) {
             double[] coords = new double[2];
             pi.currentSegment(coords);
             pi.next();
 
-            coords[0] = ((coords[0] - minX) * (width) / rangeX + offsetx) / 1.5;
-            coords[1] = ((coords[1] - minY) * (height) / rangeY + offsety) / 1.5;
+            coords[0] = camera.transformX(coords[0]);
+            coords[1] = camera.transformY(coords[1]);
             if (drawCircles) {
                 g2.draw(new Ellipse2D.Double(coords[0] - 5, coords[1] - 5, 10, 10));
             }

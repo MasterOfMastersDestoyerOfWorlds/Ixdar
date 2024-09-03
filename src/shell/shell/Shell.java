@@ -221,8 +221,9 @@ public class Shell extends LinkedList<PointND> {
 						}
 					}
 					if (runList.size() > 2) {
+
 						if (RunListUtils.containsIDs(runList,
-								new ArrayList<Integer>(Arrays.asList(new Integer[] { 37, 55, 19, 20, 56 })))) {
+								new ArrayList<Integer>(Arrays.asList(new Integer[] { 33 , 30})))) {
 							float z = 0;
 						}
 						for (int i = 0; i < runList.size() && runList.size() > 1; i++) {
@@ -230,7 +231,25 @@ public class Shell extends LinkedList<PointND> {
 							Segment s1 = vp.getFirstUnmatched(runList);
 							VirtualPoint other = s1.getOtherKnot(vp).topGroup;
 							Segment s2 = other.getFirstUnmatched(runList);
-							if (s1.equals(s2) && runList.contains(other)) {
+							if (vp.match1.isKnot && vp.shouldJoinKnot((Knot) vp.match1)) {
+
+								knotFlag = true;
+								makeHalfKnot(runList, vp, vp.match1);
+								i = -1;
+
+							} else if (vp.isKnot && vp.match1.shouldKnotConsume((Knot) vp)) {
+
+								knotFlag = true;
+								makeHalfKnot(runList, vp.match1, vp);
+								i = -1;
+
+							} else if (vp.isKnot && vp.match2 != null && vp.match2.shouldKnotConsume((Knot) vp)) {
+
+								knotFlag = true;
+								makeHalfKnot(runList, vp.match2, vp);
+								i = -1;
+
+							} else if (s1.equals(s2) && runList.contains(other)) {
 								if (other.match1.isKnot && other.shouldJoinKnot((Knot) other.match1)) {
 									knotFlag = true;
 									makeHalfKnot(runList, other, other.match1);
@@ -251,25 +270,8 @@ public class Shell extends LinkedList<PointND> {
 								makeHalfKnot(runList, vp, other);
 								i = -1;
 							}
-
-							else if (vp.match1.isKnot && vp.shouldJoinKnot((Knot) vp.match1)) {
-
-								knotFlag = true;
-								makeHalfKnot(runList, vp, vp.match1);
-								i = -1;
-
-							} else if (vp.isKnot && vp.match1.shouldKnotConsume((Knot) vp)) {
-
-								knotFlag = true;
-								makeHalfKnot(runList, vp.match1, vp);
-								i = -1;
-
-							} else if (vp.isKnot && vp.match2 != null && vp.match2.shouldKnotConsume((Knot) vp)) {
-
-								knotFlag = true;
-								makeHalfKnot(runList, vp.match2, vp);
-								i = -1;
-
+							else if (vp.isKnot && !runList.contains(other)) {
+								//TODO: Need to figure out what to do here, if the other's next best point is also in the runlist, form a knot!
 							}
 						}
 					}
@@ -514,14 +516,14 @@ public class Shell extends LinkedList<PointND> {
 		cutEngine.totalLayers = mainKnot.getHeight();
 		ArrayList<VirtualPoint> knotList = cutEngine.cutKnot(mainKnot.knotPoints, 1);
 		Knot knot = new Knot(knotList, this);
-        if (!cutEngine.flatKnots.containsKey(knot.id)) {
-            this.updateSmallestKnot(knot);
-            this.updateSmallestCommonKnot(knot);
-            cutEngine.flatKnots.put(knot.id, knot);
-            cutEngine.flatKnotsHeight.put(knot.id, mainKnot.getHeight());
-            cutEngine.flatKnotsLayer.put(knot.id, 0);
-            cutEngine.flatKnotsNumKnots.put(knot.id, knot.numKnots);
-        }
+		if (!cutEngine.flatKnots.containsKey(knot.id)) {
+			this.updateSmallestKnot(knot);
+			this.updateSmallestCommonKnot(knot);
+			cutEngine.flatKnots.put(knot.id, knot);
+			cutEngine.flatKnotsHeight.put(knot.id, mainKnot.getHeight());
+			cutEngine.flatKnotsLayer.put(knot.id, 0);
+			cutEngine.flatKnotsNumKnots.put(knot.id, knot.numKnots);
+		}
 		Shell result = new Shell();
 		for (VirtualPoint p : knotList) {
 			result.add(((Point) p).p);

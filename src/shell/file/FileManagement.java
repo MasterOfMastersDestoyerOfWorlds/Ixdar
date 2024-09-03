@@ -1,4 +1,4 @@
-package shell.ui;
+package shell.file;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -9,9 +9,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.MutablePair;
+import org.apache.commons.lang3.tuple.Pair;
+
 import shell.DistanceMatrix;
 import shell.PointND;
 import shell.PointSet;
+import shell.cuts.CutMatchList;
+import shell.exceptions.FileParseException;
 import shell.shell.Shell;
 
 import java.awt.geom.GeneralPath;
@@ -20,9 +26,11 @@ import java.awt.geom.Point2D;
 
 public class FileManagement {
 
-    public static File getTestFile(String fileName){
+    public static final String solutionsFolder = "./src/test/solutions/";
+
+    public static File getTestFile(String fileName) {
         String[] parts = fileName.split("_");
-        return new File("./src/test/solutions/" + parts[0] + "/" + fileName);
+        return new File(solutionsFolder + parts[0] + "/" + fileName);
     }
 
     /**
@@ -40,13 +48,14 @@ public class FileManagement {
             PointSet ps = new PointSet();
             Path2D path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
             Shell tsp = new Shell();
-            boolean manifold = false;
-            int kp1 = -1, cp1 = -1, kp2 = -1, cp2 = -1;
+            ArrayList<Manifold> manifolds = new ArrayList<>();
+            Manifold m = null;
             boolean flag = true, first = true;
             int index = 0;
             DistanceMatrix d = null;
             HashMap<Integer, PointND> lookUp = new HashMap<>();
             ArrayList<Integer> answerOrder = new ArrayList<>();
+            int lineNumber = 1;
             while (line != null) {
                 if (flag == true) {
                     String[] cords = line.split(" ");
@@ -83,8 +92,8 @@ public class FileManagement {
                         double xEnd = java.lang.Double.parseDouble(cords[3]);
                         double yEnd = java.lang.Double.parseDouble(cords[4]);
                         int numPoints = java.lang.Integer.parseInt(cords[5]);
-                        double slopeX = (xEnd - xStart) / ((double) numPoints-1);
-                        double slopeY = (yEnd - yStart) / ((double) numPoints-1);
+                        double slopeX = (xEnd - xStart) / ((double) numPoints - 1);
+                        double slopeY = (yEnd - yStart) / ((double) numPoints - 1);
                         for (int i = 0; i < numPoints; i++) {
                             double xCoord = (slopeX * i) + xStart;
                             double yCoord = (slopeY * i) + yStart;
@@ -159,15 +168,42 @@ public class FileManagement {
                         index++;
                     } else if (cords[0].equals("MANIFOLD")) {
                         System.out.println("MANIFOLD FOUND!");
-                        kp1 = java.lang.Integer.parseInt(cords[1]);
-                        cp1 = java.lang.Integer.parseInt(cords[2]);
-                        kp2 = java.lang.Integer.parseInt(cords[3]);
-                        cp2 = java.lang.Integer.parseInt(cords[4]);
-                        manifold = true;
-                        
+                        m = new Manifold(java.lang.Integer.parseInt(cords[1]), java.lang.Integer.parseInt(cords[2]),
+                                java.lang.Integer.parseInt(cords[3]), java.lang.Integer.parseInt(cords[4]),
+                                cords[5].equals("C"));
+                        try {
+                            m.parse(cords);
+                        } catch (FileParseException fpe) {
+                            throw new FileParseException(f.toPath(), f.getName(), lineNumber);
+                        }
+                        manifolds.add(m);
+
                     } else if (cords[0].equals("ANS")) {
                         for (int i = 1; i < cords.length; i++) {
                             answerOrder.add(java.lang.Integer.parseInt(cords[i]));
+                        }
+                    } else if (cords[0].equals("LOAD")) {
+                        File loadFile = getTestFile(cords[1]);
+                        PointSetPath retTup = importFromFile(loadFile);
+                        manifolds.addAll(retTup.manifolds);
+                        for (PointND pt : retTup.ps) {
+                            pt2d = pt.toPoint2D();
+                            lookUp.put(index, pt);
+                            lines.add(pt);
+                            ps.add(pt);
+                            tsp.add(pt);
+
+                            if (first) {
+                                path.moveTo(pt2d.getX(), pt2d.getY());
+                                first = false;
+                            } else {
+                                path.lineTo(pt2d.getX(), pt2d.getY());
+                            }
+
+                            index++;
+                        }
+                        if (retTup.d != null) {
+                            d = new DistanceMatrix(ps);
                         }
                     } else {
                         PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(cords[1]),
@@ -193,6 +229,7 @@ public class FileManagement {
                     flag = true;
                 }
                 line = br.readLine();
+                lineNumber++;
 
             }
             br.close();
@@ -209,12 +246,36 @@ public class FileManagement {
                 tsp = newAns;
             }
 
-            return new PointSetPath(ps, path, tsp, d, manifold, kp1, cp1, kp2, cp2);
+            return new PointSetPath(ps, path, tsp, d, manifolds);
         } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
 
+    }
+
+    public static void copyFileContents(File src, File dest) {
+
+        List<String> lines = new ArrayList<String>();
+        String line = null;
+        try {
+            FileReader fr = new FileReader(src);
+            BufferedReader br = new BufferedReader(fr);
+            while ((line = br.readLine()) != null) {
+                lines.add(line + "\n");
+            }
+            fr.close();
+            br.close();
+
+            FileWriter fw = new FileWriter(dest);
+            BufferedWriter out = new BufferedWriter(fw);
+            for (String s : lines)
+                out.write(s);
+            out.flush();
+            out.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 
     public static void appendAns(File f, Shell ans) {
@@ -238,6 +299,60 @@ public class FileManagement {
             }
             if (!foundAns) {
                 lines.add(ansLine + "\n");
+            }
+            fr.close();
+            br.close();
+
+            FileWriter fw = new FileWriter(f);
+            BufferedWriter out = new BufferedWriter(fw);
+            for (String s : lines)
+                out.write(s);
+            out.flush();
+            out.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    public static void appendLine(File f, String appLine) {
+
+        try (FileWriter fw = new FileWriter(f, true)) {
+            fw.write(appLine + "\n");
+            fw.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    public static void writeLines(File f, ArrayList<String> lines) {
+
+        try (FileWriter fw = new FileWriter(f, false)) {
+            for (String s : lines) {
+                fw.write(s + "\n");
+            }
+            fw.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    public static void appendCutAns(File f, ArrayList<Manifold> manifold) {
+        List<String> lines = new ArrayList<String>();
+        String line = null;
+        try {
+            FileReader fr = new FileReader(f);
+            BufferedReader br = new BufferedReader(fr);
+            int i = 0;
+            while ((line = br.readLine()) != null) {
+                if (line.contains("MANIFOLD ")) {
+                    Manifold m = manifold.get(i);
+                    if (m.shorterPathFound) {
+                        System.out.println(line);
+                        line = m.toFileString();
+                    }
+                    i++;
+                }
+                lines.add(line + "\n");
             }
             fr.close();
             br.close();

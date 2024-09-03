@@ -13,8 +13,8 @@ public class Camera {
     public double PanY;
     public double defaultPanX;
     public double defaultPanY;
-    public int offsetx;
-    public int offsety;
+    public int offsetX;
+    public int offsetY;
     public double rangeX;
     public double rangeY;
     public PointSet ps;
@@ -40,7 +40,6 @@ public class Camera {
         minY = java.lang.Double.MAX_VALUE;
         maxX = 0;
         maxY = 0;
-        double meanX = 0, meanY = 0, numPoints = 0;
         for (PointND pn : ps) {
             if (!pn.isDummyNode()) {
                 Point2D p = pn.toPoint2D();
@@ -51,41 +50,87 @@ public class Camera {
                 if (p.getY() < minY) {
                     minY = p.getY();
                 }
-                meanX += p.getX();
                 if (p.getX() > maxX) {
                     maxX = p.getX();
                 }
                 if (p.getY() > maxY) {
                     maxY = p.getY();
                 }
-                meanY += p.getY();
-                numPoints++;
             }
         }
-        meanX = meanX / numPoints;
-        meanY = meanY / numPoints;
         rangeX = maxX - minX;
         rangeY = maxY - minY;
         height = Height * ScaleFactor;
         width = Width * ScaleFactor;
-        offsetx = 0 + (int) PanX;
-        offsety = 0 + (int) PanY;
+        offsetX = 0 + (int) PanX;
+        offsetY = 0 + (int) PanY;
 
         if (rangeX > rangeY) {
-            offsety += (((double) rangeY) / ((double) rangeX) * height / 2);
+            offsetY += (((double) rangeY) / ((double) rangeX) * height / 2);
             rangeY = rangeX;
 
         } else {
-            offsetx += (((double) rangeX) / ((double) rangeY) * width / 2);
+            offsetX += (((double) rangeX) / ((double) rangeY) * width / 2);
             rangeX = rangeY;
         }
     }
 
+    public void initCamera() {
+        minX = java.lang.Double.MAX_VALUE;
+        minY = java.lang.Double.MAX_VALUE;
+        maxX = 0;
+        maxY = 0;
+        for (PointND pn : ps) {
+            if (!pn.isDummyNode()) {
+                Point2D p = pn.toPoint2D();
+
+                if (p.getX() < minX) {
+                    minX = p.getX();
+                }
+                if (p.getY() < minY) {
+                    minY = p.getY();
+                }
+                if (p.getX() > maxX) {
+                    maxX = p.getX();
+                }
+                if (p.getY() > maxY) {
+                    maxY = p.getY();
+                }
+            }
+        }
+        offsetX = 0;
+        offsetY = 0;
+
+        rangeX = maxX - minX;
+        rangeY = maxY - minY;
+        if (rangeX > rangeY) {
+            offsetX += (((double) rangeY) / ((double) rangeX) * height / 2);
+            rangeY = rangeX;
+
+        } else {
+            offsetY += (((double) rangeX) / ((double) rangeY) * width / 2);
+            rangeX = rangeY;
+        }
+        PanX = 50 - offsetY;
+        PanY = 50 - offsetX;
+        defaultPanX = PanX;
+        defaultPanY = PanY;
+    }
+
     public double transformX(double x) {
-        return ((x - minX) * (width) / rangeX + offsetx) / 1.5;
+        return ((((x - minX) * width) / rangeX) + offsetX) / 1.5;
+    }
+
+    public double invertTransformX(double x) {
+        return ((((x * 1.5) - offsetX) * rangeX) / width) + minX;
     }
 
     public double transformY(double y) {
-        return ((y - minY) * (height) / rangeY + offsety) / 1.5;
+        return ((((y - minY) * height) / rangeY) + offsetY) / 1.5;
     }
+
+    public double invertTransformY(double y) {
+        return ((((y * 1.5) - offsetY) * rangeY) / height) + minY;
+    }
+
 }

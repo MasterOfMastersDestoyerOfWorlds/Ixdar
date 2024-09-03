@@ -14,7 +14,7 @@ import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.shell.Shell;
 
-public class CutMatchList {
+public class CutMatchList implements FileStringable {
 
     public ArrayList<CutMatch> cutMatches;
     public double delta;
@@ -29,6 +29,13 @@ public class CutMatchList {
         this.sbe = sbe;
         this.topKnot = superKnot;
     }
+
+    public CutMatchList(Shell shell,Knot superKnot) {
+        cutMatches = new ArrayList<>();
+        this.shell = shell;
+        this.topKnot = superKnot;
+    }
+
 
     public String toString() {
         String str = "CML[ topKnot:" + topKnot + "\n" + cutMatches + " \n]\n totalDelta: " + delta;
@@ -67,7 +74,7 @@ public class CutMatchList {
                 cutSegments, c,
                 false, true)) {
             shell.buff.add(internalCuts);
-            
+
             throw new SegmentBalanceException(shell, this, c);
         }
 
@@ -665,6 +672,19 @@ public class CutMatchList {
         for (int i = 0; i < cutSegments.size(); i++) {
             cutSegmentsFinal[i] = cutSegments.get(i);
         }
+    }
+
+    @Override
+    public String toFileString() {
+        String fileString = "CUTMATCH CUTS ";
+        for (Segment s : this.cutMatches.get(0).cutSegments) {
+            fileString += s.first + " " + s.last + " ";
+        }
+        fileString += "MATCHES ";
+        for (Segment s : this.cutMatches.get(0).matchSegments) {
+            fileString += s.first + " " + s.last + " ";
+        }
+        return fileString;
     }
 
 }

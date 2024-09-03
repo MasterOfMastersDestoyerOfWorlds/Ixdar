@@ -2,6 +2,8 @@ package test;
 
 import shell.DistanceMatrix;
 import shell.enums.RouteType;
+import shell.file.FileManagement;
+import shell.file.PointSetPath;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
@@ -9,8 +11,6 @@ import shell.route.Route;
 import shell.route.RouteInfo;
 import shell.route.RouteMap;
 import shell.shell.Shell;
-import shell.ui.FileManagement;
-import shell.ui.PointSetPath;
 import shell.PointND;
 
 import java.io.BufferedReader;

@@ -5,9 +5,9 @@ import shell.DistanceMatrix;
 import shell.PointSet;
 import shell.exceptions.BalancerException;
 import shell.exceptions.SegmentBalanceException;
+import shell.file.FileManagement;
+import shell.file.PointSetPath;
 import shell.shell.Shell;
-import shell.ui.FileManagement;
-import shell.ui.PointSetPath;
 
 import java.io.File;
 import java.util.ArrayList;

@@ -93,6 +93,7 @@ public class CutEngine {
                 minDelta = delta;
             }
         }
+        boolean ixdarSkip = true;
         for (int a = 0; a < knot.knotPoints.size(); a++) {
             for (int b = a; b < knot.knotPoints.size(); b++) {
                 VirtualPoint knotPoint11 = knot.knotPoints.get(a);
@@ -103,7 +104,7 @@ public class CutEngine {
                 VirtualPoint knotPoint22 = knot.knotPoints.get(b + 1 >= knot.knotPoints.size() ? 0 : b + 1);
                 Segment cutSegment2 = knotPoint21.getClosestSegment(knotPoint22, null);
 
-                if (knot.id == 34 && cutSegment1.hasPoints(9, 7) && cutSegment2.hasPoints(6, 4)) {
+                if (cutSegment1.hasPoints(11, 13) && cutSegment2.hasPoints(19, 18)) {
                     float z = 0;
                 }
                 Pair<Segment, Segment> p = new Pair<Segment, Segment>(cutSegment1, cutSegment2);
@@ -133,7 +134,7 @@ public class CutEngine {
                             knotPoint22, cutSegment2,
                             externalPoint12, knot, null);
                     SegmentBalanceException sbe12 = new SegmentBalanceException(shell, null, c1);
-                    if (mind1 < minDelta) {
+                    if (mind1 < minDelta || !ixdarSkip) {
                         BalanceMap balanceMap1 = new BalanceMap(knot, sbe12);
                         balanceMap1.addCut(knotPoint11, knotPoint12);
                         balanceMap1.addCut(knotPoint21, knotPoint22);
@@ -171,7 +172,7 @@ public class CutEngine {
                     double d2 = Double.MAX_VALUE;
                     CutMatchList cutMatch2 = null;
                     double mind2 = s22.distance + s21.distance + regDelta;
-                    if (mind2 < minDelta) {
+                    if (mind2 < minDelta || !ixdarSkip) {
                         VirtualPoint externalPoint21 = s21.getOther(knotPoint21);
                         VirtualPoint externalPoint22 = s22.getOther(knotPoint11);
                         CutInfo c2 = new CutInfo(shell, knotPoint21, knotPoint22, cutSegment2, externalPoint21,
@@ -247,7 +248,7 @@ public class CutEngine {
                     CutMatchList cutMatch3 = null;
                     double d3 = Double.MAX_VALUE;
                     double mind3 = s32.distance + s31.distance + regDelta;
-                    if (mind3 < minDelta) {
+                    if (mind3 < minDelta || !ixdarSkip) {
 
                         BalanceMap balanceMap3 = new BalanceMap(knot, sbe3);
                         balanceMap3.addCut(knotPoint11, knotPoint12);
@@ -296,7 +297,7 @@ public class CutEngine {
                     CutMatchList cutMatch4 = null;
                     double d4 = Double.MAX_VALUE;
                     double mind4 = s42.distance + s41.distance + regDelta;
-                    if (mind4 < minDelta) {
+                    if (mind4 < minDelta || !ixdarSkip) {
                         BalanceMap balanceMap4 = new BalanceMap(knot, sbe4);
                         balanceMap4.addCut(knotPoint11, knotPoint12);
                         balanceMap4.addCut(knotPoint21, knotPoint22);
@@ -378,7 +379,7 @@ public class CutEngine {
                     CutMatchList cutMatch7 = null, cutMatch8 = null, cutMatch5 = null, cutMatch6 = null;
                     CutMatchList internalCuts56 = null;
                     double mind5 = s52.distance + s51.distance + regDelta;
-                    if (mind5 < minDelta) {
+                    if (mind5 < minDelta || !ixdarSkip) {
                         internalCuts56 = internalPathEngine.calculateInternalPathLength(
                                 knotPoint11, knotPoint12, externalPoint51,
                                 knotPoint22, knotPoint21, externalPoint52, knot, balanceMap5, c5, false);
@@ -407,7 +408,7 @@ public class CutEngine {
                     c6.balanceMap = balanceMap6;
 
                     double mind6 = s62.distance + s61.distance + regDelta;
-                    if (mind6 < minDelta) {
+                    if (mind6 < minDelta || !ixdarSkip) {
                         if (internalCuts56 == null) {
                             internalCuts56 = internalPathEngine.calculateInternalPathLength(
                                     knotPoint11, knotPoint12, externalPoint61,
@@ -440,7 +441,7 @@ public class CutEngine {
 
                     double mind7 = s72.distance + s71.distance + regDelta;
                     CutMatchList internalCuts78 = null;
-                    if (mind7 < minDelta) {
+                    if (mind7 < minDelta || !ixdarSkip) {
                         internalCuts78 = internalPathEngine.calculateInternalPathLength(
                                 knotPoint12, knotPoint11, externalPoint71,
                                 knotPoint21, knotPoint22, externalPoint72, knot, balanceMap7, c7, false);
@@ -470,7 +471,7 @@ public class CutEngine {
                     c8.balanceMap = balanceMap8;
 
                     double mind8 = s82.distance + s81.distance + regDelta;
-                    if (mind8 < minDelta) {
+                    if (mind8 < minDelta || !ixdarSkip) {
                         if (internalCuts78 == null) {
                             internalCuts78 = internalPathEngine.calculateInternalPathLength(
                                     knotPoint12, knotPoint11, externalPoint81,

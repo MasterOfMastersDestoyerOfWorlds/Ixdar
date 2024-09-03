@@ -5,11 +5,13 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.MouseInfo;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.event.WindowEvent;
@@ -40,24 +42,25 @@ import shell.cuts.CutEngine;
 import shell.cuts.CutInfo;
 import shell.cuts.CutMatchList;
 import shell.exceptions.SegmentBalanceException;
+import shell.file.FileManagement;
+import shell.file.Manifold;
+import shell.file.PointSetPath;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.route.RouteInfo;
-import shell.route.RoutePair;
 import shell.shell.Shell;
 import shell.shell.ShellPair;
 import shell.shell.ShellComparator;
 import shell.ui.Camera;
 import shell.ui.Drawing;
-import shell.ui.FileManagement;
-import shell.ui.PointSetPath;
+import shell.ui.GenerateManifoldTestsAction;
 import shell.ui.PrintScreenAction;
 import shell.ui.SaveAction;
 
-public class Main extends JComponent implements KeyListener, MouseListener, MouseWheelListener {
+public class Main extends JComponent implements KeyListener, MouseListener, MouseMotionListener, MouseWheelListener {
 
 	private static final long serialVersionUID = 2722424842956800923L;
 	public static ArrayList<VirtualPoint> result;
@@ -86,65 +89,70 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 	static Shell resultShell;
 	static JFrame frame;
 	static Main main;
-	static File currFile;
+	public static File file;
 	static String fileName;
 	private static Color stickyColor;
 	int queuedMouseWheelTicks = 0;
-	Camera camera;
-	static CutMatchList manifoldCutMatch;
-	private static Knot manifoldKnot;
-	private static Segment manifoldCutSegment1;
-	private static Segment manifoldCutSegment2;
-	private static Segment manifoldExSegment1;
-	private static Segment manifoldExSegment2;
-	private static BalanceMap manifoldBalanceMap;
-
-	boolean init;
+	static Camera camera;
+	public static Knot manifoldKnot;
+	static int manifoldIdx = 0;
+	private static ArrayList<Manifold> manifolds;
 
 	public Main() {
 
-		fileName = "djbouti_8-34-manifold";
-		currFile = FileManagement.getTestFile(fileName);
-		retTup = FileManagement.importFromFile(currFile);
+		fileName = "rings_3";
+		//ANS 5 4 3 2 1 0 6 7 8 9 10 11 12 13 14 15 16 18 17 20 19 
+		file = FileManagement.getTestFile(fileName);
+		retTup = FileManagement.importFromFile(file);
 		frame = new JFrame("Ixdar : " + fileName);
+
 		ImageIcon img = new ImageIcon("decalSmall.png");
 		frame.setIconImage(img.getImage());
-		frame.getContentPane().add(this);
-
 		frame.getContentPane().setBackground(new Color(20, 20, 20));
-		frame.pack();
+
+		frame.getContentPane().add(this);
 		frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+
 		camera = new Camera(750, 750, 1, 0, 0, retTup.ps);
-		frame.setSize(new Dimension(camera.Width, camera.Height));
 		frame.setVisible(true);
+		frame.getContentPane().setPreferredSize(new Dimension(camera.Width, camera.Height));
+		frame.getContentPane().setSize(new Dimension(camera.Width, camera.Height));
+		frame.pack();
+
 		frame.addKeyListener(this);
-		frame.addMouseListener(this);
-		frame.addMouseWheelListener(this);
+		frame.getContentPane().addMouseListener(this);
+		frame.getContentPane().addMouseWheelListener(this);
+		frame.getContentPane().addMouseMotionListener(this);
+
+		manifold = !retTup.manifolds.isEmpty();
 
 		JRootPane rootPane = frame.getRootPane();
+
 		rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
 				KeyStroke.getKeyStroke(KeyEvent.VK_P, InputEvent.CTRL_DOWN_MASK),
 				"printScreen");
 		rootPane.getActionMap().put("printScreen",
 				new PrintScreenAction(frame));
-
 		rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
 				KeyStroke.getKeyStroke(KeyEvent.VK_Q, InputEvent.CTRL_DOWN_MASK),
 				"saveNew");
 		rootPane.getActionMap().put("saveNew",
 				new SaveAction(frame, fileName));
-		init = true;
+		rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+				KeyStroke.getKeyStroke(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK),
+				"generateManifoldTests");
+		rootPane.getActionMap().put("generateManifoldTests",
+				new GenerateManifoldTestsAction(frame, fileName, manifold));
 	}
 
-	// cut 5-3 and 2-0 or 18-16 and 15-13
 	public static void main(String[] args) {
 		main = new Main();
 
+		camera.initCamera();
 		DistanceMatrix d = retTup.d;
 		if (retTup.d == null) {
 			d = new DistanceMatrix(retTup.ps);
 		}
-		float z1 = 0;
 		ArrayList<PointND> toRemove = new ArrayList<>();
 		for (PointND p : retTup.tsp) {
 			if (p == null) {
@@ -152,70 +160,50 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 			}
 		}
 		retTup.tsp.removeAll(toRemove);
-		if (retTup.manifold) {
+		if (manifold) {
 			manifold = true;
 			calculateKnot = false;
 		}
 		orgShell = retTup.tsp;
-
-		System.out.println(orgShell.getLength());
 
 		shell = orgShell.copyShallow();
 
 		shell.knotName = fileName;
 
 		Collections.shuffle(shell);
-		System.out.println(shell);
 		long startTimeKnotFinding = System.currentTimeMillis();
-		if (manifold) {
 
-			result = new ArrayList<>(shell.slowSolve(shell, d, 10));
+		result = new ArrayList<>(shell.slowSolve(shell, d, 10));
+		calculateSubPaths();
+
+		manifoldKnot = shell.cutEngine.flatKnots.values().iterator().next();
+		for (Knot f : shell.cutEngine.flatKnots.values()) {
+			if (f.knotPointsFlattened.size() > manifoldKnot.size()) {
+				manifoldKnot = f;
+			}
+		}
+		manifolds = retTup.manifolds;
+		for (Manifold m : manifolds) {
+			m.manifoldKnot = manifoldKnot;
+			try {
+				m.loadCutMatch(shell);
+			} catch (SegmentBalanceException e) {
+				e.printStackTrace();
+			}
+		}
+
+		if (manifold) {
 			if (result.size() > 1) {
 				manifold = false;
 				calculateKnot = true;
 			}
-			calculateSubPaths();
-			Shell top = subPaths.get(0);
-			manifoldKnot = shell.cutEngine.flatKnots.values().iterator().next();
-
-			for (Knot f : shell.cutEngine.flatKnots.values()) {
-				if (f.knotPointsFlattened.size() > manifoldKnot.size()) {
-					manifoldKnot = f;
-				}
-			}
-			PointND wormHole = d.addDummyNode(d.size(), retTup.ps.getByID(retTup.kp1), retTup.ps.getByID(retTup.kp2));
-			VirtualPoint knotPoint1 = shell.pointMap.get(retTup.kp1);
-			VirtualPoint cutPoint1 = shell.pointMap.get(retTup.cp1);
-			VirtualPoint knotPoint2 = shell.pointMap.get(retTup.kp2);
-			VirtualPoint cutPoint2 = shell.pointMap.get(retTup.cp2);
-			manifoldCutSegment1 = manifoldKnot.getSegment(knotPoint1, cutPoint1);
-			manifoldCutSegment2 = manifoldKnot.getSegment(knotPoint2, cutPoint2);
-			manifoldExSegment1 = manifoldKnot.getSegment(knotPoint1, knotPoint1);
-			manifoldExSegment2 = manifoldKnot.getSegment(knotPoint2, knotPoint2);
-
-			VirtualPoint external1 = knotPoint1;
-			VirtualPoint external2 = knotPoint2;
-			CutInfo c1 = new CutInfo(shell, knotPoint1, cutPoint1, manifoldCutSegment1, external1,
-					knotPoint2,
-					cutPoint2, manifoldCutSegment2,
-					external2, manifoldKnot, null);
-			SegmentBalanceException sbe12 = new SegmentBalanceException(shell, null, c1);
-			manifoldBalanceMap = new BalanceMap(manifoldKnot, sbe12);
 			try {
-				manifoldBalanceMap.addCut(knotPoint1, cutPoint1);
-				manifoldBalanceMap.addCut(knotPoint2, cutPoint2);
-				manifoldBalanceMap.addExternalMatch(knotPoint1, knotPoint1, null);
-				manifoldBalanceMap.addExternalMatch(knotPoint2, knotPoint2, null);
-				c1.balanceMap = manifoldBalanceMap;
-				manifoldCutMatch = shell.cutEngine.internalPathEngine.calculateInternalPathLength(
-						knotPoint1, cutPoint1, external1,
-						knotPoint2, cutPoint2, external2, manifoldKnot, manifoldBalanceMap, c1, true);
+				for (Manifold m : manifolds) {
+					m.calculateManifoldCutMatch(shell, manifoldKnot);
+				}
 			} catch (SegmentBalanceException sbe) {
 				segmentBalanceExceptionHandler(sbe);
 			}
-		}
-		if (calculateKnot) {
-			result = new ArrayList<>(shell.slowSolve(shell, d, 10));
 		}
 		shell.buff.flush();
 		long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
@@ -224,49 +212,46 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 		long startTimeKnotCutting = System.currentTimeMillis();
 
 		Random colorSeed = new Random();
-		if (drawMetroDiagram2) {
-			int numKnots = shell.cutEngine.flatKnots.size();
-			float startHue = colorSeed.nextFloat();
-			float step = 1.0f / ((float) numKnots);
-			int i = 0;
-			for (Knot k : shell.cutEngine.flatKnots.values()) {
-				metro2Colors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
-				colorLookup.put(k.id, i);
-				i++;
-			}
+
+		int numKnots = shell.cutEngine.flatKnots.size();
+		float startHue = colorSeed.nextFloat();
+		float step = 1.0f / ((float) numKnots);
+		int i = 0;
+		for (Knot k : shell.cutEngine.flatKnots.values()) {
+			metro2Colors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
+			colorLookup.put(k.id, i);
+			i++;
 		}
-		if (drawMetroDiagram) {
-			int totalLayers = shell.cutEngine.totalLayers;
-			if (totalLayers == -1) {
-				calculateSubPaths();
-				totalLayers = shell.cutEngine.totalLayers;
+
+		int totalLayers = shell.cutEngine.totalLayers;
+		if (totalLayers == -1) {
+			totalLayers = shell.cutEngine.totalLayers;
+		}
+		if (startWithAnswer) {
+			metroDrawLayer = totalLayers;
+		}
+		Set<Integer> knotIds = shell.cutEngine.flatKnots.keySet();
+		HashMap<Integer, Knot> flatKnots = shell.cutEngine.flatKnots;
+		HashMap<Integer, Integer> flatKnotsHeight = shell.cutEngine.flatKnotsHeight;
+		HashMap<Integer, Integer> flatKnotsLayer = shell.cutEngine.flatKnotsLayer;
+		for (Integer id : knotIds) {
+			Knot k = flatKnots.get(id);
+			int heightNum = flatKnotsHeight.get(id);
+			int layerNum = flatKnotsLayer.get(id);
+			Shell knotShell = new Shell();
+			for (VirtualPoint p : k.knotPointsFlattened) {
+				knotShell.add(((Point) p).p);
 			}
-			if (startWithAnswer) {
-				metroDrawLayer = totalLayers;
+			if (totalLayers - layerNum < 0) {
+				float z = 0;
 			}
-			Set<Integer> knotIds = shell.cutEngine.flatKnots.keySet();
-			HashMap<Integer, Knot> flatKnots = shell.cutEngine.flatKnots;
-			HashMap<Integer, Integer> flatKnotsHeight = shell.cutEngine.flatKnotsHeight;
-			HashMap<Integer, Integer> flatKnotsLayer = shell.cutEngine.flatKnotsLayer;
-			for (Integer id : knotIds) {
-				Knot k = flatKnots.get(id);
-				int heightNum = flatKnotsHeight.get(id);
-				int layerNum = flatKnotsLayer.get(id);
-				Shell knotShell = new Shell();
-				for (VirtualPoint p : k.knotPointsFlattened) {
-					knotShell.add(((Point) p).p);
-				}
-				if (totalLayers - layerNum < 0) {
-					float z = 0;
-				}
-				metroPathsHeight.add(new ShellPair(knotShell, k, heightNum));
-				metroPathsLayer.add(new ShellPair(knotShell, k, totalLayers - layerNum));
-			}
-			float startHue = colorSeed.nextFloat();
-			float step = 1.0f / ((float) totalLayers);
-			for (int i = 0; i <= totalLayers; i++) {
-				metroColors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
-			}
+			metroPathsHeight.add(new ShellPair(knotShell, k, heightNum));
+			metroPathsLayer.add(new ShellPair(knotShell, k, totalLayers - layerNum));
+		}
+		float startHueM = colorSeed.nextFloat();
+		float stepM = 1.0f / ((float) totalLayers);
+		for (int j = 0; j <= totalLayers; j++) {
+			metroColors.add(Color.getHSBColor((startHueM + stepM * j) % 1.0f, 1.0f, 1.0f));
 		}
 
 		long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
@@ -297,10 +282,6 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 		System.out.println("Best Length: " + orgShell.getLength());
 		System.out.println("===============================================");
 
-		if(manifold){
-			System.out.println("Manifold Length: " + (orgShell.getLength() + manifoldCutMatch.delta));
-
-		}
 		System.out.println(shell.cutEngine.flatKnots);
 		stickyColor = new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
 		stickyColor = Color.CYAN;
@@ -310,9 +291,6 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 
 	@Override
 	public void paint(Graphics g) {
-		if (init && retTup != null) {
-			initCamera();
-		}
 		double SHIFT_MOD = 1;
 		if (pressedKeys.contains(KeyEvent.VK_SHIFT)) {
 			SHIFT_MOD = 2;
@@ -374,10 +352,11 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 						false,
 						camera);
 			}
-			if (drawCutMatch && manifold && manifoldCutMatch != null) {
-				Drawing.drawCutMatch(this, g2, manifoldCutMatch, manifoldBalanceMap, manifoldCutSegment1,
-						manifoldCutSegment2, manifoldExSegment1, manifoldExSegment2,
-						manifoldKnot, minLineThickness * 2, retTup.ps, camera);
+			if (drawCutMatch && manifold && manifolds != null && manifolds.get(manifoldIdx).cutMatchList != null) {
+				Manifold m = manifolds.get(manifoldIdx);
+				Drawing.drawCutMatch(this, g2, m.cutMatchList, null, m.manifoldCutSegment1,
+						m.manifoldCutSegment2, m.manifoldExSegment1, m.manifoldExSegment2,
+						m.manifoldKnot, minLineThickness * 2, retTup.ps, camera);
 			}
 			if (drawMainPath) {
 				orgShell.drawShell(this, g2, false, minLineThickness, Color.BLUE, retTup.ps, camera);
@@ -385,7 +364,7 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 			if (drawMetroDiagram && shell != null) {
 				if (metroDrawLayer == shell.cutEngine.totalLayers) {
 
-					if (drawMetroDiagram2 && manifold) {
+					if (drawMetroDiagram2) {
 						Drawing.drawGradientPath(g2, manifoldKnot, shell, camera, minLineThickness);
 					} else {
 						for (Shell temp : subPaths) {
@@ -432,52 +411,6 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 			frame.repaint();
 		}
 
-	}
-
-	private void initCamera() {
-		init = false;
-		double minX = java.lang.Double.MAX_VALUE, minY = java.lang.Double.MAX_VALUE, maxX = 0, maxY = 0;
-		double meanX = 0, meanY = 0, numPoints = 0;
-		for (PointND pn : retTup.ps) {
-			if (!pn.isDummyNode()) {
-				Point2D p = pn.toPoint2D();
-
-				if (p.getX() < minX) {
-					minX = p.getX();
-				}
-				if (p.getY() < minY) {
-					minY = p.getY();
-				}
-				meanX += p.getX();
-				if (p.getX() > maxX) {
-					maxX = p.getX();
-				}
-				if (p.getY() > maxY) {
-					maxY = p.getY();
-				}
-				meanY += p.getY();
-				numPoints++;
-			}
-		}
-		meanX = meanX / numPoints;
-		meanY = meanY / numPoints;
-		int count = 0, offsetx = 0, offsety = 0;
-
-		double height = 750,
-				width = 750;
-		double rangeX = maxX - minX, rangeY = maxY - minY;
-		if (rangeX > rangeY) {
-			offsetx += (((double) rangeY) / ((double) rangeX) * height / 2);
-			rangeY = rangeX;
-
-		} else {
-			offsety += (((double) rangeX) / ((double) rangeY) * width / 2);
-			rangeX = rangeY;
-		}
-		camera.PanX = 50 - offsety;
-		camera.PanY = 50 - offsetx;
-		camera.defaultPanX = camera.PanX;
-		camera.defaultPanY = camera.PanY;
 	}
 
 	private final Set<Integer> pressedKeys = new HashSet<>();
@@ -528,21 +461,35 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 			}
 		}
 		if (e.getKeyCode() == KeyEvent.VK_CLOSE_BRACKET) {
-			metroDrawLayer++;
-			if (metroDrawLayer > shell.cutEngine.totalLayers) {
-				metroDrawLayer = shell.cutEngine.totalLayers;
-			}
-			if (metroDrawLayer < 1) {
-				metroDrawLayer = 1;
+			if (manifold && drawCutMatch) {
+				manifoldIdx++;
+				if (manifoldIdx >= manifolds.size()) {
+					manifoldIdx = 0;
+				}
+			} else {
+				metroDrawLayer++;
+				if (metroDrawLayer > shell.cutEngine.totalLayers) {
+					metroDrawLayer = shell.cutEngine.totalLayers;
+				}
+				if (metroDrawLayer < 1) {
+					metroDrawLayer = 1;
+				}
 			}
 		}
 		if (e.getKeyCode() == KeyEvent.VK_OPEN_BRACKET) {
-			if (metroDrawLayer == -1) {
-				metroDrawLayer = shell.cutEngine.totalLayers;
+			if (manifold && drawCutMatch) {
+				manifoldIdx--;
+				if (manifoldIdx < 0) {
+					manifoldIdx = manifolds.size() - 1;
+				}
 			} else {
-				metroDrawLayer--;
-				if (metroDrawLayer < 1) {
-					metroDrawLayer = 1;
+				if (metroDrawLayer == -1) {
+					metroDrawLayer = shell.cutEngine.totalLayers;
+				} else {
+					metroDrawLayer--;
+					if (metroDrawLayer < 1) {
+						metroDrawLayer = 1;
+					}
 				}
 			}
 		}
@@ -553,8 +500,11 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 			if (subPaths.size() == 1) {
 				Shell ans = subPaths.get(0);
 				if (orgShell.getLength() > ans.getLength()) {
-					FileManagement.appendAns(currFile, ans);
+					FileManagement.appendAns(file, ans);
 					orgShell = ans;
+				}
+				if (manifold) {
+					FileManagement.appendCutAns(file, manifolds);
 				}
 			}
 		}
@@ -590,6 +540,24 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 	public void mouseWheelMoved(MouseWheelEvent e) {
 		queuedMouseWheelTicks += e.getWheelRotation();
 		repaint();
+	}
+
+	@Override
+	public void mouseMoved(MouseEvent e) {
+		if (manifoldKnot != null) {
+			camera.calculateCameraTransform();
+			double x = camera.invertTransformX(e.getX());
+			double y = camera.invertTransformY(e.getY());
+			for (Segment s : manifoldKnot.manifoldSegments) {
+				double result = s.boundContains(x, y);
+				if(result > 0){
+				}
+			}
+		}
+	}
+
+	@Override
+	public void mouseDragged(MouseEvent e) {
 	}
 
 	private static void calculateSubPaths() {
@@ -643,4 +611,5 @@ public class Main extends JComponent implements KeyListener, MouseListener, Mous
 		resultShell = result;
 		drawException = sbe;
 	}
+
 }
