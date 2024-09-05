@@ -48,7 +48,6 @@ import org.apache.commons.lang3.ObjectUtils.Null;
 import shell.cuts.CutEngine;
 import shell.cuts.CutInfo;
 import shell.cuts.CutMatchList;
-import shell.enums.FindState;
 import shell.exceptions.SegmentBalanceException;
 import shell.file.FileManagement;
 import shell.file.Manifold;
@@ -64,29 +63,30 @@ import shell.shell.ShellPair;
 import shell.shell.ShellComparator;
 import shell.ui.Camera;
 import shell.ui.Drawing;
-import shell.ui.FindManifoldAction;
-import shell.ui.GenerateManifoldTestsAction;
 import shell.ui.KeyGuy;
 import shell.ui.Logo;
 import shell.ui.MouseTrap;
-import shell.ui.PrintScreenAction;
-import shell.ui.SaveAction;
+import shell.ui.actions.FindManifoldAction;
+import shell.ui.actions.GenerateManifoldTestsAction;
+import shell.ui.actions.PrintScreenAction;
+import shell.ui.actions.SaveAction;
+import shell.ui.tools.FindManifoldTool;
+import shell.ui.tools.FreeTool;
 
 public class Main extends JComponent {
 
 	private static final long serialVersionUID = 2722424842956800923L;
 	public static ArrayList<VirtualPoint> result;
-
-	static boolean calculateKnot = true;
-	public static boolean drawMainPath = false;
-	public static boolean drawMetroDiagram = true;
-	public static boolean drawMetroDiagram2 = true;
+	public static Toggle calculateKnot = new Toggle(true, ToggleType.CalculateKnot);
+	public static Toggle drawMainPath = new Toggle(false, ToggleType.DrawMainPath);
+	public static Toggle drawMetroDiagram = new Toggle(true, ToggleType.DrawMetroDiagram);
+	public static Toggle drawKnotGradient = new Toggle(true, ToggleType.DrawKnotGradient);
 	static boolean startWithAnswer = true;
 	int minLineThickness = 1;
 	boolean calc = false;
 	public static boolean manifold = false;
-	public static boolean drawCutMatch = true;
-	public static FindState findState = new FindState();
+	public static Toggle drawCutMatch = new Toggle(true, ToggleType.DrawCutMatch);
+	public static FreeTool freeTool = new FreeTool();
 
 	public static Shell shell;
 	public static PointSetPath retTup;
@@ -95,7 +95,7 @@ public class Main extends JComponent {
 	static PriorityQueue<ShellPair> metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
 	static PriorityQueue<ShellPair> metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
 	public static ArrayList<Color> metroColors = new ArrayList<>();
-	public static ArrayList<Color> metro2Colors = new ArrayList<>();
+	public static ArrayList<Color> knotGradientColors = new ArrayList<>();
 	public static HashMap<Integer, Integer> colorLookup = new HashMap<>();
 	public static int metroDrawLayer = -1;
 	static SegmentBalanceException drawException;
@@ -111,6 +111,7 @@ public class Main extends JComponent {
 	public static Knot manifoldKnot;
 	public static int manifoldIdx = 0;
 	public static ArrayList<Manifold> manifolds;
+	public static Tool tool;
 
 	public Main() {
 
@@ -167,6 +168,8 @@ public class Main extends JComponent {
 		manifold = !retTup.manifolds.isEmpty();
 		frame.pack();
 
+		tool = new FreeTool();
+
 	}
 
 	public static void main(String[] args) {
@@ -186,7 +189,7 @@ public class Main extends JComponent {
 		retTup.tsp.removeAll(toRemove);
 		if (manifold) {
 			manifold = true;
-			calculateKnot = false;
+			calculateKnot.value = false;
 		}
 		orgShell = retTup.tsp;
 
@@ -224,7 +227,7 @@ public class Main extends JComponent {
 		if (manifold) {
 			if (result.size() > 1) {
 				manifold = false;
-				calculateKnot = true;
+				calculateKnot.value = true;
 			}
 
 			manifolds.parallelStream().forEach((m) -> {
@@ -245,7 +248,7 @@ public class Main extends JComponent {
 		float step = 1.0f / ((float) numKnots);
 		int i = 0;
 		for (Knot k : shell.cutEngine.flatKnots.values()) {
-			metro2Colors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
+			knotGradientColors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
 			colorLookup.put(k.id, i);
 			i++;
 		}
@@ -318,93 +321,89 @@ public class Main extends JComponent {
 
 	@Override
 	public void paint(Graphics g) {
-		camera.updateSize(this.getWidth(), this.getHeight());
-		double SHIFT_MOD = 1;
-		if (keys != null && keys.pressedKeys.contains(KeyEvent.VK_SHIFT)) {
-			SHIFT_MOD = 2;
-		}
-		if (keys != null) {
-			keys.paintUpdate(SHIFT_MOD);
-		}
-		if (mouse != null) {
-			mouse.paintUpdate(SHIFT_MOD);
-		}
-		try {
-			Graphics2D g2 = (Graphics2D) g;
-			camera.calculateCameraTransform();
+		if (Main.main != null) {
+			camera.updateSize(this.getWidth(), this.getHeight());
+			double SHIFT_MOD = 1;
+			if (keys != null && keys.pressedKeys.contains(KeyEvent.VK_SHIFT)) {
+				SHIFT_MOD = 2;
+			}
+			if (keys != null) {
+				keys.paintUpdate(SHIFT_MOD);
+			}
+			if (mouse != null) {
+				mouse.paintUpdate(SHIFT_MOD);
+			}
+			try {
+				Graphics2D g2 = (Graphics2D) g;
+				camera.calculateCameraTransform();
+				tool.draw(g2, camera, minLineThickness);
 
-			if (findState.state != FindState.States.None) {
-				if (findState.hover != null && !findState.hover.equals(findState.firstSelectedSegment)) {
-					Drawing.drawManifoldCut(g2, findState.hoverKP, findState.hoverCP, camera, minLineThickness * 2);
+				if (drawException != null) {
+					resultShell.drawShell(this, g2, true, minLineThickness * 2, Color.magenta, retTup.ps, camera);
+					Drawing.drawCutMatch(this, g2, drawException, minLineThickness * 2, retTup.ps, camera);
 				}
-				if (findState.firstSelectedSegment != null) {
-					Drawing.drawManifoldCut(g2, findState.firstSelectedKP, findState.firstSelectedCP, camera,
-							minLineThickness * 2);
+				if (!(retTup == null)) {
+					Drawing.drawPath(this, g2, retTup.path, minLineThickness, Color.RED, retTup.ps, false, false, true,
+							false,
+							camera);
 				}
-			}
-			if (drawException != null) {
-				resultShell.drawShell(this, g2, true, minLineThickness * 2, Color.magenta, retTup.ps, camera);
-				Drawing.drawCutMatch(this, g2, drawException, minLineThickness * 2, retTup.ps, camera);
-			}
-			if (!(retTup == null)) {
-				Drawing.drawPath(this, g2, retTup.path, minLineThickness, Color.RED, retTup.ps, false, false, true,
-						false,
-						camera);
-			}
-			if (drawCutMatch && manifold && manifolds != null && manifolds.get(manifoldIdx).cutMatchList != null) {
-				Manifold m = manifolds.get(manifoldIdx);
-				Drawing.drawCutMatch(this, g2, m.cutMatchList, null, m.manifoldCutSegment1,
-						m.manifoldCutSegment2, m.manifoldExSegment1, m.manifoldExSegment2,
-						m.manifoldKnot, minLineThickness * 2, retTup.ps, camera);
-			}
-			if (drawMainPath) {
-				orgShell.drawShell(this, g2, false, minLineThickness, Color.BLUE, retTup.ps, camera);
-			}
-			if (drawMetroDiagram && shell != null) {
-				if (metroDrawLayer == shell.cutEngine.totalLayers) {
+				if (tool.canUseToggle(drawCutMatch) && manifold && manifolds != null
+						&& manifolds.get(manifoldIdx).cutMatchList != null) {
+					Manifold m = manifolds.get(manifoldIdx);
+					Drawing.drawCutMatch(this, g2, m.cutMatchList, null, m.manifoldCutSegment1,
+							m.manifoldCutSegment2, m.manifoldExSegment1, m.manifoldExSegment2,
+							m.manifoldKnot, minLineThickness * 2, retTup.ps, camera);
+				}
+				if (tool.canUseToggle(drawMainPath)) {
+					orgShell.drawShell(this, g2, false, minLineThickness, Color.BLUE, retTup.ps, camera);
+				}
+				if (tool.canUseToggle(drawMetroDiagram) && shell != null) {
+					if (metroDrawLayer == shell.cutEngine.totalLayers) {
 
-					if (drawMetroDiagram2 && manifoldKnot != null) {
-						Drawing.drawGradientPath(g2, manifoldKnot, shell, camera, minLineThickness);
-					} else {
-						for (Shell temp : subPaths) {
-							temp.drawShell(this, g2, true, minLineThickness * 2,
-									stickyColor, retTup.ps, camera);
-						}
-					}
-				} else {
-					PriorityQueue<ShellPair> newQueue = new PriorityQueue<ShellPair>(new ShellComparator());
-					int size = metroPathsLayer.size();
-					for (int i = 0; i < size; i++) {
-						ShellPair temp = metroPathsLayer.remove();
-						newQueue.add(temp);
-						if (metroDrawLayer >= 0 && temp.priority != metroDrawLayer) {
-							continue;
-						}
-						if (metroDrawLayer < 0) {
-							if (drawMetroDiagram2) {
-								Drawing.drawGradientPath(g2, temp.k, shell, camera, minLineThickness);
-							} else {
-								temp.shell.drawShell(this, g2, true, 2 + 1f * temp.priority,
-										metroColors.get(temp.priority), retTup.ps, camera);
-							}
+						if (tool.canUseToggle(drawKnotGradient) && manifoldKnot != null) {
+							Drawing.drawGradientPath(g2, manifoldKnot, shell, camera, minLineThickness);
 						} else {
-							if (drawMetroDiagram2) {
-								Drawing.drawGradientPath(g2, temp.k, shell, camera, minLineThickness);
-							} else {
-								temp.shell.drawShell(this, g2, true, minLineThickness * 2,
-										metroColors.get(temp.priority), retTup.ps, camera);
+							for (Shell temp : subPaths) {
+								temp.drawShell(this, g2, true, minLineThickness * 2,
+										stickyColor, retTup.ps, camera);
 							}
-
 						}
-					}
-					metroPathsLayer = newQueue;
-				}
-			}
+					} else {
+						PriorityQueue<ShellPair> newQueue = new PriorityQueue<ShellPair>(new ShellComparator());
+						int size = metroPathsLayer.size();
+						for (int i = 0; i < size; i++) {
+							ShellPair temp = metroPathsLayer.remove();
+							newQueue.add(temp);
+							if (metroDrawLayer >= 0 && temp.priority != metroDrawLayer) {
+								continue;
+							}
+							if (metroDrawLayer < 0) {
+								if (tool.canUseToggle(drawKnotGradient)) {
+									Drawing.drawGradientPath(g2, temp.k, shell, camera, minLineThickness);
+								} else {
+									temp.shell.drawShell(this, g2, true, 2 + 1f * temp.priority,
+											metroColors.get(temp.priority), retTup.ps, camera);
+								}
+							} else {
+								if (tool.canUseToggle(drawKnotGradient)) {
+									Drawing.drawGradientPath(g2, temp.k, shell, camera, minLineThickness);
+								} else {
+									temp.shell.drawShell(this, g2, true, minLineThickness * 2,
+											metroColors.get(temp.priority), retTup.ps, camera);
+								}
 
-		} catch (Exception e) {
-			e.printStackTrace();
-			SwingUtilities.getWindowAncestor(this)
-					.dispatchEvent(new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));
+							}
+						}
+						metroPathsLayer = newQueue;
+					}
+				}
+
+			} catch (Exception e) {
+				e.printStackTrace();
+				SwingUtilities.getWindowAncestor(this)
+						.dispatchEvent(
+								new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));
+			}
 		}
 
 	}

@@ -16,9 +16,13 @@ import javax.swing.JRootPane;
 import javax.swing.KeyStroke;
 
 import shell.Main;
-import shell.enums.FindState;
 import shell.file.FileManagement;
 import shell.shell.Shell;
+import shell.ui.actions.FindManifoldAction;
+import shell.ui.actions.GenerateManifoldTestsAction;
+import shell.ui.actions.PrintScreenAction;
+import shell.ui.actions.SaveAction;
+import shell.ui.tools.FindManifoldTool;
 
 public class KeyGuy implements KeyListener {
 
@@ -71,7 +75,7 @@ public class KeyGuy implements KeyListener {
         if (e.getKeyCode() == KeyEvent.VK_C) {
             Random colorSeed = new Random();
             Main.stickyColor = new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
-            if (Main.drawMetroDiagram) {
+            if (Main.tool.canUseToggle(Main.drawMetroDiagram)) {
                 Main.metroColors = new ArrayList<>();
                 int totalLayers = Main.shell.cutEngine.totalLayers;
                 float startHue = colorSeed.nextFloat();
@@ -82,17 +86,15 @@ public class KeyGuy implements KeyListener {
             }
             float startHue = colorSeed.nextFloat();
             float step = 1.0f / ((float) Main.shell.cutEngine.flatKnots.size());
-            for (int i = 0; i < Main.metro2Colors.size(); i++) {
-                Main.metro2Colors.set(i, Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
+            for (int i = 0; i < Main.knotGradientColors.size(); i++) {
+                Main.knotGradientColors.set(i, Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_B) {
-            if (Main.findState.state == FindState.States.None) {
-                Main.drawCutMatch = !Main.drawCutMatch;
-            }
+            Main.drawCutMatch.toggle();
         }
         if (e.getKeyCode() == KeyEvent.VK_N) {
-            Main.drawMetroDiagram2 = !Main.drawMetroDiagram2;
+            Main.drawKnotGradient.toggle();
         }
         if (e.getKeyCode() == KeyEvent.VK_M) {
             if (Main.metroDrawLayer != -1) {
@@ -102,7 +104,7 @@ public class KeyGuy implements KeyListener {
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_CLOSE_BRACKET) {
-            if (Main.manifold && Main.drawCutMatch) {
+            if (Main.manifold && Main.tool.canUseToggle(Main.drawCutMatch)) {
                 Main.manifoldIdx++;
                 if (Main.manifoldIdx >= Main.manifolds.size()) {
                     Main.manifoldIdx = 0;
@@ -118,7 +120,7 @@ public class KeyGuy implements KeyListener {
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_OPEN_BRACKET) {
-            if (Main.manifold && Main.drawCutMatch) {
+            if (Main.manifold && Main.tool.canUseToggle(Main.drawCutMatch)) {
                 Main.manifoldIdx--;
                 if (Main.manifoldIdx < 0) {
                     Main.manifoldIdx = Main.manifolds.size() - 1;
@@ -135,7 +137,7 @@ public class KeyGuy implements KeyListener {
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_O) {
-            Main.drawMainPath = !Main.drawMainPath;
+            Main.drawMainPath.toggle();
         }
         if (e.getKeyCode() == KeyEvent.VK_U) {
             if (Main.subPaths.size() == 1) {

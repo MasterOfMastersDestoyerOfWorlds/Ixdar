@@ -311,8 +311,8 @@ public class Drawing {
             BasicStroke doubleStroke = new BasicStroke(minLineThickness * 2);
             g2.setStroke(doubleStroke);
             Drawing.drawGradientSegment(g2, camera, s,
-                    Main.metro2Colors.get(Main.colorLookup.get(smallestKnot1.id)),
-                    Main.metro2Colors.get(Main.colorLookup.get(smallestKnot2.id)));
+                    Main.knotGradientColors.get(Main.colorLookup.get(smallestKnot1.id)),
+                    Main.knotGradientColors.get(Main.colorLookup.get(smallestKnot2.id)));
         }
     }
 

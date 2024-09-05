@@ -1,5 +1,5 @@
 
-package shell.ui;
+package shell.ui.actions;
 
 import javax.swing.JOptionPane;
 import javax.swing.JDialog;

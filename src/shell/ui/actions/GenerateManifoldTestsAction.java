@@ -1,4 +1,4 @@
-package shell.ui;
+package shell.ui.actions;
 
 import java.awt.event.ActionEvent;
 import java.io.File;

@@ -4,14 +4,14 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
-import java.util.ArrayList;
 import java.awt.event.MouseEvent;
 
 import shell.Main;
-import shell.enums.FindState;
-import shell.file.Manifold;
+import shell.Tool;
 import shell.knot.Knot;
 import shell.knot.Segment;
+import shell.knot.VirtualPoint;
+import shell.ui.tools.FindManifoldTool;
 
 public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheelListener {
 
@@ -42,37 +42,14 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
                     }
                 }
             }
-            FindState findState = Main.findState;
-            ArrayList<Manifold> manifolds = Main.manifolds;
-
-            if (findState.state != FindState.States.None) {
-                if (hoverSegment != null) {
-                    if (findState.state == FindState.States.FindStart) {
-                        findState.setFirstSelected(hoverSegment, hoverSegment.first, hoverSegment.last);
-                        findState.clearHover();
-                    }
-                    if (findState.state == FindState.States.FirstSelected) {
-                        if (!hoverSegment.equals(findState.firstSelectedSegment)) {
-                            for (int i = 0; i < manifolds.size(); i++) {
-                                Manifold m = manifolds.get(i);
-                                if (m.manifoldCutSegment1.equals(findState.firstSelectedSegment)
-                                        && m.manifoldCutSegment2.equals(hoverSegment)) {
-                                    Main.manifoldIdx = i;
-                                    break;
-                                }
-                                if (m.manifoldCutSegment2.equals(findState.firstSelectedSegment)
-                                        && m.manifoldCutSegment1.equals(hoverSegment)) {
-                                    Main.manifoldIdx = i;
-                                    break;
-                                }
-                            }
-                            findState.reset();
-                            Main.drawCutMatch = true;
-                        }
-                    }
-                }
-                main.repaint();
+            Tool tool = Main.tool;
+            VirtualPoint kp = null, cp = null;
+            if (hoverSegment != null) {
+                kp = hoverSegment.first;
+                cp = hoverSegment.last;
             }
+            tool.click(hoverSegment, kp, cp);
+            main.repaint();
         }
     }
 
@@ -120,15 +97,13 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
                     }
                 }
             }
-            FindState findState = Main.findState;
-            if (findState.state != FindState.States.None) {
-                if (hoverSegment != null) {
-                    findState.setHover(hoverSegment, hoverSegment.first, hoverSegment.last);
-                } else {
-                    findState.clearHover();
-                }
-                main.repaint();
+            Tool tool = Main.tool;
+            if (hoverSegment != null) {
+                tool.setHover(hoverSegment, hoverSegment.first, hoverSegment.last);
+            } else {
+                tool.clearHover();
             }
+            main.repaint();
         }
     }
 
@@ -142,11 +117,11 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         }
         Camera camera = Main.camera;
         if (queuedMouseWheelTicks < 0) {
-            camera.scale(20*camera.ZOOM_SPEED * SHIFT_MOD);
+            camera.scale(20 * camera.ZOOM_SPEED * SHIFT_MOD);
             queuedMouseWheelTicks++;
         }
         if (queuedMouseWheelTicks > 0) {
-            camera.scale(-(20*camera.ZOOM_SPEED * SHIFT_MOD));
+            camera.scale(-(20 * camera.ZOOM_SPEED * SHIFT_MOD));
             queuedMouseWheelTicks--;
         }
 

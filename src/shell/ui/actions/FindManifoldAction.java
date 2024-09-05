@@ -1,4 +1,4 @@
-package shell.ui;
+package shell.ui.actions;
 
 import java.awt.event.ActionEvent;
 
@@ -6,19 +6,22 @@ import javax.swing.AbstractAction;
 import javax.swing.JFrame;
 
 import shell.Main;
-import shell.enums.FindState;
+import shell.ui.tools.FindManifoldTool;
 
 public class FindManifoldAction extends AbstractAction {
     JFrame frame;
+    FindManifoldTool findManifoldTool;
 
     public FindManifoldAction(JFrame frame) {
         this.frame = frame;
+        findManifoldTool = new FindManifoldTool();
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        Main.drawCutMatch = false;
-        Main.findState.state = FindState.States.FindStart;
+        findManifoldTool.state = FindManifoldTool.States.FindStart;
+        Main.tool = findManifoldTool;
+
     }
 
 }
