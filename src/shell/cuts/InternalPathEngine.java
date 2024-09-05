@@ -1,7 +1,6 @@
 package shell.cuts;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -54,9 +53,6 @@ public class InternalPathEngine {
         int smallestKnot2Height = ce.flatKnotsHeight.get(smallestKnot2.id);
         Knot smallestCommonKnot = ce.flatKnots
                 .get(c.shell.smallestCommonKnotLookup[cutPoint2.id][cutPoint1.id]);
-                if(smallestCommonKnot == null){
-                    float z = 0;
-                }
         int smallestCommonKnotHeight = ce.flatKnotsHeight.get(smallestCommonKnot.id);
         int knotLayer = Math.max(1, smallestCommonKnotHeight - smallestKnot1Height + smallestCommonKnotHeight
                 - smallestKnot2Height)
@@ -111,20 +107,6 @@ public class InternalPathEngine {
         cutSegments.remove(cutSegment1);
         cutSegments.remove(cutSegment2);
 
-        if (matchSegments.size() != knotLayer) {
-            float z = 0;
-        }
-        if (matchSegments.size() > c.shell.cutEngine.flatKnotsNumKnots.get(knot.id)) {
-            int i = c.shell.cutEngine.flatKnotsHeight.get(knot.id) + 1;
-            if (c.shell.cutEngine.flatKnotsNumKnots.get(knot.id) == null) {
-                float z = 0;
-            }
-            int j = c.shell.cutEngine.flatKnotsNumKnots.get(knot.id) + 1;
-            float z = 0;
-        }
-        if (matchSegments.size() == 0) {
-            float z = 0;
-        }
         CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
         try {
             cutMatchList.addLists(cutSegments, matchSegments, knot, "InternalPathEngine");

@@ -97,9 +97,6 @@ public class Manifold implements FileStringable {
         for (Pair<Integer, Integer> p : cuts) {
             VirtualPoint vp = shell.pointMap.get(p.getLeft());
             long id = Segment.idTransform(p.getLeft(), p.getRight());
-            if (!vp.segmentLookup.containsKey(id)) {
-                float z = 1 / 0;
-            }
             cutSegments.add(vp.segmentLookup.get(id));
         }
 
@@ -107,9 +104,6 @@ public class Manifold implements FileStringable {
         for (Pair<Integer, Integer> p : matches) {
             VirtualPoint vp = shell.pointMap.get(p.getLeft());
             long id = Segment.idTransform(p.getLeft(), p.getRight());
-            if (!vp.segmentLookup.containsKey(id)) {
-                float z = 1 / 0;
-            }
             matchSegments.add(vp.segmentLookup.get(id));
         }
         originalCutMatch = new CutMatchList(shell, manifoldKnot);

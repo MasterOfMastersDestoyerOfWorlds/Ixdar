@@ -4,7 +4,6 @@ import java.util.ArrayList;
 
 import shell.enums.Group;
 import shell.enums.RouteType;
-import shell.enums.State;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 
@@ -72,7 +71,6 @@ public class RouteInfo{
             if(this.id == knotPoint2.id && route.neighbor.id == cutPoint2.id && knotId == 78){ //&& knotPoint1.id == 22 && cutPoint1.id == 21 && knotPoint2.id == 1 && cutPoint2.id == 5){
                     maxSettledSize = settledSize;
                     maxPathLength = ancestorRoute.matches.size() + 1;
-                    float z = 0;
             }
             route.delta = delta;
             route.ancestorRouteType = ancestorRouteType;

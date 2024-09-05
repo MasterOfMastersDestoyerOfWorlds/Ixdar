@@ -2,11 +2,8 @@
 package shell.knot;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-
 import shell.shell.Shell;
-import shell.utils.RunListUtils;
 
 public abstract class VirtualPoint {
 	public int numMatches;
@@ -123,11 +120,6 @@ public abstract class VirtualPoint {
 		exclude.remove(this);
 		exclude.remove(k);
 		shell.buff.add(k.fullString());
-
-		if (RunListUtils.containsIDs(runList,
-				new ArrayList<Integer>(Arrays.asList(new Integer[] { 37, 55, 19, 20, 56 })))) {
-			float z = 0;
-		}
 		int desiredCount = k.size() * this.size();
 		HashMap<Integer, Integer> count = new HashMap<>();
 		boolean oneOutFlag = false;
@@ -239,9 +231,6 @@ public abstract class VirtualPoint {
 		long b = vp.id;
 		long id = a >= b ? a * a + a + b : b + a + b * b;
 		Segment look = this.segmentLookup.get(id);
-		if (look == null) {
-			float z = 0;
-		}
 		return look;
 	}
 

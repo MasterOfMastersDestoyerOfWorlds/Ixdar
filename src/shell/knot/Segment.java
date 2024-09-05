@@ -1,11 +1,8 @@
 package shell.knot;
 
 import java.util.ArrayList;
-
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
-
 import shell.PointND;
-import shell.ui.Camera;
 
 public class Segment implements Comparable<Segment> {
     public VirtualPoint first;
@@ -195,9 +192,6 @@ public class Segment implements Comparable<Segment> {
         double y1 = p1.getCoord(1);
         double x2 = p2.getCoord(0);
         double y2 = p2.getCoord(1);
-        if (this.hasPoints(5, 4)) {
-            float z = 0;
-        }
         double dx = x2 - x1;
         double dy = y2 - y1;
         double normalX = -dy;

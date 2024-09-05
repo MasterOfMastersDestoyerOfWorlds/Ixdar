@@ -9,8 +9,6 @@ import java.io.IOException;
 
 import javax.imageio.ImageIO;
 import javax.swing.JComponent;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
 
 public class Logo extends JComponent {
     BufferedImage img;

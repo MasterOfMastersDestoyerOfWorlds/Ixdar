@@ -22,7 +22,6 @@ import shell.ui.actions.FindManifoldAction;
 import shell.ui.actions.GenerateManifoldTestsAction;
 import shell.ui.actions.PrintScreenAction;
 import shell.ui.actions.SaveAction;
-import shell.ui.tools.FindManifoldTool;
 
 public class KeyGuy implements KeyListener {
 

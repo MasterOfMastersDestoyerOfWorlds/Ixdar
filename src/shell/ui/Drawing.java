@@ -5,18 +5,14 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.GradientPaint;
 import java.awt.Graphics2D;
-import java.awt.Polygon;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Path2D;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
-
 import javax.swing.JComponent;
-
 import shell.BalanceMap;
 import shell.Main;
-import shell.PointND;
 import shell.PointSet;
 import shell.cuts.CutMatch;
 import shell.cuts.CutMatchList;
@@ -227,8 +223,6 @@ public class Drawing {
 
         lastCoords[0] = camera.transformX(last.getX());
         lastCoords[1] = camera.transformY(last.getY());
-        int[] xCoords = new int[] { (int) firstCoords[0], (int) lastCoords[0] };
-        int[] yCoords = new int[] { (int) firstCoords[1], (int) lastCoords[1] };
         GradientPaint gp = new GradientPaint(new Point2D.Double(firstCoords[0], firstCoords[1]), color1,
                 new Point2D.Double(lastCoords[0], lastCoords[1]), color2);
         g2.setPaint(gp);

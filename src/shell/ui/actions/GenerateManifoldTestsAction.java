@@ -3,12 +3,9 @@ package shell.ui.actions;
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.ArrayList;
-
 import javax.swing.AbstractAction;
 import javax.swing.JFrame;
-
 import shell.Main;
 import shell.PointND;
 import shell.exceptions.SegmentBalanceException;

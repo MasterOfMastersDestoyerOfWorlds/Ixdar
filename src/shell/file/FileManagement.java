@@ -5,18 +5,14 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.MutablePair;
-import org.apache.commons.lang3.tuple.Pair;
-
 import shell.DistanceMatrix;
 import shell.PointND;
 import shell.PointSet;
-import shell.cuts.CutMatchList;
 import shell.exceptions.FileParseException;
 import shell.shell.Shell;
 
@@ -40,9 +36,8 @@ public class FileManagement {
      * @return the optimal PointSetPath
      */
     public static PointSetPath importFromFile(File f) {
-        try {
 
-            BufferedReader br = new BufferedReader(new FileReader(f));
+        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
             ArrayList<PointND> lines = new ArrayList<PointND>();
             String line = br.readLine();
             PointSet ps = new PointSet();
@@ -233,8 +228,6 @@ public class FileManagement {
 
             }
             br.close();
-            System.out.println(tsp);
-            System.out.println(lookUp);
             if (answerOrder.size() > 0) {
                 Shell newAns = new Shell();
                 int insertLoc = 0;
@@ -247,11 +240,11 @@ public class FileManagement {
             }
 
             return new PointSetPath(ps, path, tsp, d, manifolds);
-        } catch (Exception e) {
+        } catch (NumberFormatException | IOException | FileParseException e) {
+            // TODO Auto-generated catch block
             e.printStackTrace();
         }
         return null;
-
     }
 
     public static void copyFileContents(File src, File dest) {

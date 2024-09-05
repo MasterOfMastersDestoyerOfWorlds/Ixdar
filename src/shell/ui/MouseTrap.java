@@ -11,7 +11,6 @@ import shell.Tool;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.ui.tools.FindManifoldTool;
 
 public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheelListener {
 

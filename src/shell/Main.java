@@ -1,6 +1,5 @@
 package shell;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.ComponentOrientation;
 import java.awt.Container;
@@ -9,45 +8,22 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.GridLayout;
-import java.awt.Insets;
-import java.awt.MouseInfo;
-import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseMotionListener;
-import java.awt.event.MouseWheelEvent;
-import java.awt.event.MouseWheelListener;
 import java.awt.event.WindowEvent;
-import java.awt.geom.Point2D;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.Set;
-
-import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
-import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
-import javax.swing.JRootPane;
-import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
-
-import org.apache.commons.lang3.ObjectUtils.Null;
-
 import shell.cuts.CutEngine;
-import shell.cuts.CutInfo;
-import shell.cuts.CutMatchList;
+import shell.cuts.InternalPathEngine;
 import shell.exceptions.SegmentBalanceException;
 import shell.file.FileManagement;
 import shell.file.Manifold;
@@ -55,7 +31,6 @@ import shell.file.PointSetPath;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Run;
-import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.route.RouteInfo;
 import shell.shell.Shell;
@@ -66,11 +41,6 @@ import shell.ui.Drawing;
 import shell.ui.KeyGuy;
 import shell.ui.Logo;
 import shell.ui.MouseTrap;
-import shell.ui.actions.FindManifoldAction;
-import shell.ui.actions.GenerateManifoldTestsAction;
-import shell.ui.actions.PrintScreenAction;
-import shell.ui.actions.SaveAction;
-import shell.ui.tools.FindManifoldTool;
 import shell.ui.tools.FreeTool;
 
 public class Main extends JComponent {
@@ -272,9 +242,6 @@ public class Main extends JComponent {
 			for (VirtualPoint p : k.knotPointsFlattened) {
 				knotShell.add(((Point) p).p);
 			}
-			if (totalLayers - layerNum < 0) {
-				float z = 0;
-			}
 			metroPathsHeight.add(new ShellPair(knotShell, k, heightNum));
 			metroPathsLayer.add(new ShellPair(knotShell, k, totalLayers - layerNum));
 		}
@@ -297,7 +264,7 @@ public class Main extends JComponent {
 		System.out.println("Ixdar Calls:" + shell.cutEngine.internalPathEngine.ixdarCalls);
 		System.out.println("maxSettledSize: " + RouteInfo.maxSettledSize);
 
-		System.out.println("comparisons " + String.format("%,d", shell.cutEngine.internalPathEngine.comparisons));
+		System.out.println("comparisons " + String.format("%,d", InternalPathEngine.comparisons));
 		System.out.println("N " + shell.size());
 
 		System.out.println(

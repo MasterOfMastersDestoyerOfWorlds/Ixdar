@@ -104,9 +104,6 @@ public class CutEngine {
                 VirtualPoint knotPoint22 = knot.knotPoints.get(b + 1 >= knot.knotPoints.size() ? 0 : b + 1);
                 Segment cutSegment2 = knotPoint21.getClosestSegment(knotPoint22, null);
 
-                if (cutSegment1.hasPoints(11, 13) && cutSegment2.hasPoints(19, 18)) {
-                    float z = 0;
-                }
                 Pair<Segment, Segment> p = new Pair<Segment, Segment>(cutSegment1, cutSegment2);
                 segmentPairs.add(p);
                 if (cutSegment1.partialOverlaps(cutSegment2)) {
@@ -116,10 +113,6 @@ public class CutEngine {
                     continue;
                 } else {
                     double delta = Double.MAX_VALUE;
-
-                    if (external1.id == 11) {
-                        float z = 0;
-                    }
                     double regDelta = -cutSegment1.distance - cutSegment2.distance;
                     Segment s11 = knotPoint11.getClosestSegment(external1, null);
                     Segment s12 = knotPoint21.getClosestSegment(external2, s11);
@@ -146,10 +139,6 @@ public class CutEngine {
                             internalCuts12 = internalPathEngine.calculateInternalPathLength(
                                     knotPoint11, knotPoint12, externalPoint11,
                                     knotPoint21, knotPoint22, externalPoint12, knot, balanceMap1, c1, true);
-                            if (internalCuts12.delta < -1 * knotPoint12.getClosestSegment(knotPoint22,
-                                    null).distance) {
-                                float z = 0;
-                            }
                         } catch (SegmentBalanceException sbe) {
 
                             shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
@@ -191,10 +180,7 @@ public class CutEngine {
                                 internalCuts12 = internalPathEngine.calculateInternalPathLength(
                                         knotPoint11, knotPoint12, externalPoint11,
                                         knotPoint21, knotPoint22, externalPoint12, knot, balanceMap2, c1, true);
-                                if (internalCuts12.delta < -1 * knotPoint12.getClosestSegment(knotPoint22,
-                                        null).distance) {
-                                    float z = 0;
-                                }
+
                             } catch (SegmentBalanceException sbe) {
 
                                 shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
@@ -261,10 +247,6 @@ public class CutEngine {
                                     knotPoint12, knotPoint11, externalPoint31,
                                     knotPoint22, knotPoint21, externalPoint32, knot, balanceMap3, c3, true);
 
-                            if (internalCuts34.delta < -1 * knotPoint11.getClosestSegment(knotPoint21,
-                                    null).distance) {
-                                float z = 0;
-                            }
                         } catch (SegmentBalanceException sbe) {
                             shell.buff.add("Original Cut Info 34: " + c3);
 
@@ -310,11 +292,6 @@ public class CutEngine {
                                 internalCuts34 = internalPathEngine.calculateInternalPathLength(
                                         knotPoint12, knotPoint11, externalPoint31,
                                         knotPoint22, knotPoint21, externalPoint32, knot, balanceMap4, c4, true);
-
-                                if (internalCuts34.delta < -1 * knotPoint11.getClosestSegment(knotPoint21,
-                                        null).distance) {
-                                    float z = 0;
-                                }
                             } catch (SegmentBalanceException sbe) {
                                 shell.buff.add("Original Cut Info 34: " + c3);
 
@@ -511,10 +488,6 @@ public class CutEngine {
                 }
             }
         }
-        if (knot.id == 34) {
-            float z = 0;
-        }
-        float z = 0;
         return result;
 
     }
@@ -544,9 +517,6 @@ public class CutEngine {
                     shell.buff.add("Need to simplify knots internally before matching : knot: " + knot
                             + " external1: " + external1 + " external2: " + external2);
                     Knot knotNew = flattenKnots(knot, external1, external2, knotList, layerNum);
-                    if (knotNew.getHeight() > 1) {
-                        float z = 0;
-                    }
                     int prevIdx = knotList.indexOf(knotNew) - 1;
                     if (prevIdx < 0) {
                         prevIdx = knotList.size() - 1;
@@ -655,9 +625,6 @@ public class CutEngine {
     public Knot flattenKnots(Knot knot, VirtualPoint external1, VirtualPoint external2,
             ArrayList<VirtualPoint> knotList, int layerNum) throws SegmentBalanceException, BalancerException {
 
-        if (flatKnots.containsKey(knot.id)) {
-            float z = 0;
-        }
         ArrayList<VirtualPoint> flattenKnots = cutKnot(knot.knotPoints, layerNum + 1);
         Knot knotNew = new Knot(flattenKnots, shell);
         knotNew.copyMatches(knot);
@@ -669,12 +636,6 @@ public class CutEngine {
             shell.updateSmallestCommonKnot(knotNew);
             shell.buff.add(flatKnots);
             flattenedKnots.add(knot.id);
-        }
-        if (knotNew.getHeight() > 1) {
-            float z = 0;
-        }
-        if (flatKnots.containsKey(78)) {
-            float z = 0;
         }
         boolean makeExternal1 = external1.isKnot;
 
@@ -690,9 +651,6 @@ public class CutEngine {
             flattenKnotsExternal1 = cutKnot(external1Knot.knotPoints, layerNum + 1);
             external1New = new Knot(flattenKnotsExternal1, shell);
 
-            if (external1New.getHeight() > 1) {
-                float z = 0;
-            }
             if (!flattenedKnots.contains(external1Knot.id)) {
                 flatKnots.put(external1New.id, external1New);
                 flatKnotsHeight.put(external1New.id, external1Knot.getHeight());
@@ -712,9 +670,6 @@ public class CutEngine {
             flattenKnotsExternal2 = cutKnot(external2Knot.knotPoints, layerNum + 1);
             external2New = new Knot(flattenKnotsExternal2, shell);
             external2New.copyMatches(external2);
-            if (external2New.getHeight() > 1) {
-                float z = 0;
-            }
             if (!flattenedKnots.contains(external2Knot.id)) {
                 shell.updateSmallestCommonKnot(external2New);
                 flatKnots.put(external2New.id, external2New);

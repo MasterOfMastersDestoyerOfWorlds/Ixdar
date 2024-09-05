@@ -6,7 +6,6 @@ import shell.file.FileManagement;
 import shell.file.PointSetPath;
 import shell.shell.Shell;
 
-import java.io.File;
 import java.util.Collections;
 import java.util.Random;
 
