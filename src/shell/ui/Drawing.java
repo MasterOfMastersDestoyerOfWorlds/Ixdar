@@ -51,8 +51,6 @@ public class Drawing {
 
         g2.setColor(Color.RED);
 
-        camera.calculateCameraTransform();
-
         double[] firstCoords = new double[2];
         double[] lastCoords = new double[2];
         double[] midCoords = new double[2];
@@ -156,6 +154,35 @@ public class Drawing {
 
     }
 
+    public static void drawManifoldCut(Graphics2D g2, VirtualPoint hoverKP, VirtualPoint hoverCP, Camera camera,
+            int lineThickness) {
+
+        Font font = new Font("San-Serif", Font.PLAIN, 20);
+        g2.setFont(font);
+
+        BasicStroke stroke = new BasicStroke(lineThickness);
+        g2.setStroke(stroke);
+
+        double[] kpCoords = new double[2];
+        double[] cpCoords = new double[2];
+        double[] midCoords = new double[2];
+
+        Point2D kp = ((Point) hoverKP).p.toPoint2D();
+        Point2D cp = ((Point) hoverCP).p.toPoint2D();
+
+        kpCoords[0] = camera.transformX(kp.getX());
+        kpCoords[1] = camera.transformY(kp.getY());
+
+        cpCoords[0] = camera.transformX(cp.getX());
+        cpCoords[1] = camera.transformY(cp.getY());
+        midCoords[0] = (kpCoords[0] + cpCoords[0]) / 2.0 - 8;
+        midCoords[1] = (kpCoords[1] + cpCoords[1]) / 2.0 + 8;
+        g2.setColor(Color.RED);
+        g2.drawString("X", (int) midCoords[0], (int) midCoords[1]);
+        g2.setColor(Color.GREEN);
+        g2.draw(new Ellipse2D.Double(kpCoords[0] - 5, kpCoords[1] - 5, 10, 10));
+    }
+
     public static void drawSegment(Graphics2D g2, Camera camera, Segment s) {
         Point2D first;
         Point2D last;
@@ -232,7 +259,6 @@ public class Drawing {
         }
         g2.setStroke(stroke);
 
-        camera.calculateCameraTransform();
         GeneralPath scaledpath = new GeneralPath();
         boolean first = true;
 
@@ -272,7 +298,7 @@ public class Drawing {
 
     }
 
-    public static void drawGradientPath(Graphics2D g2, Knot k , Shell shell, Camera camera, int minLineThickness){
+    public static void drawGradientPath(Graphics2D g2, Knot k, Shell shell, Camera camera, int minLineThickness) {
         for (Segment s : k.manifoldSegments) {
             VirtualPoint vp1 = s.first;
             VirtualPoint vp2 = s.last;
@@ -285,7 +311,9 @@ public class Drawing {
             BasicStroke doubleStroke = new BasicStroke(minLineThickness * 2);
             g2.setStroke(doubleStroke);
             Drawing.drawGradientSegment(g2, camera, s,
-                    Main.metro2Colors.get(Main.colorLookup.get(smallestKnot1.id)), Main.metro2Colors.get(Main.colorLookup.get(smallestKnot2.id)));
+                    Main.metro2Colors.get(Main.colorLookup.get(smallestKnot1.id)),
+                    Main.metro2Colors.get(Main.colorLookup.get(smallestKnot2.id)));
         }
     }
+
 }
