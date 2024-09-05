@@ -5,7 +5,6 @@ import java.util.ArrayList;
 
 import shell.Main;
 import shell.ToggleType;
-import shell.Tool;
 import shell.file.Manifold;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;

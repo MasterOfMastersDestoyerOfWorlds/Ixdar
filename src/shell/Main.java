@@ -8,6 +8,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
 import java.io.File;
@@ -36,6 +37,7 @@ import shell.route.RouteInfo;
 import shell.shell.Shell;
 import shell.shell.ShellPair;
 import shell.shell.ShellComparator;
+import shell.ui.tools.Tool;
 import shell.ui.Camera;
 import shell.ui.Drawing;
 import shell.ui.KeyGuy;
@@ -45,43 +47,38 @@ import shell.ui.tools.FreeTool;
 
 public class Main extends JComponent {
 
-	private static final long serialVersionUID = 2722424842956800923L;
-	public static ArrayList<VirtualPoint> result;
-	public static Toggle calculateKnot = new Toggle(true, ToggleType.CalculateKnot);
-	public static Toggle drawMainPath = new Toggle(false, ToggleType.DrawMainPath);
-	public static Toggle drawMetroDiagram = new Toggle(true, ToggleType.DrawMetroDiagram);
-	public static Toggle drawKnotGradient = new Toggle(true, ToggleType.DrawKnotGradient);
-	static boolean startWithAnswer = true;
-	int minLineThickness = 1;
-	boolean calc = false;
-	public static boolean manifold = false;
-	public static Toggle drawCutMatch = new Toggle(true, ToggleType.DrawCutMatch);
+	public static File file;
+	static String fileName;
+
+	public static Main main;
+	public static JFrame frame;
+	public static Camera camera;
+	static MouseTrap mouse;
+	static KeyGuy keys;
+
+	public static Tool tool;
 	public static FreeTool freeTool = new FreeTool();
 
 	public static Shell shell;
 	public static PointSetPath retTup;
 	public static Shell orgShell;
 	public static ArrayList<Shell> subPaths = new ArrayList<>();
-	static PriorityQueue<ShellPair> metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
-	static PriorityQueue<ShellPair> metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
-	public static ArrayList<Color> metroColors = new ArrayList<>();
-	public static ArrayList<Color> knotGradientColors = new ArrayList<>();
-	public static HashMap<Integer, Integer> colorLookup = new HashMap<>();
-	public static int metroDrawLayer = -1;
-	static SegmentBalanceException drawException;
 	static Shell resultShell;
-	static JFrame frame;
-	static Main main;
-	public static File file;
-	static String fileName;
-	public static Color stickyColor;
-	public static Camera camera;
-	static MouseTrap mouse;
-	static KeyGuy keys;
+	public static ArrayList<VirtualPoint> result;
+	static SegmentBalanceException sbe;
+
+	public static boolean manifold = false;
 	public static Knot manifoldKnot;
 	public static int manifoldIdx = 0;
 	public static ArrayList<Manifold> manifolds;
-	public static Tool tool;
+	public static int metroDrawLayer = -1;
+	static PriorityQueue<ShellPair> metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
+	static PriorityQueue<ShellPair> metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
+
+	public static Color stickyColor;
+	public static ArrayList<Color> metroColors = new ArrayList<>();
+	public static ArrayList<Color> knotGradientColors = new ArrayList<>();
+	public static HashMap<Integer, Integer> colorLookup = new HashMap<>();
 
 	public Main() {
 
@@ -98,23 +95,15 @@ public class Main extends JComponent {
 		pane.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
 		pane.setLayout(new GridBagLayout());
 
-		GridBagConstraints mConstraints = new GridBagConstraints();
-		mConstraints.gridx = 1;
-		mConstraints.gridy = 1;
-		mConstraints.fill = GridBagConstraints.HORIZONTAL;
-		mConstraints.anchor = GridBagConstraints.LAST_LINE_END;
-		mConstraints.ipady = 10;
-		mConstraints.ipady = 10;
+		GridBagConstraints logoConstraints = new GridBagConstraints(
+				1, 1, 1, 1, 0, 0, GridBagConstraints.LAST_LINE_END,
+				GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 10, 10);
 		Logo logo = new Logo();
-		pane.add(logo, mConstraints);
-		// pane.add(this, mConstraints);
-		GridBagConstraints c = new GridBagConstraints();
-		c.fill = GridBagConstraints.BOTH;
-		c.gridx = 0;
-		c.gridy = 0;
-		c.weightx = 1.0;
-		c.weighty = 1.0;
-		pane.add(this, c);
+		pane.add(logo, logoConstraints);
+		GridBagConstraints mainConstraints = new GridBagConstraints(
+				0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.CENTER, GridBagConstraints.BOTH,
+				new Insets(0, 0, 0, 0), 0, 0);
+		pane.add(this, mainConstraints);
 		frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 
 		camera = new Camera(600, 600, 0.9, 0, 0, retTup.ps);
@@ -159,7 +148,7 @@ public class Main extends JComponent {
 		retTup.tsp.removeAll(toRemove);
 		if (manifold) {
 			manifold = true;
-			calculateKnot.value = false;
+			Toggle.calculateKnot.value = false;
 		}
 		orgShell = retTup.tsp;
 
@@ -197,7 +186,7 @@ public class Main extends JComponent {
 		if (manifold) {
 			if (result.size() > 1) {
 				manifold = false;
-				calculateKnot.value = true;
+				Toggle.calculateKnot.value = true;
 			}
 
 			manifolds.parallelStream().forEach((m) -> {
@@ -227,9 +216,7 @@ public class Main extends JComponent {
 		if (totalLayers == -1) {
 			totalLayers = shell.cutEngine.totalLayers;
 		}
-		if (startWithAnswer) {
-			metroDrawLayer = totalLayers;
-		}
+		metroDrawLayer = totalLayers;
 		Set<Integer> knotIds = shell.cutEngine.flatKnots.keySet();
 		HashMap<Integer, Knot> flatKnots = shell.cutEngine.flatKnots;
 		HashMap<Integer, Integer> flatKnotsHeight = shell.cutEngine.flatKnotsHeight;
@@ -303,35 +290,36 @@ public class Main extends JComponent {
 			try {
 				Graphics2D g2 = (Graphics2D) g;
 				camera.calculateCameraTransform();
-				tool.draw(g2, camera, minLineThickness);
+				tool.draw(g2, camera, Drawing.MIN_THICKNESS);
 
-				if (drawException != null) {
-					resultShell.drawShell(this, g2, true, minLineThickness * 2, Color.magenta, retTup.ps, camera);
-					Drawing.drawCutMatch(this, g2, drawException, minLineThickness * 2, retTup.ps, camera);
+				if (sbe != null) {
+					resultShell.drawShell(this, g2, true, Drawing.MIN_THICKNESS * 2, Color.magenta, retTup.ps, camera);
+					Drawing.drawCutMatch(this, g2, sbe, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
 				}
 				if (!(retTup == null)) {
-					Drawing.drawPath(this, g2, retTup.path, minLineThickness, Color.RED, retTup.ps, false, false, true,
+					Drawing.drawPath(this, g2, retTup.path, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false,
+							true,
 							false,
 							camera);
 				}
-				if (tool.canUseToggle(drawCutMatch) && manifold && manifolds != null
+				if (tool.canUseToggle(Toggle.drawCutMatch) && manifold && manifolds != null
 						&& manifolds.get(manifoldIdx).cutMatchList != null) {
 					Manifold m = manifolds.get(manifoldIdx);
 					Drawing.drawCutMatch(this, g2, m.cutMatchList, null, m.manifoldCutSegment1,
 							m.manifoldCutSegment2, m.manifoldExSegment1, m.manifoldExSegment2,
-							m.manifoldKnot, minLineThickness * 2, retTup.ps, camera);
+							m.manifoldKnot, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
 				}
-				if (tool.canUseToggle(drawMainPath)) {
-					orgShell.drawShell(this, g2, false, minLineThickness, Color.BLUE, retTup.ps, camera);
+				if (tool.canUseToggle(Toggle.drawMainPath)) {
+					orgShell.drawShell(this, g2, false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
 				}
-				if (tool.canUseToggle(drawMetroDiagram) && shell != null) {
+				if (tool.canUseToggle(Toggle.drawMetroDiagram) && shell != null) {
 					if (metroDrawLayer == shell.cutEngine.totalLayers) {
 
-						if (tool.canUseToggle(drawKnotGradient) && manifoldKnot != null) {
-							Drawing.drawGradientPath(g2, manifoldKnot, shell, camera, minLineThickness);
+						if (tool.canUseToggle(Toggle.drawKnotGradient) && manifoldKnot != null) {
+							Drawing.drawGradientPath(g2, manifoldKnot, shell, camera, Drawing.MIN_THICKNESS);
 						} else {
 							for (Shell temp : subPaths) {
-								temp.drawShell(this, g2, true, minLineThickness * 2,
+								temp.drawShell(this, g2, true, Drawing.MIN_THICKNESS * 2,
 										stickyColor, retTup.ps, camera);
 							}
 						}
@@ -345,17 +333,17 @@ public class Main extends JComponent {
 								continue;
 							}
 							if (metroDrawLayer < 0) {
-								if (tool.canUseToggle(drawKnotGradient)) {
-									Drawing.drawGradientPath(g2, temp.k, shell, camera, minLineThickness);
+								if (tool.canUseToggle(Toggle.drawKnotGradient)) {
+									Drawing.drawGradientPath(g2, temp.k, shell, camera, Drawing.MIN_THICKNESS);
 								} else {
 									temp.shell.drawShell(this, g2, true, 2 + 1f * temp.priority,
 											metroColors.get(temp.priority), retTup.ps, camera);
 								}
 							} else {
-								if (tool.canUseToggle(drawKnotGradient)) {
-									Drawing.drawGradientPath(g2, temp.k, shell, camera, minLineThickness);
+								if (tool.canUseToggle(Toggle.drawKnotGradient)) {
+									Drawing.drawGradientPath(g2, temp.k, shell, camera, Drawing.MIN_THICKNESS);
 								} else {
-									temp.shell.drawShell(this, g2, true, minLineThickness * 2,
+									temp.shell.drawShell(this, g2, true, Drawing.MIN_THICKNESS * 2,
 											metroColors.get(temp.priority), retTup.ps, camera);
 								}
 
@@ -422,7 +410,6 @@ public class Main extends JComponent {
 		}
 		System.out.println();
 		resultShell = result;
-		drawException = sbe;
 	}
 
 }

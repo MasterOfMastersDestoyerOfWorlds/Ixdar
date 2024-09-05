@@ -25,6 +25,8 @@ import shell.shell.Shell;
 
 public class Drawing {
 
+	public static final int MIN_THICKNESS = 1;
+
     public static void drawCutMatch(JComponent frame, Graphics2D g2, SegmentBalanceException sbe, int lineThickness,
             PointSet ps, Camera camera) {
         drawCutMatch(frame, g2, sbe.cutMatchList, sbe.c.balanceMap, sbe.cut1, sbe.cut2, sbe.ex1, sbe.ex2, sbe.topKnot,

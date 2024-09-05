@@ -7,7 +7,7 @@ import java.awt.event.MouseWheelListener;
 import java.awt.event.MouseEvent;
 
 import shell.Main;
-import shell.Tool;
+import shell.ui.tools.Tool;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
@@ -17,6 +17,8 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     public int queuedMouseWheelTicks = 0;
     Main main;
     long timeLastScroll;
+    public static int lastX;
+    public static int lastY;
 
     public MouseTrap(Main main) {
         this.main = main;
@@ -68,6 +70,8 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
 
     @Override
     public void mouseExited(MouseEvent e) {
+        Main.tool.clearHover();
+        main.repaint();
     }
 
     @Override
@@ -79,31 +83,10 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
 
     @Override
     public void mouseMoved(MouseEvent e) {
-        Knot manifoldKnot = Main.manifoldKnot;
-        Camera camera = Main.camera;
-        if (manifoldKnot != null) {
-            camera.calculateCameraTransform();
-            double x = camera.invertTransformX(e.getX());
-            double y = camera.invertTransformY(e.getY());
-            double minDist = Double.MAX_VALUE;
-            Segment hoverSegment = null;
-            for (Segment s : manifoldKnot.manifoldSegments) {
-                double result = s.boundContains(x, y);
-                if (result > 0) {
-                    if (result < minDist) {
-                        minDist = result;
-                        hoverSegment = s;
-                    }
-                }
-            }
-            Tool tool = Main.tool;
-            if (hoverSegment != null) {
-                tool.setHover(hoverSegment, hoverSegment.first, hoverSegment.last);
-            } else {
-                tool.clearHover();
-            }
-            main.repaint();
-        }
+        lastX = e.getX();
+        lastY = e.getY();
+        Main.tool.calculateHover(e.getX(), e.getY());
+        main.repaint();
     }
 
     @Override

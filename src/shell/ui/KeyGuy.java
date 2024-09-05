@@ -1,6 +1,8 @@
 package shell.ui;
 
 import java.awt.Color;
+import java.awt.MouseInfo;
+import java.awt.Point;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
@@ -16,6 +18,7 @@ import javax.swing.JRootPane;
 import javax.swing.KeyStroke;
 
 import shell.Main;
+import shell.Toggle;
 import shell.file.FileManagement;
 import shell.shell.Shell;
 import shell.ui.actions.FindManifoldAction;
@@ -74,7 +77,7 @@ public class KeyGuy implements KeyListener {
         if (e.getKeyCode() == KeyEvent.VK_C) {
             Random colorSeed = new Random();
             Main.stickyColor = new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
-            if (Main.tool.canUseToggle(Main.drawMetroDiagram)) {
+            if (Main.tool.canUseToggle(Toggle.drawMetroDiagram)) {
                 Main.metroColors = new ArrayList<>();
                 int totalLayers = Main.shell.cutEngine.totalLayers;
                 float startHue = colorSeed.nextFloat();
@@ -90,10 +93,10 @@ public class KeyGuy implements KeyListener {
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_B) {
-            Main.drawCutMatch.toggle();
+            Toggle.drawCutMatch.toggle();
         }
         if (e.getKeyCode() == KeyEvent.VK_N) {
-            Main.drawKnotGradient.toggle();
+            Toggle.drawKnotGradient.toggle();
         }
         if (e.getKeyCode() == KeyEvent.VK_M) {
             if (Main.metroDrawLayer != -1) {
@@ -103,7 +106,7 @@ public class KeyGuy implements KeyListener {
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_CLOSE_BRACKET) {
-            if (Main.manifold && Main.tool.canUseToggle(Main.drawCutMatch)) {
+            if (Main.manifold && Main.tool.canUseToggle(Toggle.drawCutMatch)) {
                 Main.manifoldIdx++;
                 if (Main.manifoldIdx >= Main.manifolds.size()) {
                     Main.manifoldIdx = 0;
@@ -119,7 +122,7 @@ public class KeyGuy implements KeyListener {
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_OPEN_BRACKET) {
-            if (Main.manifold && Main.tool.canUseToggle(Main.drawCutMatch)) {
+            if (Main.manifold && Main.tool.canUseToggle(Toggle.drawCutMatch)) {
                 Main.manifoldIdx--;
                 if (Main.manifoldIdx < 0) {
                     Main.manifoldIdx = Main.manifolds.size() - 1;
@@ -136,7 +139,7 @@ public class KeyGuy implements KeyListener {
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_O) {
-            Main.drawMainPath.toggle();
+            Toggle.drawMainPath.toggle();
         }
         if (e.getKeyCode() == KeyEvent.VK_U) {
             if (Main.subPaths.size() == 1) {
@@ -189,6 +192,11 @@ public class KeyGuy implements KeyListener {
                         break;
                 }
             }
+
+            Point mouseLocation = MouseInfo.getPointerInfo().getLocation();
+            Point frameLocation = Main.frame.getRootPane().getLocationOnScreen();
+            Main.tool.calculateHover((int)(mouseLocation.getX() - frameLocation.getX()),
+                    (int)(mouseLocation.getY() - frameLocation.getY()));
         }
 
         if (!pressedKeys.isEmpty()) {

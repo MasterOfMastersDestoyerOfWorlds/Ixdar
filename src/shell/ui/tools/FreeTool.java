@@ -2,7 +2,6 @@ package shell.ui.tools;
 
 import java.awt.Graphics2D;
 
-import shell.Tool;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.ui.Camera;
