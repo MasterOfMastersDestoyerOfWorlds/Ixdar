@@ -46,8 +46,14 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
             Tool tool = Main.tool;
             VirtualPoint kp = null, cp = null;
             if (hoverSegment != null) {
-                kp = hoverSegment.first;
-                cp = hoverSegment.last;
+                VirtualPoint closestPoint = hoverSegment.closestPoint(x, y);
+                if (closestPoint.equals(hoverSegment.first)) {
+                    kp = hoverSegment.first;
+                    cp = hoverSegment.last;
+                } else {
+                    kp = hoverSegment.last;
+                    cp = hoverSegment.first;
+                }
             }
             tool.click(hoverSegment, kp, cp);
             main.repaint();

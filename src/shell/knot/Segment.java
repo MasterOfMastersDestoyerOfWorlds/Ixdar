@@ -210,10 +210,28 @@ public class Segment implements Comparable<Segment> {
                 (x - bL.getX()) * (bL.getY() - bR.getY()) + (y - bL.getY()) * (bR.getX() - bL.getX()) > 0 &&
                 (x - bR.getX()) * (bR.getY() - tR.getY()) + (y - bR.getY()) * (tR.getX() - bR.getX()) > 0 &&
                 (x - tR.getX()) * (tR.getY() - tL.getY()) + (y - tR.getY()) * (tL.getX() - tR.getX()) > 0) {
-            double result = Math.abs((y2 - y1) * pointVector.getX() - ((x2 -x1)*pointVector.getY()) + x2*y1 - y2*x1)/distance;
+            double result = Math.abs(
+                    (y2 - y1) * pointVector.getX() - ((x2 - x1) * pointVector.getY()) + x2 * y1 - y2 * x1) / distance;
             return result;
         }
         return -1;
+
+    }
+
+    public VirtualPoint closestPoint(double x, double y) {
+        PointND p1 = ((Point) first).p;
+        PointND p2 = ((Point) last).p;
+        double x1 = p1.getCoord(0);
+        double y1 = p1.getCoord(1);
+        double x2 = p2.getCoord(0);
+        double y2 = p2.getCoord(1);
+        double distFirst = Math.sqrt((x1 - x) * (x1 - x) + (y1 - y) * (y1 - y));
+        double distLast = Math.sqrt((x2 - x) * (x2 - x) + (y2 - y) * (y2 - y));
+        if (distFirst < distLast) {
+            return first;
+        } else {
+            return last;
+        }
 
     }
 

@@ -24,7 +24,7 @@
 
 ## UI Tools General
 
-1. - [ ] Need to have one side of the knotPoint/cutPoint pair follow the cursor instead of just defaulting to clockwise knotPoint.
+1. - [x] Need to have one side of the knotPoint/cutPoint pair follow the cursor instead of just defaulting to clockwise knotPoint.
 2. - [x] Figure out screen-space to point-space conversion
 3. - [x] Figure out Skewed bounding boxes around Line Segments
 4. - [x] Should set a segment as the "hover segment" when within some distance to one of the line Segments in the current Manifold Knot.

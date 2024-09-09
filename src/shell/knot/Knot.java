@@ -4,8 +4,6 @@ import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
-
 import shell.shell.Shell;
 import shell.utils.RunListUtils;
 

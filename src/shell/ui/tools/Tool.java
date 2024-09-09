@@ -83,7 +83,12 @@ public abstract class Tool {
                     }
                 }
                 if (hoverSegment != null) {
-                    tool.setHover(hoverSegment, hoverSegment.first, hoverSegment.last);
+                    VirtualPoint closestPoint = hoverSegment.closestPoint(x, y);
+                    if (closestPoint.equals(hoverSegment.first)) {
+                        tool.setHover(hoverSegment, hoverSegment.first, hoverSegment.last);
+                    } else {
+                        tool.setHover(hoverSegment, hoverSegment.last, hoverSegment.first);
+                    }
                 } else {
                     tool.clearHover();
                 }
