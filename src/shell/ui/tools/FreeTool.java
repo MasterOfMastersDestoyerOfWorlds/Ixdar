@@ -1,24 +1,74 @@
 package shell.ui.tools;
 
 import java.awt.Graphics2D;
+import java.util.ArrayList;
 
+import shell.Main;
+import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.ui.Camera;
+import shell.ui.Drawing;
 
 public class FreeTool extends Tool {
 
     public Segment hover;
     public VirtualPoint hoverKP;
     public VirtualPoint hoverCP;
+    public VirtualPoint selectedPoint;
+    public VirtualPoint displayPoint;
 
     @Override
     public void draw(Graphics2D g2, Camera camera, int minLineThickness) {
-
+        if (displayPoint != null) {
+            Drawing.drawCircle(g2, displayPoint, camera, minLineThickness);
+        }
     }
 
     @Override
-    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
+    public void setHover(Segment s, VirtualPoint kp, VirtualPoint cp) {
+        super.setHover(s, kp, cp);
+        displayPoint = kp;
     }
 
+    @Override
+    public void clearHover() {
+        super.clearHover();
+        displayPoint = selectedPoint;
+    }
+
+    @Override
+    public void leftArrow() {
+        ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
+        for (Knot k : knotsDisplayed) {
+            if (k.contains(displayPoint)) {
+                selectedPoint = k.getNextClockWise(displayPoint);
+                displayPoint = selectedPoint;
+                return;
+            }
+        }
+    };
+
+    @Override
+    public void rightArrow() {
+        ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
+        for (Knot k : knotsDisplayed) {
+            if (k.contains(displayPoint)) {
+                selectedPoint = k.getNextCounterClockWise(displayPoint);
+                displayPoint = selectedPoint;
+                return;
+            }
+        }
+    };
+
+    @Override
+    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
+        selectedPoint = kp;
+        displayPoint = kp;
+    }
+
+    @Override
+    public String displayName() {
+        return "Free";
+    }
 }

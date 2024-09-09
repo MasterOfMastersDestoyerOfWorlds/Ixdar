@@ -24,6 +24,14 @@ public abstract class Tool {
         throw new UnsupportedOperationException("Unimplemented method 'click'");
     };
 
+    public void leftArrow() {
+        throw new UnsupportedOperationException("Unimplemented method 'leftArrow'");
+    };
+
+    public void rightArrow() {
+        throw new UnsupportedOperationException("Unimplemented method 'rightArrow'");
+    };
+
     public void reset() {
         hover = null;
         hoverCP = null;
@@ -83,5 +91,9 @@ public abstract class Tool {
         } else {
             tool.clearHover();
         }
+    }
+
+    public String displayName() {
+        return "REEEEEEEE";
     }
 }

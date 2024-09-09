@@ -104,7 +104,7 @@ public class KeyGuy implements KeyListener {
         if (e.getKeyCode() == KeyEvent.VK_B) {
             Toggle.drawCutMatch.toggle();
         }
-        if (e.getKeyCode() == KeyEvent.VK_N) {
+        if (e.getKeyCode() == KeyEvent.VK_Y) {
             Toggle.drawKnotGradient.toggle();
         }
         if (e.getKeyCode() == KeyEvent.VK_M) {
@@ -114,7 +114,7 @@ public class KeyGuy implements KeyListener {
                 Main.metroDrawLayer = Main.shell.cutEngine.totalLayers;
             }
         }
-        if (e.getKeyCode() == KeyEvent.VK_CLOSE_BRACKET) {
+        if (e.getKeyCode() == KeyEvent.VK_CLOSE_BRACKET || e.getKeyCode() == KeyEvent.VK_UP) {
             if (tool.canUseToggle(Toggle.canSwitchLayer)) {
                 if (tool.canUseToggle(Toggle.manifold) && tool.canUseToggle(Toggle.drawCutMatch)) {
                     Main.manifoldIdx++;
@@ -129,10 +129,11 @@ public class KeyGuy implements KeyListener {
                     if (Main.metroDrawLayer < 1) {
                         Main.metroDrawLayer = 1;
                     }
+                    Main.updateKnotsDisplayed();
                 }
             }
         }
-        if (e.getKeyCode() == KeyEvent.VK_OPEN_BRACKET) {
+        if (e.getKeyCode() == KeyEvent.VK_OPEN_BRACKET || e.getKeyCode() == KeyEvent.VK_DOWN) {
             if (tool.canUseToggle(Toggle.canSwitchLayer)) {
                 if (tool.canUseToggle(Toggle.manifold) && tool.canUseToggle(Toggle.drawCutMatch)) {
                     Main.manifoldIdx--;
@@ -148,6 +149,7 @@ public class KeyGuy implements KeyListener {
                             Main.metroDrawLayer = 1;
                         }
                     }
+                    Main.updateKnotsDisplayed();
                 }
             }
         }
@@ -169,6 +171,19 @@ public class KeyGuy implements KeyListener {
         if (e.getKeyCode() == KeyEvent.VK_ENTER) {
             Main.calculateSubPaths();
         }
+        if (e.getKeyCode() == KeyEvent.VK_R) {
+            Camera camera = Main.camera;
+            camera.ScaleFactor = camera.InitialScale;
+            camera.PanX = camera.defaultPanX;
+            camera.PanY = camera.defaultPanY;
+            Main.tool.reset();
+        }
+        if (e.getKeyCode() == KeyEvent.VK_LEFT) {
+            Main.tool.leftArrow();
+        }
+        if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
+            Main.tool.rightArrow();
+        }
         if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
             Main.tool = Main.freeTool;
             main.repaint();
@@ -181,19 +196,15 @@ public class KeyGuy implements KeyListener {
             for (Iterator<Integer> it = pressedKeys.iterator(); it.hasNext();) {
                 switch (it.next()) {
                     case KeyEvent.VK_W:
-                    case KeyEvent.VK_UP:
                         camera.PanY += camera.PAN_SPEED * SHIFT_MOD;
                         break;
                     case KeyEvent.VK_A:
-                    case KeyEvent.VK_LEFT:
                         camera.PanX += camera.PAN_SPEED * SHIFT_MOD;
                         break;
                     case KeyEvent.VK_S:
-                    case KeyEvent.VK_DOWN:
                         camera.PanY -= camera.PAN_SPEED * SHIFT_MOD;
                         break;
                     case KeyEvent.VK_D:
-                    case KeyEvent.VK_RIGHT:
                         camera.PanX -= camera.PAN_SPEED * SHIFT_MOD;
                         break;
                     case KeyEvent.VK_EQUALS:
@@ -201,11 +212,6 @@ public class KeyGuy implements KeyListener {
                         break;
                     case KeyEvent.VK_MINUS:
                         camera.scale(-(camera.ZOOM_SPEED * SHIFT_MOD));
-                        break;
-                    case KeyEvent.VK_R:
-                        camera.ScaleFactor = camera.InitialScale;
-                        camera.PanX = camera.defaultPanX;
-                        camera.PanY = camera.defaultPanY;
                         break;
                 }
             }

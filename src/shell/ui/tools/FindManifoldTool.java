@@ -85,4 +85,9 @@ public class FindManifoldTool extends Tool {
         }
 
     }
+
+    @Override
+    public String displayName() {
+        return "Find Manifold";
+    }
 }

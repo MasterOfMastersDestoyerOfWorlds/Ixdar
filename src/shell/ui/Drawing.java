@@ -11,7 +11,6 @@ import java.awt.geom.Path2D;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
 import javax.swing.JComponent;
-import shell.BalanceMap;
 import shell.Main;
 import shell.PointSet;
 import shell.cuts.CutMatch;
@@ -298,7 +297,7 @@ public class Drawing {
             PointSet ps, Camera camera) {
 
         BasicStroke stroke = new BasicStroke(lineThickness);
-        BasicStroke doubleStroke = new BasicStroke(2*lineThickness);
+        BasicStroke doubleStroke = new BasicStroke(2 * lineThickness);
         g2.setStroke(stroke);
 
         g2.setColor(Color.CYAN);
@@ -307,6 +306,16 @@ public class Drawing {
         g2.setColor(Color.ORANGE);
         g2.setStroke(doubleStroke);
         Drawing.drawSegment(g2, camera, cutSegment);
+    }
+
+    public static void drawCircle(Graphics2D g2, VirtualPoint displayPoint, Camera camera, int lineThickness) {
+        g2.setPaint(Color.lightGray);
+        BasicStroke stroke = new BasicStroke(lineThickness);
+        g2.setStroke(stroke);
+        Point p = (Point) displayPoint;
+        double xCoord = camera.transformX(p.p.getCoord(0));
+        double yCoord = camera.transformY(p.p.getCoord(1));
+        g2.draw(new Ellipse2D.Double(xCoord - 5, yCoord - 5, 10, 10));
     }
 
 }

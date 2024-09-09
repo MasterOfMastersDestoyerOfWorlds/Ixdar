@@ -72,7 +72,8 @@ public class Main extends JComponent {
 	public static ArrayList<Manifold> manifolds;
 	public static int metroDrawLayer = -1;
 	static PriorityQueue<ShellPair> metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
-	static PriorityQueue<ShellPair> metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
+	public static PriorityQueue<ShellPair> metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
+	public static ArrayList<Knot> knotsDisplayed = new ArrayList<>();
 
 	public static Color stickyColor;
 	public static ArrayList<Color> metroColors = new ArrayList<>();
@@ -228,9 +229,13 @@ public class Main extends JComponent {
 			for (VirtualPoint p : k.knotPointsFlattened) {
 				knotShell.add(((Point) p).p);
 			}
+			if (totalLayers - layerNum == metroDrawLayer) {
+				knotsDisplayed.add(k);
+			}
 			metroPathsHeight.add(new ShellPair(knotShell, k, heightNum));
 			metroPathsLayer.add(new ShellPair(knotShell, k, totalLayers - layerNum));
 		}
+
 		float startHueM = colorSeed.nextFloat();
 		float stepM = 1.0f / ((float) totalLayers);
 		for (int j = 0; j <= totalLayers; j++) {
@@ -409,6 +414,21 @@ public class Main extends JComponent {
 		}
 		System.out.println();
 		resultShell = result;
+	}
+
+	public static void updateKnotsDisplayed() {
+		PriorityQueue<ShellPair> newQueue = new PriorityQueue<ShellPair>(new ShellComparator());
+		PriorityQueue<ShellPair> metroPathsLayer = Main.metroPathsLayer;
+		int size = metroPathsLayer.size();
+		knotsDisplayed = new ArrayList<>();
+		for (int i = 0; i < size; i++) {
+			ShellPair temp = metroPathsLayer.remove();
+			if(temp.priority == metroDrawLayer){
+				knotsDisplayed.add(temp.k);
+			}
+			newQueue.add(temp);
+		}
+		Main.metroPathsLayer = newQueue;
 	}
 
 }

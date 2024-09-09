@@ -5,7 +5,6 @@ import java.util.ArrayList;
 
 import shell.Main;
 import shell.ToggleType;
-import shell.cuts.CutMatchList;
 import shell.file.Manifold;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
@@ -51,5 +50,10 @@ public class EditManifoldTool extends Tool {
     @Override
     public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
 
+    }
+    
+    @Override
+    public String displayName() {
+        return "Edit Cut Match";
     }
 }

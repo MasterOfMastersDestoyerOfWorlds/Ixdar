@@ -32,14 +32,17 @@
 6. - [x] Should only have one tool active at a time and call the super class's draw and click functions
 7. - [ ] Tools should specify what type of bounding boxes that they should use? (Segment rectangle versus radius from point?)
 8. - [ ] Clicking and dragging with no Hover should change the panX, panY to where the new mouse position is.
-9. - [ ] Pressing Up/Down Arrow Key should change the Knot Level unless blocked.
-10. - [ ] Pressing VK_R should reset the camera and reset the active tool but not exit it.
+9. - [x] Pressing Up/Down Arrow Key should change the Knot Level unless blocked.
+10. - [x] Pressing VK_R should reset the camera and reset the active tool but not exit it.
+11. - [ ] Pressing and Holding Left/Right should repeat the action at some reasonable rate.
+12. - [x] Need to find some way to determine clockwise versus anti clockwise.
+13. - [ ] Each Tool should tell the user some information about what to do when using it.
 
 ## UI Free Tool
 
-1. - [ ] Clicking on a point should mark it with a circle around the point and change the perma-hover to the selected VirtualPoint
+1. - [x] Clicking on a point should mark it with a circle around the point and change the perma-hover to the selected VirtualPoint
 2. - [ ] Hover over a point should display information about the VirtualPoint like, it's closest three segments and their distances, the x/y coordinates and the minimum knot the point is in.
-3. - [ ] Pressing Left/Right Arrow Key should move the selected point to the next clockwise point in the current knot level.
+3. - [x] Pressing Left/Right Arrow Key should move the selected point to the next clockwise point in the current knot level.
 4. - [ ] Pressing VK_K should switch to displaying the same information about the current knot the point is in.
 
 ## UI Negative CutMatch View Tool
@@ -53,7 +56,7 @@
 
 ## UI CutMatch Tool
 
-1. - [ ] Make tool to test out new cut match groups.
+1. - [x] Make tool to test out new cut match groups.
 2. - [x] Should follow pointer with a cyan line and display a yellow line on the nearest cut segment to the pointer.
 3. - [ ] The original calculated cut match group should be at like opacity 40  or 30.
 4. - [ ] Once the user clicks on a highlighted cutMatch pair add that cutMatch to the the edited cutMatch list
@@ -69,7 +72,7 @@
 2. - [x] After the second cut segment is selected search the manifold list for a manifold where the two cut segment's exist and update the manifold index to this manifold.
 3. - [ ] If the manifold does not exist ask the user if they'd like to calculate it and add it to the file, otherwise reset without changes.
 4. - [ ] Need to change the search to search for closest available to one the user inputted?
-5. - [ ] Pressing Left/Right Arrow Key should move the hover knotPoint to the next clockwise knotPoint in the list of manifolds.
+5. - [ ] Pressing Left/Right Arrow Key should move the hover/selected knotPoint(selected if isn't null) to the next clockwise knotPoint in the list of manifolds.
 
 ## UI
 
