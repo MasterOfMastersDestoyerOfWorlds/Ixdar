@@ -24,19 +24,20 @@
 
 ## UI Tools General
 
-1. - [x] Need to have one side of the knotPoint/cutPoint pair follow the cursor instead of just defaulting to clockwise knotPoint.
-2. - [x] Figure out screen-space to point-space conversion
-3. - [x] Figure out Skewed bounding boxes around Line Segments
-4. - [x] Should set a segment as the "hover segment" when within some distance to one of the line Segments in the current Manifold Knot.
-5. - [ ] Should expand the Segment Bounding boxes to work at any knot level not just the manifold knot.
-6. - [x] Should only have one tool active at a time and call the super class's draw and click functions
-7. - [ ] Tools should specify what type of bounding boxes that they should use? (Segment rectangle versus radius from point?)
-8. - [x] Clicking and dragging should change the panX, panY to where the new mouse position is.
-9. - [x] Pressing Up/Down Arrow Key should change the Knot Level unless blocked.
-10. - [x] Pressing VK_R should reset the camera and reset the active tool but not exit it.
-11. - [ ] Pressing and Holding Left/Right should repeat the action at some reasonable rate.
-12. - [x] Need to find some way to determine clockwise versus anti clockwise.
-13. - [ ] Each Tool should tell the user some information about what to do when using it.
+1. - [x] Should keep track of the current selected tool and not allow two tools to be active at once, all tools should only effect the ui's state once the final necessary selection is made
+2. - [x] Need to have one side of the knotPoint/cutPoint pair follow the cursor instead of just defaulting to clockwise knotPoint.
+3. - [x] Figure out screen-space to point-space conversion
+4. - [x] Figure out Skewed bounding boxes around Line Segments
+5. - [x] Should set a segment as the "hover segment" when within some distance to one of the line Segments in the current Manifold Knot.
+6. - [ ] Should expand the Segment Bounding boxes to work at any knot level not just the manifold knot.
+7. - [x] Should only have one tool active at a time and call the super class's draw and click functions
+8. - [ ] Tools should specify what type of bounding boxes that they should use? (Segment rectangle versus radius from point?)
+9. - [x] Clicking and dragging should change the panX, panY to where the new mouse position is.
+10. - [x] Pressing Up/Down Arrow Key should change the Knot Level unless blocked.
+11. - [x] Pressing VK_R should reset the camera and reset the active tool but not exit it.
+12. - [ ] Pressing and Holding Left/Right should repeat the action at some reasonable rate.
+13. - [x] Need to find some way to determine clockwise versus anti clockwise.
+14. - [ ] Each Tool should tell the user some information about what to do when using it.
 
 ## UI Free Tool
 
@@ -77,15 +78,14 @@
 ## UI
 
 1. - [ ] Should have some panel on the right hand side above logo with name of test set, wether the test set is passing, the current tool mode, difference in length between test set answer and calculated answer, etc.
-2. - [ ] Should keep track of the current selected tool and not allow two tools to be active at once, all tools should only effect the ui's state once the final necessary selection is made
-3. - [ ] Make a message pool on the bottom panel
-4. - [ ] Display the current tool mode on the right side panel
-5. - [x] Make it so Zooming in and out is always centered on the middle of the screen
-6. - [x] VK_ESCAPE should return the ui to it's default display state and exit any active tool, resetting the tool.
-7. - [ ] VK_O should swap between showing the calculated cutMatch and the one stored in the file and use opposite colors on the color wheel to represent the cutMatch?
-8. - [x] VK_B should cycle the manifold index
-9. - [ ] Should we only draw one line segment per segment? i.e implement some kind of Z-Buffer? currently just works on the order of drawing, but could imagine storing two colors for every segment and draw each segment as a gradient. As well as storing null color? or a list of segments to draw.
-10. - [ ] Need to be able to distinguish between Ctrl + Key and Key with precedence for Ctrl + Key.
+2. - [ ] Make a message pool on the bottom panel
+3. - [ ] Display the current tool mode on the right side panel
+4. - [x] Make it so Zooming in and out is always centered on the middle of the screen
+5. - [x] VK_ESCAPE should return the ui to it's default display state and exit any active tool, resetting the tool.
+6. - [ ] VK_O should swap between showing the calculated cutMatch and the one stored in the file and use opposite colors on the color wheel to represent the cutMatch?
+7. - [x] VK_B should cycle the manifold index
+8. - [ ] Should we only draw one line segment per segment? i.e implement some kind of Z-Buffer? currently just works on the order of drawing, but could imagine storing two colors for every segment and draw each segment as a gradient. As well as storing null color? or a list of segments to draw.
+9. - [ ] Need to be able to distinguish between Ctrl + Key and Key with precedence for Ctrl + Key.
 
 ## Bugfixes
 
