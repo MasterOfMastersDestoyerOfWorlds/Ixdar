@@ -69,8 +69,8 @@ public abstract class Tool {
             Camera camera = Main.camera;
             if (manifoldKnot != null) {
                 camera.calculateCameraTransform();
-                double x = camera.invertTransformX(mouseX);
-                double y = camera.invertTransformY(mouseY);
+                double x = camera.screenTransformX(mouseX);
+                double y = camera.screenTransformY(mouseY);
                 double minDist = Double.MAX_VALUE;
                 Segment hoverSegment = null;
                 for (Segment s : manifoldKnot.manifoldSegments) {

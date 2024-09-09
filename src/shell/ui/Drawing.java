@@ -55,11 +55,11 @@ public class Drawing {
         Point2D first = ((Point) cut1.first).p.toPoint2D();
         Point2D last = ((Point) cut1.last).p.toPoint2D();
 
-        firstCoords[0] = camera.transformX(first.getX());
-        firstCoords[1] = camera.transformY(first.getY());
+        firstCoords[0] = camera.pointTransformX(first.getX());
+        firstCoords[1] = camera.pointTransformY(first.getY());
 
-        lastCoords[0] = camera.transformX(last.getX());
-        lastCoords[1] = camera.transformY(last.getY());
+        lastCoords[0] = camera.pointTransformX(last.getX());
+        lastCoords[1] = camera.pointTransformY(last.getY());
         midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0 - 8;
         midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0 + 8;
         g2.drawString("X", (int) midCoords[0], (int) midCoords[1]);
@@ -69,11 +69,11 @@ public class Drawing {
         first = ((Point) cut2.first).p.toPoint2D();
         last = ((Point) cut2.last).p.toPoint2D();
 
-        firstCoords[0] = camera.transformX(first.getX());
-        firstCoords[1] = camera.transformY(first.getY());
+        firstCoords[0] = camera.pointTransformX(first.getX());
+        firstCoords[1] = camera.pointTransformY(first.getY());
 
-        lastCoords[0] = camera.transformX(last.getX());
-        lastCoords[1] = camera.transformY(last.getY());
+        lastCoords[0] = camera.pointTransformX(last.getX());
+        lastCoords[1] = camera.pointTransformY(last.getY());
         midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0 - 8;
         midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0 + 8;
 
@@ -83,8 +83,8 @@ public class Drawing {
 
         Point2D knotPoint1 = ((Point) ex1.getKnotPoint(topKnot.knotPointsFlattened)).p.toPoint2D();
 
-        firstCoords[0] = camera.transformX(knotPoint1.getX());
-        firstCoords[1] = camera.transformY(knotPoint1.getY());
+        firstCoords[0] = camera.pointTransformX(knotPoint1.getX());
+        firstCoords[1] = camera.pointTransformY(knotPoint1.getY());
 
         g2.setColor(Color.GREEN);
 
@@ -95,8 +95,8 @@ public class Drawing {
 
         Point2D knotPoint2 = ((Point) ex2.getKnotPoint(topKnot.knotPointsFlattened)).p.toPoint2D();
 
-        firstCoords[0] = camera.transformX(knotPoint2.getX());
-        firstCoords[1] = camera.transformY(knotPoint2.getY());
+        firstCoords[0] = camera.pointTransformX(knotPoint2.getX());
+        firstCoords[1] = camera.pointTransformY(knotPoint2.getY());
 
         g2.setColor(Color.GREEN);
 
@@ -148,11 +148,11 @@ public class Drawing {
         Point2D kp = ((Point) hoverKP).p.toPoint2D();
         Point2D cp = ((Point) hoverCP).p.toPoint2D();
 
-        kpCoords[0] = camera.transformX(kp.getX());
-        kpCoords[1] = camera.transformY(kp.getY());
+        kpCoords[0] = camera.pointTransformX(kp.getX());
+        kpCoords[1] = camera.pointTransformY(kp.getY());
 
-        cpCoords[0] = camera.transformX(cp.getX());
-        cpCoords[1] = camera.transformY(cp.getY());
+        cpCoords[0] = camera.pointTransformX(cp.getX());
+        cpCoords[1] = camera.pointTransformY(cp.getY());
         midCoords[0] = (kpCoords[0] + cpCoords[0]) / 2.0 - 8;
         midCoords[1] = (kpCoords[1] + cpCoords[1]) / 2.0 + 8;
         g2.setColor(Color.RED);
@@ -177,11 +177,11 @@ public class Drawing {
 
         double[] firstCoords = new double[2];
         double[] lastCoords = new double[2];
-        firstCoords[0] = camera.transformX(first.getX());
-        firstCoords[1] = camera.transformY(first.getY());
+        firstCoords[0] = camera.pointTransformX(first.getX());
+        firstCoords[1] = camera.pointTransformY(first.getY());
 
-        lastCoords[0] = camera.transformX(last.getX());
-        lastCoords[1] = camera.transformY(last.getY());
+        lastCoords[0] = camera.pointTransformX(last.getX());
+        lastCoords[1] = camera.pointTransformY(last.getY());
         g2.drawLine((int) firstCoords[0], (int) firstCoords[1], (int) lastCoords[0], (int) lastCoords[1]);
     }
 
@@ -200,11 +200,11 @@ public class Drawing {
         }
         double[] firstCoords = new double[2];
         double[] lastCoords = new double[2];
-        firstCoords[0] = camera.transformX(first.getX());
-        firstCoords[1] = camera.transformY(first.getY());
+        firstCoords[0] = camera.pointTransformX(first.getX());
+        firstCoords[1] = camera.pointTransformY(first.getY());
 
-        lastCoords[0] = camera.transformX(last.getX());
-        lastCoords[1] = camera.transformY(last.getY());
+        lastCoords[0] = camera.pointTransformX(last.getX());
+        lastCoords[1] = camera.pointTransformY(last.getY());
         GradientPaint gp = new GradientPaint(new Point2D.Double(firstCoords[0], firstCoords[1]), color1,
                 new Point2D.Double(lastCoords[0], lastCoords[1]), color2);
         g2.setPaint(gp);
@@ -246,8 +246,8 @@ public class Drawing {
             pi.currentSegment(coords);
             pi.next();
 
-            coords[0] = camera.transformX(coords[0]);
-            coords[1] = camera.transformY(coords[1]);
+            coords[0] = camera.pointTransformX(coords[0]);
+            coords[1] = camera.pointTransformY(coords[1]);
             if (drawCircles) {
                 g2.draw(new Ellipse2D.Double(coords[0] - 5, coords[1] - 5, 10, 10));
             }
@@ -313,8 +313,8 @@ public class Drawing {
         BasicStroke stroke = new BasicStroke(lineThickness);
         g2.setStroke(stroke);
         Point p = (Point) displayPoint;
-        double xCoord = camera.transformX(p.p.getCoord(0));
-        double yCoord = camera.transformY(p.p.getCoord(1));
+        double xCoord = camera.pointTransformX(p.p.getCoord(0));
+        double yCoord = camera.pointTransformY(p.p.getCoord(1));
         g2.draw(new Ellipse2D.Double(xCoord - 5, yCoord - 5, 10, 10));
     }
 

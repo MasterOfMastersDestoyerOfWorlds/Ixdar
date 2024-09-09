@@ -120,8 +120,8 @@ public class Camera {
             rangeX = rangeY;
         }
 
-        offsetX += (Width - (Math.abs(transformX(maxX) - transformX(minX)))) / 2;
-        offsetY += (Height - (Math.abs(transformY(maxY) - transformY(minY)))) / 2;
+        offsetX += (Width - (Math.abs(pointTransformX(maxX) - pointTransformX(minX)))) / 2;
+        offsetY += (Height - (Math.abs(pointTransformY(maxY) - pointTransformY(minY)))) / 2;
         PanX = offsetX;
         PanY = offsetY;
         defaultPanX = PanX;
@@ -129,41 +129,41 @@ public class Camera {
     }
 
     // transform from point space to screen space
-    public double transformX(double x) {
+    public double pointTransformX(double x) {
         return ((((x - minX) * width) / rangeX) + offsetX);
     }
 
     // transform from point space to screen space
-    public double transformX(double x, double scale) {
+    public double pointTransformX(double x, double scale) {
         return ((((x - minX) * (Width * scale)) / rangeX) + offsetX);
     }
 
     // transform from screen space to point space
-    public double invertTransformX(double x) {
+    public double screenTransformX(double x) {
         return ((((x) - offsetX) * rangeX) / width) + minX;
     }
 
     // transform from point space to screen space
-    public double transformY(double y) {
+    public double pointTransformY(double y) {
         return ((((y - minY) * height) / rangeY) + offsetY);
     }
 
     // transform from point space to screen space
-    public double transformY(double x, double scale) {
+    public double pointTransformY(double x, double scale) {
         return ((((x - minY) * (Height * scale)) / rangeY) + offsetY);
     }
 
     // transform from screen space to point space
-    public double invertTransformY(double y) {
+    public double screenTransformY(double y) {
         return ((((y) - offsetY) * rangeY) / height) + minY;
     }
 
     public void scale(double delta) {
         double newScaleY = ScaleFactor + delta;
-        double midXPointSpace = invertTransformX(((double) ScreenWidth) / 2);
-        double midYPointSpace = invertTransformY(((double) ScreenHeight) / 2);
-        double midXNewScale = transformX(midXPointSpace, newScaleY);
-        double midYNewScale = transformY(midYPointSpace, newScaleY);
+        double midXPointSpace = screenTransformX(((double) ScreenWidth) / 2);
+        double midYPointSpace = screenTransformY(((double) ScreenHeight) / 2);
+        double midXNewScale = pointTransformX(midXPointSpace, newScaleY);
+        double midYNewScale = pointTransformY(midYPointSpace, newScaleY);
 
         PanX += (((double) ScreenWidth) / 2) - midXNewScale;
         PanY += (((double) ScreenHeight) / 2) - midYNewScale;

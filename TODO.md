@@ -31,7 +31,7 @@
 5. - [ ] Should expand the Segment Bounding boxes to work at any knot level not just the manifold knot.
 6. - [x] Should only have one tool active at a time and call the super class's draw and click functions
 7. - [ ] Tools should specify what type of bounding boxes that they should use? (Segment rectangle versus radius from point?)
-8. - [ ] Clicking and dragging with no Hover should change the panX, panY to where the new mouse position is.
+8. - [x] Clicking and dragging should change the panX, panY to where the new mouse position is.
 9. - [x] Pressing Up/Down Arrow Key should change the Knot Level unless blocked.
 10. - [x] Pressing VK_R should reset the camera and reset the active tool but not exit it.
 11. - [ ] Pressing and Holding Left/Right should repeat the action at some reasonable rate.

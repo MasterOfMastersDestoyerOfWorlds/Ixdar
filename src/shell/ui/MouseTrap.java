@@ -30,8 +30,8 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         Camera camera = Main.camera;
         if (Main.manifoldKnot != null) {
             camera.calculateCameraTransform();
-            double x = camera.invertTransformX(e.getX());
-            double y = camera.invertTransformY(e.getY());
+            double x = camera.screenTransformX(e.getX());
+            double y = camera.screenTransformY(e.getY());
             double minDist = Double.MAX_VALUE;
             Segment hoverSegment = null;
             for (Segment s : manifoldKnot.manifoldSegments) {
@@ -54,14 +54,29 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         }
     }
 
+    double startX;
+    double startY;
+
     @Override
     public void mousePressed(MouseEvent e) {
-        System.out.println("Holding: " + e.getX() + " , " + e.getY());
+
+        startX = e.getX();
+        startY = e.getY();
+    }
+
+    @Override
+    public void mouseDragged(MouseEvent e) {
+        // update pan x and y to follow the mouse
+        Camera camera = Main.camera;
+        camera.PanX += e.getX() - startX;
+        camera.PanY += e.getY() - startY;
+        startX = e.getX();
+        startY = e.getY();
+        main.repaint();
     }
 
     @Override
     public void mouseReleased(MouseEvent e) {
-        System.out.println("Released: " + e.getX() + " , " + e.getY());
     }
 
     @Override
@@ -87,10 +102,6 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         lastY = e.getY();
         Main.tool.calculateHover(e.getX(), e.getY());
         main.repaint();
-    }
-
-    @Override
-    public void mouseDragged(MouseEvent e) {
     }
 
     public void paintUpdate(double SHIFT_MOD) {
