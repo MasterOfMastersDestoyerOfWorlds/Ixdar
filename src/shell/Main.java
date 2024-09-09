@@ -67,7 +67,6 @@ public class Main extends JComponent {
 	public static ArrayList<VirtualPoint> result;
 	static SegmentBalanceException sbe;
 
-	public static boolean manifold = false;
 	public static Knot manifoldKnot;
 	public static int manifoldIdx = 0;
 	public static ArrayList<Manifold> manifolds;
@@ -82,7 +81,7 @@ public class Main extends JComponent {
 
 	public Main() {
 
-		fileName = "rings_3";
+		fileName = "rings-3-manifold_master";
 		file = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(file);
 		frame = new JFrame("Ixdar : " + fileName);
@@ -116,7 +115,7 @@ public class Main extends JComponent {
 		pane.setPreferredSize(new Dimension(750, 750));
 		pane.setSize(new Dimension(750, 750));
 
-		keys = new KeyGuy(this, frame, fileName, manifold);
+		keys = new KeyGuy(this, frame, fileName);
 		frame.addKeyListener(keys);
 
 		mouse = new MouseTrap(this);
@@ -124,7 +123,7 @@ public class Main extends JComponent {
 		pane.addMouseWheelListener(mouse);
 		pane.addMouseMotionListener(mouse);
 
-		manifold = !retTup.manifolds.isEmpty();
+		Toggle.manifold.value = !retTup.manifolds.isEmpty();
 		frame.pack();
 
 		tool = new FreeTool();
@@ -146,8 +145,8 @@ public class Main extends JComponent {
 			}
 		}
 		retTup.tsp.removeAll(toRemove);
-		if (manifold) {
-			manifold = true;
+		if (tool.canUseToggle(Toggle.manifold)) {
+			Toggle.manifold.value = true;
 			Toggle.calculateKnot.value = false;
 		}
 		orgShell = retTup.tsp;
@@ -183,9 +182,9 @@ public class Main extends JComponent {
 			}
 		}
 
-		if (manifold) {
+		if (tool.canUseToggle(Toggle.manifold)) {
 			if (result.size() > 1) {
-				manifold = false;
+				Toggle.manifold.value = false;
 				Toggle.calculateKnot.value = true;
 			}
 
@@ -302,10 +301,10 @@ public class Main extends JComponent {
 							false,
 							camera);
 				}
-				if (tool.canUseToggle(Toggle.drawCutMatch) && manifold && manifolds != null
+				if (tool.canUseToggle(Toggle.drawCutMatch) && tool.canUseToggle(Toggle.manifold) && manifolds != null
 						&& manifolds.get(manifoldIdx).cutMatchList != null) {
 					Manifold m = manifolds.get(manifoldIdx);
-					Drawing.drawCutMatch(this, g2, m.cutMatchList, null, m.manifoldCutSegment1,
+					Drawing.drawCutMatch(this, g2, m.cutMatchList, m.manifoldCutSegment1,
 							m.manifoldCutSegment2, m.manifoldExSegment1, m.manifoldExSegment2,
 							m.manifoldKnot, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
 				}

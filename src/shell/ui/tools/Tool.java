@@ -28,7 +28,6 @@ public abstract class Tool {
         hover = null;
         hoverCP = null;
         hoverKP = null;
-        Main.tool = Main.freeTool;
     }
 
     public void clearHover() {
@@ -47,7 +46,7 @@ public abstract class Tool {
 
     public boolean canUseToggle(Toggle toggle) {
         for (int i = 0; i < disallowedToggles.length; i++) {
-            if (disallowedToggles[i] == toggle.type) {
+            if (disallowedToggles[i].equals(toggle.type)) {
                 return false;
             }
         }

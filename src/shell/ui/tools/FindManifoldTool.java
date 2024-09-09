@@ -13,46 +13,44 @@ import shell.ui.Drawing;
 
 public class FindManifoldTool extends Tool {
     public enum States {
-        None,
         FindStart,
         FirstSelected
     }
 
-    public States state = States.None;
+    public States state = States.FindStart;
 
     public Segment firstSelectedSegment;
     public VirtualPoint firstSelectedKP;
     public VirtualPoint firstSelectedCP;
 
+    public FindManifoldTool() {
+        disallowedToggles = new ToggleType[] { ToggleType.DrawCutMatch, ToggleType.CanSwitchLayer };
+    }
+
     @Override
     public void reset() {
-        state = States.None;
+        state = States.FindStart;
         hover = null;
         hoverCP = null;
         hoverKP = null;
         firstSelectedSegment = null;
         firstSelectedKP = null;
         firstSelectedCP = null;
-        Main.tool = Main.freeTool;
     }
 
     @Override
     public void draw(Graphics2D g2, Camera camera, int minLineThickness) {
-        if (state != FindManifoldTool.States.None) {
-            if (hover != null
-                    && !hover.equals(firstSelectedSegment)) {
-                Drawing.drawManifoldCut(g2, hoverKP, hoverCP, camera,
-                        minLineThickness * 2);
-            }
-            if (firstSelectedSegment != null) {
-                Drawing.drawManifoldCut(g2, firstSelectedKP, firstSelectedCP,
-                        camera,
-                        minLineThickness * 2);
-            }
+        if (hover != null
+                && !hover.equals(firstSelectedSegment)) {
+            Drawing.drawManifoldCut(g2, hoverKP, hoverCP, camera,
+                    minLineThickness * 2);
+        }
+        if (firstSelectedSegment != null) {
+            Drawing.drawManifoldCut(g2, firstSelectedKP, firstSelectedCP,
+                    camera,
+                    minLineThickness * 2);
         }
     }
-
-    ToggleType[] disallowedToggles = new ToggleType[] {ToggleType.DrawCutMatch };
 
     @Override
     public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {

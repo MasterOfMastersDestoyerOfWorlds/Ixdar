@@ -47,7 +47,7 @@
 3. - [ ] Make a message pool on the bottom panel
 4. - [ ] Display the current tool mode on the right side panel
 5. - [x] Make it so Zooming in and out is always centered on the middle of the screen
-6. - [ ] VK_ESCAPE should return the ui to it's default display state and exit any active tool, resetting the tool.
+6. - [x] VK_ESCAPE should return the ui to it's default display state and exit any active tool, resetting the tool.
 7. - [ ] VK_O should swap between showing the calculated cutmatch and the one stored in the file and use opposite colors on the color wheel to represent the cutmatch?
 8. - [x] VK_B should cycle the manifold index
 

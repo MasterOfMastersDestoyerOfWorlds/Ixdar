@@ -18,27 +18,27 @@ public class CutMatchList implements FileStringable {
 
     public ArrayList<CutMatch> cutMatches;
     public double delta;
-    Shell shell;
+    public Shell shell;
     SegmentBalanceException sbe;
-    Knot topKnot;
+    public Knot superKnot;
 
     public CutMatchList(Shell shell, SegmentBalanceException sbe, Knot superKnot) {
         cutMatches = new ArrayList<>();
         sbe.cutMatchList = this;
         this.shell = shell;
         this.sbe = sbe;
-        this.topKnot = superKnot;
+        this.superKnot = superKnot;
     }
 
     public CutMatchList(Shell shell,Knot superKnot) {
         cutMatches = new ArrayList<>();
         this.shell = shell;
-        this.topKnot = superKnot;
+        this.superKnot = superKnot;
     }
 
 
     public String toString() {
-        String str = "CML[ topKnot:" + topKnot + "\n" + cutMatches + " \n]\n totalDelta: " + delta;
+        String str = "CML[ topKnot:" + superKnot + "\n" + cutMatches + " \n]\n totalDelta: " + delta;
         return str;
 
     }
@@ -390,13 +390,13 @@ public class CutMatchList implements FileStringable {
         for (CutMatch cm : cutMatches) {
             cm.updateDelta();
             for (Segment s : cm.cutSegments) {
-                if (!seenCuts.contains(s) && this.topKnot.hasSegment(s)) {
+                if (!seenCuts.contains(s) && this.superKnot.hasSegment(s)) {
                     delta -= s.distance;
                     seenCuts.add(s);
                 }
             }
             for (Segment s : cm.matchSegments) {
-                if (!seenMatches.contains(s) && !this.topKnot.hasSegment(s)) {
+                if (!seenMatches.contains(s) && !this.superKnot.hasSegment(s)) {
                     delta += s.distance;
                     seenMatches.add(s);
                 }
@@ -473,7 +473,7 @@ public class CutMatchList implements FileStringable {
     }
 
     public CutMatchList copy() {
-        CutMatchList copy = new CutMatchList(shell, sbe, topKnot);
+        CutMatchList copy = new CutMatchList(shell, sbe, superKnot);
         copy.delta = delta;
         for (CutMatch cm : cutMatches) {
             CutMatch copyCM = cm.copy();

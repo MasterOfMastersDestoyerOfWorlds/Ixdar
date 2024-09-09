@@ -8,6 +8,7 @@ import javax.swing.AbstractAction;
 import javax.swing.JFrame;
 import shell.Main;
 import shell.PointND;
+import shell.Toggle;
 import shell.exceptions.SegmentBalanceException;
 import shell.file.FileManagement;
 import shell.file.Manifold;
@@ -17,18 +18,16 @@ public class GenerateManifoldTestsAction extends AbstractAction {
 
     JFrame frame;
     String fileName;
-    boolean inManifold;
 
-    public GenerateManifoldTestsAction(JFrame frame, String fileName, boolean inManifold) {
+    public GenerateManifoldTestsAction(JFrame frame, String fileName) {
         super("generateManifoldTests");
         this.frame = frame;
         this.fileName = fileName.replace('_', '-') + "-manifold";
-        this.inManifold = inManifold;
     }
 
     @Override
     public void actionPerformed(ActionEvent event) {
-        if (!inManifold) {
+        if (!Main.tool.canUseToggle(Toggle.manifold)) {
             String directoryLocation = FileManagement.solutionsFolder + fileName;
             File dir = new File(directoryLocation);
             if (!dir.exists()) {

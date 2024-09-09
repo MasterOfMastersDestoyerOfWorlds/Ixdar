@@ -25,15 +25,15 @@ import shell.shell.Shell;
 
 public class Drawing {
 
-	public static final int MIN_THICKNESS = 1;
+    public static final int MIN_THICKNESS = 1;
 
     public static void drawCutMatch(JComponent frame, Graphics2D g2, SegmentBalanceException sbe, int lineThickness,
             PointSet ps, Camera camera) {
-        drawCutMatch(frame, g2, sbe.cutMatchList, sbe.c.balanceMap, sbe.cut1, sbe.cut2, sbe.ex1, sbe.ex2, sbe.topKnot,
+        drawCutMatch(frame, g2, sbe.cutMatchList, sbe.cut1, sbe.cut2, sbe.ex1, sbe.ex2, sbe.topKnot,
                 lineThickness, ps, camera);
     }
 
-    public static void drawCutMatch(JComponent frame, Graphics2D g2, CutMatchList cml, BalanceMap balanceMap,
+    public static void drawCutMatch(JComponent frame, Graphics2D g2, CutMatchList cml,
             Segment cut1, Segment cut2, Segment ex1, Segment ex2, Knot topKnot, int lineThickness,
             PointSet ps, Camera camera) {
 
@@ -103,25 +103,6 @@ public class Drawing {
 
         g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10, 10));
         drawSegment(g2, camera, ex2);
-
-        // g2.setColor(new Color(238, 130, 238));
-        // for (Segment externalMatch : balanceMap.externalMatches) {
-        // if (externalMatch.equals(ex1) || externalMatch.equals(ex2)) {
-        // continue;
-        // }
-        // VirtualPoint kp = externalMatch.last;
-        // if (balanceMap.knot.contains(externalMatch.first)) {
-        // kp = externalMatch.first;
-        // }
-        // Point2D kp2d = ((Point) kp).p.toPoint2D();
-        // firstCoords[0] = ((kp2d.getX() - minX) * (width) / rangeX + offsetx) / 1.5;
-        // firstCoords[1] = ((kp2d.getY() - minY) * (height) / rangeY + offsety) / 1.5;
-        // g2.draw(new Ellipse2D.Double(firstCoords[0] - 5, firstCoords[1] - 5, 10,
-        // 10));
-        // drawSegment(g2, minX, minY, rangeX, rangeY, height, width, offsetx, offsety,
-        // firstCoords, lastCoords,
-        // externalMatch);
-        // }
 
         // Draw Cuts and Matches
         for (CutMatch cutMatch : cml.cutMatches) {
@@ -310,6 +291,22 @@ public class Drawing {
                     Main.knotGradientColors.get(Main.colorLookup.get(smallestKnot1.id)),
                     Main.knotGradientColors.get(Main.colorLookup.get(smallestKnot2.id)));
         }
+    }
+
+    public static void drawSingleCutMatch(Main main, Graphics2D g2, CutMatchList cutMatchList, Segment matchSegment,
+            Segment cutSegment, Knot manifoldKnot, int lineThickness,
+            PointSet ps, Camera camera) {
+
+        BasicStroke stroke = new BasicStroke(lineThickness);
+        BasicStroke doubleStroke = new BasicStroke(2*lineThickness);
+        g2.setStroke(stroke);
+
+        g2.setColor(Color.CYAN);
+        Drawing.drawSegment(g2, camera, matchSegment);
+
+        g2.setColor(Color.ORANGE);
+        g2.setStroke(doubleStroke);
+        Drawing.drawSegment(g2, camera, cutSegment);
     }
 
 }

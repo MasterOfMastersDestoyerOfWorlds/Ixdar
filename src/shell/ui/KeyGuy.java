@@ -21,17 +21,19 @@ import shell.Main;
 import shell.Toggle;
 import shell.file.FileManagement;
 import shell.shell.Shell;
+import shell.ui.actions.EditManifoldAction;
 import shell.ui.actions.FindManifoldAction;
 import shell.ui.actions.GenerateManifoldTestsAction;
 import shell.ui.actions.PrintScreenAction;
 import shell.ui.actions.SaveAction;
+import shell.ui.tools.Tool;
 
 public class KeyGuy implements KeyListener {
 
     public final Set<Integer> pressedKeys = new HashSet<>();
     public Main main;
 
-    public KeyGuy(Main main, JFrame frame, String fileName, boolean manifold) {
+    public KeyGuy(Main main, JFrame frame, String fileName) {
         this.main = main;
         JRootPane rootPane = main.getRootPane();
 
@@ -51,13 +53,19 @@ public class KeyGuy implements KeyListener {
                 KeyStroke.getKeyStroke(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK),
                 "generateManifoldTests");
         rootPane.getActionMap().put("generateManifoldTests",
-                new GenerateManifoldTestsAction(frame, fileName, manifold));
+                new GenerateManifoldTestsAction(frame, fileName));
 
         rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
                 KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK),
                 "findManifold");
         rootPane.getActionMap().put("findManifold",
                 new FindManifoldAction(frame));
+
+        rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+                KeyStroke.getKeyStroke(KeyEvent.VK_E, InputEvent.CTRL_DOWN_MASK),
+                "editCutMatch");
+        rootPane.getActionMap().put("editCutMatch",
+                new EditManifoldAction(frame));
     }
 
     @Override
@@ -74,10 +82,11 @@ public class KeyGuy implements KeyListener {
     @Override
     public void keyReleased(KeyEvent e) {
         pressedKeys.remove(e.getKeyCode());
+        Tool tool = Main.tool;
         if (e.getKeyCode() == KeyEvent.VK_C) {
             Random colorSeed = new Random();
             Main.stickyColor = new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
-            if (Main.tool.canUseToggle(Toggle.drawMetroDiagram)) {
+            if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
                 Main.metroColors = new ArrayList<>();
                 int totalLayers = Main.shell.cutEngine.totalLayers;
                 float startHue = colorSeed.nextFloat();
@@ -106,34 +115,38 @@ public class KeyGuy implements KeyListener {
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_CLOSE_BRACKET) {
-            if (Main.manifold && Main.tool.canUseToggle(Toggle.drawCutMatch)) {
-                Main.manifoldIdx++;
-                if (Main.manifoldIdx >= Main.manifolds.size()) {
-                    Main.manifoldIdx = 0;
-                }
-            } else {
-                Main.metroDrawLayer++;
-                if (Main.metroDrawLayer > Main.shell.cutEngine.totalLayers) {
-                    Main.metroDrawLayer = Main.shell.cutEngine.totalLayers;
-                }
-                if (Main.metroDrawLayer < 1) {
-                    Main.metroDrawLayer = 1;
+            if (tool.canUseToggle(Toggle.canSwitchLayer)) {
+                if (tool.canUseToggle(Toggle.manifold) && tool.canUseToggle(Toggle.drawCutMatch)) {
+                    Main.manifoldIdx++;
+                    if (Main.manifoldIdx >= Main.manifolds.size()) {
+                        Main.manifoldIdx = 0;
+                    }
+                } else {
+                    Main.metroDrawLayer++;
+                    if (Main.metroDrawLayer > Main.shell.cutEngine.totalLayers) {
+                        Main.metroDrawLayer = Main.shell.cutEngine.totalLayers;
+                    }
+                    if (Main.metroDrawLayer < 1) {
+                        Main.metroDrawLayer = 1;
+                    }
                 }
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_OPEN_BRACKET) {
-            if (Main.manifold && Main.tool.canUseToggle(Toggle.drawCutMatch)) {
-                Main.manifoldIdx--;
-                if (Main.manifoldIdx < 0) {
-                    Main.manifoldIdx = Main.manifolds.size() - 1;
-                }
-            } else {
-                if (Main.metroDrawLayer == -1) {
-                    Main.metroDrawLayer = Main.shell.cutEngine.totalLayers;
+            if (tool.canUseToggle(Toggle.canSwitchLayer)) {
+                if (tool.canUseToggle(Toggle.manifold) && tool.canUseToggle(Toggle.drawCutMatch)) {
+                    Main.manifoldIdx--;
+                    if (Main.manifoldIdx < 0) {
+                        Main.manifoldIdx = Main.manifolds.size() - 1;
+                    }
                 } else {
-                    Main.metroDrawLayer--;
-                    if (Main.metroDrawLayer < 1) {
-                        Main.metroDrawLayer = 1;
+                    if (Main.metroDrawLayer == -1) {
+                        Main.metroDrawLayer = Main.shell.cutEngine.totalLayers;
+                    } else {
+                        Main.metroDrawLayer--;
+                        if (Main.metroDrawLayer < 1) {
+                            Main.metroDrawLayer = 1;
+                        }
                     }
                 }
             }
@@ -148,13 +161,17 @@ public class KeyGuy implements KeyListener {
                     FileManagement.appendAns(Main.file, ans);
                     Main.orgShell = ans;
                 }
-                if (Main.manifold) {
+                if (tool.canUseToggle(Toggle.manifold)) {
                     FileManagement.appendCutAns(Main.file, Main.manifolds);
                 }
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_ENTER) {
             Main.calculateSubPaths();
+        }
+        if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+            Main.tool = Main.freeTool;
+            main.repaint();
         }
     }
 
@@ -195,8 +212,8 @@ public class KeyGuy implements KeyListener {
 
             Point mouseLocation = MouseInfo.getPointerInfo().getLocation();
             Point frameLocation = Main.frame.getRootPane().getLocationOnScreen();
-            Main.tool.calculateHover((int)(mouseLocation.getX() - frameLocation.getX()),
-                    (int)(mouseLocation.getY() - frameLocation.getY()));
+            Main.tool.calculateHover((int) (mouseLocation.getX() - frameLocation.getX()),
+                    (int) (mouseLocation.getY() - frameLocation.getY()));
         }
 
         if (!pressedKeys.isEmpty()) {

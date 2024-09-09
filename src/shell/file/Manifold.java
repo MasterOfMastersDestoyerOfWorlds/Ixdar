@@ -134,4 +134,19 @@ public class Manifold implements FileStringable {
         }
     }
 
+    public Manifold copy() {
+        Manifold result = new Manifold(kp1, cp1, kp2, cp2, knotPointsConnected);
+        result.hasCutMatch = true;
+        result.cuts = null;
+        result.matches = null;
+        result.cutMatchList = new CutMatchList(cutMatchList.shell, cutMatchList.superKnot);
+        result.manifoldCutSegment1 = manifoldCutSegment1;
+        result.manifoldCutSegment2 = manifoldCutSegment2;
+        result.manifoldExSegment1 = manifoldExSegment1;
+        result.manifoldExSegment2 = manifoldExSegment2;
+        result.manifoldKnot = manifoldKnot;
+        result.originalCutMatch = originalCutMatch;
+        return result;
+    }
+
 }

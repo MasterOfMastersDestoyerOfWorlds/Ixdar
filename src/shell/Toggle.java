@@ -9,6 +9,8 @@ public class Toggle {
     public static Toggle drawMetroDiagram = new Toggle(true, ToggleType.DrawMetroDiagram);
     public static Toggle drawKnotGradient = new Toggle(true, ToggleType.DrawKnotGradient);
 	public static Toggle drawCutMatch = new Toggle(true, ToggleType.DrawCutMatch);
+	public static Toggle manifold = new Toggle(false, ToggleType.Manifold);
+	public static Toggle canSwitchLayer = new Toggle(true, ToggleType.CanSwitchLayer);
 
     public Toggle(boolean value, ToggleType type) {
         this.type = type;
