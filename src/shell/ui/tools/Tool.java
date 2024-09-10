@@ -30,6 +30,10 @@ public abstract class Tool {
 
     public void rightArrow() {
         throw new UnsupportedOperationException("Unimplemented method 'rightArrow'");
+    };    
+    
+    public void confirm() {
+        throw new UnsupportedOperationException("Unimplemented method 'confirm'");
     };
 
     public void reset() {

@@ -286,9 +286,11 @@ public class Drawing {
             camera.calculateCameraTransform();
             BasicStroke doubleStroke = new BasicStroke(minLineThickness * 2);
             g2.setStroke(doubleStroke);
-            Drawing.drawGradientSegment(g2, camera, s,
-                    Main.knotGradientColors.get(Main.colorLookup.get(smallestKnot1.id)),
-                    Main.knotGradientColors.get(Main.colorLookup.get(smallestKnot2.id)));
+            if (Main.colorLookup.containsKey(smallestKnot1.id)) {
+                Drawing.drawGradientSegment(g2, camera, s,
+                        Main.knotGradientColors.get(Main.colorLookup.get(smallestKnot1.id)),
+                        Main.knotGradientColors.get(Main.colorLookup.get(smallestKnot2.id)));
+            }
         }
     }
 

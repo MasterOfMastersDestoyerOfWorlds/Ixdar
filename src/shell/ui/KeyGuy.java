@@ -24,6 +24,7 @@ import shell.shell.Shell;
 import shell.ui.actions.EditManifoldAction;
 import shell.ui.actions.FindManifoldAction;
 import shell.ui.actions.GenerateManifoldTestsAction;
+import shell.ui.actions.NegativeCutMatchViewAction;
 import shell.ui.actions.PrintScreenAction;
 import shell.ui.actions.SaveAction;
 import shell.ui.tools.Tool;
@@ -66,6 +67,12 @@ public class KeyGuy implements KeyListener {
                 "editCutMatch");
         rootPane.getActionMap().put("editCutMatch",
                 new EditManifoldAction(frame));
+
+        rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+                KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK),
+                "negativeCutMatchView");
+        rootPane.getActionMap().put("negativeCutMatchView",
+                new NegativeCutMatchViewAction(frame));
     }
 
     @Override
@@ -169,7 +176,7 @@ public class KeyGuy implements KeyListener {
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-            Main.calculateSubPaths();
+            Main.tool.confirm();
         }
         if (e.getKeyCode() == KeyEvent.VK_R) {
             Camera camera = Main.camera;
@@ -193,33 +200,42 @@ public class KeyGuy implements KeyListener {
     public void paintUpdate(double SHIFT_MOD) {
         if (!pressedKeys.isEmpty()) {
             Camera camera = Main.camera;
+            boolean moved = false;
             for (Iterator<Integer> it = pressedKeys.iterator(); it.hasNext();) {
                 switch (it.next()) {
                     case KeyEvent.VK_W:
                         camera.PanY += camera.PAN_SPEED * SHIFT_MOD;
+                        moved = true;
                         break;
                     case KeyEvent.VK_A:
                         camera.PanX += camera.PAN_SPEED * SHIFT_MOD;
+                        moved = true;
                         break;
                     case KeyEvent.VK_S:
                         camera.PanY -= camera.PAN_SPEED * SHIFT_MOD;
+                        moved = true;
                         break;
                     case KeyEvent.VK_D:
                         camera.PanX -= camera.PAN_SPEED * SHIFT_MOD;
+                        moved = true;
                         break;
                     case KeyEvent.VK_EQUALS:
                         camera.scale(camera.ZOOM_SPEED * SHIFT_MOD);
+                        moved = true;
                         break;
                     case KeyEvent.VK_MINUS:
                         camera.scale(-(camera.ZOOM_SPEED * SHIFT_MOD));
+                        moved = true;
                         break;
                 }
             }
 
-            Point mouseLocation = MouseInfo.getPointerInfo().getLocation();
-            Point frameLocation = Main.frame.getRootPane().getLocationOnScreen();
-            Main.tool.calculateHover((int) (mouseLocation.getX() - frameLocation.getX()),
-                    (int) (mouseLocation.getY() - frameLocation.getY()));
+            if (moved) {
+                Point mouseLocation = MouseInfo.getPointerInfo().getLocation();
+                Point frameLocation = Main.frame.getRootPane().getLocationOnScreen();
+                Main.tool.calculateHover((int) (mouseLocation.getX() - frameLocation.getX()),
+                        (int) (mouseLocation.getY() - frameLocation.getY()));
+            }
         }
 
         if (!pressedKeys.isEmpty()) {

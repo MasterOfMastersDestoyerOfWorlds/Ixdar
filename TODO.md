@@ -38,6 +38,7 @@
 12. - [ ] Pressing and Holding Left/Right should repeat the action at some reasonable rate.
 13. - [x] Need to find some way to determine clockwise versus anti clockwise.
 14. - [ ] Each Tool should tell the user some information about what to do when using it.
+15. - [x] Pressing VK_Enter should advance the tool if there is a selection active
 
 ## UI Free Tool
 
@@ -48,7 +49,7 @@
 
 ## UI Negative CutMatch View Tool
 
-1. - [ ] Make tool to view which KnotPoints have any CutMatches that have a negative weight.
+1. - [x] Make tool to view which KnotPoints have any CutMatches that have a negative weight.
 2. - [ ] On pressing Ctrl+N should display the top manifold with all half-segments that only have positive weights leading to them in Medium-Green.
 3. - [ ] Half-Segments that have negative weight cut matches should be colored RED.
 4. - [ ] When we hover over a RED segment, display all of the cutMatches that lead to that KnotPoint with a negative weight, display the cut Segment in Yellow and the Match Segment in CYAN.
@@ -73,7 +74,7 @@
 2. - [x] After the second cut segment is selected search the manifold list for a manifold where the two cut segment's exist and update the manifold index to this manifold.
 3. - [ ] If the manifold does not exist ask the user if they'd like to calculate it and add it to the file, otherwise reset without changes.
 4. - [ ] Need to change the search to search for closest available to one the user inputted?
-5. - [ ] Pressing Left/Right Arrow Key should move the hover/selected knotPoint(selected if isn't null) to the next clockwise knotPoint in the list of manifolds.
+5. - [x] Pressing Left/Right Arrow Key should move the hover/selected knotPoint(selected if isn't null) to the next clockwise knotPoint in the list of manifolds.
 
 ## UI
 

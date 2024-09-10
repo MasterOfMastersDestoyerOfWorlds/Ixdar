@@ -62,6 +62,11 @@ public class FreeTool extends Tool {
     };
 
     @Override
+    public void confirm() {
+        Main.calculateSubPaths();
+    }
+
+    @Override
     public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
         selectedPoint = kp;
         displayPoint = kp;
