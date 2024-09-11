@@ -35,7 +35,7 @@
 9. - [x] Clicking and dragging should change the panX, panY to where the new mouse position is.
 10. - [x] Pressing Up/Down Arrow Key should change the Knot Level unless blocked.
 11. - [x] Pressing VK_R should reset the camera and reset the active tool but not exit it.
-12. - [ ] Pressing and Holding Left/Right should repeat the action at some reasonable rate.
+12. - [x] Pressing and Holding Left/Right should repeat the action at some reasonable rate.
 13. - [x] Need to find some way to determine clockwise versus anti clockwise.
 14. - [ ] Each Tool should tell the user some information about what to do when using it in the message pool.
 15. - [x] Pressing VK_Enter should advance the tool if there is a selection active
