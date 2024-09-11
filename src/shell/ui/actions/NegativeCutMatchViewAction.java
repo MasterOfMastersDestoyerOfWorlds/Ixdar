@@ -19,10 +19,9 @@ public class NegativeCutMatchViewAction extends AbstractAction {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        if (Toggle.manifold.value && Toggle.drawCutMatch.value) {
-            negativeCutMatchViewTool.reset();
-            Main.tool = negativeCutMatchViewTool;
-        }
+        negativeCutMatchViewTool.reset();
+        negativeCutMatchViewTool.initSegmentMap();
+        Main.tool = negativeCutMatchViewTool;
 
     }
 

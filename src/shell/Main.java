@@ -82,7 +82,7 @@ public class Main extends JComponent {
 
 	public Main() {
 
-		fileName = "rings-3-manifold_master";
+		fileName = "qa194_120-160";
 		file = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(file);
 		frame = new JFrame("Ixdar : " + fileName);

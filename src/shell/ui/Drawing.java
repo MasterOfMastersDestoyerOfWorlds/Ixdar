@@ -294,8 +294,8 @@ public class Drawing {
         }
     }
 
-    public static void drawSingleCutMatch(Main main, Graphics2D g2, CutMatchList cutMatchList, Segment matchSegment,
-            Segment cutSegment, Knot manifoldKnot, int lineThickness,
+    public static void drawSingleCutMatch(Main main, Graphics2D g2, Segment matchSegment,
+            Segment cutSegment, int lineThickness,
             PointSet ps, Camera camera) {
 
         BasicStroke stroke = new BasicStroke(lineThickness);
@@ -310,8 +310,8 @@ public class Drawing {
         Drawing.drawSegment(g2, camera, cutSegment);
     }
 
-    public static void drawCircle(Graphics2D g2, VirtualPoint displayPoint, Camera camera, int lineThickness) {
-        g2.setPaint(Color.lightGray);
+    public static void drawCircle(Graphics2D g2, VirtualPoint displayPoint, Color color, Camera camera, int lineThickness) {
+        g2.setPaint(color);
         BasicStroke stroke = new BasicStroke(lineThickness);
         g2.setStroke(stroke);
         Point p = (Point) displayPoint;

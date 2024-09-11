@@ -1,5 +1,6 @@
 package shell.ui.tools;
 
+import java.awt.Color;
 import java.awt.Graphics2D;
 import java.util.ArrayList;
 
@@ -21,7 +22,7 @@ public class FreeTool extends Tool {
     @Override
     public void draw(Graphics2D g2, Camera camera, int minLineThickness) {
         if (displayPoint != null) {
-            Drawing.drawCircle(g2, displayPoint, camera, minLineThickness);
+            Drawing.drawCircle(g2, displayPoint,Color.lightGray, camera, minLineThickness);
         }
     }
 

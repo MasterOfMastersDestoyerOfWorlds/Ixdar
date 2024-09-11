@@ -1,6 +1,7 @@
 package shell.ui.tools;
 
 import java.awt.Graphics2D;
+import java.util.ArrayList;
 
 import shell.Main;
 import shell.Toggle;
@@ -30,8 +31,8 @@ public abstract class Tool {
 
     public void rightArrow() {
         throw new UnsupportedOperationException("Unimplemented method 'rightArrow'");
-    };    
-    
+    };
+
     public void confirm() {
         throw new UnsupportedOperationException("Unimplemented method 'confirm'");
     };
@@ -69,20 +70,22 @@ public abstract class Tool {
         Tool tool = Main.tool;
         if (mouseX <= Main.main.getWidth() && mouseX >= 0
                 && mouseY <= Main.main.getHeight() && mouseY >= 0) {
-            Knot manifoldKnot = Main.manifoldKnot;
+            ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
             Camera camera = Main.camera;
-            if (manifoldKnot != null) {
+            if (knotsDisplayed != null) {
                 camera.calculateCameraTransform();
                 double x = camera.screenTransformX(mouseX);
                 double y = camera.screenTransformY(mouseY);
                 double minDist = Double.MAX_VALUE;
                 Segment hoverSegment = null;
-                for (Segment s : manifoldKnot.manifoldSegments) {
-                    double result = s.boundContains(x, y);
-                    if (result > 0) {
-                        if (result < minDist) {
-                            minDist = result;
-                            hoverSegment = s;
+                for (Knot k : knotsDisplayed) {
+                    for (Segment s : k.manifoldSegments) {
+                        double result = s.boundContains(x, y);
+                        if (result > 0) {
+                            if (result < minDist) {
+                                minDist = result;
+                                hoverSegment = s;
+                            }
                         }
                     }
                 }

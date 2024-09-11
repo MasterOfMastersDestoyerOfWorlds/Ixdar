@@ -183,6 +183,9 @@ public class Segment implements Comparable<Segment> {
 
     public static long idTransform(long a, long b) {
         return a >= b ? a * a + a + b : b + a + b * b;
+    }    
+    public static long idTransformOrdered(long a, long b) {
+        return a * a + a + b;
     }
 
     public double boundContains(double x, double y) {

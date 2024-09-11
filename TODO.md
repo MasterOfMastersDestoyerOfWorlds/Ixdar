@@ -52,7 +52,7 @@
 1. - [x] Make tool to view which KnotPoints have any CutMatches that have a negative weight.
 2. - [ ] On pressing Ctrl+N should display the top manifold with all half-segments that only have positive weights leading to them in Medium-Green.
 3. - [ ] Half-Segments that have negative weight cut matches should be colored RED.
-4. - [ ] When we hover over a RED segment, display all of the cutMatches that lead to that KnotPoint with a negative weight, display the cut Segment in Yellow and the Match Segment in CYAN.
+4. - [x] When we hover over a RED segment, display all of the cutMatches that lead to that KnotPoint with a negative weight, display the cut Segment in Yellow and the Match Segment in CYAN.
 5. - [ ] For now clicking will exit the tool.
 6. - [ ] Pressing Left/Right Arrow Key should move the hover knotPoint to the next clockwise knotPoint with negative weight.
 
