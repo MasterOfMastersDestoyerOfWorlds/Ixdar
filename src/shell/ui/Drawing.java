@@ -10,7 +10,13 @@ import java.awt.geom.GeneralPath;
 import java.awt.geom.Path2D;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
+import java.util.ArrayList;
+import java.util.HashMap;
+
 import javax.swing.JComponent;
+
+import org.apache.commons.math3.util.Pair;
+
 import shell.Main;
 import shell.PointSet;
 import shell.cuts.CutMatch;
@@ -274,24 +280,32 @@ public class Drawing {
 
     }
 
-    public static void drawGradientPath(Graphics2D g2, Knot k, Shell shell, Camera camera, int minLineThickness) {
-        for (Segment s : k.manifoldSegments) {
-            VirtualPoint vp1 = s.first;
-            VirtualPoint vp2 = s.last;
+    public static void drawGradientPath(Graphics2D g2, Knot k,
+            ArrayList<Pair<Integer, Integer>> lookUpPairs, HashMap<Integer, Integer> colorLookup,
+            ArrayList<Color> colors, Camera camera, int minLineThickness) {
 
-            Knot smallestKnot1 = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[vp1.id]);
+        BasicStroke doubleStroke = new BasicStroke(minLineThickness * 2);
+        g2.setStroke(doubleStroke);
 
-            Knot smallestKnot2 = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[vp2.id]);
+        for (int i = 0; i < k.manifoldSegments.size(); i++) {
+            Segment s = k.manifoldSegments.get(i);
+            if (lookUpPairs != null) {
+                Pair<Integer, Integer> lookUpPair = lookUpPairs.get(i);
 
-            camera.calculateCameraTransform();
-            BasicStroke doubleStroke = new BasicStroke(minLineThickness * 2);
-            g2.setStroke(doubleStroke);
-            if (Main.colorLookup.containsKey(smallestKnot1.id)) {
-                Drawing.drawGradientSegment(g2, camera, s,
-                        Main.knotGradientColors.get(Main.colorLookup.get(smallestKnot1.id)),
-                        Main.knotGradientColors.get(Main.colorLookup.get(smallestKnot2.id)));
+                if (colorLookup.containsKey(lookUpPair.getFirst())) {
+                    Drawing.drawGradientSegment(g2, camera, s,
+                            colors.get(colorLookup.get(lookUpPair.getFirst())),
+                            colors.get(colorLookup.get(lookUpPair.getSecond())));
+                }
+            } else {
+                if (colorLookup.containsKey(s.first.id)) {
+                    Drawing.drawGradientSegment(g2, camera, s,
+                            colors.get(colorLookup.get(s.first.id)),
+                            colors.get(colorLookup.get(s.last.id)));
+                }
             }
         }
+
     }
 
     public static void drawSingleCutMatch(Main main, Graphics2D g2, Segment matchSegment,
@@ -310,7 +324,8 @@ public class Drawing {
         Drawing.drawSegment(g2, camera, cutSegment);
     }
 
-    public static void drawCircle(Graphics2D g2, VirtualPoint displayPoint, Color color, Camera camera, int lineThickness) {
+    public static void drawCircle(Graphics2D g2, VirtualPoint displayPoint, Color color, Camera camera,
+            int lineThickness) {
         g2.setPaint(color);
         BasicStroke stroke = new BasicStroke(lineThickness);
         g2.setStroke(stroke);
