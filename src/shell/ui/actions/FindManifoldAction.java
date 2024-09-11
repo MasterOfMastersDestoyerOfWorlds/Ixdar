@@ -23,6 +23,7 @@ public class FindManifoldAction extends AbstractAction {
         findManifoldTool.state = FindManifoldTool.States.FindStart;
         Main.tool = findManifoldTool;
         Main.metroDrawLayer = Main.shell.cutEngine.totalLayers;
+        Main.updateKnotsDisplayed();
 
     }
 

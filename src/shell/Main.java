@@ -82,11 +82,11 @@ public class Main extends JComponent {
 	public static Color stickyColor;
 	public static ArrayList<Color> metroColors = new ArrayList<>();
 	public static ArrayList<Color> knotGradientColors = new ArrayList<>();
-	public static HashMap<Integer, Integer> colorLookup = new HashMap<>();
+	public static HashMap<Long, Integer> colorLookup = new HashMap<>();
 
 	public Main() {
 
-		fileName = "qa194_120-160";
+		fileName = "rings-3-manifold_master";
 		file = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(file);
 		frame = new JFrame("Ixdar : " + fileName);
@@ -212,7 +212,7 @@ public class Main extends JComponent {
 		int i = 0;
 		for (Knot k : shell.cutEngine.flatKnots.values()) {
 			knotGradientColors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
-			colorLookup.put(k.id, i);
+			colorLookup.put((long)k.id, i);
 			i++;
 		}
 
@@ -339,7 +339,7 @@ public class Main extends JComponent {
 		if (metroDrawLayer == shell.cutEngine.totalLayers) {
 
 			if (tool.canUseToggle(Toggle.drawKnotGradient) && manifoldKnot != null) {
-				ArrayList<Pair<Integer, Integer>> idTransform = lookupPairs(manifoldKnot);
+				ArrayList<Pair<Long, Long>> idTransform = lookupPairs(manifoldKnot);
 				Drawing.drawGradientPath(g2, manifoldKnot, idTransform, colorLookup, knotGradientColors, camera,
 						Drawing.MIN_THICKNESS);
 			} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
@@ -359,7 +359,7 @@ public class Main extends JComponent {
 				}
 				if (metroDrawLayer < 0) {
 					if (tool.canUseToggle(Toggle.drawKnotGradient)) {
-						ArrayList<Pair<Integer, Integer>> idTransform = lookupPairs(temp.k);
+						ArrayList<Pair<Long, Long>> idTransform = lookupPairs(temp.k);
 						Drawing.drawGradientPath(g2, temp.k, idTransform, colorLookup, knotGradientColors,
 								camera,
 								Drawing.MIN_THICKNESS);
@@ -369,7 +369,7 @@ public class Main extends JComponent {
 					}
 				} else {
 					if (tool.canUseToggle(Toggle.drawKnotGradient)) {
-						ArrayList<Pair<Integer, Integer>> idTransform = lookupPairs(temp.k);
+						ArrayList<Pair<Long, Long>> idTransform = lookupPairs(temp.k);
 						Drawing.drawGradientPath(g2, temp.k, idTransform, colorLookup, knotGradientColors,
 								camera,
 								Drawing.MIN_THICKNESS);
@@ -384,9 +384,9 @@ public class Main extends JComponent {
 		}
 	}
 
-	public static ArrayList<Pair<Integer, Integer>> lookupPairs(Knot k) {
+	public static ArrayList<Pair<Long, Long>> lookupPairs(Knot k) {
 
-		ArrayList<Pair<Integer, Integer>> idTransform = new ArrayList<>();
+		ArrayList<Pair<Long, Long>> idTransform = new ArrayList<>();
 		for (int i = 0; i < k.manifoldSegments.size(); i++) {
 			Segment s = k.manifoldSegments.get(i);
 			VirtualPoint vp1 = s.first;
@@ -395,7 +395,7 @@ public class Main extends JComponent {
 			Knot smallestKnot1 = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[vp1.id]);
 
 			Knot smallestKnot2 = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[vp2.id]);
-			idTransform.add(new Pair<Integer, Integer>(smallestKnot1.id, smallestKnot2.id));
+			idTransform.add(new Pair<Long, Long>((long)smallestKnot1.id, (long)smallestKnot2.id));
 		}
 		return idTransform;
 	}

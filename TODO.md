@@ -6,6 +6,12 @@
 2. - [ ] Should only move toward the exit in terms of Knot distance
 3. - [ ] should also have the ability to change the previous Knot boundary's connection
 4. - [ ] need to change cutKnot method to cut all knots on a level at once
+5. - [ ] Need to check overlapping cut segments with two knotPoints and one cutPoint, but continue to skip overlapping cut segments with one knotPoint and two cutPoints.
+
+## Knot Finding
+
+1. - [ ] If we have a VirtualPoint A that points to two different internal VirtualPoints B and C in the top layer of a Knot, we need to insert A between B and C.
+2. - [ ] Need to Disallow making knots with all internals being knots where the first knot and the last knot do not actually want to match to each other. this is fine when everything is a point, but the correct way to represent this would be : Knot[Knot[Knot[1] Knot[2]] Knot[3]] instead of Knot[Knot[1] Knot[2] Knot[3]]
 
 ## Unit Testing
 
@@ -15,12 +21,6 @@
 4. - [ ] Generate a Unit Test that runs all of the manifold solutions in the folder
 5. - [ ] Should compare against the manifold cut match answer in the master file
 
-## Filesystem
-
-1. - [x] When we are in manifold mode update key (VK_U) should update the cut match CUTANS in the respective file.
-2. - [x] Should only update when we have the correct answer length and the cutMatch is smaller than the one stored in the file
-3. - [x] Manifold files should have the following format djbouti-8-34-manifold_KP1-CP1_KP2-CP2
-4. - [x] Should be able to load multiple manifolds per file
 
 ## UI Tools General
 
@@ -29,7 +29,7 @@
 3. - [x] Figure out screen-space to point-space conversion
 4. - [x] Figure out Skewed bounding boxes around Line Segments
 5. - [x] Should set a segment as the "hover segment" when within some distance to one of the line Segments in the current Manifold Knot.
-6. - [ ] Should expand the Segment Bounding boxes to work at any knot level not just the manifold knot.
+6. - [x] Should expand the Segment Bounding boxes to work at any knot level not just the manifold knot.
 7. - [x] Should only have one tool active at a time and call the super class's draw and click functions
 8. - [ ] Tools should specify what type of bounding boxes that they should use? (Segment rectangle versus radius from point?)
 9. - [x] Clicking and dragging should change the panX, panY to where the new mouse position is.
@@ -37,7 +37,7 @@
 11. - [x] Pressing VK_R should reset the camera and reset the active tool but not exit it.
 12. - [ ] Pressing and Holding Left/Right should repeat the action at some reasonable rate.
 13. - [x] Need to find some way to determine clockwise versus anti clockwise.
-14. - [ ] Each Tool should tell the user some information about what to do when using it.
+14. - [ ] Each Tool should tell the user some information about what to do when using it in the message pool.
 15. - [x] Pressing VK_Enter should advance the tool if there is a selection active
 
 ## UI Free Tool
@@ -47,20 +47,11 @@
 3. - [x] Pressing Left/Right Arrow Key should move the selected point to the next clockwise point in the current knot level.
 4. - [ ] Pressing VK_K should switch to displaying the same information about the current knot the point is in.
 
-## UI Negative CutMatch View Tool
-
-1. - [x] Make tool to view which KnotPoints have any CutMatches that have a negative weight.
-2. - [ ] On pressing Ctrl+N should display the top manifold with all half-segments that only have positive weights leading to them in Medium-Green.
-3. - [ ] Half-Segments that have negative weight cut matches should be colored RED.
-4. - [x] When we hover over a RED segment, display all of the cutMatches that lead to that KnotPoint with a negative weight, display the cut Segment in Yellow and the Match Segment in CYAN.
-5. - [ ] For now clicking will exit the tool.
-6. - [ ] Pressing Left/Right Arrow Key should move the hover knotPoint to the next clockwise knotPoint with negative weight.
-
 ## UI CutMatch Tool
 
 1. - [x] Make tool to test out new cut match groups.
 2. - [x] Should follow pointer with a cyan line and display a yellow line on the nearest cut segment to the pointer.
-3. - [ ] The original calculated cut match group should be at like opacity 40  or 30.
+3. - [ ] The original calculated cut match group should be at like opacity 40 or 30.
 4. - [ ] Once the user clicks on a highlighted cutMatch pair add that cutMatch to the the edited cutMatch list
 5. - [ ] Don't end this state till either the edited cutMatch group finds cutPoint2 or the user presses the hotkey again.
 6. - [ ] User should not be able to make invalid cuts and there should be a separate hotkey to undo a cutMatch.
@@ -88,10 +79,21 @@
 8. - [ ] Should we only draw one line segment per segment? i.e implement some kind of Z-Buffer? currently just works on the order of drawing, but could imagine storing two colors for every segment and draw each segment as a gradient. As well as storing null color? or a list of segments to draw.
 9. - [ ] Need to be able to distinguish between Ctrl + Key and Key with precedence for Ctrl + Key.
 
-## Bugfixes
+## UI Negative CutMatch View Tool
 
-1. - [ ] Need to check overlapping cut segments with two knotPoints and one cutPoint, but continue to skip overlapping cut segments with one knotPoint and two cutPoints.
-2. - [ ] Need to Disallow making knots with all internals being knots where the first knot and the last knot do not actually want to match to each other. this is fine when everything is a point, but the correct way to represent this would be : Knot[Knot[Knot[1] Knot[2]] Knot[3]] instead of Knot[Knot[1] Knot[2] Knot[3]]
+1. - [x] Make tool to view which KnotPoints have any CutMatches that have a negative weight.
+2. - [x] On pressing Ctrl+N should display the top manifold with all half-segments that only have positive weights leading to them in Medium-Green.
+3. - [x] Half-Segments that have negative weight cut matches should be colored RED.
+4. - [x] When we hover over a RED segment, display all of the cutMatches that lead to that KnotPoint with a negative weight, display the cut Segment in Yellow and the Match Segment in CYAN.
+5. - [x] Pressing Left/Right Arrow Key should move the hover knotPoint to the next clockwise knotPoint with negative weight.
+6. - [x] Need to make it so you can change the color at the point rather than having only one color per segment.
+
+## Filesystem
+
+1. - [x] When we are in manifold mode update key (VK_U) should update the cut match CUTANS in the respective file.
+2. - [x] Should only update when we have the correct answer length and the cutMatch is smaller than the one stored in the file
+3. - [x] Manifold files should have the following format djbouti-8-34-manifold_KP1-CP1_KP2-CP2
+4. - [x] Should be able to load multiple manifolds per file
 
 ## General Speedup
 

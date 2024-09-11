@@ -21,7 +21,7 @@ public class NegativeCutMatchViewTool extends Tool {
     public Manifold manifold;
     public HashMap<Long, ArrayList<Segment>> negativeSegmentMap;
     public int layerCalculated;
-    HashMap<Integer, Integer> colorLookup;
+    HashMap<Long, Integer> colorLookup;
     public static ArrayList<Color> colors;
 
     public NegativeCutMatchViewTool() {
@@ -53,16 +53,31 @@ public class NegativeCutMatchViewTool extends Tool {
             ArrayList<Segment> matchSegments = negativeSegmentMap.get(matchId);
             long cutId = Segment.idTransform(hoverKP.id, hoverCP.id);
             Segment cutSeg = hoverKP.segmentLookup.get(cutId);
-            for (Segment s : matchSegments) {
-                Drawing.drawSingleCutMatch(Main.main, g2, s, cutSeg, Drawing.MIN_THICKNESS * 2, Main.retTup.ps, camera);
+            if (matchSegments != null) {
+                for (Segment s : matchSegments) {
+                    Drawing.drawSingleCutMatch(Main.main, g2, s, cutSeg, Drawing.MIN_THICKNESS * 2, Main.retTup.ps,
+                            camera);
+                }
+                Drawing.drawCircle(g2, hoverKP, Color.green, camera, minLineThickness);
             }
-            Drawing.drawCircle(g2, hoverKP, Color.green, camera, minLineThickness);
         }
         for (Knot k : Main.knotsDisplayed) {
-            Drawing.drawGradientPath(g2, k, null, colorLookup, colors,
+            Drawing.drawGradientPath(g2, k, lookupPairs(k), colorLookup, colors,
                     camera,
                     Drawing.MIN_THICKNESS);
         }
+    }
+
+    public static ArrayList<Pair<Long, Long>> lookupPairs(Knot k) {
+
+        ArrayList<Pair<Long, Long>> idTransform = new ArrayList<>();
+        for (int i = 0; i < k.manifoldSegments.size(); i++) {
+            Segment s = k.manifoldSegments.get(i);
+            long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
+            long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
+            idTransform.add(new Pair<Long, Long>(matchId, matchId2));
+        }
+        return idTransform;
     }
 
     @Override
@@ -90,10 +105,10 @@ public class NegativeCutMatchViewTool extends Tool {
                     if (!s.contains(vp)) {
                         Segment firstSegment = vp.getSegment(s.last);
                         Segment lastSegment = vp.getSegment(s.first);
-                        if (firstSegment.distance - s.distance < 0) {
+                        if (!k.hasSegment(firstSegment) && firstSegment.distance - s.distance < 0) {
                             firstNegativeSegments.add(firstSegment);
                         }
-                        if (lastSegment.distance - s.distance < 0) {
+                        if (!k.hasSegment(lastSegment) && lastSegment.distance - s.distance < 0) {
                             lastNegativeSegments.add(lastSegment);
                         }
                     }
@@ -104,16 +119,16 @@ public class NegativeCutMatchViewTool extends Tool {
             for (Segment s : k.manifoldSegments) {
                 long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
                 if (negativeSegmentMap.get(matchId).size() > 0) {
-                    colorLookup.put(s.first.id, 1);
+                    colorLookup.put(matchId, 1);
                 } else {
-                    colorLookup.put(s.first.id, 0);
+                    colorLookup.put(matchId, 0);
                 }
 
                 long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
                 if (negativeSegmentMap.get(matchId2).size() > 0) {
-                    colorLookup.put(s.last.id, 1);
+                    colorLookup.put(matchId2, 1);
                 } else {
-                    colorLookup.put(s.last.id, 0);
+                    colorLookup.put(matchId2, 0);
                 }
             }
 

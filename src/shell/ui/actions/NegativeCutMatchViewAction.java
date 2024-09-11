@@ -5,7 +5,6 @@ import javax.swing.AbstractAction;
 import javax.swing.JFrame;
 
 import shell.Main;
-import shell.Toggle;
 import shell.ui.tools.NegativeCutMatchViewTool;
 
 public class NegativeCutMatchViewAction extends AbstractAction {

@@ -281,7 +281,7 @@ public class Drawing {
     }
 
     public static void drawGradientPath(Graphics2D g2, Knot k,
-            ArrayList<Pair<Integer, Integer>> lookUpPairs, HashMap<Integer, Integer> colorLookup,
+            ArrayList<Pair<Long, Long>> lookUpPairs, HashMap<Long, Integer> colorLookup,
             ArrayList<Color> colors, Camera camera, int minLineThickness) {
 
         BasicStroke doubleStroke = new BasicStroke(minLineThickness * 2);
@@ -290,7 +290,7 @@ public class Drawing {
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
             if (lookUpPairs != null) {
-                Pair<Integer, Integer> lookUpPair = lookUpPairs.get(i);
+                Pair<Long, Long> lookUpPair = lookUpPairs.get(i);
 
                 if (colorLookup.containsKey(lookUpPair.getFirst())) {
                     Drawing.drawGradientSegment(g2, camera, s,
@@ -298,10 +298,10 @@ public class Drawing {
                             colors.get(colorLookup.get(lookUpPair.getSecond())));
                 }
             } else {
-                if (colorLookup.containsKey(s.first.id)) {
+                if (colorLookup.containsKey((long)s.first.id)) {
                     Drawing.drawGradientSegment(g2, camera, s,
-                            colors.get(colorLookup.get(s.first.id)),
-                            colors.get(colorLookup.get(s.last.id)));
+                            colors.get(colorLookup.get((long)s.first.id)),
+                            colors.get(colorLookup.get((long)s.last.id)));
                 }
             }
         }
