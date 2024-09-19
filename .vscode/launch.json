@@ -11,9 +11,16 @@
             "request": "launch",
             "mainClass": "shell.Main",
             "projectName": "TSP",
-            "vmArgs": "-enableassertions"
+            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true"
         },
-
+        {
+            "type": "java",
+            "name": "Launch AWT  TEST",
+            "request": "launch",
+            "mainClass": "shell.render.AWTTest",
+            "projectName": "TSP",
+            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true"
+        },
 
         {
             "type": "java",

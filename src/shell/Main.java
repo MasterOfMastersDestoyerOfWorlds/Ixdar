@@ -87,7 +87,7 @@ public class Main extends JComponent {
 		retTup = FileManagement.importFromFile(file);
 		frame = new JFrame("Ixdar : " + fileName);
 
-		ImageIcon img = new ImageIcon("decalSmall.png");
+		ImageIcon img = new ImageIcon("res/decalSmall.png");
 		frame.setIconImage(img.getImage());
 		Container pane = frame.getContentPane();
 		pane.setBackground(new Color(20, 20, 20));

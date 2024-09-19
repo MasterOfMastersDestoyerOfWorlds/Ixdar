@@ -88,6 +88,14 @@
 8. - [ ] Should we only draw one line segment per segment? i.e implement some kind of Z-Buffer? currently just works on the order of drawing, but could imagine storing two colors for every segment and draw each segment as a gradient. As well as storing null color? or a list of segments to draw.
 9. - [ ] Need to be able to distinguish between Ctrl + Key and Key with precedence for Ctrl + Key.
 
+## Main Menu
+
+1. - [ ] Have rotating monkeys knot in vector graphics at center.
+2. - [ ] Title Should be Ixdar in the same font as the decal.
+3. - [ ] Figure out how to load and display 3d models with awt? or JOGO?
+4. - [ ] Every frame figure out the outline of the Title and Knot and have a contrail off to the right, the contrail should be produced every frame and should expoentially decay in number of segments.
+5. - [ ] Once you go into the tool the knot should stop rotating and a sword should cut it in half.
+
 ## Bugfixes
 
 1. - [ ] Need to check overlapping cut segments with two knotPoints and one cutPoint, but continue to skip overlapping cut segments with one knotPoint and two cutPoints.

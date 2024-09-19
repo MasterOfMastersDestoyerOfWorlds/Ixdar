@@ -21,7 +21,7 @@ public class Logo extends JComponent {
         this.setPreferredSize(new Dimension(150, 150));
         this.setEnabled(true);
         try {
-            img = ImageIO.read(new File("decal.png"));
+            img = ImageIO.read(new File("./res/decal.png"));
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();

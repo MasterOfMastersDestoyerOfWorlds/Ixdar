@@ -1,4 +1,4 @@
-<img src="decal.svg" alt="Decal" width="50%" style="max-height: 400px; display: block;margin-left: auto;margin-right: auto;"/>
+<img src="./res/decal.svg" alt="Decal" width="50%" style="max-height: 400px; display: block;margin-left: auto;margin-right: auto;"/>
 
 ## Contents
 
