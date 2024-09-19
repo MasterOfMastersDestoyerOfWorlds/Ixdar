@@ -77,6 +77,7 @@ public class KeyGuy implements KeyListener {
 
     @Override
     public void keyPressed(KeyEvent e) {
+
         pressedKeys.add(e.getKeyCode());
 
         main.repaint();
@@ -185,17 +186,14 @@ public class KeyGuy implements KeyListener {
             camera.PanY = camera.defaultPanY;
             Main.tool.reset();
         }
-        if (e.getKeyCode() == KeyEvent.VK_LEFT) {
-            Main.tool.leftArrow();
-        }
-        if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
-            Main.tool.rightArrow();
-        }
         if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
             Main.tool = Main.freeTool;
             main.repaint();
         }
     }
+
+    long REPRESS_TIME = 360;
+    long lastPressTime;
 
     public void paintUpdate(double SHIFT_MOD) {
         if (!pressedKeys.isEmpty()) {
@@ -235,6 +233,21 @@ public class KeyGuy implements KeyListener {
                 Point frameLocation = Main.frame.getRootPane().getLocationOnScreen();
                 Main.tool.calculateHover((int) (mouseLocation.getX() - frameLocation.getX()),
                         (int) (mouseLocation.getY() - frameLocation.getY()));
+            }
+        }
+
+        long timeSinceLastPress = System.currentTimeMillis() - lastPressTime;
+        if (!pressedKeys.isEmpty() && timeSinceLastPress > REPRESS_TIME / SHIFT_MOD) {
+            lastPressTime = System.currentTimeMillis();
+            for (Iterator<Integer> it = pressedKeys.iterator(); it.hasNext();) {
+                switch (it.next()) {
+                    case KeyEvent.VK_LEFT:
+                        Main.tool.leftArrow();
+                        break;
+                    case KeyEvent.VK_RIGHT:
+                        Main.tool.rightArrow();
+                        break;
+                }
             }
         }
 

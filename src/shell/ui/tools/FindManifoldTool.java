@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import shell.Main;
 import shell.ToggleType;
 import shell.file.Manifold;
-import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.ui.Camera;
@@ -91,57 +90,6 @@ public class FindManifoldTool extends Tool {
         }
     }
 
-    @Override
-    public void leftArrow() {
-        ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
-        if (hover == null) {
-            hover = Main.manifoldKnot.manifoldSegments.get(0);
-            hoverKP = hover.first;
-            hoverCP = hover.last;
-        } else {
-            for (Knot k : knotsDisplayed) {
-                if (k.contains(hoverKP)) {
-                    VirtualPoint clockWise = k.getNextClockWise(hoverKP);
-                    if (clockWise.equals(hoverCP)) {
-                        clockWise = hoverKP;
-                        hoverKP = hoverCP;
-                        hoverCP = clockWise;
-                        hover = hoverKP.getSegment(hoverCP);
-                    } else {
-                        hoverCP = clockWise;
-                        hover = hoverKP.getSegment(hoverCP);
-                    }
-                    return;
-                }
-            }
-        }
-    }
-
-    @Override
-    public void rightArrow() {
-        if (hover == null) {
-            hover = Main.manifoldKnot.manifoldSegments.get(0);
-            hoverKP = hover.first;
-            hoverCP = hover.last;
-        } else {
-            ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
-            for (Knot k : knotsDisplayed) {
-                if (k.contains(hoverKP)) {
-                    VirtualPoint clockWise = k.getNextCounterClockWise(hoverKP);
-                    if (clockWise.equals(hoverCP)) {
-                        clockWise = hoverKP;
-                        hoverKP = hoverCP;
-                        hoverCP = clockWise;
-                        hover = hoverKP.getSegment(hoverCP);
-                    } else {
-                        hoverCP = clockWise;
-                        hover = hoverKP.getSegment(hoverCP);
-                    }
-                    return;
-                }
-            }
-        }
-    }
 
     @Override
     public String displayName() {

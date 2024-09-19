@@ -23,6 +23,9 @@ import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
+
+import org.apache.commons.math3.util.Pair;
+
 import shell.cuts.CutEngine;
 import shell.cuts.InternalPathEngine;
 import shell.exceptions.SegmentBalanceException;
@@ -32,6 +35,7 @@ import shell.file.PointSetPath;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Run;
+import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.route.RouteInfo;
 import shell.shell.Shell;
@@ -78,11 +82,11 @@ public class Main extends JComponent {
 	public static Color stickyColor;
 	public static ArrayList<Color> metroColors = new ArrayList<>();
 	public static ArrayList<Color> knotGradientColors = new ArrayList<>();
-	public static HashMap<Integer, Integer> colorLookup = new HashMap<>();
+	public static HashMap<Long, Integer> colorLookup = new HashMap<>();
 
 	public Main() {
 
-		fileName = "qa194_120-160";
+		fileName = "rings-3-manifold_master";
 		file = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(file);
 		frame = new JFrame("Ixdar : " + fileName);
@@ -208,7 +212,7 @@ public class Main extends JComponent {
 		int i = 0;
 		for (Knot k : shell.cutEngine.flatKnots.values()) {
 			knotGradientColors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
-			colorLookup.put(k.id, i);
+			colorLookup.put((long)k.id, i);
 			i++;
 		}
 
@@ -316,45 +320,9 @@ public class Main extends JComponent {
 				if (tool.canUseToggle(Toggle.drawMainPath)) {
 					orgShell.drawShell(this, g2, false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
 				}
-				if (tool.canUseToggle(Toggle.drawMetroDiagram) && shell != null) {
-					if (metroDrawLayer == shell.cutEngine.totalLayers) {
-
-						if (tool.canUseToggle(Toggle.drawKnotGradient) && manifoldKnot != null) {
-							Drawing.drawGradientPath(g2, manifoldKnot, shell, camera, Drawing.MIN_THICKNESS);
-						} else {
-							for (Shell temp : subPaths) {
-								temp.drawShell(this, g2, true, Drawing.MIN_THICKNESS * 2,
-										stickyColor, retTup.ps, camera);
-							}
-						}
-					} else {
-						PriorityQueue<ShellPair> newQueue = new PriorityQueue<ShellPair>(new ShellComparator());
-						int size = metroPathsLayer.size();
-						for (int i = 0; i < size; i++) {
-							ShellPair temp = metroPathsLayer.remove();
-							newQueue.add(temp);
-							if (metroDrawLayer >= 0 && temp.priority != metroDrawLayer) {
-								continue;
-							}
-							if (metroDrawLayer < 0) {
-								if (tool.canUseToggle(Toggle.drawKnotGradient)) {
-									Drawing.drawGradientPath(g2, temp.k, shell, camera, Drawing.MIN_THICKNESS);
-								} else {
-									temp.shell.drawShell(this, g2, true, 2 + 1f * temp.priority,
-											metroColors.get(temp.priority), retTup.ps, camera);
-								}
-							} else {
-								if (tool.canUseToggle(Toggle.drawKnotGradient)) {
-									Drawing.drawGradientPath(g2, temp.k, shell, camera, Drawing.MIN_THICKNESS);
-								} else {
-									temp.shell.drawShell(this, g2, true, Drawing.MIN_THICKNESS * 2,
-											metroColors.get(temp.priority), retTup.ps, camera);
-								}
-
-							}
-						}
-						metroPathsLayer = newQueue;
-					}
+				if (tool.canUseToggle(Toggle.drawDisplayedKnots) && tool.canUseToggle(Toggle.drawMetroDiagram)
+						&& shell != null) {
+					drawDisplayedKnots(g2);
 				}
 
 			} catch (Exception e) {
@@ -365,6 +333,71 @@ public class Main extends JComponent {
 			}
 		}
 
+	}
+
+	private void drawDisplayedKnots(Graphics2D g2) {
+		if (metroDrawLayer == shell.cutEngine.totalLayers) {
+
+			if (tool.canUseToggle(Toggle.drawKnotGradient) && manifoldKnot != null) {
+				ArrayList<Pair<Long, Long>> idTransform = lookupPairs(manifoldKnot);
+				Drawing.drawGradientPath(g2, manifoldKnot, idTransform, colorLookup, knotGradientColors, camera,
+						Drawing.MIN_THICKNESS);
+			} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
+				for (Shell temp : subPaths) {
+					temp.drawShell(this, g2, true, Drawing.MIN_THICKNESS * 2,
+							stickyColor, retTup.ps, camera);
+				}
+			}
+		} else {
+			PriorityQueue<ShellPair> newQueue = new PriorityQueue<ShellPair>(new ShellComparator());
+			int size = metroPathsLayer.size();
+			for (int i = 0; i < size; i++) {
+				ShellPair temp = metroPathsLayer.remove();
+				newQueue.add(temp);
+				if (metroDrawLayer >= 0 && temp.priority != metroDrawLayer) {
+					continue;
+				}
+				if (metroDrawLayer < 0) {
+					if (tool.canUseToggle(Toggle.drawKnotGradient)) {
+						ArrayList<Pair<Long, Long>> idTransform = lookupPairs(temp.k);
+						Drawing.drawGradientPath(g2, temp.k, idTransform, colorLookup, knotGradientColors,
+								camera,
+								Drawing.MIN_THICKNESS);
+					} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
+						temp.shell.drawShell(this, g2, true, 2 + 1f * temp.priority,
+								metroColors.get(temp.priority), retTup.ps, camera);
+					}
+				} else {
+					if (tool.canUseToggle(Toggle.drawKnotGradient)) {
+						ArrayList<Pair<Long, Long>> idTransform = lookupPairs(temp.k);
+						Drawing.drawGradientPath(g2, temp.k, idTransform, colorLookup, knotGradientColors,
+								camera,
+								Drawing.MIN_THICKNESS);
+					} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
+						temp.shell.drawShell(this, g2, true, Drawing.MIN_THICKNESS * 2,
+								metroColors.get(temp.priority), retTup.ps, camera);
+					}
+
+				}
+			}
+			metroPathsLayer = newQueue;
+		}
+	}
+
+	public static ArrayList<Pair<Long, Long>> lookupPairs(Knot k) {
+
+		ArrayList<Pair<Long, Long>> idTransform = new ArrayList<>();
+		for (int i = 0; i < k.manifoldSegments.size(); i++) {
+			Segment s = k.manifoldSegments.get(i);
+			VirtualPoint vp1 = s.first;
+			VirtualPoint vp2 = s.last;
+
+			Knot smallestKnot1 = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[vp1.id]);
+
+			Knot smallestKnot2 = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[vp2.id]);
+			idTransform.add(new Pair<Long, Long>((long)smallestKnot1.id, (long)smallestKnot2.id));
+		}
+		return idTransform;
 	}
 
 	public static void calculateSubPaths() {
@@ -423,7 +456,7 @@ public class Main extends JComponent {
 		knotsDisplayed = new ArrayList<>();
 		for (int i = 0; i < size; i++) {
 			ShellPair temp = metroPathsLayer.remove();
-			if(temp.priority == metroDrawLayer){
+			if (temp.priority == metroDrawLayer) {
 				knotsDisplayed.add(temp.k);
 			}
 			newQueue.add(temp);

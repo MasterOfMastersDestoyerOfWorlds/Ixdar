@@ -11,6 +11,7 @@ public class Toggle {
 	public static Toggle drawCutMatch = new Toggle(true, ToggleType.DrawCutMatch);
 	public static Toggle manifold = new Toggle(false, ToggleType.Manifold);
 	public static Toggle canSwitchLayer = new Toggle(true, ToggleType.CanSwitchLayer);
+	public static Toggle drawDisplayedKnots = new Toggle(true, ToggleType.DrawDisplayedKnots);
 
     public Toggle(boolean value, ToggleType type) {
         this.type = type;
