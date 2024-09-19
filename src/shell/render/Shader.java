@@ -6,6 +6,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import org.lwjgl.BufferUtils;
@@ -67,6 +68,10 @@ public class Shader {
 
     void setFloat(String name, float value) {
         glUniform1f(glGetUniformLocation(ID, name), value);
+    }
+
+    public void setMat4(String name, FloatBuffer value) {
+        glUniformMatrix4fv(glGetUniformLocation(ID, name), false, value);
     }
 
     private void checkCompileErrors(int shader, ShaderType type) {
