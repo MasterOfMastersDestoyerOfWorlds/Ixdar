@@ -1,11 +1,12 @@
-package shell.ui;
+package shell.cameras;
 
+import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
 
 import shell.PointND;
 import shell.PointSet;
 
-public class Camera {
+public class Camera2D implements Camera {
 
     public double ZOOM_SPEED = 0.005;
     public double PAN_SPEED = 0.65;
@@ -28,8 +29,9 @@ public class Camera {
     private double maxY;
     private double height;
     double width;
+    private double SHIFT_MOD = 1.0;
 
-    public Camera(int Height, int Width, double ScaleFactor, double PanX, double PanY, PointSet ps) {
+    public Camera2D(int Height, int Width, double ScaleFactor, double PanX, double PanY, PointSet ps) {
         this.Height = Height;
         this.Width = Width;
         this.height = Height * ScaleFactor;
@@ -168,6 +170,57 @@ public class Camera {
         PanX += (((double) ScreenWidth) / 2) - midXNewScale;
         PanY += (((double) ScreenHeight) / 2) - midYNewScale;
         ScaleFactor += delta;
+    }
+
+    @Override
+    public void reset() {
+        ScaleFactor = InitialScale;
+        PanX = defaultPanX;
+        PanY = defaultPanY;
+    }
+
+    @Override
+    public void move(CameraMoveDirection direction) {
+        switch (direction) {
+            case FORWARD:
+                PanY += PAN_SPEED * SHIFT_MOD;
+                break;
+            case LEFT:
+                PanX += PAN_SPEED * SHIFT_MOD;
+                break;
+            case BACKWARD:
+                PanY -= PAN_SPEED * SHIFT_MOD;
+                break;
+            case RIGHT:
+                PanX -= PAN_SPEED * SHIFT_MOD;
+                break;
+
+        }
+    }
+
+    @Override
+    public void setShiftMod(double SHIFT_MOD) {
+        this.SHIFT_MOD = SHIFT_MOD;
+    }
+
+    @Override
+    public void zoom(boolean b) {
+        if (b) {
+            scale(ZOOM_SPEED * SHIFT_MOD);
+        } else {
+            scale(-1 * ZOOM_SPEED * SHIFT_MOD);
+        }
+    }
+
+    public void drag(double d, double e) {
+        PanX += d;
+        PanY += e;
+    }
+
+    @Override
+    public void mouseMove(float lastX, float lastY, MouseEvent e) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'mouseMove'");
     }
 
 }

@@ -6,10 +6,10 @@ import java.util.ArrayList;
 import shell.Main;
 import shell.Toggle;
 import shell.ToggleType;
+import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.ui.Camera;
 
 public abstract class Tool {
 
@@ -17,7 +17,7 @@ public abstract class Tool {
     public VirtualPoint hoverKP;
     public VirtualPoint hoverCP;
 
-    public void draw(Graphics2D g2, Camera camera, int lineThickness) {
+    public void draw(Graphics2D g2, Camera2D camera, int lineThickness) {
         throw new UnsupportedOperationException("Unimplemented method 'draw'");
     };
 
@@ -113,7 +113,7 @@ public abstract class Tool {
         if (mouseX <= Main.main.getWidth() && mouseX >= 0
                 && mouseY <= Main.main.getHeight() && mouseY >= 0) {
             ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
-            Camera camera = Main.camera;
+            Camera2D camera = Main.camera;
             if (knotsDisplayed != null) {
                 camera.calculateCameraTransform();
                 double x = camera.screenTransformX(mouseX);
@@ -149,5 +149,8 @@ public abstract class Tool {
 
     public String displayName() {
         return "REEEEEEEE";
+    }
+    public ToolType toolType(){
+        return ToolType.None;
     }
 }

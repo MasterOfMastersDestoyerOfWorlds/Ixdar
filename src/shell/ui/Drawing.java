@@ -19,6 +19,7 @@ import org.apache.commons.math3.util.Pair;
 
 import shell.Main;
 import shell.PointSet;
+import shell.cameras.Camera2D;
 import shell.cuts.CutMatch;
 import shell.cuts.CutMatchList;
 import shell.exceptions.SegmentBalanceException;
@@ -33,14 +34,14 @@ public class Drawing {
     public static final int MIN_THICKNESS = 1;
 
     public static void drawCutMatch(JComponent frame, Graphics2D g2, SegmentBalanceException sbe, int lineThickness,
-            PointSet ps, Camera camera) {
+            PointSet ps, Camera2D camera) {
         drawCutMatch(frame, g2, sbe.cutMatchList, sbe.cut1, sbe.cut2, sbe.ex1, sbe.ex2, sbe.topKnot,
                 lineThickness, ps, camera);
     }
 
     public static void drawCutMatch(JComponent frame, Graphics2D g2, CutMatchList cml,
             Segment cut1, Segment cut2, Segment ex1, Segment ex2, Knot topKnot, int lineThickness,
-            PointSet ps, Camera camera) {
+            PointSet ps, Camera2D camera) {
 
         BasicStroke stroke = new BasicStroke(lineThickness);
 
@@ -138,7 +139,7 @@ public class Drawing {
 
     }
 
-    public static void drawManifoldCut(Graphics2D g2, VirtualPoint hoverKP, VirtualPoint hoverCP, Camera camera,
+    public static void drawManifoldCut(Graphics2D g2, VirtualPoint hoverKP, VirtualPoint hoverCP, Camera2D camera,
             int lineThickness) {
 
         Font font = new Font("San-Serif", Font.PLAIN, 20);
@@ -167,7 +168,7 @@ public class Drawing {
         g2.draw(new Ellipse2D.Double(kpCoords[0] - 5, kpCoords[1] - 5, 10, 10));
     }
 
-    public static void drawSegment(Graphics2D g2, Camera camera, Segment s) {
+    public static void drawSegment(Graphics2D g2, Camera2D camera, Segment s) {
         Point2D first;
         Point2D last;
         if (s.first.isKnot) {
@@ -191,7 +192,7 @@ public class Drawing {
         g2.drawLine((int) firstCoords[0], (int) firstCoords[1], (int) lastCoords[0], (int) lastCoords[1]);
     }
 
-    public static void drawGradientSegment(Graphics2D g2, Camera camera, Segment s, Color color1, Color color2) {
+    public static void drawGradientSegment(Graphics2D g2, Camera2D camera, Segment s, Color color1, Color color2) {
         Point2D first;
         Point2D last;
         if (s.first.isKnot) {
@@ -231,7 +232,7 @@ public class Drawing {
      */
     public static void drawPath(JComponent frame, Graphics2D g2, Path2D path, float lineThickness, Color color,
             PointSet ps,
-            boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed, Camera camera) {
+            boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed, Camera2D camera) {
         g2.setPaint(color);
 
         BasicStroke stroke = new BasicStroke(lineThickness);
@@ -282,7 +283,7 @@ public class Drawing {
 
     public static void drawGradientPath(Graphics2D g2, Knot k,
             ArrayList<Pair<Long, Long>> lookUpPairs, HashMap<Long, Integer> colorLookup,
-            ArrayList<Color> colors, Camera camera, int minLineThickness) {
+            ArrayList<Color> colors, Camera2D camera, int minLineThickness) {
 
         BasicStroke doubleStroke = new BasicStroke(minLineThickness * 2);
         g2.setStroke(doubleStroke);
@@ -310,7 +311,7 @@ public class Drawing {
 
     public static void drawSingleCutMatch(Main main, Graphics2D g2, Segment matchSegment,
             Segment cutSegment, int lineThickness,
-            PointSet ps, Camera camera) {
+            PointSet ps, Camera2D camera) {
 
         BasicStroke stroke = new BasicStroke(lineThickness);
         BasicStroke doubleStroke = new BasicStroke(2 * lineThickness);
@@ -324,7 +325,7 @@ public class Drawing {
         Drawing.drawSegment(g2, camera, cutSegment);
     }
 
-    public static void drawCircle(Graphics2D g2, VirtualPoint displayPoint, Color color, Camera camera,
+    public static void drawCircle(Graphics2D g2, VirtualPoint displayPoint, Color color, Camera2D camera,
             int lineThickness) {
         g2.setPaint(color);
         BasicStroke stroke = new BasicStroke(lineThickness);

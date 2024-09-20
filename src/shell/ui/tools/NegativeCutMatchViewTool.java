@@ -9,11 +9,11 @@ import org.apache.commons.math3.util.Pair;
 
 import shell.Main;
 import shell.ToggleType;
+import shell.cameras.Camera2D;
 import shell.file.Manifold;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.ui.Camera;
 import shell.ui.Drawing;
 
 public class NegativeCutMatchViewTool extends Tool {
@@ -43,7 +43,7 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     @Override
-    public void draw(Graphics2D g2, Camera camera, int minLineThickness) {
+    public void draw(Graphics2D g2, Camera2D camera, int minLineThickness) {
         if (layerCalculated != Main.metroDrawLayer) {
             initSegmentMap();
             return;

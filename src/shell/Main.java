@@ -26,6 +26,7 @@ import javax.swing.WindowConstants;
 
 import org.apache.commons.math3.util.Pair;
 
+import shell.cameras.Camera2D;
 import shell.cuts.CutEngine;
 import shell.cuts.InternalPathEngine;
 import shell.exceptions.SegmentBalanceException;
@@ -42,7 +43,6 @@ import shell.shell.Shell;
 import shell.shell.ShellPair;
 import shell.shell.ShellComparator;
 import shell.ui.tools.Tool;
-import shell.ui.Camera;
 import shell.ui.Drawing;
 import shell.ui.KeyGuy;
 import shell.ui.Logo;
@@ -56,7 +56,7 @@ public class Main extends JComponent {
 
 	public static Main main;
 	public static JFrame frame;
-	public static Camera camera;
+	public static Camera2D camera;
 	static MouseTrap mouse;
 	static KeyGuy keys;
 
@@ -110,7 +110,7 @@ public class Main extends JComponent {
 		pane.add(this, mainConstraints);
 		frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 
-		camera = new Camera(600, 600, 0.9, 0, 0, retTup.ps);
+		camera = new Camera2D(600, 600, 0.9, 0, 0, retTup.ps);
 		frame.setVisible(true);
 		this.setVisible(true);
 		this.setEnabled(true);
@@ -120,10 +120,10 @@ public class Main extends JComponent {
 		pane.setPreferredSize(new Dimension(750, 750));
 		pane.setSize(new Dimension(750, 750));
 
-		keys = new KeyGuy(this, frame, fileName);
+		keys = new KeyGuy(this, frame, fileName, camera);
 		frame.addKeyListener(keys);
 
-		mouse = new MouseTrap(this);
+		mouse = new MouseTrap(this, frame, camera, false);
 		pane.addMouseListener(mouse);
 		pane.addMouseWheelListener(mouse);
 		pane.addMouseMotionListener(mouse);
@@ -212,7 +212,7 @@ public class Main extends JComponent {
 		int i = 0;
 		for (Knot k : shell.cutEngine.flatKnots.values()) {
 			knotGradientColors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
-			colorLookup.put((long)k.id, i);
+			colorLookup.put((long) k.id, i);
 			i++;
 		}
 
@@ -395,7 +395,7 @@ public class Main extends JComponent {
 			Knot smallestKnot1 = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[vp1.id]);
 
 			Knot smallestKnot2 = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[vp2.id]);
-			idTransform.add(new Pair<Long, Long>((long)smallestKnot1.id, (long)smallestKnot2.id));
+			idTransform.add(new Pair<Long, Long>((long) smallestKnot1.id, (long) smallestKnot2.id));
 		}
 		return idTransform;
 	}

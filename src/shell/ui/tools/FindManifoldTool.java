@@ -5,10 +5,10 @@ import java.util.ArrayList;
 
 import shell.Main;
 import shell.ToggleType;
+import shell.cameras.Camera2D;
 import shell.file.Manifold;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.ui.Camera;
 import shell.ui.Drawing;
 
 public class FindManifoldTool extends Tool {
@@ -39,7 +39,7 @@ public class FindManifoldTool extends Tool {
     }
 
     @Override
-    public void draw(Graphics2D g2, Camera camera, int minLineThickness) {
+    public void draw(Graphics2D g2, Camera2D camera, int minLineThickness) {
         if (hover != null
                 && !hover.equals(firstSelectedSegment)) {
             Drawing.drawManifoldCut(g2, hoverKP, hoverCP, camera,
