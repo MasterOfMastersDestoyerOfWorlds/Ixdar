@@ -9,6 +9,10 @@ import org.lwjgl.opengl.awt.GLData;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 
+import shell.cameras.Camera3D;
+import shell.ui.KeyGuy;
+import shell.ui.MouseTrap;
+
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.io.File;
@@ -23,15 +27,11 @@ import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
 import static org.lwjgl.opengl.GL13.glActiveTexture;
 import static org.lwjgl.opengl.GL33.*;
 import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
-import static org.lwjgl.opengl.GL15.GL_ELEMENT_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
 import static org.lwjgl.opengl.GL15.glBindBuffer;
 import static org.lwjgl.opengl.GL15.glBufferData;
 import static org.lwjgl.opengl.GL15.glGenBuffers;
 import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
-import static org.lwjgl.opengl.GL20.glGetUniformLocation;
-import static org.lwjgl.opengl.GL20.glUniform1i;
-import static org.lwjgl.opengl.GL20.glUniformMatrix4fv;
 import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
 import static org.lwjgl.opengl.GL30.glBindVertexArray;
 import static org.lwjgl.opengl.GL30.glGenVertexArrays;
@@ -40,19 +40,30 @@ import static org.lwjgl.opengl.GL30.glGenerateMipmap;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
-public class AWTTest {
+public class AWTTest extends JFrame {
 
     public static int SIZE_FLOAT = 4;
-    public static JFrame frame;
+    public static AWTTest frame;
+    public static int width = 600;
+    public static int height = 600;
+    public static Camera3D camera;
 
     public static void main(String[] args) {
-        frame = new JFrame("AWT test");
+        frame = new AWTTest();
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.setLayout(new BorderLayout());
         frame.setPreferredSize(new Dimension(600, 600));
         GLData data = new GLData();
         AWTGLCanvas canvas;
+        camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f);
+        KeyGuy keyGuy = new KeyGuy(camera);
+
+        MouseTrap mouseTrap;
+        frame.requestFocus();
+        mouseTrap = new MouseTrap(null, frame, camera, true);
+        mouseTrap.captureMouse(true);
         frame.add(canvas = new AWTGLCanvas(data) {
+
             private static final long serialVersionUID = 1L;
             float vertices[] = {
                     -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
@@ -111,12 +122,18 @@ public class AWTTest {
                     new Vector3f(-1.3f, 1.0f, -1.5f)
             };
 
-            IntBuffer VAO, VBO, EBO;
+            IntBuffer VAO, VBO;
             Shader shader;
             int texture, texture2;
 
             @Override
             public void initGL() {
+
+                frame.addKeyListener(keyGuy);
+                frame.addMouseListener(mouseTrap);
+                this.addMouseMotionListener(mouseTrap);
+                this.addMouseListener(mouseTrap);
+                this.addMouseWheelListener(mouseTrap);
                 System.out.println("OpenGL version: " + effective.majorVersion + "." + effective.minorVersion
                         + " (Profile: " + effective.profile + ")");
                 createCapabilities();
@@ -147,20 +164,27 @@ public class AWTTest {
                 shader.setInt("texture2", 1); // or with shader class
 
                 glEnable(GL_DEPTH_TEST);
+                mouseTrap.setCanvas(this);
+                mouseTrap.captureMouse(true);
 
-                // GLM trans = new Vector3fmat4(1.0f);
-                // trans = new Vector3ftranslate(trans, new Vector3f(0.5f, -0.5f, 0.0f));
-                // trans = new Vector3frotate(trans, (float)glfwGetTime(), new Vector3f(0.0f,
-                // 0.0f,
-                // 1.0f));
             }
 
             @Override
             public void paintGL() {
+                if (this.hasFocus()) {
+                    frame.requestFocus();
+                }
+                keyGuy.paintUpdate(1.0);
+                mouseTrap.paintUpdate(1.0);
                 glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
                 shader.use();
+                if (frame.getWidth() != width || frame.getHeight() != height) {
+                    width = frame.getWidth();
+                    height = frame.getHeight();
+                    glViewport(0, 0, width, height);
+                }
 
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, texture);
@@ -168,12 +192,12 @@ public class AWTTest {
                 glActiveTexture(GL_TEXTURE1);
                 glBindTexture(GL_TEXTURE_2D, texture2);
                 try (MemoryStack stack = MemoryStack.stackPush()) {
-
-                    FloatBuffer view = new Matrix4f().translate(0.0f, 0.0f, -3.0f)
+                    camera.updateViewFirstPerson();
+                    FloatBuffer view = camera.view
                             .get(stack.mallocFloat(16)); // make sure to initialize matrix to identity matrix first
 
                     FloatBuffer projection = new Matrix4f()
-                            .perspective((float) Math.toRadians(45.0f), getAspectRatio(), 0.1f, 100.0f)
+                            .perspective((float) Math.toRadians(camera.fov), getAspectRatio(), 0.1f, 100.0f)
                             .get(stack.mallocFloat(16));
                     // pass transformation matrices to the shader
                     shader.setMat4("projection", projection); // note: currently we set the projection matrix each
@@ -186,7 +210,7 @@ public class AWTTest {
                     glBindVertexArray(VAO.get(0));
                     for (int i = 0; i < 10; i++) {
 
-                        float rads = Clock.spinTick((float) (Math.PI/10));
+                        float rads = Clock.spin((float) (Math.PI / 4)) + (float) Math.toRadians(20.0f * i);
                         FloatBuffer model = new Matrix4f().translate(cubePositions[i])
                                 .rotate(rads, new Vector3f(1.0f, 0.3f, 0.5f))
                                 .get(stack.mallocFloat(16));
@@ -196,6 +220,7 @@ public class AWTTest {
                     }
 
                 }
+                Clock.frameRendered();
                 swapBuffers();
             }
 
@@ -249,4 +274,5 @@ public class AWTTest {
     public static float getAspectRatio() {
         return ((float) frame.getWidth()) / ((float) frame.getHeight());
     }
+
 }

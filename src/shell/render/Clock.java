@@ -4,6 +4,7 @@ public class Clock {
     public static final double TAU = (2 * Math.PI);
     public static final double startTimeMillis = System.currentTimeMillis();
     public static final double startTimeSeconds = startTimeMillis / 1000.0;
+    private static float lastFrameRendered = 0.0f;
 
     public static float oscillate(double offset, double range, double radsPerSecond) {
         return oscillate((float) offset, (float) range, (float) radsPerSecond);
@@ -25,6 +26,19 @@ public class Clock {
         double timeSeconds = (double) (((long) time) / 1000) - startTimeSeconds;
         float retVal = (float) ((radsPerSecond * timeSeconds) % TAU);
         return retVal;
+    }
+
+    public static float time() {
+        double timeSeconds = (((double) System.currentTimeMillis()) / 1000.0) - startTimeSeconds;
+        return (float) timeSeconds;
+    }
+
+    public static void frameRendered() {
+        lastFrameRendered = time();
+    }
+
+    public static float deltaTime() {
+        return time() - lastFrameRendered;
     }
 
 }

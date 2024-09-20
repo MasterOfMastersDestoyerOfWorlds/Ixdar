@@ -5,10 +5,10 @@ import java.util.ArrayList;
 
 import shell.Main;
 import shell.ToggleType;
+import shell.cameras.Camera2D;
 import shell.file.Manifold;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.ui.Camera;
 import shell.ui.Drawing;
 
 public class EditManifoldTool extends Tool {
@@ -33,7 +33,7 @@ public class EditManifoldTool extends Tool {
     }
 
     @Override
-    public void draw(Graphics2D g2, Camera camera, int minLineThickness) {
+    public void draw(Graphics2D g2, Camera2D camera, int minLineThickness) {
         if (hover != null && !lastPoint.equals(hoverKP)) {
             long matchId = Segment.idTransform(lastPoint.id, hoverKP.id);
             Segment matchSeg = lastPoint.segmentLookup.get(matchId);

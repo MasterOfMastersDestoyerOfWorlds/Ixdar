@@ -17,6 +17,7 @@ import javax.swing.JComponent;
 import shell.DistanceMatrix;
 import shell.PointND;
 import shell.PointSet;
+import shell.cameras.Camera2D;
 import shell.cuts.CutEngine;
 import shell.exceptions.BalancerException;
 import shell.exceptions.SegmentBalanceException;
@@ -25,7 +26,6 @@ import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.ui.Camera;
 import shell.ui.Drawing;
 import shell.utils.RunListUtils;
 import shell.utils.StringBuff;
@@ -654,7 +654,7 @@ public class Shell extends LinkedList<PointND> {
 	 *                     color)
 	 */
 	public void drawShell(JComponent frame, Graphics2D g2, boolean drawChildren, float lineThickness, Color c,
-			PointSet ps, Camera camera) {
+			PointSet ps, Camera2D camera) {
 		if (c == null) {
 			Random colorSeed = new Random();
 			Drawing.drawPath(frame, g2, toPath(this), lineThickness,

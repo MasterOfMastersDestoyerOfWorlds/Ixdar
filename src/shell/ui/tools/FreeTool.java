@@ -5,10 +5,10 @@ import java.awt.Graphics2D;
 import java.util.ArrayList;
 
 import shell.Main;
+import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.ui.Camera;
 import shell.ui.Drawing;
 
 public class FreeTool extends Tool {
@@ -20,7 +20,7 @@ public class FreeTool extends Tool {
     public VirtualPoint displayPoint;
 
     @Override
-    public void draw(Graphics2D g2, Camera camera, int minLineThickness) {
+    public void draw(Graphics2D g2, Camera2D camera, int minLineThickness) {
         if (displayPoint != null) {
             Drawing.drawCircle(g2, displayPoint,Color.lightGray, camera, minLineThickness);
         }
@@ -71,6 +71,10 @@ public class FreeTool extends Tool {
     public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
         selectedPoint = kp;
         displayPoint = kp;
+    }
+    @Override
+    public ToolType toolType() {
+        return ToolType.Free;
     }
 
     @Override
