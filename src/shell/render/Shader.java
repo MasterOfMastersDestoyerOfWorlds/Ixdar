@@ -9,8 +9,12 @@ import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL33;
+import org.lwjgl.system.MemoryStack;
 
 public class Shader {
 
@@ -70,8 +74,30 @@ public class Shader {
         glUniform1f(glGetUniformLocation(ID, name), value);
     }
 
-    public void setMat4(String name, FloatBuffer value) {
-        glUniformMatrix4fv(glGetUniformLocation(ID, name), false, value);
+    public void setMat4(String name, Matrix4f mat) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            FloatBuffer buffer = mat.get(stack.mallocFloat(16));
+            glUniformMatrix4fv(glGetUniformLocation(ID, name), false, buffer);
+        }
+    }
+
+    public void setMat4(String name, FloatBuffer allocatedBuffer) {
+        glUniformMatrix4fv(glGetUniformLocation(ID, name), false, allocatedBuffer);
+    }
+
+    public void setVec3(String name, float f, float g, float h) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            FloatBuffer vec3 = new Vector3f(f, g, h).get(stack.mallocFloat(3));
+            glUniform3fv(glGetUniformLocation(ID, name), vec3);
+        }
+    }
+
+    public void setVec3(String name, Vector3f vec3) {
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            FloatBuffer buffer = vec3.get(stack.mallocFloat(3));
+            glUniform3fv(glGetUniformLocation(ID, name), buffer);
+        }
     }
 
     private void checkCompileErrors(int shader, ShaderType type) {

@@ -66,65 +66,51 @@ public class AWTTest extends JFrame {
 
             private static final long serialVersionUID = 1L;
             float vertices[] = {
-                    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
-                    0.5f, -0.5f, -0.5f, 1.0f, 0.0f,
-                    0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
-                    0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
-                    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f,
-                    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
+                    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
+                    0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
+                    0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
+                    0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
+                    -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
+                    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
 
-                    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
-                    0.5f, -0.5f, 0.5f, 1.0f, 0.0f,
-                    0.5f, 0.5f, 0.5f, 1.0f, 1.0f,
-                    0.5f, 0.5f, 0.5f, 1.0f, 1.0f,
-                    -0.5f, 0.5f, 0.5f, 0.0f, 1.0f,
-                    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
+                    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
+                    0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
+                    0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
+                    0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
+                    -0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
+                    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
 
-                    -0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
-                    -0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
-                    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
-                    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
-                    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
-                    -0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
+                    -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
+                    -0.5f, 0.5f, -0.5f, -1.0f, 0.0f, 0.0f,
+                    -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f,
+                    -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f,
+                    -0.5f, -0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
+                    -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
 
-                    0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
-                    0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
-                    0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
-                    0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
-                    0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
-                    0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
+                    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+                    0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
+                    0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
+                    0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
+                    0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+                    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
 
-                    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
-                    0.5f, -0.5f, -0.5f, 1.0f, 1.0f,
-                    0.5f, -0.5f, 0.5f, 1.0f, 0.0f,
-                    0.5f, -0.5f, 0.5f, 1.0f, 0.0f,
-                    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
-                    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+                    -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f,
+                    0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f,
+                    0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f,
+                    0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f,
+                    -0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f,
+                    -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f,
 
-                    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f,
-                    0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
-                    0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
-                    0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
-                    -0.5f, 0.5f, 0.5f, 0.0f, 0.0f,
-                    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f
+                    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+                    0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+                    0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
+                    0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
+                    -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
+                    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f
             };
 
-            Vector3f cubePositions[] = {
-                    new Vector3f(0.0f, 0.0f, 0.0f),
-                    new Vector3f(2.0f, 5.0f, -15.0f),
-                    new Vector3f(-1.5f, -2.2f, -2.5f),
-                    new Vector3f(-3.8f, -2.0f, -12.3f),
-                    new Vector3f(2.4f, -0.4f, -3.5f),
-                    new Vector3f(-1.7f, 3.0f, -7.5f),
-                    new Vector3f(1.3f, -2.0f, -2.5f),
-                    new Vector3f(1.5f, 2.0f, -2.5f),
-                    new Vector3f(1.5f, 0.2f, -1.5f),
-                    new Vector3f(-1.3f, 1.0f, -1.5f)
-            };
-
-            IntBuffer VAO, VBO;
-            Shader shader;
-            int texture, texture2;
+            IntBuffer VAO, VBO, lightVAO;
+            Shader shader, lightingShader;
 
             @Override
             public void initGL() {
@@ -139,7 +125,8 @@ public class AWTTest extends JFrame {
                 createCapabilities();
                 glClearColor(0.3f, 0.4f, 0.5f, 1);
 
-                shader = new Shader("3.3.shader.vs", "3.3.shader.fs");
+                shader = new Shader("shader.vs", "shader.fs");
+                lightingShader = new Shader("light_shader.vs", "light_shader.fs");
 
                 VBO = BufferUtils.createIntBuffer(1);
                 glGenBuffers(VBO);
@@ -150,18 +137,20 @@ public class AWTTest extends JFrame {
                 glBindBuffer(GL_ARRAY_BUFFER, VBO.get(0));
                 glBufferData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
 
-                glVertexAttribPointer(0, 3, GL_FLOAT, false, 5 * SIZE_FLOAT, 0);
+                glVertexAttribPointer(0, 3, GL_FLOAT, false, 6 * SIZE_FLOAT, 0);
                 glEnableVertexAttribArray(0);
-
-                glVertexAttribPointer(1, 2, GL_FLOAT, false, 5 * SIZE_FLOAT, 3 * SIZE_FLOAT);
+                glVertexAttribPointer(1, 3, GL_FLOAT, false, 6 * SIZE_FLOAT, 3 * SIZE_FLOAT);
                 glEnableVertexAttribArray(1);
 
-                texture = loadTexture("decal.png");
-                texture2 = loadTexture("decalSmall.png");
-
-                shader.use(); // don't forget to activate the shader before setting uniforms!
-                shader.setInt("texture1", 0);
-                shader.setInt("texture2", 1); // or with shader class
+                lightVAO = BufferUtils.createIntBuffer(1);
+                glGenVertexArrays(lightVAO);
+                glBindVertexArray(lightVAO.get(0));
+                // we only need to bind to the VBO, the container's VBO's data already contains
+                // the data.
+                glBindBuffer(GL_ARRAY_BUFFER, VBO.get(0));
+                // set the vertex attribute
+                glVertexAttribPointer(0, 3, GL_FLOAT, false, 6 * SIZE_FLOAT, 0);
+                glEnableVertexAttribArray(0);
 
                 glEnable(GL_DEPTH_TEST);
                 mouseTrap.setCanvas(this);
@@ -176,9 +165,9 @@ public class AWTTest extends JFrame {
                 }
                 keyGuy.paintUpdate(1.0);
                 mouseTrap.paintUpdate(1.0);
-                glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+                glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 shader.use();
                 if (frame.getWidth() != width || frame.getHeight() != height) {
                     width = frame.getWidth();
@@ -186,40 +175,50 @@ public class AWTTest extends JFrame {
                     glViewport(0, 0, width, height);
                 }
 
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, texture);
+                camera.updateViewFirstPerson();
 
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, texture2);
-                try (MemoryStack stack = MemoryStack.stackPush()) {
-                    camera.updateViewFirstPerson();
-                    FloatBuffer view = camera.view
-                            .get(stack.mallocFloat(16)); // make sure to initialize matrix to identity matrix first
+                Vector3f lightPos = new Vector3f(1.2f, 1.0f, 2.0f);
+                Vector3f lightColor = new Vector3f(1, 1, 1);
 
-                    FloatBuffer projection = new Matrix4f()
-                            .perspective((float) Math.toRadians(camera.fov), getAspectRatio(), 0.1f, 100.0f)
-                            .get(stack.mallocFloat(16));
-                    // pass transformation matrices to the shader
-                    shader.setMat4("projection", projection); // note: currently we set the projection matrix each
-                                                              // frame, but since the projection matrix rarely changes
-                                                              // it's often best practice to set it outside the main
-                                                              // loop only once.
-                    shader.setMat4("view", view);
+                // be sure to activate shader when setting uniforms/drawing objects
+                shader.use();
+                shader.setVec3("material.ambient", 1.0f, 0.5f, 0.31f);
+                shader.setVec3("material.diffuse", 1.0f, 0.5f, 0.31f);
+                shader.setVec3("material.specular", 0.5f, 0.5f, 0.5f);
+                shader.setFloat("material.shininess", 32.0f);
+                shader.setVec3("lightColor", lightColor);
+                shader.setVec3("", lightPos);
+                shader.setVec3("viewPos", camera.position);
+                shader.setVec3("light.position", lightPos);
+                shader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
+                shader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f); // darken diffuse light a bit
+                shader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
 
-                    // render boxes
-                    glBindVertexArray(VAO.get(0));
-                    for (int i = 0; i < 10; i++) {
+                // view/projection transformations
+                Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(camera.fov),
+                        ((float) width) / ((float) height), 0.1f, 100.0f);
+                shader.setMat4("projection", projection);
+                shader.setMat4("view", camera.view);
 
-                        float rads = Clock.spin((float) (Math.PI / 4)) + (float) Math.toRadians(20.0f * i);
-                        FloatBuffer model = new Matrix4f().translate(cubePositions[i])
-                                .rotate(rads, new Vector3f(1.0f, 0.3f, 0.5f))
-                                .get(stack.mallocFloat(16));
-                        shader.setMat4("model", model);
+                // world transformation
+                Matrix4f model = new Matrix4f();
+                shader.setMat4("model", model);
 
-                        glDrawArrays(GL_TRIANGLES, 0, 36);
-                    }
+                // render the cube
+                glBindVertexArray(VAO.get(0));
+                glDrawArrays(GL_TRIANGLES, 0, 36);
 
-                }
+                // also draw the lamp object
+                lightingShader.use();
+                lightingShader.setMat4("projection", projection);
+                lightingShader.setMat4("view", camera.view);
+                model = new Matrix4f().translate(lightPos).scale(0.2f);
+                lightingShader.setVec3("lightColor", lightColor);
+                lightingShader.setMat4("model", model);
+
+                glBindVertexArray(lightVAO.get(0));
+                glDrawArrays(GL_TRIANGLES, 0, 36);
+
                 Clock.frameRendered();
                 swapBuffers();
             }

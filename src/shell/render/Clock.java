@@ -41,4 +41,9 @@ public class Clock {
         return time() - lastFrameRendered;
     }
 
+    public static float sin(float offset, float amplitude, float freq, float phase) {
+        double timeSeconds = (((double) System.currentTimeMillis()) / 1000.0) - startTimeSeconds;
+        return ((float) (amplitude * (Math.sin(freq * timeSeconds + phase) + 1)) / 2f) + offset;
+    }
+
 }

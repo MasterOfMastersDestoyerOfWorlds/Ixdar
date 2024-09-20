@@ -11,15 +11,15 @@ public class Camera3D implements Camera {
 
     private static final float MovementSpeed = 2.5f;
     private static final float ZOOM_SPEED = 1f;
-    Vector3f position;
-    Vector3f target;
-    Vector3f right;
-    Vector3f up;
+    public Vector3f position;
+    public Vector3f target;
+    public Vector3f right;
+    public Vector3f up;
     public Matrix4f view;
-    Vector3f front;
-    Vector3f worldUp;
-    float yaw;
-    float pitch;
+    public Vector3f front;
+    public Vector3f worldUp;
+    public float yaw;
+    public float pitch;
     double SHIFT_MOD;
     public double fov;
 
