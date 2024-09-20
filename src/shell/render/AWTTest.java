@@ -81,6 +81,7 @@ public class AWTTest {
                 glClearColor(0.3f, 0.4f, 0.5f, 1);
 
                 shader = new Shader("3.3.shader.vs", "3.3.shader.fs");
+                shader = new Shader("light_shader.vs", "light_shader.fs");
 
                 VBO = BufferUtils.createIntBuffer(1);
                 glGenBuffers(VBO);
@@ -111,11 +112,6 @@ public class AWTTest {
                 shader.use(); // don't forget to activate the shader before setting uniforms!
                 glUniform1i(glGetUniformLocation(shader.ID, "texture1"), 0); // set it manually
                 shader.setInt("texture2", 1); // or with shader class
-
-                // GLM trans = glm::mat4(1.0f);
-                // trans = glm::translate(trans, glm::vec3(0.5f, -0.5f, 0.0f));
-                // trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f,
-                // 1.0f));
             }
 
             @Override
