@@ -39,7 +39,7 @@ public class FreeTool extends Tool {
     }
 
     @Override
-    public void leftArrow() {
+    public void cycleLeft() {
         ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
         for (Knot k : knotsDisplayed) {
             if (k.contains(displayPoint)) {
@@ -51,7 +51,7 @@ public class FreeTool extends Tool {
     };
 
     @Override
-    public void rightArrow() {
+    public void cycleRight() {
         ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
         for (Knot k : knotsDisplayed) {
             if (k.contains(displayPoint)) {

@@ -255,8 +255,8 @@ public class InternalPathEngine {
                         continue;
                     }
 
-                    boolean vIsConnected = vRouteType.isConnected();
-                    boolean uIsConnected = u.routeType.isConnected();
+                    boolean vIsConnected = vRouteType.isConnected;
+                    boolean uIsConnected = u.routeType.isConnected;
                     if (neighbor.id == cutPoint2.id && v.id == knotPoint2.id) {
                         if (!uIsConnected || !vIsConnected) {
                             continue;

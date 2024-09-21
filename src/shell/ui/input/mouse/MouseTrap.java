@@ -1,4 +1,4 @@
-package shell.ui;
+package shell.ui.input.mouse;
 
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;

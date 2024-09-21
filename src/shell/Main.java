@@ -44,9 +44,9 @@ import shell.shell.ShellPair;
 import shell.shell.ShellComparator;
 import shell.ui.tools.Tool;
 import shell.ui.Drawing;
-import shell.ui.KeyGuy;
 import shell.ui.Logo;
-import shell.ui.MouseTrap;
+import shell.ui.input.keys.KeyGuy;
+import shell.ui.input.mouse.MouseTrap;
 import shell.ui.tools.FreeTool;
 
 public class Main extends JComponent {

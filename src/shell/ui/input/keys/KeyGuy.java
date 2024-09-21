@@ -1,4 +1,4 @@
-package shell.ui;
+package shell.ui.input.keys;
 
 import java.awt.Color;
 import java.awt.MouseInfo;
@@ -38,6 +38,15 @@ public class KeyGuy implements KeyListener {
     public Main main;
     public Camera camera;
 
+    static PrintScreenAction printScreenAction;
+    static SaveAction saveAction;
+    static GenerateManifoldTestsAction generateManifoldTests;
+    static FindManifoldAction findManifoldAction;
+    static EditManifoldAction editManifoldAction;
+    static NegativeCutMatchViewAction negativeCutMatchViewAction;
+
+    boolean controlMask;
+
     public KeyGuy(Camera camera) {
         this.camera = camera;
     }
@@ -45,52 +54,45 @@ public class KeyGuy implements KeyListener {
     public KeyGuy(Main main, JFrame frame, String fileName, Camera camera) {
         this.main = main;
         this.camera = camera;
-        JRootPane rootPane = main.getRootPane();
-
-        rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
-                KeyStroke.getKeyStroke(KeyEvent.VK_P, InputEvent.CTRL_DOWN_MASK),
-                "printScreen");
-        rootPane.getActionMap().put("printScreen",
-                new PrintScreenAction(frame));
-
-        rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
-                KeyStroke.getKeyStroke(KeyEvent.VK_Q, InputEvent.CTRL_DOWN_MASK),
-                "saveNew");
-        rootPane.getActionMap().put("saveNew",
-                new SaveAction(frame, fileName));
-
-        rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
-                KeyStroke.getKeyStroke(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK),
-                "generateManifoldTests");
-        rootPane.getActionMap().put("generateManifoldTests",
-                new GenerateManifoldTestsAction(frame, fileName));
-
-        rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
-                KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK),
-                "findManifold");
-        rootPane.getActionMap().put("findManifold",
-                new FindManifoldAction(frame));
-
-        rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
-                KeyStroke.getKeyStroke(KeyEvent.VK_E, InputEvent.CTRL_DOWN_MASK),
-                "editCutMatch");
-        rootPane.getActionMap().put("editCutMatch",
-                new EditManifoldAction(frame));
-
-        rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
-                KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK),
-                "negativeCutMatchView");
-        rootPane.getActionMap().put("negativeCutMatchView",
-                new NegativeCutMatchViewAction(frame));
+        printScreenAction = new PrintScreenAction(frame);
+        saveAction = new SaveAction(frame, fileName);
+        generateManifoldTests = new GenerateManifoldTestsAction(frame, fileName);
+        findManifoldAction = new FindManifoldAction(frame);
+        editManifoldAction = new EditManifoldAction(frame);
+        negativeCutMatchViewAction = new NegativeCutMatchViewAction(frame);
     }
 
     @Override
     public void keyPressed(KeyEvent e) {
-
+        boolean firstPress = !pressedKeys.contains(e.getKeyCode());
         pressedKeys.add(e.getKeyCode());
+        if (e.getKeyCode() == KeyEvent.VK_CONTROL) {
+            controlMask = true;
+        }
+        if (controlMask && firstPress) {
+            if (KeyActions.PrintScreen.keyPressed(pressedKeys)) {
+                printScreenAction.actionPerformed(null);
+            }
+            if (KeyActions.Save.keyPressed(pressedKeys)) {
+                saveAction.actionPerformed(null);
+            }
+            if (KeyActions.GenerateManifoldTests.keyPressed(pressedKeys)) {
+                generateManifoldTests.actionPerformed(null);
+            }
+            if (KeyActions.Find.keyPressed(pressedKeys)) {
+                findManifoldAction.actionPerformed(null);
+            }
+            if (KeyActions.EditManifold.keyPressed(pressedKeys)) {
+                editManifoldAction.actionPerformed(null);
+            }
+            if (KeyActions.NegativeCutMatchViewTool.keyPressed(pressedKeys)) {
+                negativeCutMatchViewAction.actionPerformed(null);
+            }
+        }
         if (main != null) {
             main.repaint();
         }
+
     }
 
     @Override
@@ -99,10 +101,9 @@ public class KeyGuy implements KeyListener {
 
     @Override
     public void keyReleased(KeyEvent e) {
-        pressedKeys.remove(e.getKeyCode());
         if (main != null) {
             Tool tool = Main.tool;
-            if (e.getKeyCode() == KeyEvent.VK_C) {
+            if (KeyActions.ColorRandomization.keyPressed(pressedKeys)) {
                 Random colorSeed = new Random();
                 Main.stickyColor = new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
                 if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
@@ -120,20 +121,20 @@ public class KeyGuy implements KeyListener {
                     Main.knotGradientColors.set(i, Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
                 }
             }
-            if (e.getKeyCode() == KeyEvent.VK_B) {
+            if (KeyActions.DrawCutMatch.keyPressed(pressedKeys)) {
                 Toggle.drawCutMatch.toggle();
             }
-            if (e.getKeyCode() == KeyEvent.VK_Y) {
+            if (KeyActions.DrawKnotGradient.keyPressed(pressedKeys)) {
                 Toggle.drawKnotGradient.toggle();
             }
-            if (e.getKeyCode() == KeyEvent.VK_M) {
+            if (KeyActions.DrawMetroDiagram.keyPressed(pressedKeys)) {
                 if (Main.metroDrawLayer != -1) {
                     Main.metroDrawLayer = -1;
                 } else {
                     Main.metroDrawLayer = Main.shell.cutEngine.totalLayers;
                 }
             }
-            if (e.getKeyCode() == KeyEvent.VK_CLOSE_BRACKET || e.getKeyCode() == KeyEvent.VK_UP) {
+            if (KeyActions.IncreaseKnotLayer.keyPressed(pressedKeys)) {
                 if (tool.canUseToggle(Toggle.canSwitchLayer)) {
                     if (tool.canUseToggle(Toggle.manifold) && tool.canUseToggle(Toggle.drawCutMatch)) {
                         Main.manifoldIdx++;
@@ -152,7 +153,7 @@ public class KeyGuy implements KeyListener {
                     }
                 }
             }
-            if (e.getKeyCode() == KeyEvent.VK_OPEN_BRACKET || e.getKeyCode() == KeyEvent.VK_DOWN) {
+            if (KeyActions.DecreaseKnotLayer.keyPressed(pressedKeys)) {
                 if (tool.canUseToggle(Toggle.canSwitchLayer)) {
                     if (tool.canUseToggle(Toggle.manifold) && tool.canUseToggle(Toggle.drawCutMatch)) {
                         Main.manifoldIdx--;
@@ -172,10 +173,10 @@ public class KeyGuy implements KeyListener {
                     }
                 }
             }
-            if (e.getKeyCode() == KeyEvent.VK_O) {
+            if (KeyActions.DrawOriginal.keyPressed(pressedKeys)) {
                 Toggle.drawMainPath.toggle();
             }
-            if (e.getKeyCode() == KeyEvent.VK_U) {
+            if (KeyActions.UpdateFile.keyPressed(pressedKeys)) {
                 if (Main.subPaths.size() == 1) {
                     Shell ans = Main.subPaths.get(0);
                     if (Main.orgShell.getLength() > ans.getLength()) {
@@ -187,14 +188,14 @@ public class KeyGuy implements KeyListener {
                     }
                 }
             }
-            if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+            if (KeyActions.Confirm.keyPressed(pressedKeys)) {
                 Main.tool.confirm();
             }
-            if (e.getKeyCode() == KeyEvent.VK_R) {
+            if (KeyActions.Reset.keyPressed(pressedKeys)) {
                 camera.reset();
                 Main.tool.reset();
             }
-            if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+            if (KeyActions.Exit.keyPressed(pressedKeys)) {
                 if (Main.tool.toolType() == ToolType.Free) {
                     System.exit(0);
                 }
@@ -202,10 +203,14 @@ public class KeyGuy implements KeyListener {
                 main.repaint();
             }
         } else {
-            if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+            if (KeyActions.Exit.keyPressed(pressedKeys)) {
                 System.exit(0);
             }
         }
+        if (e.getKeyCode() == KeyEvent.VK_CONTROL) {
+            controlMask = false;
+        }
+        pressedKeys.remove(e.getKeyCode());
     }
 
     long REPRESS_TIME = 360;
@@ -215,35 +220,31 @@ public class KeyGuy implements KeyListener {
         camera.setShiftMod(SHIFT_MOD);
         if (!pressedKeys.isEmpty()) {
             boolean moved = false;
-            for (Iterator<Integer> it = pressedKeys.iterator(); it.hasNext();) {
-                switch (it.next()) {
-                    case KeyEvent.VK_W:
-                        camera.move(CameraMoveDirection.FORWARD);
-                        moved = true;
-                        break;
-                    case KeyEvent.VK_A:
-                        camera.move(CameraMoveDirection.LEFT);
-                        moved = true;
-                        break;
-                    case KeyEvent.VK_S:
-                        camera.move(CameraMoveDirection.BACKWARD);
-                        moved = true;
-                        break;
-                    case KeyEvent.VK_D:
-                        camera.move(CameraMoveDirection.RIGHT);
-                        moved = true;
-                        break;
-                    case KeyEvent.VK_EQUALS:
-                        camera.zoom(true);
-                        moved = true;
-                        break;
-                    case KeyEvent.VK_MINUS:
-                        camera.zoom(false);
-                        moved = true;
-                        break;
-                }
+            if (KeyActions.MoveUp.keyPressed(pressedKeys)) {
+                camera.move(CameraMoveDirection.FORWARD);
+                moved = true;
             }
+            if (KeyActions.MoveLeft.keyPressed(pressedKeys)) {
+                camera.move(CameraMoveDirection.LEFT);
+                moved = true;
+            }
+            if (KeyActions.MoveDown.keyPressed(pressedKeys)) {
+                camera.move(CameraMoveDirection.BACKWARD);
+                moved = true;
+            }
+            if (KeyActions.MoveRight.keyPressed(pressedKeys)) {
+                camera.move(CameraMoveDirection.RIGHT);
+                moved = true;
+            }
+            if (KeyActions.ZoomIn.keyPressed(pressedKeys)) {
+                camera.zoom(true);
+                moved = true;
+            }
+            if (KeyActions.ZoomOut.keyPressed(pressedKeys)) {
 
+                camera.zoom(false);
+                moved = true;
+            }
             if (moved && main != null) {
                 Point mouseLocation = MouseInfo.getPointerInfo().getLocation();
                 Point frameLocation = Main.frame.getRootPane().getLocationOnScreen();
@@ -253,18 +254,15 @@ public class KeyGuy implements KeyListener {
         }
 
         if (main != null) {
-            long timeSinceLastPress = System.currentTimeMillis() - lastPressTime;
+            long timeSinceLastPress = System.currentTimeMillis()
+                    - lastPressTime;
             if (!pressedKeys.isEmpty() && timeSinceLastPress > REPRESS_TIME / SHIFT_MOD) {
                 lastPressTime = System.currentTimeMillis();
-                for (Iterator<Integer> it = pressedKeys.iterator(); it.hasNext();) {
-                    switch (it.next()) {
-                        case KeyEvent.VK_LEFT:
-                            Main.tool.leftArrow();
-                            break;
-                        case KeyEvent.VK_RIGHT:
-                            Main.tool.rightArrow();
-                            break;
-                    }
+                if (KeyActions.CycleToolLeft.keyPressed(pressedKeys)) {
+                    Main.tool.cycleLeft();
+                }
+                if (KeyActions.CycleToolRight.keyPressed(pressedKeys)) {
+                    Main.tool.cycleRight();
                 }
             }
 

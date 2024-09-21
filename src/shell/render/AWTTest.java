@@ -13,8 +13,8 @@ import shell.cameras.Camera3D;
 import shell.render.lights.DirectionalLight;
 import shell.render.lights.PointLight;
 import shell.render.lights.SpotLight;
-import shell.ui.KeyGuy;
-import shell.ui.MouseTrap;
+import shell.ui.input.keys.KeyGuy;
+import shell.ui.input.mouse.MouseTrap;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
