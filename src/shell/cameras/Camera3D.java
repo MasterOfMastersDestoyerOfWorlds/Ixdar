@@ -28,9 +28,13 @@ public class Camera3D implements Camera {
         worldUp = new Vector3f(0.0f, 1.0f, 0.0f);
         this.yaw = yaw;
         this.pitch = pitch;
+        front = new Vector3f();
+        up = new Vector3f();
+        right = new Vector3f();
+        target = new Vector3f();
         updateCameraVectors();
         view = new Matrix4f().lookAt(position, target, up);
-        target = new Vector3f(position).add(front);
+
         fov = 45f;
     }
 
@@ -38,24 +42,23 @@ public class Camera3D implements Camera {
 
         float camX = ((float) Math.sin(Clock.time() * radsPerSecond)) * radius;
         float camZ = ((float) Math.cos(Clock.time() * radsPerSecond)) * radius;
-        view = new Matrix4f().lookAt(position.set(camX, target.y, camZ), target, up);
+        view.set(new Matrix4f()).lookAt(position.set(camX, target.y, camZ), target, up);
     }
 
     public void updateViewFirstPerson() {
-        view = new Matrix4f().lookAt(position, target, up);
+        view.set(new Matrix4f()).lookAt(position, target, up);
     }
 
     void updateCameraVectors() {
         // calculate the new Front vector
-        Vector3f front = new Vector3f();
-        front.x = (float) (Math.cos(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch)));
-        front.y = (float) Math.sin(Math.toRadians(pitch));
-        front.z = (float) (Math.sin(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch)));
+        front.set((float) (Math.cos(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch))),
+                (float) Math.sin(Math.toRadians(pitch)),
+                (float) (Math.sin(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch))));
         this.front = front.normalize();
         // also re-calculate the Right and Up vector
-        right = new Vector3f(front).cross(worldUp).normalize();
-        up = new Vector3f(right).cross(front).normalize();
-        target = new Vector3f(position).add(front);
+        right.set(front).cross(worldUp).normalize();
+        up.set(right).cross(front).normalize();
+        target.set(position).add(front);
     }
 
     @Override
@@ -92,7 +95,7 @@ public class Camera3D implements Camera {
                 fov = 1.0f;
             if (fov > 45.0f)
                 fov = 45.0f;
-        } else { 
+        } else {
             fov -= (float) ZOOM_SPEED * SHIFT_MOD;
             if (fov < 1.0f)
                 fov = 1.0f;
