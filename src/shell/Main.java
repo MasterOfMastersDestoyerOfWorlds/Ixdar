@@ -1,5 +1,6 @@
 package shell;
 
+import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.ComponentOrientation;
 import java.awt.Container;
@@ -83,6 +84,7 @@ public class Main extends JComponent {
 	public static ArrayList<Color> metroColors = new ArrayList<>();
 	public static ArrayList<Color> knotGradientColors = new ArrayList<>();
 	public static HashMap<Long, Integer> colorLookup = new HashMap<>();
+    public Canvas canvas;
 
 	public Main() {
 
@@ -301,11 +303,11 @@ public class Main extends JComponent {
 				tool.draw(g2, camera, Drawing.MIN_THICKNESS);
 
 				if (sbe != null) {
-					resultShell.drawShell(this, g2, true, Drawing.MIN_THICKNESS * 2, Color.magenta, retTup.ps, camera);
-					Drawing.drawCutMatch(this, g2, sbe, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
+					resultShell.drawShell(g2, true, Drawing.MIN_THICKNESS * 2, Color.magenta, retTup.ps, camera);
+					Drawing.drawCutMatch(g2, sbe, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
 				}
 				if (!(retTup == null)) {
-					Drawing.drawPath(this, g2, retTup.path, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false,
+					Drawing.drawPath(g2, retTup.path, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false,
 							true,
 							false,
 							camera);
@@ -313,12 +315,12 @@ public class Main extends JComponent {
 				if (tool.canUseToggle(Toggle.drawCutMatch) && tool.canUseToggle(Toggle.manifold) && manifolds != null
 						&& manifolds.get(manifoldIdx).cutMatchList != null) {
 					Manifold m = manifolds.get(manifoldIdx);
-					Drawing.drawCutMatch(this, g2, m.cutMatchList, m.manifoldCutSegment1,
+					Drawing.drawCutMatch(g2, m.cutMatchList, m.manifoldCutSegment1,
 							m.manifoldCutSegment2, m.manifoldExSegment1, m.manifoldExSegment2,
 							m.manifoldKnot, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
 				}
 				if (tool.canUseToggle(Toggle.drawMainPath)) {
-					orgShell.drawShell(this, g2, false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
+					orgShell.drawShell( g2, false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
 				}
 				if (tool.canUseToggle(Toggle.drawDisplayedKnots) && tool.canUseToggle(Toggle.drawMetroDiagram)
 						&& shell != null) {
@@ -344,7 +346,7 @@ public class Main extends JComponent {
 						Drawing.MIN_THICKNESS);
 			} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
 				for (Shell temp : subPaths) {
-					temp.drawShell(this, g2, true, Drawing.MIN_THICKNESS * 2,
+					temp.drawShell(g2, true, Drawing.MIN_THICKNESS * 2,
 							stickyColor, retTup.ps, camera);
 				}
 			}
@@ -364,7 +366,7 @@ public class Main extends JComponent {
 								camera,
 								Drawing.MIN_THICKNESS);
 					} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
-						temp.shell.drawShell(this, g2, true, 2 + 1f * temp.priority,
+						temp.shell.drawShell(g2, true, 2 + 1f * temp.priority,
 								metroColors.get(temp.priority), retTup.ps, camera);
 					}
 				} else {
@@ -374,7 +376,7 @@ public class Main extends JComponent {
 								camera,
 								Drawing.MIN_THICKNESS);
 					} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
-						temp.shell.drawShell(this, g2, true, Drawing.MIN_THICKNESS * 2,
+						temp.shell.drawShell(g2, true, Drawing.MIN_THICKNESS * 2,
 								metroColors.get(temp.priority), retTup.ps, camera);
 					}
 

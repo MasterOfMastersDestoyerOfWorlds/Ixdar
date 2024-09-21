@@ -42,7 +42,7 @@ public class EditManifoldTool extends Tool {
             Drawing.drawSingleCutMatch(Main.main, g2, matchSeg, cutSeg, Drawing.MIN_THICKNESS * 2, Main.retTup.ps,
                     camera);
         }
-        Drawing.drawCutMatch(Main.main, g2, manifold.cutMatchList, manifold.manifoldCutSegment1,
+        Drawing.drawCutMatch(g2, manifold.cutMatchList, manifold.manifoldCutSegment1,
                 manifold.manifoldCutSegment2, manifold.manifoldExSegment1, manifold.manifoldExSegment2,
                 manifold.manifoldKnot, Drawing.MIN_THICKNESS * 2, Main.retTup.ps, camera);
     }

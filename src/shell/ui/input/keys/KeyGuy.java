@@ -3,25 +3,20 @@ package shell.ui.input.keys;
 import java.awt.Color;
 import java.awt.MouseInfo;
 import java.awt.Point;
-import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Random;
 import java.util.Set;
 
-import javax.swing.JComponent;
 import javax.swing.JFrame;
-import javax.swing.JRootPane;
-import javax.swing.KeyStroke;
-
 import shell.Main;
 import shell.Toggle;
 import shell.cameras.Camera;
 import shell.cameras.CameraMoveDirection;
 import shell.file.FileManagement;
+import shell.render.Canvas3D;
 import shell.shell.Shell;
 import shell.ui.actions.EditManifoldAction;
 import shell.ui.actions.FindManifoldAction;
@@ -47,14 +42,15 @@ public class KeyGuy implements KeyListener {
 
     boolean controlMask;
 
-    public KeyGuy(Camera camera) {
+    public KeyGuy(Camera camera, Canvas3D canvas) {
         this.camera = camera;
+        printScreenAction = new PrintScreenAction(canvas);
     }
 
     public KeyGuy(Main main, JFrame frame, String fileName, Camera camera) {
         this.main = main;
         this.camera = camera;
-        printScreenAction = new PrintScreenAction(frame);
+        printScreenAction = new PrintScreenAction(frame.getRootPane());
         saveAction = new SaveAction(frame, fileName);
         generateManifoldTests = new GenerateManifoldTestsAction(frame, fileName);
         findManifoldAction = new FindManifoldAction(frame);
