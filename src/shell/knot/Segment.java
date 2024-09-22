@@ -1,11 +1,15 @@
 package shell.knot;
 
 import java.util.ArrayList;
+import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
+import shell.PointND;
 
 public class Segment implements Comparable<Segment> {
     public VirtualPoint first;
     public VirtualPoint last;
     public double distance;
+    public long id;
+    public static int numSegments = 0;
 
     public Segment(VirtualPoint first,
             VirtualPoint last,
@@ -13,7 +17,9 @@ public class Segment implements Comparable<Segment> {
         this.first = first;
         this.last = last;
         this.distance = distance;
-
+        long a = first.id;
+        long b = last.id;
+        id = idTransform(a, b);
     }
 
     public VirtualPoint getOther(VirtualPoint vp) {
@@ -83,9 +89,9 @@ public class Segment implements Comparable<Segment> {
             return false;
         } else {
             Segment s2 = (Segment) obj;
-
-            return (this.first.id == s2.first.id && this.last.id == s2.last.id)
-                    || (this.first.id == s2.last.id && this.last.id == s2.first.id);
+            return this.id == s2.id;
+            // return (this.first.id == s2.first.id && this.last.id == s2.last.id)
+            // || (this.first.id == s2.last.id && this.last.id == s2.first.id);
         }
     }
 
@@ -160,7 +166,7 @@ public class Segment implements Comparable<Segment> {
 
     public boolean hasPoint(Integer i) {
         if (first.id == i || last.id == i) {
-                return true;
+            return true;
         }
         return false;
     }
@@ -174,4 +180,62 @@ public class Segment implements Comparable<Segment> {
         }
         return null;
     }
+
+    public static long idTransform(long a, long b) {
+        return a >= b ? a * a + a + b : b + a + b * b;
+    }    
+    public static long idTransformOrdered(long a, long b) {
+        return a * a + a + b;
+    }
+
+    public double boundContains(double x, double y) {
+        PointND p1 = ((Point) first).p;
+        PointND p2 = ((Point) last).p;
+        double x1 = p1.getCoord(0);
+        double y1 = p1.getCoord(1);
+        double x2 = p2.getCoord(0);
+        double y2 = p2.getCoord(1);
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        double normalX = -dy;
+        double normalY = dx;
+        Vector2D firstVec = new Vector2D(x1, y1);
+        Vector2D lastVec = new Vector2D(x2, y2);
+        Vector2D normalUnitVector = new Vector2D(normalX, normalY);
+        normalUnitVector = normalUnitVector.normalize().scalarMultiply(distance).scalarMultiply(0.2);
+        Vector2D tL = normalUnitVector.add(firstVec);
+        Vector2D bL = firstVec.subtract(normalUnitVector);
+        Vector2D tR = normalUnitVector.add(lastVec);
+        Vector2D bR = lastVec.subtract(normalUnitVector);
+        Vector2D pointVector = new Vector2D(x, y);
+
+        if ((x - tL.getX()) * (tL.getY() - bL.getY()) + (y - tL.getY()) * (bL.getX() - tL.getX()) > 0 &&
+                (x - bL.getX()) * (bL.getY() - bR.getY()) + (y - bL.getY()) * (bR.getX() - bL.getX()) > 0 &&
+                (x - bR.getX()) * (bR.getY() - tR.getY()) + (y - bR.getY()) * (tR.getX() - bR.getX()) > 0 &&
+                (x - tR.getX()) * (tR.getY() - tL.getY()) + (y - tR.getY()) * (tL.getX() - tR.getX()) > 0) {
+            double result = Math.abs(
+                    (y2 - y1) * pointVector.getX() - ((x2 - x1) * pointVector.getY()) + x2 * y1 - y2 * x1) / distance;
+            return result;
+        }
+        return -1;
+
+    }
+
+    public VirtualPoint closestPoint(double x, double y) {
+        PointND p1 = ((Point) first).p;
+        PointND p2 = ((Point) last).p;
+        double x1 = p1.getCoord(0);
+        double y1 = p1.getCoord(1);
+        double x2 = p2.getCoord(0);
+        double y2 = p2.getCoord(1);
+        double distFirst = Math.sqrt((x1 - x) * (x1 - x) + (y1 - y) * (y1 - y));
+        double distLast = Math.sqrt((x2 - x) * (x2 - x) + (y2 - y) * (y2 - y));
+        if (distFirst < distLast) {
+            return first;
+        } else {
+            return last;
+        }
+
+    }
+
 }

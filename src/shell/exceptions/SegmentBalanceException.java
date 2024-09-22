@@ -1,11 +1,11 @@
 package shell.exceptions;
 
-import shell.Shell;
 import shell.cuts.CutInfo;
 import shell.cuts.CutMatchList;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.shell.Shell;
 
 public class SegmentBalanceException extends Exception {
     public CutMatchList cutMatchList;
@@ -29,7 +29,7 @@ public class SegmentBalanceException extends Exception {
         VirtualPoint kp1 = cut1.getOverlap(ex1);
         VirtualPoint kp2 = cut2.getOverlap(ex2);
         cutName = shell.knotName + "_cut" + kp1 + "-" + cut1.getOther(kp1) + "and" + kp2
-                                            + "-" + cut2.getOther(kp2);
+                                            + "-" + cut2.getOther(kp2) + "\n" + cutMatchList;
     }
 
     public SegmentBalanceException(SegmentBalanceException sbe){

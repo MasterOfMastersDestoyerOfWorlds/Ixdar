@@ -4,7 +4,6 @@ import java.util.ArrayList;
 
 import shell.enums.Group;
 import shell.enums.RouteType;
-import shell.enums.State;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 
@@ -31,6 +30,9 @@ public class RouteInfo{
 
     public VirtualPoint node;
     public int id;
+
+    public static int maxSettledSize;
+    public static int maxPathLength;
 
     public RouteInfo(VirtualPoint node, double delta, VirtualPoint prevNeighbor, VirtualPoint nextNeighbor,
             VirtualPoint ancestor, VirtualPoint matchedNeighbor, VirtualPoint knotPoint1, VirtualPoint knotPoint2,
@@ -60,41 +62,28 @@ public class RouteInfo{
     }
 
     public void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType,
-            Route ancestorRoute) {
+            Route ancestorRoute, int settledSize, int knotId) {
+
         Route route = getRoute(routeType);
+        
         if (delta < route.delta) {
+            
+            if(this.id == knotPoint2.id && route.neighbor.id == cutPoint2.id && knotId == 78){ //&& knotPoint1.id == 22 && cutPoint1.id == 21 && knotPoint2.id == 1 && cutPoint2.id == 5){
+                    maxSettledSize = settledSize;
+                    maxPathLength = ancestorRoute.matches.size() + 1;
+            }
             route.delta = delta;
             route.ancestorRouteType = ancestorRouteType;
             route.ancestor = ancestor;
-            if (ancestor == null) {
-                float z = 1 / 0;
-            }
-
-            if (route.ancestor == null) {
-                float z = 1 / 0;
-            }
-            if (ancestorRoute.delta == Double.MAX_VALUE) {
-                float z = 1 / 0;
-            }
-            if (ancestorRouteType != ancestorRoute.routeType) {
-                float z = 1 / 0;
-            }
             VirtualPoint neighbor = route.neighbor;
             VirtualPoint node = this.node;
             route.ancestors = new ArrayList<>(ancestorRoute.ancestors);
             route.ancestors.add(ancestorRoute);
             route.cuts = new ArrayList<>(ancestorRoute.cuts);
             Segment newCut = node.getClosestSegment(neighbor, null);
-            if (ancestorRoute.cuts.contains(newCut)) {
-                float z = 1 / 0;
-            }
             route.cuts.add(0, newCut);
             route.matches = new ArrayList<>(ancestorRoute.matches);
             Segment newMatch = ancestor.getClosestSegment(neighbor, null);
-            
-            if (ancestorRoute.matches.contains(newMatch)) {
-                float z = 1 / 0;
-            }
             route.matches.add(0,newMatch);
 
             if (ancestorRoute.ourGroup.contains(node)) {
@@ -148,31 +137,6 @@ public class RouteInfo{
                 }
                 route.ourGroup = remainList;
                 route.otherGroup = reverseList;
-            }
-            if (!route.ourGroup.get(0).equals(node)) {
-                float z = 1 / 0;
-            }
-
-            if (!routeType.isConnected() && !((route.otherGroup.get(route.otherGroup.size() - 1).equals(knotPoint1)
-                    && route.otherGroup.get(0).equals(knotPoint2))
-                    || (route.otherGroup.get(0).equals(knotPoint1)
-                            && route.otherGroup.get(route.otherGroup.size() - 1).equals(knotPoint2)))) {
-                float z = 1 / 0;
-            }
-            if (routeType.isConnected() && !(route.ourGroup.get(route.ourGroup.size() - 1).equals(knotPoint1)
-                    || route.ourGroup.get(route.ourGroup.size() - 1).equals(knotPoint2)
-                    || route.ourGroup.get(0).equals(knotPoint1)
-                    || route.ourGroup.get(0).equals(knotPoint2))) {
-                float z = 1 / 0;
-            }
-            if (!neighbor.equals(cutPoint2)
-                    && !((route.ourGroup.contains(neighbor) && route.ourGroup.contains(ancestor))
-                            || (route.otherGroup.contains(neighbor) && route.otherGroup.contains(ancestor)))) {
-
-                float z = 1 / 0;
-            }
-            if (node.equals(knotPoint1) && route.ourGroup.size() > 1) {
-                float z = 1 / 0;
             }
         }
 

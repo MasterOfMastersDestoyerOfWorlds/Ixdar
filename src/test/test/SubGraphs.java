@@ -1,12 +1,11 @@
 package test;
 
 import shell.DistanceMatrix;
-import shell.FileManagement;
-import shell.Shell;
 import shell.exceptions.SegmentBalanceException;
-import shell.ui.PointSetPath;
+import shell.file.FileManagement;
+import shell.file.PointSetPath;
+import shell.shell.Shell;
 
-import java.io.File;
 import java.util.Collections;
 import java.util.Random;
 
@@ -20,7 +19,23 @@ public class SubGraphs {
 	/**
 	 * Tests that our solver solves the djibouti problem set correctly
 	 */
+	@Test
+	public void test_lines() {
+		testMethod("lines");
+	}
+	@Test
+	public void test_lines_0_4() {
+		testMethod("lines_0-4");
+	}
+	@Test
+	public void test_box_WH() {
+		testMethod("box_WH");
+	}
 
+	@Test
+	public void test_box_WH_2x() {
+		testMethod("box_WH-2x");
+	}
 	@Test
 	public void test_circle_5() {
 		testMethod("circle_5");
@@ -42,24 +57,24 @@ public class SubGraphs {
 	}
 
 	@Test
-	public void test_two_circle_in_10() {
-		testMethod("two_circle_in_10");
+	public void test_twocircle_in_10() {
+		testMethod("twocircle_in_10");
 	}
 
 	@Test
-	public void test_two_circle_in_10_arc() {
-		testMethod("two_circle_in_10_arc");
+	public void test_twocircle_in_10_arc() {
+		testMethod("twocircle_in_10_arc");
 
 	}
 
 	@Test
-	public void test_two_circle_in_10_wh() {
-		testMethod("two_circle_in_10_wh");
+	public void test_twocircle_in_10_wh() {
+		testMethod("twocircle_in_10_wh");
 	}
 
 	@Test
-	public void test_three_circle_in_10() {
-		testMethod("three_circle_in_10");
+	public void test_threecircle_in_10() {
+		testMethod("threecircle_in_10");
 	}
 
 	@Test
@@ -201,7 +216,10 @@ public class SubGraphs {
 	public void test_wi29_6_25p20p19() {
 		testMethod("wi29_6-25p20p19");
 	}
-
+	@Test
+	public void test_wi29_6_21() {
+		testMethod("wi29_6-21");
+	}
 	@Test
 	public void test_wi29_6_28() {
 		testMethod("wi29_6-28");
@@ -216,9 +234,108 @@ public class SubGraphs {
 	public void test_wi29_9_25p20() {
 		testMethod("wi29_9-25p20");
 	}
+	
+	@Test
+	public void test_qa194_0_14() {
+		testMethod("qa194_0-14");
+	}
+	@Test
+	public void test_qa194_0_20() {
+		testMethod("qa194_0-20");
+	}
+	@Test
+	public void test_qa194_20_40() {
+		testMethod("qa194_20-40");
+	}
+	@Test
+	public void test_qa194_20_40WH() {
+		testMethod("qa194_20-40WH");
+	}
+	@Test
+	public void test_qa194_20_60() {
+		testMethod("qa194_20-60");
+	}
+	@Test
+	public void test_qa194_20_60WH() {
+		testMethod("qa194_20-60WH");
+	}
+	@Test
+	public void test_qa194_40_60() {
+		testMethod("qa194_40-60");
+	}
+	@Test
+	public void test_qa194_40_60WH() {
+		testMethod("qa194_40-60WH");
+	}
+	@Test
+	public void test_qa194_60_80() {
+		testMethod("qa194_60-80");
+	}
+	@Test
+	public void test_qa194_60_80WH() {
+		testMethod("qa194_60-80WH");
+	}
+	@Test
+	public void test_qa194_69_100() {
+		testMethod("qa194_69-100");
+	}	
+	@Test
+	public void test_qa194_87_100() {
+		testMethod("qa194_87-100");
+	}
+	@Test
+	public void test_qa194_100_120() {
+		testMethod("qa194_100-120");
+	}
+	@Test
+	public void test_qa194_100_120WH() {
+		testMethod("qa194_100-120WH");
+	}
 
+	@Test
+	public void test_qa194_120_140() {
+		testMethod("qa194_120-140");
+	}
+	@Test
+	public void test_qa194_120_140WH() {
+		testMethod("qa194_120-140WH");
+	}
+	@Test
+	public void test_qa194_120_160() {
+		testMethod("qa194_120-160");
+	}
+	@Test
+	public void test_qa194_120_160WH() {
+		testMethod("qa194_120-160WH");
+	}
+	@Test
+	public void test_qa194_140_160() {
+		testMethod("qa194_140-160");
+	}
+	@Test
+	public void test_qa194_140_160WH() {
+		testMethod("qa194_140-160WH");
+	}
+
+	@Test
+	public void test_qa194_160_180() {
+		testMethod("qa194_160-180");
+	}
+	@Test
+	public void test_qa194_160_180WH() {
+		testMethod("qa194_160-180WH");
+	}
+	
+	@Test
+	public void test_qa194_180_6() {
+		testMethod("qa194_180-6");
+	}
+	@Test
+	public void test_qa194_180_6WH() {
+		testMethod("qa194_180-6WH");
+	}
 	public void testMethod(String fileName) {
-		PointSetPath retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
+		PointSetPath retTup = FileManagement.importFromFile(FileManagement.getTestFile(fileName));
 		Shell answer = new Shell();
 		int n = retTup.ps.size();
 

@@ -1,4 +1,4 @@
-<img src="decal.svg" alt="Decal" width="50%" style="max-height: 400px; display: block;margin-left: auto;margin-right: auto;"/>
+<img src="./res/decal.svg" alt="Decal" width="50%" style="max-height: 400px; display: block;margin-left: auto;margin-right: auto;"/>
 
 ## Contents
 
@@ -55,7 +55,7 @@ For planetary bodies it is, if not clear, fuzzily clear, that the natural abstra
 
 If we think back to the Earth and Moon as our perfect natural abstraction, we see that the Moon (and even the Sun, Jupiter and most of the planets at various times) cause tides on the earths oceans. If you think of an ideal spherical liquid earth, then it is obvious that the tides would also extend to the very core of the Planet. And indeed it has been noted by petroleum engineers and miners working in the earths crust that they have to deal with larger pressures from the surrounding rock twice a day mirroring the tides. But, If instead of all of the Earth being made of Water, it was made of different liquids or solids with different densities and tensile strengths, then at each density level we'd need to calculate a different tidal force and bulge made by the tide. Another note: it is believed that the tidal force on Jupiter's volcanic moon Io is caused by the fluctuation in and addition of tidal stress from Jupiter and the nearby moons of Europa, Ganymede and Callisto causing immense amounts of friction in the interior and surface of Io.
 
-<img src="img\tides.png" alt="MatchTwiceAndStitch" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\tides.png" alt="MatchTwiceAndStitch" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 
 <p style="text-align:center"> Stress forces on the surface of a planetary body due to the tides</p>
 
@@ -77,21 +77,21 @@ Even in the plane the convex hull may be an unnatural abstraction. think about a
 
 In the Match Twice and Stitch paper, an algorithm for finding m distinct cycles is proposed. Two problems arise with the proposed algorithm, the first problem is that it is not guaranteed that you can form m distinct cycles by the method outlined. These points outside the cycles means that there is no guarantee that the algorithm can be run on any set. And the second problem arises at the stitching phase of the algorithm (Stitching here means greedily alternating between the points along the boundary of 2 cycles, repeat until there is only one cycle).
 
-<img src="img\MatchTwiceAndStitch.png" alt="MatchTwiceAndStitch" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\MatchTwiceAndStitch.png" alt="MatchTwiceAndStitch" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Example of stitching two cycles together from the match and stitch paper</p>
 
 How can you know that when you stitch two cycles together, that they will form the correct minimal cycle of the two sets? Even in the example seen above this is unlikely to be the correct cycle and to actually check the correct cycle under this scheme you'd need to check 2^k possible cycles where k is the number of elements in the union of the two combining cycles. I think the causal reason why this is hard is that this is an unnatural abstraction, if you think about the case where you have two cycles that are circles in the plane and their boundaries are close to each other, the cycles formed will be two circles, but along the boundary between the two midpoints of the circles, those points will want to match more closely with points from the opposite circle than with all of the points in their own circle.
 
-The problem with many similar algorithms (greedy match, any colony, minimum spanning tree transformation, etc.) is that you can know that an answer is within some bound of the correct one, but there is no framework for causal reasoning on why a given solution is wrong, we simply say that the algorithm didn't work for this set and then use some form of k-opt segment swap to minimize the answer (look ma it is getting shorter!). This is the general problem with using heuristics  rather than looking for root causes, iteration is at the heart of scientific thought and if you have no theoretical framework to wrap around a problem, then there is no place to iterate you theory when you find an exception to it. It is the difference between engineering and science. *WARNING BASELESS RANT INCOMING* I think for all of its sins, the greatest one in Computer Science is that we often rely too much on engineering efforts rather than the scientific and mathematical efforts of our fields namesake. We as a field seek short term gain in fitness functions (wether is path length in TSP research or benchmark success in Machine Learning) instead of long term understanding of deeper truths. If we continually throw aside understanding at the feet of greater compute power then we do not deserve to be called scientists. The opposite tendency, to only rely on proofs is simarly flawed and I find many of the claims of Complexity theory to fall into this categorey, never really saying anything of use and building no intuition(which is inherently unprovable), except what is directly derrivable from previously shown results. If an answer to PvsNP exists, I expect that it will be a leap of logic unlike what we have seen before not a neatly built bridge of small results from PvsNp to P=NP or P!=NP. Since most Complexity theorists are trying to prove P!=NP because of a series of reductio ad absurdum (which as Schrodinger found out in the quantum realm, the world is often more absurd than the limits of imagination), There is a dirth of academic research trying to use the structure of relationships to map out what NP problems can be solved in P. As far as I can tell, the notion that Optimal tours might behave and change in the same ways that a precision watch would change to a replacement of gears, is lost on most people. We as a field either jump to statistical arguments or quasi-mathematical arguments neither of which seem to build actual understandable models of what is going on in a perfect circuit. (I say quasi here since very little of complexity theory deals with the actual nature of programs, geometrical structures and the like, instead falling back to the most broad of arguments, making it closer to the philosophy of old than the mathematics and science of the early 20th century, [GTC](http://ramakrishnadas.cs.uchicago.edu/gctcacm.pdf) seems promising on the P!=NP front and I need to read more about it).
+The problem with many similar algorithms (greedy match, any colony, minimum spanning tree transformation, etc.) is that you can know that an answer is within some bound of the correct one, but there is no framework for causal reasoning on why a given solution is wrong, we simply say that the algorithm didn't work for this set and then use some form of k-opt segment swap to minimize the answer (look ma it is getting shorter!). This is the general problem with using heuristics  rather than looking for root causes, iteration is at the heart of scientific thought and if you have no theoretical framework to wrap around a problem, then there is no place to iterate your theory when you find an exception to it. It is the difference between engineering and science. *WARNING BASELESS RANT INCOMING* I think for all of its sins, the greatest one in Computer Science is that we often rely too much on engineering efforts rather than the scientific and mathematical efforts of our fields namesake. We as a field seek short term gain in fitness functions (wether the fitness function is path length in TSP research or benchmark success in Machine Learning) instead of long term understanding of deeper truths. If we continually throw aside understanding at the feet of greater compute power then we do not deserve to be called scientists. The opposite tendency, to only rely on proofs is similarly flawed and I find many of the claims of Complexity theory to fall into this category of never really saying anything of use and building no intuition(which is inherently unprovable), except what is directly derivable from previously shown results. If an answer to P vs NP exists, I expect that it will be a leap of logic unlike what we have seen before not a neatly built bridge of small results from P vs NP to P=NP or P!=NP. Since most Complexity theorists are trying to prove P!=NP because of a series of reductio ad absurdum (which as Schrodinger found out in the quantum realm, the world is often more absurd than the limits of human imagination), there is a dirth of academic research trying to use the structure of relationships to map out what NP problems can be solved in P. As far as I can tell, the notion that Optimal tours might behave and change in the same ways that a precision watch would change to a replacement of gears, is lost on most people. We as a field either jump to statistical arguments or quasi-mathematical arguments neither of which seem to build actual understandable models of what is going on in a perfect circuit. (I say quasi here since very little of complexity theory deals with the actual nature of programs, geometrical structures and the like, instead falling back to the most broad of arguments, making it closer to the philosophy of old than the mathematics and science of the early 20th century, [GTC](http://ramakrishnadas.cs.uchicago.edu/gctcacm.pdf) seems promising on the P!=NP front and I need to read more about it).
 
-Why not clusters? There is a lot of literature on how to find clusters in graphs and they sort of have the property we are looking for that an ideal k-clustering of a graph is a natural abstraction. Two problems arise when considering clusters, first is how do we choose k, i.e. how do we know how many clusters there are in the graph? This is not a trivial problem and in general we can show that there is no correct answer by the simple fact that if we choose k to be n then we have n natural abstractions one for each point adn if we choose k to be 1 then we have one natural abstraction in the whole set, both of these are perfectly valid and easy to compute natural abstracts, but non-useful. Ok so maybe instead of using something like k means we use a hierarchical clustering algorithm like the [nearest-neighbor chain algorithm](https://en.wikipedia.org/wiki/Nearest-neighbor_chain_algorithm). This method would work better since we don't have to divine the number of clusters in the graph, but there is still a pretty serious problem with an approach like this. Since clusters have no ordering except points are either in the cluster or out of it, how would we form a cycle out of a cluster? If our smallest cluster in the hierarchy is some size m where m < n, then we'd still have 2^m possible cycles to choose from in order to find the optimal, and if we add up all of our k smallest clusters where k clusters consume the entire set, then we'd have 2^m_1 + 2^m_2 + ... + 2^m_k cycles to choose from. one we had all of these cycles, were is still no guarantee that we could combine them in any easy way so we'd have to also do a pairwise 2^m_a + 2^m_b combination step (where a and ba are two of the cycles found in the previous step) to get the final correct cycle. So is there any clustering method that could lead use to a natural abstraction that is easy to find, and useful in solving our problem? If we want to have a good natural abstraction, it would be useful if the abstraction had the correct cycle for the subset be incidental to the formation of the abstraction, much like in the plane the correct cycle of a convex hull subset is found simply by finding the convex hull. I don't know of any clustering algorithm that has that property (doesn't mean one doesn't exist) since clusters are mainly concerned with membership rather than ordering, so let's focus our efforts elsewhere.
+Why not clusters? There is a lot of literature on how to find clusters in graphs and they sort of have the property we are looking for that an ideal k-clustering of a graph is a natural abstraction. Two problems arise when considering clusters, first is how do we choose k, i.e. how do we know how many clusters there are in the graph? This is not a trivial problem and in general we can show that there is no correct answer by the simple fact that if we choose k to be n then we have n natural abstractions one for each point and if we choose k to be 1 then we have one natural abstraction in the whole set, both of these are perfectly valid and easy to compute natural abstracts, but non-useful. Ok so maybe instead of using something like k means we use a hierarchical clustering algorithm like the [nearest-neighbor chain algorithm](https://en.wikipedia.org/wiki/Nearest-neighbor_chain_algorithm). This method would work better since we don't have to divine the number of clusters in the graph, but there is still a pretty serious problem with an approach like this. Since clusters have no ordering except points are either in the cluster or out of it, how would we form a cycle out of a cluster? If our smallest cluster in the hierarchy is some size m where m < n, then we'd still have 2^m possible cycles to choose from in order to find the optimal, and if we add up all of our k smallest clusters where k clusters consume the entire set, then we'd have 2^m_1 + 2^m_2 + ... + 2^m_k cycles to choose from. one we had all of these cycles, were is still no guarantee that we could combine them in any easy way so we'd have to also do a pairwise 2^m_a + 2^m_b combination step (where a and ba are two of the cycles found in the previous step) to get the final correct cycle. So is there any clustering method that could lead use to a natural abstraction that is easy to find, and useful in solving our problem? If we want to have a good natural abstraction, it would be useful if the abstraction had the correct cycle for the subset be incidental to the formation of the abstraction, much like in the plane the correct cycle of a convex hull subset is found simply by finding the convex hull. I don't know of any clustering algorithm that has that property (doesn't mean one doesn't exist) since clusters are mainly concerned with membership rather than ordering, so let's focus our efforts elsewhere.
 
 Another idea might be to make an ear decomposition (See Figure Below) using the matchings of our graph as the "edges" of the decomposition. Once we have some an ear decomposition we could then cut the resulting decomposition into a single path. Since our Graph is fully connected we'd also have to ensure that we only assign two edges per vertex greedily once our seed cycle is found in order to not multiple form cycles in the resulting path.
 
-<img src="img\EarDecomposition.png" alt="EarDecomposition" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\EarDecomposition.png" alt="EarDecomposition" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Example of an Ear decomposition of a partially connected graph </p>
 
-I think this is moving in the right direction, since we have a nested structure to work with, we are moving toward a natural abstraction, but for similar reasoning to why convex hulling is an unnatural abstraction, this method would also be unnatural. This can be seen by the simple fact that there is no unique ear decomposition and any cycle we choose as the seed cycle (e.g. G_1 in the above Figure) would be valid. In many graphs in the waterloo dataset there are multiple cycles of matchings that could serve as the seed cycle. This necessarily means that you'd end up splitting one of the cycles of matchings into two ears breaking the naturalness of the abstraction.If we could guarantee that our matching ear decomposition would only stack more ears on top of each other, breaking no matching cycles, then this would be a promising technique and investigating the proper cutting algorithm would be the next step, but since this property is broken even by small graphs, this technique warrants no further investigation.
+I think this is moving in the right direction, since we have a nested structure to work with, we are moving toward a natural abstraction, but for similar reasoning to why convex hulling is an unnatural abstraction, this method would also be unnatural. This can be seen by the simple fact that there is no unique ear decomposition and any cycle we choose as the seed cycle (e.g. G_1 in the above Figure) would be valid. In many graphs in the waterloo dataset there are multiple cycles of matchings that could serve as the seed cycle. This necessarily means that you'd end up splitting one of the cycles of matchings into two ears breaking the naturalness of the abstraction. If we could guarantee that our matching ear decomposition would only stack more ears on top of each other, breaking no matching cycles, then this would be a promising technique and investigating the proper cutting algorithm would be the next step, but since this property is broken even by small graphs, this technique warrants no further investigation.
 
 ### The Gordian Knot
 
@@ -99,61 +99,59 @@ Okay, What could the natural abstraction be? Well I think it has the following f
 
 A Way to think about this structure is that it is similar to the ear matching decomposition, but generalizes it to multiple seed cycles.
 
-Even this is not quite a true description of the structure, since what we are really trying to do is: Once we form a cycle we need to also make this cycle into a point for use in finding new cycles. The recursive nature of the data structure is necessary to ensure that it is a natural abstraction and the cyclic nature of the abstraction ensures that , at least in the base case, we will be able to find the correct tsp tour with ease. Finally the constraint that there should only be one in and one out (meaning that the Virtual Point is a member of a super cycle) ensures that we will be able to merge tsp cycles with relative but unfortunately recursive ease. Why does merging cycles require recursion? Well I'm not sure that recursion  is the right tool, but it is the best one I have. This is quite similar to the situation we find ourselves in with graphs and cycles, if we have any recursive structure,  find and building up the correct path will be at least an n^2 endeavour and at most an n^2 + (n-1)^2 + ... + 1^2 ~= n^3 operation. Why n^3? because, in the worst case, we have two externals points that we need to check every point in the cycle against to find the right cut, and when we find the right cut we cannot simply match the cutpoints together. Matching the cutpoints together is useful until a point, but once the Knot has more than one cyclic layer, it is not usually the correct answer. In a pure cycle it is the correct answer.
+Even this is not quite a true description of the structure, since what we are really trying to do is: Once we form a cycle we need to also make this cycle into a point for use in finding new cycles. The recursive nature of the data structure is necessary to ensure that it is a natural abstraction and the cyclic nature of the abstraction ensures that , at least in the base case, we will be able to find the correct tsp tour with ease. Finally the constraint that there should only be one in and one out (meaning that the Virtual Point is a member of a super cycle) ensures that we will be able to merge tsp cycles in polynomial time. [See Chapter 4 for details on merging](#chapter-4).
 
-Does a Knot necessarily exist in a fully connected graph embedded in Euclidean Space?
+<img src="readme_img\layers.gif" alt="layers" width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Example of a nested Knot structure, moving up through the layers</p>
 
-if we have points p_1, p_2, ..., p_6
-and each set of odd even pairs WOLG match to each other but not to their next best matches, e.g.
-So what possible matching could we have?
+<img src="readme_img\wi29_numbers.png" alt="layers" width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> wi29 dataset numbers</p>
 
-p_6 <- p_1 <-> p_2 -> p_3
-p_5 <- p_4 <-> p_3 -> p_6
-p_1 <- p_5 <-> p_6 -> p_4
-implies that:
-S[1,6] > S[6,4] > S[4,5] > S[1,5] > S[1,6]
-which breaks the triangle inequality
-
-p_3 <- p_1 <-> p_2 -> p_3
-p_5 <- p_4 <-> p_3 -> p_6
-p_1 <- p_5 <-> p_6 -> p_4
-
-implies that:
-S[1,3] > S[3,6] > S[6,4] > S[4,5] > S[1,5] > S[1,3]
-which breaks the triangle inequality
-
-p_4 <- p_1 <-> p_2 -> p_3
-p_5 <- p_4 <-> p_3 -> p_6
-p_1 <- p_5 <-> p_6 -> p_4
-
-implies that:
-S[1,4] > S[4,5] > S[5,1] > S[1,4]
-which breaks the triangle inequality.
-
-p_6 <- p_1 <-> p_2 -> p_3
-p_2 <- p_4 <-> p_3 -> p_6
-p_1 <- p_5 <-> p_6 -> p_4
-
-S[2,3] > S[3,6] > S[6,4] > S[4,2] > S[2,3]
-
-p_6 <- p_1 <-> p_2 -> p_5
-p_2 <- p_4 <-> p_3 -> p_6
-p_1 <- p_5 <-> p_6 -> p_4
-
-S[2,5] > S[5,1] > S[6,1] > S[4,6] > S[2,4] > S[2,5]
-
-p_6 <- p_1 <-> p_2 -> p_6
-p_2 <- p_4 <-> p_3 -> p_6
-p_1 <- p_5 <-> p_6 -> p_4
-
-S[2,6] > S[6,4] > S[4,2] > S[2,6]
-
-...
-etc.
-
-We can see from the above that if there is no terminating match where one of the endpoints matches to another pair successfully, then we must break the triangle inequality it's not the triangle inequality, maybe that too, but we create a contradiction of increasing numbers such that a > b > c > a .
-
-So we've shown we need at least one extra full match to resolve this, does that mean we must have a Knot?
+    Knot(flattens to: {6 5 4 3 2 1 0 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7})[
+        Knot(flattens to: {21 22 23 24 25 26 27 28 2 0 1 5 6 4 3 20})[
+            Knot(flattens to: {22 23 24 21})[
+                Knot[22 23 24 ] 
+                21 
+            ],
+            Knot(flattens to: {3 4 6 5 1 0 2 28 27 26 25})[
+                Knot(flattens to: {3 2 28 0 1 5 6 4})[
+                    3,
+                    Knot(flattens to: {6 4 2 28 0 1 5})[
+                        6,
+                        Knot(flattens to: {5 4 2 28 0 1})[
+                            5,
+                            4,
+                            Knot(flattens to: {2 1 0 28})[
+                                Knot[0 2 1 ],
+                                28 
+                            ] 
+                        ] 
+                    ] 
+                ],
+                Knot[27 26 25 ] 
+            ],
+            20 
+        ],
+        Knot(flattens to: {9 8 7 19 18 17 16 15 14 13 12 11 10})[
+            Knot(flattens to: {7 19 18 17 16 15 13 14 9 8})[
+                Knot(flattens to: {19 7 14 13 15 16 17 18})[
+                    19, 
+                    7, 
+                    Knot(flattens to: {14 13 15 16 17 18})[
+                        Knot(flattens to: {14 13 15 16 17})[
+                            Knot[13 15 14 ], 
+                            16, 
+                            17
+                        ], 
+                        18 
+                    ] 
+                ],
+                9, 
+                8 
+            ],
+            Knot[10 11 12 ] 
+        ] 
+    ]
 
 ## Chapter 1
 
@@ -233,13 +231,13 @@ So far I hope I have conveyed/answered the following:
 
 * What is The Traveling Salesman Problem(TSP)?
 * Why should I care about TSP?
-* The solution to TSP, if one exists, lies in building up abstractions like a topographer builds terrain on a map, rather than iterative improvement. The terrain features should be invarriants in the graph (for a good starting place look at cycles)
+* The solution to TSP, if one exists, lies in building up abstractions like a topographer builds terrain on a map, rather than iterative improvement. The terrain features should be invariants in the graph (for a good starting place look at cycles)
 
 So the next question would be: <B>What terrain features exist on our map?</b>
 
 Note that in this section I will be defining some of these features in non-traditional ways if you are coming from graph theory. This is so that our data-structures can more readily fit the problem at hand. If there is overlap, I will redefine these terms so that we can distinguish them from their more basic versions you would have seen in algorithms like <b>BFS, DFS</b> and the like.
 
-### Segment
+### [Segment](.\src\shell\knot\Segment.java)
   
   A <b>Segment</b> (also known as an <b>Edge</b> in graph theory), is a connection between two points and a distance provided by the cost function.
 
@@ -253,7 +251,7 @@ distance = C( P<sub>1</sub> , P<sub>2</sub> )
 
 }
 
-### Point
+### [Point](.\src\shell\knot\Point.java)
 
 Our smallest feature is a <b>Point</b> (also know as a <b>Vertex</b> in graph theory), which is defined as a list of Segments all of the segments in the graph that connect to P<sub>1</sub>:
 
@@ -272,6 +270,8 @@ Many of the proceeding algorithms will rely on the fact that sortedSegments is s
 The "<b>matches</b>" will be our current best guess of what two points should surround P<sub>1</sub> in our final ordering. Right now they will just be pointers to other points, but as we add more terrain features we will need to add more supporting data to prevent recalculation of what the best match is.
 
 ### Wormholes
+
+[DistanceMatrix:addDummyPoint()](.\src\shell\DistanceMatrix.java#L177)
 
 A <b>Wormhole</b> is a point that has zero distance to two Points of your choosing and maximal distance to all other Points in the set.
 
@@ -373,13 +373,13 @@ So its one isn't a perfect loop  like  [11, 12, 13] was, but it might be prudent
 
 Ok I think we're ready for our first larger structure
 
-### Knot
+### [Knot](.\src\shell\knot\Knot.java)
 
 A <b>Knot</b> is defined as any subset <b>K</b> of <b>G</b> where all of the Points in <b>K</b> only want to match with each other and a maximum of two external Points.
 
 Knot(P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>) = struct{
 
-knotPoints = [P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>]
+KnotPoints = [P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>]
 
 sortedSegments = [Segment( P<sub>1</sub> , P<sub>M+1</sub> ) , Segment( P<sub>1</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>1</sub> , P<sub>N</sub> ),
 
@@ -443,7 +443,7 @@ So we have a core of <B>[14, 15, 16, 17, 18, 19]</b> with two failed endpoint ma
 
     Note that it is debatable whether you need this structure, but for organizational purposes let's include it.
 
-### Run
+### [Run](.\src\shell\knot\Run.java)
 
 A <b>Run</b> is just like a <b>Knot</b>, but only its endpoints are exposed.
 
@@ -453,7 +453,7 @@ endpoint1 = P<Sub>1</sub>
 
 endpoint2 = P<Sub>M</sub>
 
-knotPoints = [P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>]
+KnotPoints = [P<sub>1</sub>, P<sub>2</sub>, ... , P<sub>M</sub>]
 
 sortedSegments = [Segment( P<sub>1</sub> , P<sub>M+1</sub> ) , Segment( P<sub>1</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>1</sub> , P<sub>N</sub> ),
 
@@ -468,7 +468,7 @@ match2 = P<sub>*</sub>
 
 Next, so that we can look at [Points](#point) and [Knots](#knot) interchangeably, lets make some interface or abstract class above both of them (and any other structures we want to add later):
 
-### Virtual Point
+### [Virtual Point](.\src\shell\knot\VirtualPoint.java)
 
 all of the stuff from [Points](#point), [Knots](#knot), and [Runs](#run) combined and generalized!
 
@@ -478,24 +478,26 @@ Now that we have all of our data structures, let's get cracking
 
 ## Mapping the Gordian Knot
 
-Our knot mapping algorithm is as follows:
+Our Knot mapping algorithm is as follows:
 
 Main Loop:
+[Shell:slowSolve()](.\src\shell\Shell.java#L552)
 
 1. Get all of the Virtual Points we haven't visited and run the continue from Knot Finding Loop #1
-2. The new list of unvisited points is the returned knotList
+2. The new list of unvisited points is the returned KnotList
 3. If there is only one Virtual Point left, finish, otherwise continue from #1
 
 Knot Finding Loop:
+[Shell:createKnots()](.\src\shell\Shell.java#L61)
 
 1. Get a Virtual Point(VP) that we haven't looked at yet
-2. If we have looked at every VP return the knotList and continue from Main Loop #2
+2. If we have looked at every VP return the KnotList and continue from Main Loop #2
 3. Check what the main VP's best two matches are
 4. Check if the VPs that our main VP wants to match with will match back
 
    5. If so, update the two VPs with their matches and add them to the runList
 
-            a. If we have found a Knot, (both ends of the runList have two matches)  create the Knot from the runList, add it to our knotList, and continue from #1
+            a. If we have found a Knot, (both ends of the runList have two matches)  create the Knot from the runList, add it to our KnotList, and continue from #1
 
             b. If not set the main VP to the matched VP and continue from #2
 
@@ -548,9 +550,9 @@ Next what should we do if we have two <b>Knots</b> in a new <b>Knot</b>? For exa
           Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ]
     ]
 
-I am not sure why but this seems to be a common failure case, so we need to do something to address it (usually cause both of the Super Knot's matches point to the same knot). I think if we built the algorithm to be more flat (without Runs) it would not be the case.
+I am not sure why but this seems to be a common failure case, so we need to do something to address it (usually cause both of the Super Knot's matches point to the same Knot). I think if we built the algorithm to be more flat (without Runs) it would not be the case.
 
-Ideally we would be able to have the knot surrounded incorrect context so insert one of them into the other:
+Ideally we would be able to have the Knot surrounded incorrect context so insert one of them into the other:
 
     Knot[32 33 Knot[Knot[35 36 37 ] 34 ] 0 1 ] 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ]
 
@@ -559,13 +561,13 @@ Ideally we would be able to have the knot surrounded incorrect context so insert
     Knot[Knot[35 36 37 ] 34 ] 0 1 Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ]] 
 
 -------
-    I think the recursive insertion process should be that if you have a knot that only points to another knot then insert and keep going down levels till you are at the base knot
+    I think the recursive insertion process should be that if you have a Knot that only points to another Knot then insert and keep going down levels till you are at the base Knot
   
 -------
 
 ### Silver into Gold
 
-When we have a Run that loops back on itself at both ends we have a Knot, but what if we have a Run that only loops back internally? Or a Virtual Point that is next to a knot, and points to every point in its neighboring knot before pointing to other things in the Run? The following section will describe the process of finding Half Knots, or Knots which have all of the characteristics of a Knot once formed except that they do not form a perfect Knot when we are doing Knot finding (i.e. both ends of their Run point to each other).
+When we have a Run that loops back on itself at both ends we have a Knot, but what if we have a Run that only loops back internally? Or a Virtual Point that is next to a Knot, and points to every point in its neighboring Knot before pointing to other things in the Run? The following section will describe the process of finding Half Knots, or Knots which have all of the characteristics of a Knot once formed except that they do not form a perfect Knot when we are doing Knot finding (i.e. both ends of their Run point to each other).
 
 We will use the same data structures as the perfect Knots to encapsulate Half Knots, but we will only look for them once either end of our Run has been exhausted. If we find any Half Knots in our Run the remaining Virtual Points will be reset to avoid any pointer confusion.
 
@@ -593,21 +595,21 @@ The next step is to cut it up according to the external matches
 
 ## The Sword of Iskandar
 
-Now that we have our final all-encompassing Knot (i.e. it should contain every point in the set), we need to start cutting it up based on the externals that we matched with the Knot.
+Now that we have our final all-encompassing Knot (i.e. it should contain every point in the set), we need to start cutting it up based on the externals that we matched with each sub-Knot.
 
 Our final Knot doesn't have any externals by definition, so we can simply dissolve it.
 
 The general idea will be this:
 
-* Dive into the first knot in the list until we find a knot with no sub-Knots.
+* Dive into the first Knot in the list until we find a Knot with no sub-Knots.
 * Find the base Knot's external matches.
-* Figure out what segments to cut based on the externals.
-* Figure out which side of each segment to match to from the externals (these matched points will be labeled KnotPoints).
+* Loop through all segment pairs to cut and figure out the distance changed by picking a particular pair.
+* Figure out which side of each segment to match to based on the distance to the externals (these matched points will be labeled KnotPoints).
 * Figure out how to connect the unmatched points (referred to as CutPoints) to each other.
-* Add the minimal ordering into the list of the sub Knot's parent.
+* Add the minimal ordering into the list of the sub-Knot's parent.
 * Repeat until we don't have any Knots left in the list.
 
-Our cutting algorithm will not work on a nested knot, so if the knot we are trying to cut has a height greater than 1 we will need to recursively cut it internally.
+Our cutting algorithm will not work on a nested Knot, so if the Knot we are trying to cut has a height greater than 1 we will need to recursively cut it internally.
 
 ### Cutting Loop
 
@@ -619,9 +621,9 @@ Our cutting algorithm will not work on a nested knot, so if the knot we are tryi
 
     a | b cut in the connection manifold between a and b
 
-Once we have the two externals and the flat knot <b>K</b> we are trying to cut, we will enter the cutting loop. The idea is we will have a doubly nested loop that iterates over the segments of <b>K</b> making for a N<sup>3</sup> operation (once the recursive nature of the Knot is taken into account).
+Once we have the two externals and the flat Knot <b>K</b> we are trying to cut, we will enter the cutting loop. The idea is we will have a doubly nested loop that iterates over the segments of <b>K</b> making for a N<sup>3</sup> operation (once the recursive nature of the Knot is taken into account).
 
-If the two cut segments overlap fully (i.e. Segment [a:b] and Segment [b:a] are the cuts) then we will calculate the Agree case (seen below) and if it is a smaller loop than our minimum, replace it. so if we had Cut Segment: [a:b]
+If the two cut segments overlap fully (i.e. Segment [a:b] and Segment [b:a] are the cuts) and it is a smaller loop than our minimum, replace it. So, if we had Cut Segment: [a:b]
 
 ... <-> a <-> b <-> ...
 
@@ -629,7 +631,7 @@ with two external points ex1 and ex2, then we could have the following path
 
 ... <-> a <-> ex1 <-> ... <-> ex2 <-> b <-> ...
 
-If the two cut segments overlap partially (i.e. Segment [a:b] and Segment [b:c] are the cut segments) then ignore this pair as it would leave one point orphaned (unconnected  to the final path).
+If the two cut segments overlap partially (i.e. Segment [a:b] and Segment [b:c] are the cut segments) then ignore this pair as it would leave one point orphaned (unconnected  to the final path)(Note: that I think it is wrong to ignore this case, but I have not seen a data-set where is matters, likely because of my bias toward the plane).
 
 If the two cut segments are disjoint (i.e. Segment [a:b] and Segment [c:d] are the cut segments) then we need to figure out which will connect to the externals and which will we attach internally, so if we had
 
@@ -661,31 +663,33 @@ or
 
 The relationship and ordering in the points not connected to the externals is unknown in this preliminary state and will be explored further later.
 
-The differences of which KnotPoint connects to which External Point are not represented here as they do not effect the internal state of the resulting Knot.
+The differences of which KnotPoint connects to which External Point (via parity of a and c, or b and d, etc.) are not represented here as they do not effect the internal state of the resulting Knot.
 
 The Four States shown above are as follows:
 
-1. CutPoint2(d) and KnotPoint1(a) are connected to each other but are not connected to CutPoint1(b) or KnotPoint2(c) with KnotPoint1 and KnotPoint2 being connected to the externals.
+1. CutPoint2(d) and KnotPoint1(a) are connected to each other but are not connected to CutPoint1(b) or KnotPoint2(c) with KnotPoint1(a) and KnotPoint2(c) being connected to the externals.
 
-2. CutPoint1(a) and KnotPoint2(d) are connected to each other but are not connected to CutPoint2(c) or KnotPoint1(b) with KnotPoint1 and KnotPoint2 being connected to the externals.
+2. CutPoint1(a) and KnotPoint2(d) are connected to each other but are not connected to CutPoint2(c) or KnotPoint1(b) with KnotPoint1(b) and KnotPoint2(d) being connected to the externals.
 
-3. CutPoint1(a) and CutPoint2(d) are connected to each other but are not connected to KnotPoint1(b) or KnotPoint2(c) with KnotPoint1 and KnotPoint2 being connected to each other and and the externals.
+3. CutPoint1(a) and CutPoint2(d) are connected to each other but are not connected to KnotPoint1(b) or KnotPoint2(c) with KnotPoint1(b) and KnotPoint2(c) being connected to each other and and the externals.
 
-4. CutPoint1(b) and CutPoint2(c) are connected to each other but are not connected to KnotPoint1(a) or KnotPoint2(d) with KnotPoint1 and KnotPoint2 being connected to each other and and the externals.
+4. CutPoint1(b) and CutPoint2(c) are connected to each other but are not connected to KnotPoint1(a) or KnotPoint2(d) with KnotPoint1(a) and KnotPoint2(d) being connected to each other and and the externals.
 
 Once we have calculated all of the possible distance changes (and how the internal structure changes the distance) we take the smallest one and apply it.
 
 ### Finding Cut Point Matches
 
-In our example #1 above it is easy to see that a -> ex1 and c -> ex2 means that a and c have all of their Segments accounted for, we will call this <b>Balanced</b>. An entire Knot having been cut, is balanced if every one of its Points has two matches and each external has one match inside the knot.
+In example #1 above it is easy to see that a -> ex1 and c -> ex2 means that a and c have all of their Segments accounted for, we will call this <b>Balanced</b>. An entire Knot having been cut, is balanced if every one of its Points has two matches and each external has one match inside the Knot.
 
-From here we will refer to the two points that match to the externals as Knot Points (a and c) and the other Points that were cut from their Segments as Cut Points (b and d).
+From here we will refer to the two points that match to the externals as KnotPoints (e.g.1 a and c) and the other Points that were cut from their Segments and remain unmatched as CutPoints (e.g.1 b and d).
 
-Our Cut Points b and d in the example above would be unbalanced since we haven't decided what their new neighbors would be. But in the simple case we know that in order to balance a Knot we can match the Cut Points to each other. If we are only dealing with perfect knots(e.g. a Circle in the plane, triangle, etc.), then simply connecting the cut points is all we need, but if we have nested knots, things get a lot more complicated. Also note that for any bottom knot in the stack, that we can simply connect the Cut Points by definition, since every other point in the knot is already matched to its favorite other two points.
+Our CutPoints b and d in the example #1 above would be unbalanced since we haven't decided what their new neighbors would be. But in the simple case we know that in order to balance a Knot we can always match the CutPoints to each other (this is likely not optimal). If we are only dealing with perfect Knots(e.g. a circle in the plane, triangle, etc.), then simply connecting the CutPoints is all we need, but if we have nested Knots and therefore a more complex Knot manifold, things get a lot more complicated.
+
+A knot manifold is the tsp optimal tour formed by any Knot and its sub-Knots. We are cutting the Knot's manifold to connect to the external points and must repair the manifold to calculate the manifold for Knot's parent. Also note that for any bottom Knot in the stack, that we can simply connect the CutPoints by definition, since every other point in the Knot is already matched to its favorite other two points.
 
 ### Same Knot Different Super Knot
 
-As we flatten the stack we need a way to tell the difference between a Sub Knot and a Super Knot, this is where our next data structure the CutMatchList comes in, in the simple case our CutMatchList would consist of one internal match and two implied matches, the internal match would be between the two Cut Points and the two implied matches would be between the two Knot Points and their externals.
+As we flatten the stack we need a way to tell the difference between a Sub Knot and a Super Knot, this is where our next data structure the CutMatchList comes in, in the simple case our CutMatchList would consist of one internal match and two implied matches, the internal match would be between the two CutPoints and the two implied matches would be between the two Knot Points and their externals.
 
 ### Balance in All Things
 
@@ -699,94 +703,105 @@ Implied by above:
 * We should not have cut any Segment that does not exist in the Knot's Path
 * We should not have matched between KnotPoint1 and KnotPoint2
 * We should not have cut between KnotPoint1 and CutPoint1 or KnotPoint2 and CutPoint2 as it is repetitious
-* We should not have multiple cycles in the  Knot
+* We should not have multiple cycles in the Knot
 
 ### The Winds and the Tides
 
-Now that the framework for cutting the recursive Knot into one Knot has been laid out, we need to look at the internal structure of the knots we are cutting. To understand the all of the possible internal routes from KnotPoint1 to KnotPoint2 is a NP Hard problem and to actually fully explore this space would take N Factorial time. But, we are in luck! since the manifold of the knot is already a nearly optimal route we can abuse this fact to get the really optimal route in N^3 time. 
+Now that the framework for cutting the recursive Knot into one Knot has been laid out, we need to look at the internal structure of the Knots we are cutting. To find the all of the possible internal routes from KnotPoint1 to KnotPoint2 is a NP Hard problem and to fully explore this space would take N Factorial time. But, we are in luck! since the manifold of the Knot is already a nearly optimal route (aside form the cuts we made)! We can abuse this fact to get the optimal route in N^3 time (the running time of Dijkstra's in worse case).
 
-<img src="img\HoleGame_Setup.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> Initial State of the Hole Filling Game</p>
+    Keep in mind that we will have to repeat this for N^2/2 combinations of cut segments and so this is more like N^5 time. Also remember that we need to do this for ~N/3 Knots so this is more like N^6 time. Also keep in mind that we will have to calculate the path dependence on every cut match we make, so this is more like N^7 time. Finally note that if you could figure out a way to separate any of these caveats from their context (Similar to how Floyd-Warshall calculates all possible shortest paths at once) then you could significantly reduce the runtime of the algorithm described below.
 
-This was not initially obvious to me but there is a game we can play that would give us the right answer and its rules are as follows. Imagine that the hole in the Knot between CutPoint1 and KnotPoint1 is a movable hole centered at CutPoint1. Moving the hole to Point P with Neighboring Points P_prev and P_next consists of cutting the Segment between P and P_prev (S_a) or P and P_next (S_b) and matching between CutPoint1 and P-prev (S_x) or CutPoint1 and P_next (S_y) respectively, the cost of moving the hole would then be S_x - S_a or S_y - S_b respectively.
+<img src="readme_img\HoleGame_Setup.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Initial State of the Hole-Filling Game</p>
 
-<img src="img\HoleGame_OneMove.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> Hole Filling Game after 1 move</p>
+To solve the problem stated above let's imagine a Hole-Filling Game, where the objective is to move the hole at CP1, KP1 to KP2, CP2 in the least possible distance and making both holes disappear. The following describes the valid moves in the game: Imagine that the hole in the Knot between CutPoint1 and KnotPoint1 is a movable hole centered at CutPoint1. Moving the hole to <b>Point P</b> (marked with a blue arrow below) with Neighboring Points P_prev and P_next consists of cutting the Segment between P and P_prev (S_a) or P and P_next (S_b) and matching between CutPoint1 and P-prev (S_x) or CutPoint1 and P_next (S_y) respectively, the cost of moving the hole would then be S_x - S_a or S_y - S_b respectively.
 
-The object of the game is then to find the the shortest set of hole moves such that the hole ends up filling the other hole formed by KnotPoint2 and CutPoint2 centered on CutPoint2 without forming multiple cycles in the graph.
+<img src="readme_img\HoleGame_OneMove.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Hole-Filling Game after 1 move, cutting S_b (P to P_next) and matching S_y (CP1 to P_next)</p>
 
-<img src="img\HoleGame_Finished.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> A possible shortest path from the Hole Filling Game</p>
+The object of the game is then to find the the shortest set of hole moves such that the hole ends up filling the other hole formed by KnotPoint2 and CutPoint2 centered on KnotPoint2 without forming multiple cycles in the graph.
 
-The beauty of such an approach is that standard shortest path algorithms like Djikstra's or Floyd-Warshall will give us the minimal set of cuts and matches to form the optimal ordering of the Knot in N^3 Time! This is only possible because of the stipulation on the recursive Knot structure that every Virtual Point must only have 2 neighbors and that those neighbors must not want to be inside the Virtual Point, i.e. that we have a natural abstraction in our concept of a Virtual Point and a Knot. 
+<img src="readme_img\HoleGame_Finished.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> A possible shortest path from the Hole-Filling Game</p>
 
-I should also Note that this is the optimal ordering with KnotPoint1 and KnotPoint2 as endpoints, so if we will have to look at all of the possible combinations of assignments of KP1, CP1, CP2, and KP2 to the points in the graph (There are 4 x N^2 such assignments, meaning that our Big O complexity for cutting a Knot is O(4 x N^5 x M)) where M is the number of Knots in the structure (at most the sum of N/3 + N/9 + N/27 + ... = ~N/2).
+The beauty of such an approach is that standard shortest path algorithms like Dijkstra's or Floyd-Warshall will give us the minimal set of cuts and matches to form the optimal ordering of the Knot in K^3 Time, where K is the number of Points in current Knot's the manifold! This is only possible because of the stipulation on the recursive Knot structure that every Virtual Point must only have two neighbors and that those neighbors must not "want" to be inside the Virtual Point, i.e. that we have a natural abstraction in our concept of a Virtual Point and a Knot.
+
+I should also Note that there are 4 possible assignments, excluding parity duplicates, of KP1, CP1, CP2, and KP2 to the points in the cut segments. So, there are 4 x K^2 assignments for a single cut segment pair in the Knot manifold with meaningfully distinct internal re-orderings. This means that our Big O complexity for cutting a Knot is O(4 x K^5 x M) where M is the number of Knots in the recursive structure (at most the sum of K/3 + K/9 + K/27 + ... = ~K/2). We shall see in the next section that this is an underestimate given the path dependent structure of the problem.
 
 ### The Fly in the Ointment
 
-The problem with naively applying shortest path algorithms to this game is in the requirement to not form multiple cycles in the graph. Lets give an example to show what I mean. The first failure case where this comes up is the following:
+The problem with naively applying shortest path algorithms to this Hole-Filling Game is two-fold: First, avoiding forming multiple cycles in our answer tour is not a trivial problem to solve (i.e. it will increase the exponent of our runtime and prevent us from using more performant algorithms). Second, the possibility of negative weights (we must subtract the cut segment distance from the match segment distance in each move) means we will have to modify our search algorithm to accommodate for backtracking. Let's start with the problem of multiple cycles, as it dominates the structure of our answer. The first multiple cycle failure case is illustrated in the following:
 
-<img src="img\HoleGame_SelfLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> A loop is formed in the Hole Filling Game</p>
+<img src="readme_img\HoleGame_SelfLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> A loop is formed in the Hole-Filling Game</p>
 
-You will notice if we go directly to CP2 from the current CutPoint, Point P, then we will have multiple loops formed in the graph such that CP1 and CP2 are not connected. Also we have split the graph into three separate parts instead of the two we desire, any further match that does not match with a point between P and CP1 or to CP2 would keep the graph in three pieces(matching to CP2 woul make it into two pieces again). However, if we go from Point P to any point in that loop, we will fix the situation and then can exit to CP2 and complete the path without multiple loops.
+You will notice if we go directly to CP2 from the current CutPoint, Point P, then we will have multiple loops formed in the graph such that CP1 and CP2 are not connected (more generally we'd want to check using Union-Find that all endpoints are connected). We have split the graph into three separate parts instead of the two we desire, any further match that does not match with a point between P and CP1 or to CP2 would keep the graph in three pieces (matching to CP2 would make it into two pieces again). However, if we go from Point P to any point in that loop, we will fix the situation and then can exit to CP2 and complete the path without multiple loops.
 
-<img src="img\HoleGame_SelfLoop_Fixed.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_SelfLoop_Fixed.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Loop is broken and we can again exit</p>
 
 Another failure case is as follows:
 
-<img src="img\HoleGame_Disconnected.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_Disconnected.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> KnotPoints are connected to each other instead of a CutPoint</p>
 
-In the example above, if we exit now we will again form a 2 cycles in the graph instead of one but for a different reason, that both Knot Points are connected to each other and both CutPoints are connected to each other but neither CutPoint is connected to a KnotPoint. And similarly to the first "loop" failure case, if we match to any of the points between KP1 and KP2, we would fix the situation and could again exit to CP2. I would like to call this state in the Hole Filling Game <b>Disconnected</b> and the initial state of the Hole Filling Game <b>Connected</b>. It should also be easy to see that we can start the Hole Filling Game from a disconnected state!
+In the example above, if we exit now we will again form two cycles in the graph instead of one but for a different reason, that both Knot Points are connected to each other and both CutPoints are connected to each other but neither CutPoint is connected to a KnotPoint. And similarly to the first "self-loop" failure case, if we match to any of the points between KP1 and KP2, we would fix the situation and could again exit to CP2. I would like to call this state in the Hole-Filling Game, where we cannot exit to CP2 without forming multiple cycles in the graph, <b>Disconnected</b> and the initial state of the Hole-Filling Game, where we can connect to CP2 and exit without issue, <b>Connected</b>. It should also be easy to see that we can start the Hole-Filling Game from a disconnected state!
 
-<img src="img\HoleGame_DisconnectedStart.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> Hole Filling Game starting out disconnected</p>
+<img src="readme_img\HoleGame_DisconnectedStart.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Hole-Filling Game starting out disconnected</p>
 
-It is also easy to see that we can end up in a disconnected and loop state rather easily by forming a loop with any subset of the points between CP1 and CP2:
+It is also easy to see that we can end up in a disconnected and self-loop state rather easily by forming a loop with any subset of the points between CP1 and CP2:
 
-<img src="img\HoleGame_DisconnectedLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> Hole Filling Game disconnected with a loop</p>
+<img src="readme_img\HoleGame_DisconnectedLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Hole-Filling Game disconnected with a loop</p>
 
-To be able to exit again to CP2 we'd need to match to any point in the loop and match to one point between KP1 and KP2.
+To be able to exit again to CP2 from state above, we'd need to match to any point in the self-loop (i.e. any of the points between the end of hte blue arc) and match to one point between KP1 and KP2 to transition from Disconnected to Connected.
 
-It is also important to note that we can always plan a route that does not form any loops but has the same matches and cuts represented. For example if we take the figure below as State #1 
+It is also important to note that we can always plan a route that does not form any self-loops but has the same matches and cuts represented by a self-loop that was formed and then broken. For example, if we take the figure below as State #1.
 
-<img src="img\HoleGame_SelfLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_SelfLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> A loop is formed in State #1 (Blue)</p>
 
 And the next figure as State #2 (with the second move marked in Yellow)
 
-<img src="img\HoleGame_SelfLoop_Fixed_State2.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_SelfLoop_Fixed_State2.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Loop is broken and we can again exit in State #2 (Yellow)</p>
 
 And the next figure as State #3 (with the third move marked in Purple)
 
-<img src="img\HoleGame_SelfLoop_Fixed_State3.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> Hole Filling Game is completed in  State #3 (Purple)</p>
+<img src="readme_img\HoleGame_SelfLoop_Fixed_State3.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Hole-Filling Game is completed in  State #3 (Purple)</p>
 
-If instead we had flipped the order of the blue and yellow state we would have never formed a loop or become disconnected and we would have been able to represent the same matches in the same order.
+If instead we had flipped the order of the blue and yellow state (notice below that the blue and yellow arrows have swapped spots) we would have never formed a self-loop and we would have been able to represent the same match cuts in a different order, but without the possibility of exiting before fixing the erroneous self-loop.
 
-<img src="img\HoleGame_NoLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> Hole Filling Game is completed without forming a loop</p>
+<img src="readme_img\HoleGame_NoLoop.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Hole-Filling Game is completed without forming a loop</p>
 
-If you are cutting and matching to points between CP1 and KP2 and matching from a hole on the same side to prevent a loop you must do the following:
+So in order to prevent self-loops we need to keep a ordered list of the current state of the two groups, with the current cutPoint at the start of the list, so for example, before we make any cuts we'd have the following two groups:
 
-1. If the starting hole (H_1) is oriented such that the CutPoint (CP1 in the example) is in the clockwise direction compared to it's previously matched point (KP1 in the example), the resulting hole (H_3) must be oriented such that it's new CutPoint (the point with the blue arrow) is in the counter-clockwise direction from its previously matched point (the point with the yellow arrow).
+    OurGroup: [CP1, 1, 2, 3, KP2]
+    OtherGroup: [KP1, 4, 5, 6, CP2]
 
-2. If the starting hole (H_3) is oriented such that the CutPoint (the point with the blue arrow) is in the counter-clockwise direction compared to it's previously matched point (the point with the yellow arrow), the resulting hole (H_4) must be oriented such that it's new CutPoint (the point with the yellow arrow) is in the clockwise direction from its previously matched point (the point on the right of the yellow X).
+And after making the blue cut we'd have:
 
-In the above rules, it doesn't really matter which direction is clockwise or counter-clockwise, just that they are opposite directions of traversing the Path.
+    blue cut's OurGroup: [1, CP1, 2, 3, KP2]
+    blue cut's OtherGroup: [KP1, 4, 5, 6, CP2]
 
-Ok, so we sort of know how to prevent getting in the looped state, the question then is do the same rules apply for preventing the disconnected state?
+And after making the yellow cut we'd have:
+
+    yellow cut's OurGroup: [2, CP1, 1, 3, KP2]
+    yellow cut's OtherGroup: [KP1, 4, 5, 6, CP2]
+
+We can easily see that as long as our cut is oriented such that the new CutPoint (in yellow that would be Point 2 at index 2 of the blue cut's grouping) is earlier in the list than it's matched neighbor (in yellow that would be Point 3 at index 3 of the blue cut's grouping), then we cannot create a self-loop.
+
+We now know how to prevent getting into the self-looped state, the question then is do the same rules apply for preventing the disconnected state?
 
 Let's consider the following example:
 
-<img src="img\HoleGame_Dis_Fixed.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
-<p style="text-align:center"> Hole Filling Game is completed by becoming disconnected and then connected again</p>
+<img src="readme_img\HoleGame_Dis_Fixed.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Hole-Filling Game is completed by becoming disconnected and then connected again</p>
 
-Here we see a perfectly valid solution to the hole cutting game that very well may be the shortest path from CP1 to CP2, but we had to disconnect the path in order to make it! There is no way to rearrange the ordering of H_3 and H_4 so that the path does become disconnected at some point. So unlike the loops where the ordering of the cuts means that we don't have to worry about exploring them, we do have to explore the space of disconnected cut matches.
+Here we see a perfectly valid solution to the hole cutting game that very well may be the shortest path from CP1 to CP2, but we had to disconnect the path in order to make it! After making the move to H_3 the graph would be disconnected, and after making the move to H_4, the graph would be connected again. There is no way to rearrange the ordering of H_3 and H_4 so that the path does become disconnected at some point. So unlike the self-loops where the ordering of the cuts means that we don't have to worry about exploring them, we do have to explore the space of disconnected cut matches.
 
 This means that to arrive any any point there are four possible states:
 
@@ -799,94 +814,286 @@ The next question is how do we know when we've moved from connected to disconnec
 
 Well as a primer let's see what all of the hole moves we can make from CP1 would transfer our state to. We will mark holes that are connected in blue and all of the ones that are disconnected as yellow.
 
-<img src="img\HoleGame_ConnectionMap.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_ConnectionMap.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 
-It seems that if we are in the connected state with our hole being oriented in the clockwise direction and we match to a point between KP1 and CP2 then we need to check if our hole is clockwise or counter-clockwise, if it counter-clockwise then we will enter the disconnected state and if it is clockwise then we will remain in the connected state.
+If we consider the holes around Point 5, let's look at how OurGroup and the OtherGroup would be effected by the disconnected hole versus the connected hole:
+
+Start:
+
+    OurGroup: [CP1, 1, 2, 3, KP2]
+    OtherGroup: [KP1, 4, 5, 6, CP2]
+
+e.g. 1: Cut Segment[4:5] and Match Segment[CP1:5], new CutPoint is Point 4 and is Connected:
+
+    OurGroup: [4, KP1]
+    OtherGroup: [CP2, 6, 5, CP1, 1, 2, 3, KP2]
+
+e.g. 2: Cut Segment[6:5] and Match Segment[CP1:5], new CutPoint is Point 6 and is Disconnected:
+
+    OurGroup: [6, CP2]
+    OtherGroup: [KP1, 4, 5, CP1, 1, 2, 3, KP2]
+
+A preliminary rule might be the following: If we are matching to the other group, check whether the matched neighbor point (5 in the above examples), is between the KnotPoint (KP2) and the new CutPoint (4 or 6), if it is between them (like in e.g. 2), and we are coming from a connected state (Start), we must go to a disconnected state.
 
 Now lets go to one of the disconnected holes (shown in pink) and see where we can reconnect it (shown in blue).
 
-<img src="img\HoleGame_ConnectionMap2.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_ConnectionMap2.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 
-So it seems that if we match to any other point in any hole orientation except the ones between the disconnected CutPoint and CutPoint2 then we can reconnect the path.
+So it seems that if we move to any other hole in the OtherGroup from our disconnected state, then we can only reconnect the path, regardless of the orientation of the hole. Also notice any moves to holes in OurGroup from the disconnected state will remain disconnected.
 
-Finally let's check one of the connected holes (shown in pink) and see how to connect (shown in blue) and disconnect (shown in yellow) this one.
+Start:
 
-<img src="img\HoleGame_ConnectionMap3.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+    OurGroup: [5, 6, CP2]
+    OtherGroup: [KP1, 4, CP1, 1, 2, 3, KP2]
 
-Ok let's go one level deeper where the our pink starting point (marked with a pink arrow) is connected:
+e.g. 1: Cut Segment[1:2] and Match Segment[2:5], new CutPoint is Point 1 and is Connected:
 
-<img src="img\HoleGame_ConnectionMap4.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+    OurGroup: [1, CP1, 4, KP1]
+    OtherGroup: [CP2, 6, 5, 2, 3, KP2]
 
-So again it seems that we can flip from connected to disconnected on any of the points between our matched neighbor and CP2 in the counter-clockwise direction
+e.g. 2: Cut Segment[2:3] and Match Segment[2:5], new CutPoint is Point 3 and is Connected:
 
-Ok let's now look at the same path with the opposite hole cut that is disconnected. (the starting point is marked with a pink arrow).
+    OurGroup: [3, KP2]
+    OtherGroup: [KP1, 4, CP1, 1, 2, 5, 6, CP2]
 
-<img src="img\HoleGame_ConnectionMap5.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+A good question would be: do we need to keep track of how the groups were changed as we move the hole through the graph or is there a simpler way to encapsulate this information?
 
-What we can see is that trying ot get back to the connected state is dependent on the path that  we took to arrive at the disconnected state! this means that the problem is a lot harder than simply looking at clockwise versus counter-clockwise! Does this mean that we have to look at every path in totality?
+Put more simply: do the states that we can match to from the current CutPoint depend on how we got to the CutPoint? I think the answer is yes and here is an example to show why:
 
-<img src="img\HoleGame_ConnectionMap6.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<img src="readme_img\HoleGame_ConnectionMap6.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Connection order: CP1->5 | 6->1 | 2->4 or 2->6 </p>
 
-To show this point more clearly if we connect from 2 to 4 (green line disregard the purple one) in the figure above, then (KP1->4->2->3->KP2) are the pairs that would be able to get back to the connected state, where as if we connected from 2 to 6 (purple line disregard the green one) then (KP1->4->5->CP1->1->6->2->3->KP2)
+If we have arrived at Point 2 with it's neighbor Point 1 being matched to, and we choose to connect from 2 to 4 (green line disregard the purple one) in the figure above, we'd have the following Groups:
 
-But we should still notice that the counter-clockwise to clockwise relationship moving from connected to disconnected still holds, the hard part is we don't know which will be self loops and which will be disconnected unless we know the path we took to get there.
+Start:
 
-This is wrong! you can see this easily by making a cut on the same side  and then you have changed the orientation of the hole but the same paths acrossthe divide would change to disconnected.
+    OurGroup: [2, 3, KP2]
+    OtherGroup: [CP2, 6, 1, CP1, 5, 4, KP1]
 
-So what have we learned?  We'll I think it's two things, the test of wether we can flip from connected to disconnected is dependent on two things, the location of our current connected hole and the  
+e.g. 1 in green: Cut Segment[4:5] and Match Segment[2:4], new CutPoint is 5 and is Disconnected:
 
-if yellow is curr and blue is prev then its the left of yellow  until kp1 is knot side and the right of blue until kp2 is knot side
+    OurGroup: [CP2, 6, 1, CP1, 5]
+    OtherGroup: [KP1, 4, 2, 3, KP2]
 
-### Complexity Limit
+If instead we chose to connect from 2 to 6 (purple line disregard the green one) then we have a completely different set of groupings:
 
-Immediately I can see a few questions with this approach:
+e.g. 2 in purple: Cut Segment[CP2:6] and Match Segment[2:6], new CutPoint is CP2 and is Disconnected:
 
-Q1.  Why do we only need to look at a maximum of two cut segments? For example in the Match Twice and Stitch Algorithm they have many cut segments that they apply.
+    OurGroup: [CP2]
+    OtherGroup: [KP1, 4, 5, CP1, 1, 6, 2, 3, KP2]
 
-A1. This really comes down to how we are defining and finding our knots. Remember that a Knot is not any cycle in the graph, even though it is a cycle. A Knot is defined as a subset of the graph that only want to match with itself and a maximum of two external VirtualPoints. Given this definition, if we find our knots correctly, then this cutting algorithm will produce the optimal result.
+This radical swing which points would allow us to reconnect precludes any simple answers (for example, you could think of a winding number of the hole, or only connect from counter clockwise to clockwise holes, etc.) that might allow us to not have to keep track of the path we arrived on. Why is this important? Well, it means that unless there is some simple way to determine what segments we can match to, then the path's options of where to connect to are limited by the previous connections in the path. This means that something like Floyd-Warshall, where we are trying to compute all possible point to point shortest paths could not work given the current rules of the Hole-Filling Game, so we must re-calculate our modified Dijkstra's shortest path for every pair of Cut Segments in the manifold and every assignment, aside from parity, of KnotPoints and CutPoints applied to the Cut Segments.
 
-Q2. Do we really need to look at all of the cut segments, shouldn't we just be able to look at the ones that are closest to the external VirtualPoints?
+The rules that allow us to maintain good state transitions are as follows:
 
-A2. While such an approach can work for simple cases that lie in the plane, it does not work in general and the algorithm i've outlined is really the best we can do. Take as an example a circle lying in the plane with a center point at (0,0) and with VirtualPoints distributed on the path of the circle with uneven spacing, lets call this Knot C for circle. Then arrange 3 VirtualPoints far above the circle in a line where their x and y coordinates are 0,0 and they only differ by their z coordinate and let's call this Knot L for line. since the distance from Knot L to any point on Knot C is constant, we must look at every cut segment in  Knot C to find out which will be in hte correct ordering.
+1. Don't move to the Disconnected State when connecting to our goal Hole(formed by the Segment[KP2:CP2] with the new CutPoint being KP2 and the matched neighbor being CP2)
 
-Ok so now we know we must at least look at all of the segments once, but why this business with two cut segments?
+2. If the matched neighbor is in our group we cannot move from Connected to disconnected or visa versa
 
-Well, let's now mirror Knot L across the XY Plane so that we have Knot L1 above it and Knot L2 below it. now if we want to cut Knot K we must also consider all of the disjoint segments that would have to match across the circle internally as well.
+3. If the matched neighbor is in the other group and the source point is disconnected, we must become Connected
 
-Q3. How do we get a Big O of N<sup>3</sup>?
+4. If the matched neighbor is in the other group and is between the new CutPoint and the KnotPoint and the source point is Connected, we must become Disconnected
 
-A3. In the Worst Case there would be  N-4 Knots to cut, and on average I have seen most sets with roughly N/3 Knots. So if we have O(N) Knots, and we are looking at all cut segment pairs in each Knot with time O(N<sup>2</sup>), then O(N)*O(N<sup>2</sup>) = O(N<sup>3</sup>)
-^^ I think this is wrong and only correct assumeing that we use simply connections instead of recursive ones :(
+5. If the matched neighbor is in the other group and is not between the new CutPoint and the KnotPoint and the source point is Connected, we must remain Connected
 
-## Chapter 5
+### All I Have are Negative Thoughts
 
-## Plan D! Its diabolical! Its lemon scented!
+Now that we know our way around the problem of multiple cycles and self-loops, we have to face a larger and harder to reason about problem, most Shortest Path Algorithms, like Dijkstra's, do not work for graphs with negative weights. Since at every move we are cutting a segment and adding a segment; some of our costs for moving the hole will have a negative value, this happens any time that the Cut Segment is longer than the Match Segment. So what can we do about this? Well we have a few options, and none of them are particularly attractive given that our ability to move to a specific point in a specific state is path dependent. Our options are as follows:
 
-ok, so I have realized that there is a way to connect any two cutpoints optimally without going through exp space, the first step is to realize that at least in the plane , we must only connect to other points within the cutpoints smallest knot or route along the super knots toward the other cutpoint again only going via internal other points in the smallest knot, this prevents us from crossing our own path in the plane. However, the restrictions I have laid out would not work on N-dimensionally embeded graphs, so what shall we do?
+1. Implement backtracking in Dijkstra's so that if we ever find a shorter input to a settled point, remove it from the settled list (what I went with since it is easy and supports the path dependent nature of the problem), since we are in a fully connected graph this should give us the shortest path. However we will have to store at each Point, the path we used to get there. This is because if we add backtracking we can no longer reconstruct the shortest path just by going from the end Point to the start Point in our path representation. I am not sure wether this will always give the best path, but I have not seen it fail.
 
-Well I think the plan should be to run dijkstras from cutpoint to cutpoint, with the caveate that the enterance to a node is only found in its neighbors. So if we have cutpoint 1 in Knot[1 2 3 4] where 2 is a knot point, and we want to go to cutpoint 5 in Knot[Knot[1 2 3 4] 5 6] with flattened knot Knot[1 2 3 4 5 6] and knot point 2 being 4, then two could only be reached by cutting 1 and 3, 3 could only be reach by cutting 2 and 4, and 5 could only be reach by cutting 4 and 6, if we store the previous best node, which side we are cutting and the total min distance, then we can run a modified version of dijkstras that should find the correct route from 1 to 5 and all of the cuts we'd have to make along the way by backtracking from the other cut point to the starting one.
+2. Use Johnson's Algorithm (Bellman-Ford with a zero distance Wormhole Point) to remake the graph as a positive weight graph without considering the path dependence and then run our modified Dijkstra's now taking into account the path dependence and self-loop rules to form a valid path. This could probably work, I think you'd only need to do this once per knot manifold and seems to have better time and accuracy guarantees than our Dijkstra's with backtracking. However there is a problem with this as Johnson's Algorithm does not support negative weight cycles (a cycle whose weights sum to a negative number), so we'd have to prove that we cannot make a negative weight cycle. We'd also have to figure out how we can traverse this graph, like for example one rule would be a Point in one state cannot tavel to itself in another state, but are there other rules that make path dependence?
 
-Ok the method that I have outlined in Chapter 4 for cutting and combining the knots would be correct if we had exponential time or space (I think the recurisve tree size always means that even if we do dynamic programming that we will fail), so whats next? Well lets start with some idealized examples and see if we can build to a general system for cutting.
+3. Use Bellman-Ford directly for each shortest path, (based on preliminary testing, doesn't seem to finish or finished with multiple cycles, didn't figure out why, likely because of path dependence?)
 
-### Example One: The Circle
+4. Replicate Negative-Weight Single-Source Shortest Paths in Near-linear Time paper (see [Links #3](#links)) (seems like it would be fast, not sure if it would work with the path dependence, they also have only provided pseudo code)
 
-<img src="img\snap103.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+The problem with any of these approaches is negative cycles and the path dependence described in the previous section. it is clear that we must have negative cycles in the graph since if we have any three cut match pairs with Match Segments shorter than their Cut Segments, we would have a negative cycle, so this rules out options 1 and 2. This also rules out any standard path finding algorithm like Dijkstra's since finding the shortest path in a a graph with negative cycles is equivalent to the longest path problem and therefore in NP.
 
-if we have some Circle with N Points describing its sruface then we are done, Our knot finding code can easily find this greedy match solution and there is no hierarchy to it.
+So what have we done so far if we choose to implement option 1?
 
-### Example Two: The Inscribed Circles
+Effectively we have taken a problem that scales with 2^n and turned it into a problem that scales exponentially with the number of Knots in the set.
+
+Why the number of Knots?
+
+it is because the path length of any shortest path in the Hole Moving game is capped by moving through every knot from CutPoint1 to CutPoint2. To see this let's look at an example of dataset rings_4:
+
+<img src="readme_img\rings_4_solution.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> rings_4 solution starting from 8</p>
+
+The shortest CutMatch Path between the two most distant CutPoints possible (8 and 33) only has a length of 5, despite existing in a set of 40 points, and this is equal to the number of knots in the set! If we are in metric space we can expect that this will be true in general since a knot is formed from tightly coupled pairs and so the shortest path between two CutPoints will always have to travel through the Knots that connect them.
+
+We can get an even lower bound on the path length by considering that the two CutPoints will rarely be as far from each other as possible, so if we can count the distance in the number of Knots between CP1 and CP2 (Knot Distance or KD), then we can set that number as our maximum path length and exclude all longer paths. For most CutPoint pairs this will be a significantly smaller number than the total number of Knots below the Knot we are cutting. Think about how for example, all of the CutPoint pairs in the top ring would only need a maximum of 2 connections (1 if starting connected and 2 if disconnected). All of the pairs in the second Ring would similarly only ever need 2 to 3 connections (2 if starting connected and 3 if starting disconnected). To illustrate this point more clearly let's look at some examples:
+
+### Traversing between Knots
+
+<img src="readme_img\twocircles_start_connected_1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex1: twocircles with cuts Seg[5:4] and Seg[10:19] starting from CP:4 in the connected state</p>
+
+<img src="readme_img\twocircles_start_connected_2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex2: twocircles with cuts Seg[5:4] and Seg[10:19] starting from CP:5 in the connected state</p>
+
+<img src="readme_img\twocircles_start_disconnected_1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex3: twocircles with cuts Seg[5:4] and Seg[10:19] starting from CP:4 in the disconnected state</p>
+
+<img src="readme_img\twocircles_start_disconnected_2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex4: twocircles with cuts Seg[5:4] and Seg[10:19] starting from CP:5 in the disconnected state</p>
+
+A few things to notice:
+
+* Moving from the Left Knot to the Right Knot flips the state from connected to disconnected and visa versa
+* Wether we need to re-connect our path depends on wether we arrive to the Right Knot in the disconnected state, not on our starting state.
+    * Ex2 starts out connected, but becomes disconnected by the time we arrive at the Right Knot.
+    * Ex3 starts out disconnected but becomes connected by the time we arrive at the Right Knot.
+    * Side Note: you can notice the same effect in the rings_4 example, where if we are traversing all four knots we end up disconnected, but if instead our destination was only three knots away from the start (Say CP:23) then we would not need to reconnect the path.
+* There is exactly one segment in each example that straddles the Knot border and will allow us to transfer between knots without forming multiple cycles in the graph.
+    * in Ex1 if we had instead connected from 4 to 0 and cut to 15 we'd form multiple cycles in the graph.
+    * in Ex2 if we had instead connected from 5 to 9 and cut to 16 we'd form multiple cycles in the graph.
+    * in Ex3 if we had instead connected from 4 to 0 and cut to 15 we'd form multiple cycles in the graph.
+    * in Ex4 if we had instead connected from 5 to 9 and cut to 16 we'd form multiple cycles in the graph.
+    * This is a restatement of what we learned in [The Fly in the Ointment](#the-fly-in-the-ointment) with the added knowledge that there is only one cut segment that moves us to the next Knot without breaking the knot contract (that a knot is more tightly coupled to itself than its neighbors).
+
+### Traversing from the edge of the border of a Knot
+
+<img src="readme_img\twocircles_border_connected1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex5: twocircles with cuts Seg[0:15] and Seg[10:11] starting from CP:15 in the connected state</p>
+
+<img src="readme_img\twocircles_border_disconnected2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex6: twocircles with cuts Seg[0:15] and Seg[10:11] starting from CP:15 in the disconnected state</p>
+
+<img src="readme_img\twocircles_border_connected2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex7: twocircles with cuts Seg[9:16] and Seg[10:11] starting from CP:16 in the connected state</p>
+
+<img src="readme_img\twocircles_border_disconnected1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex8: twocircles with cuts Seg[9:16] and Seg[10:11] starting from CP:16 in the disconnected state</p>
+
+You should notice that these paths are essentially the same as the paths in the previous section after we moved from the Left Knot to the Right Knot.
+
+### Traversing across the border of a Knot
+
+<img src="readme_img\twocircles_cross_border1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex9: twocircles with cuts Seg[9:16] and Seg[10:11] starting from CP:9 in the connected state</p>
+
+<img src="readme_img\twocircles_cross_border2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex10: twocircles with cuts Seg[0:15] and Seg[10:11] starting from CP:16 in the disconnected state</p>
+
+When we are trying to move across the border of a knot it can be be tricky if we start on the opposite end of the border,. in Example 9 we can see that CP9 cannot traverse to 15 without forming multiple cycles in the graph  and matching to 15 while cutting to 0 does not move us toward our goal. So what is the rule here? I think it is this, we need to check all of the moves between 9 and the Right Knot and all of the moves between 9 and its own Knot and then to the right Knot, a n^2 operation. As we can see from Example 10, sometimes the border point CP:0 is the correct point to move to the next Knot from, but sometimes it is not as in Ex9. But most likely if our final answer lies in this border region, then we have se up our Knot structure incorrectly to see what I mean look at the following solution of the same Knot with a wormhole between 15 and 11:
+
+<img src="readme_img\twocircles_WH_15_11.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center">twocircles with a Wormhole between 15 and 11</p>
+
+Knot[16 17 18 19 10 11 20 15 Knot[9 8 7 6 5 4 3 2 1 0 ] 14 13 12 ]
+
+As we can see in the above diagram the entire structure of the Knot has changed and a simple CutMatch (with only 1 CutSegment instead of 2) between 0 and 15 and 1 and 14 is all thats needed to find the correct path. To solve this diagram we wouldn't even need to play the Hole Filling Game at all! We know this because we can find the shortest internal Segment (let's say Segment[0:2]) within the Left Knot and realize that it is a greater distance than Segment[0:15] + Segment[1:14] - Segment[0:1]! So we don't even need to calculate the shortest path for much of our Left Knot CutSegment pairs.
+
+### Traversing within the border of a Knot
+
+<img src="readme_img\twocircles_border_to_border_connected1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex11: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:16 in the connected state</p>
+
+<img src="readme_img\twocircles_border_to_border_disconnected2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex12: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:16 in the disconnected state</p>
+
+<img src="readme_img\twocircles_border_to_border_connected2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex13: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:9 in the connected state</p>
+
+<img src="readme_img\twocircles_border_to_border_disconnected1.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Ex14: twocircles with cuts Seg[9:16] and Seg[0:15] starting from CP:9 in the disconnected state</p>
+
+### Highways and Country Roads
+
+Ok so we've seen with some consistency and a few caveats that we can traverse regular Knots and there are only a few possible paths that we can take from source to destination. This is the reason behind the upper bound we placed on the path length. But is it equally true for more irregular Knots? and what are the exact conditions behind forming the shortest Hole-Moving Game path? To figure this out let's look at some examples:
+
+<img src="readme_img\djbouti_8-34.png" alt="djbouti_8-34.png"  width="60%" style="max-width: 700px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center">djbouti_8-34 Knot Manifold</p>
+
+<img src="readme_img\paths.gif" alt="paths"  width="60%" style="max-width: 700px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center">All of paths from KnotPoint  7 to each other possible KnotPoint in djbouti_8-34 rotating clockwise</p>
+
+
+
+
+
+### Algorithm Speedup Potential NOTES
+
+The algorithm described in this section is roughly a 4*N^7 operation so what are some areas we can speed it up?
+
+1. &#9745; Remove repeated segment pairs from the main loop (2x speedup)
+2. &#9744; Add worker pool for every dijkstra's call we make (algorithm is somewhat embarrassingly parallel)
+3. &#9744; Remove error handling
+4. &#9744; Figure out how to turn into positive weight graph so we can disregard all settled Points.
+5. &#9744; Find some way to calculate all shortest paths for a manifold at once instead of in series (seems unlikely given path dependence)
+6. &#9744; For less accuracy dependent problems could use heuristic of distance to KnotPoints from externals plus distance between CutPoints as best measure of where to calculate internal structure changing from N^7 to N^3 operation.
+
+Expanding on #6 we can throw out a bunch of the cutSegment pairs based on the following idea:
+
+the maximum distance that a specific cut segment pair could have would be:
+
+maxDist(S1[KP1:CP1], S2[KP2:CP2], EX1, EX2) = Seg[KP1:EX1] + Seg[KP2:EX2] - S1 - S2 + Seg[CP1:CP2]
+
+assuming that the graph is metric and the minimum distance would be
+
+minDist(S3[KP3:CP3], S4[KP4:CP4], EX1, EX2) = Seg[KP3:EX3] + Seg[KP4:EX4] - S3 - S4 - Seg[CP3:CP4]
+
+so if minDist(S3, S4, EX1, EX2) > maxDist(S1, S2, EX1, EX2)
+where S1,S2 minmizes maxDist over the manifold, then we know that we cannot choose S3, S4 as our cut Segments
+and therefore do not have to calculate the internals.
+
+This would only work for segment pairs that start in the connected state however,
+for disconnected I could imagine a similar test where you pick the simplest matching scheme possible that must exist:
+if KP2's neighbor is KPN2
+and KP1's Neighbor is KPN1
+
+CP1 -> KP2 | KPN2 -> CP2
+or
+CP1 -> KPN1 | KP1 -> CP2
+and choose the min
+
+maxDist(S1, S2, EX1, EX2) = Seg[KP1:EX1] + Seg[KP2:EX2] - S1 - S2 + Min(Seg[CP1:KP2] + Seg[CP2:KPN2] - Seg[KP2:KPN2], Seg[CP2:KP1] + Seg[CP1:KPN1] - Seg[KP1:KPN1])
+
+and minDist(S3, S4, EX1, EX2) = Seg[KP3:EX1] + Seg[KP4:EX2] - S3 - S4 + Min(- Seg[CP3:KP4] - Seg[CP4:KPN4] - Seg[KP4:KPN4], - Seg[CP4:KP3] - Seg[CP3:KPN3] - Seg[KP3:KPN3])
+
+is this true^^?
+
+So the maxDist for a disconnected segment pair
+
+and for the segment overlap's we know the distance outright and maxDist = minDist
+
+maxDist(S1, S1, EX1, EX2) =  Seg[KP1:EX1] + Seg[KP2:EX2] - S1 = minDist (S1, S1, EX1, EX2)
+
+given the setup of our data structure the minDist ans
+
+The other thing that seems to really help: see [PerfTesting](.\PerfTesting-Ixdar.csv) for more details.
+
+Is the weird fact that path length (in number of CutMatches) seems to scale with the number of Knots that CutPoint1 has to travel through in order to get to CutPoint2, which I will call the Knot Distance. At most the shortest path from CP1 to CP2 can be the Knot Distance when the cuts start in the connected state and the Knot Distance + 1 when the cuts start in the disconnected state.
+
+it is also true, at least in the data set that I have assembled, that the path length cannot exceed the number of internal knots contained in the knot manifold.
+
+I am unsure of how you would divine this number, but 10_rings wen from : 9,772,481,590 comparisons to 28,948,904 comparisions (300x FASTER!) by limiting the path search length to 1, this means all paths longer than 1 are disregarded, when considering circles or flat knots this seems obvious, if you have any circle with two externals on either side of it then the optimal path must connect the two CutPoints directly:
+
+A Rough estimate can be found using the following formula:
+
+Knot Distance = Height of MinKnot that contains CP1 and CP2 - Height of MinKnot that contains CutSeg1 and CutSeg2 + 1 if connected or +2 if Disconnected
+
+what's more is that we only have to look at cut matches in the same minKnot as the
+
+<img src="readme_img\snap158.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+<p style="text-align:center"> Circle with external Wormhole in the top Left corner connecting 5 and 0 (circle_in_5_arc)</p>
 
 ## Links
 
-Look at Section 4 Minimum Bounding Circle By Megiddo:
+1. Look at Section 4 Minimum Bounding Circle By Megiddo:
 
 * <https://epubs.siam.org/doi/pdf/10.1137/0212052>
 
-Match Twice and Stitch Algorithm:
+2. Match Twice and Stitch Algorithm:
 
 * <https://vlsicad.ucsd.edu/Publications/Journals/j67.pdf>
 
-Waterloo TSP Dataset:
+3. Negative-Weight Single-Source Shortest Paths in Near-linear Time
+
+* <https://arxiv.org/pdf/2203.03456>
+
+4. Waterloo TSP Dataset:
 
 * <http://www.math.uwaterloo.ca/tsp/world/countries.html#LU>

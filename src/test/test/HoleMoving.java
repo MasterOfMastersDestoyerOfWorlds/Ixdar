@@ -1,25 +1,23 @@
 package test;
 
 import shell.DistanceMatrix;
-import shell.FileManagement;
 import shell.enums.RouteType;
+import shell.file.FileManagement;
+import shell.file.PointSetPath;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.route.Route;
 import shell.route.RouteInfo;
 import shell.route.RouteMap;
-import shell.ui.PointSetPath;
+import shell.shell.Shell;
 import shell.PointND;
-import shell.Shell;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
-
 import org.junit.jupiter.api.Test;
 
 /**
@@ -96,6 +94,7 @@ public class HoleMoving {
 				RouteType.prevC);
 	}
 
+	@SuppressWarnings("unused")
 	public void testMethod(String fileName, String stateFile, int layer, int kp1, int cp1, int kp2, int cp2,
 			boolean knotPointsConnected, int sourcePoint, RouteType routeType) {
 		PointSetPath retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
@@ -133,7 +132,7 @@ public class HoleMoving {
 		RouteMap<Integer, RouteInfo> routeMap = AB.cutEngine.internalPathEngine.ixdar(
 				knotPoint1, cutPoint1,
 				knotPoint2, cutPoint2, k, knotPointsConnected, cutSegment1, cutSegment2, layer, sourcePoint,
-				routeType);
+				routeType, n, k);
 
 		try {
 

@@ -7,6 +7,23 @@
 
         {
             "type": "java",
+            "name": "Launch Main",
+            "request": "launch",
+            "mainClass": "shell.Main",
+            "projectName": "TSP",
+            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true"
+        },
+        {
+            "type": "java",
+            "name": "Launch AWT  TEST",
+            "request": "launch",
+            "mainClass": "shell.render.AWTTest",
+            "projectName": "TSP",
+            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true"
+        },
+
+        {
+            "type": "java",
             "name": "Launch Current File",
             "request": "launch",
             "mainClass": "${file}",
@@ -15,11 +32,12 @@
         },
         {
             "type": "java",
-            "name": "Launch Main",
+            "name": "Launch Profile",
             "request": "launch",
             "mainClass": "shell.Main",
             "projectName": "TSP",
-            "vmArgs": "-enableassertions"
+            "vmArgs": "-enableassertions -agentpath:Z:/VisualVM/visualvm_219/visualvm/lib/deployed/jdk16/windows-amd64/profilerinterface.dll=Z:\\VisualVM\\visualvm_219\\visualvm\\lib,5140"
         }
+
     ]
 }

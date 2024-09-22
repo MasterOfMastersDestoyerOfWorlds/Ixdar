@@ -3,7 +3,7 @@ package shell.knot;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import shell.Shell;
+import shell.shell.Shell;
 import shell.utils.RunListUtils;
 
 public class Run extends VirtualPoint {

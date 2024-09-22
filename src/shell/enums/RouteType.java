@@ -1,98 +1,31 @@
 package shell.enums;
 
 public enum RouteType {
-    prevDC{
-        @Override
-        public boolean isConnected() {
-            return false;
-        }
-        @Override
-        public boolean isNext() {
-            return false;
-        }
-        @Override
-        public boolean isPrev() {
-            return true;
-        }
-        @Override
-        public RouteType oppositeRoute() {
-            return RouteType.nextDC;
-        }
-    },
-    prevC{
-        @Override
-        public boolean isConnected() {
-            return true;
-        }
-        @Override
-        public boolean isNext() {
-            return false;
-        }
-        @Override
-        public boolean isPrev() {
-            return true;
-        }
-        @Override
-        public RouteType oppositeRoute() {
-            return RouteType.nextC;
-        }
-    },
-    nextDC{
-        @Override
-        public boolean isConnected() {
-            return false;
-        }   
-        @Override
-        public boolean isNext() {
-            return true;
-        }
-        @Override
-        public boolean isPrev() {
-            return false;
-        }
-        @Override
-        public RouteType oppositeRoute() {
-            return RouteType.prevDC;
-        }
-    },
-    nextC{
-        @Override
-        public boolean isConnected() {
-            return true;
-        }
-        @Override
-        public boolean isNext() {
-            return true;
-        }
-        @Override
-        public boolean isPrev() {
-            return false;
-        }
-        @Override
-        public RouteType oppositeRoute() {
-            return RouteType.prevC;
-        }
-    },
-    None{
-        @Override
-        public boolean isConnected() {
-            return false;
-        }   
-        @Override
-        public boolean isNext() {
-            return false;
-        }
-        @Override
-        public boolean isPrev() {
-            return false;
-        }
-        @Override
-        public RouteType oppositeRoute() {
-            return RouteType.None;
-        }
-    };
+    prevDC(false, false, true),
+    prevC(true, false, true),
+    nextDC(false, true, false),
+    nextC(true, true, false),
+    None(false, false, false);
+
+    public boolean isConnected, isNext, isPrev;
+    public RouteType oppositeRoute;
+
+    RouteType(boolean isConnected, boolean isNext, boolean isPrev) {
+        this.isConnected = isConnected;
+        this.isNext = isNext;
+        this.isPrev = isPrev;
+
+    }
+
+    static {
+        nextC.oppositeRoute = prevC;
+        prevC.oppositeRoute = nextC;
+        nextDC.oppositeRoute = prevDC;
+        prevDC.oppositeRoute = nextDC;
+    }
 
     public int idTransform(int id) {
+        nextDC.oppositeRoute = prevDC;
         if (this.equals(RouteType.None)) {
             return -1;
         }
@@ -119,11 +52,4 @@ public enum RouteType {
         }
     }
 
-    public abstract RouteType oppositeRoute();
-
-    public abstract boolean isConnected();
-
-    public abstract boolean isNext();
-
-    public abstract boolean isPrev();
 }

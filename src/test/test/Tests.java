@@ -2,12 +2,12 @@ package test;
 
 
 import shell.DistanceMatrix;
-import shell.FileManagement;
 import shell.PointSet;
-import shell.Shell;
 import shell.exceptions.BalancerException;
 import shell.exceptions.SegmentBalanceException;
-import shell.ui.PointSetPath;
+import shell.file.FileManagement;
+import shell.file.PointSetPath;
+import shell.shell.Shell;
 
 import java.io.File;
 import java.util.ArrayList;

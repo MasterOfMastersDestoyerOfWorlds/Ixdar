@@ -1,9 +1,10 @@
 package shell.knot;
 
+import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import shell.Shell;
+import shell.shell.Shell;
 import shell.utils.RunListUtils;
 
 public class Knot extends VirtualPoint {
@@ -16,6 +17,9 @@ public class Knot extends VirtualPoint {
     public ArrayList<VirtualPoint> knotPoints; // [ vp1, vp2, ... vpm];
     public HashMap<Integer, VirtualPoint> pointToInternalKnot;
     public ArrayList<Segment> manifoldSegments;
+    public ArrayList<Long> manifoldSegmentIds;
+    int height;
+    public int numKnots;
 
     // [[s1, ..., sn-1], [s1, ..., sn-1], ... m]; sorted and remove
     // vp1, vp2, ... vpm
@@ -128,13 +132,32 @@ public class Knot extends VirtualPoint {
             shell.unvisited.add(this);
         }
         manifoldSegments = new ArrayList<>();
+        manifoldSegmentIds = new ArrayList<>();
         if (knotPointsFlattened.size() == knotPoints.size()) {
             for (int a = 0; a < knotPoints.size(); a++) {
                 VirtualPoint knotPoint1 = knotPoints.get(a);
                 VirtualPoint knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
-                manifoldSegments.add(knotPoint1.getClosestSegment(knotPoint2, null));
+                Segment s = knotPoint1.getClosestSegment(knotPoint2, null);
+                manifoldSegments.add(s);
+                manifoldSegmentIds.add(s.id);
             }
         }
+        height = 0;
+        for (VirtualPoint vp : knotPoints) {
+            int pHeight = vp.getHeight();
+            if (pHeight > height) {
+                height = pHeight;
+            }
+        }
+        height++;
+        numKnots = 0;
+        for (VirtualPoint vp : knotPoints) {
+            if (vp.isKnot) {
+                Knot k = (Knot) vp;
+                numKnots += k.numKnots;
+            }
+        }
+        numKnots++;
     }
 
     public Segment getSegment(VirtualPoint a, VirtualPoint b) {
@@ -222,17 +245,24 @@ public class Knot extends VirtualPoint {
     }
 
     public boolean hasSegment(Segment cut) {
+        if (manifoldSegments.size() == 0) {
+            for (int a = 0; a < knotPoints.size(); a++) {
 
-        for (int a = 0; a < knotPoints.size(); a++) {
+                VirtualPoint knotPoint1 = knotPoints.get(a);
+                VirtualPoint knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
+                if (cut.contains(knotPoint1) && cut.contains(knotPoint2)) {
+                    return true;
+                }
 
-            VirtualPoint knotPoint1 = knotPoints.get(a);
-            VirtualPoint knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
-            if (cut.contains(knotPoint1) && cut.contains(knotPoint2)) {
-                return true;
             }
-
+        } else {
+            return manifoldSegments.contains(cut);
         }
         return false;
+    }
+
+    public boolean hasSegmentManifold(Segment cut) {
+        return manifoldSegmentIds.contains(cut.id);
     }
 
     public boolean overlaps(Knot minKnot) {
@@ -273,6 +303,106 @@ public class Knot extends VirtualPoint {
 
         }
         return null;
+    }
+
+    public double getLength() {
+        double d = 0.0;
+        for (Segment s : manifoldSegments) {
+            d += s.distance;
+        }
+        return d;
+    }
+
+    public WindingOrder order = WindingOrder.None;
+
+    public VirtualPoint getNextClockWise(VirtualPoint displayPoint) {
+        if (order.equals(WindingOrder.None)) {
+            order = DetermineWindingOrder();
+        }
+        if (order.equals(WindingOrder.Clockwise)) {
+            return this.getPrev(displayPoint);
+        } else {
+            return this.getNext(displayPoint);
+        }
+    }
+
+    public VirtualPoint getNextCounterClockWise(VirtualPoint displayPoint) {
+        if (order.equals(WindingOrder.None)) {
+            order = DetermineWindingOrder();
+        }
+        if (order.equals(WindingOrder.Clockwise)) {
+            return this.getNext(displayPoint);
+        } else {
+            return this.getPrev(displayPoint);
+        }
+    }
+
+    // https://en.wikipedia.org/wiki/Curve_orientation#Orientation_of_a_simple_polygon
+    public WindingOrder DetermineWindingOrder() {
+        int nVerts = knotPointsFlattened.size();
+        // If vertices duplicates first as last to represent closed polygon,
+        // skip last.
+        Point2D lastV = ((Point) knotPointsFlattened.get(nVerts - 1)).p.toPoint2D();
+        if (lastV.equals(((Point) knotPointsFlattened.get(0)).p.toPoint2D()))
+            nVerts -= 1;
+        int iMinVertex = FindCornerVertex();
+        // Orientation matrix:
+        // [ 1 xa ya ]
+        // O = | 1 xb yb |
+        // [ 1 xc yc ]
+        Point2D a = ((Point) knotPointsFlattened.get(WrapAt(iMinVertex - 1, nVerts))).p.toPoint2D();
+        Point2D b = ((Point) knotPointsFlattened.get(iMinVertex)).p.toPoint2D();
+        Point2D c = ((Point) knotPointsFlattened.get(WrapAt(iMinVertex + 1, nVerts))).p.toPoint2D();
+        // determinant(O) = (xb*yc + xa*yb + ya*xc) - (ya*xb + yb*xc + xa*yc)
+        double detOrient = (b.getX() * c.getY() + a.getX() * b.getY() + a.getY() * c.getX())
+                - (a.getY() * b.getX() + b.getY() * c.getX() + a.getX() * c.getY());
+
+        // TBD: check for "==0", in which case is not defined?
+        // Can that happen? Do we need to check other vertices / eliminate duplicate
+        // vertices?
+        WindingOrder result = detOrient > 0
+                ? WindingOrder.Clockwise
+                : WindingOrder.CounterClockwise;
+        return result;
+    }
+
+    public enum WindingOrder {
+        None,
+        Clockwise,
+        CounterClockwise
+    }
+
+    // Find vertex along one edge of bounding box.
+    // In this case, we find smallest y; in case of tie also smallest x.
+    private int FindCornerVertex() {
+        int iMinVertex = -1;
+        double minY = Float.MAX_VALUE;
+        double minXAtMinY = Float.MAX_VALUE;
+        for (int i = 0; i < knotPointsFlattened.size(); i++) {
+
+            Point2D vert = ((Point) knotPointsFlattened.get(i)).p.toPoint2D();
+            double y = (double) vert.getY();
+            if (y > minY)
+                continue;
+            if (y == minY)
+                if (vert.getX() >= minXAtMinY)
+                    continue;
+
+            // Minimum so far.
+            iMinVertex = i;
+            minY = y;
+            minXAtMinY = vert.getX();
+        }
+
+        return iMinVertex;
+    }
+
+    // Return value in (0..n-1).
+    // Works for i in (-n..+infinity).
+    // If need to allow more negative values, need more complex formula.
+    private static int WrapAt(int i, int n) {
+        // "+n": Moves (-n..) up to (0..).
+        return (i + n) % n;
     }
 
 }

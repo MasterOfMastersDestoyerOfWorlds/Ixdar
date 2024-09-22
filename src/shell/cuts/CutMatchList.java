@@ -8,30 +8,37 @@ import java.util.Set;
 import org.apache.commons.collections4.map.MultiKeyMap;
 import org.apache.commons.math3.util.Pair;
 
-import shell.Shell;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.shell.Shell;
 
-public class CutMatchList {
+public class CutMatchList implements FileStringable {
 
     public ArrayList<CutMatch> cutMatches;
-    double delta;
-    Shell shell;
+    public double delta;
+    public Shell shell;
     SegmentBalanceException sbe;
-    Knot topKnot;
+    public Knot superKnot;
 
     public CutMatchList(Shell shell, SegmentBalanceException sbe, Knot superKnot) {
         cutMatches = new ArrayList<>();
         sbe.cutMatchList = this;
         this.shell = shell;
         this.sbe = sbe;
-        this.topKnot = superKnot;
+        this.superKnot = superKnot;
     }
 
+    public CutMatchList(Shell shell,Knot superKnot) {
+        cutMatches = new ArrayList<>();
+        this.shell = shell;
+        this.superKnot = superKnot;
+    }
+
+
     public String toString() {
-        String str = "CML[ topKnot:" + topKnot + "\n" + cutMatches + " \n]\n totalDelta: " + delta;
+        String str = "CML[ topKnot:" + superKnot + "\n" + cutMatches + " \n]\n totalDelta: " + delta;
         return str;
 
     }
@@ -67,7 +74,7 @@ public class CutMatchList {
                 cutSegments, c,
                 false, true)) {
             shell.buff.add(internalCuts);
-            
+
             throw new SegmentBalanceException(shell, this, c);
         }
 
@@ -383,13 +390,13 @@ public class CutMatchList {
         for (CutMatch cm : cutMatches) {
             cm.updateDelta();
             for (Segment s : cm.cutSegments) {
-                if (!seenCuts.contains(s) && this.topKnot.hasSegment(s)) {
+                if (!seenCuts.contains(s) && this.superKnot.hasSegment(s)) {
                     delta -= s.distance;
                     seenCuts.add(s);
                 }
             }
             for (Segment s : cm.matchSegments) {
-                if (!seenMatches.contains(s) && !this.topKnot.hasSegment(s)) {
+                if (!seenMatches.contains(s) && !this.superKnot.hasSegment(s)) {
                     delta += s.distance;
                     seenMatches.add(s);
                 }
@@ -466,7 +473,7 @@ public class CutMatchList {
     }
 
     public CutMatchList copy() {
-        CutMatchList copy = new CutMatchList(shell, sbe, topKnot);
+        CutMatchList copy = new CutMatchList(shell, sbe, superKnot);
         copy.delta = delta;
         for (CutMatch cm : cutMatches) {
             CutMatch copyCM = cm.copy();
@@ -665,6 +672,19 @@ public class CutMatchList {
         for (int i = 0; i < cutSegments.size(); i++) {
             cutSegmentsFinal[i] = cutSegments.get(i);
         }
+    }
+
+    @Override
+    public String toFileString() {
+        String fileString = "CUTMATCH CUTS ";
+        for (Segment s : this.cutMatches.get(0).cutSegments) {
+            fileString += s.first + " " + s.last + " ";
+        }
+        fileString += "MATCHES ";
+        for (Segment s : this.cutMatches.get(0).matchSegments) {
+            fileString += s.first + " " + s.last + " ";
+        }
+        return fileString;
     }
 
 }
