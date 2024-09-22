@@ -1,7 +1,15 @@
 package shell.utils;
 
+import java.awt.geom.AffineTransform;
+import java.awt.image.AffineTransformOp;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Set;
+
+import javax.imageio.ImageIO;
 
 import org.apache.commons.math3.util.Pair;
 
@@ -276,4 +284,49 @@ public final class Utils {
                 Segment.getLastOrderId(checkSegment21));
     }
 
+    public static void snapShot(BufferedImage img) {
+
+        int numInFolder = new File("./img").list().length;
+        File outputfile = new File("./img/snap" + numInFolder + ".png");
+        try {
+            ImageIO.write(img, "png", outputfile);
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    public static void snapByteBuffer(int framebufferWidth, int framebufferHeight, ByteBuffer fb) {
+        // Allocate colored pixel to buffered Image
+
+        int width = framebufferWidth;
+        int height = framebufferHeight;
+        int[] pixels = new int[width * height];
+        int bindex;
+        BufferedImage imageIn = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        // convert RGB data in ByteBuffer to integer array
+        for (int i = 0; i < pixels.length; i++) {
+            bindex = i * 4;
+            pixels[i] = ((fb.get(bindex) << 16)) +
+                    ((fb.get(bindex + 1) << 8)) +
+                    ((fb.get(bindex + 2) << 0));
+        }
+        imageIn.setRGB(0, 0, width, height, pixels, 0, width);
+
+        // Creating the transformation direction (horizontal)
+        AffineTransform at = AffineTransform.getScaleInstance(1, -1);
+        at.translate(0, -imageIn.getHeight(null));
+
+        // Applying transformation
+        AffineTransformOp opRotated = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
+        BufferedImage imageOut = opRotated.filter(imageIn, null);
+
+
+        int numInFolder = new File("./img").list().length;
+        File outputfile = new File("./img/snap" + numInFolder + ".png");
+        try {
+            ImageIO.write(imageOut, "png", outputfile);
+        } catch (Exception e) {
+            System.out.println("ScreenShot() exception: " + e);
+        }
+    }
 }

@@ -1,6 +1,5 @@
 package shell.ui.actions;
 
-import java.awt.Canvas;
 import java.awt.event.ActionEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -9,8 +8,6 @@ import java.io.IOException;
 import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.JComponent;
-
-import org.lwjgl.opengl.awt.AWTGLCanvas;
 
 import shell.render.Canvas3D;
 

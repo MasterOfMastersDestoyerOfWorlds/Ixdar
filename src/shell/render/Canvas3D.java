@@ -1,26 +1,36 @@
 package shell.render;
 
-import java.awt.Graphics;
-import java.awt.Point;
+import static org.lwjgl.opengl.GL.createCapabilities;
+import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
+import static org.lwjgl.opengl.GL11.GL_RGBA;
+import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
+import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
+import static org.lwjgl.opengl.GL11.glClear;
+import static org.lwjgl.opengl.GL11.glClearColor;
+import static org.lwjgl.opengl.GL11.glDrawArrays;
+import static org.lwjgl.opengl.GL11.glEnable;
+import static org.lwjgl.opengl.GL11.glReadPixels;
+import static org.lwjgl.opengl.GL11.glViewport;
+import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
+import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
+import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
+import static org.lwjgl.opengl.GL15.GL_DYNAMIC_DRAW;
+import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
+
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.awt.geom.AffineTransform;
-import java.awt.image.AffineTransformOp;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
-import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.awt.AWTGLCanvas;
-import org.lwjgl.stb.STBImage;
-import org.lwjgl.stb.STBImageWrite;
-import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
 import shell.cameras.Camera3D;
@@ -29,28 +39,13 @@ import shell.render.lights.PointLight;
 import shell.render.lights.SpotLight;
 import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
-
-import static org.lwjgl.opengl.GL.*;
-import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL12.GL_BGR;
-import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
-import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
-import static org.lwjgl.opengl.GL13.glActiveTexture;
-import static org.lwjgl.opengl.GL33.*;
-import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
-import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
-import static org.lwjgl.opengl.GL15.glBindBuffer;
-import static org.lwjgl.opengl.GL15.glBufferData;
-import static org.lwjgl.opengl.GL15.glGenBuffers;
-import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
-import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
-import static org.lwjgl.opengl.GL30.glBindVertexArray;
-import static org.lwjgl.opengl.GL30.glGenVertexArrays;
-import static org.lwjgl.opengl.GL30.glGenerateMipmap;
+import shell.utils.Utils;
+import shell.render.shaders.*;
+import shell.render.text.*;
 
 public class Canvas3D extends AWTGLCanvas {
 
-    private static final long serialVersionUID = 1L;
+    public static final long serialVersionUID = 1L;
     float vertices[] = {
             // positions // normals // texture coords
             -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
@@ -125,17 +120,30 @@ public class Canvas3D extends AWTGLCanvas {
     };
 
     IntBuffer VAO, VBO, lightVAO;
-    Shader shader, lightingShader;
-    int diffuseMap, specularMap;
-    private Camera3D camera;
-    private MouseTrap mouseTrap;
+    DiffuseShader shader;
+    LightShader lightingShader;
+    Texture diffuseMap;
+    Texture specularMap;
+    public Camera3D camera;
+    public MouseTrap mouseTrap;
     public static int SIZE_FLOAT = 4;
-    private JFrame frame;
-    private KeyGuy keyGuy;
-    private boolean printScreen = false;
-    private File screenShotFile;
+    public JFrame frame;
+    public KeyGuy keyGuy;
+    public boolean printScreen = false;
+    public File screenShotFile;
     protected int framebufferWidth;
     protected int framebufferHeight;
+    public Font font;
+
+    public VertexArrayObject vao;
+    public VertexBufferObject vbo;
+    public FontShader program;
+
+    public int numVertices;
+    public boolean drawing;
+    public FloatBuffer verteciesBuff;
+    public Font debugFont;
+    public ShaderProgram fontShader;
 
     public Canvas3D(Camera3D camera, MouseTrap mouseTrap, JFrame frame) {
         super();
@@ -152,7 +160,12 @@ public class Canvas3D extends AWTGLCanvas {
 
     @Override
     public void initGL() {
-
+        java.awt.geom.AffineTransform t = this.getGraphicsConfiguration().getDefaultTransform();
+        float sx = (float) t.getScaleX(), sy = (float) t.getScaleY();
+        this.framebufferWidth = (int) (getWidth() * sx);
+        this.framebufferHeight = (int) (getHeight() * sy);
+        width = this.framebufferWidth;
+        height = this.framebufferHeight;
         this.addMouseMotionListener(mouseTrap);
         this.addMouseListener(mouseTrap);
         this.addMouseWheelListener(mouseTrap);
@@ -160,56 +173,36 @@ public class Canvas3D extends AWTGLCanvas {
                 + " (Profile: " + effective.profile + ")");
         createCapabilities();
         glClearColor(0.3f, 0.4f, 0.5f, 1);
+        VertexArrayObject vao = new VertexArrayObject();
+        VertexBufferObject vbo = new VertexBufferObject();
+        vao.bind();
+        vbo.bind(GL_ARRAY_BUFFER);
+        vbo.uploadData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
 
-        shader = new Shader("shader.vs", "shader.fs");
-        lightingShader = new Shader("light_shader.vs", "light_shader.fs");
+        shader = new DiffuseShader("shader.vs", "shader.fs", vao, vbo);
 
-        VBO = BufferUtils.createIntBuffer(1);
-        glGenBuffers(VBO);
-        VAO = BufferUtils.createIntBuffer(1);
-        glGenVertexArrays(VAO);
+        diffuseMap = Texture.loadTexture("container2.png");
+        specularMap = Texture.loadTexture("container2_specular.png");
 
-        glBindVertexArray(VAO.get(0));
-        glBindBuffer(GL_ARRAY_BUFFER, VBO.get(0));
-        glBufferData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
+        VertexArrayObject lvao = new VertexArrayObject();
+        lightingShader = new LightShader("light_shader.vs", "light_shader.fs", lvao, vbo);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, false, 8 * SIZE_FLOAT, 0);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1, 3, GL_FLOAT, false, 8 * SIZE_FLOAT, 3 * SIZE_FLOAT);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(2, 2, GL_FLOAT, false, 8 * SIZE_FLOAT, 6 * SIZE_FLOAT);
-        glEnableVertexAttribArray(2);
-
-        diffuseMap = loadTexture("container2.png");
-
-        specularMap = loadTexture("container2_specular.png");
-
-        lightVAO = BufferUtils.createIntBuffer(1);
-        glGenVertexArrays(lightVAO);
-        glBindVertexArray(lightVAO.get(0));
-        // we only need to bind to the VBO, the container's VBO's data already contains
-        // the data.
-        glBindBuffer(GL_ARRAY_BUFFER, VBO.get(0));
+        setupShaderProgram();
         // set the vertex attribute
-        glVertexAttribPointer(0, 3, GL_FLOAT, false, 8 * SIZE_FLOAT, 0);
-        glEnableVertexAttribArray(0);
 
         glEnable(GL_DEPTH_TEST);
 
-        java.awt.geom.AffineTransform t = this.getGraphicsConfiguration().getDefaultTransform();
-        float sx = (float) t.getScaleX(), sy = (float) t.getScaleY();
-        this.framebufferWidth = (int) (getWidth() * sx);
-        this.framebufferHeight = (int) (getHeight() * sy);
-        width = this.framebufferWidth;
-        height = this.framebufferHeight;
         this.getSize();
         glViewport(0, 0, (int) width, (int) height);
         mouseTrap.setCanvas(this);
         mouseTrap.captureMouse(true);
+        font = new Font();
+        debugFont = new Font(12, false);
 
+        verteciesBuff = MemoryUtil.memAllocFloat(4096);
     }
 
-    private final ComponentAdapter listener = new ComponentAdapter() {
+    public final ComponentAdapter listener = new ComponentAdapter() {
         @Override
         public void componentResized(ComponentEvent e) {
             java.awt.geom.AffineTransform t = Canvas3D.this.getGraphicsConfiguration().getDefaultTransform();
@@ -237,13 +230,8 @@ public class Canvas3D extends AWTGLCanvas {
 
         // be sure to activate shader when setting uniforms/drawing objects
         shader.use();
-
-        shader.setInt("material.diffuse", 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, diffuseMap);
-        shader.setInt("material.specular", 1);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, specularMap);
+        shader.setTexture("material.diffuse", diffuseMap, GL_TEXTURE0, 0);
+        shader.setTexture("material.specular", specularMap, GL_TEXTURE1, 1);
         shader.setFloat("material.shininess", 32.0f);
 
         shader.setVec3("lightColor", lightColor);
@@ -260,8 +248,7 @@ public class Canvas3D extends AWTGLCanvas {
                 ((float) width) / ((float) height), 0.1f, 100.0f);
         shader.setMat4("projection", projection);
         shader.setMat4("view", camera.view);
-
-        glBindVertexArray(VAO.get(0));
+        shader.vao.bind();
         for (int i = 0; i < 10; i++) {
             Matrix4f model = new Matrix4f();
             model.translate(cubePositions[i]);
@@ -276,50 +263,52 @@ public class Canvas3D extends AWTGLCanvas {
         lightingShader.use();
         lightingShader.setMat4("projection", projection);
         lightingShader.setMat4("view", camera.view);
+        lightingShader.vao.bind();
         for (int i = 0; i < pointLights.length; i++) {
             Matrix4f model = new Matrix4f().translate(pointLights[i].position).scale(0.2f);
             lightingShader.setVec3("lightColor", pointLights[i].diffuse);
             lightingShader.setMat4("model", model);
 
-            glBindVertexArray(lightVAO.get(0));
             glDrawArrays(GL_TRIANGLES, 0, 36);
 
         }
+        program.use();
+        program.setTexture("texImage", debugFont.texture, GL_TEXTURE0, 0);
+        debugFont.drawTextCentered(this, "FPS: " + (1 / Clock.deltaTime()), framebufferWidth / 2,
+                framebufferHeight / 2, Color.CYAN);
+
         Clock.frameRendered();
         if (printScreen) {
             printScreen = false;
             printScreen(screenShotFile);
         }
+
         swapBuffers();
     }
 
-    private int loadTexture(String resourceName) {
-        STBImage.stbi_set_flip_vertically_on_load(true);
+    /** Setups the default shader program. */
+    public void setupShaderProgram() {
+        VertexArrayObject vao = new VertexArrayObject();
+        vao.bind();
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        IntBuffer w = BufferUtils.createIntBuffer(1);
-        IntBuffer h = BufferUtils.createIntBuffer(1);
-        IntBuffer channels = BufferUtils.createIntBuffer(1);
-        File file = new File("res/" + resourceName);
-        String filePath = file.getAbsolutePath();
-        ByteBuffer buffer = STBImage.stbi_load(filePath, w, h, channels, 4);
-        if (buffer == null) {
-            System.out.println("Can't load file " + resourceName + " " + STBImage.stbi_failure_reason());
-        }
-        int width = w.get(0);
-        int height = h.get(0);
+        /* Generate Vertex Buffer Object */
+        VertexBufferObject vbo = new VertexBufferObject();
+        vbo.bind(GL_ARRAY_BUFFER);
 
-        int texture = glGenTextures();
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-        glGenerateMipmap(GL_TEXTURE_2D);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glEnable(GL_BLEND);
-        STBImage.stbi_image_free(buffer);
-        return texture;
+        /* Create FloatBuffer */
+        verteciesBuff = MemoryUtil.memAllocFloat(4096);
+
+        /* Upload null data to allocate storage for the VBO */
+        long size = verteciesBuff.capacity() * Float.BYTES;
+        vbo.uploadData(GL_ARRAY_BUFFER, size, GL_DYNAMIC_DRAW);
+
+        /* Initialize variables */
+        numVertices = 0;
+        drawing = false;
+
+        /* Create shader program */
+        program = new FontShader("font.vs", "font.fs", vao, vbo, framebufferWidth, framebufferHeight);
+
     }
 
     public void printScreen(String fileName) {
@@ -328,42 +317,221 @@ public class Canvas3D extends AWTGLCanvas {
     }
 
     public void printScreen(File outputfile) {
-        int width = framebufferWidth;
-        int height = framebufferHeight;
-        int[] pixels = new int[width * height];
-        int bindex;
         // allocate space for RBG pixels
 
         ByteBuffer fb = MemoryUtil.memAlloc(width * height * 4);
-
         // grab a copy of the current frame contents as RGBA
         glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, fb);
+        Utils.snapByteBuffer(framebufferWidth, framebufferHeight, fb);
         MemoryUtil.memFree(fb);
 
-        BufferedImage imageIn = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        // convert RGB data in ByteBuffer to integer array
-        for (int i = 0; i < pixels.length; i++) {
-            bindex = i * 4;
-            pixels[i] = ((fb.get(bindex) << 16)) +
-                    ((fb.get(bindex + 1) << 8)) +
-                    ((fb.get(bindex + 2) << 0));
+    }
+
+    /**
+     * Begin rendering.
+     */
+    public void begin() {
+        if (drawing) {
+            throw new IllegalStateException("Renderer is already drawing!");
         }
-        // Allocate colored pixel to buffered Image
-        imageIn.setRGB(0, 0, width, height, pixels, 0, width);
+        drawing = true;
+        numVertices = 0;
+    }
 
-        // Creating the transformation direction (horizontal)
-        AffineTransform at = AffineTransform.getScaleInstance(1, -1);
-        at.translate(0, -imageIn.getHeight(null));
+    /**
+     * End rendering.
+     */
+    public void end() {
+        if (!drawing) {
+            throw new IllegalStateException("Renderer isn't drawing!");
+        }
+        drawing = false;
+        flush();
+    }
 
-        // Applying transformation
-        AffineTransformOp opRotated = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
-        BufferedImage imageOut = opRotated.filter(imageIn, null);
+    public void flush() {
+        if (numVertices > 0) {
+            verteciesBuff.flip();
 
-        try {
-            ImageIO.write(imageOut, "png", outputfile);
-        } catch (Exception e) {
-            System.out.println("ScreenShot() exception: " + e);
+            if (program.vao != null) {
+                program.vao.bind();
+            } else {
+                program.vbo.bind(GL_ARRAY_BUFFER);
+            }
+            program.use();
+
+            /* Upload the new vertex data */
+            program.vbo.bind(GL_ARRAY_BUFFER);
+            program.vbo.uploadSubData(GL_ARRAY_BUFFER, 0, verteciesBuff);
+
+            /* Draw batch */
+            glDrawArrays(GL_TRIANGLES, 0, numVertices);
+
+            /* Clear vertex data for next batch */
+            verteciesBuff.clear();
+            numVertices = 0;
         }
     }
 
+    public int getTextWidth(CharSequence text) {
+        return font.getWidth(text);
+    }
+
+    public int getTextHeight(CharSequence text) {
+        return font.getHeight(text);
+    }
+
+    public int getDebugTextWidth(CharSequence text) {
+        return debugFont.getWidth(text);
+    }
+
+    public int getDebugTextHeight(CharSequence text) {
+        return debugFont.getHeight(text);
+    }
+
+    public void drawText(CharSequence text, float x, float y) {
+        font.drawText(this, text, x, y);
+    }
+
+    public void drawDebugText(CharSequence text, float x, float y) {
+        debugFont.drawText(this, text, x, y);
+    }
+
+    public void drawText(CharSequence text, float x, float y, Color c) {
+        font.drawText(this, text, x, y, c);
+    }
+
+    public void drawDebugText(CharSequence text, float x, float y, Color c) {
+        debugFont.drawText(this, text, x, y, c);
+    }
+
+    public void drawTexture(Texture texture, float x, float y) {
+        drawTexture(texture, x, y, Color.WHITE);
+    }
+
+    /**
+     * Draws the currently bound texture on specified coordinates and with
+     * specified color.
+     *
+     * @param texture Used for getting width and height of the texture
+     * @param x       X position of the texture
+     * @param y       Y position of the texture
+     * @param c       The color to use
+     */
+    public void drawTexture(Texture texture, float x, float y, Color c) {
+        /* Vertex positions */
+        float x1 = x;
+        float y1 = y;
+        float x2 = x1 + texture.getWidth();
+        float y2 = y1 + texture.getHeight();
+
+        /* Texture coordinates */
+        float s1 = 0f;
+        float t1 = 0f;
+        float s2 = 1f;
+        float t2 = 1f;
+
+        drawTextureRegion(x1, y1, x2, y2, s1, t1, s2, t2, c);
+    }
+
+    /**
+     * Draws a texture region with the currently bound texture on specified
+     * coordinates.
+     *
+     * @param texture   Used for getting width and height of the texture
+     * @param x         X position of the texture
+     * @param y         Y position of the texture
+     * @param regX      X position of the texture region
+     * @param regY      Y position of the texture region
+     * @param regWidth  Width of the texture region
+     * @param regHeight Height of the texture region
+     */
+    public void drawTextureRegion(Texture texture, float x, float y, float regX, float regY, float regWidth,
+            float regHeight) {
+        drawTextureRegion(texture, x, y, regX, regY, regWidth, regHeight, Color.WHITE);
+    }
+
+    /**
+     * Draws a texture region with the currently bound texture on specified
+     * coordinates.
+     *
+     * @param texture   Used for getting width and height of the texture
+     * @param x         X position of the texture
+     * @param y         Y position of the texture
+     * @param regX      X position of the texture region
+     * @param regY      Y position of the texture region
+     * @param regWidth  Width of the texture region
+     * @param regHeight Height of the texture region
+     * @param c         The color to use
+     */
+    public void drawTextureRegion(Texture texture, float x, float y, float regX, float regY, float regWidth,
+            float regHeight, Color c) {
+        /* Vertex positions */
+        float x1 = x;
+        float y1 = y;
+        float x2 = x + regWidth;
+        float y2 = y + regHeight;
+
+        /* Texture coordinates */
+        float s1 = regX / texture.getWidth();
+        float t1 = regY / texture.getHeight();
+        float s2 = (regX + regWidth) / texture.getWidth();
+        float t2 = (regY + regHeight) / texture.getHeight();
+
+        drawTextureRegion(x1, y1, x2, y2, s1, t1, s2, t2, c);
+    }
+
+    /**
+     * Draws a texture region with the currently bound texture on specified
+     * coordinates.
+     *
+     * @param x1 Bottom left x position
+     * @param y1 Bottom left y position
+     * @param x2 Top right x position
+     * @param y2 Top right y position
+     * @param s1 Bottom left s coordinate
+     * @param t1 Bottom left t coordinate
+     * @param s2 Top right s coordinate
+     * @param t2 Top right t coordinate
+     */
+    public void drawTextureRegion(float x1, float y1, float x2, float y2, float s1, float t1, float s2, float t2) {
+        drawTextureRegion(x1, y1, x2, y2, s1, t1, s2, t2, Color.WHITE);
+    }
+
+    /**
+     * Draws a texture region with the currently bound texture on specified
+     * coordinates.
+     *
+     * @param x1 Bottom left x position
+     * @param y1 Bottom left y position
+     * @param x2 Top right x position
+     * @param y2 Top right y position
+     * @param s1 Bottom left s coordinate
+     * @param t1 Bottom left t coordinate
+     * @param s2 Top right s coordinate
+     * @param t2 Top right t coordinate
+     * @param c  The color to use
+     */
+    public void drawTextureRegion(float x1, float y1, float x2, float y2, float s1, float t1, float s2, float t2,
+            Color c) {
+        if (verteciesBuff.remaining() < 8 * 6) {
+            /* We need more space in the buffer, so flush it */
+            flush();
+        }
+
+        float r = c.getRed();
+        float g = c.getGreen();
+        float b = c.getBlue();
+        float a = c.getAlpha();
+
+        verteciesBuff.put(x1).put(y1).put(r).put(g).put(b).put(a).put(s1).put(t1);
+        verteciesBuff.put(x1).put(y2).put(r).put(g).put(b).put(a).put(s1).put(t2);
+        verteciesBuff.put(x2).put(y2).put(r).put(g).put(b).put(a).put(s2).put(t2);
+
+        verteciesBuff.put(x1).put(y1).put(r).put(g).put(b).put(a).put(s1).put(t1);
+        verteciesBuff.put(x2).put(y2).put(r).put(g).put(b).put(a).put(s2).put(t2);
+        verteciesBuff.put(x2).put(y1).put(r).put(g).put(b).put(a).put(s2).put(t1);
+
+        numVertices += 6;
+    }
 }

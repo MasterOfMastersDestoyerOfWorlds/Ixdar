@@ -90,12 +90,15 @@
 5. - [ ] Figure out how to load and display 3d models with LWJGL.
 6. - [ ] Every frame figure out the outline of the Title and Knot and have a contrail off to the right, the contrail should be produced every frame and should exponentially decay in number of segments.
 7. - [ ] Once you go into the tool the knot should stop rotating and a sword should cut it in half.
-8. - [ ] Need a Ramp up lerp function in Clock for menu items
-9. - [ ] When a menu item is clicked, it should bounce to the left and then go off screen to the right starting with the clicked item and propagating out to the ends of the menu.
-10. - [ ] When a menu item is halfway off screen, its partner in the next menu (closest vertically) should come on from the left (ratcheting noise of typewriter?).
-11. - [ ] Menu should be scrollable within the menu's bounds.
-12. - [ ] Menu items should be elongated hexagons that make an electronic noise when clicked, see ratchet 2.
-13. - [ ] Main Menu Item's should include: Continue : last_file_loaded.ix, Load, Puzzle, Map Editor.
+8. - [ ] Main Menu Item's should include: Continue : last_file_loaded.ix, Load, Puzzle, Map Editor.
+
+## Menu Items
+
+1. - [ ] Need a Ramp up lerp function in Clock for menu items
+2. - [ ] When a menu item is clicked, it should bounce to the left and then go off screen to the right starting with the clicked item and propagating out to the ends of the menu.
+3. - [ ] When a menu item is halfway off screen, its partner in the next menu (closest vertically) should come on from the left (ratcheting noise of typewriter?).
+4. - [ ] Menu should be scrollable within the menu's bounds.
+5. - [ ] Menu items should be elongated hexagons that make an electronic noise when clicked, see ratchet 2.
 
 ## 3D Graphics
 

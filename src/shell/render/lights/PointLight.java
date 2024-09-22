@@ -2,7 +2,7 @@ package shell.render.lights;
 
 import org.joml.Vector3f;
 
-import shell.render.Shader;
+import shell.render.shaders.ShaderProgram;
 
 public class PointLight {
     public Vector3f position;
@@ -58,7 +58,7 @@ public class PointLight {
         }
     }
 
-    public void setShaderInfo(Shader shader, int i) {
+    public void setShaderInfo(ShaderProgram shader, int i) {
         shader.setVec3("pointLights[" + i + "].position", position);
         shader.setVec3("pointLights[" + i + "].ambient", ambient);
         shader.setVec3("pointLights[" + i + "].diffuse", diffuse);

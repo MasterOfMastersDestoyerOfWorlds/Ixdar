@@ -1,6 +1,8 @@
-package shell.render;
+package shell.render.shaders;
 
+import static org.lwjgl.opengl.GL13.glActiveTexture;
 import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.glBindFragDataLocation;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -16,17 +18,25 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL33;
 import org.lwjgl.system.MemoryStack;
 
-public class Shader {
+import shell.render.Texture;
+import shell.render.VertexArrayObject;
+import shell.render.VertexBufferObject;
+
+public class ShaderProgram {
 
     String vertexCode;
     String fragmentCode;
     CharSequence[] vertexShaderSource;
     CharSequence[] fragmentShaderSource;
+    public VertexArrayObject vao;
+    public VertexBufferObject vbo;
 
     protected int ID;
 
-    public Shader(String vertexShaderLocation, String fragmentShaderLocation) {
-
+    public ShaderProgram(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
+            VertexBufferObject vbo) {
+        this.vao = vao;
+        this.vbo = vbo;
         try {
             // open files
 
@@ -58,7 +68,10 @@ public class Shader {
         glDeleteShader(fragmentShader);
     }
 
-    void use() {
+    public int getAttributeLocation(CharSequence name) {
+        return glGetAttribLocation(ID, name);
+    }
+    public void use() {
         glUseProgram(ID);
     }
 
@@ -66,7 +79,7 @@ public class Shader {
         glUniform1i(glGetUniformLocation(ID, name), value ? 1 : 0);
     }
 
-    void setInt(String name, int value) {
+    protected void setInt(String name, int value) {
         glUniform1i(glGetUniformLocation(ID, name), value);
     }
 
@@ -119,7 +132,7 @@ public class Shader {
     }
 
     protected CharSequence[] readFile(String shaderName) throws IOException {
-        File vShaderFile = new File("./src/shell/render/shaders/" + shaderName);
+        File vShaderFile = new File("./src/shell/render/shaders/glsl/" + shaderName);
         BufferedReader br = new BufferedReader(new FileReader(vShaderFile));
         ArrayList<String> lines = new ArrayList<>();
         String line;
@@ -135,6 +148,16 @@ public class Shader {
         }
         br.close();
         return vertexShaderSource;
+    }
+
+    public void setTexture(String glslName, Texture tex, int i, int j) {
+        setInt(glslName, j);
+        glActiveTexture(i);
+        tex.bind();
+    }
+
+    public void bindFragmentDataLocation(int i, String string) {
+        glBindFragDataLocation(ID, i, string);
     }
 
 }
