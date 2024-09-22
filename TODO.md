@@ -21,7 +21,6 @@
 4. - [ ] Generate a Unit Test that runs all of the manifold solutions in the folder
 5. - [ ] Should compare against the manifold cut match answer in the master file
 
-
 ## UI Tools General
 
 1. - [x] Should keep track of the current selected tool and not allow two tools to be active at once, all tools should only effect the ui's state once the final necessary selection is made
@@ -46,6 +45,7 @@
 2. - [ ] Hover over a point should display information about the VirtualPoint like, it's closest three segments and their distances, the x/y coordinates and the minimum knot the point is in.
 3. - [x] Pressing Left/Right Arrow Key should move the selected point to the next clockwise point in the current knot level.
 4. - [ ] Pressing VK_K should switch to displaying the same information about the current knot the point is in.
+5. - [ ] Knot's should display their closest two segments with rotating dashed lines.
 
 ## UI CutMatch Tool
 
@@ -81,11 +81,19 @@
 
 ## Main Menu
 
-1. - [ ] Have rotating monkeys knot in vector graphics at center.
-2. - [ ] Title Should be Ixdar in the same font as the decal.
-3. - [ ] Figure out how to load and display 3d models with awt? or JOGO?
-4. - [ ] Every frame figure out the outline of the Title and Knot and have a contrail off to the right, the contrail should be produced every frame and should expoentially decay in number of segments.
-5. - [ ] Once you go into the tool the knot should stop rotating and a sword should cut it in half.
+1. - [ ] Have rotating monkeys knot in vector graphics at center.after some time (digits of pi to radians) knot should change rotation direction
+2. - [ ] Background should have the same knot scaled up darker and blurred moving in the opposite direction
+3. - [ ] central knot should have a pulsing emitting red core and veins across it's surface, use fresnel shader for surface
+4. - [ ] Title Should be Ixdar in the same font as the decal.
+5. - [ ] Figure out how to load and display 3d models with LWJGL.
+6. - [ ] Every frame figure out the outline of the Title and Knot and have a contrail off to the right, the contrail should be produced every frame and should exponentially decay in number of segments.
+7. - [ ] Once you go into the tool the knot should stop rotating and a sword should cut it in half.
+8. - [ ] Need a Ramp up lerp function in Clock for menu items
+9. - [ ] When a menu item is clicked, it should bounce to the left and then go off screen to the right starting with the clicked item and propagating out to the ends of the menu.
+10. - [ ] When a menu item is halfway off screen, its partner in the next menu (closest vertically) should come on from the left (ratcheting noise of typewriter?).
+11. - [ ] Menu should be scrollable within the menu's bounds.
+12. - [ ] Menu items should be elongated hexagons that make an electronic noise when clicked, see ratchet 2.
+13. - [ ] Main Menu Item's should include: Continue : last_file_loaded.ix, Load, Puzzle, Map Editor.
 
 ## UI Negative CutMatch View Tool
 
