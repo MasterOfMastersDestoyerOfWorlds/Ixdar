@@ -4,9 +4,11 @@
 
 1. - [ ] New Algorithm to search space within Knot until Knot boundary
 2. - [ ] Should only move toward the exit in terms of Knot distance
-3. - [ ] should also have the ability to change the previous Knot boundary's connection
-4. - [ ] need to change cutKnot method to cut all knots on a level at once
+3. - [ ] Should also have the ability to change the previous Knot boundary's connection
+4. - [ ] Need to change cutKnot method to cut all knots on a level at once
 5. - [ ] Need to check overlapping cut segments with two knotPoints and one cutPoint, but continue to skip overlapping cut segments with one knotPoint and two cutPoints.
+6. - [ ] If we are simply moving through a knot (from one of the choke segments to the opposite one) we should be able to save this route somehow.
+7. - [ ] Need to figure out the maximum number of moves within a knot so we can relax the constraints of where we can move and not have as much calculation.
 
 ## Knot Finding
 
@@ -23,20 +25,20 @@
 
 ## UI Tools General
 
-1. - [x] Should keep track of the current selected tool and not allow two tools to be active at once, all tools should only effect the ui's state once the final necessary selection is made
-2. - [x] Need to have one side of the knotPoint/cutPoint pair follow the cursor instead of just defaulting to clockwise knotPoint.
-3. - [x] Figure out screen-space to point-space conversion
-4. - [x] Figure out Skewed bounding boxes around Line Segments
-5. - [x] Should set a segment as the "hover segment" when within some distance to one of the line Segments in the current Manifold Knot.
-6. - [x] Should expand the Segment Bounding boxes to work at any knot level not just the manifold knot.
-7. - [x] Should only have one tool active at a time and call the super class's draw and click functions
-8. - [ ] Tools should specify what type of bounding boxes that they should use? (Segment rectangle versus radius from point?)
-9. - [x] Clicking and dragging should change the panX, panY to where the new mouse position is.
-10. - [x] Pressing Up/Down Arrow Key should change the Knot Level unless blocked.
-11. - [x] Pressing VK_R should reset the camera and reset the active tool but not exit it.
-12. - [x] Pressing and Holding Left/Right should repeat the action at some reasonable rate.
-13. - [x] Need to find some way to determine clockwise versus anti clockwise.
-14. - [ ] Each Tool should tell the user some information about what to do when using it in the message pool.
+1. - [ ] Tools should specify what type of bounding boxes that they should use? (Segment rectangle versus radius from point?)
+2. - [ ] Each Tool should tell the user some information about what to do when using it in the message pool.
+3. - [x] Should keep track of the current selected tool and not allow two tools to be active at once, all tools should only effect the ui's state once the final necessary selection is made
+4. - [x] Need to have one side of the knotPoint/cutPoint pair follow the cursor instead of just defaulting to clockwise knotPoint.
+5. - [x] Figure out screen-space to point-space conversion
+6. - [x] Figure out Skewed bounding boxes around Line Segments
+7. - [x] Should set a segment as the "hover segment" when within some distance to one of the line Segments in the current Manifold Knot.
+8. - [x] Should expand the Segment Bounding boxes to work at any knot level not just the manifold knot.
+9. - [x] Should only have one tool active at a time and call the super class's draw and click functions
+10. - [x] Clicking and dragging should change the panX, panY to where the new mouse position is.
+11. - [x] Pressing Up/Down Arrow Key should change the Knot Level unless blocked.
+12. - [x] Pressing VK_R should reset the camera and reset the active tool but not exit it.
+13. - [x] Pressing and Holding Left/Right should repeat the action at some reasonable rate.
+14. - [x] Need to find some way to determine clockwise versus anti clockwise.
 15. - [x] Pressing VK_Enter should advance the tool if there is a selection active
 
 ## UI Free Tool
@@ -45,7 +47,7 @@
 2. - [ ] Hover over a point should display information about the VirtualPoint like, it's closest three segments and their distances, the x/y coordinates and the minimum knot the point is in.
 3. - [x] Pressing Left/Right Arrow Key should move the selected point to the next clockwise point in the current knot level.
 4. - [ ] Pressing VK_K should switch to displaying the same information about the current knot the point is in.
-5. - [ ] Knot's should display their closest two segments with rotating dashed lines.
+5. - [ ] Knot's should display their closest two segments with rotating dashed lines. (use dash phase).
 
 ## UI CutMatch Tool
 
@@ -94,6 +96,25 @@
 11. - [ ] Menu should be scrollable within the menu's bounds.
 12. - [ ] Menu items should be elongated hexagons that make an electronic noise when clicked, see ratchet 2.
 13. - [ ] Main Menu Item's should include: Continue : last_file_loaded.ix, Load, Puzzle, Map Editor.
+
+## 3D Graphics
+
+1. - [ ] Figure out ASSIMP Model loading
+2. - [x] Figure out how to do GLSL Shading
+3. - [ ] Figure out how to import shaders from Blender
+4. - [ ] Figure out how to blur/depth of field
+5. - [ ] Figure out particle systems for sand/dust.
+
+## UI Knot Surface View
+
+1. - [ ] Make a tool that shows the user which of the half segment pairs have low enough external travel cost to check their internal cost, when compared to the lowest simple cut.
+2. - [ ] Should display the lowest simple cut when not hovering.
+3. - [ ] Should display all the pairs that could be possible as well as the dashed line to it's external value.
+
+## Key Input
+
+1. - [ ] Need to have key bindings menu in settings.
+2. - [ ] Should save to a Key bindings file on change and load from the same file on startup
 
 ## UI Negative CutMatch View Tool
 

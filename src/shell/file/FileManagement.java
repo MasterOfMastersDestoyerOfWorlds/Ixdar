@@ -26,7 +26,7 @@ public class FileManagement {
 
     public static File getTestFile(String fileName) {
         String[] parts = fileName.split("_");
-        return new File(solutionsFolder + parts[0] + "/" + fileName);
+        return new File(solutionsFolder + parts[0] + "/" + fileName + ".ix");
     }
 
     /**
