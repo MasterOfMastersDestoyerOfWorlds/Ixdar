@@ -653,15 +653,15 @@ public class Shell extends LinkedList<PointND> {
 	 * @param c            the color to draw the shell (set to null to get a random
 	 *                     color)
 	 */
-	public void drawShell(JComponent frame, Graphics2D g2, boolean drawChildren, float lineThickness, Color c,
+	public void drawShell(Graphics2D g2, boolean drawChildren, float lineThickness, Color c,
 			PointSet ps, Camera2D camera) {
 		if (c == null) {
 			Random colorSeed = new Random();
-			Drawing.drawPath(frame, g2, toPath(this), lineThickness,
+			Drawing.drawPath(g2, toPath(this), lineThickness,
 					new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps,
 					true, false, false, false, camera);
 		} else {
-			Drawing.drawPath(frame, g2, toPath(this), lineThickness, c, ps, true, false, false, false, camera);
+			Drawing.drawPath(g2, toPath(this), lineThickness, c, ps, true, false, false, false, camera);
 		}
 	}
 

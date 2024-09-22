@@ -25,7 +25,7 @@ public abstract class Tool {
         throw new UnsupportedOperationException("Unimplemented method 'click'");
     };
 
-    public void leftArrow() {
+    public void cycleLeft() {
         ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
         if (hover == null) {
             hover = Main.manifoldKnot.manifoldSegments.get(0);
@@ -50,7 +50,7 @@ public abstract class Tool {
         }
     }
 
-    public void rightArrow() {
+    public void cycleRight() {
         if (hover == null) {
             hover = Main.manifoldKnot.manifoldSegments.get(0);
             hoverKP = hover.first;

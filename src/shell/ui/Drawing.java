@@ -13,7 +13,6 @@ import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import javax.swing.JComponent;
 
 import org.apache.commons.math3.util.Pair;
 
@@ -33,13 +32,13 @@ public class Drawing {
 
     public static final int MIN_THICKNESS = 1;
 
-    public static void drawCutMatch(JComponent frame, Graphics2D g2, SegmentBalanceException sbe, int lineThickness,
+    public static void drawCutMatch( Graphics2D g2, SegmentBalanceException sbe, int lineThickness,
             PointSet ps, Camera2D camera) {
-        drawCutMatch(frame, g2, sbe.cutMatchList, sbe.cut1, sbe.cut2, sbe.ex1, sbe.ex2, sbe.topKnot,
+        drawCutMatch( g2, sbe.cutMatchList, sbe.cut1, sbe.cut2, sbe.ex1, sbe.ex2, sbe.topKnot,
                 lineThickness, ps, camera);
     }
 
-    public static void drawCutMatch(JComponent frame, Graphics2D g2, CutMatchList cml,
+    public static void drawCutMatch(Graphics2D g2, CutMatchList cml,
             Segment cut1, Segment cut2, Segment ex1, Segment ex2, Knot topKnot, int lineThickness,
             PointSet ps, Camera2D camera) {
 
@@ -131,9 +130,6 @@ public class Drawing {
             for (VirtualPoint p : cutMatch.knot.knotPoints) {
                 result.add(((Point) p).p);
             }
-            // Drawing.drawPath(frame, g2, Shell.toPath(result), lineThickness,
-            // Color.lightGray, ps, true, false, false,
-            // true, camera);
 
         }
 
@@ -230,7 +226,7 @@ public class Drawing {
      * @param drawCircles
      * @param drawNumbers
      */
-    public static void drawPath(JComponent frame, Graphics2D g2, Path2D path, float lineThickness, Color color,
+    public static void drawPath(Graphics2D g2, Path2D path, float lineThickness, Color color,
             PointSet ps,
             boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed, Camera2D camera) {
         g2.setPaint(color);
