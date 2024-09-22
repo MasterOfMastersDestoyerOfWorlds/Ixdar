@@ -12,8 +12,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Random;
 
-import javax.swing.JComponent;
-
 import shell.DistanceMatrix;
 import shell.PointND;
 import shell.PointSet;
