@@ -104,8 +104,6 @@ public class Canvas3D extends AWTGLCanvas {
             new Vector3f(-1.3f, 1.0f, -1.5f)
     };
 
-    public static int width = 600;
-    public static int height = 600;
     Vector3f lightColor = new Vector3f(1, 1, 1);
     DirectionalLight dirLight = new DirectionalLight(new Vector3f(-0.2f, -1.0f, -0.3f),
             new Vector3f(0.5f, 0.5f, 0.5f));
@@ -165,8 +163,6 @@ public class Canvas3D extends AWTGLCanvas {
         float sx = (float) t.getScaleX(), sy = (float) t.getScaleY();
         this.framebufferWidth = (int) (getWidth() * sx);
         this.framebufferHeight = (int) (getHeight() * sy);
-        width = this.framebufferWidth;
-        height = this.framebufferHeight;
         this.addMouseMotionListener(mouseTrap);
         this.addMouseListener(mouseTrap);
         this.addMouseWheelListener(mouseTrap);
@@ -196,11 +192,12 @@ public class Canvas3D extends AWTGLCanvas {
         sdf = new SignedDistanceField(sdfShader, "decal_sdf.png");
 
         this.getSize();
-        glViewport(0, 0, (int) width, (int) height);
+        glViewport(0, 0, (int) framebufferWidth, (int) framebufferHeight);
         mouseTrap.setCanvas(this);
         mouseTrap.captureMouse(true);
 
         glEnable(GL_DEPTH_TEST);
+        this.addComponentListener(listener);
     }
 
     public final ComponentAdapter listener = new ComponentAdapter() {
@@ -210,6 +207,7 @@ public class Canvas3D extends AWTGLCanvas {
             float sx = (float) t.getScaleX(), sy = (float) t.getScaleY();
             Canvas3D.this.framebufferWidth = (int) (getWidth() * sx);
             Canvas3D.this.framebufferHeight = (int) (getHeight() * sy);
+            glViewport(0, 0, (int) getWidth(), (int) getHeight());
         }
     };
 
@@ -240,25 +238,24 @@ public class Canvas3D extends AWTGLCanvas {
         shader.setVec3("viewPos", camera.position);
 
         for (int i = 0; i < 4; i++) {
-        pointLights[i].setShaderInfo(shader, i);
+            pointLights[i].setShaderInfo(shader, i);
         }
         dirLight.setShaderInfo(shader, 0);
         spotLight.setShaderInfo(shader, 0);
         // view/projection transformations
-        Matrix4f projection = new Matrix4f().perspective((float)
-        Math.toRadians(camera.fov),
-        ((float) width) / ((float) height), 0.1f, 100.0f);
+        Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(camera.fov),
+                ((float) framebufferWidth) / ((float) framebufferHeight), 0.1f, 100.0f);
         shader.setMat4("projection", projection);
         shader.setMat4("view", camera.view);
         shader.vao.bind();
         for (int i = 0; i < 10; i++) {
-        Matrix4f model = new Matrix4f();
-        model.translate(cubePositions[i]);
-        float angle = 20.0f * i;
-        model.rotate((float) Math.toRadians(angle), new Vector3f(1.0f, 0.3f, 0.5f));
-        shader.setMat4("model", model);
+            Matrix4f model = new Matrix4f();
+            model.translate(cubePositions[i]);
+            float angle = 20.0f * i;
+            model.rotate((float) Math.toRadians(angle), new Vector3f(1.0f, 0.3f, 0.5f));
+            shader.setMat4("model", model);
 
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
         }
 
         // also draw the lamp object
@@ -267,20 +264,19 @@ public class Canvas3D extends AWTGLCanvas {
         lightingShader.setMat4("view", camera.view);
         lightingShader.vao.bind();
         for (int i = 0; i < pointLights.length; i++) {
-        Matrix4f model = new
-        Matrix4f().translate(pointLights[i].position).scale(0.2f);
-        lightingShader.setVec3("lightColor", pointLights[i].diffuse);
-        lightingShader.setMat4("model", model);
+            Matrix4f model = new Matrix4f().translate(pointLights[i].position).scale(0.2f);
+            lightingShader.setVec3("lightColor", pointLights[i].diffuse);
+            lightingShader.setMat4("model", model);
 
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
 
         }
         debugFont.drawTextCentered(this, "FPS: " + (1 / Clock.deltaTime()),
-        framebufferWidth / 2,
-        framebufferHeight / 2, Color.CYAN);
+                framebufferWidth / 2,
+                framebufferHeight / 2, Color.CYAN);
         Color c = new Color(Color.CYAN);
         c.setAlpha(0.5f);
-        sdf.draw(framebufferWidth / 2,
+        sdf.drawCentered(framebufferWidth / 2,
                 framebufferHeight / 2, 400, 400, 1, c);
 
         Clock.frameRendered();
@@ -300,9 +296,9 @@ public class Canvas3D extends AWTGLCanvas {
     public void printScreen(File outputfile) {
         // allocate space for RBG pixels
 
-        ByteBuffer fb = MemoryUtil.memAlloc(width * height * 4);
+        ByteBuffer fb = MemoryUtil.memAlloc(framebufferWidth * framebufferHeight * 4);
         // grab a copy of the current frame contents as RGBA
-        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, fb);
+        glReadPixels(0, 0, framebufferWidth, framebufferHeight, GL_RGBA, GL_UNSIGNED_BYTE, fb);
         Utils.snapByteBuffer(framebufferWidth, framebufferHeight, fb, 4);
         MemoryUtil.memFree(fb);
 
