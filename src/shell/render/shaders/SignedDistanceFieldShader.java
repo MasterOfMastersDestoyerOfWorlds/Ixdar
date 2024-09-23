@@ -4,14 +4,14 @@ import static org.lwjgl.opengl.GL11.GL_FLOAT;
 import static org.lwjgl.opengl.GL20.*;
 
 import org.joml.Matrix4f;
+
 import shell.render.VertexArrayObject;
 import shell.render.VertexBufferObject;
 
-public class FontShader extends ShaderProgram {
+public class SignedDistanceFieldShader extends ShaderProgram {
 
-    public FontShader(int framebufferWidth, int framebufferHeight) {
-        super("font.vs", "font.fs", new VertexArrayObject(), new VertexBufferObject(), true);
-
+    public SignedDistanceFieldShader(int framebufferWidth, int framebufferHeight) {
+        super("font.vs", "sdf.fs", new VertexArrayObject(), new VertexBufferObject(), true);
         /* Specify Vertex Pointer */
         int posAttrib = getAttributeLocation("position");
         glEnableVertexAttribArray(posAttrib);
@@ -26,8 +26,8 @@ public class FontShader extends ShaderProgram {
         glEnableVertexAttribArray(texCoordAttrib);
         glVertexAttribPointer(texCoordAttrib, 2, GL_FLOAT, false, 9 * Float.BYTES, 7 * Float.BYTES);
 
-        bindFragmentDataLocation(0, "fragColor");
         use();
+        bindFragmentDataLocation(0, "fragColor");
 
         /* Set texture uniform */
         setInt("texImage", 0);
@@ -41,7 +41,7 @@ public class FontShader extends ShaderProgram {
         setMat4("view", view);
 
         /* Set projection matrix to an orthographic projection */
-        Matrix4f projection = new Matrix4f().ortho(0f, framebufferWidth, 0f, framebufferHeight, -1f, 1f);
+        Matrix4f projection = new Matrix4f().ortho(0f, framebufferWidth, 0f, framebufferHeight, -1.0f, 1.0f);
         setMat4("projection", projection);
     }
 

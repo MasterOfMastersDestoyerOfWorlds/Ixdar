@@ -9,9 +9,9 @@ import shell.render.VertexBufferObject;
 
 public class LightShader extends ShaderProgram {
 
-    public LightShader(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
+    public LightShader(VertexArrayObject vao,
             VertexBufferObject vbo) {
-        super(vertexShaderLocation, fragmentShaderLocation, vao, vbo);
+        super("light_shader.vs", "light_shader.fs", vao, vbo, false);
         vao.bind();
         vbo.bind(GL_ARRAY_BUFFER);
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 8 * Float.BYTES, 0);

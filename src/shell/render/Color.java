@@ -82,6 +82,13 @@ public final class Color {
         setAlpha(alpha);
     }
 
+    public Color(Color cyan2) {
+        setRed(cyan2.red);
+        setGreen(cyan2.green);
+        setBlue(cyan2.blue);
+        setAlpha(cyan2.alpha);
+    }
+
     /**
      * Returns the red component.
      *

@@ -1,5 +1,7 @@
 package shell.render.shaders;
 
+import static org.lwjgl.opengl.GL11.GL_FLOAT;
+import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL20.*;
 
 import shell.render.VertexArrayObject;
@@ -7,9 +9,9 @@ import shell.render.VertexBufferObject;
 
 public class DiffuseShader extends ShaderProgram {
 
-    public DiffuseShader(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
+    public DiffuseShader(VertexArrayObject vao,
             VertexBufferObject vbo) {
-        super(vertexShaderLocation, fragmentShaderLocation, vao, vbo);
+        super("shader.vs", "shader.fs", vao, vbo, false);
 
         vao.bind();
         vbo.bind(GL_ARRAY_BUFFER);

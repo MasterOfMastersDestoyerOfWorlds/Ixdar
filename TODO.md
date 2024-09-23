@@ -107,6 +107,8 @@
 3. - [ ] Figure out how to import shaders from Blender
 4. - [ ] Figure out how to blur/depth of field
 5. - [ ] Figure out particle systems for sand/dust.
+6. - [x] Figure out how to load font's based on bitmaps.
+7. - [ ] Figure out how to load arbitrary shapes as signed distance fields
 
 ## UI Knot Surface View
 

@@ -295,7 +295,7 @@ public final class Utils {
         }
     }
 
-    public static void snapByteBuffer(int framebufferWidth, int framebufferHeight, ByteBuffer fb) {
+    public static void snapByteBuffer(int framebufferWidth, int framebufferHeight, ByteBuffer fb, int channels) {
         // Allocate colored pixel to buffered Image
 
         int width = framebufferWidth;
@@ -305,7 +305,7 @@ public final class Utils {
         BufferedImage imageIn = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         // convert RGB data in ByteBuffer to integer array
         for (int i = 0; i < pixels.length; i++) {
-            bindex = i * 4;
+            bindex = i * channels;
             pixels[i] = ((fb.get(bindex) << 16)) +
                     ((fb.get(bindex + 1) << 8)) +
                     ((fb.get(bindex + 2) << 0));

@@ -19,10 +19,12 @@ import org.lwjgl.system.MemoryUtil;
 import shell.render.Canvas3D;
 import shell.render.Color;
 import shell.render.Texture;
+import shell.render.shaders.FontShader;
 
 import static java.awt.Font.MONOSPACED;
 import static java.awt.Font.PLAIN;
 import static java.awt.Font.TRUETYPE_FONT;
+import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 
 public class Font {
 
@@ -31,38 +33,41 @@ public class Font {
 
     public int fontHeight;
     public int fontWidth;
+    private FontShader shader;
 
-    public Font() {
-        this(new java.awt.Font(MONOSPACED, PLAIN, 16), true);
+    public Font(FontShader shader) {
+        this(shader, new java.awt.Font(MONOSPACED, PLAIN, 16), true);
     }
 
-    public Font(boolean antiAlias) {
-        this(new java.awt.Font(MONOSPACED, PLAIN, 16), antiAlias);
+    public Font(FontShader shader, boolean antiAlias) {
+        this(shader, new java.awt.Font(MONOSPACED, PLAIN, 16), antiAlias);
     }
 
-    public Font(int size) {
-        this(new java.awt.Font(MONOSPACED, PLAIN, size), true);
+    public Font(FontShader shader, int size) {
+        this(shader, new java.awt.Font(MONOSPACED, PLAIN, size), true);
     }
 
-    public Font(int size, boolean antiAlias) {
-        this(new java.awt.Font(MONOSPACED, PLAIN, size), antiAlias);
+    public Font(FontShader shader, int size, boolean antiAlias) {
+        this(shader, new java.awt.Font(MONOSPACED, PLAIN, size), antiAlias);
     }
 
-    public Font(InputStream in, int size) throws FontFormatException, IOException {
-        this(in, size, true);
+    public Font(FontShader shader, InputStream in, int size) throws FontFormatException, IOException {
+        this(shader, in, size, true);
     }
 
-    public Font(InputStream in, int size, boolean antiAlias) throws FontFormatException, IOException {
-        this(java.awt.Font.createFont(TRUETYPE_FONT, in).deriveFont(PLAIN, size), antiAlias);
+    public Font(FontShader shader, InputStream in, int size, boolean antiAlias)
+            throws FontFormatException, IOException {
+        this(shader, java.awt.Font.createFont(TRUETYPE_FONT, in).deriveFont(PLAIN, size), antiAlias);
     }
 
-    public Font(java.awt.Font font) {
-        this(font, true);
+    public Font(FontShader shader, java.awt.Font font) {
+        this(shader, font, true);
     }
 
-    public Font(java.awt.Font font, boolean antiAlias) {
+    public Font(FontShader shader, java.awt.Font font, boolean antiAlias) {
         glyphs = new HashMap<>();
         texture = createFontTexture(font, antiAlias);
+        this.shader = shader;
     }
 
     public Texture createFontTexture(java.awt.Font font, boolean antiAlias) {
@@ -259,7 +264,7 @@ public class Font {
      * @param y        Y coordinate of the text position
      * @param c        Color to use
      */
-    public void drawText(Canvas3D canvas3d, CharSequence text, float x, float y, Color c) {
+    public void drawText(CharSequence text, float x, float y, Color c) {
         int textHeight = getHeight(text);
 
         float drawX = x;
@@ -269,7 +274,10 @@ public class Font {
         }
 
         texture.bind();
-        canvas3d.begin();
+        
+        shader.use();
+        shader.setTexture("texImage", texture, GL_TEXTURE0, 0);
+        shader.begin();
         for (int i = 0; i < text.length(); i++) {
             char ch = text.charAt(i);
             if (ch == '\n') {
@@ -283,10 +291,10 @@ public class Font {
                 continue;
             }
             Glyph g = glyphs.get(ch);
-            canvas3d.drawTextureRegion(texture, drawX, drawY, g.x, g.y, g.width, g.height, c);
+            shader.drawTextureRegion(texture, drawX, drawY, 0, g.x, g.y, g.width, g.height, c);
             drawX += g.width;
         }
-        canvas3d.end();
+        shader.end();
     }
 
     /**
@@ -297,8 +305,8 @@ public class Font {
      * @param x        X coordinate of the text position
      * @param y        Y coordinate of the text position
      */
-    public void drawText(Canvas3D canvas3d, CharSequence text, float x, float y) {
-        drawText(canvas3d, text, x, y, Color.WHITE);
+    public void drawText(CharSequence text, float x, float y) {
+        drawText(text, x, y, Color.WHITE);
     }
 
     /**
@@ -315,13 +323,13 @@ public class Font {
                 text += " ";
             }
         }
-        drawText(canvas3d, text, xLimit - getWidth(text.substring(0, numCharsBack)), y, c);
+        drawText(text, xLimit - getWidth(text.substring(0, numCharsBack)), y, c);
     }
 
     public void drawTextCentered(Canvas3D canvas3d, String text, int x, int y, Color c) {
         int width = getWidth(text);
         int height = getHeight(text);
-        drawText(canvas3d, text, x - width / 2, y - height / 2, c);
+        drawText(text, x - width / 2, y - height / 2, c);
     }
 
 }
