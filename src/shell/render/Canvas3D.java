@@ -196,7 +196,7 @@ public class Canvas3D extends AWTGLCanvas {
 
         sdfShader = new SignedDistanceFieldShader(framebufferWidth, framebufferHeight);
         shaders.add(sdfShader);
-        sdf = new SignedDistanceField(sdfShader, "decal_sdf.png");
+        sdf = new SignedDistanceField(sdfShader, "decal_sdf.png", new Color(Color.IXDAR), 1);
 
         glViewport(0, 0, (int) framebufferWidth, (int) framebufferHeight);
         mouseTrap.setCanvas(this);
@@ -290,7 +290,8 @@ public class Canvas3D extends AWTGLCanvas {
                 framebufferWidth / 2,
                 framebufferHeight / 2, Color.CYAN);
         Color c = new Color(Color.CYAN);
-        c.setAlpha(0.6f);
+        c.setAlpha(0.6f); 
+        sdf.setBorderDist(Clock.sin(0, 1, 1, 0));
         sdf.drawCentered(framebufferWidth / 2,
                 framebufferHeight / 2, 800, 800, 1, c);
 

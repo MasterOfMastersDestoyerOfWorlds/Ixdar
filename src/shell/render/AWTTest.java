@@ -40,7 +40,6 @@ public class AWTTest extends JFrame {
         frame.setVisible(true);
         frame.transferFocus();
         frame.pack();
-        boolean first = true;
         frame.repaint();
         Runnable renderLoop = new Runnable() {
             @Override

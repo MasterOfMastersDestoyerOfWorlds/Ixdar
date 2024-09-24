@@ -12,6 +12,7 @@ public final class Color {
     public static final Color GREEN = new Color(0f, 1f, 0f);
     public static final Color BLUE = new Color(0f, 0f, 1f);
     public static final Color CYAN = new Color(0, 255, 255);
+    public static final Color IXDAR = new Color(150, 0, 36);
 
     /** This value specifies the red component. */
     private float red;
@@ -82,11 +83,18 @@ public final class Color {
         setAlpha(alpha);
     }
 
-    public Color(Color cyan2) {
-        setRed(cyan2.red);
-        setGreen(cyan2.green);
-        setBlue(cyan2.blue);
-        setAlpha(cyan2.alpha);
+    public Color(Color color) {
+        setRed(color.red);
+        setGreen(color.green);
+        setBlue(color.blue);
+        setAlpha(color.alpha);
+    }
+
+    public Color(Color color, float alpha) {
+        setRed(color.red);
+        setGreen(color.green);
+        setBlue(color.blue);
+        setAlpha(alpha);
     }
 
     /**
