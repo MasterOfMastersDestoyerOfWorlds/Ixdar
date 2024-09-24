@@ -44,7 +44,6 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         frame.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
         this.camera = camera;
         this.captureMouse = captureMouse;
-
     }
 
     @Override
@@ -137,18 +136,17 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
 
     @Override
     public void mouseMoved(MouseEvent e) {
-        if (center == null) {
-
+        if (captureMouse && center == null) {
             captureMouse(false);
             return;
         }
+        lastX = e.getX();
+        lastY = e.getY();
         if (captureMouse) {
             camera.mouseMove((int) center.x, (int) center.y, e);
         } else {
             camera.mouseMove(lastX, lastY, e);
         }
-        lastX = e.getX();
-        lastY = e.getY();
         if (main != null) {
             Main.tool.calculateHover(e.getX(), e.getY());
             main.repaint();

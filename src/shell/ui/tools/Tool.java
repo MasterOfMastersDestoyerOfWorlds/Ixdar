@@ -150,7 +150,8 @@ public abstract class Tool {
     public String displayName() {
         return "REEEEEEEE";
     }
-    public ToolType toolType(){
+
+    public ToolType toolType() {
         return ToolType.None;
     }
 }

@@ -7,7 +7,7 @@ import javax.swing.JTextField;
 import java.beans.*; //property change stuff
 import java.awt.*;
 import java.awt.event.*;
-class SaveDialog extends JDialog
+public class SaveDialog extends JDialog
                    implements ActionListener,
                               PropertyChangeListener {
     private String typedText = null;

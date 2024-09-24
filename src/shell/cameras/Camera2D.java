@@ -219,8 +219,6 @@ public class Camera2D implements Camera {
 
     @Override
     public void mouseMove(float lastX, float lastY, MouseEvent e) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'mouseMove'");
     }
 
 }

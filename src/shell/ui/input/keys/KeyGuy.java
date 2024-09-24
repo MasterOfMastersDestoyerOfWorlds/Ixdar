@@ -5,12 +5,18 @@ import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
+import javax.imageio.ImageIO;
 import javax.swing.JFrame;
+import javax.swing.JRootPane;
+
 import shell.Main;
 import shell.Toggle;
 import shell.cameras.Camera;
@@ -18,14 +24,12 @@ import shell.cameras.CameraMoveDirection;
 import shell.file.FileManagement;
 import shell.render.Canvas3D;
 import shell.shell.Shell;
-import shell.ui.actions.EditManifoldAction;
-import shell.ui.actions.FindManifoldAction;
-import shell.ui.actions.GenerateManifoldTestsAction;
-import shell.ui.actions.NegativeCutMatchViewAction;
-import shell.ui.actions.PrintScreenAction;
-import shell.ui.actions.SaveAction;
+import shell.ui.tools.EditManifoldTool;
+import shell.ui.tools.FindManifoldTool;
+import shell.ui.tools.NegativeCutMatchViewTool;
 import shell.ui.tools.Tool;
 import shell.ui.tools.ToolType;
+import shell.ui.actions.*;
 
 public class KeyGuy implements KeyListener {
 
@@ -33,29 +37,31 @@ public class KeyGuy implements KeyListener {
     public Main main;
     public Camera camera;
 
-    static PrintScreenAction printScreenAction;
-    static SaveAction saveAction;
     static GenerateManifoldTestsAction generateManifoldTests;
-    static FindManifoldAction findManifoldAction;
-    static EditManifoldAction editManifoldAction;
-    static NegativeCutMatchViewAction negativeCutMatchViewAction;
 
     boolean controlMask;
+    private Canvas3D canvas;
+    private JRootPane component;
+    JFrame frame;
+    SaveDialog dialog;
+    NegativeCutMatchViewTool negativeCutMatchViewTool;
+    FindManifoldTool findManifoldTool;
+    EditManifoldTool editCutMatchTool;
 
     public KeyGuy(Camera camera, Canvas3D canvas) {
         this.camera = camera;
-        printScreenAction = new PrintScreenAction(canvas);
+        this.canvas = canvas;
+
     }
 
     public KeyGuy(Main main, JFrame frame, String fileName, Camera camera) {
         this.main = main;
         this.camera = camera;
-        printScreenAction = new PrintScreenAction(frame.getRootPane());
-        saveAction = new SaveAction(frame, fileName);
+        this.component = frame.getRootPane();
+        dialog = new SaveDialog(frame, fileName);
+
         generateManifoldTests = new GenerateManifoldTestsAction(frame, fileName);
-        findManifoldAction = new FindManifoldAction(frame);
-        editManifoldAction = new EditManifoldAction(frame);
-        negativeCutMatchViewAction = new NegativeCutMatchViewAction(frame);
+        negativeCutMatchViewTool = new NegativeCutMatchViewTool();
     }
 
     @Override
@@ -67,22 +73,53 @@ public class KeyGuy implements KeyListener {
         }
         if (controlMask && firstPress) {
             if (KeyActions.PrintScreen.keyPressed(pressedKeys)) {
-                printScreenAction.actionPerformed(null);
+                System.out.println("Printing Screenshot");
+                if (canvas != null) {
+                    int numInFolder = new File("./img").list().length;
+                    canvas.printScreen("./img/snap" + numInFolder + ".png");
+                    return;
+                } else {
+                    BufferedImage img = new BufferedImage(component.getWidth(), component.getHeight(),
+                            BufferedImage.TYPE_INT_RGB);
+                    component.paint(img.getGraphics());
+                    int numInFolder = new File("./img").list().length;
+                    File outputfile = new File("./img/snap" + numInFolder + ".png");
+                    try {
+                        ImageIO.write(img, "png", outputfile);
+                    } catch (IOException ex) {
+                        System.out.println(ex.getMessage());
+                    }
+                    return;
+                }
             }
             if (KeyActions.Save.keyPressed(pressedKeys)) {
-                saveAction.actionPerformed(null);
+                String newFilename = dialog.showDialog();
+
+                if ((newFilename != null) && (newFilename.length() > 0)) {
+                    System.out.println("Saving to file: " + newFilename);
+                }
             }
             if (KeyActions.GenerateManifoldTests.keyPressed(pressedKeys)) {
                 generateManifoldTests.actionPerformed(null);
             }
             if (KeyActions.Find.keyPressed(pressedKeys)) {
-                findManifoldAction.actionPerformed(null);
+                findManifoldTool.reset();
+                findManifoldTool.state = FindManifoldTool.States.FindStart;
+                Main.tool = findManifoldTool;
+                Main.metroDrawLayer = Main.shell.cutEngine.totalLayers;
+                Main.updateKnotsDisplayed();
             }
             if (KeyActions.EditManifold.keyPressed(pressedKeys)) {
-                editManifoldAction.actionPerformed(null);
+                if (Toggle.manifold.value && Toggle.drawCutMatch.value) {
+                    editCutMatchTool.reset();
+                    Main.tool = editCutMatchTool;
+                }
+
             }
             if (KeyActions.NegativeCutMatchViewTool.keyPressed(pressedKeys)) {
-                negativeCutMatchViewAction.actionPerformed(null);
+                negativeCutMatchViewTool.reset();
+                negativeCutMatchViewTool.initSegmentMap();
+                Main.tool = negativeCutMatchViewTool;
             }
         }
         if (main != null) {
