@@ -18,12 +18,14 @@ import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
 import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
 
+import java.awt.Dimension;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.ArrayList;
 
 import javax.swing.JFrame;
 
@@ -143,6 +145,8 @@ public class Canvas3D extends AWTGLCanvas {
     public Font debugFont;
     private SignedDistanceFieldShader sdfShader;
     private SignedDistanceField sdf;
+    boolean changedSize = false;
+    public ArrayList<ShaderProgram> shaders;
 
     public Canvas3D(Camera3D camera, MouseTrap mouseTrap, JFrame frame) {
         super();
@@ -175,29 +179,33 @@ public class Canvas3D extends AWTGLCanvas {
         vao.bind();
         vbo.bind(GL_ARRAY_BUFFER);
         vbo.uploadData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
-
+        shaders = new ArrayList<>();
         shader = new DiffuseShader(vao, vbo);
-
+        shaders.add(shader);
         diffuseMap = Texture.loadTexture("container2.png");
         specularMap = Texture.loadTexture("container2_specular.png");
 
         VertexArrayObject lvao = new VertexArrayObject();
         lightingShader = new LightShader(lvao, vbo);
+        shaders.add(lightingShader);
 
         fontShader = new FontShader(framebufferWidth, framebufferHeight);
+        shaders.add(fontShader);
         font = new Font(fontShader);
         debugFont = new Font(fontShader, 12, false);
 
         sdfShader = new SignedDistanceFieldShader(framebufferWidth, framebufferHeight);
+        shaders.add(sdfShader);
         sdf = new SignedDistanceField(sdfShader, "decal_sdf.png");
 
-        this.getSize();
         glViewport(0, 0, (int) framebufferWidth, (int) framebufferHeight);
         mouseTrap.setCanvas(this);
         mouseTrap.captureMouse(true);
 
         glEnable(GL_DEPTH_TEST);
         this.addComponentListener(listener);
+        
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     }
 
     public final ComponentAdapter listener = new ComponentAdapter() {
@@ -207,7 +215,7 @@ public class Canvas3D extends AWTGLCanvas {
             float sx = (float) t.getScaleX(), sy = (float) t.getScaleY();
             Canvas3D.this.framebufferWidth = (int) (getWidth() * sx);
             Canvas3D.this.framebufferHeight = (int) (getHeight() * sy);
-            glViewport(0, 0, (int) getWidth(), (int) getHeight());
+            Canvas3D.this.changedSize = true;
         }
     };
 
@@ -221,6 +229,13 @@ public class Canvas3D extends AWTGLCanvas {
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        if (changedSize) {
+            glViewport(0, 0, (int) framebufferWidth, (int) framebufferHeight);
+            changedSize = false;
+            for(ShaderProgram s: shaders){
+                s.updateProjectionMatrix(framebufferWidth, framebufferHeight);
+            }
+        }
         shader.use();
 
         camera.updateViewFirstPerson();
@@ -275,9 +290,9 @@ public class Canvas3D extends AWTGLCanvas {
                 framebufferWidth / 2,
                 framebufferHeight / 2, Color.CYAN);
         Color c = new Color(Color.CYAN);
-        c.setAlpha(0.5f);
+        c.setAlpha(0.6f);
         sdf.drawCentered(framebufferWidth / 2,
-                framebufferHeight / 2, 400, 400, 1, c);
+                framebufferHeight / 2, 800, 800, 1, c);
 
         Clock.frameRendered();
         if (printScreen) {

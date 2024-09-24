@@ -18,4 +18,8 @@ public class LightShader extends ShaderProgram {
         glEnableVertexAttribArray(0);
     }
 
+    @Override
+    public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight) {
+    }
+
 }

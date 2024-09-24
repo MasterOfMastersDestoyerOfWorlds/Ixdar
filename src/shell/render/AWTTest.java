@@ -22,22 +22,26 @@ public class AWTTest extends JFrame {
         frame = new AWTTest();
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.setLayout(new BorderLayout());
-        frame.setPreferredSize(new Dimension(800, 800));
+        frame.setBackground(java.awt.Color.darkGray);
         camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f);
         MouseTrap mouseTrap = new MouseTrap(null, frame, camera, true);
         Canvas3D canvas = new Canvas3D(camera, mouseTrap, frame);
+        frame.add(canvas, BorderLayout.CENTER);
+        frame.getContentPane().setPreferredSize(new Dimension(750, 750));
+
         KeyGuy keyGuy = new KeyGuy(camera, canvas);
         canvas.setKeyGuy(keyGuy);
         frame.requestFocus();
         mouseTrap.captureMouse(true);
-        frame.add(canvas, BorderLayout.CENTER);
         frame.addKeyListener(keyGuy);
         frame.addMouseListener(mouseTrap);
         frame.addMouseMotionListener(mouseTrap);
         frame.addMouseWheelListener(mouseTrap);
-        frame.pack();
         frame.setVisible(true);
         frame.transferFocus();
+        frame.pack();
+        boolean first = true;
+        frame.repaint();
         Runnable renderLoop = new Runnable() {
             @Override
             public void run() {

@@ -25,4 +25,9 @@ public class DiffuseShader extends ShaderProgram {
 
     }
 
+    @Override
+    public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight) {
+        
+    }
+
 }

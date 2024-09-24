@@ -29,7 +29,7 @@ import shell.render.Texture;
 import shell.render.VertexArrayObject;
 import shell.render.VertexBufferObject;
 
-public class ShaderProgram {
+public abstract class ShaderProgram {
 
     String vertexCode;
     String fragmentCode;
@@ -388,5 +388,7 @@ public class ShaderProgram {
 
         numVertices += 6;
     }
+
+    public abstract void updateProjectionMatrix(int framebufferWidth, int framebufferHeight);
 
 }

@@ -40,7 +40,12 @@ public class SignedDistanceFieldShader extends ShaderProgram {
         Matrix4f view = new Matrix4f();
         setMat4("view", view);
 
-        /* Set projection matrix to an orthographic projection */
+        updateProjectionMatrix(framebufferWidth, framebufferHeight);
+    }
+
+    @Override
+    public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight) {
+        use();
         Matrix4f projection = new Matrix4f().ortho(0f, framebufferWidth, 0f, framebufferHeight, -1.0f, 1.0f);
         setMat4("projection", projection);
     }
