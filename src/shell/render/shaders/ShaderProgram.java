@@ -17,6 +17,7 @@ import java.nio.IntBuffer;
 import java.util.ArrayList;
 
 import org.joml.Matrix4f;
+import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
@@ -126,6 +127,14 @@ public abstract class ShaderProgram {
 
     public void setMat4(String name, FloatBuffer allocatedBuffer) {
         glUniformMatrix4fv(glGetUniformLocation(ID, name), false, allocatedBuffer);
+    }
+
+    public void setVec2(String name, Vector2f vec2) {
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            FloatBuffer buffer = vec2.get(stack.mallocFloat(2));
+            glUniform2fv(glGetUniformLocation(ID, name), buffer);
+        }
     }
 
     public void setVec3(String name, float f, float g, float h) {
@@ -281,7 +290,8 @@ public abstract class ShaderProgram {
      * @param regWidth  Width of the texture region
      * @param regHeight Height of the texture region
      */
-    public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY, float regWidth,
+    public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY,
+            float regWidth,
             float regHeight) {
         drawTextureRegion(texture, x, y, zIndex, regX, regY, regWidth, regHeight, Color.WHITE);
     }
@@ -329,6 +339,23 @@ public abstract class ShaderProgram {
         float t1 = regY / texture.getHeight();
         float s2 = (regX + regWidth) / texture.getWidth();
         float t2 = (regY + regHeight) / texture.getHeight();
+
+        drawTextureRegion(x1, y1, x2, y2, zIndex, s1, t1, s2, t2, c);
+    }
+
+    public void drawBlankTextureRegion(float x, float y, float x2, float y2, float zIndex, float regX,
+            float regY, float regWidth,
+            float regHeight, Color c) {
+        /* Vertex positions */
+        float x1 = x;
+        float y1 = y;
+
+        /* Texture coordinates */
+        float s1 = regX / regWidth;
+        float t1 = regY / regHeight;
+        float s2 = (regX + regWidth) / regWidth;
+        float t2 = (regY + regHeight) / regHeight;
+
 
         drawTextureRegion(x1, y1, x2, y2, zIndex, s1, t1, s2, t2, c);
     }

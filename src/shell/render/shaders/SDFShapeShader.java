@@ -8,10 +8,10 @@ import org.joml.Matrix4f;
 import shell.render.VertexArrayObject;
 import shell.render.VertexBufferObject;
 
-public class SignedDistanceFieldShader extends ShaderProgram {
+public class SDFShapeShader extends ShaderProgram {
 
-    public SignedDistanceFieldShader(int framebufferWidth, int framebufferHeight) {
-        super("font.vs", "sdf.fs", new VertexArrayObject(), new VertexBufferObject(), true);
+    public SDFShapeShader(int framebufferWidth, int framebufferHeight) {
+        super("font.vs", "sdf_line.fs", new VertexArrayObject(), new VertexBufferObject(), true);
         /* Specify Vertex Pointer */
         int posAttrib = getAttributeLocation("position");
         glEnableVertexAttribArray(posAttrib);
@@ -28,9 +28,6 @@ public class SignedDistanceFieldShader extends ShaderProgram {
 
         use();
         bindFragmentDataLocation(0, "fragColor");
-
-        /* Set texture uniform */
-        setInt("texImage", 0);
 
         /* Set model matrix to identity matrix */
         Matrix4f model = new Matrix4f();

@@ -13,6 +13,7 @@ public final class Color {
     public static final Color BLUE = new Color(0f, 0f, 1f);
     public static final Color CYAN = new Color(0, 255, 255);
     public static final Color IXDAR = new Color(150, 0, 36);
+    public static final Color TRANSPARENT = new Color(0, 0, 0, 0);
 
     /** This value specifies the red component. */
     private float red;

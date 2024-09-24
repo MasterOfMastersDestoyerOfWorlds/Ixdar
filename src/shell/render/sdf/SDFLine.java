@@ -1,30 +1,37 @@
 package shell.render.sdf;
 
+import shell.render.Clock;
 import shell.render.Color;
 import shell.render.Texture;
 import shell.render.shaders.ShaderProgram;
-import shell.render.shaders.SignedDistanceFieldShader;
+import shell.render.shaders.SDFShapeShader;
 
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 
-public class SignedDistanceField {
+import org.joml.Vector2f;
 
-    private Texture texture;
+public class SDFLine {
+
     public ShaderProgram shader;
     private Color borderColor;
     private float borderInner;
     private float borderOuter;
     private float borderOffsetInner;
     private float borderOffsetOuter;
+    private float edgeDist;
 
-    public SignedDistanceField(ShaderProgram sdfShader, String sdfLocation) {
-        texture = Texture.loadTexture("decal_sdf.png");
+    public SDFLine(ShaderProgram sdfShader) {
         shader = sdfShader;
+        this.borderColor = Color.TRANSPARENT;
+        this.borderInner = 0;
+        this.borderOuter = 0;
+        this.borderOffsetInner = 0;
+        this.borderOffsetOuter = 0;
+        this.edgeDist = 0.01f;
     }
 
-    public SignedDistanceField(SignedDistanceFieldShader sdfShader, String string, Color borderColor,
+    public SDFLine(SDFShapeShader sdfShader, Color borderColor,
             float borderDist, float borderOffset) {
-        texture = Texture.loadTexture("decal_sdf.png");
         shader = sdfShader;
         this.borderColor = borderColor;
         this.borderInner = borderDist - 0.1f;
@@ -34,18 +41,18 @@ public class SignedDistanceField {
     }
 
     public void draw(int drawX, int drawY, int width, int height, int zIndex, Color c) {
-        texture.bind();
         shader.use();
-        shader.setTexture("texImage", texture, GL_TEXTURE0, 0);
         shader.setFloat("borderInner", borderInner);
         shader.setFloat("borderOuter", borderOuter);
         shader.setFloat("borderOffsetInner", borderOffsetInner);
         shader.setFloat("borderOffsetOuter", borderOffsetOuter);
         shader.setVec4("borderColor", borderColor.toVector4f());
+        shader.setVec2("pointA", new Vector2f(Clock.sin(0, 1, 1, 5), 0.2f));
+        shader.setVec2("pointB", new Vector2f(0.8f, Clock.sin(0, 1, 0.6f, 3.78f)));
+        shader.setFloat("edgeDist", edgeDist);
         shader.begin();
 
-        shader.drawTextureRegion(texture, drawX, drawY, drawX + width, drawY + height, zIndex, 0, 0, texture.width,
-                texture.height, c);
+        shader.drawBlankTextureRegion(drawX, drawY, drawX + width, drawY + height, zIndex, 0, 0, width, height, c);
 
         shader.end();
     }

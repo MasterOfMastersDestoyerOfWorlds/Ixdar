@@ -38,7 +38,8 @@ import shell.cameras.Camera3D;
 import shell.render.lights.DirectionalLight;
 import shell.render.lights.PointLight;
 import shell.render.lights.SpotLight;
-import shell.render.sdf.SignedDistanceField;
+import shell.render.sdf.SDFLine;
+import shell.render.sdf.SDFTexture;
 import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
 import shell.utils.Utils;
@@ -143,10 +144,12 @@ public class Canvas3D extends AWTGLCanvas {
     public boolean drawing;
     public FloatBuffer verteciesBuff;
     public Font debugFont;
-    private SignedDistanceFieldShader sdfShader;
-    private SignedDistanceField sdf;
+    private SDFTextureShader sdfShader;
+    private SDFTexture sdf;
     boolean changedSize = false;
     public ArrayList<ShaderProgram> shaders;
+    private SDFShapeShader sdfLineShader;
+    private SDFLine sdfLine;
 
     public Canvas3D(Camera3D camera, MouseTrap mouseTrap, JFrame frame) {
         super();
@@ -194,11 +197,14 @@ public class Canvas3D extends AWTGLCanvas {
         font = new Font(fontShader);
         debugFont = new Font(fontShader, 12, false);
 
-        sdfShader = new SignedDistanceFieldShader(framebufferWidth, framebufferHeight);
+        sdfShader = new SDFTextureShader(framebufferWidth, framebufferHeight);
         shaders.add(sdfShader);
-        sdf = new SignedDistanceField(sdfShader, "decal_sdf.png", new Color(Color.IXDAR), 1, 0f);
+        sdf = new SDFTexture(sdfShader, "decal_sdf.png", new Color(Color.IXDAR), 1, 0f);
 
-        
+        sdfLineShader = new SDFShapeShader(framebufferWidth, framebufferHeight);
+        shaders.add(sdfLineShader);
+        sdfLine = new SDFLine(sdfLineShader);
+
 
         glViewport(0, 0, (int) framebufferWidth, (int) framebufferHeight);
         mouseTrap.setCanvas(this);
@@ -293,8 +299,8 @@ public class Canvas3D extends AWTGLCanvas {
                 framebufferHeight / 2, Color.CYAN);
         Color c = new Color(Color.CYAN);
         c.setAlpha(0.6f); 
-        sdf.setBorderDist(Clock.sin(0f, 1f, 1, 0));
-        sdf.drawCentered(framebufferWidth / 2,
+        //sdf.setBorderDist(Clock.sin(0f, 1f, 1, 0));
+        sdfLine.drawCentered(framebufferWidth / 2,
                 framebufferHeight / 2, 800, 800, 1, c);
 
         Clock.frameRendered();
