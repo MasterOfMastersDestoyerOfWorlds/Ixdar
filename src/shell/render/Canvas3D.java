@@ -18,9 +18,9 @@ import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
 import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
 
-import java.awt.Dimension;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.geom.AffineTransform;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
@@ -163,7 +163,7 @@ public class Canvas3D extends AWTGLCanvas {
 
     @Override
     public void initGL() {
-        java.awt.geom.AffineTransform t = this.getGraphicsConfiguration().getDefaultTransform();
+        AffineTransform t = this.getGraphicsConfiguration().getDefaultTransform();
         float sx = (float) t.getScaleX(), sy = (float) t.getScaleY();
         this.framebufferWidth = (int) (getWidth() * sx);
         this.framebufferHeight = (int) (getHeight() * sy);
@@ -197,6 +197,8 @@ public class Canvas3D extends AWTGLCanvas {
         sdfShader = new SignedDistanceFieldShader(framebufferWidth, framebufferHeight);
         shaders.add(sdfShader);
         sdf = new SignedDistanceField(sdfShader, "decal_sdf.png", new Color(Color.IXDAR), 1, 0f);
+
+        
 
         glViewport(0, 0, (int) framebufferWidth, (int) framebufferHeight);
         mouseTrap.setCanvas(this);

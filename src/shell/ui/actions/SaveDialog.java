@@ -61,7 +61,7 @@ public class SaveDialog extends JDialog
         //Handle window closing correctly.
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
-                @SuppressWarnings({ "deprecation" })
+                @SuppressWarnings({ "removal" })
                 public void windowClosing(WindowEvent we) {
                 /*
                  * Instead of directly closing the window,
