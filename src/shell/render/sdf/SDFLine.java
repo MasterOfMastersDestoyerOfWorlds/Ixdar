@@ -2,11 +2,8 @@ package shell.render.sdf;
 
 import shell.render.Clock;
 import shell.render.Color;
-import shell.render.Texture;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.SDFShapeShader;
-
-import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 
 import org.joml.Vector2f;
 
@@ -47,8 +44,11 @@ public class SDFLine {
         shader.setFloat("borderOffsetInner", borderOffsetInner);
         shader.setFloat("borderOffsetOuter", borderOffsetOuter);
         shader.setVec4("borderColor", borderColor.toVector4f());
-        shader.setVec2("pointA", new Vector2f(Clock.sin(0, 1, 1, 5), 0.2f));
-        shader.setVec2("pointB", new Vector2f(0.8f, Clock.sin(0, 1, 0.6f, 3.78f)));
+        shader.setVec2("pointA", new Vector2f(Clock.sin(0, 1, 0.3f, 5), 0.2f));
+        shader.setVec2("pointB", new Vector2f(0.8f, Clock.sin(0, 1, 0.2f, 3.78f)));
+        shader.setBool("dashed", true);
+        shader.setFloat("dashPhase", Clock.spin(5));
+        shader.setFloat("dashLength", 0.03f);
         shader.setFloat("edgeDist", edgeDist);
         shader.begin();
 

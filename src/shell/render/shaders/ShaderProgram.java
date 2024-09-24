@@ -106,7 +106,7 @@ public abstract class ShaderProgram {
         glUseProgram(ID);
     }
 
-    void setBool(String name, boolean value) {
+    public void setBool(String name, boolean value) {
         glUniform1i(glGetUniformLocation(ID, name), value ? 1 : 0);
     }
 
