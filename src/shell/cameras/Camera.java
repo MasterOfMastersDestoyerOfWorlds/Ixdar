@@ -6,7 +6,7 @@ public interface Camera {
 
     void reset();
 
-    void move(CameraMoveDirection direction);
+    void move(Direction direction);
 
     void setShiftMod(double sHIFT_MOD);
 
@@ -14,5 +14,11 @@ public interface Camera {
 
     void drag(double d, double e);
 
-    void mouseMove(float lastX, float lastY,MouseEvent e);
+    void mouseMove(float lastX, float lastY, MouseEvent e);
+
+    public enum Direction {
+        FORWARD, BACKWARD, LEFT, RIGHT
+
+    }
+
 }

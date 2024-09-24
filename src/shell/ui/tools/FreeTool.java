@@ -73,8 +73,8 @@ public class FreeTool extends Tool {
         displayPoint = kp;
     }
     @Override
-    public ToolType toolType() {
-        return ToolType.Free;
+    public Type toolType() {
+        return Type.Free;
     }
 
     @Override

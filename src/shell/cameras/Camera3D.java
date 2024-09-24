@@ -68,15 +68,15 @@ public class Camera3D implements Camera {
     }
 
     @Override
-    public void move(CameraMoveDirection direction) {
+    public void move(Direction direction) {
         float velocity = MovementSpeed * Clock.deltaTime();
-        if (direction == CameraMoveDirection.FORWARD)
+        if (direction == Direction.FORWARD)
             position.add(front.mul(velocity));
-        else if (direction == CameraMoveDirection.BACKWARD)
+        else if (direction == Direction.BACKWARD)
             position.sub(front.mul(velocity));
-        else if (direction == CameraMoveDirection.LEFT)
+        else if (direction == Direction.LEFT)
             position.sub(right.mul(velocity));
-        else if (direction == CameraMoveDirection.RIGHT)
+        else if (direction == Direction.RIGHT)
             position.add(right.mul(velocity));
         updateCameraVectors();
     }

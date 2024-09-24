@@ -180,7 +180,7 @@ public class Camera2D implements Camera {
     }
 
     @Override
-    public void move(CameraMoveDirection direction) {
+    public void move(Direction direction) {
         switch (direction) {
             case FORWARD:
                 PanY += PAN_SPEED * SHIFT_MOD;

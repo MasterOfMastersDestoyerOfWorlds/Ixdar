@@ -151,7 +151,12 @@ public abstract class Tool {
         return "REEEEEEEE";
     }
 
-    public ToolType toolType() {
-        return ToolType.None;
+    public Type toolType() {
+        return Type.None;
     }
+
+    public enum Type {
+        Free, None
+    }
+
 }

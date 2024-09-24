@@ -1,4 +1,4 @@
-package shell.enums;
+package shell.cuts.enums;
 
 public enum RouteType {
     prevDC(false, false, true),

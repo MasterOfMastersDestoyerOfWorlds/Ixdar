@@ -1,9 +1,9 @@
-package shell.route;
+package shell.cuts.route;
 
 import java.util.ArrayList;
 
-import shell.enums.RouteType;
-import shell.enums.State;
+import shell.cuts.enums.RouteType;
+import shell.cuts.enums.State;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 

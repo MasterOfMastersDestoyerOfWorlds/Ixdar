@@ -1,17 +1,18 @@
 package test;
 
 import shell.DistanceMatrix;
-import shell.enums.RouteType;
 import shell.file.FileManagement;
 import shell.file.PointSetPath;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.route.Route;
-import shell.route.RouteInfo;
-import shell.route.RouteMap;
 import shell.shell.Shell;
 import shell.PointND;
+import shell.cuts.enums.RouteType;
+import shell.cuts.route.Route;
+import shell.cuts.route.RouteInfo;
+import shell.cuts.route.RouteMap;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;

@@ -1,4 +1,4 @@
-package shell.route;
+package shell.cuts.route;
 
 public class RoutePair {
     public double delta;

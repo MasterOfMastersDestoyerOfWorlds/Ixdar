@@ -20,7 +20,6 @@ import javax.swing.JRootPane;
 import shell.Main;
 import shell.Toggle;
 import shell.cameras.Camera;
-import shell.cameras.CameraMoveDirection;
 import shell.file.FileManagement;
 import shell.render.Canvas3D;
 import shell.shell.Shell;
@@ -28,7 +27,6 @@ import shell.ui.tools.EditManifoldTool;
 import shell.ui.tools.FindManifoldTool;
 import shell.ui.tools.NegativeCutMatchViewTool;
 import shell.ui.tools.Tool;
-import shell.ui.tools.ToolType;
 import shell.ui.actions.*;
 
 public class KeyGuy implements KeyListener {
@@ -229,7 +227,7 @@ public class KeyGuy implements KeyListener {
                 Main.tool.reset();
             }
             if (KeyActions.Exit.keyPressed(pressedKeys)) {
-                if (Main.tool.toolType() == ToolType.Free) {
+                if (Main.tool.toolType() == Tool.Type.Free) {
                     System.exit(0);
                 }
                 Main.tool = Main.freeTool;
@@ -254,19 +252,19 @@ public class KeyGuy implements KeyListener {
         if (!pressedKeys.isEmpty()) {
             boolean moved = false;
             if (KeyActions.MoveUp.keyPressed(pressedKeys)) {
-                camera.move(CameraMoveDirection.FORWARD);
+                camera.move(Camera.Direction.FORWARD);
                 moved = true;
             }
             if (KeyActions.MoveLeft.keyPressed(pressedKeys)) {
-                camera.move(CameraMoveDirection.LEFT);
+                camera.move(Camera.Direction.LEFT);
                 moved = true;
             }
             if (KeyActions.MoveDown.keyPressed(pressedKeys)) {
-                camera.move(CameraMoveDirection.BACKWARD);
+                camera.move(Camera.Direction.BACKWARD);
                 moved = true;
             }
             if (KeyActions.MoveRight.keyPressed(pressedKeys)) {
-                camera.move(CameraMoveDirection.RIGHT);
+                camera.move(Camera.Direction.RIGHT);
                 moved = true;
             }
             if (KeyActions.ZoomIn.keyPressed(pressedKeys)) {
