@@ -14,6 +14,8 @@ public class SignedDistanceField {
     private Color borderColor;
     private float borderInner;
     private float borderOuter;
+    private float borderOffsetInner;
+    private float borderOffsetOuter;
 
     public SignedDistanceField(ShaderProgram sdfShader, String sdfLocation) {
         texture = Texture.loadTexture("decal_sdf.png");
@@ -21,12 +23,14 @@ public class SignedDistanceField {
     }
 
     public SignedDistanceField(SignedDistanceFieldShader sdfShader, String string, Color borderColor,
-            float borderDist) {
+            float borderDist, float borderOffset) {
         texture = Texture.loadTexture("decal_sdf.png");
         shader = sdfShader;
         this.borderColor = borderColor;
         this.borderInner = borderDist - 0.1f;
         this.borderOuter = borderDist;
+        this.borderOffsetInner = borderOffset - 0.1f;
+        this.borderOffsetOuter = borderOffset;
     }
 
     public void draw(int drawX, int drawY, int width, int height, int zIndex, Color c) {
@@ -35,6 +39,8 @@ public class SignedDistanceField {
         shader.setTexture("texImage", texture, GL_TEXTURE0, 0);
         shader.setFloat("borderInner", borderInner);
         shader.setFloat("borderOuter", borderOuter);
+        shader.setFloat("borderOffsetInner", borderOffsetInner);
+        shader.setFloat("borderOffsetOuter", borderOffsetOuter);
         shader.setVec4("borderColor", borderColor.toVector4f());
         shader.begin();
 

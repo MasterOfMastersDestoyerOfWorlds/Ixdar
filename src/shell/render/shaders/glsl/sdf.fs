@@ -7,6 +7,9 @@ out vec4 fragColor;
 uniform float borderInner;
 uniform float borderOuter;
 
+uniform float borderOffsetInner;
+uniform float borderOffsetOuter;
+
 uniform vec4 borderColor;
 
 uniform sampler2D texImage;
@@ -27,8 +30,10 @@ void main() {
     // }
     float newRange = map(sample.a, 0, 1, 0, 2);
     float borderOpac = smoothstep(1 - borderOuter, 1 - borderInner, newRange);
+    
+    float borderOffsetOpac = smoothstep(1-borderOffsetOuter, 1-borderOffsetInner, newRange);
    // fragColor = vec4(var, var, var, 1);
 
-    fragColor = mix(vec4(borderColor.rgb, borderColor.a * borderOpac), vec4(vertexColor.rgb, vertexColor.a), opacity);
+    fragColor = mix(mix( vec4(borderColor.rgb, borderColor.a * borderOpac), vec4(0), borderOffsetOpac), vertexColor, opacity);
 
 }
