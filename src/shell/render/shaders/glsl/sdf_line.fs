@@ -18,6 +18,8 @@ uniform bool dashed;
 uniform bool roundCaps;
 uniform float dashPhase;
 uniform float dashLength;
+uniform float dashes;
+uniform float dashEdgeDist;
 
 uniform float edgeDist;
 uniform float edgeSharpness;
@@ -72,17 +74,16 @@ void main() {
     float dashEndL = 1;
     float dashCenter = 1;*/
     if(dashed) {
-        float dashes = PI * height / (2 * dashLength);
         float x = (height * textureCoord.x * PI) / dashLength + dashPhase;
-        le2 = mod(x + PI + ((2 * dashes * width * edgeDist) / (height)), TAU);
+        le2 = mod(x + PI + dashEdgeDist, TAU);
         //dashEndL = mod(x + PI, TAU);
         //dashCenter = mod(x + (3 * PI / 2), TAU);
-        float lee = le2 / (2 * dashes);
+        float lee = le2 / (dashes);
         vec2 lDashHead = vec2(textureCoord.x - lee, 0.5);
 
-        re2 = mod(x - ((2 * dashes * width * edgeDist) / (height)), TAU);
+        re2 = mod(x - dashEdgeDist, TAU);
         //dashEndR = mod(x + (TAU), TAU);
-        float ree = (TAU - re2) / (2 * dashes);
+        float ree = (TAU - re2) / (dashes);
         vec2 rDashHead = vec2(textureCoord.x - ree, 0.5);
 
         vec2 texInWorld = vec2(textureCoord.x * height, textureCoord.y * width);
@@ -109,13 +110,13 @@ void main() {
     //float var = opacA;
     //fragColor = vec4(var, var, var, 1);
 
+/*
     if(le2 <= 0.15) {
         //fragColor = vec4(1, 0, 0, 1);
     }
     if(re2 <= 0.15) {
         //fragColor = vec4(0, 0, 1, 1);
     }
-/*
     if(dashEndL <= 0.15) {
         //fragColor = vec4(1, 1, 1, 1);
     }
