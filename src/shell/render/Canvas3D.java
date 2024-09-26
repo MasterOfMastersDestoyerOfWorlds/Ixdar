@@ -132,8 +132,8 @@ public class Canvas3D extends AWTGLCanvas {
     public KeyGuy keyGuy;
     public boolean printScreen = false;
     public File screenShotFile;
-    protected int framebufferWidth;
-    protected int framebufferHeight;
+    public static int framebufferWidth;
+    public static int framebufferHeight;
     public Font font;
 
     public VertexArrayObject vao;

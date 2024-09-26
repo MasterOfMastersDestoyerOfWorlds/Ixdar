@@ -356,7 +356,6 @@ public abstract class ShaderProgram {
         float s2 = (regX + regWidth) / regWidth;
         float t2 = (regY + regHeight) / regHeight;
 
-
         drawTextureRegion(x1, y1, x2, y2, zIndex, s1, t1, s2, t2, c);
     }
 
@@ -412,6 +411,29 @@ public abstract class ShaderProgram {
         verteciesBuff.put(x1).put(y1).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t1);
         verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t2);
         verteciesBuff.put(x2).put(y1).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
+
+        numVertices += 6;
+    }
+
+    public void drawSDFRegion(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
+            int zIndex, float s1, float t1, float s2, float t2, Color c) {
+        if (verteciesBuff.remaining() < 8 * 6) {
+            /* We need more space in the buffer, so flush it */
+            flush();
+        }
+
+        float r = c.getRed();
+        float g = c.getGreen();
+        float b = c.getBlue();
+        float a = c.getAlpha();
+
+        verteciesBuff.put(x1).put(y1).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t1);
+        verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
+        verteciesBuff.put(x3).put(y3).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t2);
+
+        verteciesBuff.put(x3).put(y3).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t2);
+        verteciesBuff.put(x4).put(y4).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t2);
+        verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
 
         numVertices += 6;
     }

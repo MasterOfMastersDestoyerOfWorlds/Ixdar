@@ -1,6 +1,9 @@
 #version 330 core
+#define PI 3.1415926538
+#define TAU 2*3.1415926538
 in vec4 vertexColor;
 in vec2 textureCoord;
+in vec3 pos;
 
 out vec4 fragColor;
 
@@ -11,12 +14,15 @@ uniform float dashPhase;
 uniform float dashLength;
 uniform float borderInner;
 uniform float borderOuter;
+uniform float width;
+uniform float height;
 
 uniform float borderOffsetInner;
 uniform float borderOffsetOuter;
 
 uniform vec4 borderColor;
 uniform bool dashed;
+uniform float edgeSharpness;
 
 float median(float r, float g, float b) {
     return max(min(r, g), min(max(r, g), b));
@@ -38,38 +44,59 @@ float wave(vec2 pos) {
 }
 void main() {
     float sigDist = -1;
-    float l2 = lengthSq(pointA, pointB);  // i.e. |w-v|^2 -  avoid a sqrt
-    float distA = distance(textureCoord, pointA);
-    float distB = distance(textureCoord, pointB);
-    float block = smoothstep(0.5, 0.6, (sin(distA / dashLength + dashPhase) + 1) / 2);
-    float blockB = 0;//smoothstep(0.5, 0.6, (sin(distB / dashLength) + 1) / 2);
+    float l2 = lengthSq(pointA, pointB);
+    vec2 pos = pos.xy;
+    float distA = distance(pos, pointA);
+    float distB = distance(pos, pointB);
+
+    float blockA = smoothstep(0.5, 0.5 + edgeSharpness, (sin((height * textureCoord.x * PI) / dashLength + dashPhase) + 1) / 2);
+
     if(l2 == 0.0)
-        sigDist = distA;   // v == w case
-  // Consider the line extending the segment, parameterized as v + t (w - v).
-  // We find projection of point p onto the line. 
-  // It falls where t = [(p-v) . (w-v)] / |w-v|^2
-  // We clamp t from [0,1] to handle points outside the segment vw.
-    float t = max(0, min(1, dot(textureCoord - pointA, pointB - pointA) / l2));
+        sigDist = distA;
+
+    float t = max(0, min(1, dot(pos - pointA, pointB - pointA) / l2));
     vec2 projection = pointA + t * (pointB - pointA);  // Projection falls on the segment
-    sigDist = distance(textureCoord, projection);
+    sigDist = distance(pos, projection) / width;
 
-    float opacity = smoothstep(edgeDist + (edgeDist / 2), edgeDist, sigDist);
-    // if(sample.a < 0.3){
-    //     sample.a = 0.0;
-    // }
-    //float borderOpac = smoothstep(1 - borderOuter, 1 - borderInner, sigDist);
-
-    //float borderOffsetOpac = smoothstep(1 - borderOffsetOuter, 1 - borderOffsetInner, sigDist);
+    float opacity = smoothstep(edgeDist, edgeDist - edgeSharpness, sigDist);
 
     fragColor = vec4(vertexColor.rgb, 1 * opacity);
-    float var = block + blockB;
-    float AOpac = smoothstep(edgeDist + (edgeDist / 2), edgeDist, distA);
-    float BOpac = smoothstep(edgeDist + (edgeDist / 2), edgeDist, distB);
+    float dashOpac = blockA;
+    float dashes = PI * height / (2 * dashLength);
+    float x = (height * textureCoord.x * PI) / dashLength + dashPhase;
+    float re2 = mod(x - (0.75 * PI), TAU);
+    float ree = re2 / (2 * dashes);
+    vec2 rDashHead = vec2(textureCoord.x - ree, 0.5);
+
+    float le2 = mod(x - (0.25 * PI), TAU);
+    float lee = (TAU - le2) / (2 * dashes);
+    vec2 lDashHead = vec2(textureCoord.x + lee, 0.5);
+
+    vec2 texInWorld = vec2(textureCoord.x * height, textureCoord.y * width);
+    vec2 rDashInWorld = vec2(rDashHead.x * height, rDashHead.y * width);
+    vec2 lDashInWorld = vec2(lDashHead.x * height, lDashHead.y * width);
+
+    if(re2 <= PI) {
+        dashOpac = smoothstep(edgeDist, edgeDist - edgeSharpness, distance(texInWorld, rDashInWorld) / width);
+    } else if(le2 >= PI) {
+        dashOpac = smoothstep(edgeDist, edgeDist - edgeSharpness, distance(texInWorld, lDashInWorld) / width);
+
+    }
+
+    float opacA = smoothstep(edgeDist + edgeSharpness, edgeDist, distA / width);
+    float opacB = smoothstep(edgeDist + edgeSharpness, edgeDist, distB / width);//distB / width;
     if(dashed) {
-        fragColor = mix(mix(vec4(fragColor.rgb, fragColor.a * opacity * var), fragColor, AOpac), fragColor, BOpac);
+        fragColor = mix(mix(vec4(fragColor.rgb, fragColor.a * dashOpac), fragColor, opacA), fragColor, opacB);
     } else {
         fragColor = vec4(fragColor.rgb, fragColor.a * opacity);
     }
-    //fragColor =  mix(mix(vec4(borderColor.rgb, borderColor.a * borderOpac), vec4(0), borderOffsetOpac), vertexColor, opacity);
+    /*float var = lee;
+    //fragColor = vec4(var, var, var, 1);
+    if(le2 <= 0.15) {
+        fragColor = vec4(0, 0, 1, 1);
+    }
+    if(re2 <= 0.15) {
+        fragColor = vec4(1, 0, 0, 1);
+    }*/
 
 }
