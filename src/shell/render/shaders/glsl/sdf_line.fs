@@ -62,37 +62,40 @@ void main() {
 
     fragColor = vec4(vertexColor.rgb, 1 * opacity);
     float dashOpac = blockA;
-    float dashes = PI * height / (2 * dashLength);
-    float x = (height * textureCoord.x * PI) / dashLength + dashPhase;
-    float re2 = mod(x - (0.75 * PI), TAU);
-    float ree = re2 / (2 * dashes);
-    vec2 rDashHead = vec2(textureCoord.x - ree, 0.5);
+    if(dashed) {
+        float dashes = PI * height / (2 * dashLength);
+        float x = (height * textureCoord.x * PI) / dashLength + dashPhase;
+        float re2 = mod(x - (0.75 * PI), TAU);
+        float ree = re2 / (2 * dashes);
+        vec2 rDashHead = vec2(textureCoord.x - ree, 0.5);
 
-    float le2 = mod(x - (0.25 * PI), TAU);
-    float lee = (TAU - le2) / (2 * dashes);
-    vec2 lDashHead = vec2(textureCoord.x + lee, 0.5);
+        float le2 = mod(x - (0.25 * PI), TAU);
+        float lee = (TAU - le2) / (2 * dashes);
+        vec2 lDashHead = vec2(textureCoord.x + lee, 0.5);
 
-    vec2 texInWorld = vec2(textureCoord.x * height, textureCoord.y * width);
-    vec2 rDashInWorld = vec2(rDashHead.x * height, rDashHead.y * width);
-    vec2 lDashInWorld = vec2(lDashHead.x * height, lDashHead.y * width);
+        vec2 texInWorld = vec2(textureCoord.x * height, textureCoord.y * width);
+        vec2 rDashInWorld = vec2(rDashHead.x * height, rDashHead.y * width);
+        vec2 lDashInWorld = vec2(lDashHead.x * height, lDashHead.y * width);
 
-    if(re2 <= PI) {
-        dashOpac = smoothstep(edgeDist, edgeDist - edgeSharpness, distance(texInWorld, rDashInWorld) / width);
-    } else if(le2 >= PI) {
-        dashOpac = smoothstep(edgeDist, edgeDist - edgeSharpness, distance(texInWorld, lDashInWorld) / width);
+        if(re2 <= PI) {
+            dashOpac = smoothstep(edgeDist, edgeDist - edgeSharpness, distance(texInWorld, rDashInWorld) / width);
+        } else if(le2 >= PI) {
+            dashOpac = smoothstep(edgeDist, edgeDist - edgeSharpness, distance(texInWorld, lDashInWorld) / width);
 
+        }
+    } else {
+        dashOpac = 1;
     }
 
-    float opacA = smoothstep(edgeDist + edgeSharpness, edgeDist, distA / width);
-    float opacB = smoothstep(edgeDist + edgeSharpness, edgeDist, distB / width);//distB / width;
+    float opacA = smoothstep(edgeDist + edgeSharpness, edgeDist, min(distA, distB) / (width));
     if(dashed) {
-        fragColor = mix(mix(vec4(fragColor.rgb, fragColor.a * dashOpac), fragColor, opacA), fragColor, opacB);
+        fragColor = mix(vec4(fragColor.rgb, fragColor.a * dashOpac), fragColor, opacA);
     } else {
         fragColor = vec4(fragColor.rgb, fragColor.a * opacity);
     }
-    /*float var = lee;
+    //float var = opacA;
     //fragColor = vec4(var, var, var, 1);
-    if(le2 <= 0.15) {
+    /*if(le2 <= 0.15) {
         fragColor = vec4(0, 0, 1, 1);
     }
     if(re2 <= 0.15) {
