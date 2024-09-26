@@ -80,8 +80,7 @@ public class SDFLine {
         float quadWidth = bL.distance(tL);
         float quadHeight = bL.distance(bR);
 
-        float edgeDist = quadWidth / 4 / quadWidth;
-        System.out.println(Math.PI + quadWidth / (edgeDist * quadHeight));
+        float edgeDist = 0.25f;
         shader.setFloat("edgeDist", edgeDist);
         shader.setFloat("edgeSharpness", edgeDist / 10);
 
