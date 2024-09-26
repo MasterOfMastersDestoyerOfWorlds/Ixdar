@@ -137,7 +137,7 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     @Override
     public void mouseMoved(MouseEvent e) {
         if (captureMouse && center == null) {
-            captureMouse(false);
+            //captureMouse(false);
             return;
         }
         lastX = e.getX();
@@ -152,7 +152,7 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
             main.repaint();
         }
         if (captureMouse) {
-            captureMouse(false);
+            //captureMouse(false);
         }
     }
 

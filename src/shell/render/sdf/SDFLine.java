@@ -38,11 +38,17 @@ public class SDFLine {
         this.borderOffsetOuter = borderOffset;
     }
 
+    float lengthSq(Vector2f a, Vector2f b) {
+        Vector2f r = new Vector2f(a).sub(b);
+        return r.x * r.x + r.y * r.y;
+    }
+
     public void draw(int drawX, int drawY, int width, int height, int zIndex, Color c) {
         Vector2f pA = new Vector2f(Clock.sin(100, Canvas3D.framebufferWidth - 100, 0.3f, 5),
                 0.2f * Canvas3D.framebufferWidth);
         Vector2f pB = new Vector2f(0.8f * Canvas3D.framebufferHeight,
                 Clock.sin(100, Canvas3D.framebufferHeight - 100, 0.2f, 3.78f));
+        float lineDistance = pA.distance(pB);
         shader.use();
         shader.setFloat("borderInner", borderInner);
         shader.setFloat("borderOuter", borderOuter);
@@ -52,23 +58,20 @@ public class SDFLine {
         shader.setVec2("pointA", pA);
         shader.setVec2("pointB", pB);
         shader.setBool("dashed", true);
+        shader.setBool("roundCaps", true);
         shader.setFloat("dashPhase", Clock.spin(5));
-        shader.setFloat("dashLength", 40f);
+        shader.setFloat("dashLength", 60f);
         shader.setFloat("edgeSharpness", 0.05f);
-        shader.begin();
-        float edgeDistScreenSpace =  5f;
-        float edgeDist = edgeDistScreenSpace/50;
-        float lineDistance = pA.distance(pB);
-        shader.setFloat("edgeDist", edgeDist);
-
+        shader.setFloat("lineLengthSq", lengthSq(pA, pB));
+        float lineWidth = 20f;
         float dx = pB.x - pA.x;
         float dy = pB.y - pA.y;
         float normalX = -dy;
         float normalY = dx;
         Vector2f normalUnitVector = new Vector2f(normalX, normalY);
-        normalUnitVector = normalUnitVector.normalize().mul(edgeDistScreenSpace * 4);
+        normalUnitVector = normalUnitVector.normalize().mul(lineWidth * 2);
         Vector2f line = new Vector2f(pA).sub(pB);
-        Vector2f lineVectorA = line.normalize().mul(edgeDistScreenSpace * 4);
+        Vector2f lineVectorA = line.normalize().mul(lineWidth * 2);
         Vector2f tL = new Vector2f(normalUnitVector).add(pA).add(lineVectorA);
         Vector2f bL = new Vector2f(pA).sub(normalUnitVector).add(lineVectorA);
         Vector2f tR = new Vector2f(normalUnitVector).add(pB).sub(lineVectorA);
@@ -77,7 +80,10 @@ public class SDFLine {
         float quadWidth = bL.distance(tL);
         float quadHeight = bL.distance(bR);
 
-        shader.setFloat("edgeDist", 0.3f);
+        float edgeDist = quadWidth / 4 / quadWidth;
+        System.out.println(Math.PI + quadWidth / (edgeDist * quadHeight));
+        shader.setFloat("edgeDist", edgeDist);
+        shader.setFloat("edgeSharpness", edgeDist / 10);
 
         /* Texture coordinates */
         float s1 = 0 / quadWidth;
@@ -85,13 +91,12 @@ public class SDFLine {
         float s2 = (0 + quadWidth) / quadWidth;
         float t2 = (0 + quadHeight) / quadHeight;
 
-        Vector2f pATextureCoord = new Vector2f(pA).sub(bL);
-        Vector2f pBTextureCoord = new Vector2f(pB).sub(bL);
         shader.setVec2("pointA", pA);
         shader.setVec2("pointB", pB);
         shader.setFloat("width", quadWidth);
         shader.setFloat("height", quadHeight);
 
+        shader.begin();
         shader.drawSDFRegion(bL.x, bL.y, bR.x, bR.y, tL.x, tL.y, tR.x, tR.y, zIndex, s1, t1, s2, t2, c);
         shader.end();
     }

@@ -208,7 +208,7 @@ public class Canvas3D extends AWTGLCanvas {
 
         glViewport(0, 0, (int) framebufferWidth, (int) framebufferHeight);
         mouseTrap.setCanvas(this);
-        mouseTrap.captureMouse(true);
+        //mouseTrap.captureMouse(false);
 
         glEnable(GL_DEPTH_TEST);
         this.addComponentListener(listener);
@@ -221,8 +221,8 @@ public class Canvas3D extends AWTGLCanvas {
         public void componentResized(ComponentEvent e) {
             java.awt.geom.AffineTransform t = Canvas3D.this.getGraphicsConfiguration().getDefaultTransform();
             float sx = (float) t.getScaleX(), sy = (float) t.getScaleY();
-            Canvas3D.this.framebufferWidth = (int) (getWidth() * sx);
-            Canvas3D.this.framebufferHeight = (int) (getHeight() * sy);
+            Canvas3D.framebufferWidth = (int) (getWidth() * sx);
+            Canvas3D.framebufferHeight = (int) (getHeight() * sy);
             Canvas3D.this.changedSize = true;
         }
     };

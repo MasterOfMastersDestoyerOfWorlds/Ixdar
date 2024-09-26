@@ -32,7 +32,7 @@ public class AWTTest extends JFrame {
         KeyGuy keyGuy = new KeyGuy(camera, canvas);
         canvas.setKeyGuy(keyGuy);
         frame.requestFocus();
-        mouseTrap.captureMouse(true);
+        //mouseTrap.captureMouse(false);
         frame.addKeyListener(keyGuy);
         frame.addMouseListener(mouseTrap);
         frame.addMouseMotionListener(mouseTrap);

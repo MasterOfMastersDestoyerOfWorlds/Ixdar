@@ -9,20 +9,24 @@ out vec4 fragColor;
 
 uniform vec2 pointA;
 uniform vec2 pointB;
-uniform float edgeDist;
-uniform float dashPhase;
-uniform float dashLength;
-uniform float borderInner;
-uniform float borderOuter;
+uniform float lineLengthSq;
+
 uniform float width;
 uniform float height;
 
+uniform bool dashed;
+uniform bool roundCaps;
+uniform float dashPhase;
+uniform float dashLength;
+
+uniform float edgeDist;
+uniform float edgeSharpness;
+
 uniform float borderOffsetInner;
 uniform float borderOffsetOuter;
-
 uniform vec4 borderColor;
-uniform bool dashed;
-uniform float edgeSharpness;
+uniform float borderInner;
+uniform float borderOuter;
 
 float median(float r, float g, float b) {
     return max(min(r, g), min(max(r, g), b));
@@ -36,7 +40,7 @@ float lengthSq(vec2 a, vec2 b) {
 }
 
 float wave(vec2 pos) {
-    float l2 = distance(pointA, pointB);
+    float l2 = lineLengthSq;
     float frequency = 50 / l2;
     float phase = 1;
     float theta = dot((pointA - pointB), pos);
@@ -44,7 +48,7 @@ float wave(vec2 pos) {
 }
 void main() {
     float sigDist = -1;
-    float l2 = lengthSq(pointA, pointB);
+    float l2 = lineLengthSq;
     vec2 pos = pos.xy;
     float distA = distance(pos, pointA);
     float distB = distance(pos, pointB);
@@ -62,26 +66,35 @@ void main() {
 
     fragColor = vec4(vertexColor.rgb, 1 * opacity);
     float dashOpac = blockA;
+    float le2 = 1;
+    float re2 = 1;
+    /*float dashEndR = 1;
+    float dashEndL = 1;
+    float dashCenter = 1;*/
     if(dashed) {
         float dashes = PI * height / (2 * dashLength);
         float x = (height * textureCoord.x * PI) / dashLength + dashPhase;
-        float re2 = mod(x - (0.75 * PI), TAU);
-        float ree = re2 / (2 * dashes);
+        le2 = mod(x + PI + ((2 * dashes * width * edgeDist) / (height)), TAU);
+        //dashEndL = mod(x + PI, TAU);
+        //dashCenter = mod(x + (3 * PI / 2), TAU);
+        float lee = le2 / (2 * dashes);
+        vec2 lDashHead = vec2(textureCoord.x - lee, 0.5);
+
+        re2 = mod(x - ((2 * dashes * width * edgeDist) / (height)), TAU);
+        //dashEndR = mod(x + (TAU), TAU);
+        float ree = (TAU - re2) / (2 * dashes);
         vec2 rDashHead = vec2(textureCoord.x - ree, 0.5);
 
-        float le2 = mod(x - (0.25 * PI), TAU);
-        float lee = (TAU - le2) / (2 * dashes);
-        vec2 lDashHead = vec2(textureCoord.x + lee, 0.5);
-
         vec2 texInWorld = vec2(textureCoord.x * height, textureCoord.y * width);
-        vec2 rDashInWorld = vec2(rDashHead.x * height, rDashHead.y * width);
         vec2 lDashInWorld = vec2(lDashHead.x * height, lDashHead.y * width);
+        vec2 rDashInWorld = vec2(rDashHead.x * height, rDashHead.y * width);
+        if(roundCaps) {
+            if(le2 <= PI) {
+                dashOpac = smoothstep(edgeDist, edgeDist - edgeSharpness, distance(texInWorld, lDashInWorld) / width);
+            } else if(re2 >= PI) {
+                dashOpac = smoothstep(edgeDist, edgeDist - edgeSharpness, distance(texInWorld, rDashInWorld) / width);
 
-        if(re2 <= PI) {
-            dashOpac = smoothstep(edgeDist, edgeDist - edgeSharpness, distance(texInWorld, rDashInWorld) / width);
-        } else if(le2 >= PI) {
-            dashOpac = smoothstep(edgeDist, edgeDist - edgeSharpness, distance(texInWorld, lDashInWorld) / width);
-
+            }
         }
     } else {
         dashOpac = 1;
@@ -95,11 +108,23 @@ void main() {
     }
     //float var = opacA;
     //fragColor = vec4(var, var, var, 1);
-    /*if(le2 <= 0.15) {
-        fragColor = vec4(0, 0, 1, 1);
+
+    if(le2 <= 0.15) {
+        //fragColor = vec4(1, 0, 0, 1);
     }
     if(re2 <= 0.15) {
-        fragColor = vec4(1, 0, 0, 1);
+        //fragColor = vec4(0, 0, 1, 1);
+    }
+/*
+    if(dashEndL <= 0.15) {
+        //fragColor = vec4(1, 1, 1, 1);
+    }
+    if(dashEndR <= 0.15) {
+        //fragColor = vec4(1, 1, 1, 1);
+    }
+
+    if(dashCenter <= 0.15) {
+        //fragColor = vec4(0, 0, 0, 1);
     }*/
 
 }
