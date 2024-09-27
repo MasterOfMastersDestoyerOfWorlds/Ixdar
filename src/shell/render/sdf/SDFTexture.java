@@ -3,19 +3,20 @@ package shell.render.sdf;
 import shell.render.Color;
 import shell.render.Texture;
 import shell.render.shaders.ShaderProgram;
-import shell.render.shaders.SDFTextureShader;
+import shell.render.shaders.SDFShader;
 
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 
 public class SDFTexture {
 
-    private Texture texture;
+    public Texture texture;
     public ShaderProgram shader;
     private Color borderColor;
     private float borderInner;
     private float borderOuter;
     private float borderOffsetInner;
     private float borderOffsetOuter;
+    boolean sharpCorners;
 
     public SDFTexture(ShaderProgram sdfShader, String sdfLocation) {
         texture = Texture.loadTexture(sdfLocation);
@@ -27,8 +28,8 @@ public class SDFTexture {
         this.borderOffsetOuter = 0;
     }
 
-    public SDFTexture(SDFTextureShader sdfShader, String sdfLocation, Color borderColor,
-            float borderDist, float borderOffset) {
+    public SDFTexture(SDFShader sdfShader, String sdfLocation, Color borderColor,
+            float borderDist, float borderOffset, boolean sharpCorners) {
         texture = Texture.loadTexture(sdfLocation);
         shader = sdfShader;
         this.borderColor = borderColor;
@@ -36,9 +37,10 @@ public class SDFTexture {
         this.borderOuter = borderDist;
         this.borderOffsetInner = borderOffset - 0.1f;
         this.borderOffsetOuter = borderOffset;
+        this.sharpCorners = sharpCorners;
     }
 
-    public void draw(int drawX, int drawY, int width, int height, int zIndex, Color c) {
+    public void draw(float drawX, float drawY, float width, float height, float zIndex, Color c) {
         texture.bind();
         shader.use();
         shader.setTexture("texImage", texture, GL_TEXTURE0, 0);
@@ -47,6 +49,7 @@ public class SDFTexture {
         shader.setFloat("borderOffsetInner", borderOffsetInner);
         shader.setFloat("borderOffsetOuter", borderOffsetOuter);
         shader.setVec4("borderColor", borderColor.toVector4f());
+        shader.setBool("sharpCorners", sharpCorners);
         shader.begin();
 
         shader.drawTextureRegion(texture, drawX, drawY, drawX + width, drawY + height, zIndex, 0, 0, texture.width,
@@ -55,8 +58,14 @@ public class SDFTexture {
         shader.end();
     }
 
-    public void drawCentered(int drawX, int drawY, int width, int height, int zIndex, Color c) {
+    public void drawCentered(float drawX, float drawY, float width, float height, float zIndex, Color c) {
         draw(drawX - (width / 2), drawY - (height / 2), width, height, zIndex, c);
+    }
+
+    public void drawCentered(float drawX, float drawY, float scale, float zIndex, Color c) {
+        float width = (float) (texture.width * scale);
+        float height = (float) (texture.height * scale);
+        draw(drawX - (width / 2f), drawY - (height / 2f), width, height, zIndex, c);
     }
 
     public void setBorderDist(float borderDist) {

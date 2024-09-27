@@ -8,10 +8,27 @@ import org.joml.Matrix4f;
 import shell.render.VertexArrayObject;
 import shell.render.VertexBufferObject;
 
-public class SDFShapeShader extends ShaderProgram {
+public class SDFShader extends ShaderProgram {
 
-    public SDFShapeShader(int framebufferWidth, int framebufferHeight) {
-        super("font.vs", "sdf_line.fs", new VertexArrayObject(), new VertexBufferObject(), true);
+    public enum SDFShaderType {
+        TextureSDF("font.vs", "sdf.fs"),
+
+        LineSDF("font.vs", "sdf_line.fs"),
+
+        TextureUnionSDF("font.vs", "sdf_union.fs");
+
+        String vertexShaderLocation;
+        String fragmentShaderLocation;
+
+        SDFShaderType(String vertexShaderLocation, String fragmentShaderLocation) {
+            this.vertexShaderLocation = vertexShaderLocation;
+            this.fragmentShaderLocation = fragmentShaderLocation;
+        }
+    }
+
+    public SDFShader(SDFShaderType type, int framebufferWidth, int framebufferHeight) {
+        super(type.vertexShaderLocation, type.fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
+                true);
         /* Specify Vertex Pointer */
         int posAttrib = getAttributeLocation("position");
         glEnableVertexAttribArray(posAttrib);
@@ -29,6 +46,9 @@ public class SDFShapeShader extends ShaderProgram {
         use();
         bindFragmentDataLocation(0, "fragColor");
 
+        /* Set texture uniform */
+        setInt("texImage", 0);
+
         /* Set model matrix to identity matrix */
         Matrix4f model = new Matrix4f();
         setMat4("model", model);
@@ -43,7 +63,7 @@ public class SDFShapeShader extends ShaderProgram {
     @Override
     public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight) {
         use();
-        Matrix4f projection = new Matrix4f().ortho(0f, framebufferWidth, 0f, framebufferHeight, -1.0f, 1.0f);
+        Matrix4f projection = new Matrix4f().ortho(0f, framebufferWidth, 0f, framebufferHeight, -1.0f, 100f);
         setMat4("projection", projection);
     }
 

@@ -14,7 +14,8 @@ uniform float borderOffsetOuter;
 
 uniform vec4 borderColor;
 
-uniform sampler2D texImage;
+uniform sampler2D innerTexture;
+uniform sampler2D outerTexture;
 float median(float r, float g, float b) {
     return max(min(r, g), min(max(r, g), b));
 }
@@ -22,7 +23,7 @@ float map(float value, float min1, float max1, float min2, float max2) {
     return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
 }
 void main() {
-    vec4 sample = texture(texImage, textureCoord);
+    vec4 sample = texture(innerTexture, textureCoord);
     float sigDist = median(sample.r, sample.g, sample.b);
     float w = fwidth(sigDist);
     float opacity = smoothstep(0.5 - w, 0.5 + w, sigDist);

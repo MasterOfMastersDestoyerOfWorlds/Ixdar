@@ -11,6 +11,8 @@ public final class Color {
     public static final Color RED = new Color(1f, 0f, 0f);
     public static final Color GREEN = new Color(0f, 1f, 0f);
     public static final Color BLUE = new Color(0f, 0f, 1f);
+    public static final Color NAVY = new Color(5, 37, 53);
+    public static final Color BLUE_WHITE = new Color(98, 142, 166);
     public static final Color CYAN = new Color(0, 255, 255);
     public static final Color IXDAR = new Color(150, 0, 36);
     public static final Color TRANSPARENT = new Color(0, 0, 0, 0);

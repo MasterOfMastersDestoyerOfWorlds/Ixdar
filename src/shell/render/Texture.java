@@ -38,7 +38,7 @@ public class Texture {
         glDeleteTextures(id);
     }
 
-    public int getWidth() {
+    public float getWidth() {
         return width;
     }
 
@@ -48,7 +48,7 @@ public class Texture {
         }
     }
 
-    public int getHeight() {
+    public float getHeight() {
         return height;
     }
 

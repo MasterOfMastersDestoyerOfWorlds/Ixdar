@@ -416,7 +416,7 @@ public abstract class ShaderProgram {
     }
 
     public void drawSDFRegion(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
-            int zIndex, float s1, float t1, float s2, float t2, Color c) {
+            float zIndex, float s1, float t1, float s2, float t2, Color c) {
         if (verteciesBuff.remaining() < 8 * 6) {
             /* We need more space in the buffer, so flush it */
             flush();

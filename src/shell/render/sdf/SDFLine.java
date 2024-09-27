@@ -3,8 +3,8 @@ package shell.render.sdf;
 import shell.render.Canvas3D;
 import shell.render.Clock;
 import shell.render.Color;
+import shell.render.shaders.SDFShader;
 import shell.render.shaders.ShaderProgram;
-import shell.render.shaders.SDFShapeShader;
 
 import org.joml.Vector2f;
 
@@ -26,7 +26,7 @@ public class SDFLine {
         this.borderOffsetOuter = 0;
     }
 
-    public SDFLine(SDFShapeShader sdfShader, Color borderColor,
+    public SDFLine(SDFShader sdfShader, Color borderColor,
             float borderDist, float borderOffset) {
         shader = sdfShader;
         this.borderColor = borderColor;
@@ -41,12 +41,11 @@ public class SDFLine {
         return r.x * r.x + r.y * r.y;
     }
 
-    public void draw(int drawX, int drawY, int zIndex, Color c) {
-        Vector2f pA = new Vector2f(Clock.sin(100, Canvas3D.framebufferWidth - 100, 0.3f, 5),
-                0.2f * Canvas3D.framebufferWidth);
-        Vector2f pB = new Vector2f(0.8f * Canvas3D.framebufferHeight,
-                Clock.sin(100, Canvas3D.framebufferHeight - 100, 0.2f, 3.78f));
-        float lineDistance = pA.distance(pB);
+    public void draw(int drawX, int drawY, float zIndex, Color c) {
+        Vector2f pA = new Vector2f(Clock.sin(100, Canvas3D.frameBufferWidth - 100, 0.3f, 5),
+                0.2f * Canvas3D.frameBufferWidth);
+        Vector2f pB = new Vector2f(0.8f * Canvas3D.frameBufferHeight,
+                Clock.sin(100, Canvas3D.frameBufferHeight - 100, 0.2f, 3.78f));
         float dashLength = 60f;
         shader.use();
         shader.setFloat("borderInner", borderInner);
@@ -96,7 +95,7 @@ public class SDFLine {
         shader.end();
     }
 
-    public void drawCentered(int drawX, int drawY, int width, int height, int zIndex, Color c) {
+    public void drawCentered(int drawX, int drawY, int width, int height, float zIndex, Color c) {
         draw(drawX - (width / 2), drawY - (height / 2), zIndex, c);
     }
 
