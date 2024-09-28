@@ -45,6 +45,9 @@ public abstract class ShaderProgram {
     private int numVertices;
     private boolean drawing;
 
+    public final float ORTHO_NEAR = -100f;
+    public final float ORTHO_FAR = 100f;
+
     @SuppressWarnings("unused")
     private String vertexShaderLocation, fragmentShaderLocation;
 
@@ -110,7 +113,7 @@ public abstract class ShaderProgram {
         glUniform1i(glGetUniformLocation(ID, name), value ? 1 : 0);
     }
 
-    protected void setInt(String name, int value) {
+    public void setInt(String name, int value) {
         glUniform1i(glGetUniformLocation(ID, name), value);
     }
 

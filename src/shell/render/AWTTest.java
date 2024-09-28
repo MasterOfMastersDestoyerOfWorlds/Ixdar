@@ -2,6 +2,7 @@ package shell.render;
 
 import org.joml.Vector3f;
 import org.lwjgl.opengl.*;
+import org.lwjgl.opengl.awt.GLData;
 
 import shell.cameras.Camera3D;
 import shell.ui.input.keys.KeyGuy;
@@ -25,14 +26,16 @@ public class AWTTest extends JFrame {
         frame.setBackground(java.awt.Color.darkGray);
         camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f);
         MouseTrap mouseTrap = new MouseTrap(null, frame, camera, true);
-        Canvas3D canvas = new Canvas3D(camera, mouseTrap, frame);
+        GLData context = new GLData();
+        context.stencilSize = 8;
+        Canvas3D canvas = new Canvas3D(context, camera, mouseTrap, frame);
         frame.add(canvas, BorderLayout.CENTER);
         frame.getContentPane().setPreferredSize(new Dimension(750, 750));
 
         KeyGuy keyGuy = new KeyGuy(camera, canvas);
         canvas.setKeyGuy(keyGuy);
         frame.requestFocus();
-        //mouseTrap.captureMouse(false);
+        // mouseTrap.captureMouse(false);
         frame.addKeyListener(keyGuy);
         frame.addMouseListener(mouseTrap);
         frame.addMouseMotionListener(mouseTrap);

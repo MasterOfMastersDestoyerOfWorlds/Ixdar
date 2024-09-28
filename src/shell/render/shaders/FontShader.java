@@ -46,7 +46,7 @@ public class FontShader extends ShaderProgram {
     @Override
     public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight) {
         use();
-        Matrix4f projection = new Matrix4f().ortho(0f, framebufferWidth, 0f, framebufferHeight, -1f, 1f);
+        Matrix4f projection = new Matrix4f().ortho(0f, framebufferWidth, 0f, framebufferHeight, -1f, 100f);
         setMat4("projection", projection);
     }
 

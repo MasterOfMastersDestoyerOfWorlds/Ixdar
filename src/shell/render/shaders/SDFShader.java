@@ -5,6 +5,7 @@ import static org.lwjgl.opengl.GL20.*;
 
 import org.joml.Matrix4f;
 
+import shell.render.Canvas3D;
 import shell.render.VertexArrayObject;
 import shell.render.VertexBufferObject;
 
@@ -15,19 +16,22 @@ public class SDFShader extends ShaderProgram {
 
         LineSDF("font.vs", "sdf_line.fs"),
 
-        TextureUnionSDF("font.vs", "sdf_union.fs");
+        UnionSDF("font.vs", "sdf_union.fs");
 
-        String vertexShaderLocation;
-        String fragmentShaderLocation;
+        public String vertexShaderLocation;
+        public String fragmentShaderLocation;
+        public SDFShader shader;
 
         SDFShaderType(String vertexShaderLocation, String fragmentShaderLocation) {
             this.vertexShaderLocation = vertexShaderLocation;
             this.fragmentShaderLocation = fragmentShaderLocation;
+            this.shader = new SDFShader(vertexShaderLocation, fragmentShaderLocation);
+            Canvas3D.shaders.add(shader);
         }
     }
 
-    public SDFShader(SDFShaderType type, int framebufferWidth, int framebufferHeight) {
-        super(type.vertexShaderLocation, type.fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
+    public SDFShader(String vertexShaderLocation, String fragmentShaderLocation) {
+        super(vertexShaderLocation, fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
                 true);
         /* Specify Vertex Pointer */
         int posAttrib = getAttributeLocation("position");
@@ -57,13 +61,13 @@ public class SDFShader extends ShaderProgram {
         Matrix4f view = new Matrix4f();
         setMat4("view", view);
 
-        updateProjectionMatrix(framebufferWidth, framebufferHeight);
+        updateProjectionMatrix(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
     }
 
     @Override
     public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight) {
         use();
-        Matrix4f projection = new Matrix4f().ortho(0f, framebufferWidth, 0f, framebufferHeight, -1.0f, 100f);
+        Matrix4f projection = new Matrix4f().ortho(0f, framebufferWidth, 0f, framebufferHeight, ORTHO_NEAR, ORTHO_FAR);
         setMat4("projection", projection);
     }
 

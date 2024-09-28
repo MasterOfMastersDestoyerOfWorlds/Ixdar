@@ -21,6 +21,17 @@ public class Clock {
 
     }
 
+    public static float spin(float radsPerSecond, float range) {
+        double timeSeconds = (((double) System.currentTimeMillis()) / 1000.0) - startTimeSeconds;
+        return ((float) (range * ((((radsPerSecond * timeSeconds) % TAU)) / TAU)));
+
+    }
+
+    public static float spin(float radsPerSecond, float range, float offset) {
+        double timeSeconds = (((double) System.currentTimeMillis()) / 1000.0) - startTimeSeconds;
+        return ((float) (range * ((((radsPerSecond * timeSeconds) % TAU)) / TAU))) + offset;
+    }
+
     public static float spinTick(float radsPerSecond) {
         double time = System.currentTimeMillis();
         double timeSeconds = (double) (((long) time) / 1000) - startTimeSeconds;

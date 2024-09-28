@@ -5,6 +5,7 @@ import shell.render.Clock;
 import shell.render.Color;
 import shell.render.shaders.SDFShader;
 import shell.render.shaders.ShaderProgram;
+import shell.render.shaders.SDFShader.SDFShaderType;
 
 import org.joml.Vector2f;
 
@@ -17,8 +18,8 @@ public class SDFLine {
     private float borderOffsetInner;
     private float borderOffsetOuter;
 
-    public SDFLine(ShaderProgram sdfShader) {
-        shader = sdfShader;
+    public SDFLine() {
+        shader = SDFShaderType.LineSDF.shader;
         this.borderColor = Color.TRANSPARENT;
         this.borderInner = 0;
         this.borderOuter = 0;
@@ -42,9 +43,9 @@ public class SDFLine {
     }
 
     public void draw(int drawX, int drawY, float zIndex, Color c) {
-        Vector2f pA = new Vector2f(Clock.sin(100, Canvas3D.frameBufferWidth - 100, 0.3f, 5),
-                0.2f * Canvas3D.frameBufferWidth);
-        Vector2f pB = new Vector2f(0.8f * Canvas3D.frameBufferHeight,
+        Vector2f pA = new Vector2f(Canvas3D.frameBufferWidth / 2,
+                Canvas3D.frameBufferWidth);
+        Vector2f pB = new Vector2f(Canvas3D.frameBufferWidth / 2,
                 Clock.sin(100, Canvas3D.frameBufferHeight - 100, 0.2f, 3.78f));
         float dashLength = 60f;
         shader.use();

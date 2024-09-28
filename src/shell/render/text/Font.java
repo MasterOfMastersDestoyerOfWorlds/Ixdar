@@ -264,7 +264,7 @@ public class Font {
      * @param y        Y coordinate of the text position
      * @param c        Color to use
      */
-    public void drawText(CharSequence text, float x, float y, Color c) {
+    public void drawText(CharSequence text, float x, float y, float zIndex, Color c) {
         int textHeight = getHeight(text);
 
         float drawX = x;
@@ -274,7 +274,7 @@ public class Font {
         }
 
         texture.bind();
-        
+
         shader.use();
         shader.setTexture("texImage", texture, GL_TEXTURE0, 0);
         shader.begin();
@@ -291,7 +291,7 @@ public class Font {
                 continue;
             }
             Glyph g = glyphs.get(ch);
-            shader.drawTextureRegion(texture, drawX, drawY, 0, g.x, g.y, g.width, g.height, c);
+            shader.drawTextureRegion(texture, drawX, drawY, zIndex, g.x, g.y, g.width, g.height, c);
             drawX += g.width;
         }
         shader.end();
@@ -305,8 +305,8 @@ public class Font {
      * @param x        X coordinate of the text position
      * @param y        Y coordinate of the text position
      */
-    public void drawText(CharSequence text, float x, float y) {
-        drawText(text, x, y, Color.WHITE);
+    public void drawText(CharSequence text, float x, float y, float zIndex) {
+        drawText(text, x, y, zIndex, Color.WHITE);
     }
 
     /**
@@ -316,20 +316,21 @@ public class Font {
         texture.delete();
     }
 
-    public void drawNCharactersBack(Canvas3D canvas3d, String text, int xLimit, int y, int numCharsBack, Color c) {
+    public void drawNCharactersBack(Canvas3D canvas3d, String text, int xLimit, int y, float zIndex, int numCharsBack,
+            Color c) {
         if (text.length() < numCharsBack + 1) {
             int diff = (numCharsBack + 1 - text.length());
             for (int i = 0; i < diff; i++) {
                 text += " ";
             }
         }
-        drawText(text, xLimit - getWidth(text.substring(0, numCharsBack)), y, c);
+        drawText(text, xLimit - getWidth(text.substring(0, numCharsBack)), y, zIndex, c);
     }
 
-    public void drawTextCentered(Canvas3D canvas3d, String text, int x, int y, Color c) {
+    public void drawTextCentered(Canvas3D canvas3d, String text, int x, int y, float zIndex, Color c) {
         int width = getWidth(text);
         int height = getHeight(text);
-        drawText(text, x - width / 2, y - height / 2, c);
+        drawText(text, x - width / 2, y - height / 2, zIndex, c);
     }
 
 }

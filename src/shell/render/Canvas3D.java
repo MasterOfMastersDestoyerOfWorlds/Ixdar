@@ -1,22 +1,9 @@
 package shell.render;
 
 import static org.lwjgl.opengl.GL.createCapabilities;
-import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
-import static org.lwjgl.opengl.GL11.GL_RGBA;
-import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
-import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
-import static org.lwjgl.opengl.GL11.glClear;
-import static org.lwjgl.opengl.GL11.glClearColor;
-import static org.lwjgl.opengl.GL11.glDrawArrays;
-import static org.lwjgl.opengl.GL11.glEnable;
-import static org.lwjgl.opengl.GL11.glReadPixels;
-import static org.lwjgl.opengl.GL11.glViewport;
-import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
-import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
-import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
-import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL15.*;
 
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -32,12 +19,14 @@ import javax.swing.JFrame;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.awt.AWTGLCanvas;
+import org.lwjgl.opengl.awt.GLData;
 import org.lwjgl.system.MemoryUtil;
 
 import shell.cameras.Camera3D;
 import shell.render.lights.DirectionalLight;
 import shell.render.lights.PointLight;
 import shell.render.lights.SpotLight;
+import shell.render.menu.Menu;
 import shell.render.sdf.SDFLine;
 import shell.render.sdf.SDFTexture;
 import shell.render.sdf.SDFUnion;
@@ -147,14 +136,16 @@ public class Canvas3D extends AWTGLCanvas {
     public FloatBuffer verteciesBuff;
     public Font debugFont;
     private SDFShader sdfShader;
-    private SDFUnion sdf;
+    private SDFShader sdfUnionShader;
+    private Menu mainMenu;
+    private SDFTexture menuInnerBorder;
     boolean changedSize = false;
-    public ArrayList<ShaderProgram> shaders;
+    public static ArrayList<ShaderProgram> shaders = new ArrayList<>();
     private SDFShader sdfLineShader;
     private SDFLine sdfLine;
 
-    public Canvas3D(Camera3D camera, MouseTrap mouseTrap, JFrame frame) {
-        super();
+    public Canvas3D(GLData context, Camera3D camera, MouseTrap mouseTrap, JFrame frame) {
+        super(context);
         this.camera = camera;
         this.mouseTrap = mouseTrap;
         this.frame = frame;
@@ -184,7 +175,6 @@ public class Canvas3D extends AWTGLCanvas {
         vao.bind();
         vbo.bind(GL_ARRAY_BUFFER);
         vbo.uploadData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
-        shaders = new ArrayList<>();
         shader = new DiffuseShader(vao, vbo);
         shaders.add(shader);
         diffuseMap = Texture.loadTexture("container2.png");
@@ -199,19 +189,17 @@ public class Canvas3D extends AWTGLCanvas {
         font = new Font(fontShader);
         debugFont = new Font(fontShader, 12, false);
 
-        sdfShader = new SDFShader(SDFShaderType.TextureUnionSDF, frameBufferWidth, frameBufferHeight);
-        shaders.add(sdfShader);
-        sdf = new SDFUnion(sdfShader, "menu_inner.png", Color.NAVY, 1, "menu_outer.png", Color.BLUE_WHITE, 1.3f, 0.7f);
+        mainMenu = new Menu();
+        //menuInnerBorder = new SDFTexture("menu_inner.png", Color.BLUE_WHITE, 0.25f, 0f, true);
 
-        sdfLineShader = new SDFShader(SDFShaderType.LineSDF, frameBufferWidth, frameBufferHeight);
-        shaders.add(sdfLineShader);
-        sdfLine = new SDFLine(sdfLineShader);
+        sdfLine = new SDFLine();
 
         glViewport(0, 0, (int) frameBufferWidth, (int) frameBufferHeight);
         mouseTrap.setCanvas(this);
         // mouseTrap.captureMouse(false);
 
         glEnable(GL_DEPTH_TEST);
+        glEnable(GL_STENCIL_TEST);
         this.addComponentListener(listener);
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -237,7 +225,7 @@ public class Canvas3D extends AWTGLCanvas {
         mouseTrap.paintUpdate(1.0);
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         if (changedSize) {
             glViewport(0, 0, (int) frameBufferWidth, (int) frameBufferHeight);
             changedSize = false;
@@ -296,14 +284,16 @@ public class Canvas3D extends AWTGLCanvas {
 
         }
         Color c = new Color(Color.CYAN);
+
+        mainMenu.draw(-11f);
+        // menuInnerBorder.drawCentered(frameBufferWidth / 2,
+        // frameBufferHeight / 2, 3, -10.5f, Color.TRANSPARENT);
         sdfLine.drawCentered(frameBufferWidth / 2,
                 frameBufferHeight / 2, 800, 800, -10f, c);
         debugFont.drawTextCentered(this, "FPS: " + (1 / Clock.deltaTime()),
                 frameBufferWidth / 2,
-                frameBufferHeight / 2, Color.CYAN);
+                frameBufferHeight / 2, -1, Color.CYAN);
         c.setAlpha(0.6f);
-        sdf.drawCentered(frameBufferWidth / 2,
-                frameBufferHeight / 2, 4, 1, new Color(Color.NAVY, 0.8f));
 
         Clock.frameRendered();
         if (printScreen) {
