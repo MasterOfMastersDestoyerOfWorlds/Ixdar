@@ -16,6 +16,7 @@ public final class Color {
     public static final Color CYAN = new Color(0, 255, 255);
     public static final Color IXDAR = new Color(150, 0, 36);
     public static final Color TRANSPARENT = new Color(0, 0, 0, 0);
+    public static final Color YELLOW = new Color(0, 255, 255);
 
     /** This value specifies the red component. */
     private float red;
@@ -37,9 +38,12 @@ public final class Color {
     /**
      * Creates a RGB-Color with an alpha value of 1.
      *
-     * @param red   The red component. Range from 0f to 1f.
-     * @param green The green component. Range from 0f to 1f.
-     * @param blue  The blue component. Range from 0f to 1f.
+     * @param red
+     *            The red component. Range from 0f to 1f.
+     * @param green
+     *            The green component. Range from 0f to 1f.
+     * @param blue
+     *            The blue component. Range from 0f to 1f.
      */
     public Color(float red, float green, float blue) {
         this(red, green, blue, 1f);
@@ -48,10 +52,14 @@ public final class Color {
     /**
      * Creates a RGBA-Color.
      *
-     * @param red   The red component. Range from 0f to 1f.
-     * @param green The green component. Range from 0f to 1f.
-     * @param blue  The blue component. Range from 0f to 1f.
-     * @param alpha The transparency. Range from 0f to 1f.
+     * @param red
+     *            The red component. Range from 0f to 1f.
+     * @param green
+     *            The green component. Range from 0f to 1f.
+     * @param blue
+     *            The blue component. Range from 0f to 1f.
+     * @param alpha
+     *            The transparency. Range from 0f to 1f.
      */
     public Color(float red, float green, float blue, float alpha) {
         setRed(red);
@@ -63,9 +71,12 @@ public final class Color {
     /**
      * Creates a RGB-Color with an alpha value of 1.
      *
-     * @param red   The red component. Range from 0 to 255.
-     * @param green The green component. Range from 0 to 255.
-     * @param blue  The blue component. Range from 0 to 255.
+     * @param red
+     *            The red component. Range from 0 to 255.
+     * @param green
+     *            The green component. Range from 0 to 255.
+     * @param blue
+     *            The blue component. Range from 0 to 255.
      */
     public Color(int red, int green, int blue) {
         this(red, green, blue, 255);
@@ -74,10 +85,14 @@ public final class Color {
     /**
      * Creates a RGBA-Color.
      *
-     * @param red   The red component. Range from 0 to 255.
-     * @param green The green component. Range from 0 to 255.
-     * @param blue  The blue component. Range from 0 to 255.
-     * @param alpha The transparency. Range from 0 to 255.
+     * @param red
+     *            The red component. Range from 0 to 255.
+     * @param green
+     *            The green component. Range from 0 to 255.
+     * @param blue
+     *            The blue component. Range from 0 to 255.
+     * @param alpha
+     *            The transparency. Range from 0 to 255.
      */
     public Color(int red, int green, int blue, int alpha) {
         setRed(red);
@@ -112,7 +127,8 @@ public final class Color {
     /**
      * Sets the red component.
      *
-     * @param red The red component. Range from 0f to 1f.
+     * @param red
+     *            The red component. Range from 0f to 1f.
      */
     public void setRed(float red) {
         if (red < 0f) {
@@ -127,7 +143,8 @@ public final class Color {
     /**
      * Sets the red component.
      *
-     * @param red The red component. Range from 0 to 255.
+     * @param red
+     *            The red component. Range from 0 to 255.
      */
     public void setRed(int red) {
         setRed(red / 255f);
@@ -145,7 +162,8 @@ public final class Color {
     /**
      * Sets the green component.
      *
-     * @param green The green component. Range from 0f to 1f.
+     * @param green
+     *            The green component. Range from 0f to 1f.
      */
     public void setGreen(float green) {
         if (green < 0f) {
@@ -160,7 +178,8 @@ public final class Color {
     /**
      * Sets the green component.
      *
-     * @param green The green component. Range from 0 to 255.
+     * @param green
+     *            The green component. Range from 0 to 255.
      */
     public void setGreen(int green) {
         setGreen(green / 255f);
@@ -178,7 +197,8 @@ public final class Color {
     /**
      * Sets the blue component.
      *
-     * @param blue The blue component. Range from 0f to 1f.
+     * @param blue
+     *            The blue component. Range from 0f to 1f.
      */
     public void setBlue(float blue) {
         if (blue < 0f) {
@@ -193,7 +213,8 @@ public final class Color {
     /**
      * Sets the blue component.
      *
-     * @param blue The blue component. Range from 0 to 255.
+     * @param blue
+     *            The blue component. Range from 0 to 255.
      */
     public void setBlue(int blue) {
         setBlue(blue / 255f);
@@ -211,7 +232,8 @@ public final class Color {
     /**
      * Sets the transparency.
      *
-     * @param alpha The transparency. Range from 0f to 1f.
+     * @param alpha
+     *            The transparency. Range from 0f to 1f.
      */
     public void setAlpha(float alpha) {
         if (alpha < 0f) {
@@ -226,7 +248,8 @@ public final class Color {
     /**
      * Sets the transparency.
      *
-     * @param alpha The transparency. Range from 0 to 255.
+     * @param alpha
+     *            The transparency. Range from 0 to 255.
      */
     public void setAlpha(int alpha) {
         setAlpha(alpha / 255f);

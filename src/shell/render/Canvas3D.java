@@ -132,7 +132,7 @@ public class Canvas3D extends AWTGLCanvas {
     public boolean drawing;
     public FloatBuffer verteciesBuff;
     public Font debugFont;
-    private Menu mainMenu;
+    public static Menu mainMenu;
     boolean changedSize = false;
     public static ArrayList<ShaderProgram> shaders = new ArrayList<>();
     private SDFLine sdfLine;

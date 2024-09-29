@@ -10,13 +10,13 @@ import static org.lwjgl.opengl.GL13.*;
 public class SDFUnion {
 
     public Texture outerTexture;
-    Color outerColor;
-    float outerScale;
+    public Color outerColor;
+    public float outerScale;
     public Texture innerTexture;
-    Color innerColor;
-    float innerScale;
-    float innerOffsetX;
-    float innerOffsetY;
+    public Color innerColor;
+    public float innerScale;
+    public float innerOffsetX;
+    public float innerOffsetY;
     public ShaderProgram shader;
     public float numberPinStripes;
     public float showPin;
@@ -37,7 +37,12 @@ public class SDFUnion {
         this.showPin = showPin;
     }
 
-    public void draw(float drawX, float drawY, float width, float height, float zIndex, Color c) {
+    public void draw(float drawX, float drawY, float width, float height, float zIndex) {
+        draw(drawX, drawY, width, height, zIndex, innerColor, outerColor);
+    }
+
+    public void draw(float drawX, float drawY, float width, float height, float zIndex, Color innerColor,
+            Color outerColor) {
         outerTexture.bind();
         shader.use();
         shader.setTexture("outerTexture", outerTexture, GL_TEXTURE0, 0);
@@ -54,15 +59,21 @@ public class SDFUnion {
 
         shader.drawTextureRegion(outerTexture, drawX, drawY, drawX + width, drawY + height, zIndex, 0, 0,
                 outerTexture.width,
-                outerTexture.height, c);
+                outerTexture.height, innerColor);
 
         shader.end();
     }
 
-    public void drawCentered(float drawX, float drawY, float scale, float zIndex, Color c) {
+    public void drawCentered(float drawX, float drawY, float scale, float zIndex, Color innerColor, Color outerColor) {
         float width = (float) (outerTexture.width * scale);
         float height = (float) (outerTexture.height * scale);
-        draw(drawX - (width / 2f), drawY - (height / 2f), width, height, zIndex, c);
+        draw(drawX - (width / 2f), drawY - (height / 2f), width, height, zIndex, innerColor, outerColor);
+    }
+
+    public void drawCentered(float drawX, float drawY, float scale, float zIndex) {
+        float width = (float) (outerTexture.width * scale);
+        float height = (float) (outerTexture.height * scale);
+        draw(drawX - (width / 2f), drawY - (height / 2f), width, height, zIndex, innerColor, outerColor);
     }
 
 }

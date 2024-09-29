@@ -13,6 +13,7 @@ import shell.ui.tools.Tool;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.render.Canvas3D;
 
 import java.awt.AWTException;
 import java.awt.Cursor;
@@ -137,7 +138,7 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     @Override
     public void mouseMoved(MouseEvent e) {
         if (captureMouse && center == null) {
-            //captureMouse(false);
+            captureMouse(false);
             return;
         }
         lastX = e.getX();
@@ -147,12 +148,19 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         } else {
             camera.mouseMove(lastX, lastY, e);
         }
+        if (Canvas3D.mainMenu != null) {
+
+            float nomalizedPosX = (1 - ((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
+            float nomalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
+
+            Canvas3D.mainMenu.setHover(nomalizedPosX, nomalizedPosY);
+        }
         if (main != null) {
             Main.tool.calculateHover(e.getX(), e.getY());
             main.repaint();
         }
         if (captureMouse) {
-            //captureMouse(false);
+            // captureMouse(false);
         }
     }
 
