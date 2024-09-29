@@ -28,13 +28,10 @@ import shell.render.lights.PointLight;
 import shell.render.lights.SpotLight;
 import shell.render.menu.Menu;
 import shell.render.sdf.SDFLine;
-import shell.render.sdf.SDFTexture;
-import shell.render.sdf.SDFUnion;
 import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
 import shell.utils.Utils;
 import shell.render.shaders.*;
-import shell.render.shaders.SDFShader.SDFShaderType;
 import shell.render.text.*;
 
 public class Canvas3D extends AWTGLCanvas {
@@ -135,13 +132,9 @@ public class Canvas3D extends AWTGLCanvas {
     public boolean drawing;
     public FloatBuffer verteciesBuff;
     public Font debugFont;
-    private SDFShader sdfShader;
-    private SDFShader sdfUnionShader;
     private Menu mainMenu;
-    private SDFTexture menuInnerBorder;
     boolean changedSize = false;
     public static ArrayList<ShaderProgram> shaders = new ArrayList<>();
-    private SDFShader sdfLineShader;
     private SDFLine sdfLine;
 
     public Canvas3D(GLData context, Camera3D camera, MouseTrap mouseTrap, JFrame frame) {
@@ -184,13 +177,12 @@ public class Canvas3D extends AWTGLCanvas {
         lightingShader = new LightShader(lvao, vbo);
         shaders.add(lightingShader);
 
-        fontShader = new FontShader(frameBufferWidth, frameBufferHeight);
-        shaders.add(fontShader);
-        font = new Font(fontShader);
-        debugFont = new Font(fontShader, 12, false);
+        font = new Font();
+        debugFont = new Font(12, false);
 
         mainMenu = new Menu();
-        //menuInnerBorder = new SDFTexture("menu_inner.png", Color.BLUE_WHITE, 0.25f, 0f, true);
+        // menuInnerBorder = new SDFTexture("menu_inner.png", Color.BLUE_WHITE, 0.25f,
+        // 0f, true);
 
         sdfLine = new SDFLine();
 
@@ -289,10 +281,10 @@ public class Canvas3D extends AWTGLCanvas {
         // menuInnerBorder.drawCentered(frameBufferWidth / 2,
         // frameBufferHeight / 2, 3, -10.5f, Color.TRANSPARENT);
         sdfLine.drawCentered(frameBufferWidth / 2,
-                frameBufferHeight / 2, 800, 800, -10f, c);
-        debugFont.drawTextCentered(this, "FPS: " + (1 / Clock.deltaTime()),
+                frameBufferHeight / 2, 800, 800, -2f, c);
+        debugFont.drawTextCentered("FPS: " + (1 / Clock.deltaTime()),
                 frameBufferWidth / 2,
-                frameBufferHeight / 2, -1, Color.CYAN);
+                frameBufferHeight / 2, -1f, Color.CYAN);
         c.setAlpha(0.6f);
 
         Clock.frameRendered();

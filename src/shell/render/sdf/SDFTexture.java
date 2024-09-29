@@ -3,7 +3,7 @@ package shell.render.sdf;
 import shell.render.Color;
 import shell.render.Texture;
 import shell.render.shaders.ShaderProgram;
-import shell.render.shaders.SDFShader.SDFShaderType;
+import shell.render.shaders.ShaderProgram.ShaderType;
 
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 
@@ -31,7 +31,7 @@ public class SDFTexture {
     public SDFTexture(String sdfLocation, Color borderColor,
             float borderDist, float borderOffset, boolean sharpCorners) {
         texture = Texture.loadTexture(sdfLocation);
-        shader = SDFShaderType.TextureSDF.shader;
+        shader = ShaderType.TextureSDF.shader;
         this.borderColor = borderColor;
         this.borderInner = borderDist - 0.1f;
         this.borderOuter = borderDist;

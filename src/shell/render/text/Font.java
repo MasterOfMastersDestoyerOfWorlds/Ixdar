@@ -16,10 +16,10 @@ import java.util.Map;
 
 import org.lwjgl.system.MemoryUtil;
 
-import shell.render.Canvas3D;
 import shell.render.Color;
 import shell.render.Texture;
-import shell.render.shaders.FontShader;
+import shell.render.shaders.ShaderProgram;
+import shell.render.shaders.ShaderProgram.ShaderType;
 
 import static java.awt.Font.MONOSPACED;
 import static java.awt.Font.PLAIN;
@@ -33,41 +33,41 @@ public class Font {
 
     public int fontHeight;
     public int fontWidth;
-    private FontShader shader;
+    private ShaderProgram shader;
 
-    public Font(FontShader shader) {
-        this(shader, new java.awt.Font(MONOSPACED, PLAIN, 16), true);
+    public Font() {
+        this(new java.awt.Font(MONOSPACED, PLAIN, 16), true);
     }
 
-    public Font(FontShader shader, boolean antiAlias) {
-        this(shader, new java.awt.Font(MONOSPACED, PLAIN, 16), antiAlias);
+    public Font(boolean antiAlias) {
+        this(new java.awt.Font(MONOSPACED, PLAIN, 16), antiAlias);
     }
 
-    public Font(FontShader shader, int size) {
-        this(shader, new java.awt.Font(MONOSPACED, PLAIN, size), true);
+    public Font(int size) {
+        this(new java.awt.Font(MONOSPACED, PLAIN, size), true);
     }
 
-    public Font(FontShader shader, int size, boolean antiAlias) {
-        this(shader, new java.awt.Font(MONOSPACED, PLAIN, size), antiAlias);
+    public Font(int size, boolean antiAlias) {
+        this(new java.awt.Font(MONOSPACED, PLAIN, size), antiAlias);
     }
 
-    public Font(FontShader shader, InputStream in, int size) throws FontFormatException, IOException {
-        this(shader, in, size, true);
+    public Font(InputStream in, int size) throws FontFormatException, IOException {
+        this(in, size, true);
     }
 
-    public Font(FontShader shader, InputStream in, int size, boolean antiAlias)
+    public Font(InputStream in, int size, boolean antiAlias)
             throws FontFormatException, IOException {
-        this(shader, java.awt.Font.createFont(TRUETYPE_FONT, in).deriveFont(PLAIN, size), antiAlias);
+        this(java.awt.Font.createFont(TRUETYPE_FONT, in).deriveFont(PLAIN, size), antiAlias);
     }
 
-    public Font(FontShader shader, java.awt.Font font) {
-        this(shader, font, true);
+    public Font(java.awt.Font font) {
+        this(font, true);
     }
 
-    public Font(FontShader shader, java.awt.Font font, boolean antiAlias) {
+    public Font(java.awt.Font font, boolean antiAlias) {
         glyphs = new HashMap<>();
         texture = createFontTexture(font, antiAlias);
-        this.shader = shader;
+        this.shader = ShaderType.Font.shader;
     }
 
     public Texture createFontTexture(java.awt.Font font, boolean antiAlias) {
@@ -316,7 +316,7 @@ public class Font {
         texture.delete();
     }
 
-    public void drawNCharactersBack(Canvas3D canvas3d, String text, int xLimit, int y, float zIndex, int numCharsBack,
+    public void drawNCharactersBack( String text, int xLimit, int y, float zIndex, int numCharsBack,
             Color c) {
         if (text.length() < numCharsBack + 1) {
             int diff = (numCharsBack + 1 - text.length());
@@ -327,7 +327,7 @@ public class Font {
         drawText(text, xLimit - getWidth(text.substring(0, numCharsBack)), y, zIndex, c);
     }
 
-    public void drawTextCentered(Canvas3D canvas3d, String text, int x, int y, float zIndex, Color c) {
+    public void drawTextCentered(String text, float x, float y, float zIndex, Color c) {
         int width = getWidth(text);
         int height = getHeight(text);
         drawText(text, x - width / 2, y - height / 2, zIndex, c);

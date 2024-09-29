@@ -5,7 +5,7 @@ import shell.render.Clock;
 import shell.render.Color;
 import shell.render.shaders.SDFShader;
 import shell.render.shaders.ShaderProgram;
-import shell.render.shaders.SDFShader.SDFShaderType;
+import shell.render.shaders.ShaderProgram.ShaderType;
 
 import org.joml.Vector2f;
 
@@ -19,7 +19,7 @@ public class SDFLine {
     private float borderOffsetOuter;
 
     public SDFLine() {
-        shader = SDFShaderType.LineSDF.shader;
+        shader = ShaderType.LineSDF.shader;
         this.borderColor = Color.TRANSPARENT;
         this.borderInner = 0;
         this.borderOuter = 0;

@@ -11,24 +11,6 @@ import shell.render.VertexBufferObject;
 
 public class SDFShader extends ShaderProgram {
 
-    public enum SDFShaderType {
-        TextureSDF("font.vs", "sdf.fs"),
-
-        LineSDF("font.vs", "sdf_line.fs"),
-
-        UnionSDF("font.vs", "sdf_union.fs");
-
-        public String vertexShaderLocation;
-        public String fragmentShaderLocation;
-        public SDFShader shader;
-
-        SDFShaderType(String vertexShaderLocation, String fragmentShaderLocation) {
-            this.vertexShaderLocation = vertexShaderLocation;
-            this.fragmentShaderLocation = fragmentShaderLocation;
-            this.shader = new SDFShader(vertexShaderLocation, fragmentShaderLocation);
-            Canvas3D.shaders.add(shader);
-        }
-    }
 
     public SDFShader(String vertexShaderLocation, String fragmentShaderLocation) {
         super(vertexShaderLocation, fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),

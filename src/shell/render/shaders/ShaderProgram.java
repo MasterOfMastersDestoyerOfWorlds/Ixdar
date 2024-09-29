@@ -25,12 +25,43 @@ import org.lwjgl.opengl.GL33;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
+import shell.render.Canvas3D;
 import shell.render.Color;
 import shell.render.Texture;
 import shell.render.VertexArrayObject;
 import shell.render.VertexBufferObject;
 
 public abstract class ShaderProgram {
+
+    public enum ShaderType {
+        TextureSDF(SDFShader.class, "font.vs", "sdf.fs"),
+
+        LineSDF(SDFShader.class, "font.vs", "sdf_line.fs"),
+
+        UnionSDF(SDFShader.class, "font.vs", "sdf_union.fs"),
+
+        Font(FontShader.class, "font.vs", "font.fs");
+
+        public String vertexShaderLocation;
+        public String fragmentShaderLocation;
+        public ShaderProgram shader;
+
+        @SuppressWarnings("rawtypes")
+        ShaderType(Class shaderClass, String vertexShaderLocation, String fragmentShaderLocation) {
+            this.vertexShaderLocation = vertexShaderLocation;
+            this.fragmentShaderLocation = fragmentShaderLocation;
+            if (shaderClass.equals(SDFShader.class)) {
+                this.shader = new SDFShader(vertexShaderLocation, fragmentShaderLocation);
+            } else if (shaderClass.equals(FontShader.class)) {
+                this.shader = new FontShader(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+            }
+            Canvas3D.shaders.add(shader);
+        }
+    }
+
+    public enum ShaderOperationType {
+        Fragment, Program, Vertex
+    }
 
     String vertexCode;
     String fragmentCode;
@@ -71,18 +102,18 @@ public abstract class ShaderProgram {
         vertexShader = glCreateShader(GL_VERTEX_SHADER);
         glShaderSource(vertexShader, vertexShaderSource);
         glCompileShader(vertexShader);
-        checkCompileErrors(vertexShader, ShaderType.Vertex, vertexShaderLocation);
+        checkCompileErrors(vertexShader, ShaderOperationType.Vertex, vertexShaderLocation);
 
         fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
         glShaderSource(fragmentShader, fragmentShaderSource);
         glCompileShader(fragmentShader);
-        checkCompileErrors(fragmentShader, ShaderType.Fragment, fragmentShaderLocation);
+        checkCompileErrors(fragmentShader, ShaderOperationType.Fragment, fragmentShaderLocation);
 
         ID = glCreateProgram();
         glAttachShader(ID, vertexShader);
         glAttachShader(ID, fragmentShader);
         glLinkProgram(ID);
-        checkCompileErrors(ID, ShaderType.Program, "both");
+        checkCompileErrors(ID, ShaderOperationType.Program, "both");
 
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);
@@ -162,10 +193,10 @@ public abstract class ShaderProgram {
         }
     }
 
-    private void checkCompileErrors(int shader, ShaderType type, String location) {
+    private void checkCompileErrors(int shader, ShaderOperationType type, String location) {
         IntBuffer success = BufferUtils.createIntBuffer(1);
 
-        if (type != ShaderType.Program) {
+        if (type != ShaderOperationType.Program) {
             glGetShaderiv(shader, GL_COMPILE_STATUS, success);
             if (success.get(0) == 0) {
                 String infoLog = GL33.glGetShaderInfoLog(shader);

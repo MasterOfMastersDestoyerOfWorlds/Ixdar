@@ -2,8 +2,9 @@ package shell.render.sdf;
 
 import shell.render.Color;
 import shell.render.Texture;
-import shell.render.shaders.SDFShader.SDFShaderType;
 import shell.render.shaders.ShaderProgram;
+import shell.render.shaders.ShaderProgram.ShaderType;
+
 import static org.lwjgl.opengl.GL13.*;
 
 public class SDFUnion {
@@ -26,7 +27,7 @@ public class SDFUnion {
 
         innerTexture = Texture.loadTexture(sdfInnerLocation);
         outerTexture = Texture.loadTexture(sdfOuterLocation);
-        shader = SDFShaderType.UnionSDF.shader;
+        shader = ShaderType.UnionSDF.shader;
         this.innerColor = new Color(innerColor, alpha);
         this.innerScale = innerScale;
         this.outerColor = new Color(outerColor, alpha);

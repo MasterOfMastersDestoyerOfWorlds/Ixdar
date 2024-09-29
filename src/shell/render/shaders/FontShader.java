@@ -9,6 +9,8 @@ import shell.render.VertexBufferObject;
 
 public class FontShader extends ShaderProgram {
 
+    
+
     public FontShader(int framebufferWidth, int framebufferHeight) {
         super("font.vs", "font.fs", new VertexArrayObject(), new VertexBufferObject(), true);
 
@@ -46,7 +48,7 @@ public class FontShader extends ShaderProgram {
     @Override
     public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight) {
         use();
-        Matrix4f projection = new Matrix4f().ortho(0f, framebufferWidth, 0f, framebufferHeight, -1f, 100f);
+        Matrix4f projection = new Matrix4f().ortho(0f, framebufferWidth, 0f, framebufferHeight, ORTHO_NEAR, ORTHO_FAR);
         setMat4("projection", projection);
     }
 

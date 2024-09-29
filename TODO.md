@@ -98,17 +98,19 @@
 2. - [ ] When a menu item is clicked, it should bounce to the left and then go off screen to the right starting with the clicked item and propagating out to the ends of the menu.
 3. - [ ] When a menu item is halfway off screen, its partner in the next menu (closest vertically) should come on from the left (ratcheting noise of typewriter?).
 4. - [ ] Menu should be scrollable within the menu's bounds.
-5. - [ ] Menu items should be elongated hexagons that make an electronic noise when clicked, see ratchet 2.
+5. - [x] Menu items should be elongated hexagons, see ratchet 2.
+6. - [ ] Menu Items should make an electronic noise click noise when hovered over
+7. - [ ] Menu Items should use a custom SDF Font Atlas
+8. - [ ] Menu Items should flash on hover
 
 ## 3D Graphics
 
 1. - [ ] Figure out ASSIMP Model loading
 2. - [x] Figure out how to do GLSL Shading
-3. - [ ] Figure out how to import shaders from Blender
-4. - [ ] Figure out how to blur/depth of field
-5. - [ ] Figure out particle systems for sand/dust.
-6. - [x] Figure out how to load font's based on bitmaps.
-7. - [x] Figure out how to load arbitrary shapes as signed distance fields
+3. - [ ] Figure out how to blur/depth of field
+4. - [ ] Figure out particle systems for sand/dust.
+5. - [x] Figure out how to load font's based on bitmaps.
+6. - [x] Figure out how to load arbitrary shapes as signed distance fields
 
 ## UI Knot Surface View
 
