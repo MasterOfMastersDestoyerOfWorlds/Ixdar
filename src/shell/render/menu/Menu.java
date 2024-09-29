@@ -25,11 +25,15 @@ public class Menu {
 
     public void draw(float zIndex) {
         float scale = 3f;
+        float itemHeight = menuOuterBorder.outerTexture.height * scale / 2;
         for (int i = 0; i < menuItems.size(); i++) {
             float centerX = Canvas3D.frameBufferWidth / 2;
-            float centerY = Canvas3D.frameBufferHeight / 2 - menuOuterBorder.outerTexture.height * scale / 2 * i * 1.5f;
+            float centerY = Canvas3D.frameBufferHeight / 2 - (itemHeight * i * 1.5f);
+
             menuOuterBorder.drawCentered(centerX, centerY, scale, zIndex, new Color(Color.NAVY, 0.8f));
-            font.drawTextCentered(menuItems.get(i), centerX, centerY, zIndex + 0.5f, Color.BLUE_WHITE);
+            font.drawTextCentered(menuItems.get(i), centerX, centerY + itemHeight * 0.075f, zIndex + 0.5f,
+                    itemHeight / 2,
+                    Color.BLUE_WHITE);
         }
     }
 

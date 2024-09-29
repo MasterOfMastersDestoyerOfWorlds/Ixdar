@@ -284,7 +284,7 @@ public class Canvas3D extends AWTGLCanvas {
                 frameBufferHeight / 2, 800, 800, -2f, c);
         debugFont.drawTextCentered("FPS: " + (1 / Clock.deltaTime()),
                 frameBufferWidth / 2,
-                frameBufferHeight / 2, -1f, Color.CYAN);
+                frameBufferHeight / 2, -1f, 1, Color.CYAN);
         c.setAlpha(0.6f);
 
         Clock.frameRendered();

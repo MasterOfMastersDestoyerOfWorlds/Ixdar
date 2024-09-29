@@ -1,4 +1,4 @@
-package test;
+package unit;
 
 import shell.DistanceMatrix;
 import shell.file.FileManagement;
