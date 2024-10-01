@@ -40,7 +40,9 @@ public abstract class ShaderProgram {
 
         UnionSDF(SDFShader.class, "font.vs", "sdf_union.fs"),
 
-        Font(FontShader.class, "font.vs", "font.fs");
+        Font(FontShader.class, "font.vs", "font.fs"),
+
+        Color(ColorShader.class, "color.vs", "color.fs");
 
         public String vertexShaderLocation;
         public String fragmentShaderLocation;
@@ -54,6 +56,8 @@ public abstract class ShaderProgram {
                 this.shader = new SDFShader(vertexShaderLocation, fragmentShaderLocation);
             } else if (shaderClass.equals(FontShader.class)) {
                 this.shader = new FontShader(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+            } else if (shaderClass.equals(ColorShader.class)) {
+                this.shader = new ColorShader(vertexShaderLocation, fragmentShaderLocation);
             }
             Canvas3D.shaders.add(shader);
         }
@@ -291,10 +295,14 @@ public abstract class ShaderProgram {
      * Draws the currently bound texture on specified coordinates and with
      * specified color.
      *
-     * @param texture Used for getting width and height of the texture
-     * @param x       X position of the texture
-     * @param y       Y position of the texture
-     * @param c       The color to use
+     * @param texture
+     *            Used for getting width and height of the texture
+     * @param x
+     *            X position of the texture
+     * @param y
+     *            Y position of the texture
+     * @param c
+     *            The color to use
      */
     public void drawTexture(Texture texture, float x, float y, float zIndex, Color c) {
         /* Vertex positions */
@@ -316,13 +324,20 @@ public abstract class ShaderProgram {
      * Draws a texture region with the currently bound texture on specified
      * coordinates.
      *
-     * @param texture   Used for getting width and height of the texture
-     * @param x         X position of the texture
-     * @param y         Y position of the texture
-     * @param regX      X position of the texture region
-     * @param regY      Y position of the texture region
-     * @param regWidth  Width of the texture region
-     * @param regHeight Height of the texture region
+     * @param texture
+     *            Used for getting width and height of the texture
+     * @param x
+     *            X position of the texture
+     * @param y
+     *            Y position of the texture
+     * @param regX
+     *            X position of the texture region
+     * @param regY
+     *            Y position of the texture region
+     * @param regWidth
+     *            Width of the texture region
+     * @param regHeight
+     *            Height of the texture region
      */
     public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY,
             float regWidth,
@@ -334,14 +349,22 @@ public abstract class ShaderProgram {
      * Draws a texture region with the currently bound texture on specified
      * coordinates.
      *
-     * @param texture   Used for getting width and height of the texture
-     * @param x         X position of the texture
-     * @param y         Y position of the texture
-     * @param regX      X position of the texture region
-     * @param regY      Y position of the texture region
-     * @param regWidth  Width of the texture region
-     * @param regHeight Height of the texture region
-     * @param c         The color to use
+     * @param texture
+     *            Used for getting width and height of the texture
+     * @param x
+     *            X position of the texture
+     * @param y
+     *            Y position of the texture
+     * @param regX
+     *            X position of the texture region
+     * @param regY
+     *            Y position of the texture region
+     * @param regWidth
+     *            Width of the texture region
+     * @param regHeight
+     *            Height of the texture region
+     * @param c
+     *            The color to use
      */
     public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY,
             float regWidth,
@@ -397,14 +420,22 @@ public abstract class ShaderProgram {
      * Draws a texture region with the currently bound texture on specified
      * coordinates.
      *
-     * @param x1 Bottom left x position
-     * @param y1 Bottom left y position
-     * @param x2 Top right x position
-     * @param y2 Top right y position
-     * @param s1 Bottom left s coordinate
-     * @param t1 Bottom left t coordinate
-     * @param s2 Top right s coordinate
-     * @param t2 Top right t coordinate
+     * @param x1
+     *            Bottom left x position
+     * @param y1
+     *            Bottom left y position
+     * @param x2
+     *            Top right x position
+     * @param y2
+     *            Top right y position
+     * @param s1
+     *            Bottom left s coordinate
+     * @param t1
+     *            Bottom left t coordinate
+     * @param s2
+     *            Top right s coordinate
+     * @param t2
+     *            Top right t coordinate
      */
     public void drawTextureRegion(float x1, float y1, float x2, float y2, float zIndex, float s1, float t1, float s2,
             float t2) {
@@ -415,15 +446,24 @@ public abstract class ShaderProgram {
      * Draws a texture region with the currently bound texture on specified
      * coordinates.
      *
-     * @param x1 Bottom left x position
-     * @param y1 Bottom left y position
-     * @param x2 Top right x position
-     * @param y2 Top right y position
-     * @param s1 Bottom left s coordinate
-     * @param t1 Bottom left t coordinate
-     * @param s2 Top right s coordinate
-     * @param t2 Top right t coordinate
-     * @param c  The color to use
+     * @param x1
+     *            Bottom left x position
+     * @param y1
+     *            Bottom left y position
+     * @param x2
+     *            Top right x position
+     * @param y2
+     *            Top right y position
+     * @param s1
+     *            Bottom left s coordinate
+     * @param t1
+     *            Bottom left t coordinate
+     * @param s2
+     *            Top right s coordinate
+     * @param t2
+     *            Top right t coordinate
+     * @param c
+     *            The color to use
      */
     public void drawTextureRegion(float x1, float y1, float x2, float y2, float zIndex, float s1, float t1, float s2,
             float t2,
@@ -445,6 +485,28 @@ public abstract class ShaderProgram {
         verteciesBuff.put(x1).put(y1).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t1);
         verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t2);
         verteciesBuff.put(x2).put(y1).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
+
+        numVertices += 6;
+    }
+
+    public void drawColorRegion(float x1, float y1, float x2, float y2, float zIndex, Color c) {
+        if (verteciesBuff.remaining() < 8 * 6) {
+            /* We need more space in the buffer, so flush it */
+            flush();
+        }
+
+        float r = c.getRed();
+        float g = c.getGreen();
+        float b = c.getBlue();
+        float a = c.getAlpha();
+
+        verteciesBuff.put(x1).put(y1).put(zIndex).put(r).put(g).put(b).put(a);
+        verteciesBuff.put(x1).put(y2).put(zIndex).put(r).put(g).put(b).put(a);
+        verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a);
+
+        verteciesBuff.put(x1).put(y1).put(zIndex).put(r).put(g).put(b).put(a);
+        verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a);
+        verteciesBuff.put(x2).put(y1).put(zIndex).put(r).put(g).put(b).put(a);
 
         numVertices += 6;
     }

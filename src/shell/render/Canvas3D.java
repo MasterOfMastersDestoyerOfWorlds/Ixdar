@@ -132,7 +132,7 @@ public class Canvas3D extends AWTGLCanvas {
     public boolean drawing;
     public FloatBuffer verteciesBuff;
     public Font debugFont;
-    private Menu mainMenu;
+    public static Menu mainMenu;
     boolean changedSize = false;
     public static ArrayList<ShaderProgram> shaders = new ArrayList<>();
     private SDFLine sdfLine;
@@ -284,7 +284,7 @@ public class Canvas3D extends AWTGLCanvas {
                 frameBufferHeight / 2, 800, 800, -2f, c);
         debugFont.drawTextCentered("FPS: " + (1 / Clock.deltaTime()),
                 frameBufferWidth / 2,
-                frameBufferHeight / 2, -1f, Color.CYAN);
+                frameBufferHeight / 2, -1f, 1, Color.CYAN);
         c.setAlpha(0.6f);
 
         Clock.frameRendered();

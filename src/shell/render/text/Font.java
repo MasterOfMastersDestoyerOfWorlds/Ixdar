@@ -31,8 +31,8 @@ public class Font {
     public final Map<Character, Glyph> glyphs;
     public final Texture texture;
 
-    public int fontHeight;
-    public int fontWidth;
+    public float fontHeight;
+    public float fontWidth;
     private ShaderProgram shader;
 
     public Font() {
@@ -264,8 +264,9 @@ public class Font {
      * @param y        Y coordinate of the text position
      * @param c        Color to use
      */
-    public void drawText(CharSequence text, float x, float y, float zIndex, Color c) {
-        int textHeight = getHeight(text);
+    public void drawText(CharSequence text, float x, float y, float zIndex, float glyphHeight,
+            Color c) {
+        float textHeight = getHeight(text);
 
         float drawX = x;
         float drawY = y;
@@ -291,8 +292,11 @@ public class Font {
                 continue;
             }
             Glyph g = glyphs.get(ch);
-            shader.drawTextureRegion(texture, drawX, drawY, zIndex, g.x, g.y, g.width, g.height, c);
-            drawX += g.width;
+            float scaledWidth = glyphHeight * g.widthHeightRatio;
+            shader.drawTextureRegion(texture, drawX, drawY,
+                    drawX + (g.widthHeightRatio * glyphHeight), drawY + glyphHeight,
+                    zIndex, g.x, g.y, g.width, g.height, c);
+            drawX += scaledWidth;
         }
         shader.end();
     }
@@ -305,8 +309,8 @@ public class Font {
      * @param x        X coordinate of the text position
      * @param y        Y coordinate of the text position
      */
-    public void drawText(CharSequence text, float x, float y, float zIndex) {
-        drawText(text, x, y, zIndex, Color.WHITE);
+    public void drawText(CharSequence text, float x, float y, float zIndex, float height) {
+        drawText(text, x, y, zIndex, height, Color.WHITE);
     }
 
     /**
@@ -316,7 +320,7 @@ public class Font {
         texture.delete();
     }
 
-    public void drawNCharactersBack( String text, int xLimit, int y, float zIndex, int numCharsBack,
+    public void drawNCharactersBack(String text, int xLimit, int y, float zIndex, float height, int numCharsBack,
             Color c) {
         if (text.length() < numCharsBack + 1) {
             int diff = (numCharsBack + 1 - text.length());
@@ -324,13 +328,14 @@ public class Font {
                 text += " ";
             }
         }
-        drawText(text, xLimit - getWidth(text.substring(0, numCharsBack)), y, zIndex, c);
+        drawText(text, xLimit - getWidth(text.substring(0, numCharsBack)), y, zIndex, height, c);
     }
 
-    public void drawTextCentered(String text, float x, float y, float zIndex, Color c) {
-        int width = getWidth(text);
-        int height = getHeight(text);
-        drawText(text, x - width / 2, y - height / 2, zIndex, c);
+    public void drawTextCentered(String text, float x, float y, float zIndex, float height, Color c) {
+        float scaleRatio = height / fontHeight;
+        float textWidth = getWidth(text) * scaleRatio;
+        float textHeight = getHeight(text) * scaleRatio;
+        drawText(text, x - textWidth / 2, y - textHeight / 2, zIndex, height, c);
     }
 
 }

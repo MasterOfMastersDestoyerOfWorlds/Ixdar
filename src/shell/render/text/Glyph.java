@@ -1,9 +1,11 @@
 
 package shell.render.text;
+
 public class Glyph {
 
     public final int width;
     public final int height;
+    public final float widthHeightRatio;
     public final int x;
     public final int y;
     public final float advance;
@@ -20,6 +22,7 @@ public class Glyph {
     public Glyph(int width, int height, int x, int y, float advance) {
         this.width = width;
         this.height = height;
+        this.widthHeightRatio = ((float) width) / ((float) height);
         this.x = x;
         this.y = y;
         this.advance = advance;
