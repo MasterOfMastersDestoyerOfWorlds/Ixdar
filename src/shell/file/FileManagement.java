@@ -28,11 +28,36 @@ public class FileManagement {
 
     public static File getTestFile(String fileName) {
         String[] parts = fileName.split("_");
+        if (fileName.contains(".ix")) {
+            return new File(solutionsFolder + parts[0] + "/" + fileName);
+        }
         return new File(solutionsFolder + parts[0] + "/" + fileName + ".ix");
     }
+
     public static String getTestFileCache() {
-        new File(testFileCacheLocation);
+        File cache = new File(testFileCacheLocation);
+        try (BufferedReader br = new BufferedReader(new FileReader(cache))) {
+            String line = br.readLine();
+            br.close();
+            return line;
+        } catch (Exception e) {
+
+        }
+        return "";
     }
+
+    public static void updateTestFileCache(String cachedLocation) {
+        File cache = new File(testFileCacheLocation);
+        try (FileWriter fw = new FileWriter(cache)) {
+            BufferedWriter out = new BufferedWriter(fw);
+            out.write(cachedLocation);
+            out.flush();
+            out.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     /**
      * Imports the point set and optimal tsp path from a file
      * 
@@ -364,4 +389,5 @@ public class FileManagement {
             ex.printStackTrace();
         }
     }
+
 }

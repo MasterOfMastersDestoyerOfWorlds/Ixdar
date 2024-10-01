@@ -15,7 +15,7 @@ public enum KeyActions {
     DoubleSpeed(KeyEvent.VK_SHIFT),
     DrawOriginal(KeyEvent.VK_O),
     Confirm(KeyEvent.VK_ENTER),
-    Exit(KeyEvent.VK_ESCAPE),
+    Back(KeyEvent.VK_ESCAPE),
     Reset(KeyEvent.VK_R),
     UpdateFile(KeyEvent.VK_U),
     IncreaseKnotLayer(KeyEvent.VK_CLOSE_BRACKET, KeyEvent.VK_UP),

@@ -226,7 +226,7 @@ public class KeyGuy implements KeyListener {
                 camera.reset();
                 Main.tool.reset();
             }
-            if (KeyActions.Exit.keyPressed(pressedKeys)) {
+            if (KeyActions.Back.keyPressed(pressedKeys)) {
                 if (Main.tool.toolType() == Tool.Type.Free) {
                     System.exit(0);
                 }
@@ -234,8 +234,8 @@ public class KeyGuy implements KeyListener {
                 main.repaint();
             }
         } else {
-            if (KeyActions.Exit.keyPressed(pressedKeys)) {
-                System.exit(0);
+            if (KeyActions.Back.keyPressed(pressedKeys)) {
+                Canvas3D.menu.back();
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_CONTROL) {

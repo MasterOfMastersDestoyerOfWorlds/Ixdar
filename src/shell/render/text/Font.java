@@ -33,7 +33,8 @@ public class Font {
 
     public float fontHeight;
     public float fontWidth;
-    private ShaderProgram shader;
+    public ShaderProgram shader;
+    public int maxTextWidth;
 
     public Font() {
         this(new java.awt.Font(MONOSPACED, PLAIN, 16), true);
@@ -67,6 +68,7 @@ public class Font {
     public Font(java.awt.Font font, boolean antiAlias) {
         glyphs = new HashMap<>();
         texture = createFontTexture(font, antiAlias);
+        this.maxTextWidth = Integer.MAX_VALUE;
         this.shader = ShaderType.Font.shader;
     }
 
@@ -332,6 +334,11 @@ public class Font {
     }
 
     public void drawTextCentered(String text, float x, float y, float zIndex, float height, Color c) {
+        if (text.length() > maxTextWidth) {
+
+            text = text.substring(0, maxTextWidth - 1) + "~";
+
+        }
         float scaleRatio = height / fontHeight;
         float textWidth = getWidth(text) * scaleRatio;
         float textHeight = getHeight(text) * scaleRatio;

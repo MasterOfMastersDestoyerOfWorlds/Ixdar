@@ -84,11 +84,10 @@ public class Main extends JComponent {
 	public static ArrayList<Color> metroColors = new ArrayList<>();
 	public static ArrayList<Color> knotGradientColors = new ArrayList<>();
 	public static HashMap<Long, Integer> colorLookup = new HashMap<>();
-    public Canvas canvas;
+	public Canvas canvas;
 
-	public Main() {
-		FileManagement.getTestFileCache();
-		fileName = "rings-3-manifold_master";
+	public Main(String fileName) {
+		Main.fileName = fileName;
 		file = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(file);
 		frame = new JFrame("Ixdar : " + fileName);
@@ -138,7 +137,7 @@ public class Main extends JComponent {
 	}
 
 	public static void main(String[] args) {
-		main = new Main();
+		main = new Main(args[0]);
 
 		camera.initCamera();
 		DistanceMatrix d = retTup.d;
@@ -320,7 +319,7 @@ public class Main extends JComponent {
 							m.manifoldKnot, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
 				}
 				if (tool.canUseToggle(Toggle.drawMainPath)) {
-					orgShell.drawShell( g2, false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
+					orgShell.drawShell(g2, false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
 				}
 				if (tool.canUseToggle(Toggle.drawDisplayedKnots) && tool.canUseToggle(Toggle.drawMetroDiagram)
 						&& shell != null) {

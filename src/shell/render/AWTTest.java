@@ -28,7 +28,7 @@ public class AWTTest extends JFrame {
         MouseTrap mouseTrap = new MouseTrap(null, frame, camera, false);
         GLData context = new GLData();
         context.stencilSize = 8;
-        Canvas3D canvas = new Canvas3D(context, camera, mouseTrap, frame);
+    Canvas3D canvas = new Canvas3D(context, camera, mouseTrap, frame);
         frame.add(canvas, BorderLayout.CENTER);
         frame.getContentPane().setPreferredSize(new Dimension(750, 750));
 

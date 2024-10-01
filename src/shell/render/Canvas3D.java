@@ -26,8 +26,7 @@ import shell.cameras.Camera3D;
 import shell.render.lights.DirectionalLight;
 import shell.render.lights.PointLight;
 import shell.render.lights.SpotLight;
-import shell.render.menu.Menu;
-import shell.render.sdf.SDFLine;
+import shell.render.menu.MenuBox;
 import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
 import shell.utils.Utils;
@@ -132,10 +131,10 @@ public class Canvas3D extends AWTGLCanvas {
     public boolean drawing;
     public FloatBuffer verteciesBuff;
     public Font debugFont;
-    public static Menu mainMenu;
+    public static MenuBox menu;
     boolean changedSize = false;
     public static ArrayList<ShaderProgram> shaders = new ArrayList<>();
-    private SDFLine sdfLine;
+   // private SDFLine sdfLine;
 
     public Canvas3D(GLData context, Camera3D camera, MouseTrap mouseTrap, JFrame frame) {
         super(context);
@@ -180,11 +179,11 @@ public class Canvas3D extends AWTGLCanvas {
         font = new Font();
         debugFont = new Font(12, false);
 
-        mainMenu = new Menu();
+        menu = new MenuBox();
         // menuInnerBorder = new SDFTexture("menu_inner.png", Color.BLUE_WHITE, 0.25f,
         // 0f, true);
 
-        sdfLine = new SDFLine();
+        //sdfLine = new SDFLine();
 
         glViewport(0, 0, (int) frameBufferWidth, (int) frameBufferHeight);
         mouseTrap.setCanvas(this);
@@ -277,11 +276,11 @@ public class Canvas3D extends AWTGLCanvas {
         }
         Color c = new Color(Color.CYAN);
 
-        mainMenu.draw(-11f);
+        menu.draw(-11f);
         // menuInnerBorder.drawCentered(frameBufferWidth / 2,
-        // frameBufferHeight / 2, 3, -10.5f, Color.TRANSPARENT);
-        sdfLine.drawCentered(frameBufferWidth / 2,
-                frameBufferHeight / 2, 800, 800, -2f, c);
+        // // frameBufferHeight / 2, 3, -10.5f, Color.TRANSPARENT);
+        // sdfLine.drawCentered(frameBufferWidth / 2,
+        //         frameBufferHeight / 2, 800, 800, -2f, c);
         debugFont.drawTextCentered("FPS: " + (1 / Clock.deltaTime()),
                 frameBufferWidth / 2,
                 frameBufferHeight / 2, -1f, 1, Color.CYAN);

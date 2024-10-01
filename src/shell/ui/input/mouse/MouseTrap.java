@@ -81,6 +81,12 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
             tool.click(hoverSegment, kp, cp);
             main.repaint();
         }
+        if (Canvas3D.menu != null) {
+            float nomalizedPosX = (1 - ((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
+            float nomalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
+
+            Canvas3D.menu.click(nomalizedPosX, nomalizedPosY);
+        }
     }
 
     double startX;
@@ -148,12 +154,12 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         } else {
             camera.mouseMove(lastX, lastY, e);
         }
-        if (Canvas3D.mainMenu != null) {
+        if (Canvas3D.menu != null && !(this.canvas == null)) {
 
             float nomalizedPosX = (1 - ((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
             float nomalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
 
-            Canvas3D.mainMenu.setHover(nomalizedPosX, nomalizedPosY);
+            Canvas3D.menu.setHover(nomalizedPosX, nomalizedPosY);
         }
         if (main != null) {
             Main.tool.calculateHover(e.getX(), e.getY());
