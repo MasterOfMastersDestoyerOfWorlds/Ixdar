@@ -24,11 +24,15 @@ public class FileManagement {
 
     public static final String solutionsFolder = "./src/test/solutions/";
 
+    public static final String testFileCacheLocation = "./src/test/cache/cache";
+
     public static File getTestFile(String fileName) {
         String[] parts = fileName.split("_");
         return new File(solutionsFolder + parts[0] + "/" + fileName + ".ix");
     }
-
+    public static String getTestFileCache() {
+        new File(testFileCacheLocation);
+    }
     /**
      * Imports the point set and optimal tsp path from a file
      * 
@@ -360,5 +364,4 @@ public class FileManagement {
             ex.printStackTrace();
         }
     }
-
 }

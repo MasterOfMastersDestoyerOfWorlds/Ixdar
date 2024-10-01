@@ -16,7 +16,7 @@ public class Menu {
         menuOuterBorder = new SDFUnion("menu_inner.png", Color.NAVY, 0.95f, 0, -0.02f, "menu_outer.png",
                 Color.BLUE_WHITE, 0.7f, 5, 2);
         menuItems = new ArrayList<>();
-        menuItems.add("Continue");
+        menuItems.add("Continue: " + );
         menuItems.add("Load");
         menuItems.add("Puzzle");
         menuItems.add("Map Editor");

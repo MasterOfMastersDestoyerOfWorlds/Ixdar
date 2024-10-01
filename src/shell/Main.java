@@ -87,7 +87,7 @@ public class Main extends JComponent {
     public Canvas canvas;
 
 	public Main() {
-
+		FileManagement.getTestFileCache();
 		fileName = "rings-3-manifold_master";
 		file = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(file);
