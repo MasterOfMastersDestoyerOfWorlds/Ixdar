@@ -2,7 +2,7 @@ package shell.render.sdf;
 
 import shell.render.Canvas3D;
 import shell.render.Clock;
-import shell.render.Color;
+import shell.render.color.Color;
 import shell.render.shaders.SDFShader;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;

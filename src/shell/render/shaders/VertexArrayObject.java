@@ -1,5 +1,5 @@
 
-package shell.render;
+package shell.render.shaders;
 
 import static org.lwjgl.opengl.GL30.*;
 

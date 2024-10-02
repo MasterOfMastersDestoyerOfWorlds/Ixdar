@@ -176,10 +176,12 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         }
         if (queuedMouseWheelTicks < 0) {
             camera.zoom(true);
+            Canvas3D.menu.scroll(true);
             queuedMouseWheelTicks++;
         }
         if (queuedMouseWheelTicks > 0) {
             camera.zoom(false);
+            Canvas3D.menu.scroll(false);
             queuedMouseWheelTicks--;
         }
 

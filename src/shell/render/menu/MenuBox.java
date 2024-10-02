@@ -2,8 +2,11 @@ package shell.render.menu;
 
 import shell.file.FileManagement;
 import shell.render.Canvas3D;
-import shell.render.Color;
+import shell.render.color.Color;
 import shell.render.color.ColorBox;
+import shell.render.color.Color;
+import shell.render.color.ColorLerp;
+import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFUnion;
 import shell.render.text.Font;
 import java.util.ArrayList;
@@ -24,13 +27,15 @@ public class MenuBox {
     private float itemHeight;
     public static ArrayList<MenuItem> menuItems;
     public static Menu activeMenu;
+    public static float scrollOffsetY;
+    public float SCROLL_SPEED = 20f;
 
     public MenuBox() {
         alpha = 0.95f;
 
-        innerColor = new Color(Color.NAVY, alpha);
-        outerColor = new Color(Color.BLUE_WHITE, alpha);
-        outerFlash = new Color(Color.RED);
+        innerColor = new ColorRGB(Color.NAVY, alpha);
+        outerColor = new ColorRGB(Color.BLUE_WHITE, alpha);
+        outerFlash = new ColorLerp(Color.BLUE_WHITE, Color.TRANSPARENT, new byte[] { 0, 0, 0, 1 });
         menuOuterBorder = new SDFUnion("menu_inner.png", Color.NAVY, 0.95f, 0, -0.02f, "menu_outer.png",
                 Color.BLUE_WHITE, alpha, 5, 2);
         boundingBox = new ColorBox();
@@ -47,7 +52,7 @@ public class MenuBox {
     public void draw(float zIndex) {
         for (int i = 0; i < menuItems.size(); i++) {
             float centerX = Canvas3D.frameBufferWidth / 2;
-            float centerY = Canvas3D.frameBufferHeight / 2 - (itemHeight * i * 1.5f);
+            float centerY = Canvas3D.frameBufferHeight / 2 - (itemHeight * i * 1.5f) - scrollOffsetY;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
             float upBoundX = centerY + itemHeight / 2;
@@ -77,7 +82,7 @@ public class MenuBox {
         MenuItem clickedItem = null;
         for (int i = 0; i < menuItems.size(); i++) {
             float centerX = Canvas3D.frameBufferWidth / 2;
-            float centerY = Canvas3D.frameBufferHeight / 2 - (itemHeight * i * 1.5f);
+            float centerY = Canvas3D.frameBufferHeight / 2 - (itemHeight * i * 1.5f) - scrollOffsetY;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
             float upBoundX = centerY + itemHeight / 2;
@@ -94,12 +99,34 @@ public class MenuBox {
     }
 
     public static void load(Menu parent) {
+        scrollOffsetY = 0;
         activeMenu = parent;
         menuItems = parent.loadMenu();
     }
 
     public void back() {
         activeMenu.back();
+    }
+
+    public void scroll(boolean scrollUp) {
+        float menuBottom = Canvas3D.frameBufferHeight / 2 - (itemHeight * menuItems.size() * 1.5f);
+
+        if (menuBottom > 0) {
+            scrollOffsetY = 0;
+            return;
+        }
+        if (scrollUp) {
+            scrollOffsetY += SCROLL_SPEED;
+            if (scrollOffsetY > 0) {
+                scrollOffsetY = 0;
+            }
+        } else {
+            scrollOffsetY -= SCROLL_SPEED;
+            float centerY = menuBottom - scrollOffsetY;
+            if (!(centerY < 0)) {
+                scrollOffsetY = centerY + scrollOffsetY;
+            }
+        }
     }
 
 }

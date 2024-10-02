@@ -26,10 +26,8 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
 import shell.render.Canvas3D;
-import shell.render.Color;
 import shell.render.Texture;
-import shell.render.VertexArrayObject;
-import shell.render.VertexBufferObject;
+import shell.render.color.Color;
 
 public abstract class ShaderProgram {
 
@@ -296,13 +294,13 @@ public abstract class ShaderProgram {
      * specified color.
      *
      * @param texture
-     *            Used for getting width and height of the texture
+     *                Used for getting width and height of the texture
      * @param x
-     *            X position of the texture
+     *                X position of the texture
      * @param y
-     *            Y position of the texture
+     *                Y position of the texture
      * @param c
-     *            The color to use
+     *                The color to use
      */
     public void drawTexture(Texture texture, float x, float y, float zIndex, Color c) {
         /* Vertex positions */
@@ -325,19 +323,19 @@ public abstract class ShaderProgram {
      * coordinates.
      *
      * @param texture
-     *            Used for getting width and height of the texture
+     *                  Used for getting width and height of the texture
      * @param x
-     *            X position of the texture
+     *                  X position of the texture
      * @param y
-     *            Y position of the texture
+     *                  Y position of the texture
      * @param regX
-     *            X position of the texture region
+     *                  X position of the texture region
      * @param regY
-     *            Y position of the texture region
+     *                  Y position of the texture region
      * @param regWidth
-     *            Width of the texture region
+     *                  Width of the texture region
      * @param regHeight
-     *            Height of the texture region
+     *                  Height of the texture region
      */
     public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY,
             float regWidth,
@@ -350,21 +348,21 @@ public abstract class ShaderProgram {
      * coordinates.
      *
      * @param texture
-     *            Used for getting width and height of the texture
+     *                  Used for getting width and height of the texture
      * @param x
-     *            X position of the texture
+     *                  X position of the texture
      * @param y
-     *            Y position of the texture
+     *                  Y position of the texture
      * @param regX
-     *            X position of the texture region
+     *                  X position of the texture region
      * @param regY
-     *            Y position of the texture region
+     *                  Y position of the texture region
      * @param regWidth
-     *            Width of the texture region
+     *                  Width of the texture region
      * @param regHeight
-     *            Height of the texture region
+     *                  Height of the texture region
      * @param c
-     *            The color to use
+     *                  The color to use
      */
     public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY,
             float regWidth,
@@ -421,21 +419,21 @@ public abstract class ShaderProgram {
      * coordinates.
      *
      * @param x1
-     *            Bottom left x position
+     *           Bottom left x position
      * @param y1
-     *            Bottom left y position
+     *           Bottom left y position
      * @param x2
-     *            Top right x position
+     *           Top right x position
      * @param y2
-     *            Top right y position
+     *           Top right y position
      * @param s1
-     *            Bottom left s coordinate
+     *           Bottom left s coordinate
      * @param t1
-     *            Bottom left t coordinate
+     *           Bottom left t coordinate
      * @param s2
-     *            Top right s coordinate
+     *           Top right s coordinate
      * @param t2
-     *            Top right t coordinate
+     *           Top right t coordinate
      */
     public void drawTextureRegion(float x1, float y1, float x2, float y2, float zIndex, float s1, float t1, float s2,
             float t2) {
@@ -447,23 +445,23 @@ public abstract class ShaderProgram {
      * coordinates.
      *
      * @param x1
-     *            Bottom left x position
+     *           Bottom left x position
      * @param y1
-     *            Bottom left y position
+     *           Bottom left y position
      * @param x2
-     *            Top right x position
+     *           Top right x position
      * @param y2
-     *            Top right y position
+     *           Top right y position
      * @param s1
-     *            Bottom left s coordinate
+     *           Bottom left s coordinate
      * @param t1
-     *            Bottom left t coordinate
+     *           Bottom left t coordinate
      * @param s2
-     *            Top right s coordinate
+     *           Top right s coordinate
      * @param t2
-     *            Top right t coordinate
+     *           Top right t coordinate
      * @param c
-     *            The color to use
+     *           The color to use
      */
     public void drawTextureRegion(float x1, float y1, float x2, float y2, float zIndex, float s1, float t1, float s2,
             float t2,
@@ -473,10 +471,11 @@ public abstract class ShaderProgram {
             flush();
         }
 
-        float r = c.getRed();
-        float g = c.getGreen();
-        float b = c.getBlue();
-        float a = c.getAlpha();
+        Vector4f color = c.toVector4f();
+        float r = color.x;
+        float g = color.y;
+        float b = color.z;
+        float a = color.w;
 
         verteciesBuff.put(x1).put(y1).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t1);
         verteciesBuff.put(x1).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t2);
@@ -495,10 +494,11 @@ public abstract class ShaderProgram {
             flush();
         }
 
-        float r = c.getRed();
-        float g = c.getGreen();
-        float b = c.getBlue();
-        float a = c.getAlpha();
+        Vector4f color = c.toVector4f();
+        float r = color.x;
+        float g = color.y;
+        float b = color.z;
+        float a = color.w;
 
         verteciesBuff.put(x1).put(y1).put(zIndex).put(r).put(g).put(b).put(a);
         verteciesBuff.put(x1).put(y2).put(zIndex).put(r).put(g).put(b).put(a);
@@ -518,10 +518,11 @@ public abstract class ShaderProgram {
             flush();
         }
 
-        float r = c.getRed();
-        float g = c.getGreen();
-        float b = c.getBlue();
-        float a = c.getAlpha();
+        Vector4f color = c.toVector4f();
+        float r = color.x;
+        float g = color.y;
+        float b = color.z;
+        float a = color.w;
 
         verteciesBuff.put(x1).put(y1).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t1);
         verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);

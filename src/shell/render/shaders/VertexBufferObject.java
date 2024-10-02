@@ -1,5 +1,5 @@
 
-package shell.render;
+package shell.render.shaders;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;

@@ -4,8 +4,6 @@ import static org.lwjgl.opengl.GL11.GL_FLOAT;
 import static org.lwjgl.opengl.GL20.*;
 
 import org.joml.Matrix4f;
-import shell.render.VertexArrayObject;
-import shell.render.VertexBufferObject;
 
 public class FontShader extends ShaderProgram {
 

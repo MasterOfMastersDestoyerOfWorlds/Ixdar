@@ -16,8 +16,8 @@ import java.util.Map;
 
 import org.lwjgl.system.MemoryUtil;
 
-import shell.render.Color;
 import shell.render.Texture;
+import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 

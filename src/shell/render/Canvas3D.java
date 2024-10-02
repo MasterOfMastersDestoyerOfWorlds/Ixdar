@@ -23,6 +23,8 @@ import org.lwjgl.opengl.awt.GLData;
 import org.lwjgl.system.MemoryUtil;
 
 import shell.cameras.Camera3D;
+import shell.render.color.Color;
+import shell.render.color.ColorRGB;
 import shell.render.lights.DirectionalLight;
 import shell.render.lights.PointLight;
 import shell.render.lights.SpotLight;
@@ -274,17 +276,17 @@ public class Canvas3D extends AWTGLCanvas {
             glDrawArrays(GL_TRIANGLES, 0, 36);
 
         }
-        Color c = new Color(Color.CYAN);
+        //Color c = new ColorRGB(Color.CYAN);
 
         menu.draw(-11f);
         // menuInnerBorder.drawCentered(frameBufferWidth / 2,
         // // frameBufferHeight / 2, 3, -10.5f, Color.TRANSPARENT);
         // sdfLine.drawCentered(frameBufferWidth / 2,
-        //         frameBufferHeight / 2, 800, 800, -2f, c);
-        debugFont.drawTextCentered("FPS: " + (1 / Clock.deltaTime()),
-                frameBufferWidth / 2,
-                frameBufferHeight / 2, -1f, 1, Color.CYAN);
-        c.setAlpha(0.6f);
+        // //         frameBufferHeight / 2, 800, 800, -2f, c);
+        // debugFont.drawTextCentered("FPS: " + (1 / Clock.deltaTime()),
+        //         frameBufferWidth / 2,
+        //         frameBufferHeight / 2, -1f, 1, Color.CYAN);
+        // c.setAlpha(0.6f);
 
         Clock.frameRendered();
         if (printScreen) {

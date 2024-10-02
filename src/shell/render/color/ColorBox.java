@@ -1,6 +1,5 @@
 package shell.render.color;
 
-import shell.render.Color;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 
