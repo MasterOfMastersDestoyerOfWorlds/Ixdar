@@ -1,6 +1,5 @@
 package shell.ui.tools;
 
-import java.awt.Graphics2D;
 import java.util.ArrayList;
 
 import shell.Main;
@@ -39,14 +38,14 @@ public class FindManifoldTool extends Tool {
     }
 
     @Override
-    public void draw(Graphics2D g2, Camera2D camera, int minLineThickness) {
+    public void draw(Camera2D camera, int minLineThickness) {
         if (hover != null
                 && !hover.equals(firstSelectedSegment)) {
-            Drawing.drawManifoldCut(g2, hoverKP, hoverCP, camera,
+            Drawing.drawManifoldCut( hoverKP, hoverCP, camera,
                     minLineThickness * 2);
         }
         if (firstSelectedSegment != null) {
-            Drawing.drawManifoldCut(g2, firstSelectedKP, firstSelectedCP,
+            Drawing.drawManifoldCut(firstSelectedKP, firstSelectedCP,
                     camera,
                     minLineThickness * 2);
         }

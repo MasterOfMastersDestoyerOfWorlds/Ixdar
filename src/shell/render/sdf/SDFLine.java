@@ -1,6 +1,6 @@
 package shell.render.sdf;
 
-import shell.render.Canvas3D;
+import shell.cameras.Camera;
 import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.shaders.SDFShader;
@@ -17,6 +17,10 @@ public class SDFLine {
     private float borderOuter;
     private float borderOffsetInner;
     private float borderOffsetOuter;
+    private float lineWidth;
+    private float dashLength;
+    private boolean dashed;
+    private boolean roundCaps;
 
     public SDFLine() {
         shader = ShaderType.LineSDF.shader;
@@ -42,12 +46,8 @@ public class SDFLine {
         return r.x * r.x + r.y * r.y;
     }
 
-    public void draw(int drawX, int drawY, float zIndex, Color c) {
-        Vector2f pA = new Vector2f(Canvas3D.frameBufferWidth / 2,
-                Canvas3D.frameBufferWidth);
-        Vector2f pB = new Vector2f(Canvas3D.frameBufferWidth / 2,
-                Clock.sin(100, Canvas3D.frameBufferHeight - 100, 0.2f, 3.78f));
-        float dashLength = 60f;
+    public void draw(Vector2f pA, Vector2f pB, Color c, Camera camera) {
+
         shader.use();
         shader.setFloat("borderInner", borderInner);
         shader.setFloat("borderOuter", borderOuter);
@@ -56,13 +56,12 @@ public class SDFLine {
         shader.setVec4("borderColor", borderColor.toVector4f());
         shader.setVec2("pointA", pA);
         shader.setVec2("pointB", pB);
-        shader.setBool("dashed", true);
-        shader.setBool("roundCaps", true);
+        shader.setBool("dashed", dashed);
+        shader.setBool("roundCaps", roundCaps);
         shader.setFloat("dashPhase", Clock.spin(20));
         shader.setFloat("dashLength", dashLength);
         shader.setFloat("edgeSharpness", 0.05f);
         shader.setFloat("lineLengthSq", lengthSq(pA, pB));
-        float lineWidth = 10f;
         float dx = pB.x - pA.x;
         float dy = pB.y - pA.y;
         float normalX = -dy;
@@ -92,17 +91,21 @@ public class SDFLine {
         shader.setFloat("dashEdgeDist", (float) (Math.PI * width * edgeDist) / (dashLength));
 
         shader.begin();
-        shader.drawSDFRegion(bL.x, bL.y, bR.x, bR.y, tL.x, tL.y, tR.x, tR.y, zIndex, 0, 0, 1, 1, c);
+        shader.drawSDFRegion(bL.x, bL.y, bR.x, bR.y, tL.x, tL.y, tR.x, tR.y, camera.getZIndex(), 0, 0, 1, 1, c);
         shader.end();
-    }
-
-    public void drawCentered(int drawX, int drawY, int width, int height, float zIndex, Color c) {
-        draw(drawX - (width / 2), drawY - (height / 2), zIndex, c);
+        camera.incZIndex();
     }
 
     public void setBorderDist(float borderDist) {
         this.borderInner = borderDist - 0.1f;
         this.borderOuter = borderDist;
+    }
+
+    public void setStroke(float lineWidth, boolean dashed, float dashLength, boolean roundCaps) {
+        this.lineWidth = lineWidth;
+        this.dashed = dashed;
+        this.dashLength = dashLength;
+        this.roundCaps = roundCaps;
     }
 
 }

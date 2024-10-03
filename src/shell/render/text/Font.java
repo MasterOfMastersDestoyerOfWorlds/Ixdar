@@ -16,6 +16,7 @@ import java.util.Map;
 
 import org.lwjgl.system.MemoryUtil;
 
+import shell.cameras.Camera;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
@@ -265,9 +266,10 @@ public class Font {
      * @param x        X coordinate of the text position
      * @param y        Y coordinate of the text position
      * @param c        Color to use
+     * @param camera
      */
-    public void drawText(CharSequence text, float x, float y, float zIndex, float glyphHeight,
-            Color c) {
+    public void drawText(CharSequence text, float x, float y, float glyphHeight,
+            Color c, Camera camera) {
         float textHeight = getHeight(text);
 
         float drawX = x;
@@ -297,10 +299,11 @@ public class Font {
             float scaledWidth = glyphHeight * g.widthHeightRatio;
             shader.drawTextureRegion(texture, drawX, drawY,
                     drawX + (g.widthHeightRatio * glyphHeight), drawY + glyphHeight,
-                    zIndex, g.x, g.y, g.width, g.height, c);
+                    camera.getZIndex(), g.x, g.y, g.width, g.height, c);
             drawX += scaledWidth;
         }
         shader.end();
+        camera.incZIndex();
     }
 
     /**
@@ -310,9 +313,10 @@ public class Font {
      * @param text     Text to draw
      * @param x        X coordinate of the text position
      * @param y        Y coordinate of the text position
+     * @param camera
      */
-    public void drawText(CharSequence text, float x, float y, float zIndex, float height) {
-        drawText(text, x, y, zIndex, height, Color.WHITE);
+    public void drawText(CharSequence text, float x, float y, float height, Camera camera) {
+        drawText(text, x, y, height, Color.WHITE, camera);
     }
 
     /**
@@ -322,18 +326,18 @@ public class Font {
         texture.delete();
     }
 
-    public void drawNCharactersBack(String text, int xLimit, int y, float zIndex, float height, int numCharsBack,
-            Color c) {
+    public void drawNCharactersBack(String text, int xLimit, int y, float height, int numCharsBack,
+            Color c, Camera camera) {
         if (text.length() < numCharsBack + 1) {
             int diff = (numCharsBack + 1 - text.length());
             for (int i = 0; i < diff; i++) {
                 text += " ";
             }
         }
-        drawText(text, xLimit - getWidth(text.substring(0, numCharsBack)), y, zIndex, height, c);
+        drawText(text, xLimit - getWidth(text.substring(0, numCharsBack)), y, height, c, camera);
     }
 
-    public void drawTextCentered(String text, float x, float y, float zIndex, float height, Color c) {
+    public void drawTextCentered(String text, float x, float y, float height, Color c, Camera camera) {
         if (text.length() > maxTextWidth) {
 
             text = text.substring(0, maxTextWidth - 1) + "~";
@@ -342,7 +346,7 @@ public class Font {
         float scaleRatio = height / fontHeight;
         float textWidth = getWidth(text) * scaleRatio;
         float textHeight = getHeight(text) * scaleRatio;
-        drawText(text, x - textWidth / 2, y - textHeight / 2, zIndex, height, c);
+        drawText(text, x - textWidth / 2, y - textHeight / 2, height, c, camera);
     }
 
 }

@@ -22,6 +22,7 @@ public class Camera3D implements Camera {
     public float pitch;
     double SHIFT_MOD;
     public double fov;
+    private int zIndex;
 
     public Camera3D(Vector3f position, float yaw, float pitch) {
         this.position = position;
@@ -82,7 +83,7 @@ public class Camera3D implements Camera {
     }
 
     @Override
-    public void setShiftMod(double SHIFT_MOD) {
+    public void setShiftMod(float SHIFT_MOD) {
         this.SHIFT_MOD = SHIFT_MOD;
     }
 
@@ -104,7 +105,8 @@ public class Camera3D implements Camera {
         }
     }
 
-    public void drag(double d, double e) {
+    @Override
+    public void drag(float d, float e) {
     }
 
     @Override
@@ -130,5 +132,30 @@ public class Camera3D implements Camera {
             pitch = -89.0f;
 
         updateCameraVectors();
+    }
+
+    @Override
+    public void incZIndex() {
+        zIndex++;
+    }
+
+    @Override
+    public void addZIndex(float diff) {
+        zIndex += diff;
+    }
+
+    @Override
+    public void setZIndex(Camera camera) {
+        zIndex += camera.getZIndex() + 1;
+    }
+
+    @Override
+    public float getZIndex() {
+        return zIndex;
+    }
+
+    @Override
+    public void resetZIndex() {
+        zIndex = 0;
     }
 }

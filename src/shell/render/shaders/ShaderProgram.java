@@ -35,6 +35,8 @@ public abstract class ShaderProgram {
         TextureSDF(SDFShader.class, "font.vs", "sdf.fs"),
 
         LineSDF(SDFShader.class, "font.vs", "sdf_line.fs"),
+        
+        CircleSDF(SDFShader.class, "font.vs", "sdf_circle.fs"),
 
         UnionSDF(SDFShader.class, "font.vs", "sdf_union.fs"),
 

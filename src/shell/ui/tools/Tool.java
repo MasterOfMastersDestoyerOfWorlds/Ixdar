@@ -1,6 +1,5 @@
 package shell.ui.tools;
 
-import java.awt.Graphics2D;
 import java.util.ArrayList;
 
 import shell.Main;
@@ -10,6 +9,7 @@ import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.render.AWTTest;
 
 public abstract class Tool {
 
@@ -17,7 +17,7 @@ public abstract class Tool {
     public VirtualPoint hoverKP;
     public VirtualPoint hoverCP;
 
-    public void draw(Graphics2D g2, Camera2D camera, int lineThickness) {
+    public void draw(Camera2D camera, int lineThickness) {
         throw new UnsupportedOperationException("Unimplemented method 'draw'");
     };
 
@@ -110,8 +110,8 @@ public abstract class Tool {
 
     public void calculateHover(int mouseX, int mouseY) {
         Tool tool = Main.tool;
-        if (mouseX <= Main.main.getWidth() && mouseX >= 0
-                && mouseY <= Main.main.getHeight() && mouseY >= 0) {
+        if (mouseX <= AWTTest.frame.getWidth() && mouseX >= 0
+                && mouseY <= AWTTest.frame.getHeight() && mouseY >= 0) {
             ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
             Camera2D camera = Main.camera;
             if (knotsDisplayed != null) {

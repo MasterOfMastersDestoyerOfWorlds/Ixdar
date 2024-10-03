@@ -3,35 +3,37 @@ package shell.cameras;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
 
+import shell.Main;
 import shell.PointND;
 import shell.PointSet;
 
 public class Camera2D implements Camera {
 
-    public double ZOOM_SPEED = 0.005;
-    public double PAN_SPEED = 0.65;
+    public float ZOOM_SPEED = 0.005f;
+    public float PAN_SPEED = 0.65f;
     public int Width, Height;
     public int ScreenWidth, ScreenHeight;
-    public double ScaleFactor;
-    public double InitialScale;
-    public double PanX;
-    public double PanY;
-    public double defaultPanX;
-    public double defaultPanY;
+    public float ScaleFactor;
+    public float InitialScale;
+    public float PanX;
+    public float PanY;
+    public float defaultPanX;
+    public float defaultPanY;
     public int offsetX;
     public int offsetY;
-    public double rangeX;
-    public double rangeY;
+    public float rangeX;
+    public float rangeY;
     public PointSet ps;
-    private double minX;
-    private double minY;
-    private double maxX;
-    private double maxY;
-    private double height;
-    double width;
-    private double SHIFT_MOD = 1.0;
+    private float minX;
+    private float minY;
+    private float maxX;
+    private float maxY;
+    private float height;
+    public float zIndex;
+    float width;
+    private float SHIFT_MOD = 1.0f;
 
-    public Camera2D(int Height, int Width, double ScaleFactor, double PanX, double PanY, PointSet ps) {
+    public Camera2D(int Height, int Width, float ScaleFactor, float PanX, float PanY, PointSet ps) {
         this.Height = Height;
         this.Width = Width;
         this.height = Height * ScaleFactor;
@@ -41,6 +43,7 @@ public class Camera2D implements Camera {
         this.PanX = PanX;
         this.PanY = PanY;
         this.ps = ps;
+        zIndex = 0;
 
     }
 
@@ -50,8 +53,9 @@ public class Camera2D implements Camera {
     }
 
     public void calculateCameraTransform() {
-        minX = java.lang.Double.MAX_VALUE;
-        minY = java.lang.Double.MAX_VALUE;
+        PointSet ps = Main.retTup.ps;
+        minX = java.lang.Float.MAX_VALUE;
+        minY = java.lang.Float.MAX_VALUE;
         maxX = 0;
         maxY = 0;
         for (PointND pn : ps) {
@@ -59,16 +63,16 @@ public class Camera2D implements Camera {
                 Point2D p = pn.toPoint2D();
 
                 if (p.getX() < minX) {
-                    minX = p.getX();
+                    minX = (float) p.getX();
                 }
                 if (p.getY() < minY) {
-                    minY = p.getY();
+                    minY = (float) p.getY();
                 }
                 if (p.getX() > maxX) {
-                    maxX = p.getX();
+                    maxX = (float) p.getX();
                 }
                 if (p.getY() > maxY) {
-                    maxY = p.getY();
+                    maxY = (float) p.getY();
                 }
             }
         }
@@ -88,8 +92,8 @@ public class Camera2D implements Camera {
     }
 
     public void initCamera() {
-        minX = java.lang.Double.MAX_VALUE;
-        minY = java.lang.Double.MAX_VALUE;
+        minX = java.lang.Float.MAX_VALUE;
+        minY = java.lang.Float.MAX_VALUE;
         maxX = 0;
         maxY = 0;
         for (PointND pn : ps) {
@@ -97,16 +101,16 @@ public class Camera2D implements Camera {
                 Point2D p = pn.toPoint2D();
 
                 if (p.getX() < minX) {
-                    minX = p.getX();
+                    minX = (float) p.getX();
                 }
                 if (p.getY() < minY) {
-                    minY = p.getY();
+                    minY = (float) p.getY();
                 }
                 if (p.getX() > maxX) {
-                    maxX = p.getX();
+                    maxX = (float) p.getX();
                 }
                 if (p.getY() > maxY) {
-                    maxY = p.getY();
+                    maxY = (float) p.getY();
                 }
             }
         }
@@ -130,45 +134,53 @@ public class Camera2D implements Camera {
         defaultPanY = PanY;
     }
 
+    public float pointTransformX(double x) {
+        return pointTransformX((float) x);
+    }
+
     // transform from point space to screen space
-    public double pointTransformX(double x) {
+    public float pointTransformX(float x) {
         return ((((x - minX) * width) / rangeX) + offsetX);
     }
 
     // transform from point space to screen space
-    public double pointTransformX(double x, double scale) {
+    public float pointTransformX(float x, float scale) {
         return ((((x - minX) * (Width * scale)) / rangeX) + offsetX);
     }
 
     // transform from screen space to point space
-    public double screenTransformX(double x) {
+    public float screenTransformX(float x) {
         return ((((x) - offsetX) * rangeX) / width) + minX;
     }
 
+    public float pointTransformY(double y) {
+        return pointTransformY((float) y);
+    }
+
     // transform from point space to screen space
-    public double pointTransformY(double y) {
+    public float pointTransformY(float y) {
         return ((((y - minY) * height) / rangeY) + offsetY);
     }
 
     // transform from point space to screen space
-    public double pointTransformY(double x, double scale) {
+    public float pointTransformY(float x, float scale) {
         return ((((x - minY) * (Height * scale)) / rangeY) + offsetY);
     }
 
     // transform from screen space to point space
-    public double screenTransformY(double y) {
+    public float screenTransformY(float y) {
         return ((((y) - offsetY) * rangeY) / height) + minY;
     }
 
-    public void scale(double delta) {
-        double newScaleY = ScaleFactor + delta;
-        double midXPointSpace = screenTransformX(((double) ScreenWidth) / 2);
-        double midYPointSpace = screenTransformY(((double) ScreenHeight) / 2);
-        double midXNewScale = pointTransformX(midXPointSpace, newScaleY);
-        double midYNewScale = pointTransformY(midYPointSpace, newScaleY);
+    public void scale(float delta) {
+        float newScaleY = ScaleFactor + delta;
+        float midXPointSpace = screenTransformX(((float) ScreenWidth) / 2);
+        float midYPointSpace = screenTransformY(((float) ScreenHeight) / 2);
+        float midXNewScale = pointTransformX(midXPointSpace, newScaleY);
+        float midYNewScale = pointTransformY(midYPointSpace, newScaleY);
 
-        PanX += (((double) ScreenWidth) / 2) - midXNewScale;
-        PanY += (((double) ScreenHeight) / 2) - midYNewScale;
+        PanX += (((float) ScreenWidth) / 2) - midXNewScale;
+        PanY += (((float) ScreenHeight) / 2) - midYNewScale;
         ScaleFactor += delta;
     }
 
@@ -199,7 +211,7 @@ public class Camera2D implements Camera {
     }
 
     @Override
-    public void setShiftMod(double SHIFT_MOD) {
+    public void setShiftMod(float SHIFT_MOD) {
         this.SHIFT_MOD = SHIFT_MOD;
     }
 
@@ -212,7 +224,7 @@ public class Camera2D implements Camera {
         }
     }
 
-    public void drag(double d, double e) {
+    public void drag(float d, float e) {
         PanX += d;
         PanY += e;
     }
@@ -221,4 +233,28 @@ public class Camera2D implements Camera {
     public void mouseMove(float lastX, float lastY, MouseEvent e) {
     }
 
+    @Override
+    public void incZIndex() {
+        zIndex++;
+    }
+
+    @Override
+    public void addZIndex(float diff) {
+        zIndex += diff;
+    }
+
+    @Override
+    public float getZIndex() {
+        return zIndex;
+    }
+
+    @Override
+    public void setZIndex(Camera camera) {
+        zIndex = camera.getZIndex() + 1;
+    }
+
+    @Override
+    public void resetZIndex() {
+        zIndex = 0;
+    }
 }

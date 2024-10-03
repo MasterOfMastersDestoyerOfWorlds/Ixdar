@@ -79,7 +79,6 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
                 }
             }
             tool.click(hoverSegment, kp, cp);
-            main.repaint();
         }
         if (Canvas3D.menu != null) {
             float nomalizedPosX = (1 - ((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
@@ -104,12 +103,9 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     @Override
     public void mouseDragged(MouseEvent e) {
         // update pan x and y to follow the mouse
-        camera.drag(e.getX() - startX, e.getY() - startY);
+        camera.drag((float) (e.getX() - startX), (float) (e.getY() - startY));
         startX = e.getX();
         startY = e.getY();
-        if (main != null) {
-            main.repaint();
-        }
     }
 
     @Override
@@ -124,7 +120,6 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     public void mouseExited(MouseEvent e) {
         if (main != null) {
             Main.tool.clearHover();
-            main.repaint();
         }
     }
 
@@ -132,9 +127,6 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     public void mouseWheelMoved(MouseWheelEvent e) {
         queuedMouseWheelTicks += e.getWheelRotation();
         timeLastScroll = System.currentTimeMillis();
-        if (main != null) {
-            main.repaint();
-        }
     }
 
     public void setCanvas(AWTGLCanvas canvas) {
@@ -163,14 +155,13 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         }
         if (main != null) {
             Main.tool.calculateHover(e.getX(), e.getY());
-            main.repaint();
         }
         if (captureMouse) {
             // captureMouse(false);
         }
     }
 
-    public void paintUpdate(double SHIFT_MOD) {
+    public void paintUpdate(float SHIFT_MOD) {
         if (System.currentTimeMillis() - timeLastScroll > 60) {
             queuedMouseWheelTicks = 0;
         }
@@ -185,9 +176,6 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
             queuedMouseWheelTicks--;
         }
 
-        if (!(queuedMouseWheelTicks == 0) && main != null) {
-            main.repaint();
-        }
     }
 
     public void captureMouse(boolean force) {

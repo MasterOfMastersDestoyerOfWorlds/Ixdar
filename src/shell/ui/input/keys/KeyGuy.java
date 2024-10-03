@@ -1,6 +1,9 @@
 package shell.ui.input.keys;
 
-import java.awt.Color;
+import shell.render.color.Color;
+import shell.render.color.ColorRGB;
+import shell.render.menu.MenuBox;
+
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.event.KeyEvent;
@@ -20,7 +23,9 @@ import javax.swing.JRootPane;
 import shell.Main;
 import shell.Toggle;
 import shell.cameras.Camera;
+import shell.cameras.Camera2D;
 import shell.file.FileManagement;
+import shell.render.AWTTest;
 import shell.render.Canvas3D;
 import shell.shell.Shell;
 import shell.ui.tools.EditManifoldTool;
@@ -45,6 +50,7 @@ public class KeyGuy implements KeyListener {
     NegativeCutMatchViewTool negativeCutMatchViewTool;
     FindManifoldTool findManifoldTool;
     EditManifoldTool editCutMatchTool;
+    public boolean active = true;
 
     public KeyGuy(Camera camera, Canvas3D canvas) {
         this.camera = camera;
@@ -64,6 +70,9 @@ public class KeyGuy implements KeyListener {
 
     @Override
     public void keyPressed(KeyEvent e) {
+        if (!active) {
+            return;
+        }
         boolean firstPress = !pressedKeys.contains(e.getKeyCode());
         pressedKeys.add(e.getKeyCode());
         if (e.getKeyCode() == KeyEvent.VK_CONTROL) {
@@ -114,14 +123,11 @@ public class KeyGuy implements KeyListener {
                 }
 
             }
-            if (KeyActions.NegativeCutMatchViewTool.keyPressed(pressedKeys)) {
+            if (KeyActions.NegativeCutMatchViewTool.keyPressed(pressedKeys) && negativeCutMatchViewTool != null) {
                 negativeCutMatchViewTool.reset();
                 negativeCutMatchViewTool.initSegmentMap();
                 Main.tool = negativeCutMatchViewTool;
             }
-        }
-        if (main != null) {
-            main.repaint();
         }
 
     }
@@ -132,11 +138,14 @@ public class KeyGuy implements KeyListener {
 
     @Override
     public void keyReleased(KeyEvent e) {
+        if (!active) {
+            return;
+        }
         if (main != null) {
             Tool tool = Main.tool;
             if (KeyActions.ColorRandomization.keyPressed(pressedKeys)) {
                 Random colorSeed = new Random();
-                Main.stickyColor = new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
+                Main.stickyColor = new ColorRGB(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
                 if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
                     Main.metroColors = new ArrayList<>();
                     int totalLayers = Main.shell.cutEngine.totalLayers;
@@ -228,10 +237,11 @@ public class KeyGuy implements KeyListener {
             }
             if (KeyActions.Back.keyPressed(pressedKeys)) {
                 if (Main.tool.toolType() == Tool.Type.Free) {
-                    System.exit(0);
+                    MenuBox.menuVisible = true;
+                    Canvas3D.keys.active = true;
+                    this.active = false;
                 }
                 Main.tool = Main.freeTool;
-                main.repaint();
             }
         } else {
             if (KeyActions.Back.keyPressed(pressedKeys)) {
@@ -247,7 +257,10 @@ public class KeyGuy implements KeyListener {
     long REPRESS_TIME = 360;
     long lastPressTime;
 
-    public void paintUpdate(double SHIFT_MOD) {
+    public void paintUpdate(float SHIFT_MOD) {
+        if (!active) {
+            return;
+        }
         camera.setShiftMod(SHIFT_MOD);
         if (!pressedKeys.isEmpty()) {
             boolean moved = false;
@@ -278,7 +291,7 @@ public class KeyGuy implements KeyListener {
             }
             if (moved && main != null) {
                 Point mouseLocation = MouseInfo.getPointerInfo().getLocation();
-                Point frameLocation = Main.frame.getRootPane().getLocationOnScreen();
+                Point frameLocation = AWTTest.frame.getRootPane().getLocationOnScreen();
                 Main.tool.calculateHover((int) (mouseLocation.getX() - frameLocation.getX()),
                         (int) (mouseLocation.getY() - frameLocation.getY()));
             }
@@ -295,10 +308,6 @@ public class KeyGuy implements KeyListener {
                 if (KeyActions.CycleToolRight.keyPressed(pressedKeys)) {
                     Main.tool.cycleRight();
                 }
-            }
-
-            if (!pressedKeys.isEmpty()) {
-                main.repaint();
             }
         }
     }

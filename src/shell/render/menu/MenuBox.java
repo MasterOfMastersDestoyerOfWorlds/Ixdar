@@ -1,10 +1,10 @@
 package shell.render.menu;
 
+import shell.cameras.Camera;
 import shell.file.FileManagement;
 import shell.render.Canvas3D;
 import shell.render.color.Color;
 import shell.render.color.ColorBox;
-import shell.render.color.Color;
 import shell.render.color.ColorLerp;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFUnion;
@@ -29,6 +29,7 @@ public class MenuBox {
     public static Menu activeMenu;
     public static float scrollOffsetY;
     public float SCROLL_SPEED = 20f;
+    public static boolean menuVisible = true;
 
     public MenuBox() {
         alpha = 0.95f;
@@ -49,7 +50,10 @@ public class MenuBox {
         font.maxTextWidth = 24;
     }
 
-    public void draw(float zIndex) {
+    public void draw(Camera camera) {
+        if (!menuVisible) {
+            return;
+        }
         for (int i = 0; i < menuItems.size(); i++) {
             float centerX = Canvas3D.frameBufferWidth / 2;
             float centerY = Canvas3D.frameBufferHeight / 2 - (itemHeight * i * 1.5f) - scrollOffsetY;
@@ -59,17 +63,17 @@ public class MenuBox {
             float downBoundX = centerY - itemHeight / 2;
             if (hoverX > leftBoundX && hoverX < rightBoundX && hoverY > downBoundX && hoverY < upBoundX) {
 
-                menuOuterBorder.drawCentered(centerX, centerY, scale, zIndex, innerColor, outerFlash);
+                menuOuterBorder.drawCentered(centerX, centerY, scale, innerColor, outerFlash, camera);
                 // boundingBox.drawCoords(leftBoundX, downBoundX, rightBoundX, upBoundX, zIndex
                 // + 0.1f,
                 // new Color(Color.YELLOW, 0.5f));
             } else {
-                menuOuterBorder.drawCentered(centerX, centerY, scale, zIndex);
+                menuOuterBorder.drawCentered(centerX, centerY, scale, camera);
 
             }
-            font.drawTextCentered(menuItems.get(i).itemString(), centerX, centerY + itemHeight * 0.075f, zIndex + 0.5f,
+            font.drawTextCentered(menuItems.get(i).itemString(), centerX, centerY + itemHeight * 0.075f,
                     itemHeight / 2,
-                    Color.BLUE_WHITE);
+                    Color.BLUE_WHITE, camera);
         }
     }
 
@@ -79,6 +83,9 @@ public class MenuBox {
     }
 
     public void click(float x, float y) {
+        if (!menuVisible) {
+            return;
+        }
         MenuItem clickedItem = null;
         for (int i = 0; i < menuItems.size(); i++) {
             float centerX = Canvas3D.frameBufferWidth / 2;

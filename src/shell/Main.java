@@ -1,17 +1,11 @@
 package shell;
 
 import java.awt.Canvas;
-import java.awt.Color;
-import java.awt.ComponentOrientation;
-import java.awt.Container;
-import java.awt.Dimension;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
 import java.awt.event.KeyEvent;
-import java.awt.event.WindowEvent;
+
+import shell.render.color.Color;
+import shell.render.color.ColorRGB;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,14 +13,9 @@ import java.util.HashMap;
 import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.Set;
-import javax.swing.ImageIcon;
-import javax.swing.JComponent;
-import javax.swing.JFrame;
-import javax.swing.SwingUtilities;
-import javax.swing.WindowConstants;
-
 import org.apache.commons.math3.util.Pair;
 
+import shell.cameras.Camera;
 import shell.cameras.Camera2D;
 import shell.cuts.CutEngine;
 import shell.cuts.InternalPathEngine;
@@ -40,6 +29,7 @@ import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.render.AWTTest;
 import shell.shell.Shell;
 import shell.shell.ShellPair;
 import shell.shell.ShellComparator;
@@ -50,16 +40,13 @@ import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
 import shell.ui.tools.FreeTool;
 
-public class Main extends JComponent {
+public class Main {
 
 	public static File file;
 	static String fileName;
 
 	public static Main main;
-	public static JFrame frame;
 	public static Camera2D camera;
-	static MouseTrap mouse;
-	static KeyGuy keys;
 
 	public static Tool tool;
 	public static FreeTool freeTool = new FreeTool();
@@ -68,9 +55,9 @@ public class Main extends JComponent {
 	public static PointSetPath retTup;
 	public static Shell orgShell;
 	public static ArrayList<Shell> subPaths = new ArrayList<>();
-	static Shell resultShell;
+	public static Shell resultShell;
 	public static ArrayList<VirtualPoint> result;
-	static SegmentBalanceException sbe;
+	public static SegmentBalanceException sbe;
 
 	public static Knot manifoldKnot;
 	public static int manifoldIdx = 0;
@@ -85,53 +72,29 @@ public class Main extends JComponent {
 	public static ArrayList<Color> knotGradientColors = new ArrayList<>();
 	public static HashMap<Long, Integer> colorLookup = new HashMap<>();
 	public Canvas canvas;
+	private KeyGuy keys;
+	private MouseTrap mouseTrap;
+	private Logo logo;
 
 	public Main(String fileName) {
 		Main.fileName = fileName;
 		file = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(file);
-		frame = new JFrame("Ixdar : " + fileName);
+		AWTTest frame = AWTTest.frame;
+		frame.setName("Ixdar : " + fileName);
 
-		ImageIcon img = new ImageIcon("res/decalSmall.png");
-		frame.setIconImage(img.getImage());
-		Container pane = frame.getContentPane();
-		pane.setBackground(new Color(20, 20, 20));
-
-		pane.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
-		pane.setLayout(new GridBagLayout());
-
-		GridBagConstraints logoConstraints = new GridBagConstraints(
-				1, 1, 1, 1, 0, 0, GridBagConstraints.LAST_LINE_END,
-				GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 10, 10);
-		Logo logo = new Logo();
-		pane.add(logo, logoConstraints);
-		GridBagConstraints mainConstraints = new GridBagConstraints(
-				0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.CENTER, GridBagConstraints.BOTH,
-				new Insets(0, 0, 0, 0), 0, 0);
-		pane.add(this, mainConstraints);
-		frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-
-		camera = new Camera2D(600, 600, 0.9, 0, 0, retTup.ps);
-		frame.setVisible(true);
-		this.setVisible(true);
-		this.setEnabled(true);
-		this.setMinimumSize(new Dimension(camera.Width, camera.Height));
-		this.setSize(new Dimension(camera.Width, camera.Height));
-		this.setPreferredSize(new Dimension(camera.Width, camera.Height));
-		pane.setPreferredSize(new Dimension(750, 750));
-		pane.setSize(new Dimension(750, 750));
-
-		keys = new KeyGuy(this, frame, fileName, camera);
-		frame.addKeyListener(keys);
-
-		mouse = new MouseTrap(this, frame, camera, false);
-		pane.addMouseListener(mouse);
-		pane.addMouseWheelListener(mouse);
-		pane.addMouseMotionListener(mouse);
+		logo = new Logo();
+		camera = new Camera2D(600, 600, 0.9f, 0, 0, retTup.ps);
 
 		Toggle.manifold.value = !retTup.manifolds.isEmpty();
-		frame.pack();
 
+		keys = new KeyGuy(this, frame, fileName, camera);
+		mouseTrap = new MouseTrap(this, frame, camera, false);
+
+		frame.addKeyListener(keys);
+		frame.addMouseListener(mouseTrap);
+		frame.addMouseMotionListener(mouseTrap);
+		frame.addMouseWheelListener(mouseTrap);
 		tool = new FreeTool();
 
 	}
@@ -276,76 +239,70 @@ public class Main extends JComponent {
 		System.out.println("===============================================");
 
 		System.out.println(shell.cutEngine.flatKnots);
-		stickyColor = new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
+		stickyColor = new ColorRGB(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
 		stickyColor = Color.CYAN;
-		frame.repaint();
 
 	}
 
-	@Override
-	public void paint(Graphics g) {
-		if (Main.main != null) {
-			camera.updateSize(this.getWidth(), this.getHeight());
-			double SHIFT_MOD = 1;
+	public void draw(Camera camera3D) {
+		try {
+			float SHIFT_MOD = 1;
 			if (keys != null && keys.pressedKeys.contains(KeyEvent.VK_SHIFT)) {
 				SHIFT_MOD = 2;
 			}
 			if (keys != null) {
 				keys.paintUpdate(SHIFT_MOD);
 			}
-			if (mouse != null) {
-				mouse.paintUpdate(SHIFT_MOD);
+			if (mouseTrap != null) {
+				mouseTrap.paintUpdate(SHIFT_MOD);
 			}
-			try {
-				Graphics2D g2 = (Graphics2D) g;
-				camera.calculateCameraTransform();
-				tool.draw(g2, camera, Drawing.MIN_THICKNESS);
+			camera.setZIndex(camera3D);
+			camera.calculateCameraTransform();
+			tool.draw(camera, Drawing.MIN_THICKNESS);
 
-				if (sbe != null) {
-					resultShell.drawShell(g2, true, Drawing.MIN_THICKNESS * 2, Color.magenta, retTup.ps, camera);
-					Drawing.drawCutMatch(g2, sbe, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
-				}
-				if (!(retTup == null)) {
-					Drawing.drawPath(g2, retTup.path, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false,
-							true,
-							false,
-							camera);
-				}
-				if (tool.canUseToggle(Toggle.drawCutMatch) && tool.canUseToggle(Toggle.manifold) && manifolds != null
-						&& manifolds.get(manifoldIdx).cutMatchList != null) {
-					Manifold m = manifolds.get(manifoldIdx);
-					Drawing.drawCutMatch(g2, m.cutMatchList, m.manifoldCutSegment1,
-							m.manifoldCutSegment2, m.manifoldExSegment1, m.manifoldExSegment2,
-							m.manifoldKnot, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
-				}
-				if (tool.canUseToggle(Toggle.drawMainPath)) {
-					orgShell.drawShell(g2, false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
-				}
-				if (tool.canUseToggle(Toggle.drawDisplayedKnots) && tool.canUseToggle(Toggle.drawMetroDiagram)
-						&& shell != null) {
-					drawDisplayedKnots(g2);
-				}
-
-			} catch (Exception e) {
-				e.printStackTrace();
-				SwingUtilities.getWindowAncestor(this)
-						.dispatchEvent(
-								new WindowEvent(SwingUtilities.getWindowAncestor(this), WindowEvent.WINDOW_CLOSING));
+			if (sbe != null) {
+				resultShell.drawShell(true, Drawing.MIN_THICKNESS * 2, Color.MAGENTA, retTup.ps,
+						camera);
+				Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
 			}
+			if (!(retTup == null)) {
+				Drawing.drawPath(retTup.path, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false,
+						true,
+						false,
+						camera);
+			}
+			if (tool.canUseToggle(Toggle.drawCutMatch) && tool.canUseToggle(Toggle.manifold)
+					&& manifolds != null
+					&& manifolds.get(manifoldIdx).cutMatchList != null) {
+				Manifold m = manifolds.get(manifoldIdx);
+				Drawing.drawCutMatch(m.cutMatchList, m.manifoldCutSegment1,
+						m.manifoldCutSegment2, m.manifoldExSegment1, m.manifoldExSegment2,
+						m.manifoldKnot, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
+			}
+			if (tool.canUseToggle(Toggle.drawMainPath)) {
+				orgShell.drawShell(false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
+			}
+			if (tool.canUseToggle(Toggle.drawDisplayedKnots) && tool.canUseToggle(Toggle.drawMetroDiagram)
+					&& shell != null) {
+				drawDisplayedKnots(camera);
+			}
+			camera3D.setZIndex(camera);
+
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
-
 	}
 
-	private void drawDisplayedKnots(Graphics2D g2) {
+	public static void drawDisplayedKnots(Camera2D camera) {
 		if (metroDrawLayer == shell.cutEngine.totalLayers) {
 
 			if (tool.canUseToggle(Toggle.drawKnotGradient) && manifoldKnot != null) {
 				ArrayList<Pair<Long, Long>> idTransform = lookupPairs(manifoldKnot);
-				Drawing.drawGradientPath(g2, manifoldKnot, idTransform, colorLookup, knotGradientColors, camera,
+				Drawing.drawGradientPath(manifoldKnot, idTransform, colorLookup, knotGradientColors, camera,
 						Drawing.MIN_THICKNESS);
 			} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
 				for (Shell temp : subPaths) {
-					temp.drawShell(g2, true, Drawing.MIN_THICKNESS * 2,
+					temp.drawShell(true, Drawing.MIN_THICKNESS * 2,
 							stickyColor, retTup.ps, camera);
 				}
 			}
@@ -361,21 +318,21 @@ public class Main extends JComponent {
 				if (metroDrawLayer < 0) {
 					if (tool.canUseToggle(Toggle.drawKnotGradient)) {
 						ArrayList<Pair<Long, Long>> idTransform = lookupPairs(temp.k);
-						Drawing.drawGradientPath(g2, temp.k, idTransform, colorLookup, knotGradientColors,
+						Drawing.drawGradientPath(temp.k, idTransform, colorLookup, knotGradientColors,
 								camera,
 								Drawing.MIN_THICKNESS);
 					} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
-						temp.shell.drawShell(g2, true, 2 + 1f * temp.priority,
+						temp.shell.drawShell(true, 2 + 1f * temp.priority,
 								metroColors.get(temp.priority), retTup.ps, camera);
 					}
 				} else {
 					if (tool.canUseToggle(Toggle.drawKnotGradient)) {
 						ArrayList<Pair<Long, Long>> idTransform = lookupPairs(temp.k);
-						Drawing.drawGradientPath(g2, temp.k, idTransform, colorLookup, knotGradientColors,
+						Drawing.drawGradientPath(temp.k, idTransform, colorLookup, knotGradientColors,
 								camera,
 								Drawing.MIN_THICKNESS);
 					} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
-						temp.shell.drawShell(g2, true, Drawing.MIN_THICKNESS * 2,
+						temp.shell.drawShell(true, Drawing.MIN_THICKNESS * 2,
 								metroColors.get(temp.priority), retTup.ps, camera);
 					}
 

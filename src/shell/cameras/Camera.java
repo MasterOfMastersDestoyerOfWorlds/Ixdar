@@ -8,11 +8,11 @@ public interface Camera {
 
     void move(Direction direction);
 
-    void setShiftMod(double sHIFT_MOD);
+    void setShiftMod(float sHIFT_MOD);
 
     void zoom(boolean b);
 
-    void drag(double d, double e);
+    void drag(float d, float e);
 
     void mouseMove(float lastX, float lastY, MouseEvent e);
 
@@ -21,4 +21,13 @@ public interface Camera {
 
     }
 
+    void incZIndex();
+
+    float getZIndex();
+
+    void resetZIndex();
+
+    void addZIndex(float diff);
+
+    void setZIndex(Camera camera);
 }

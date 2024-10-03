@@ -1,5 +1,6 @@
 package shell.render.sdf;
 
+import shell.cameras.Camera;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
@@ -38,12 +39,12 @@ public class SDFUnion {
         this.showPin = showPin;
     }
 
-    public void draw(float drawX, float drawY, float width, float height, float zIndex) {
-        draw(drawX, drawY, width, height, zIndex, innerColor, outerColor);
+    public void draw(float drawX, float drawY, float width, float height, Camera camera) {
+        draw(drawX, drawY, width, height, innerColor, outerColor, camera);
     }
 
-    public void draw(float drawX, float drawY, float width, float height, float zIndex, Color innerColor,
-            Color outerColor) {
+    public void draw(float drawX, float drawY, float width, float height, Color innerColor,
+            Color outerColor, Camera camera) {
         outerTexture.bind();
         shader.use();
         shader.setTexture("outerTexture", outerTexture, GL_TEXTURE0, 0);
@@ -58,23 +59,25 @@ public class SDFUnion {
         shader.setInt("showPin", (int) showPin);
         shader.begin();
 
-        shader.drawTextureRegion(outerTexture, drawX, drawY, drawX + width, drawY + height, zIndex, 0, 0,
+        shader.drawTextureRegion(outerTexture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), 0, 0,
                 outerTexture.width,
                 outerTexture.height, innerColor);
 
         shader.end();
+        camera.incZIndex();
     }
 
-    public void drawCentered(float drawX, float drawY, float scale, float zIndex, Color innerColor, Color outerColor) {
+    public void drawCentered(float drawX, float drawY, float scale, Color innerColor, Color outerColor, Camera camera) {
         float width = (float) (outerTexture.width * scale);
         float height = (float) (outerTexture.height * scale);
-        draw(drawX - (width / 2f), drawY - (height / 2f), width, height, zIndex, innerColor, outerColor);
+        draw(drawX - (width / 2f), drawY - (height / 2f), width, height, innerColor, outerColor, camera);
+
     }
 
-    public void drawCentered(float drawX, float drawY, float scale, float zIndex) {
+    public void drawCentered(float drawX, float drawY, float scale, Camera camera) {
         float width = (float) (outerTexture.width * scale);
         float height = (float) (outerTexture.height * scale);
-        draw(drawX - (width / 2f), drawY - (height / 2f), width, height, zIndex, innerColor, outerColor);
+        draw(drawX - (width / 2f), drawY - (height / 2f), width, height, innerColor, outerColor, camera);
     }
 
 }

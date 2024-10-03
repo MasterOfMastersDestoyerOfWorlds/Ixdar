@@ -1,7 +1,6 @@
 package shell.ui.tools;
 
-import java.awt.Color;
-import java.awt.Graphics2D;
+import shell.render.color.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -43,7 +42,7 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     @Override
-    public void draw(Graphics2D g2, Camera2D camera, int minLineThickness) {
+    public void draw(Camera2D camera, int minLineThickness) {
         if (layerCalculated != Main.metroDrawLayer) {
             initSegmentMap();
             return;
@@ -55,14 +54,14 @@ public class NegativeCutMatchViewTool extends Tool {
             Segment cutSeg = hoverKP.segmentLookup.get(cutId);
             if (matchSegments != null) {
                 for (Segment s : matchSegments) {
-                    Drawing.drawSingleCutMatch(Main.main, g2, s, cutSeg, Drawing.MIN_THICKNESS * 2, Main.retTup.ps,
+                    Drawing.drawSingleCutMatch(Main.main, s, cutSeg, Drawing.MIN_THICKNESS * 2, Main.retTup.ps,
                             camera);
                 }
-                Drawing.drawCircle(g2, hoverKP, Color.green, camera, minLineThickness);
+                Drawing.drawCircle(hoverKP, Color.GREEN, camera, minLineThickness);
             }
         }
         for (Knot k : Main.knotsDisplayed) {
-            Drawing.drawGradientPath(g2, k, lookupPairs(k), colorLookup, colors,
+            Drawing.drawGradientPath(k, lookupPairs(k), colorLookup, colors,
                     camera,
                     Drawing.MIN_THICKNESS);
         }
@@ -133,6 +132,5 @@ public class NegativeCutMatchViewTool extends Tool {
             }
 
         }
-        Main.main.repaint();
     }
 }

@@ -90,18 +90,26 @@
 5. - [ ] Figure out how to load and display 3d models with LWJGL.
 6. - [ ] Every frame figure out the outline of the Title and Knot and have a contrail off to the right, the contrail should be produced every frame and should exponentially decay in number of segments.
 7. - [ ] Once you go into the tool the knot should stop rotating and a sword should cut it in half.
-8. - [ ] Main Menu Item's should include: Continue : last_file_loaded.ix, Load, Puzzle, Map Editor.
+8. - [x] Main Menu Item's should include: Continue : last_file_loaded.ix, Load, Puzzle, Map Editor.
 
 ## Menu Items
 
 1. - [ ] Need a Ramp up lerp function in Clock for menu items
 2. - [ ] When a menu item is clicked, it should bounce to the left and then go off screen to the right starting with the clicked item and propagating out to the ends of the menu.
 3. - [ ] When a menu item is halfway off screen, its partner in the next menu (closest vertically) should come on from the left (ratcheting noise of typewriter?).
-4. - [ ] Menu should be scrollable within the menu's bounds.
+4. - [x] Menu should be scrollable within the menu's bounds.
 5. - [x] Menu items should be elongated hexagons, see ratchet 2.
 6. - [ ] Menu Items should make an electronic noise click noise when hovered over
 7. - [ ] Menu Items should use a custom SDF Font Atlas
-8. - [ ] Menu Items should flash on hover
+8. - [x] Menu Items should flash on hover
+
+## Shaders
+1. - [x] SDF Union between two textures
+2. - [x] SDF Lines with dashes, should be able to change between round caps and flat caps, should also be able to animate the phase of the dashes
+3. - [x] SDF Texture with separate border color.
+4. - [ ] SDF Circle with fill or border
+5. - [x] Font Atlas from rendered font
+6. - [ ] Font Atlas from SDF Atlas.
 
 ## 3D Graphics
 
