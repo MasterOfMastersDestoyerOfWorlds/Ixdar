@@ -23,7 +23,6 @@ import javax.swing.JRootPane;
 import shell.Main;
 import shell.Toggle;
 import shell.cameras.Camera;
-import shell.cameras.Camera2D;
 import shell.file.FileManagement;
 import shell.render.AWTTest;
 import shell.render.Canvas3D;

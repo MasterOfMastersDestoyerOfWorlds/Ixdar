@@ -141,8 +141,6 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
 
         normalizedPosX = (((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
         normalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
-        System.out.println("X:" + e.getX() + " Y: " + e.getY());
-        System.out.println("X:" + normalizedPosX + " Y: " + normalizedPosY);
         if (captureMouse && center == null) {
             captureMouse(false);
             return;

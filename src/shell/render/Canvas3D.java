@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import javax.swing.JFrame;
 
 import org.joml.Matrix4f;
+import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.awt.AWTGLCanvas;
 import org.lwjgl.opengl.awt.GLData;
@@ -26,10 +27,12 @@ import org.lwjgl.system.MemoryUtil;
 import shell.Main;
 import shell.cameras.Camera2D;
 import shell.cameras.Camera3D;
+import shell.render.color.Color;
 import shell.render.lights.DirectionalLight;
 import shell.render.lights.PointLight;
 import shell.render.lights.SpotLight;
 import shell.render.menu.MenuBox;
+import shell.render.sdf.SDFCircle;
 import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
 import shell.utils.Utils;
@@ -209,6 +212,7 @@ public class Canvas3D extends AWTGLCanvas {
             Canvas3D.this.changedSize = true;
         }
     };
+    public SDFCircle circle;
 
     @Override
     public void paintGL() {
@@ -291,6 +295,8 @@ public class Canvas3D extends AWTGLCanvas {
             }
             // Color c = new ColorRGB(Color.CYAN);
             menu.draw(camera);
+            circle = new SDFCircle();
+            circle.draw(new Vector2f(frameBufferWidth / 2f, frameBufferHeight / 2f), Color.BLUE, camera);
         }
         // menuInnerBorder.drawCentered(frameBufferWidth / 2,
         // // frameBufferHeight / 2, 3, -10.5f, Color.TRANSPARENT);

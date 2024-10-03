@@ -1,18 +1,10 @@
 package shell.ui;
 
-import java.awt.BasicStroke;
-
-import shell.render.Canvas3D;
 import shell.render.color.Color;
-import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFCircle;
 import shell.render.sdf.SDFLine;
 import shell.render.text.Font;
 
-import java.awt.GradientPaint;
-import java.awt.Graphics2D;
-import java.awt.geom.Ellipse2D;
-import java.awt.geom.GeneralPath;
 import java.awt.geom.Path2D;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
@@ -24,7 +16,6 @@ import org.joml.Vector2f;
 
 import shell.Main;
 import shell.PointSet;
-import shell.cameras.Camera;
 import shell.cameras.Camera2D;
 import shell.cuts.CutMatch;
 import shell.cuts.CutMatchList;
@@ -202,8 +193,6 @@ public class Drawing {
     public static void drawPath(Path2D path, float lineThickness, Color color,
             PointSet ps,
             boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed, Camera2D camera) {
-
-        BasicStroke stroke = new BasicStroke(lineThickness);
         if (dashed) {
             sdfLine.setStroke(lineThickness, true, 60f, true);
         } else {

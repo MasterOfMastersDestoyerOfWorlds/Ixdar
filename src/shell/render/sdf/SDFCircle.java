@@ -12,26 +12,17 @@ public class SDFCircle {
 
     public ShaderProgram shader;
     private Color borderColor;
-    private float borderInner;
-    private float borderOuter;
-    private float borderOffsetInner;
-    private float borderOffsetOuter;
+    private float borderThickness;
 
     public SDFCircle() {
         shader = ShaderType.CircleSDF.shader;
-        this.borderColor = Color.TRANSPARENT;
-        this.borderInner = 0;
-        this.borderOuter = 0;
-        this.borderOffsetInner = 0;
-        this.borderOffsetOuter = 0;
+        this.borderColor = Color.RED;
+        this.borderThickness = 0.1f;
     }
 
     public void draw(Vector2f pA, Color c, Camera camera) {
         shader.use();
-        shader.setFloat("borderInner", borderInner);
-        shader.setFloat("borderOuter", borderOuter);
-        shader.setFloat("borderOffsetInner", borderOffsetInner);
-        shader.setFloat("borderOffsetOuter", borderOffsetOuter);
+        shader.setFloat("borderThickness", borderThickness);
         shader.setVec4("borderColor", borderColor.toVector4f());
         shader.setVec2("pointA", pA);
         shader.setFloat("phase", Clock.spin(20));
@@ -56,11 +47,6 @@ public class SDFCircle {
         shader.drawSDFRegion(bL.x, bL.y, bR.x, bR.y, tL.x, tL.y, tR.x, tR.y, camera.getZIndex(), 0, 0, 1, 1, c);
         shader.end();
         camera.incZIndex();
-    }
-
-    public void setBorderDist(float borderDist) {
-        this.borderInner = borderDist - 0.1f;
-        this.borderOuter = borderDist;
     }
 
 }
