@@ -136,12 +136,14 @@ public class Canvas3D extends AWTGLCanvas {
     public static MenuBox menu;
     boolean changedSize = false;
     public static ArrayList<ShaderProgram> shaders = new ArrayList<>();
+    public static Canvas3D canvas;
 
     public Canvas3D(GLData context, Camera3D camera, Camera2D camera2D, MouseTrap mouseTrap, JFrame frame) {
         super(context);
         Canvas3D.camera = camera;
         Canvas3D.mouse = mouseTrap;
         Canvas3D.frame = frame;
+        Canvas3D.canvas = this;
         spotLight = new SpotLight(camera.position, camera.front,
                 new Vector3f(1.0f, 1.0f, 1.0f), 12.5f, 15f, 50f);
     }

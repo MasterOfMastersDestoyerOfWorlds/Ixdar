@@ -1,5 +1,6 @@
 package shell.render.color;
 
+import shell.cameras.Camera;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 
@@ -18,22 +19,24 @@ public class ColorBox {
         return r.x * r.x + r.y * r.y;
     }
 
-    public void drawCoords(float drawX1, float drawY1, float drawX2, float drawY2, float zIndex, Color c) {
+    public void drawCoords(float drawX1, float drawY1, float drawX2, float drawY2, Color c, Camera camera) {
 
         shader.begin();
-        shader.drawColorRegion(drawX1, drawY1, drawX2, drawY2, zIndex, c);
+        shader.drawColorRegion(drawX1, drawY1, drawX2, drawY2, camera.getZIndex(), c);
         shader.end();
+        camera.incZIndex();
     }
 
-    public void draw(int drawX, int drawY, float width, float height, float zIndex, Color c) {
+    public void draw(float nomalizedPosX, float nomalizedPosY, float width, float height, Color c, Camera camera) {
 
         shader.begin();
-        shader.drawColorRegion(drawX, drawY, drawX + width, drawY + height, zIndex, c);
+        shader.drawColorRegion(nomalizedPosX, nomalizedPosY, nomalizedPosX + width, nomalizedPosY + height, camera.getZIndex(), c);
         shader.end();
+        camera.incZIndex();
     }
 
-    public void drawCentered(int drawX, int drawY, int width, int height, float zIndex, Color c) {
-        draw(drawX - (width / 2), drawY - (height / 2), width, height, zIndex, c);
+    public void drawCentered(int drawX, int drawY, int width, int height, Color c, Camera camera) {
+        draw(drawX - (width / 2), drawY - (height / 2), width, height, c, camera);
     }
 
 }

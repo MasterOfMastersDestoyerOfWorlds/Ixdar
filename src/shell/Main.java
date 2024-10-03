@@ -4,6 +4,7 @@ import java.awt.Canvas;
 import java.awt.event.KeyEvent;
 
 import shell.render.color.Color;
+import shell.render.color.ColorBox;
 import shell.render.color.ColorRGB;
 
 import java.io.File;
@@ -30,6 +31,7 @@ import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.AWTTest;
+import shell.render.Canvas3D;
 import shell.shell.Shell;
 import shell.shell.ShellPair;
 import shell.shell.ShellComparator;
@@ -95,6 +97,9 @@ public class Main {
 		frame.addMouseListener(mouseTrap);
 		frame.addMouseMotionListener(mouseTrap);
 		frame.addMouseWheelListener(mouseTrap);
+		Canvas3D.canvas.addMouseMotionListener(mouseTrap);
+		Canvas3D.canvas.addMouseListener(mouseTrap);
+		Canvas3D.canvas.addMouseWheelListener(mouseTrap);
 		tool = new FreeTool();
 
 	}
@@ -286,6 +291,8 @@ public class Main {
 					&& shell != null) {
 				drawDisplayedKnots(camera);
 			}
+			ColorBox box = new ColorBox();
+			box.draw(mouseTrap.normalizedPosX, mouseTrap.normalizedPosY, 10, 10, Color.IXDAR, camera);
 			camera3D.setZIndex(camera);
 
 		} catch (Exception e) {

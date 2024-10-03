@@ -108,16 +108,16 @@ public abstract class Tool {
         return toggle.value;
     }
 
-    public void calculateHover(int mouseX, int mouseY) {
+    public void calculateHover(float normalizedPosX, float normalizedPosY) {
         Tool tool = Main.tool;
-        if (mouseX <= AWTTest.frame.getWidth() && mouseX >= 0
-                && mouseY <= AWTTest.frame.getHeight() && mouseY >= 0) {
+        if (normalizedPosX <= AWTTest.frame.getWidth() && normalizedPosX >= 0
+                && normalizedPosY <= AWTTest.frame.getHeight() && normalizedPosY >= 0) {
             ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
             Camera2D camera = Main.camera;
             if (knotsDisplayed != null) {
                 camera.calculateCameraTransform();
-                double x = camera.screenTransformX(mouseX);
-                double y = camera.screenTransformY(mouseY);
+                double x = camera.screenTransformX(normalizedPosX);
+                double y = camera.screenTransformY(normalizedPosY);
                 double minDist = Double.MAX_VALUE;
                 Segment hoverSegment = null;
                 for (Knot k : knotsDisplayed) {

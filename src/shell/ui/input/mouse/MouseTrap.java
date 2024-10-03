@@ -45,12 +45,15 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         frame.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
         this.camera = camera;
         this.captureMouse = captureMouse;
+        this.canvas = Canvas3D.canvas;
     }
 
     @Override
     public void mouseClicked(MouseEvent e) {
         Knot manifoldKnot = Main.manifoldKnot;
         Camera2D camera = Main.camera;
+        normalizedPosX = (((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
+        normalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
         if (Main.manifoldKnot != null) {
             camera.calculateCameraTransform();
             double x = camera.screenTransformX(e.getX());
@@ -81,10 +84,8 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
             tool.click(hoverSegment, kp, cp);
         }
         if (Canvas3D.menu != null) {
-            float nomalizedPosX = (1 - ((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
-            float nomalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
 
-            Canvas3D.menu.click(nomalizedPosX, nomalizedPosY);
+            Canvas3D.menu.click(normalizedPosX, normalizedPosY);
         }
     }
 
@@ -92,6 +93,8 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     double startY;
     private java.awt.geom.Point2D.Double center;
     private AWTGLCanvas canvas;
+    public float normalizedPosX;
+    public float normalizedPosY;
 
     @Override
     public void mousePressed(MouseEvent e) {
@@ -135,6 +138,11 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
 
     @Override
     public void mouseMoved(MouseEvent e) {
+
+        normalizedPosX = (((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
+        normalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
+        System.out.println("X:" + e.getX() + " Y: " + e.getY());
+        System.out.println("X:" + normalizedPosX + " Y: " + normalizedPosY);
         if (captureMouse && center == null) {
             captureMouse(false);
             return;
@@ -148,13 +156,10 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         }
         if (Canvas3D.menu != null && !(this.canvas == null)) {
 
-            float nomalizedPosX = (1 - ((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
-            float nomalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
-
-            Canvas3D.menu.setHover(nomalizedPosX, nomalizedPosY);
+            Canvas3D.menu.setHover(normalizedPosX, normalizedPosY);
         }
         if (main != null) {
-            Main.tool.calculateHover(e.getX(), e.getY());
+            Main.tool.calculateHover(normalizedPosX, normalizedPosY);
         }
         if (captureMouse) {
             // captureMouse(false);
