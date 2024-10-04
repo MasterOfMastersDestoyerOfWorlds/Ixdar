@@ -1,10 +1,5 @@
 package shell.ui;
 
-import shell.render.color.Color;
-import shell.render.sdf.SDFCircle;
-import shell.render.sdf.SDFLine;
-import shell.render.text.Font;
-
 import java.awt.geom.Path2D;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
@@ -24,6 +19,10 @@ import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.render.color.Color;
+import shell.render.sdf.SDFCircle;
+import shell.render.sdf.SDFLine;
+import shell.render.text.Font;
 import shell.shell.Shell;
 
 public class Drawing {
@@ -78,7 +77,7 @@ public class Drawing {
         firstCoords[0] = camera.pointTransformX(knotPoint1.getX());
         firstCoords[1] = camera.pointTransformY(knotPoint1.getY());
 
-        circle.draw(new Vector2f(firstCoords[0] - 5, firstCoords[1] - 5), Color.GREEN, camera);
+        circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), Color.GREEN, camera);
 
         sdfLine.setStroke(lineThickness, false, 0f, false);
         drawSegment(ex1, Color.GREEN, camera);
@@ -90,7 +89,7 @@ public class Drawing {
         firstCoords[0] = camera.pointTransformX(knotPoint2.getX());
         firstCoords[1] = camera.pointTransformY(knotPoint2.getY());
 
-        circle.draw(new Vector2f(firstCoords[0] - 5, firstCoords[1] - 5), Color.GREEN, camera);
+        circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), Color.GREEN, camera);
         drawSegment(ex2, Color.GREEN, camera);
 
         // Draw Cuts and Matches
@@ -133,7 +132,7 @@ public class Drawing {
         midCoords[0] = (kpCoords[0] + cpCoords[0]) / 2.0f;
         midCoords[1] = (kpCoords[1] + cpCoords[1]) / 2.0f;
         font.drawTextCentered("X", midCoords[0], midCoords[1], 20, Color.ORANGE, camera);
-        circle.draw(new Vector2f(kpCoords[0] - 5, kpCoords[1] - 5), Color.GREEN, camera);
+        circle.draw(new Vector2f(kpCoords[0], kpCoords[1]), Color.GREEN, camera);
     }
 
     public static void drawSegment(Segment ex1, Color c, Camera2D camera) {
@@ -212,7 +211,7 @@ public class Drawing {
             curr[0] = camera.pointTransformX(curr[0]);
             curr[1] = camera.pointTransformY(curr[1]);
             if (drawCircles) {
-                circle.draw(new Vector2f(curr[0] - 5, curr[1] - 5), color, camera);
+                circle.draw(new Vector2f(curr[0], curr[1]), color, camera);
             }
             if (drawNumbers) {
                 font.drawTextCentered("" + count, (int) curr[0] - 5, (int) curr[1] - 5, 20, color, camera);
@@ -278,7 +277,7 @@ public class Drawing {
         Point p = (Point) displayPoint;
         double xCoord = camera.pointTransformX(p.p.getCoord(0));
         double yCoord = camera.pointTransformY(p.p.getCoord(1));
-        circle.draw(new Vector2f((float) xCoord - 5, (float) yCoord - 5), color, camera);
+        circle.draw(new Vector2f((float) xCoord, (float) yCoord), color, camera);
     }
 
 }
