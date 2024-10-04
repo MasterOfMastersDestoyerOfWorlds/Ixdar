@@ -1,17 +1,15 @@
-package shell.render.menu;
+package shell.ui.menu;
+
+import shell.ui.actions.Action;
 
 public class MenuItem {
 
     String heading;
     String subHeading;
     String fileName;
-    MenuAction action;
+    Action action;
 
-    public interface MenuAction {
-        public void perform();
-    }
-
-    public MenuItem(String string, MenuAction action) {
+    public MenuItem(String string, Action action) {
         heading = string;
         subHeading = "";
         this.action = action;

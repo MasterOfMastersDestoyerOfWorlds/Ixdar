@@ -24,7 +24,7 @@ import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.render.Canvas3D;
+import shell.ui.Canvas3D;
 import shell.ui.tools.Tool;
 
 public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheelListener {

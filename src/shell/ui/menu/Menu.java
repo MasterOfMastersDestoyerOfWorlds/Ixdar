@@ -1,11 +1,11 @@
-package shell.render.menu;
+package shell.ui.menu;
 
-import java.util.ArrayList;
 import java.io.File;
+import java.util.ArrayList;
 
 import shell.file.FileManagement;
-import shell.render.menu.action.ChangeScreenAction;
-import shell.render.menu.action.LoadIxAction;
+import shell.ui.actions.ChangeScreenAction;
+import shell.ui.actions.LoadIxAction;
 
 public interface Menu {
 

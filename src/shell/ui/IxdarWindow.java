@@ -1,31 +1,33 @@
-package shell.render;
-
-import org.joml.Vector3f;
-import org.lwjgl.opengl.*;
-import org.lwjgl.opengl.awt.GLData;
-
-import shell.cameras.*;
-import shell.ui.input.keys.KeyGuy;
-import shell.ui.input.mouse.MouseTrap;
+package shell.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 
+import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
-import javax.swing.ImageIcon;
 
-public class AWTTest extends JFrame {
+import org.joml.Vector3f;
+import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.awt.GLData;
 
-    public static AWTTest frame;
+import shell.cameras.Camera2D;
+import shell.cameras.Camera3D;
+import shell.ui.input.keys.KeyGuy;
+import shell.ui.input.mouse.MouseTrap;
+
+public class IxdarWindow extends JFrame {
+
+    public static IxdarWindow frame;
     public static Camera3D camera;
     public static Camera2D camera2D;
 
     public static void main(String[] args) {
-        frame = new AWTTest();
+        frame = new IxdarWindow();
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.setLayout(new BorderLayout());
         frame.setBackground(java.awt.Color.darkGray);
+        frame.setName("Ixdar");
 
         ImageIcon img = new ImageIcon("res/decalSmall.png");
         frame.setIconImage(img.getImage());

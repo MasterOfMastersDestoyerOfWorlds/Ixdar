@@ -11,13 +11,14 @@
             "request": "launch",
             "mainClass": "shell.Main",
             "projectName": "TSP",
+            "args": "djbouti",
             "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true"
         },
         {
             "type": "java",
-            "name": "Launch AWT  TEST",
+            "name": "Ixdar",
             "request": "launch",
-            "mainClass": "shell.render.AWTTest",
+            "mainClass": "shell.ui.IxdarWindow",
             "projectName": "TSP",
             "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true"
         },

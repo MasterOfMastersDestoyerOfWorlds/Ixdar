@@ -9,7 +9,7 @@ import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.render.AWTTest;
+import shell.ui.IxdarWindow;
 
 public abstract class Tool {
 
@@ -110,8 +110,8 @@ public abstract class Tool {
 
     public void calculateHover(float normalizedPosX, float normalizedPosY) {
         Tool tool = Main.tool;
-        if (normalizedPosX <= AWTTest.frame.getWidth() && normalizedPosX >= 0
-                && normalizedPosY <= AWTTest.frame.getHeight() && normalizedPosY >= 0) {
+        if (normalizedPosX <= IxdarWindow.frame.getWidth() && normalizedPosX >= 0
+                && normalizedPosY <= IxdarWindow.frame.getHeight() && normalizedPosY >= 0) {
             ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
             Camera2D camera = Main.camera;
             if (knotsDisplayed != null) {

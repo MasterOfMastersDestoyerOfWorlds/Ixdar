@@ -26,15 +26,15 @@ import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.render.AWTTest;
-import shell.render.Canvas3D;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFTexture;
 import shell.shell.Shell;
 import shell.shell.ShellComparator;
 import shell.shell.ShellPair;
+import shell.ui.Canvas3D;
 import shell.ui.Drawing;
+import shell.ui.IxdarWindow;
 import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
 import shell.ui.tools.FreeTool;
@@ -80,7 +80,7 @@ public class Main {
 		Main.fileName = fileName;
 		file = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(file);
-		AWTTest frame = AWTTest.frame;
+		IxdarWindow frame = IxdarWindow.frame;
 		frame.setName("Ixdar : " + fileName);
 
 		camera = new Camera2D(600, 600, 0.9f, 0, 0, retTup.ps);
@@ -247,7 +247,7 @@ public class Main {
 	}
 
 	public void draw(Camera camera3D) {
-
+		camera.updateSize(Canvas3D.frameBufferWidth, Canvas3D.frameBufferWidth);
 		try {
 			float SHIFT_MOD = 1;
 			if (keys != null && keys.pressedKeys.contains(KeyEvent.VK_SHIFT)) {
@@ -292,7 +292,7 @@ public class Main {
 			if (logo == null) {
 				logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, 0.6f, 0f, true);
 			}
-			logo.drawRightBound(Canvas3D.frameBufferWidth, 0, 300f, 300f, Color.IXDAR, camera);
+			logo.drawRightBound(Canvas3D.frameBufferWidth, 0, 250f, 250f, Color.IXDAR, camera);
 			camera3D.setZIndex(camera);
 
 		} catch (Exception e) {

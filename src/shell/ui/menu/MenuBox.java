@@ -1,16 +1,16 @@
-package shell.render.menu;
+package shell.ui.menu;
 
 import java.util.ArrayList;
 
 import shell.cameras.Camera;
 import shell.file.FileManagement;
-import shell.render.Canvas3D;
 import shell.render.color.Color;
 import shell.render.color.ColorBox;
 import shell.render.color.ColorLerp;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFUnion;
 import shell.render.text.Font;
+import shell.ui.Canvas3D;
 
 public class MenuBox {
     SDFUnion menuOuterBorder;

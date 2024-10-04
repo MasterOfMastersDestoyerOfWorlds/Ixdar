@@ -1,11 +1,12 @@
 package shell.render.shaders;
 
 import static org.lwjgl.opengl.GL11.GL_FLOAT;
-import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
+import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
 
 import org.joml.Matrix4f;
 
-import shell.render.Canvas3D;
+import shell.ui.Canvas3D;
 
 public class ColorShader extends ShaderProgram {
 

@@ -224,7 +224,8 @@ public class Drawing {
                     sdfLine.draw(new Vector2f(last), new Vector2f(curr), color, camera);
                 }
             }
-            last = curr;
+            last[0] = curr[0];
+            last[1] = curr[1];
             count++;
         }
         if (drawLines) {

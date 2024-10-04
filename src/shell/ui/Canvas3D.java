@@ -1,4 +1,4 @@
-package shell.render;
+package shell.ui;
 
 import static org.lwjgl.opengl.GL.createCapabilities;
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
@@ -41,10 +41,11 @@ import org.lwjgl.system.MemoryUtil;
 import shell.Main;
 import shell.cameras.Camera2D;
 import shell.cameras.Camera3D;
+import shell.render.Clock;
+import shell.render.Texture;
 import shell.render.lights.DirectionalLight;
 import shell.render.lights.PointLight;
 import shell.render.lights.SpotLight;
-import shell.render.menu.MenuBox;
 import shell.render.sdf.SDFCircle;
 import shell.render.shaders.DiffuseShader;
 import shell.render.shaders.FontShader;
@@ -55,6 +56,7 @@ import shell.render.shaders.VertexBufferObject;
 import shell.render.text.Font;
 import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
+import shell.ui.menu.MenuBox;
 import shell.utils.Utils;
 
 public class Canvas3D extends AWTGLCanvas {

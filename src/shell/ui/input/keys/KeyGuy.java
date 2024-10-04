@@ -1,9 +1,5 @@
 package shell.ui.input.keys;
 
-import shell.render.color.Color;
-import shell.render.color.ColorRGB;
-import shell.render.menu.MenuBox;
-
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.event.KeyEvent;
@@ -24,14 +20,18 @@ import shell.Main;
 import shell.Toggle;
 import shell.cameras.Camera;
 import shell.file.FileManagement;
-import shell.render.AWTTest;
-import shell.render.Canvas3D;
+import shell.render.color.Color;
+import shell.render.color.ColorRGB;
 import shell.shell.Shell;
+import shell.ui.Canvas3D;
+import shell.ui.IxdarWindow;
+import shell.ui.actions.GenerateManifoldTestsAction;
+import shell.ui.actions.SaveDialog;
+import shell.ui.menu.MenuBox;
 import shell.ui.tools.EditManifoldTool;
 import shell.ui.tools.FindManifoldTool;
 import shell.ui.tools.NegativeCutMatchViewTool;
 import shell.ui.tools.Tool;
-import shell.ui.actions.*;
 
 public class KeyGuy implements KeyListener {
 
@@ -290,7 +290,7 @@ public class KeyGuy implements KeyListener {
             }
             if (moved && main != null) {
                 Point mouseLocation = MouseInfo.getPointerInfo().getLocation();
-                Point frameLocation = AWTTest.frame.getRootPane().getLocationOnScreen();
+                Point frameLocation = IxdarWindow.frame.getRootPane().getLocationOnScreen();
                 Main.tool.calculateHover((int) (mouseLocation.getX() - frameLocation.getX()),
                         (int) (mouseLocation.getY() - frameLocation.getY()));
             }

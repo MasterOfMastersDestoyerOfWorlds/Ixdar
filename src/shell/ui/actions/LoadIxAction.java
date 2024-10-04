@@ -1,12 +1,11 @@
-package shell.render.menu.action;
+package shell.ui.actions;
 
 import shell.Main;
 import shell.file.FileManagement;
-import shell.render.Canvas3D;
-import shell.render.menu.MenuBox;
-import shell.render.menu.MenuItem.MenuAction;
+import shell.ui.Canvas3D;
+import shell.ui.menu.MenuBox;
 
-public class LoadIxAction implements MenuAction {
+public class LoadIxAction implements Action {
 
     private String fileName;
 
@@ -14,6 +13,7 @@ public class LoadIxAction implements MenuAction {
         this.fileName = fileName;
     }
 
+    @Override
     public void perform() {
         FileManagement.updateTestFileCache(fileName);
         Canvas3D.keys.active = false;
