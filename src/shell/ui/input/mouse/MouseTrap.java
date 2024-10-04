@@ -1,20 +1,5 @@
 package shell.ui.input.mouse;
 
-import java.awt.event.MouseListener;
-import java.awt.event.MouseMotionListener;
-import java.awt.event.MouseWheelEvent;
-import java.awt.event.MouseWheelListener;
-import java.awt.event.MouseEvent;
-
-import shell.Main;
-import shell.cameras.Camera;
-import shell.cameras.Camera2D;
-import shell.ui.tools.Tool;
-import shell.knot.Knot;
-import shell.knot.Segment;
-import shell.knot.VirtualPoint;
-import shell.render.Canvas3D;
-
 import java.awt.AWTException;
 import java.awt.Cursor;
 import java.awt.GraphicsConfiguration;
@@ -22,11 +7,25 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.awt.Robot;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 import java.awt.geom.Point2D;
 
 import javax.swing.JFrame;
 
 import org.lwjgl.opengl.awt.AWTGLCanvas;
+
+import shell.Main;
+import shell.cameras.Camera;
+import shell.cameras.Camera2D;
+import shell.knot.Knot;
+import shell.knot.Segment;
+import shell.knot.VirtualPoint;
+import shell.render.Canvas3D;
+import shell.ui.tools.Tool;
 
 public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheelListener {
 
@@ -99,16 +98,21 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     @Override
     public void mousePressed(MouseEvent e) {
 
-        startX = e.getX();
-        startY = e.getY();
+        normalizedPosX = (((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
+        normalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
+        startX = normalizedPosX;
+        startY = normalizedPosY;
     }
 
     @Override
     public void mouseDragged(MouseEvent e) {
+        
+        normalizedPosX = (((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
+        normalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
         // update pan x and y to follow the mouse
-        camera.drag((float) (e.getX() - startX), (float) (e.getY() - startY));
-        startX = e.getX();
-        startY = e.getY();
+        camera.drag((float) (normalizedPosX - startX), (float) (normalizedPosY - startY));
+        startX = normalizedPosX;
+        startY = normalizedPosY;
     }
 
     @Override
