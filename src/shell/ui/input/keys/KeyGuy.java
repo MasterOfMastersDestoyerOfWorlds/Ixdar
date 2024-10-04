@@ -279,11 +279,11 @@ public class KeyGuy implements KeyListener {
                 camera.move(Camera.Direction.RIGHT);
                 moved = true;
             }
-            if (KeyActions.ZoomIn.keyPressed(pressedKeys)) {
+            if (KeyActions.ZoomIn.keyPressed(pressedKeys) && !KeyActions.ZoomOut.keyPressed(pressedKeys)) {
                 camera.zoom(true);
                 moved = true;
             }
-            if (KeyActions.ZoomOut.keyPressed(pressedKeys)) {
+            if (KeyActions.ZoomOut.keyPressed(pressedKeys) && !KeyActions.ZoomIn.keyPressed(pressedKeys)) {
 
                 camera.zoom(false);
                 moved = true;

@@ -83,7 +83,7 @@ public class Main {
 		IxdarWindow frame = IxdarWindow.frame;
 		frame.setName("Ixdar : " + fileName);
 
-		camera = new Camera2D(600, 600, 0.9f, 0, 0, retTup.ps);
+		camera = new Camera2D(600, 600, 1f, 0, 0, retTup.ps);
 
 		Toggle.manifold.value = !retTup.manifolds.isEmpty();
 

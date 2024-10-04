@@ -32,7 +32,7 @@ public class IxdarWindow extends JFrame {
         ImageIcon img = new ImageIcon("res/decalSmall.png");
         frame.setIconImage(img.getImage());
         camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f);
-        camera2D = new Camera2D(600, 600, 0.9f, 0, 0, null);
+        camera2D = new Camera2D(600, 600, 1f, 0, 0, null);
         MouseTrap mouseTrap = new MouseTrap(null, frame, camera, false);
         GLData context = new GLData();
         context.stencilSize = 8;

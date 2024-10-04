@@ -248,7 +248,7 @@ public class Canvas3D extends AWTGLCanvas {
             glViewport(0, 0, (int) frameBufferWidth, (int) frameBufferHeight);
             changedSize = false;
             for (ShaderProgram s : shaders) {
-                s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight);
+                s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
             }
         }
 

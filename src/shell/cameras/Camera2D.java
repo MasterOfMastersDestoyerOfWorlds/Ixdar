@@ -6,21 +6,22 @@ import java.awt.geom.Point2D;
 import shell.Main;
 import shell.PointND;
 import shell.PointSet;
+import shell.render.shaders.ShaderProgram;
 
 public class Camera2D implements Camera {
 
-    public float ZOOM_SPEED = 0.005f;
-    public float PAN_SPEED = 0.65f;
+    public float ZOOM_SPEED = 0.01f;
+    public float PAN_SPEED = 10f;
     public int Width, Height;
-    public int ScreenWidth, ScreenHeight;
+    public float ScreenWidth, ScreenHeight;
     public float ScaleFactor;
     public float InitialScale;
     public float PanX;
     public float PanY;
     public float defaultPanX;
     public float defaultPanY;
-    public int offsetX;
-    public int offsetY;
+    public float offsetX;
+    public float offsetY;
     public float rangeX;
     public float rangeY;
     public PointSet ps;
@@ -47,7 +48,7 @@ public class Camera2D implements Camera {
 
     }
 
-    public void updateSize(int newWidth, int newHeight) {
+    public void updateSize(float newWidth, float newHeight) {
         ScreenWidth = newWidth;
         ScreenHeight = newHeight;
     }
@@ -163,8 +164,8 @@ public class Camera2D implements Camera {
     }
 
     // transform from point space to screen space
-    public float pointTransformY(float x, float scale) {
-        return ((((x - minY) * (Height * scale)) / rangeY) + offsetY);
+    public float pointTransformY(float y, float scale) {
+        return ((((y - minY) * (Height * scale)) / rangeY) + offsetY);
     }
 
     // transform from screen space to point space
@@ -173,15 +174,22 @@ public class Camera2D implements Camera {
     }
 
     public void scale(float delta) {
+
+        if (ScaleFactor + delta < 0.1) {
+            return;
+        }
         float newScaleY = ScaleFactor + delta;
-        float midXPointSpace = screenTransformX(((float) ScreenWidth) / 2);
-        float midYPointSpace = screenTransformY(((float) ScreenHeight) / 2);
+        float midXPointSpace = screenTransformX(((float) ScreenWidth) / 2f);
+        float midYPointSpace = screenTransformY(((float) ScreenHeight) / 2f);
         float midXNewScale = pointTransformX(midXPointSpace, newScaleY);
         float midYNewScale = pointTransformY(midYPointSpace, newScaleY);
-
-        PanX += (((float) ScreenWidth) / 2) - midXNewScale;
-        PanY += (((float) ScreenHeight) / 2) - midYNewScale;
+        PanX += (((float) ScreenWidth) / 2f) - midXNewScale;
+        PanY += (((float) ScreenHeight) / 2f) - midYNewScale;
         ScaleFactor += delta;
+        if (Math.abs(pointTransformX(midXPointSpace) - (((float) ScreenWidth) / 2f)) > 0.01) {
+            float z = 1;
+
+        }
     }
 
     @Override
@@ -198,13 +206,13 @@ public class Camera2D implements Camera {
                 PanY += PAN_SPEED * SHIFT_MOD;
                 break;
             case LEFT:
-                PanX += PAN_SPEED * SHIFT_MOD;
+                PanX -= PAN_SPEED * SHIFT_MOD;
                 break;
             case BACKWARD:
                 PanY -= PAN_SPEED * SHIFT_MOD;
                 break;
             case RIGHT:
-                PanX -= PAN_SPEED * SHIFT_MOD;
+                PanX += PAN_SPEED * SHIFT_MOD;
                 break;
 
         }
@@ -224,6 +232,7 @@ public class Camera2D implements Camera {
         }
     }
 
+    @Override
     public void drag(float d, float e) {
         PanX += d;
         PanY += e;

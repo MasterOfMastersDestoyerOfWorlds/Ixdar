@@ -1,6 +1,8 @@
 {
     "java.configuration.updateBuildConfiguration": "interactive",
-    "java.project.sourcePaths": ["src\\shell"],
+    "java.project.sourcePaths": [
+        "src\\shell"
+    ],
     "java.project.outputPath": "bin",
     "java.debug.settings.onBuildFailureProceed": true,
     "java.debug.settings.showToString": true,
@@ -12,6 +14,6 @@
     "editor.links": true,
     "debug.autoExpandLazyVariables": "on",
     "editor.formatOnSave": true,
-    "java.format.settings.url": "eclipse-formatter.xml"
-    
+    "java.format.settings.url": "eclipse-formatter.xml",
+    "java.saveActions.organizeImports": false
 }

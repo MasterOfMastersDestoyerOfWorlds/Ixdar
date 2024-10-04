@@ -587,6 +587,6 @@ public abstract class ShaderProgram {
         numVertices += 6;
     }
 
-    public abstract void updateProjectionMatrix(int framebufferWidth, int framebufferHeight);
+    public abstract void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float f);
 
 }
