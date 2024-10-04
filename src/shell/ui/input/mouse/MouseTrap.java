@@ -20,7 +20,6 @@ import org.lwjgl.opengl.awt.AWTGLCanvas;
 
 import shell.Main;
 import shell.cameras.Camera;
-import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
@@ -34,9 +33,12 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     long timeLastScroll;
     public static int lastX = Integer.MIN_VALUE;
     public static int lastY = Integer.MIN_VALUE;
+    int width;
+    int height;
     JFrame frame;
     public Camera camera;
     public boolean captureMouse;
+    public boolean active = true;
 
     public MouseTrap(Main main, JFrame frame, Camera camera, boolean captureMouse) {
         this.main = main;
@@ -49,10 +51,12 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
 
     @Override
     public void mouseClicked(MouseEvent e) {
+        if (!active) {
+            return;
+        }
         Knot manifoldKnot = Main.manifoldKnot;
-        Camera2D camera = Main.camera;
-        normalizedPosX = (((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
-        normalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
+        normalizedPosX = getNormalizePosX(e);
+        normalizedPosY = getNormalizedPosY(e);
         if (Main.manifoldKnot != null) {
             camera.calculateCameraTransform();
             double x = camera.screenTransformX(normalizedPosX);
@@ -88,6 +92,18 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         }
     }
 
+    private float getNormalizePosX(MouseEvent e) {
+        return (((((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth
+                + camera.getScreenOffsetX())
+                * camera.getScreenWidthRatio());
+    }
+
+    private float getNormalizedPosY(MouseEvent e) {
+        return ((1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight
+                - camera.getScreenOffsetY())
+                * (camera.getScreenHeightRatio());
+    }
+
     double startX;
     double startY;
     private java.awt.geom.Point2D.Double center;
@@ -98,17 +114,17 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     @Override
     public void mousePressed(MouseEvent e) {
 
-        normalizedPosX = (((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
-        normalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
+        normalizedPosX = getNormalizePosX(e);
+        normalizedPosY = getNormalizedPosY(e);
         startX = normalizedPosX;
         startY = normalizedPosY;
     }
 
     @Override
     public void mouseDragged(MouseEvent e) {
-        
-        normalizedPosX = (((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
-        normalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
+
+        normalizedPosX = getNormalizePosX(e);
+        normalizedPosY = getNormalizedPosY(e);
         // update pan x and y to follow the mouse
         camera.drag((float) (normalizedPosX - startX), (float) (normalizedPosY - startY));
         startX = normalizedPosX;
@@ -143,8 +159,8 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     @Override
     public void mouseMoved(MouseEvent e) {
 
-        normalizedPosX = (((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth;
-        normalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
+        normalizedPosX = getNormalizePosX(e);
+        normalizedPosY = getNormalizedPosY(e);
         if (captureMouse && center == null) {
             captureMouse(false);
             return;

@@ -6,6 +6,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import shell.render.Clock;
+import shell.ui.Canvas3D;
 
 public class Camera3D implements Camera {
 
@@ -157,5 +158,52 @@ public class Camera3D implements Camera {
     @Override
     public void resetZIndex() {
         zIndex = 0;
+    }
+
+    @Override
+    public void calculateCameraTransform() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'calculateCameraTransform'");
+    }
+
+    @Override
+    public float screenTransformX(float normalizedPosX) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'screenTransformX'");
+    }
+
+    @Override
+    public float screenTransformY(float normalizedPosY) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'screenTransformY'");
+    }
+
+    @Override
+    public float getWidth() {
+        return Canvas3D.frameBufferWidth;
+    }
+
+    @Override
+    public float getHeight() {
+        return Canvas3D.frameBufferHeight;
+    }
+
+    @Override
+    public float getScreenOffsetX() {
+        return 0;
+    }
+
+    @Override
+    public float getScreenOffsetY() {
+        return 0;
+    }
+
+    @Override
+    public float getScreenWidthRatio() {
+        return 1;
+    }
+    @Override
+    public float getScreenHeightRatio() {
+        return 1;
     }
 }

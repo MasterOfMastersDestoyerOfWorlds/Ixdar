@@ -6,7 +6,7 @@ import java.awt.geom.Point2D;
 import shell.Main;
 import shell.PointND;
 import shell.PointSet;
-import shell.render.shaders.ShaderProgram;
+import shell.ui.Canvas3D;
 
 public class Camera2D implements Camera {
 
@@ -33,19 +33,31 @@ public class Camera2D implements Camera {
     public float zIndex;
     float width;
     private float SHIFT_MOD = 1.0f;
+    private float ScreenOffsetY;
+    private float ScreenOffsetX;
 
-    public Camera2D(int Height, int Width, float ScaleFactor, float PanX, float PanY, PointSet ps) {
+    public Camera2D(int Width, int Height, float ScaleFactor, float ScreenOffsetX, float ScreenOffsetY, PointSet ps) {
         this.Height = Height;
         this.Width = Width;
         this.height = Height * ScaleFactor;
         this.width = Width * ScaleFactor;
         this.InitialScale = ScaleFactor;
         this.ScaleFactor = ScaleFactor;
-        this.PanX = PanX;
-        this.PanY = PanY;
+        this.ScreenOffsetX = ScreenOffsetX;
+        this.ScreenOffsetY = ScreenOffsetY;
         this.ps = ps;
         zIndex = 0;
 
+    }
+
+    @Override
+    public float getWidth() {
+        return ScreenWidth;
+    }
+
+    @Override
+    public float getHeight() {
+        return ScreenHeight;
     }
 
     public void updateSize(float newWidth, float newHeight) {
@@ -53,6 +65,7 @@ public class Camera2D implements Camera {
         ScreenHeight = newHeight;
     }
 
+    @Override
     public void calculateCameraTransform() {
         PointSet ps = Main.retTup.ps;
         minX = java.lang.Float.MAX_VALUE;
@@ -127,8 +140,8 @@ public class Camera2D implements Camera {
             rangeX = rangeY;
         }
 
-        offsetX += (Width - (Math.abs(pointTransformX(maxX) - pointTransformX(minX)))) / 2;
-        offsetY += (Height - (Math.abs(pointTransformY(maxY) - pointTransformY(minY)))) / 2;
+        offsetX += (Width) / 4;
+        offsetY += (Height) / 4;
         PanX = offsetX;
         PanY = offsetY;
         defaultPanX = PanX;
@@ -150,6 +163,7 @@ public class Camera2D implements Camera {
     }
 
     // transform from screen space to point space
+    @Override
     public float screenTransformX(float x) {
         return ((((x) - offsetX) * rangeX) / width) + minX;
     }
@@ -169,6 +183,7 @@ public class Camera2D implements Camera {
     }
 
     // transform from screen space to point space
+    @Override
     public float screenTransformY(float y) {
         return ((((y) - offsetY) * rangeY) / height) + minY;
     }
@@ -186,10 +201,6 @@ public class Camera2D implements Camera {
         PanX += (((float) ScreenWidth) / 2f) - midXNewScale;
         PanY += (((float) ScreenHeight) / 2f) - midYNewScale;
         ScaleFactor += delta;
-        if (Math.abs(pointTransformX(midXPointSpace) - (((float) ScreenWidth) / 2f)) > 0.01) {
-            float z = 1;
-
-        }
     }
 
     @Override
@@ -265,5 +276,25 @@ public class Camera2D implements Camera {
     @Override
     public void resetZIndex() {
         zIndex = 0;
+    }
+
+    @Override
+    public float getScreenOffsetX() {
+        return ScreenOffsetX;
+    }
+
+    @Override
+    public float getScreenOffsetY() {
+        return ScreenOffsetY;
+    }
+
+    @Override
+    public float getScreenWidthRatio() {
+        return Canvas3D.frameBufferWidth / ScreenWidth;
+    }
+
+    @Override
+    public float getScreenHeightRatio() {
+        return Canvas3D.frameBufferHeight / ScreenHeight;
     }
 }

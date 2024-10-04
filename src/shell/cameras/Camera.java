@@ -30,4 +30,22 @@ public interface Camera {
     void addZIndex(float diff);
 
     void setZIndex(Camera camera);
+
+    void calculateCameraTransform();
+
+    float screenTransformX(float normalizedPosX);
+
+    float screenTransformY(float normalizedPosY);
+
+    float getWidth();
+
+    float getHeight();
+
+    float getScreenOffsetX();
+
+    float getScreenOffsetY();
+
+    float getScreenWidthRatio();
+
+    float getScreenHeightRatio();
 }

@@ -17,6 +17,7 @@ public class LoadIxAction implements Action {
     public void perform() {
         FileManagement.updateTestFileCache(fileName);
         Canvas3D.keys.active = false;
+        Canvas3D.mouse.active = false;
         MenuBox.menuVisible = false;
         Main.main(new String[] { fileName });
 

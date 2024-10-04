@@ -238,6 +238,7 @@ public class KeyGuy implements KeyListener {
                 if (Main.tool.toolType() == Tool.Type.Free) {
                     MenuBox.menuVisible = true;
                     Canvas3D.keys.active = true;
+                    Canvas3D.mouse.active = true;
                     this.active = false;
                 }
                 Main.tool = Main.freeTool;

@@ -1,5 +1,7 @@
 package shell;
 
+import static org.lwjgl.opengl.GL11.glViewport;
+
 import java.awt.Canvas;
 import java.awt.event.KeyEvent;
 import java.io.File;
@@ -11,6 +13,7 @@ import java.util.Random;
 import java.util.Set;
 
 import org.apache.commons.math3.util.Pair;
+import org.joml.Vector2f;
 
 import shell.cameras.Camera;
 import shell.cameras.Camera2D;
@@ -28,6 +31,7 @@ import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
+import shell.render.sdf.SDFCircle;
 import shell.render.sdf.SDFTexture;
 import shell.shell.Shell;
 import shell.shell.ShellComparator;
@@ -76,6 +80,9 @@ public class Main {
 	private MouseTrap mouseTrap;
 	private SDFTexture logo;
 
+	final int RIGHT_PANEL_SIZE = 250;
+	final int BOTTOM_PANEL_SIZE = 250;
+
 	public Main(String fileName) {
 		Main.fileName = fileName;
 		file = FileManagement.getTestFile(fileName);
@@ -83,7 +90,9 @@ public class Main {
 		IxdarWindow frame = IxdarWindow.frame;
 		frame.setName("Ixdar : " + fileName);
 
-		camera = new Camera2D(600, 600, 1f, 0, 0, retTup.ps);
+		camera = new Camera2D(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE,
+				Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE, 0.9f, 0, BOTTOM_PANEL_SIZE,
+				retTup.ps);
 
 		Toggle.manifold.value = !retTup.manifolds.isEmpty();
 
@@ -247,7 +256,7 @@ public class Main {
 	}
 
 	public void draw(Camera camera3D) {
-		camera.updateSize(Canvas3D.frameBufferWidth, Canvas3D.frameBufferWidth);
+		camera.updateSize(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
 		try {
 			float SHIFT_MOD = 1;
 			if (keys != null && keys.pressedKeys.contains(KeyEvent.VK_SHIFT)) {
@@ -259,6 +268,8 @@ public class Main {
 			if (mouseTrap != null) {
 				mouseTrap.paintUpdate(SHIFT_MOD);
 			}
+			glViewport(0, BOTTOM_PANEL_SIZE,
+					Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
 			camera.setZIndex(camera3D);
 			camera.calculateCameraTransform();
 			tool.draw(camera, Drawing.MIN_THICKNESS);
@@ -292,7 +303,10 @@ public class Main {
 			if (logo == null) {
 				logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, 0.6f, 0f, true);
 			}
-			logo.drawRightBound(Canvas3D.frameBufferWidth, 0, 250f, 250f, Color.IXDAR, camera);
+			new SDFCircle().draw(new Vector2f(mouseTrap.normalizedPosX, mouseTrap.normalizedPosY), stickyColor,
+					camera3D);
+			glViewport(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+			logo.drawRightBound(Canvas3D.frameBufferWidth, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 			camera3D.setZIndex(camera);
 
 		} catch (Exception e) {
