@@ -213,14 +213,17 @@ public class Drawing {
             }
 
             if (drawNumbers) {
-                float numberPixelDistance = FONT_HEIGHT_PIXELS*0.75f;
-                Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getCoord(0)) - x,
-                        camera.pointTransformY(last.getCoord(1)) - y).normalize().mul(numberPixelDistance);
-                Vector2f nextVector = new Vector2f(camera.pointTransformX(next.getCoord(0)) - x,
-                        camera.pointTransformY(next.getCoord(1)) - y).normalize().mul(numberPixelDistance);
-
-                font.drawTextCentered("" + count, (int) x - lastVector.x - nextVector.x,
-                        (int) y - lastVector.y - nextVector.y, FONT_HEIGHT_PIXELS,
+                float numberPixelDistance = FONT_HEIGHT_PIXELS;
+                Vector2f point = new Vector2f(x, y);
+                Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getCoord(0)),
+                        camera.pointTransformY(last.getCoord(1))).sub(point);
+                Vector2f nextVector = new Vector2f(camera.pointTransformX(next.getCoord(0)),
+                        camera.pointTransformY(next.getCoord(1))).sub(point);
+                Vector2f bisector = new Vector2f(lastVector).normalize().add(new Vector2f(nextVector).normalize())
+                        .normalize().mul(numberPixelDistance);
+                Vector2f textCenter = point.sub(bisector);
+                font.drawTextCentered("" + count, textCenter.x,
+                        textCenter.y, FONT_HEIGHT_PIXELS,
                         color, camera);
             }
             if (drawLines) {
