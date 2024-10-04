@@ -1,9 +1,24 @@
 package shell.render;
 
 import static org.lwjgl.opengl.GL.createCapabilities;
-import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL13.*;
-import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
+import static org.lwjgl.opengl.GL11.GL_RGBA;
+import static org.lwjgl.opengl.GL11.GL_STENCIL_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11.GL_STENCIL_TEST;
+import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
+import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
+import static org.lwjgl.opengl.GL11.glClear;
+import static org.lwjgl.opengl.GL11.glClearColor;
+import static org.lwjgl.opengl.GL11.glDrawArrays;
+import static org.lwjgl.opengl.GL11.glEnable;
+import static org.lwjgl.opengl.GL11.glReadPixels;
+import static org.lwjgl.opengl.GL11.glViewport;
+import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
+import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
+import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
+import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
 
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -18,7 +33,6 @@ import java.util.ArrayList;
 import javax.swing.JFrame;
 
 import org.joml.Matrix4f;
-import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.awt.AWTGLCanvas;
 import org.lwjgl.opengl.awt.GLData;
@@ -27,17 +41,21 @@ import org.lwjgl.system.MemoryUtil;
 import shell.Main;
 import shell.cameras.Camera2D;
 import shell.cameras.Camera3D;
-import shell.render.color.Color;
 import shell.render.lights.DirectionalLight;
 import shell.render.lights.PointLight;
 import shell.render.lights.SpotLight;
 import shell.render.menu.MenuBox;
 import shell.render.sdf.SDFCircle;
+import shell.render.shaders.DiffuseShader;
+import shell.render.shaders.FontShader;
+import shell.render.shaders.LightShader;
+import shell.render.shaders.ShaderProgram;
+import shell.render.shaders.VertexArrayObject;
+import shell.render.shaders.VertexBufferObject;
+import shell.render.text.Font;
 import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
 import shell.utils.Utils;
-import shell.render.shaders.*;
-import shell.render.text.*;
 
 public class Canvas3D extends AWTGLCanvas {
 
@@ -138,6 +156,7 @@ public class Canvas3D extends AWTGLCanvas {
     public Font debugFont;
     public static MenuBox menu;
     boolean changedSize = false;
+    //private SDFTexture logo;
     public static ArrayList<ShaderProgram> shaders = new ArrayList<>();
     public static Canvas3D canvas;
 
@@ -185,6 +204,7 @@ public class Canvas3D extends AWTGLCanvas {
         font = new Font();
         debugFont = new Font(12, false);
 
+        //logo = new SDFTexture("decal_sdf.png", Color.BLUE_WHITE, 0.5f, 0.5f, false);
         menu = new MenuBox();
         // menuInnerBorder = new SDFTexture("menu_inner.png", Color.BLUE_WHITE, 0.25f,
         // 0f, true);
@@ -295,8 +315,7 @@ public class Canvas3D extends AWTGLCanvas {
             }
             // Color c = new ColorRGB(Color.CYAN);
             menu.draw(camera);
-            circle = new SDFCircle();
-            circle.draw(new Vector2f(frameBufferWidth / 2f, frameBufferHeight / 2f), Color.BLUE, camera);
+			//logo.drawRightBound(Canvas3D.frameBufferWidth, 0, 800f, 800f, Color.IXDAR, camera);
         }
         // menuInnerBorder.drawCentered(frameBufferWidth / 2,
         // // frameBufferHeight / 2, 3, -10.5f, Color.TRANSPARENT);

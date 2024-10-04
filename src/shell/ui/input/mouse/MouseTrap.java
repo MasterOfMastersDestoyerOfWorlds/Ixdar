@@ -56,8 +56,8 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         normalizedPosY = (1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight;
         if (Main.manifoldKnot != null) {
             camera.calculateCameraTransform();
-            double x = camera.screenTransformX(e.getX());
-            double y = camera.screenTransformY(e.getY());
+            double x = camera.screenTransformX(normalizedPosX);
+            double y = camera.screenTransformY(normalizedPosY);
             double minDist = Double.MAX_VALUE;
             Segment hoverSegment = null;
             for (Segment s : manifoldKnot.manifoldSegments) {

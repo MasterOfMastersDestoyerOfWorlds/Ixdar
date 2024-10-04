@@ -13,6 +13,7 @@ public interface Color {
     public static final Color BLUE_WHITE = new ColorRGB(98, 142, 166);
     public static final Color CYAN = new ColorRGB(0, 255, 255);
     public static final Color IXDAR = new ColorRGB(150, 0, 36);
+    public static final Color IXDAR_DARK = new ColorRGB(51, 1, 13);
     public static final Color TRANSPARENT = new ColorRGB(0, 0, 0, 0);
     public static final Color YELLOW = new ColorRGB(0, 255, 255);
     public static final Color MAGENTA = new ColorRGB(1f, 0f, 1f);

@@ -153,7 +153,7 @@ public class Drawing {
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
 
-        sdfLine.draw(firstVec, lastVec, c, camera);
+        sdfLine.draw(firstVec, lastVec, c,camera);
     }
 
     public static void drawGradientSegment(Segment s, Color color1, Color color2, Camera2D camera) {
@@ -176,7 +176,7 @@ public class Drawing {
 
         lastCoords[0] = camera.pointTransformX(last.getX());
         lastCoords[1] = camera.pointTransformY(last.getY());
-        sdfLine.draw(new Vector2f(firstCoords), new Vector2f(lastCoords), color1, camera);
+        sdfLine.draw(new Vector2f(firstCoords), new Vector2f(lastCoords), color1, color2, camera);
     }
 
     /**

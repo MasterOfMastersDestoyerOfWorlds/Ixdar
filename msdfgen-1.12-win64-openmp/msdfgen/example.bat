@@ -1,1 +1,1 @@
-msdfgen.exe mtsdf -svg ratchet_menu_outer.svg -size 216 53 -pxrange 20 -autoframe -testrender render.png 1024 1024 
+msdfgen.exe mtsdf -svg decal.svg -size 200 200 -pxrange 10 -autoframe -testrender render.png 200 200

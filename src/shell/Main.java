@@ -2,11 +2,6 @@ package shell;
 
 import java.awt.Canvas;
 import java.awt.event.KeyEvent;
-
-import shell.render.color.Color;
-import shell.render.color.ColorBox;
-import shell.render.color.ColorRGB;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,6 +9,7 @@ import java.util.HashMap;
 import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.Set;
+
 import org.apache.commons.math3.util.Pair;
 
 import shell.cameras.Camera;
@@ -32,15 +28,17 @@ import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.AWTTest;
 import shell.render.Canvas3D;
+import shell.render.color.Color;
+import shell.render.color.ColorRGB;
+import shell.render.sdf.SDFTexture;
 import shell.shell.Shell;
-import shell.shell.ShellPair;
 import shell.shell.ShellComparator;
-import shell.ui.tools.Tool;
+import shell.shell.ShellPair;
 import shell.ui.Drawing;
-import shell.ui.Logo;
 import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
 import shell.ui.tools.FreeTool;
+import shell.ui.tools.Tool;
 
 public class Main {
 
@@ -76,7 +74,7 @@ public class Main {
 	public Canvas canvas;
 	private KeyGuy keys;
 	private MouseTrap mouseTrap;
-	private Logo logo;
+	private SDFTexture logo;
 
 	public Main(String fileName) {
 		Main.fileName = fileName;
@@ -85,7 +83,6 @@ public class Main {
 		AWTTest frame = AWTTest.frame;
 		frame.setName("Ixdar : " + fileName);
 
-		logo = new Logo();
 		camera = new Camera2D(600, 600, 0.9f, 0, 0, retTup.ps);
 
 		Toggle.manifold.value = !retTup.manifolds.isEmpty();
@@ -250,6 +247,7 @@ public class Main {
 	}
 
 	public void draw(Camera camera3D) {
+
 		try {
 			float SHIFT_MOD = 1;
 			if (keys != null && keys.pressedKeys.contains(KeyEvent.VK_SHIFT)) {
@@ -291,8 +289,10 @@ public class Main {
 					&& shell != null) {
 				drawDisplayedKnots(camera);
 			}
-			ColorBox box = new ColorBox();
-			box.draw(mouseTrap.normalizedPosX, mouseTrap.normalizedPosY, 10, 10, Color.IXDAR, camera);
+			if (logo == null) {
+				logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, 0.6f, 0f, true);
+			}
+			logo.drawRightBound(Canvas3D.frameBufferWidth, 0, 300f, 300f, Color.IXDAR, camera);
 			camera3D.setZIndex(camera);
 
 		} catch (Exception e) {

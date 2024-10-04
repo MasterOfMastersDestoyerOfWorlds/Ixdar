@@ -1,13 +1,14 @@
 package shell.render.sdf;
 
+import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
+import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
+
 import shell.cameras.Camera;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
-
-import static org.lwjgl.opengl.GL13.*;
 
 public class SDFUnion {
 
@@ -46,6 +47,7 @@ public class SDFUnion {
     public void draw(float drawX, float drawY, float width, float height, Color innerColor,
             Color outerColor, Camera camera) {
         outerTexture.bind();
+        innerTexture.bind();
         shader.use();
         shader.setTexture("outerTexture", outerTexture, GL_TEXTURE0, 0);
         shader.setTexture("innerTexture", innerTexture, GL_TEXTURE1, 1);

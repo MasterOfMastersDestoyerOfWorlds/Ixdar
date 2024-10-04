@@ -1,13 +1,13 @@
 package shell.render.sdf;
 
+import org.joml.Vector2f;
+
 import shell.cameras.Camera;
 import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.shaders.SDFShader;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
-
-import org.joml.Vector2f;
 
 public class SDFLine {
 
@@ -47,6 +47,10 @@ public class SDFLine {
     }
 
     public void draw(Vector2f pA, Vector2f pB, Color c, Camera camera) {
+        draw(pA, pB, c, c, camera);
+    }
+
+    public void draw(Vector2f pA, Vector2f pB, Color c, Color c2, Camera camera) {
 
         shader.use();
         shader.setFloat("borderInner", borderInner);
@@ -89,7 +93,7 @@ public class SDFLine {
 
         shader.setFloat("dashes", (float) ((Math.PI * height) / (dashLength)));
         shader.setFloat("dashEdgeDist", (float) (Math.PI * width * edgeDist) / (dashLength));
-
+        shader.setVec4("linearGradientColor", c2.toVector4f());
         shader.begin();
         shader.drawSDFRegion(bL.x, bL.y, bR.x, bR.y, tL.x, tL.y, tR.x, tR.y, camera.getZIndex(), 0, 0, 1, 1, c);
         shader.end();

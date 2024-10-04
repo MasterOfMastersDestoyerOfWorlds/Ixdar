@@ -11,6 +11,7 @@
     "java.debug.settings.showQualifiedNames": true,
     "editor.links": true,
     "debug.autoExpandLazyVariables": "on",
+    "editor.formatOnSave": true,
     "java.format.settings.url": "eclipse-formatter.xml"
     
 }

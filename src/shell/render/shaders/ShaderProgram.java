@@ -35,7 +35,7 @@ public abstract class ShaderProgram {
         TextureSDF(SDFShader.class, "font.vs", "sdf.fs"),
 
         LineSDF(SDFShader.class, "font.vs", "sdf_line.fs"),
-        
+
         CircleSDF(SDFShader.class, "font.vs", "sdf_circle.fs"),
 
         UnionSDF(SDFShader.class, "font.vs", "sdf_union.fs"),
@@ -530,6 +530,35 @@ public abstract class ShaderProgram {
         verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
         verteciesBuff.put(x3).put(y3).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t2);
 
+        verteciesBuff.put(x3).put(y3).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t2);
+        verteciesBuff.put(x4).put(y4).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t2);
+        verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
+
+        numVertices += 6;
+    }
+
+    public void drawSDFLinearGradient(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
+            float zIndex, float s1, float t1, float s2, float t2, Color c, Color c2) {
+        if (verteciesBuff.remaining() < 8 * 6) {
+            /* We need more space in the buffer, so flush it */
+            flush();
+        }
+
+        Vector4f color = c.toVector4f();
+        float r = color.x;
+        float g = color.y;
+        float b = color.z;
+        float a = color.w;
+
+        verteciesBuff.put(x1).put(y1).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t1);
+        verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
+        verteciesBuff.put(x3).put(y3).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t2);
+
+        color = c2.toVector4f();
+        r = color.x;
+        g = color.y;
+        b = color.z;
+        a = color.w;
         verteciesBuff.put(x3).put(y3).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t2);
         verteciesBuff.put(x4).put(y4).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t2);
         verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);

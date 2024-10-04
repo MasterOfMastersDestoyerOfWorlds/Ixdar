@@ -104,10 +104,11 @@
 8. - [x] Menu Items should flash on hover
 
 ## Shaders
+
 1. - [x] SDF Union between two textures
 2. - [x] SDF Lines with dashes, should be able to change between round caps and flat caps, should also be able to animate the phase of the dashes
 3. - [x] SDF Texture with separate border color.
-4. - [ ] SDF Circle with fill or border
+4. - [x] SDF Circle with fill or border
 5. - [x] Font Atlas from rendered font
 6. - [ ] Font Atlas from SDF Atlas.
 

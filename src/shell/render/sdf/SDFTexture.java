@@ -1,11 +1,12 @@
 package shell.render.sdf;
 
+import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
+
+import shell.cameras.Camera;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
-
-import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 
 public class SDFTexture {
 
@@ -40,10 +41,10 @@ public class SDFTexture {
         this.sharpCorners = sharpCorners;
     }
 
-    public void draw(float drawX, float drawY, float width, float height, float zIndex, Color c) {
+    public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
         texture.bind();
         shader.use();
-        shader.setTexture("texImage", texture, GL_TEXTURE0, 0);
+        shader.setTexture("innerTexture", texture, GL_TEXTURE0, 0);
         shader.setFloat("borderInner", borderInner);
         shader.setFloat("borderOuter", borderOuter);
         shader.setFloat("borderOffsetInner", borderOffsetInner);
@@ -52,25 +53,31 @@ public class SDFTexture {
         shader.setBool("sharpCorners", sharpCorners);
         shader.begin();
 
-        shader.drawTextureRegion(texture, drawX, drawY, drawX + width, drawY + height, zIndex, 0, 0, texture.width,
+        shader.drawTextureRegion(texture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), 0, 0,
+                texture.width,
                 texture.height, c);
 
         shader.end();
+        camera.incZIndex();
     }
 
-    public void drawCentered(float drawX, float drawY, float width, float height, float zIndex, Color c) {
-        draw(drawX - (width / 2), drawY - (height / 2), width, height, zIndex, c);
+    public void drawCentered(float drawX, float drawY, float width, float height, Color c, Camera camera) {
+        draw(drawX - (width / 2), drawY - (height / 2), width, height, c, camera);
     }
 
-    public void drawCentered(float drawX, float drawY, float scale, float zIndex, Color c) {
+    public void drawCentered(float drawX, float drawY, float scale, Color c, Camera camera) {
         float width = (float) (texture.width * scale);
         float height = (float) (texture.height * scale);
-        draw(drawX - (width / 2f), drawY - (height / 2f), width, height, zIndex, c);
+        draw(drawX - (width / 2f), drawY - (height / 2f), width, height, c, camera);
     }
 
     public void setBorderDist(float borderDist) {
         this.borderInner = borderDist - 0.1f;
         this.borderOuter = borderDist;
+    }
+
+    public void drawRightBound(float drawX, float drawY, float width, float height, Color c, Camera camera) {
+        draw(drawX - width, drawY, width, height, c, camera);
     }
 
 }

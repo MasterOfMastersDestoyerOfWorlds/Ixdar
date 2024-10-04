@@ -30,6 +30,8 @@ uniform vec4 borderColor;
 uniform float borderInner;
 uniform float borderOuter;
 
+uniform vec4 linearGradientColor;
+
 float median(float r, float g, float b) {
     return max(min(r, g), min(max(r, g), b));
 }
@@ -66,7 +68,7 @@ void main() {
 
     float opacity = smoothstep(edgeDist, edgeDist - edgeSharpness, sigDist);
 
-    fragColor = vec4(vertexColor.rgb, 1 * opacity);
+    fragColor = vec4(mix(vertexColor.rgb, linearGradientColor.rgb, textureCoord.x), 1 * opacity);
     float dashOpac = blockA;
     float le2 = 1;
     float re2 = 1;
