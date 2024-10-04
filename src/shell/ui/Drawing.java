@@ -10,6 +10,7 @@ import org.apache.commons.math3.util.Pair;
 import org.joml.Vector2f;
 
 import shell.Main;
+import shell.PointND;
 import shell.PointSet;
 import shell.cameras.Camera2D;
 import shell.cuts.CutMatch;
@@ -24,13 +25,16 @@ import shell.render.sdf.SDFCircle;
 import shell.render.sdf.SDFLine;
 import shell.render.text.Font;
 import shell.shell.Shell;
+import static java.awt.Font.SANS_SERIF;
+import static java.awt.Font.PLAIN;
 
 public class Drawing {
 
     public static final int MIN_THICKNESS = 1;
+    private static final float FONT_HEIGHT_PIXELS = 30;
     public static SDFLine sdfLine = new SDFLine();
     public static SDFCircle circle = new SDFCircle();
-    public static Font font = new Font();
+    public static Font font = new Font(new java.awt.Font(SANS_SERIF, PLAIN, 32), true);
 
     public static void drawCutMatch(SegmentBalanceException sbe, int lineThickness,
             PointSet ps, Camera2D camera) {
@@ -56,7 +60,7 @@ public class Drawing {
         lastCoords[1] = camera.pointTransformY((float) last.getY());
         midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0f;
         midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0f;
-        font.drawTextCentered("X", midCoords[0], midCoords[1], 20, Color.RED, camera);
+        font.drawTextCentered("X", midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, Color.RED, camera);
         // Draw x 2
         first = ((Point) cut2.first).p.toPoint2D();
         last = ((Point) cut2.last).p.toPoint2D();
@@ -69,7 +73,7 @@ public class Drawing {
         midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0f;
         midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0f;
 
-        font.drawTextCentered("X", midCoords[0], midCoords[1], 20, Color.ORANGE, camera);
+        font.drawTextCentered("X", midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, Color.ORANGE, camera);
         // Draw external segment 1
 
         Point2D knotPoint1 = ((Point) ex1.getKnotPoint(topKnot.knotPointsFlattened)).p.toPoint2D();
@@ -131,7 +135,7 @@ public class Drawing {
         cpCoords[1] = camera.pointTransformY(cp.getY());
         midCoords[0] = (kpCoords[0] + cpCoords[0]) / 2.0f;
         midCoords[1] = (kpCoords[1] + cpCoords[1]) / 2.0f;
-        font.drawTextCentered("X", midCoords[0], midCoords[1], 20, Color.ORANGE, camera);
+        font.drawTextCentered("X", midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, Color.ORANGE, camera);
         circle.draw(new Vector2f(kpCoords[0], kpCoords[1]), Color.GREEN, camera);
     }
 
@@ -152,7 +156,7 @@ public class Drawing {
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
 
-        sdfLine.draw(firstVec, lastVec, c,camera);
+        sdfLine.draw(firstVec, lastVec, c, camera);
     }
 
     public static void drawGradientSegment(Segment s, Color color1, Color color2, Camera2D camera) {
@@ -182,14 +186,14 @@ public class Drawing {
      * Draws the tsp path of the pointset ps
      * 
      * @param frame
-     * @param path
+     * @param shell
      * @param color
      * @param ps
      * @param drawLines
      * @param drawCircles
      * @param drawNumbers
      */
-    public static void drawPath(Path2D path, float lineThickness, Color color,
+    public static void drawPath(Shell shell, float lineThickness, Color color,
             PointSet ps,
             boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed, Camera2D camera) {
         if (dashed) {
@@ -197,41 +201,36 @@ public class Drawing {
         } else {
             sdfLine.setStroke(lineThickness, false, 0f, false);
         }
-        boolean first = true;
-
-        PathIterator pi = path.getPathIterator(null);
-        float[] start = null;
+        PointND last = shell.getLast();
+        PointND next;
         int count = 0;
-        float[] last = new float[2];
-        float[] curr = new float[2];
-        while (!pi.isDone()) {
-            pi.currentSegment(curr);
-            pi.next();
-
-            curr[0] = camera.pointTransformX(curr[0]);
-            curr[1] = camera.pointTransformY(curr[1]);
+        for (PointND p : shell) {
+            next = shell.getNext(count);
+            float x = camera.pointTransformX(p.getCoord(0));
+            float y = camera.pointTransformY(p.getCoord(1));
             if (drawCircles) {
-                circle.draw(new Vector2f(curr[0], curr[1]), color, camera);
+                circle.draw(new Vector2f(x, y), color, camera);
             }
+
             if (drawNumbers) {
-                font.drawTextCentered("" + count, (int) curr[0] - 5, (int) curr[1] - 5, 20, color, camera);
+                float numberPixelDistance = FONT_HEIGHT_PIXELS*0.75f;
+                Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getCoord(0)) - x,
+                        camera.pointTransformY(last.getCoord(1)) - y).normalize().mul(numberPixelDistance);
+                Vector2f nextVector = new Vector2f(camera.pointTransformX(next.getCoord(0)) - x,
+                        camera.pointTransformY(next.getCoord(1)) - y).normalize().mul(numberPixelDistance);
+
+                font.drawTextCentered("" + count, (int) x - lastVector.x - nextVector.x,
+                        (int) y - lastVector.y - nextVector.y, FONT_HEIGHT_PIXELS,
+                        color, camera);
             }
-            if (first) {
-                first = false;
-                start = new float[] { curr[0], curr[1] };
-            } else {
-                if (drawLines) {
-                    sdfLine.draw(new Vector2f(last), new Vector2f(curr), color, camera);
-                }
+            if (drawLines) {
+                float lx = camera.pointTransformX(last.getCoord(0));
+                float ly = camera.pointTransformY(last.getCoord(1));
+                sdfLine.draw(new Vector2f(lx, ly), new Vector2f(x, y), color, camera);
             }
-            last[0] = curr[0];
-            last[1] = curr[1];
+            last = p;
             count++;
         }
-        if (drawLines) {
-            sdfLine.draw(new Vector2f(last), new Vector2f(start), color, camera);
-        }
-
     }
 
     public static void drawGradientPath(Knot k,

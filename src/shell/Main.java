@@ -280,7 +280,7 @@ public class Main {
 				Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
 			}
 			if (!(retTup == null)) {
-				Drawing.drawPath(retTup.path, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false,
+				Drawing.drawPath(retTup.tsp, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false,
 						true,
 						false,
 						camera);

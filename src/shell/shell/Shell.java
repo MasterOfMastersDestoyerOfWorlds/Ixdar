@@ -656,11 +656,11 @@ public class Shell extends LinkedList<PointND> {
 			PointSet ps, Camera2D camera) {
 		if (c == null) {
 			Random colorSeed = new Random();
-			Drawing.drawPath(toPath(this), lineThickness,
+			Drawing.drawPath(this, lineThickness,
 					new ColorRGB(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps,
 					true, false, false, false, camera);
 		} else {
-			Drawing.drawPath(toPath(this), lineThickness, c, ps, true, false, false, false, camera);
+			Drawing.drawPath(this, lineThickness, c, ps, true, false, false, false, camera);
 		}
 	}
 
@@ -790,29 +790,6 @@ public class Shell extends LinkedList<PointND> {
 			copy.add(q);
 		}
 		return copy;
-	}
-
-	/**
-	 * Turns a shell into a path object
-	 * 
-	 * @param shell
-	 * @return a path that represnts the path through all points in the shell
-	 */
-	public static Path2D toPath(Shell shell) {
-		Path2D path = new GeneralPath();
-		boolean first = true;
-		for (PointND p : shell) {
-			Point2D p2d = p.toPoint2D();
-			if (first) {
-				path.moveTo(p2d.getX(), p2d.getY());
-				first = false;
-			} else {
-				path.lineTo(p2d.getX(), p2d.getY());
-			}
-
-		}
-		return path;
-
 	}
 
 	/**
@@ -987,6 +964,13 @@ public class Shell extends LinkedList<PointND> {
 			}
 		}
 		return false;
+	}
+
+	public PointND getNext(int i) {
+		if (i + 1 >= this.size()) {
+			return this.get(0);
+		}
+		return this.get(i + 1);
 	}
 
 }
