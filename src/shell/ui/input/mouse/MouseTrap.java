@@ -57,7 +57,7 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         Knot manifoldKnot = Main.manifoldKnot;
         normalizedPosX = getNormalizePosX(e);
         normalizedPosY = getNormalizedPosY(e);
-        if (Main.manifoldKnot != null) {
+        if (Main.manifoldKnot != null && Main.active) {
             camera.calculateCameraTransform();
             double x = camera.screenTransformX(normalizedPosX);
             double y = camera.screenTransformY(normalizedPosY);
@@ -158,7 +158,9 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
 
     @Override
     public void mouseMoved(MouseEvent e) {
-
+        if (!active) {
+            return;
+        }
         normalizedPosX = getNormalizePosX(e);
         normalizedPosY = getNormalizedPosY(e);
         if (captureMouse && center == null) {
@@ -176,7 +178,7 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
 
             Canvas3D.menu.setHover(normalizedPosX, normalizedPosY);
         }
-        if (main != null) {
+        if (main != null && Main.active) {
             Main.tool.calculateHover(normalizedPosX, normalizedPosY);
         }
         if (captureMouse) {

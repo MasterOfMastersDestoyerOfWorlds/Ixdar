@@ -27,7 +27,6 @@ import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.actions.GenerateManifoldTestsAction;
 import shell.ui.actions.SaveDialog;
-import shell.ui.menu.MenuBox;
 import shell.ui.tools.EditManifoldTool;
 import shell.ui.tools.FindManifoldTool;
 import shell.ui.tools.NegativeCutMatchViewTool;
@@ -140,7 +139,7 @@ public class KeyGuy implements KeyListener {
         if (!active) {
             return;
         }
-        if (main != null) {
+        if (main != null && Main.active) {
             Tool tool = Main.tool;
             if (KeyActions.ColorRandomization.keyPressed(pressedKeys)) {
                 Random colorSeed = new Random();
@@ -236,14 +235,12 @@ public class KeyGuy implements KeyListener {
             }
             if (KeyActions.Back.keyPressed(pressedKeys)) {
                 if (Main.tool.toolType() == Tool.Type.Free) {
-                    MenuBox.menuVisible = true;
-                    Canvas3D.keys.active = true;
-                    Canvas3D.mouse.active = true;
-                    this.active = false;
+                    Canvas3D.activate(true);
+                    Main.activate(false);
                 }
                 Main.tool = Main.freeTool;
             }
-        } else {
+        } else if(Canvas3D.active) {
             if (KeyActions.Back.keyPressed(pressedKeys)) {
                 Canvas3D.menu.back();
             }

@@ -158,9 +158,10 @@ public class Canvas3D extends AWTGLCanvas {
     public Font debugFont;
     public static MenuBox menu;
     boolean changedSize = false;
-    //private SDFTexture logo;
+    // private SDFTexture logo;
     public static ArrayList<ShaderProgram> shaders = new ArrayList<>();
     public static Canvas3D canvas;
+    public static boolean active;
 
     public Canvas3D(GLData context, Camera3D camera, Camera2D camera2D, MouseTrap mouseTrap, JFrame frame) {
         super(context);
@@ -168,6 +169,7 @@ public class Canvas3D extends AWTGLCanvas {
         Canvas3D.mouse = mouseTrap;
         Canvas3D.frame = frame;
         Canvas3D.canvas = this;
+        active = true;
         spotLight = new SpotLight(camera.position, camera.front,
                 new Vector3f(1.0f, 1.0f, 1.0f), 12.5f, 15f, 50f);
     }
@@ -206,7 +208,7 @@ public class Canvas3D extends AWTGLCanvas {
         font = new Font();
         debugFont = new Font(12, false);
 
-        //logo = new SDFTexture("decal_sdf.png", Color.BLUE_WHITE, 0.5f, 0.5f, false);
+        // logo = new SDFTexture("decal_sdf.png", Color.BLUE_WHITE, 0.5f, 0.5f, false);
         menu = new MenuBox();
         // menuInnerBorder = new SDFTexture("menu_inner.png", Color.BLUE_WHITE, 0.25f,
         // 0f, true);
@@ -317,7 +319,8 @@ public class Canvas3D extends AWTGLCanvas {
             }
             // Color c = new ColorRGB(Color.CYAN);
             menu.draw(camera);
-			//logo.drawRightBound(Canvas3D.frameBufferWidth, 0, 800f, 800f, Color.IXDAR, camera);
+            // logo.drawRightBound(Canvas3D.frameBufferWidth, 0, 800f, 800f, Color.IXDAR,
+            // camera);
         }
         // menuInnerBorder.drawCentered(frameBufferWidth / 2,
         // // frameBufferHeight / 2, 3, -10.5f, Color.TRANSPARENT);
@@ -354,6 +357,13 @@ public class Canvas3D extends AWTGLCanvas {
         Utils.snapByteBuffer(frameBufferWidth, frameBufferHeight, fb, 4);
         MemoryUtil.memFree(fb);
 
+    }
+
+    public static void activate(boolean state) {
+        Canvas3D.keys.active = state;
+        Canvas3D.mouse.active = state;
+        MenuBox.menuVisible = state;
+        active = state;
     }
 
 }

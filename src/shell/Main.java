@@ -75,9 +75,10 @@ public class Main {
 	public static ArrayList<Color> metroColors = new ArrayList<>();
 	public static ArrayList<Color> knotGradientColors = new ArrayList<>();
 	public static HashMap<Long, Integer> colorLookup = new HashMap<>();
+	public static boolean active;
 	public Canvas canvas;
-	private KeyGuy keys;
-	private MouseTrap mouseTrap;
+	private static KeyGuy keys;
+	private static MouseTrap mouseTrap;
 	private SDFTexture logo;
 
 	final int RIGHT_PANEL_SIZE = 250;
@@ -112,7 +113,6 @@ public class Main {
 
 	public static void main(String[] args) {
 		main = new Main(args[0]);
-
 		camera.initCamera();
 		DistanceMatrix d = retTup.d;
 		if (retTup.d == null) {
@@ -441,6 +441,12 @@ public class Main {
 			newQueue.add(temp);
 		}
 		Main.metroPathsLayer = newQueue;
+	}
+
+	public static void activate(boolean state) {
+		active = state;
+		mouseTrap.active = state;
+		keys.active = state;
 	}
 
 }
