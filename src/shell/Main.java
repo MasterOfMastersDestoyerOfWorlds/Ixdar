@@ -33,6 +33,7 @@ import shell.render.color.Color;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFCircle;
 import shell.render.sdf.SDFTexture;
+import shell.render.shaders.ShaderProgram;
 import shell.shell.Shell;
 import shell.shell.ShellComparator;
 import shell.shell.ShellPair;
@@ -268,8 +269,7 @@ public class Main {
 			if (mouseTrap != null) {
 				mouseTrap.paintUpdate(SHIFT_MOD);
 			}
-			glViewport(0, BOTTOM_PANEL_SIZE,
-					Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
+			updateView(0, BOTTOM_PANEL_SIZE, Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
 			camera.setZIndex(camera3D);
 			camera.calculateCameraTransform();
 			tool.draw(camera, Drawing.MIN_THICKNESS);
@@ -305,12 +305,19 @@ public class Main {
 			}
 			new SDFCircle().draw(new Vector2f(mouseTrap.normalizedPosX, mouseTrap.normalizedPosY), stickyColor,
 					camera3D);
-			glViewport(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+			updateView(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
 			logo.drawRightBound(Canvas3D.frameBufferWidth, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 			camera3D.setZIndex(camera);
 
 		} catch (Exception e) {
 			e.printStackTrace();
+		}
+	}
+
+	private void updateView(int x, int y, int width, int height) {
+		glViewport(x, y, width, height);
+		for (ShaderProgram s : Canvas3D.shaders) {
+			s.updateProjectionMatrix(width, height, 1f);
 		}
 	}
 

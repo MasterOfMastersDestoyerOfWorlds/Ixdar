@@ -93,15 +93,13 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     }
 
     private float getNormalizePosX(MouseEvent e) {
-        return (((((float) e.getX()) / ((float) canvas.getWidth())) * Canvas3D.frameBufferWidth
-                + camera.getScreenOffsetX())
-                * camera.getScreenWidthRatio());
+        return (((((float) e.getX()) / ((float) canvas.getWidth()) * Canvas3D.frameBufferWidth)))
+                - camera.getScreenOffsetX();
     }
 
     private float getNormalizedPosY(MouseEvent e) {
-        return ((1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight
-                - camera.getScreenOffsetY())
-                * (camera.getScreenHeightRatio());
+        return ((1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight)
+                - camera.getScreenOffsetY();
     }
 
     double startX;

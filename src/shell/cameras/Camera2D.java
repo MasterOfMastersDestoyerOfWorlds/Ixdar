@@ -140,8 +140,9 @@ public class Camera2D implements Camera {
             rangeX = rangeY;
         }
 
-        offsetX += (Width) / 4;
-        offsetY += (Height) / 4;
+        offsetX += (Width - (Math.abs(pointTransformX(maxX) - pointTransformX(minX)))) / 2;
+        offsetY += (Height - (Math.abs(pointTransformY(maxY) - pointTransformY(minY)))) / 2;
+
         PanX = offsetX;
         PanY = offsetY;
         defaultPanX = PanX;

@@ -246,12 +246,9 @@ public class Canvas3D extends AWTGLCanvas {
 
         glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-        if (changedSize) {
-            glViewport(0, 0, (int) frameBufferWidth, (int) frameBufferHeight);
-            changedSize = false;
-            for (ShaderProgram s : shaders) {
-                s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
-            }
+        glViewport(0, 0, (int) frameBufferWidth, (int) frameBufferHeight);
+        for (ShaderProgram s : shaders) {
+            s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
         }
 
         camera.resetZIndex();
