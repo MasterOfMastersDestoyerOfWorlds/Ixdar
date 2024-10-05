@@ -213,7 +213,7 @@ public class Drawing {
             }
 
             if (drawNumbers) {
-                float numberPixelDistance = FONT_HEIGHT_PIXELS;
+                float numberPixelDistance = FONT_HEIGHT_PIXELS/2;
                 Vector2f point = new Vector2f(x, y);
                 Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getCoord(0)),
                         camera.pointTransformY(last.getCoord(1))).sub(point);

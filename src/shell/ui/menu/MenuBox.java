@@ -10,6 +10,8 @@ import shell.render.color.ColorLerp;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFUnion;
 import shell.render.text.Font;
+import static java.awt.Font.SANS_SERIF;
+import static java.awt.Font.PLAIN;
 import shell.ui.Canvas3D;
 
 public class MenuBox {
@@ -47,7 +49,7 @@ public class MenuBox {
         activeMenu = new Menu.MainMenu(cachedFileName);
         menuItems = activeMenu.loadMenu();
 
-        font = new Font();
+        font = new Font(new java.awt.Font(SANS_SERIF, PLAIN, 64), true);
         font.maxTextWidth = 24;
     }
 
@@ -72,7 +74,7 @@ public class MenuBox {
                 menuOuterBorder.drawCentered(centerX, centerY, scale, camera);
 
             }
-            font.drawTextCentered(menuItems.get(i).itemString(), centerX, centerY + itemHeight * 0.075f,
+            font.drawTextCentered(menuItems.get(i).itemString(), centerX, centerY + itemHeight * 0.045f,
                     itemHeight / 2,
                     Color.BLUE_WHITE, camera);
         }

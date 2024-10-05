@@ -90,7 +90,7 @@ public class Main {
 		file = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(file);
 		IxdarWindow frame = IxdarWindow.frame;
-		frame.setName("Ixdar : " + fileName);
+		frame.setTitle("Ixdar : " + fileName);
 
 		camera = new Camera2D(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE,
 				Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE, 0.9f, 0, BOTTOM_PANEL_SIZE,
@@ -269,7 +269,8 @@ public class Main {
 			if (mouseTrap != null) {
 				mouseTrap.paintUpdate(SHIFT_MOD);
 			}
-			updateView(0, BOTTOM_PANEL_SIZE, Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
+			updateView(0, BOTTOM_PANEL_SIZE, Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE,
+					Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
 			camera.setZIndex(camera3D);
 			camera.calculateCameraTransform();
 			tool.draw(camera, Drawing.MIN_THICKNESS);

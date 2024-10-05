@@ -30,7 +30,7 @@ public interface Menu {
                         menuItems.add(new MenuItem("Load",
                                         new ChangeScreenAction(new LoadMenu(FileManagement.solutionsFolder, this))));
                         menuItems.add(new MenuItem("Puzzle", null));
-                        menuItems.add(new MenuItem("Map Ecditor", null));
+                        menuItems.add(new MenuItem("Map Editor", null));
                 }
 
                 @Override
