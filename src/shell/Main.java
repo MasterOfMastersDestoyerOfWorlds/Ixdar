@@ -306,8 +306,8 @@ public class Main {
 			}
 			new SDFCircle().draw(new Vector2f(mouseTrap.normalizedPosX, mouseTrap.normalizedPosY), stickyColor,
 					camera3D);
-			updateView(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
-			logo.drawRightBound(Canvas3D.frameBufferWidth, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
+			updateView(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
+			logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 			camera3D.setZIndex(camera);
 
 		} catch (Exception e) {

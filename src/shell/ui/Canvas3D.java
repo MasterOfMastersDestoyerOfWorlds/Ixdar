@@ -246,12 +246,8 @@ public class Canvas3D extends AWTGLCanvas {
 
         glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-        glViewport(0, 0, (int) frameBufferWidth, (int) frameBufferHeight);
-        for (ShaderProgram s : shaders) {
-            s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
-        }
-
         camera.resetZIndex();
+
         if (MenuBox.menuVisible) {
 
             float SHIFT_MOD = 1;
@@ -315,9 +311,21 @@ public class Canvas3D extends AWTGLCanvas {
 
             }
             // Color c = new ColorRGB(Color.CYAN);
-            menu.draw(camera);
             // logo.drawRightBound(Canvas3D.frameBufferWidth, 0, 800f, 800f, Color.IXDAR,
             // camera);
+        }
+
+        if (Main.main != null) {
+            Main.main.draw(camera);
+        }
+
+        glViewport(0, 0, (int) frameBufferWidth, (int) frameBufferHeight);
+        for (ShaderProgram s : shaders) {
+            s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
+        }
+
+        if (MenuBox.menuVisible) {
+            menu.draw(camera);
         }
         // menuInnerBorder.drawCentered(frameBufferWidth / 2,
         // // frameBufferHeight / 2, 3, -10.5f, Color.TRANSPARENT);
@@ -328,9 +336,6 @@ public class Canvas3D extends AWTGLCanvas {
         // frameBufferHeight / 2, -1f, 1, Color.CYAN);
         // c.setAlpha(0.6f);
 
-        if (Main.main != null) {
-            Main.main.draw(camera);
-        }
         Clock.frameRendered();
         if (printScreen) {
             printScreen = false;
