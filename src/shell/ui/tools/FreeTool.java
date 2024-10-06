@@ -21,7 +21,7 @@ public class FreeTool extends Tool {
     @Override
     public void draw(Camera2D camera, int minLineThickness) {
         if (displayPoint != null) {
-            Drawing.drawCircle(displayPoint,Color.LIGHT_GRAY, camera, minLineThickness);
+            Drawing.drawCircle(displayPoint, Color.LIGHT_GRAY, camera, minLineThickness);
         }
     }
 
@@ -71,6 +71,7 @@ public class FreeTool extends Tool {
         selectedPoint = kp;
         displayPoint = kp;
     }
+
     @Override
     public Type toolType() {
         return Type.Free;
@@ -79,5 +80,12 @@ public class FreeTool extends Tool {
     @Override
     public String displayName() {
         return "Free";
+    }
+
+    @Override
+    public ArrayList<String> info() {
+        ArrayList<String> info = new ArrayList<>();
+        info.add("Point: " + (displayPoint == null ? "None" : displayPoint.id));
+        return info;
     }
 }

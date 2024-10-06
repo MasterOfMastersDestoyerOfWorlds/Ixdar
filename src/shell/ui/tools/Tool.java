@@ -159,4 +159,6 @@ public abstract class Tool {
         Free, None
     }
 
+    public abstract ArrayList<String> info();
+
 }

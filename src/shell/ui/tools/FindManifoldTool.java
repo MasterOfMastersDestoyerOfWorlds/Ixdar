@@ -41,7 +41,7 @@ public class FindManifoldTool extends Tool {
     public void draw(Camera2D camera, int minLineThickness) {
         if (hover != null
                 && !hover.equals(firstSelectedSegment)) {
-            Drawing.drawManifoldCut( hoverKP, hoverCP, camera,
+            Drawing.drawManifoldCut(hoverKP, hoverCP, camera,
                     minLineThickness * 2);
         }
         if (firstSelectedSegment != null) {
@@ -67,8 +67,7 @@ public class FindManifoldTool extends Tool {
                 firstSelectedCP = hoverCP;
                 state = FindManifoldTool.States.FirstSelected;
                 clearHover();
-            }
-            else if (state == FindManifoldTool.States.FirstSelected) {
+            } else if (state == FindManifoldTool.States.FirstSelected) {
                 if (!hover.equals(firstSelectedSegment)) {
                     for (int i = 0; i < manifolds.size(); i++) {
                         Manifold m = manifolds.get(i);
@@ -89,9 +88,14 @@ public class FindManifoldTool extends Tool {
         }
     }
 
-
     @Override
     public String displayName() {
         return "Find Manifold";
+    }
+
+    @Override
+    public ArrayList<String> info() {
+        ArrayList<String> info = new ArrayList<>();
+        return info;
     }
 }

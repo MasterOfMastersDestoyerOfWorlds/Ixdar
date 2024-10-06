@@ -13,7 +13,6 @@ import java.util.Random;
 import java.util.Set;
 
 import org.apache.commons.math3.util.Pair;
-import org.joml.Vector2f;
 
 import shell.cameras.Camera;
 import shell.cameras.Camera2D;
@@ -29,11 +28,12 @@ import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
-import shell.render.sdf.SDFCircle;
 import shell.render.sdf.SDFTexture;
 import shell.render.shaders.ShaderProgram;
+import shell.render.text.Font;
 import shell.shell.Shell;
 import shell.shell.ShellComparator;
 import shell.shell.ShellPair;
@@ -81,6 +81,7 @@ public class Main {
 	private static KeyGuy keys;
 	private static MouseTrap mouseTrap;
 	private SDFTexture logo;
+	public Font font;
 
 	final int RIGHT_PANEL_SIZE = 250;
 	final int BOTTOM_PANEL_SIZE = 250;
@@ -109,7 +110,6 @@ public class Main {
 		Canvas3D.canvas.addMouseListener(mouseTrap);
 		Canvas3D.canvas.addMouseWheelListener(mouseTrap);
 		tool = new FreeTool();
-
 	}
 
 	public static void main(String[] args) {
@@ -257,8 +257,10 @@ public class Main {
 	}
 
 	public void draw(Camera camera3D) {
-		camera.updateSize(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
 		try {
+
+			updateView(0, BOTTOM_PANEL_SIZE, Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE,
+					Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
 			float SHIFT_MOD = 1;
 			if (keys != null && keys.pressedKeys.contains(KeyEvent.VK_SHIFT)) {
 				SHIFT_MOD = 2;
@@ -269,8 +271,6 @@ public class Main {
 			if (mouseTrap != null) {
 				mouseTrap.paintUpdate(SHIFT_MOD);
 			}
-			updateView(0, BOTTOM_PANEL_SIZE, Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE,
-					Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
 			camera.setZIndex(camera3D);
 			camera.calculateCameraTransform();
 			tool.draw(camera, Drawing.MIN_THICKNESS);
@@ -304,8 +304,22 @@ public class Main {
 			if (logo == null) {
 				logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, 0.6f, 0f, true);
 			}
-			new SDFCircle().draw(new Vector2f(mouseTrap.normalizedPosX, mouseTrap.normalizedPosY), stickyColor,
-					camera3D);
+			// new SDFCircle().draw(new Vector2f(mouseTrap.normalizedPosX,
+			// mouseTrap.normalizedPosY), stickyColor,
+			// camera3D);
+			updateView(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
+					Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
+			int row = 0;
+			float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
+			Drawing.font.drawRow("FPS:" + Clock.fps(), row++, rowHeight, 0, Color.IXDAR, camera);
+			Drawing.font.drawRow("Tool: " + tool.displayName(), row++, rowHeight, 0, Color.IXDAR,
+					camera);
+			ArrayList<String> toolInfo = tool.info();
+			for (int i = 0; i < toolInfo.size(); i++) {
+				Drawing.font.drawRow(toolInfo.get(i), row++, rowHeight, 0, Color.IXDAR,
+						camera);
+			}
+
 			updateView(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
 			logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 			camera3D.setZIndex(camera);
@@ -316,6 +330,7 @@ public class Main {
 	}
 
 	private void updateView(int x, int y, int width, int height) {
+		camera.updateSize(width, height);
 		glViewport(x, y, width, height);
 		for (ShaderProgram s : Canvas3D.shaders) {
 			s.updateProjectionMatrix(width, height, 1f);

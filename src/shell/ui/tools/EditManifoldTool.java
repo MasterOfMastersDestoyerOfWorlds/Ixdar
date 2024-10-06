@@ -38,7 +38,7 @@ public class EditManifoldTool extends Tool {
             Segment matchSeg = lastPoint.segmentLookup.get(matchId);
             long cutId = Segment.idTransform(hoverKP.id, hoverCP.id);
             Segment cutSeg = hoverKP.segmentLookup.get(cutId);
-            Drawing.drawSingleCutMatch(Main.main,matchSeg, cutSeg, Drawing.MIN_THICKNESS * 2, Main.retTup.ps,
+            Drawing.drawSingleCutMatch(Main.main, matchSeg, cutSeg, Drawing.MIN_THICKNESS * 2, Main.retTup.ps,
                     camera);
         }
         Drawing.drawCutMatch(manifold.cutMatchList, manifold.manifoldCutSegment1,
@@ -54,5 +54,11 @@ public class EditManifoldTool extends Tool {
     @Override
     public String displayName() {
         return "Edit Cut Match";
+    }
+
+    @Override
+    public ArrayList<String> info() {
+        ArrayList<String> info = new ArrayList<>();
+        return info;
     }
 }

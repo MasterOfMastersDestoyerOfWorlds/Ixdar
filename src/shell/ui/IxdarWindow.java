@@ -27,7 +27,7 @@ public class IxdarWindow extends JFrame {
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.setLayout(new BorderLayout());
         frame.setBackground(java.awt.Color.darkGray);
-        frame.setName("Ixdar");
+        frame.setTitle("Ixdar");
 
         ImageIcon img = new ImageIcon("res/decalSmall.png");
         frame.setIconImage(img.getImage());

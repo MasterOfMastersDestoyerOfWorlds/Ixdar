@@ -44,8 +44,11 @@ public class Clock {
         return (float) timeSeconds;
     }
 
+    static int frameNum;
+
     public static void frameRendered() {
         lastFrameRendered = time();
+        frameNum = (frameNum + 1) % 60;
     }
 
     public static float deltaTime() {
@@ -55,6 +58,19 @@ public class Clock {
     public static float sin(float offset, float amplitude, float freq, float phase) {
         double timeSeconds = (((double) System.currentTimeMillis()) / 1000.0) - startTimeSeconds;
         return ((float) (amplitude * (Math.sin(freq * timeSeconds + phase) + 1)) / 2f) + offset;
+    }
+
+    static float[] sampleFPS = new float[60];
+
+    public static float fps() {
+        sampleFPS[frameNum] = (1 / Clock.deltaTime());
+        float sum = 0f;
+        int count = 0;
+        for (int i = 0; i < sampleFPS.length; i ++) {
+            sum += sampleFPS[i];
+            count++;
+        }
+        return sum / count;
     }
 
 }

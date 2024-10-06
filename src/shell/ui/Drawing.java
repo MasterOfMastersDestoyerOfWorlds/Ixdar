@@ -30,7 +30,7 @@ import shell.shell.Shell;
 public class Drawing {
 
     public static final int MIN_THICKNESS = 1;
-    private static final float FONT_HEIGHT_PIXELS = 30;
+    public static final float FONT_HEIGHT_PIXELS = 30;
     public static SDFLine sdfLine = new SDFLine();
     public static SDFCircle circle = new SDFCircle();
     public static Font font = new Font(new java.awt.Font(SANS_SERIF, PLAIN, 32), true);
@@ -212,7 +212,7 @@ public class Drawing {
             }
 
             if (drawNumbers) {
-                float numberPixelDistance = FONT_HEIGHT_PIXELS/2;
+                float numberPixelDistance = FONT_HEIGHT_PIXELS / 2;
                 Vector2f point = new Vector2f(x, y);
                 Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getCoord(0)),
                         camera.pointTransformY(last.getCoord(1))).sub(point);
@@ -221,7 +221,7 @@ public class Drawing {
                 Vector2f bisector = new Vector2f(lastVector).normalize().add(new Vector2f(nextVector).normalize())
                         .normalize().mul(numberPixelDistance);
                 Vector2f textCenter = point.sub(bisector);
-                font.drawTextCentered("" + count, textCenter.x,
+                font.drawTextCentered("" + p.getID(), textCenter.x,
                         textCenter.y, FONT_HEIGHT_PIXELS,
                         color, camera);
             }

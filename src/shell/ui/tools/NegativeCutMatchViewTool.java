@@ -133,4 +133,10 @@ public class NegativeCutMatchViewTool extends Tool {
 
         }
     }
+
+    @Override
+    public ArrayList<String> info() {
+        ArrayList<String> info = new ArrayList<>();
+        return info;
+    }
 }

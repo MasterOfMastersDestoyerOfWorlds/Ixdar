@@ -349,4 +349,8 @@ public class Font {
         drawText(text, x - textWidth / 2, y - textHeight / 2, height, c, camera);
     }
 
+    public void drawRow(String string, int row, float height, float rowSpacing, Color c, Camera camera) {
+        drawText(string, 0, camera.getHeight() - ((row + 1) * height), height, c, camera);
+    }
+
 }
