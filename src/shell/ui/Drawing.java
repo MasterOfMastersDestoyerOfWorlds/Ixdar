@@ -1,7 +1,8 @@
 package shell.ui;
 
-import java.awt.geom.Path2D;
-import java.awt.geom.PathIterator;
+import static java.awt.Font.PLAIN;
+import static java.awt.Font.SANS_SERIF;
+
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,8 +26,6 @@ import shell.render.sdf.SDFCircle;
 import shell.render.sdf.SDFLine;
 import shell.render.text.Font;
 import shell.shell.Shell;
-import static java.awt.Font.SANS_SERIF;
-import static java.awt.Font.PLAIN;
 
 public class Drawing {
 
