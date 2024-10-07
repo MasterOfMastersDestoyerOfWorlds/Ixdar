@@ -58,9 +58,10 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         normalizedPosX = getNormalizePosX(e);
         normalizedPosY = getNormalizedPosY(e);
         if (Main.manifoldKnot != null && Main.active) {
+            Tool tool = Main.tool;
             camera.calculateCameraTransform();
-            double x = camera.screenTransformX(normalizedPosX);
-            double y = camera.screenTransformY(normalizedPosY);
+            double x = camera.screenTransformX(normalizedPosX - tool.ScreenOffsetX);
+            double y = camera.screenTransformY(normalizedPosY - tool.ScreenOffsetY);
             double minDist = Double.MAX_VALUE;
             Segment hoverSegment = null;
             for (Segment s : manifoldKnot.manifoldSegments) {
@@ -72,7 +73,6 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
                     }
                 }
             }
-            Tool tool = Main.tool;
             VirtualPoint kp = null, cp = null;
             if (hoverSegment != null) {
                 VirtualPoint closestPoint = hoverSegment.closestPoint(x, y);
@@ -93,13 +93,11 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     }
 
     private float getNormalizePosX(MouseEvent e) {
-        return (((((float) e.getX()) / ((float) canvas.getWidth()) * Canvas3D.frameBufferWidth)))
-                - camera.getScreenOffsetX();
+        return (((((float) e.getX()) / ((float) canvas.getWidth()) * Canvas3D.frameBufferWidth)));
     }
 
     private float getNormalizedPosY(MouseEvent e) {
-        return ((1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight)
-                - camera.getScreenOffsetY();
+        return ((1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight);
     }
 
     double startX;
@@ -178,6 +176,9 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         }
         if (main != null && Main.active) {
             Main.tool.calculateHover(normalizedPosX, normalizedPosY);
+        }
+        if (Main.toolInfo != null && Main.active) {
+            Main.toolInfo.calculateHover(normalizedPosX, normalizedPosY);
         }
         if (captureMouse) {
             // captureMouse(false);

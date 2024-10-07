@@ -1,6 +1,8 @@
 package shell.ui.tools;
 
 import shell.render.color.Color;
+import shell.render.text.HyperString;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -135,8 +137,8 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     @Override
-    public ArrayList<String> info() {
-        ArrayList<String> info = new ArrayList<>();
-        return info;
+    public HyperString info() {
+        HyperString h = new HyperString();
+        return h;
     }
 }

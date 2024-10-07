@@ -1,11 +1,14 @@
 package shell.ui.tools;
 
 import shell.render.color.Color;
+import shell.render.text.HyperString;
+
 import java.util.ArrayList;
 
 import shell.Main;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
+import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.ui.Drawing;
@@ -83,9 +86,20 @@ public class FreeTool extends Tool {
     }
 
     @Override
-    public ArrayList<String> info() {
-        ArrayList<String> info = new ArrayList<>();
-        info.add("Point: " + (displayPoint == null ? "None" : displayPoint.id));
-        return info;
+    public HyperString info() {
+        HyperString h = new HyperString();
+        HyperString pointInfo = new HyperString();
+        h.addWord("Point: ");
+        if (displayPoint == null) {
+            h.addWord("None");
+        } else {
+            pointInfo.addWord(((Point) displayPoint).p.toString());
+
+            h.addWord(displayPoint.id + "", Color.BLUE_WHITE,
+                    () -> Main.setTooltipText(pointInfo), () -> Main.clearTooltipText(),
+                    () -> {
+                    });
+        }
+        return h;
     }
 }

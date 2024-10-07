@@ -9,6 +9,7 @@ import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.render.text.HyperString;
 import shell.ui.IxdarWindow;
 
 public abstract class Tool {
@@ -98,6 +99,8 @@ public abstract class Tool {
     }
 
     ToggleType[] disallowedToggles = new ToggleType[] {};
+    public float ScreenOffsetY;
+    public float ScreenOffsetX;
 
     public boolean canUseToggle(Toggle toggle) {
         for (int i = 0; i < disallowedToggles.length; i++) {
@@ -109,15 +112,18 @@ public abstract class Tool {
     }
 
     public void calculateHover(float normalizedPosX, float normalizedPosY) {
+
         Tool tool = Main.tool;
-        if (normalizedPosX <= IxdarWindow.frame.getWidth() && normalizedPosX >= 0
-                && normalizedPosY <= IxdarWindow.frame.getHeight() && normalizedPosY >= 0) {
+        float x = normalizedPosX - ScreenOffsetX;
+        float y = normalizedPosY - ScreenOffsetY;
+        if (x <= IxdarWindow.frame.getWidth() && x >= 0
+                && y <= IxdarWindow.frame.getHeight() && y >= 0) {
             ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
             Camera2D camera = Main.camera;
             if (knotsDisplayed != null) {
                 camera.calculateCameraTransform();
-                double x = camera.screenTransformX(normalizedPosX);
-                double y = camera.screenTransformY(normalizedPosY);
+                x = camera.screenTransformX(x);
+                y = camera.screenTransformY(y);
                 double minDist = Double.MAX_VALUE;
                 Segment hoverSegment = null;
                 for (Knot k : knotsDisplayed) {
@@ -159,6 +165,11 @@ public abstract class Tool {
         Free, None
     }
 
-    public abstract ArrayList<String> info();
+    public abstract HyperString info();
+
+    public void setScreenOffset(Camera2D camera) {
+        ScreenOffsetX = camera.ScreenOffsetX;
+        ScreenOffsetY = camera.ScreenOffsetY;
+    }
 
 }

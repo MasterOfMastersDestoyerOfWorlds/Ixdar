@@ -11,12 +11,14 @@ import java.awt.FontFormatException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.lwjgl.system.MemoryUtil;
 
 import shell.cameras.Camera;
+import shell.cameras.Camera2D;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
@@ -351,6 +353,18 @@ public class Font {
 
     public void drawRow(String string, int row, float height, float rowSpacing, Color c, Camera camera) {
         drawText(string, 0, camera.getHeight() - ((row + 1) * height), height, c, camera);
+    }
+
+    public void drawRow(ArrayList<Word> hyperString, float height, Color c, Camera2D camera) {
+        float characterOffset = 0;
+        float scaleRatio = height / fontHeight;
+        for (int i = 0; i < hyperString.size(); i++) {
+            Word word = hyperString.get(i);
+            drawText(word.text, characterOffset + 0,
+                    word.yOffset - camera.ScreenOffsetY, height, word.color,
+                    camera);
+            characterOffset += getWidth(word.text) * scaleRatio;
+        }
     }
 
 }

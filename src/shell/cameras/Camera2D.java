@@ -33,8 +33,8 @@ public class Camera2D implements Camera {
     public float zIndex;
     float width;
     private float SHIFT_MOD = 1.0f;
-    private float ScreenOffsetY;
-    private float ScreenOffsetX;
+    public float ScreenOffsetY;
+    public float ScreenOffsetX;
 
     public Camera2D(int Width, int Height, float ScaleFactor, float ScreenOffsetX, float ScreenOffsetY, PointSet ps) {
         this.Height = Height;

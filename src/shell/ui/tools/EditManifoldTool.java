@@ -8,6 +8,7 @@ import shell.cameras.Camera2D;
 import shell.file.Manifold;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.render.text.HyperString;
 import shell.ui.Drawing;
 
 public class EditManifoldTool extends Tool {
@@ -57,8 +58,8 @@ public class EditManifoldTool extends Tool {
     }
 
     @Override
-    public ArrayList<String> info() {
-        ArrayList<String> info = new ArrayList<>();
-        return info;
+    public HyperString info() {
+        HyperString h = new HyperString();
+        return h;
     }
 }

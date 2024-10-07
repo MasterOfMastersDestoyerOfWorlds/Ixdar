@@ -1,6 +1,7 @@
 package shell.render.color;
 
 import shell.cameras.Camera;
+import shell.cameras.Camera2D;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 
@@ -30,13 +31,18 @@ public class ColorBox {
     public void draw(float nomalizedPosX, float nomalizedPosY, float width, float height, Color c, Camera camera) {
 
         shader.begin();
-        shader.drawColorRegion(nomalizedPosX, nomalizedPosY, nomalizedPosX + width, nomalizedPosY + height, camera.getZIndex(), c);
+        shader.drawColorRegion(nomalizedPosX, nomalizedPosY, nomalizedPosX + width, nomalizedPosY + height,
+                camera.getZIndex(), c);
         shader.end();
         camera.incZIndex();
     }
 
     public void drawCentered(int drawX, int drawY, int width, int height, Color c, Camera camera) {
         draw(drawX - (width / 2), drawY - (height / 2), width, height, c, camera);
+    }
+
+    public void draw(Color c, Camera camera) {
+        draw(0, 0, camera.getWidth(), camera.getHeight(), c, camera);
     }
 
 }

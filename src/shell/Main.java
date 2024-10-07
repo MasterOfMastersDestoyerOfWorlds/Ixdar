@@ -13,6 +13,7 @@ import java.util.Random;
 import java.util.Set;
 
 import org.apache.commons.math3.util.Pair;
+import org.joml.Vector2f;
 
 import shell.cameras.Camera;
 import shell.cameras.Camera2D;
@@ -30,10 +31,13 @@ import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.Clock;
 import shell.render.color.Color;
+import shell.render.color.ColorBox;
 import shell.render.color.ColorRGB;
+import shell.render.sdf.SDFCircle;
 import shell.render.sdf.SDFTexture;
 import shell.render.shaders.ShaderProgram;
 import shell.render.text.Font;
+import shell.render.text.HyperString;
 import shell.shell.Shell;
 import shell.shell.ShellComparator;
 import shell.shell.ShellPair;
@@ -78,13 +82,16 @@ public class Main {
 	public static HashMap<Long, Integer> colorLookup = new HashMap<>();
 	public static boolean active;
 	public Canvas canvas;
-	private static KeyGuy keys;
-	private static MouseTrap mouseTrap;
-	private SDFTexture logo;
+	public static KeyGuy keys;
+	public static MouseTrap mouseTrap;
+	private static HyperString toolTip;
+	public SDFTexture logo;
 	public Font font;
 
 	final int RIGHT_PANEL_SIZE = 250;
 	final int BOTTOM_PANEL_SIZE = 250;
+	public static HyperString toolInfo;
+	private static boolean showToolTip;
 
 	public Main(String fileName) {
 		Main.fileName = fileName;
@@ -258,7 +265,6 @@ public class Main {
 
 	public void draw(Camera camera3D) {
 		try {
-
 			updateView(0, BOTTOM_PANEL_SIZE, Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE,
 					Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
 			float SHIFT_MOD = 1;
@@ -273,6 +279,8 @@ public class Main {
 			}
 			camera.setZIndex(camera3D);
 			camera.calculateCameraTransform();
+
+			tool.setScreenOffset(camera);
 			tool.draw(camera, Drawing.MIN_THICKNESS);
 
 			if (sbe != null) {
@@ -304,24 +312,32 @@ public class Main {
 			if (logo == null) {
 				logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, 0.6f, 0f, true);
 			}
-			// new SDFCircle().draw(new Vector2f(mouseTrap.normalizedPosX,
-			// mouseTrap.normalizedPosY), stickyColor,
-			// camera3D);
+
 			updateView(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
 					Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
+			new SDFCircle().draw(new Vector2f(mouseTrap.normalizedPosX - camera.ScreenOffsetX,
+					mouseTrap.normalizedPosY - camera.ScreenOffsetY), stickyColor,
+					camera);
 			int row = 0;
 			float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
 			Drawing.font.drawRow("FPS:" + Clock.fps(), row++, rowHeight, 0, Color.IXDAR, camera);
 			Drawing.font.drawRow("Tool: " + tool.displayName(), row++, rowHeight, 0, Color.IXDAR,
 					camera);
-			ArrayList<String> toolInfo = tool.info();
-			for (int i = 0; i < toolInfo.size(); i++) {
-				Drawing.font.drawRow(toolInfo.get(i), row++, rowHeight, 0, Color.IXDAR,
+
+			toolInfo = tool.info();
+			for (int i = 0; i < toolInfo.lines; i++) {
+				toolInfo.setScreenOffset(camera, row++, rowHeight, font, i);
+				Drawing.font.drawRow(toolInfo.getLine(i), rowHeight, Color.IXDAR,
 						camera);
 			}
 
 			updateView(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
 			logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
+			if (toolTip != null && showToolTip) {
+				updateView((int) mouseTrap.normalizedPosX, (int) mouseTrap.normalizedPosY, toolTip.getWidthPixels(),
+						toolTip.lines * (int) Drawing.FONT_HEIGHT_PIXELS);
+				new ColorBox().draw(Color.BLUE, camera);
+			}
 			camera3D.setZIndex(camera);
 
 		} catch (Exception e) {
@@ -329,8 +345,10 @@ public class Main {
 		}
 	}
 
-	private void updateView(int x, int y, int width, int height) {
+	public void updateView(int x, int y, int width, int height) {
 		camera.updateSize(width, height);
+		camera.ScreenOffsetX = x;
+		camera.ScreenOffsetY = y;
 		glViewport(x, y, width, height);
 		for (ShaderProgram s : Canvas3D.shaders) {
 			s.updateProjectionMatrix(width, height, 1f);
@@ -470,6 +488,16 @@ public class Main {
 		active = state;
 		mouseTrap.active = state;
 		keys.active = state;
+	}
+
+	public static void setTooltipText(HyperString pointInfo) {
+		toolTip = pointInfo;
+		showToolTip = true;
+	}
+
+	public static void clearTooltipText() {
+		toolTip = null;
+		showToolTip = false;
 	}
 
 }
