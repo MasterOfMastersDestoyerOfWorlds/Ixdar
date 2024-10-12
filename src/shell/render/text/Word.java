@@ -46,6 +46,11 @@ public class Word {
         this.rowHeight = height;
     }
 
+    
+    public void setWidth(Font font) {
+        this.width = font.getWidth(text);
+    }
+
     public void calculateClearHover(float normalizedPosX, float normalizedPosY) {
         if (!newLine && !(normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
                 normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight)) {
@@ -64,4 +69,5 @@ public class Word {
     public String toString() {
         return (String) text;
     }
+
 }

@@ -5,8 +5,6 @@ import shell.render.text.HyperString;
 
 import java.util.ArrayList;
 
-import org.apache.commons.math3.util.Pair;
-
 import shell.Main;
 import shell.Toggle;
 import shell.cameras.Camera2D;
@@ -119,6 +117,7 @@ public class FreeTool extends Tool {
             }
             h.addWord(containingKnot.toString(), c);
         }
+        h.wrap = true;
         return h;
     }
 }

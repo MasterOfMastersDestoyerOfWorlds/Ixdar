@@ -18,6 +18,7 @@ public class HyperString {
     public Color defaultColor = Color.IXDAR;
     public int lines = 1;
     public boolean debug;
+    public boolean wrap;
 
     public HyperString() {
         words = new ArrayList<>();
@@ -29,31 +30,39 @@ public class HyperString {
     }
 
     public void addWord(String word) {
-        addWord(word, defaultColor, () -> {
-        }, () -> {
-        }, () -> {
-        });
+        for (String w : word.split(" ")) {
+            addWord(w + " ", defaultColor, () -> {
+            }, () -> {
+            }, () -> {
+            });
+        }
     }
 
     public void addWord(String word, Color c) {
-        addWord(word, c, () -> {
-        }, () -> {
-        }, () -> {
-        });
+        for (String w : word.split(" ")) {
+            addWord(w + " ", c, () -> {
+            }, () -> {
+            }, () -> {
+            });
+        }
     }
 
     public void addWord(String word, Color c, Action hoverAction, Action clearHover, Action clickAction) {
-        strMap.computeIfPresent(lines - 1, (key, val) -> val + word);
-        words.add(new Word(word, c, hoverAction, clearHover, clickAction));
+        for (String w : word.split(" ")) {
+            strMap.computeIfPresent(lines - 1, (key, val) -> val + w + " ");
+            words.add(new Word(word, c, hoverAction, clearHover, clickAction));
+        }
     }
 
     public void addTooltip(String word, Color c, HyperString toolTipText) {
-        strMap.computeIfPresent(lines - 1, (key, val) -> val + word);
-        words.add(new Word(word, c,
-                () -> Main.setTooltipText(toolTipText),
-                () -> Main.clearTooltipText(),
-                () -> {
-                }));
+        for (String w : word.split(" ")) {
+            strMap.computeIfPresent(lines - 1, (key, val) -> val + w + " ");
+            words.add(new Word(word, c,
+                    () -> Main.setTooltipText(toolTipText),
+                    () -> Main.clearTooltipText(),
+                    () -> {
+                    }));
+        }
     }
 
     public Word getWord(int i) {
@@ -111,13 +120,16 @@ public class HyperString {
         }
     }
 
-    public void setLineOffsetFromTopRow(Camera2D camera, int row, float rowHeight, Font font) {
+    public int setLineOffsetFromTopRow(Camera2D camera, int row, float rowHeight, Font font) {
+        int startRow = row;
         for (int i = 0; i < lines; i++) {
-            setLineOffsetFromTopRow(camera, row + i, rowHeight, font, i);
+            row += setLineOffsetFromTopRow(camera, row, rowHeight, font, i);
         }
+        return row - startRow;
     }
 
-    public void setLineOffsetFromTopRow(Camera2D camera, int row, float rowHeight, Font font, int lineNumber) {
+    public int setLineOffsetFromTopRow(Camera2D camera, int row, float rowHeight, Font font, int lineNumber) {
+        int startRow = row;
         int idxStart = lineStartMap.get(lineNumber);
         int idxEnd = words.size();
         if (lineNumber < lines - 1) {
@@ -129,12 +141,21 @@ public class HyperString {
             if (w.newLine) {
                 continue;
             }
+
+            w.setWidth(font);
             float wordX = offset;
+            float wordWidth = Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * w.width;
+            if (wrap && wordX + wordWidth > camera.getWidth()) {
+                row++;
+                offset = 0;
+                wordX = 0;
+            }
             float wordY = camera.getHeight() - ((row + 1) * rowHeight);
             w.setBounds(wordX, wordY, camera.getScreenOffsetX() + offset,
                     camera.getScreenOffsetY() + wordY, rowHeight);
-            offset += Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * w.width;
+            offset += wordWidth;
         }
+        return row - startRow + 1;
     }
 
     public void setLineOffset(Camera2D camera, float x, float y, Font font, int lineNumber) {
