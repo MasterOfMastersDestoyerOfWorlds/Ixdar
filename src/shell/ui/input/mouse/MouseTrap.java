@@ -13,6 +13,7 @@ import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.geom.Point2D;
+import java.util.ArrayList;
 
 import javax.swing.JFrame;
 
@@ -23,6 +24,7 @@ import shell.cameras.Camera;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.render.text.HyperString;
 import shell.ui.Canvas3D;
 import shell.ui.tools.Tool;
 
@@ -39,6 +41,7 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     public Camera camera;
     public boolean captureMouse;
     public boolean active = true;
+    public static ArrayList<HyperString> hyperStrings = new ArrayList<>();
 
     public MouseTrap(Main main, JFrame frame, Camera camera, boolean captureMouse) {
         this.main = main;
@@ -177,15 +180,20 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         if (main != null && Main.active) {
             Main.tool.calculateHover(normalizedPosX, normalizedPosY);
         }
-        if (Main.toolInfo != null && Main.active) {
-            Main.toolInfo.calculateHover(normalizedPosX, normalizedPosY);
+        for (HyperString h : hyperStrings) {
+            h.calculateClearHover(normalizedPosX, normalizedPosY);
+        }
+        for (HyperString h : hyperStrings) {
+            h.calculateHover(normalizedPosX, normalizedPosY);
         }
         if (captureMouse) {
             // captureMouse(false);
         }
+        hyperStrings = new ArrayList<>();
     }
 
     public void paintUpdate(float SHIFT_MOD) {
+        MouseTrap.hyperStrings = new ArrayList<>();
         if (System.currentTimeMillis() - timeLastScroll > 60) {
             queuedMouseWheelTicks = 0;
         }

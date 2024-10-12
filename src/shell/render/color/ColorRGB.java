@@ -18,6 +18,8 @@ public class ColorRGB implements Color {
     /** This value specifies the transparency. */
     float alpha;
 
+    String name;
+
     /** The default color is black. */
     public ColorRGB() {
         this(0f, 0f, 0f);
@@ -103,6 +105,14 @@ public class ColorRGB implements Color {
         setGreen(other.y);
         setBlue(other.z);
         setAlpha(alpha);
+    }
+
+    public ColorRGB(float r, float g, float b, String name) {
+        setRed(red);
+        setGreen(green);
+        setBlue(blue);
+        setAlpha(alpha);
+        this.name = name;
     }
 
     /**
@@ -250,6 +260,7 @@ public class ColorRGB implements Color {
      *
      * @return The color as vec3.
      */
+    @Override
     public Vector3f toVector3f() {
         return new Vector3f(red, green, blue);
     }
@@ -259,8 +270,18 @@ public class ColorRGB implements Color {
      *
      * @return The color as vec4.
      */
+    @Override
     public Vector4f toVector4f() {
         return new Vector4f(red, green, blue, alpha);
+    }
+
+    @Override
+    public String toString() {
+        if (!name.isEmpty()) {
+            return name;
+        } else {
+            return "R: " + red + " G: " + green + " B: " + blue + " A: " + alpha;
+        }
     }
 
 }

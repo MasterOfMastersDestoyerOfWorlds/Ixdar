@@ -25,6 +25,7 @@ import shell.render.color.Color;
 import shell.render.sdf.SDFCircle;
 import shell.render.sdf.SDFLine;
 import shell.render.text.Font;
+import shell.render.text.HyperString;
 import shell.shell.Shell;
 
 public class Drawing {
@@ -221,9 +222,12 @@ public class Drawing {
                 Vector2f bisector = new Vector2f(lastVector).normalize().add(new Vector2f(nextVector).normalize())
                         .normalize().mul(numberPixelDistance);
                 Vector2f textCenter = point.sub(bisector);
-                font.drawTextCentered("" + p.getID(), textCenter.x,
-                        textCenter.y, FONT_HEIGHT_PIXELS,
-                        color, camera);
+                HyperString number = new HyperString();
+                HyperString pointInfo = new HyperString();
+                pointInfo.addWord(p.toString());
+                number.addTooltip(p.getID() + "", color, pointInfo);
+                number.debug = true;
+                Drawing.font.drawHyperString(number, textCenter.x, textCenter.y, FONT_HEIGHT_PIXELS, camera);
             }
             if (drawLines) {
                 float lx = camera.pointTransformX(last.getCoord(0));

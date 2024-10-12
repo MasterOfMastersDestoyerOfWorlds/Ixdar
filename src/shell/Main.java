@@ -325,16 +325,19 @@ public class Main {
 					camera);
 
 			toolInfo = tool.info();
-			for (int i = 0; i < toolInfo.lines; i++) {
-				toolInfo.setScreenOffset(camera, row++, rowHeight, font, i);
-				Drawing.font.drawRow(toolInfo.getLine(i), rowHeight, Color.IXDAR,
-						camera);
-			}
-
+			Drawing.font.drawHyperStringRows(toolInfo, rowHeight, row, camera);
+			row += toolInfo.lines;
 			updateView(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
 			logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 			if (toolTip != null && showToolTip) {
-				updateView((int) mouseTrap.normalizedPosX, (int) mouseTrap.normalizedPosY, toolTip.getWidthPixels(),
+				int isRight = mouseTrap.normalizedPosX > Canvas3D.frameBufferWidth / 2 ? 1 : 0;
+				int toolTipWidth = toolTip.getWidthPixels();
+
+				int isTop = mouseTrap.normalizedPosY > Canvas3D.frameBufferHeight / 2 ? 1 : 0;
+				int toolTipHeight = toolTip.getHeightPixels();
+				updateView((int) mouseTrap.normalizedPosX - (isRight * toolTipWidth),
+						(int) mouseTrap.normalizedPosY - (isTop * toolTipHeight),
+						toolTip.getWidthPixels(),
 						toolTip.lines * (int) Drawing.FONT_HEIGHT_PIXELS);
 				new ColorBox().draw(Color.BLUE, camera);
 			}
@@ -493,6 +496,7 @@ public class Main {
 	public static void setTooltipText(HyperString pointInfo) {
 		toolTip = pointInfo;
 		showToolTip = true;
+		
 	}
 
 	public static void clearTooltipText() {

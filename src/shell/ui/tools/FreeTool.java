@@ -95,10 +95,7 @@ public class FreeTool extends Tool {
         } else {
             pointInfo.addWord(((Point) displayPoint).p.toString());
 
-            h.addWord(displayPoint.id + "", Color.BLUE_WHITE,
-                    () -> Main.setTooltipText(pointInfo), () -> Main.clearTooltipText(),
-                    () -> {
-                    });
+            h.addTooltip(displayPoint.id + "", Color.BLUE_WHITE, pointInfo);
         }
         return h;
     }

@@ -1,6 +1,6 @@
 # TODO
 
-## Algorithm Changes
+## Cutting Algorithm Changes
 
 1. - [ ] New Algorithm to search space within Knot until Knot boundary
 2. - [ ] Should only move toward the exit in terms of Knot distance

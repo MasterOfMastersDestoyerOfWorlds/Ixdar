@@ -355,15 +355,41 @@ public class Font {
         drawText(string, 0, camera.getHeight() - ((row + 1) * height), height, c, camera);
     }
 
-    public void drawRow(ArrayList<Word> hyperString, float height, Color c, Camera2D camera) {
+    public void drawHyperStringRow(ArrayList<Word> hyperString, float height, Camera2D camera) {
         float characterOffset = 0;
         float scaleRatio = height / fontHeight;
         for (int i = 0; i < hyperString.size(); i++) {
             Word word = hyperString.get(i);
             drawText(word.text, characterOffset + 0,
-                    word.yOffset - camera.ScreenOffsetY, height, word.color,
+                    word.y, height, word.color,
                     camera);
             characterOffset += getWidth(word.text) * scaleRatio;
+        }
+    }
+
+    public void drawHyperString(HyperString hyperString, float x, float y, float height, Camera2D camera) {
+        hyperString.setLineOffsetCentered(camera, x, y, this, 0);
+        for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
+            ArrayList<Word> words = hyperString.getLine(lineNumber);
+            for (int i = 0; i < words.size(); i++) {
+                Word word = words.get(i);
+                drawText(word.text, word.x,
+                        word.y, height, word.color,
+                        camera);
+            }
+        }
+    }
+
+    public void drawHyperStringRows(HyperString hyperString, float height, int row, Camera2D camera) {
+        hyperString.setLineOffsetFromTopRow(camera, row, height, this, 0);
+        for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
+            ArrayList<Word> words = hyperString.getLine(lineNumber);
+            for (int i = 0; i < words.size(); i++) {
+                Word word = words.get(i);
+                drawText(word.text, word.x,
+                        word.y, height, word.color,
+                        camera);
+            }
         }
     }
 

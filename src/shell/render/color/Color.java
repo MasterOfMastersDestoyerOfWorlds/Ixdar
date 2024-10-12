@@ -4,8 +4,8 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 public interface Color {
-    public static final Color WHITE = new ColorRGB(1f, 1f, 1f);
-    public static final Color BLACK = new ColorRGB(0f, 0f, 0f);
+    public static final Color WHITE = new ColorRGB(1f, 1f, 1f, "White");
+    public static final Color BLACK = new ColorRGB(0f, 0f, 0f, "Black");
     public static final Color RED = new ColorRGB(1f, 0f, 0f);
     public static final Color GREEN = new ColorRGB(0f, 1f, 0f);
     public static final Color BLUE = new ColorRGB(0f, 0f, 1f);

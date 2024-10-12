@@ -11,11 +11,13 @@ public class Word {
     public Action hoverAction;
     public Action clickAction;
     public boolean newLine = false;
-    public float yOffset;
-    public float xOffset;
+    public float yScreenOffset;
+    public float xScreenOffset;
     public float rowHeight;
     public float width;
     public Action clearHover;
+    public float x;
+    public float y;
 
     public Word(String word, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         text = word;
@@ -35,20 +37,31 @@ public class Word {
         newLine = b;
     }
 
-    public void setBounds(float x, float y, float height) {
+    public void setBounds(float x, float y, float xScreen, float yScreen, float height) {
         this.width = Drawing.font.getWidth(text);
-        this.xOffset = x;
-        this.yOffset = y;
+        this.x = x;
+        this.y = y;
+        this.xScreenOffset = xScreen;
+        this.yScreenOffset = yScreen;
         this.rowHeight = height;
     }
 
-    public void calculateHover(float normalizedPosX, float normalizedPosY) {
-        if (normalizedPosX > xOffset && normalizedPosX < xOffset + width &&
-                normalizedPosY > yOffset && normalizedPosY < yOffset + rowHeight) {
-            hoverAction.perform();
-        } else {
+    public void calculateClearHover(float normalizedPosX, float normalizedPosY) {
+        if (!(normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
+                normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight)) {
             clearHover.perform();
         }
     }
 
+    public void calculateHover(float normalizedPosX, float normalizedPosY) {
+        if (normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
+                normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight) {
+            hoverAction.perform();
+        }
+    }
+
+    @Override
+    public String toString() {
+        return (String) text;
+    }
 }

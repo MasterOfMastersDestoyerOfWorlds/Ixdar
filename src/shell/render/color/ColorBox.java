@@ -1,7 +1,6 @@
 package shell.render.color;
 
 import shell.cameras.Camera;
-import shell.cameras.Camera2D;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 
