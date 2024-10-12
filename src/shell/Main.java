@@ -78,6 +78,7 @@ public class Main {
 
 	public static Color stickyColor;
 	public static ArrayList<Color> metroColors = new ArrayList<>();
+	public static HashMap<Long, Integer> metroColorLookup = new HashMap<>();
 	public static ArrayList<Color> knotGradientColors = new ArrayList<>();
 	public static HashMap<Long, Integer> colorLookup = new HashMap<>();
 	public static boolean active;
@@ -221,6 +222,7 @@ public class Main {
 			}
 			metroPathsHeight.add(new ShellPair(knotShell, k, heightNum));
 			metroPathsLayer.add(new ShellPair(knotShell, k, totalLayers - layerNum));
+			metroColorLookup.put((long) k.id, totalLayers - layerNum);
 		}
 
 		float startHueM = colorSeed.nextFloat();
@@ -312,6 +314,8 @@ public class Main {
 			if (logo == null) {
 				logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, 0.6f, 0f, true);
 			}
+			updateView(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
+			logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 
 			updateView(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
 					Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
@@ -327,8 +331,6 @@ public class Main {
 			toolInfo = tool.info();
 			Drawing.font.drawHyperStringRows(toolInfo, rowHeight, row, camera);
 			row += toolInfo.lines;
-			updateView(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
-			logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 			if (toolTip != null && showToolTip) {
 				int isRight = mouseTrap.normalizedPosX > Canvas3D.frameBufferWidth / 2 ? 1 : 0;
 				int toolTipWidth = toolTip.getWidthPixels();
@@ -368,7 +370,7 @@ public class Main {
 			} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
 				for (Shell temp : subPaths) {
 					temp.drawShell(true, Drawing.MIN_THICKNESS * 2,
-							stickyColor, retTup.ps, camera);
+							metroColors.get(0), retTup.ps, camera);
 				}
 			}
 		} else {
@@ -404,6 +406,20 @@ public class Main {
 				}
 			}
 			metroPathsLayer = newQueue;
+		}
+	}
+
+	public static Color getKnotGradientColor(VirtualPoint displayPoint) {
+		Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
+		return knotGradientColors.get(colorLookup.get((long) smallestKnot.id));
+	}
+
+	public static Color getMetroColor(VirtualPoint displayPoint, Knot k) {
+		if (metroDrawLayer < 0) {
+			Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
+			return metroColors.get(metroColorLookup.get((long) smallestKnot.id));
+		} else {
+			return metroColors.get(metroColorLookup.get((long) k.id));
 		}
 	}
 
@@ -496,7 +512,7 @@ public class Main {
 	public static void setTooltipText(HyperString pointInfo) {
 		toolTip = pointInfo;
 		showToolTip = true;
-		
+
 	}
 
 	public static void clearTooltipText() {

@@ -272,6 +272,7 @@ public class Font {
      */
     public void drawText(CharSequence text, float x, float y, float glyphHeight,
             Color c, Camera camera) {
+
         float textHeight = getHeight(text);
 
         float drawX = x;
@@ -381,11 +382,14 @@ public class Font {
     }
 
     public void drawHyperStringRows(HyperString hyperString, float height, int row, Camera2D camera) {
-        hyperString.setLineOffsetFromTopRow(camera, row, height, this, 0);
+        hyperString.setLineOffsetFromTopRow(camera, row, height, this);
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
             ArrayList<Word> words = hyperString.getLine(lineNumber);
             for (int i = 0; i < words.size(); i++) {
                 Word word = words.get(i);
+                if (word.newLine) {
+                    continue;
+                }
                 drawText(word.text, word.x,
                         word.y, height, word.color,
                         camera);

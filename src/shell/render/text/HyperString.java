@@ -35,6 +35,13 @@ public class HyperString {
         });
     }
 
+    public void addWord(String word, Color c) {
+        addWord(word, c, () -> {
+        }, () -> {
+        }, () -> {
+        });
+    }
+
     public void addWord(String word, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         strMap.computeIfPresent(lines - 1, (key, val) -> val + word);
         words.add(new Word(word, c, hoverAction, clearHover, clickAction));
@@ -104,6 +111,12 @@ public class HyperString {
         }
     }
 
+    public void setLineOffsetFromTopRow(Camera2D camera, int row, float rowHeight, Font font) {
+        for (int i = 0; i < lines; i++) {
+            setLineOffsetFromTopRow(camera, row + i, rowHeight, font, i);
+        }
+    }
+
     public void setLineOffsetFromTopRow(Camera2D camera, int row, float rowHeight, Font font, int lineNumber) {
         int idxStart = lineStartMap.get(lineNumber);
         int idxEnd = words.size();
@@ -113,6 +126,9 @@ public class HyperString {
         float offset = 0;
         for (int j = idxStart; j < idxEnd; j++) {
             Word w = words.get(j);
+            if (w.newLine) {
+                continue;
+            }
             float wordX = offset;
             float wordY = camera.getHeight() - ((row + 1) * rowHeight);
             w.setBounds(wordX, wordY, camera.getScreenOffsetX() + offset,
@@ -130,6 +146,9 @@ public class HyperString {
         float offset = 0;
         for (int j = idxStart; j < idxEnd; j++) {
             Word w = words.get(j);
+            if (w.newLine) {
+                continue;
+            }
             float wordX = x + offset;
             float wordY = y;
             w.setBounds(wordX, wordY, camera.getScreenOffsetX() + wordX,
@@ -150,6 +169,9 @@ public class HyperString {
         float offset = 0;
         for (int j = idxStart; j < idxEnd; j++) {
             Word w = words.get(j);
+            if (w.newLine) {
+                continue;
+            }
             float wordX = x + offset - centerX;
             float wordY = y - centerY;
             w.setBounds(wordX, wordY, camera.getScreenOffsetX() + wordX,

@@ -47,14 +47,14 @@ public class Word {
     }
 
     public void calculateClearHover(float normalizedPosX, float normalizedPosY) {
-        if (!(normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
+        if (!newLine && !(normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
                 normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight)) {
             clearHover.perform();
         }
     }
 
     public void calculateHover(float normalizedPosX, float normalizedPosY) {
-        if (normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
+        if (!newLine && normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
                 normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight) {
             hoverAction.perform();
         }

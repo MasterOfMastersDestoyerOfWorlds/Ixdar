@@ -101,8 +101,8 @@ public abstract class ShaderProgram {
     private int numVertices;
     private boolean drawing;
 
-    public final float ORTHO_NEAR = -100f;
-    public final float ORTHO_FAR = 100f;
+    public final float ORTHO_NEAR = -1000f;
+    public final float ORTHO_FAR = 1000f;
 
     @SuppressWarnings("unused")
     private String vertexShaderLocation, fragmentShaderLocation;

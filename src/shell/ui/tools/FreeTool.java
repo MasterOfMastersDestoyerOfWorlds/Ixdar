@@ -5,7 +5,10 @@ import shell.render.text.HyperString;
 
 import java.util.ArrayList;
 
+import org.apache.commons.math3.util.Pair;
+
 import shell.Main;
+import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Point;
@@ -96,6 +99,25 @@ public class FreeTool extends Tool {
             pointInfo.addWord(((Point) displayPoint).p.toString());
 
             h.addTooltip(displayPoint.id + "", Color.BLUE_WHITE, pointInfo);
+        }
+        h.newLine();
+        h.addWord("MinKnot: ");
+        Knot containingKnot = null;
+        for (Knot k : Main.knotsDisplayed) {
+            if (k.contains(displayPoint)) {
+                containingKnot = k;
+            }
+        }
+        if (containingKnot == null) {
+            h.addWord("None");
+        } else {
+            Color c = Main.stickyColor;
+            if (canUseToggle(Toggle.drawKnotGradient)) {
+                c = Main.getKnotGradientColor(displayPoint);
+            } else if (canUseToggle(Toggle.drawMetroDiagram)) {
+                c = Main.getMetroColor(displayPoint, containingKnot);
+            }
+            h.addWord(containingKnot.toString(), c);
         }
         return h;
     }
