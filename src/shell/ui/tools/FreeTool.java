@@ -115,7 +115,27 @@ public class FreeTool extends Tool {
             } else if (canUseToggle(Toggle.drawMetroDiagram)) {
                 c = Main.getMetroColor(displayPoint, containingKnot);
             }
-            h.addWord(containingKnot.toString(), c);
+            String pointStr = "" + displayPoint.id + " ";
+            h.addWord(containingKnot.beforeString(displayPoint.id), c);
+            h.addTooltip(pointStr, Color.BLUE_WHITE, pointInfo);
+            h.addWord(containingKnot.afterString(displayPoint.id), c);
+        }
+        h.newLine();
+        h.addWord("Neighbors:");
+        if (displayPoint == null) {
+            h.addWord("None");
+        } else {
+            h.addWord(displayPoint.match1.id + "");
+            h.addWord(displayPoint.match2.id + "");
+        }
+        h.newLine();
+        h.addWord("Closest Points:");
+        if (displayPoint == null) {
+            h.addWord("None");
+        } else {
+
+            h.addWord(displayPoint.sortedSegments.get(0).getOther(displayPoint).id + "");
+            h.addWord(displayPoint.sortedSegments.get(1).getOther(displayPoint).id + "");
         }
         h.wrap = true;
         return h;

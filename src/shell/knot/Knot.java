@@ -176,6 +176,7 @@ public class Knot extends VirtualPoint {
         return null;
     }
 
+    @Override
     public Point getNearestBasePoint(VirtualPoint vp) {
         for (int i = 0; i < sortedSegments.size(); i++) {
             Segment s = sortedSegments.get(i);
@@ -215,7 +216,7 @@ public class Knot extends VirtualPoint {
 
     @Override
     public String toString() {
-        String str = "Knot[";
+        String str = "Knot[ ";
         for (VirtualPoint vp : knotPoints) {
             str += vp + " ";
         }
@@ -224,6 +225,33 @@ public class Knot extends VirtualPoint {
         return str;
     }
 
+    public String beforeString(int id) {
+        String str = "Knot[ ";
+        for (VirtualPoint vp : knotPoints) {
+            if (vp.id == id) {
+                return str;
+            }
+            str += vp + " ";
+        }
+        str.stripTrailing();
+        str += "]";
+        return str;
+    }
+
+    public String afterString(int id) {
+        String str = "Knot[";
+        for (VirtualPoint vp : knotPoints) {
+            str += vp + " ";
+            if (vp.id == id) {
+                str = "";
+            }
+        }
+        str.stripTrailing();
+        str += "]";
+        return str;
+    }
+
+    @Override
     public String fullString() {
         return "" + this
                 + " match1: " + (match1 == null ? " none " : "" + match1)
@@ -234,6 +262,7 @@ public class Knot extends VirtualPoint {
                 + " basepoint2: " + (basePoint2 == null ? " none " : "" + basePoint2.id);
     }
 
+    @Override
     public boolean contains(VirtualPoint vp) {
         if (this.equals(vp)) {
             return true;
@@ -283,6 +312,7 @@ public class Knot extends VirtualPoint {
         return false;
     }
 
+    @Override
     public int size() {
         return knotPointsFlattened.size();
     }
