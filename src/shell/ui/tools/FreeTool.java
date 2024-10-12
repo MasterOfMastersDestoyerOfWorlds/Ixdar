@@ -6,6 +6,7 @@ import shell.render.text.HyperString;
 import java.util.ArrayList;
 
 import shell.Main;
+import shell.PointND;
 import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
@@ -90,14 +91,46 @@ public class FreeTool extends Tool {
     public HyperString info() {
         HyperString h = new HyperString();
         HyperString pointInfo = new HyperString();
+        PointND coordPoint = null;
         h.addWord("Point: ");
         if (displayPoint == null) {
             h.addWord("None");
         } else {
-            pointInfo.addWord(((Point) displayPoint).p.toString());
-
+            coordPoint = ((Point) displayPoint).p;
+            pointInfo.addWord(coordPoint.toString());
             h.addTooltip(displayPoint.id + "", Color.BLUE_WHITE, pointInfo);
         }
+        h.newLine();
+        h.addWord("Position:");
+        if (displayPoint == null) {
+            h.addWord("X:"
+                    + (int) Main.camera.screenTransformX(Main.mouseTrap.normalizedPosX - Main.MAIN_VIEW_OFFSET_X)
+                    + " Y:"
+                    + (int) Main.camera.screenTransformY(Main.mouseTrap.normalizedPosY - Main.MAIN_VIEW_OFFSET_Y));
+        } else {
+            h.addWord("X:" + (int) coordPoint.getCoord(0) + " Y:"
+                    + (int) coordPoint.getCoord(1));
+
+        }
+
+        h.newLine();
+        h.addWord("Neighbors:");
+        if (displayPoint == null) {
+            h.addWord("None");
+        } else {
+            h.addWord(displayPoint.match1.id + "");
+            h.addWord(displayPoint.match2.id + "");
+        }
+
+        h.newLine();
+        h.addWord("Closest Points:");
+        if (displayPoint == null) {
+            h.addWord("None");
+        } else {
+            h.addWord(displayPoint.sortedSegments.get(0).getOther(displayPoint).id + "");
+            h.addWord(displayPoint.sortedSegments.get(1).getOther(displayPoint).id + "");
+        }
+
         h.newLine();
         h.addWord("MinKnot: ");
         Knot containingKnot = null;
@@ -119,23 +152,6 @@ public class FreeTool extends Tool {
             h.addWord(containingKnot.beforeString(displayPoint.id), c);
             h.addTooltip(pointStr, Color.BLUE_WHITE, pointInfo);
             h.addWord(containingKnot.afterString(displayPoint.id), c);
-        }
-        h.newLine();
-        h.addWord("Neighbors:");
-        if (displayPoint == null) {
-            h.addWord("None");
-        } else {
-            h.addWord(displayPoint.match1.id + "");
-            h.addWord(displayPoint.match2.id + "");
-        }
-        h.newLine();
-        h.addWord("Closest Points:");
-        if (displayPoint == null) {
-            h.addWord("None");
-        } else {
-
-            h.addWord(displayPoint.sortedSegments.get(0).getOther(displayPoint).id + "");
-            h.addWord(displayPoint.sortedSegments.get(1).getOther(displayPoint).id + "");
         }
         h.wrap = true;
         return h;

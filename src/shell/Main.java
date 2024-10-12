@@ -91,6 +91,10 @@ public class Main {
 
 	final int RIGHT_PANEL_SIZE = 250;
 	final int BOTTOM_PANEL_SIZE = 250;
+	public static int MAIN_VIEW_OFFSET_X;
+	public static int MAIN_VIEW_OFFSET_Y;
+	public static int MAIN_VIEW_WIDTH;
+	public static int MAIN_VIEW_HEIGHT;
 	public static HyperString toolInfo;
 	private static boolean showToolTip;
 
@@ -267,8 +271,11 @@ public class Main {
 
 	public void draw(Camera camera3D) {
 		try {
-			updateView(0, BOTTOM_PANEL_SIZE, Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE,
-					Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
+			MAIN_VIEW_WIDTH = Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE;
+			MAIN_VIEW_HEIGHT = Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE;
+			MAIN_VIEW_OFFSET_X = 0;
+			MAIN_VIEW_OFFSET_Y = BOTTOM_PANEL_SIZE;
+			updateView(MAIN_VIEW_OFFSET_X, MAIN_VIEW_OFFSET_Y, MAIN_VIEW_WIDTH, MAIN_VIEW_HEIGHT);
 			float SHIFT_MOD = 1;
 			if (keys != null && keys.pressedKeys.contains(KeyEvent.VK_SHIFT)) {
 				SHIFT_MOD = 2;
