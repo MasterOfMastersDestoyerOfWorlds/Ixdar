@@ -39,6 +39,11 @@ public class ColorRGB implements Color {
         this(red, green, blue, 1f);
     }
 
+    public ColorRGB(float red, float green, float blue, String name) {
+        this(red, green, blue, 1f);
+        this.name = name;
+    }
+
     /**
      * Creates a RGBA-Color.
      *
@@ -105,14 +110,6 @@ public class ColorRGB implements Color {
         setGreen(other.y);
         setBlue(other.z);
         setAlpha(alpha);
-    }
-
-    public ColorRGB(float r, float g, float b, String name) {
-        setRed(red);
-        setGreen(green);
-        setBlue(blue);
-        setAlpha(alpha);
-        this.name = name;
     }
 
     /**

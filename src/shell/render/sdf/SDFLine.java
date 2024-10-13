@@ -17,10 +17,11 @@ public class SDFLine {
     private float borderOuter;
     private float borderOffsetInner;
     private float borderOffsetOuter;
-    private float lineWidth;
-    private float dashLength;
-    private boolean dashed;
-    private boolean roundCaps;
+    public float lineWidth;
+    public float dashLength;
+    public boolean dashed;
+    public boolean roundCaps;
+    public float dashRate;
 
     public SDFLine() {
         shader = ShaderType.LineSDF.shader;
@@ -62,7 +63,7 @@ public class SDFLine {
         shader.setVec2("pointB", pB);
         shader.setBool("dashed", dashed);
         shader.setBool("roundCaps", roundCaps);
-        shader.setFloat("dashPhase", Clock.spin(20));
+        shader.setFloat("dashPhase", Clock.spin(dashRate));
         shader.setFloat("dashLength", dashLength);
         shader.setFloat("edgeSharpness", 0.05f);
         shader.setFloat("lineLengthSq", lengthSq(pA, pB));
@@ -105,11 +106,13 @@ public class SDFLine {
         this.borderOuter = borderDist;
     }
 
-    public void setStroke(float lineWidth, boolean dashed, float dashLength, boolean roundCaps) {
+    public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps) {
         this.lineWidth = lineWidth;
         this.dashed = dashed;
         this.dashLength = dashLength;
+        this.dashRate = dashRate;
         this.roundCaps = roundCaps;
+
     }
 
 }

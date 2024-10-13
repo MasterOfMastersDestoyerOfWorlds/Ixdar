@@ -83,7 +83,7 @@ public class Drawing {
 
         circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), Color.GREEN, camera);
 
-        sdfLine.setStroke(lineThickness, false, 0f, false);
+        sdfLine.setStroke(lineThickness, false, 0f, 0f, false);
         drawSegment(ex1, Color.GREEN, camera);
 
         // Draw external segment 2
@@ -104,7 +104,7 @@ public class Drawing {
             }
 
             // Draw Cuts
-            sdfLine.setStroke(2 * lineThickness, false, 0f, false);
+            sdfLine.setStroke(2 * lineThickness, false, 0f, 0f, false);
             for (Segment s : cutMatch.cutSegments) {
                 drawSegment(s, Color.ORANGE, camera);
             }
@@ -152,10 +152,30 @@ public class Drawing {
         } else {
             last = ((Point) ex1.last).p.toPoint2D();
         }
-
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
 
+        sdfLine.dashed = false;
+        sdfLine.draw(firstVec, lastVec, c, camera);
+    }
+
+    public static void drawDashedSegment(Segment ex1, Color c, Camera2D camera) {
+        Point2D first;
+        Point2D last;
+        if (ex1.first.isKnot) {
+            first = ((Point) ((Knot) ex1.first).knotPoints.get(0)).p.toPoint2D();
+        } else {
+            first = ((Point) ex1.first).p.toPoint2D();
+        }
+        if (ex1.last.isKnot) {
+            last = ((Point) ((Knot) ex1.last).knotPoints.get(0)).p.toPoint2D();
+        } else {
+            last = ((Point) ex1.last).p.toPoint2D();
+        }
+
+        Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
+        Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
+        sdfLine.setStroke(2f * camera.ScaleFactor, true, 20 * camera.ScaleFactor, 1f, true);
         sdfLine.draw(firstVec, lastVec, c, camera);
     }
 
@@ -179,6 +199,7 @@ public class Drawing {
 
         lastCoords[0] = camera.pointTransformX(last.getX());
         lastCoords[1] = camera.pointTransformY(last.getY());
+        sdfLine.setStroke(2f * camera.ScaleFactor, false, 1f, 0f, true);
         sdfLine.draw(new Vector2f(firstCoords), new Vector2f(lastCoords), color1, color2, camera);
     }
 
@@ -197,9 +218,9 @@ public class Drawing {
             PointSet ps,
             boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed, Camera2D camera) {
         if (dashed) {
-            sdfLine.setStroke(lineThickness, true, 60f, true);
+            sdfLine.setStroke(lineThickness, true, 60f, 1f, true);
         } else {
-            sdfLine.setStroke(lineThickness, false, 0f, false);
+            sdfLine.setStroke(lineThickness, false, 0f, 0f, false);
         }
         PointND last = shell.getLast();
         PointND next;
@@ -243,7 +264,7 @@ public class Drawing {
             ArrayList<Pair<Long, Long>> lookUpPairs, HashMap<Long, Integer> colorLookup,
             ArrayList<Color> colors, Camera2D camera, int minLineThickness) {
 
-        sdfLine.setStroke(2 * minLineThickness, false, 0f, false);
+        sdfLine.setStroke(2 * minLineThickness, false, 0f, 0f, false);
 
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
@@ -270,16 +291,16 @@ public class Drawing {
             Segment cutSegment, int lineThickness,
             PointSet ps, Camera2D camera) {
 
-        sdfLine.setStroke(lineThickness, false, 0f, false);
+        sdfLine.setStroke(lineThickness, false, 0f, 0f, false);
         Drawing.drawSegment(matchSegment, Color.CYAN, camera);
 
-        sdfLine.setStroke(2 * lineThickness, false, 0f, false);
+        sdfLine.setStroke(2 * lineThickness, false, 0f, 0f, false);
         Drawing.drawSegment(cutSegment, Color.ORANGE, camera);
     }
 
     public static void drawCircle(VirtualPoint displayPoint, Color color, Camera2D camera,
             int lineThickness) {
-        sdfLine.setStroke(lineThickness, false, 0f, false);
+        sdfLine.setStroke(lineThickness, false, 0f, 0f, false);
         Point p = (Point) displayPoint;
         double xCoord = camera.pointTransformX(p.p.getCoord(0));
         double yCoord = camera.pointTransformY(p.p.getCoord(1));

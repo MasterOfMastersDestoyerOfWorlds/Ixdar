@@ -369,7 +369,6 @@ public class Main {
 
 	public static void drawDisplayedKnots(Camera2D camera) {
 		if (metroDrawLayer == shell.cutEngine.totalLayers) {
-
 			if (tool.canUseToggle(Toggle.drawKnotGradient) && manifoldKnot != null) {
 				ArrayList<Pair<Long, Long>> idTransform = lookupPairs(manifoldKnot);
 				Drawing.drawGradientPath(manifoldKnot, idTransform, colorLookup, knotGradientColors, camera,
@@ -396,7 +395,7 @@ public class Main {
 								camera,
 								Drawing.MIN_THICKNESS);
 					} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
-						temp.shell.drawShell(true, 2 + 1f * temp.priority,
+						temp.shell.drawShell(true, 4 + 4f * (temp.priority - 1),
 								metroColors.get(temp.priority), retTup.ps, camera);
 					}
 				} else {
@@ -406,13 +405,35 @@ public class Main {
 								camera,
 								Drawing.MIN_THICKNESS);
 					} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
-						temp.shell.drawShell(true, Drawing.MIN_THICKNESS * 2,
+						temp.shell.drawShell(true, 4 + 4f * (temp.priority - 1),
 								metroColors.get(temp.priority), retTup.ps, camera);
 					}
 
 				}
 			}
 			metroPathsLayer = newQueue;
+		}
+		for (Knot k : knotsDisplayed) {
+			if (k.s1 != null && k.s2 != null) {
+
+				Segment s1 = k.s1;
+				if (!k.contains(s1.last)) {
+					s1 = new Segment(s1.last, s1.first, s1.distance);
+				}
+				Segment s2 = k.s2;
+				if (!k.contains(s2.last)) {
+					s2 = new Segment(s2.last, s2.first, s2.distance);
+				}
+
+				Color c = Color.WHITE;
+				if (tool.canUseToggle(Toggle.drawKnotGradient)) {
+					c = getKnotGradientColor(s1.last);
+				} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
+					c = getMetroColor(s1.last, k);
+				}
+				Drawing.drawDashedSegment(s1, c, camera);
+				Drawing.drawDashedSegment(s2, c, camera);
+			}
 		}
 	}
 

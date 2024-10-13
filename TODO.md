@@ -28,7 +28,7 @@
 ## UI Free Tool
 
 1. - [ ] Pressing VK_K should switch to displaying the same information about the current knot the point is in.
-2. - [ ] Knot's should display their closest two segments with rotating dashed lines. (use dash phase).
+2. - [x] Knot's should display their closest two segments with rotating dashed lines. (use dash phase).
 3. - [ ] Info Panel should display the point's containing Knot was well as the full knot structure with different colors for the different knots being represented by their metro diagram colors
 4. - [ ] hovering over the knot text should switch the metro draw index to display that knot and highlight it somehow
 5. - [ ] point's info should include generated or lookup city name.
@@ -82,6 +82,18 @@
 4. - [ ] Menu Items should make an electronic noise click noise when hovered over
 5. - [ ] Menu Items should use a custom SDF Font Atlas
 
+## 2D camera
+
+1. - [ ] Need to tie the camera zooming and move speed to the framerate, should use the clock class to figure this out
+
+## Tooltip
+
+1. - [ ] Should be rounded rectangle
+2. - [ ] Should be the width of the text with some reasonable limits
+3. - [ ] Should have some constant padding amount
+4. - [ ] Should fade text at bottom if too long
+5. - [ ] should be light grey with dark grey border
+
 ## Shaders
 
 1. - [ ] Font Atlas from SDF Atlas.
@@ -106,6 +118,10 @@
 ## UI Negative CutMatch View Tool
 
 1. - [ ] Info Panel shouuld show the current hover cut's length delta as well as name the segments involved
+
+## Shader Editor
+
+1. - [ ] pressing some hotkey (Ctrl, Shift, G) should look at the item that the mouse is currently hovering over and bring up it's glsl shader in vscode with the relevant shader? or should the texturebe on the right side of the screen and a text editor be on the left internal to the program?
 
 ## Filesystem
 
