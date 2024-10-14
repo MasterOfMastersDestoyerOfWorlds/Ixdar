@@ -23,6 +23,7 @@ public class SDFLine {
     public boolean roundCaps;
     public float dashRate;
     public boolean endCaps;
+    private float edgeDist;
 
     public SDFLine() {
         shader = ShaderType.LineSDF.shader;
@@ -55,20 +56,6 @@ public class SDFLine {
     public void draw(Vector2f pA, Vector2f pB, Color c, Color c2, Camera camera) {
 
         shader.use();
-        shader.setFloat("borderInner", borderInner);
-        shader.setFloat("borderOuter", borderOuter);
-        shader.setFloat("borderOffsetInner", borderOffsetInner);
-        shader.setFloat("borderOffsetOuter", borderOffsetOuter);
-        shader.setVec4("borderColor", borderColor.toVector4f());
-        shader.setVec2("pointA", pA);
-        shader.setVec2("pointB", pB);
-        shader.setBool("dashed", dashed);
-        shader.setBool("endCaps", endCaps);
-        shader.setBool("roundCaps", roundCaps);
-        shader.setFloat("dashPhase", Clock.spin(dashRate));
-        shader.setFloat("dashLength", dashLength);
-        shader.setFloat("edgeSharpness", 0.05f);
-        shader.setFloat("lineLengthSq", lengthSq(pA, pB));
         float dx = pB.x - pA.x;
         float dy = pB.y - pA.y;
         float normalX = -dy;
@@ -85,10 +72,8 @@ public class SDFLine {
         float width = bL.distance(tL);
         float height = bL.distance(bR);
 
-        float edgeDist = 0.25f;
-        shader.setFloat("edgeDist", edgeDist);
-        shader.setFloat("edgeSharpness", edgeDist / 10);
-
+        shader.setFloat("dashPhase", Clock.spin(dashRate));
+        shader.setFloat("lineLengthSq", lengthSq(pA, pB));
         shader.setVec2("pointA", pA);
         shader.setVec2("pointB", pB);
         shader.setFloat("width", width);
@@ -111,6 +96,7 @@ public class SDFLine {
     public void setStroke(float lineWidth, boolean dashed) {
         this.lineWidth = lineWidth;
         this.dashed = dashed;
+        setUniforms();
     }
 
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
@@ -121,6 +107,25 @@ public class SDFLine {
         this.dashRate = dashRate;
         this.roundCaps = roundCaps;
         this.endCaps = endCaps;
+
+        edgeDist = 0.25f;
+        setUniforms();
+    }
+
+    private void setUniforms() {
+        shader.use();
+        shader.setFloat("borderInner", borderInner);
+        shader.setFloat("borderOuter", borderOuter);
+        shader.setFloat("borderOffsetInner", borderOffsetInner);
+        shader.setFloat("borderOffsetOuter", borderOffsetOuter);
+        shader.setVec4("borderColor", borderColor.toVector4f());
+        shader.setBool("dashed", dashed);
+        shader.setBool("endCaps", endCaps);
+        shader.setBool("roundCaps", roundCaps);
+        shader.setFloat("dashLength", dashLength);
+        shader.setFloat("edgeSharpness", 0.05f);
+        shader.setFloat("edgeDist", edgeDist);
+        shader.setFloat("edgeSharpness", edgeDist / 10);
     }
 
 }
