@@ -639,26 +639,6 @@ public class Shell extends LinkedList<PointND> {
 
 	}
 
-	/**
-	 * Draws the Shell and its children if drawChildren is true
-	 * 
-	 * @param frame        where to draw the shell
-	 * @param g2           graphics object for frame
-	 * @param drawChildren whether or not to draw child shells
-	 * @param c            the color to draw the shell (set to null to get a random
-	 *                     color)
-	 */
-	public void drawShell(boolean drawChildren, float lineThickness, Color c,
-			PointSet ps, Camera2D camera) {
-		if (c == null) {
-			Random colorSeed = new Random();
-			Drawing.drawPath(this, lineThickness,
-					new ColorRGB(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps,
-					true, false, false, false, camera);
-		} else {
-			Drawing.drawPath(this, lineThickness, c, ps, true, false, false, false, camera);
-		}
-	}
 
 	/**
 	 * Gets the distance from a point to its neighboring points in the shell

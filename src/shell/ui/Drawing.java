@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.apache.commons.math3.util.Pair;
+import org.joml.Random;
 import org.joml.Vector2f;
 
 import shell.Main;
@@ -22,6 +23,7 @@ import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.color.Color;
+import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFCircle;
 import shell.render.sdf.SDFLine;
 import shell.render.text.Font;
@@ -83,7 +85,7 @@ public class Drawing {
 
         circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), Color.GREEN, camera);
 
-        sdfLine.setStroke(lineThickness, false, 0f, 0f, false);
+        sdfLine.setStroke(lineThickness, false);
         drawSegment(ex1, Color.GREEN, camera);
 
         // Draw external segment 2
@@ -104,7 +106,7 @@ public class Drawing {
             }
 
             // Draw Cuts
-            sdfLine.setStroke(2 * lineThickness, false, 0f, 0f, false);
+            sdfLine.setStroke(2 * lineThickness, false);
             for (Segment s : cutMatch.cutSegments) {
                 drawSegment(s, Color.ORANGE, camera);
             }
@@ -175,7 +177,7 @@ public class Drawing {
 
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
-        sdfLine.setStroke(2f * camera.ScaleFactor, true, 20 * camera.ScaleFactor, 1f, true);
+        sdfLine.setStroke(2f * camera.ScaleFactor, true, 20 * camera.ScaleFactor, 1f, true, false);
         sdfLine.draw(firstVec, lastVec, c, camera);
     }
 
@@ -199,8 +201,28 @@ public class Drawing {
 
         lastCoords[0] = camera.pointTransformX(last.getX());
         lastCoords[1] = camera.pointTransformY(last.getY());
-        sdfLine.setStroke(2f * camera.ScaleFactor, false, 1f, 0f, true);
         sdfLine.draw(new Vector2f(firstCoords), new Vector2f(lastCoords), color1, color2, camera);
+    }
+
+    /**
+     * Draws the Shell and its children if drawChildren is true
+     * 
+     * @param frame        where to draw the shell
+     * @param g2           graphics object for frame
+     * @param drawChildren whether or not to draw child shells
+     * @param c            the color to draw the shell (set to null to get a random
+     *                     color)
+     */
+    public static void drawShell(Shell shell, boolean drawChildren, float lineThickness, Color c,
+            PointSet ps, Camera2D camera) {
+        if (c == null) {
+            Random colorSeed = new Random();
+            Drawing.drawPath(shell, lineThickness,
+                    new ColorRGB(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps,
+                    true, false, false, false, camera);
+        } else {
+            Drawing.drawPath(shell, lineThickness, c, ps, true, false, false, false, camera);
+        }
     }
 
     /**
@@ -218,9 +240,9 @@ public class Drawing {
             PointSet ps,
             boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed, Camera2D camera) {
         if (dashed) {
-            sdfLine.setStroke(lineThickness, true, 60f, 1f, true);
+            sdfLine.setStroke(2f * lineThickness * camera.ScaleFactor, true, 60f, 1f, true, true);
         } else {
-            sdfLine.setStroke(lineThickness, false, 0f, 0f, false);
+            sdfLine.setStroke(2f * lineThickness * camera.ScaleFactor, false);
         }
         PointND last = shell.getLast();
         PointND next;
@@ -264,8 +286,7 @@ public class Drawing {
             ArrayList<Pair<Long, Long>> lookUpPairs, HashMap<Long, Integer> colorLookup,
             ArrayList<Color> colors, Camera2D camera, int minLineThickness) {
 
-        sdfLine.setStroke(2 * minLineThickness, false, 0f, 0f, false);
-
+        sdfLine.setStroke(2f * minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false);
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
             if (lookUpPairs != null) {
@@ -291,16 +312,16 @@ public class Drawing {
             Segment cutSegment, int lineThickness,
             PointSet ps, Camera2D camera) {
 
-        sdfLine.setStroke(lineThickness, false, 0f, 0f, false);
+        sdfLine.setStroke(lineThickness, false);
         Drawing.drawSegment(matchSegment, Color.CYAN, camera);
 
-        sdfLine.setStroke(2 * lineThickness, false, 0f, 0f, false);
+        sdfLine.setStroke(2 * lineThickness, false);
         Drawing.drawSegment(cutSegment, Color.ORANGE, camera);
     }
 
     public static void drawCircle(VirtualPoint displayPoint, Color color, Camera2D camera,
             int lineThickness) {
-        sdfLine.setStroke(lineThickness, false, 0f, 0f, false);
+        sdfLine.setStroke(lineThickness, false);
         Point p = (Point) displayPoint;
         double xCoord = camera.pointTransformX(p.p.getCoord(0));
         double yCoord = camera.pointTransformY(p.p.getCoord(1));

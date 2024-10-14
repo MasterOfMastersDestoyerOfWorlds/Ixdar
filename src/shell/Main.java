@@ -293,7 +293,7 @@ public class Main {
 			tool.draw(camera, Drawing.MIN_THICKNESS);
 
 			if (sbe != null) {
-				resultShell.drawShell(true, Drawing.MIN_THICKNESS * 2, Color.MAGENTA, retTup.ps,
+				Drawing.drawShell(resultShell, true, Drawing.MIN_THICKNESS * 2, Color.MAGENTA, retTup.ps,
 						camera);
 				Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
 			}
@@ -312,7 +312,7 @@ public class Main {
 						m.manifoldKnot, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
 			}
 			if (tool.canUseToggle(Toggle.drawMainPath)) {
-				orgShell.drawShell(false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
+				Drawing.drawShell(orgShell, false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
 			}
 			if (tool.canUseToggle(Toggle.drawDisplayedKnots) && tool.canUseToggle(Toggle.drawMetroDiagram)
 					&& shell != null) {
@@ -376,7 +376,7 @@ public class Main {
 						Drawing.MIN_THICKNESS);
 			} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
 				for (Shell temp : subPaths) {
-					temp.drawShell(true, Drawing.MIN_THICKNESS * 2,
+					Drawing.drawShell(temp, true, Drawing.MIN_THICKNESS,
 							metroColors.get(0), retTup.ps, camera);
 				}
 			}
@@ -396,7 +396,8 @@ public class Main {
 								camera,
 								Drawing.MIN_THICKNESS);
 					} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
-						temp.shell.drawShell(true, 4 + 4f * (temp.priority - 1),
+						Drawing.drawShell(temp.shell, true,
+								Drawing.MIN_THICKNESS + Drawing.MIN_THICKNESS * (temp.priority - 1),
 								metroColors.get(temp.priority), retTup.ps, camera);
 					}
 				} else {
@@ -406,7 +407,7 @@ public class Main {
 								camera,
 								Drawing.MIN_THICKNESS);
 					} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
-						temp.shell.drawShell(true, 4 + 4f * (temp.priority - 1),
+						Drawing.drawShell(temp.shell, true, Drawing.MIN_THICKNESS,
 								metroColors.get(temp.priority), retTup.ps, camera);
 					}
 

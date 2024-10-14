@@ -15,6 +15,7 @@ uniform float width;
 uniform float height;
 
 uniform bool dashed;
+uniform bool endCaps;
 uniform bool roundCaps;
 uniform float dashPhase;
 uniform float dashLength;
@@ -105,7 +106,7 @@ void main() {
 
     float opacA = smoothstep(edgeDist + edgeSharpness, edgeDist, min(distA, distB) / (width));
     if(dashed) {
-        fragColor = mix(vec4(fragColor.rgb, fragColor.a * dashOpac), fragColor, opacA);
+        fragColor = mix(vec4(fragColor.rgb, fragColor.a * dashOpac), fragColor, opacA*float(endCaps));
     } else {
         fragColor = vec4(fragColor.rgb, fragColor.a * opacity);
     }
