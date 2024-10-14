@@ -36,6 +36,9 @@ public class IxdarWindow extends JFrame {
         MouseTrap mouseTrap = new MouseTrap(null, frame, camera, false);
         GLData context = new GLData();
         context.stencilSize = 8;
+        context.majorVersion = 4;
+        context.minorVersion = 3;
+        context.swapInterval = 0;
         Canvas3D canvas = new Canvas3D(context, camera, camera2D, mouseTrap, frame);
         frame.add(canvas, BorderLayout.CENTER);
         frame.getContentPane().setPreferredSize(new Dimension(750, 750));

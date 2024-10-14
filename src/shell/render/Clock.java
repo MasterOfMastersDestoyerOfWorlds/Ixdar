@@ -60,17 +60,19 @@ public class Clock {
         return ((float) (amplitude * (Math.sin(freq * timeSeconds + phase) + 1)) / 2f) + offset;
     }
 
-    static float[] sampleFPS = new float[60];
+    static float lastFullSecond;
+    static float lastFPS;
+    static int samples;
 
     public static float fps() {
-        sampleFPS[frameNum] = (1 / Clock.deltaTime());
-        float sum = 0f;
-        int count = 0;
-        for (int i = 0; i < sampleFPS.length; i ++) {
-            sum += sampleFPS[i];
-            count++;
+        int timeSeconds = (int) time();
+        if (timeSeconds > lastFullSecond) {
+            lastFPS = samples;
+            lastFullSecond = timeSeconds;
+            samples = 0;
         }
-        return sum / count;
+        samples++;
+        return lastFPS;
     }
 
 }

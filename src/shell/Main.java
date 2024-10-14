@@ -331,6 +331,7 @@ public class Main {
 					camera);
 			int row = 0;
 			float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
+
 			Drawing.font.drawRow("FPS:" + Clock.fps(), row++, rowHeight, 0, Color.IXDAR, camera);
 			Drawing.font.drawRow("Tool: " + tool.displayName(), row++, rowHeight, 0, Color.IXDAR,
 					camera);
