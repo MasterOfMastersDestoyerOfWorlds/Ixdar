@@ -34,6 +34,7 @@ public class Drawing {
 
     public static final int MIN_THICKNESS = 1;
     public static final float FONT_HEIGHT_PIXELS = 30;
+    public static final float CIRCLE_RADIUS = 7.5f;
     public static SDFLine sdfLine = new SDFLine();
     public static SDFCircle circle = new SDFCircle();
     public static Font font = new Font(new java.awt.Font(SANS_SERIF, PLAIN, 32), true);
@@ -83,7 +84,7 @@ public class Drawing {
         firstCoords[0] = camera.pointTransformX(knotPoint1.getX());
         firstCoords[1] = camera.pointTransformY(knotPoint1.getY());
 
-        circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), Color.GREEN, camera);
+        circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS*camera.ScaleFactor, Color.GREEN, camera);
 
         sdfLine.setStroke(lineThickness, false);
         drawSegment(ex1, Color.GREEN, camera);
@@ -95,7 +96,7 @@ public class Drawing {
         firstCoords[0] = camera.pointTransformX(knotPoint2.getX());
         firstCoords[1] = camera.pointTransformY(knotPoint2.getY());
 
-        circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), Color.GREEN, camera);
+        circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS*camera.ScaleFactor, Color.GREEN, camera);
         drawSegment(ex2, Color.GREEN, camera);
 
         // Draw Cuts and Matches
@@ -138,7 +139,7 @@ public class Drawing {
         midCoords[0] = (kpCoords[0] + cpCoords[0]) / 2.0f;
         midCoords[1] = (kpCoords[1] + cpCoords[1]) / 2.0f;
         font.drawTextCentered("X", midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, Color.ORANGE, camera);
-        circle.draw(new Vector2f(kpCoords[0], kpCoords[1]), Color.GREEN, camera);
+        circle.draw(new Vector2f(kpCoords[0], kpCoords[1]), CIRCLE_RADIUS*camera.ScaleFactor, Color.GREEN, camera);
     }
 
     public static void drawSegment(Segment ex1, Color c, Camera2D camera) {
@@ -252,11 +253,11 @@ public class Drawing {
             float x = camera.pointTransformX(p.getCoord(0));
             float y = camera.pointTransformY(p.getCoord(1));
             if (drawCircles) {
-                circle.draw(new Vector2f(x, y), color, camera);
+                circle.draw(new Vector2f(x, y), CIRCLE_RADIUS*camera.ScaleFactor, color, camera);
             }
 
             if (drawNumbers) {
-                float numberPixelDistance = FONT_HEIGHT_PIXELS / 2;
+                float numberPixelDistance = camera.ScaleFactor * FONT_HEIGHT_PIXELS / 4;
                 Vector2f point = new Vector2f(x, y);
                 Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getCoord(0)),
                         camera.pointTransformY(last.getCoord(1))).sub(point);
@@ -325,7 +326,7 @@ public class Drawing {
         Point p = (Point) displayPoint;
         double xCoord = camera.pointTransformX(p.p.getCoord(0));
         double yCoord = camera.pointTransformY(p.p.getCoord(1));
-        circle.draw(new Vector2f((float) xCoord, (float) yCoord), color, camera);
+        circle.draw(new Vector2f((float) xCoord, (float) yCoord), CIRCLE_RADIUS*camera.ScaleFactor, color, camera);
     }
 
 }

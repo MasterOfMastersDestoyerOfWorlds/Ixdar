@@ -327,7 +327,7 @@ public class Main {
 			updateView(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
 					Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
 			new SDFCircle().draw(new Vector2f(mouseTrap.normalizedPosX - camera.ScreenOffsetX,
-					mouseTrap.normalizedPosY - camera.ScreenOffsetY), stickyColor,
+					mouseTrap.normalizedPosY - camera.ScreenOffsetY), Drawing.CIRCLE_RADIUS*camera.ScaleFactor, stickyColor,
 					camera);
 			int row = 0;
 			float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
