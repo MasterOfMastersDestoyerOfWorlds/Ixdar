@@ -26,6 +26,7 @@ import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.text.HyperString;
 import shell.ui.Canvas3D;
+import shell.ui.IxdarWindow;
 import shell.ui.tools.Tool;
 
 public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheelListener {
@@ -37,7 +38,6 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     public static int lastY = Integer.MIN_VALUE;
     int width;
     int height;
-    JFrame frame;
     public Camera camera;
     public boolean captureMouse;
     public boolean active = true;
@@ -45,8 +45,6 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
 
     public MouseTrap(Main main, JFrame frame, Camera camera, boolean captureMouse) {
         this.main = main;
-        this.frame = frame;
-        frame.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
         this.camera = camera;
         this.captureMouse = captureMouse;
         this.canvas = Canvas3D.canvas;
@@ -212,7 +210,7 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
 
     public void captureMouse(boolean force) {
 
-        if (canvas != null && (frame.hasFocus() || force)) {
+        if (canvas != null && (IxdarWindow.frame.hasFocus() || force)) {
             Point2D topLeft = canvas.getLocationOnScreen();
             center = new Point2D.Double((int) (canvas.getWidth() / 2), (int) (canvas.getHeight() / 2));
             int x = (int) (topLeft.getX() + center.getX());

@@ -1,18 +1,14 @@
 package shell.shell;
 
-import shell.render.color.Color;
-import shell.render.color.ColorRGB;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.Random;
 
 import shell.DistanceMatrix;
 import shell.PointND;
 import shell.PointSet;
-import shell.cameras.Camera2D;
 import shell.cuts.CutEngine;
 import shell.exceptions.BalancerException;
 import shell.exceptions.SegmentBalanceException;
@@ -21,7 +17,6 @@ import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.ui.Drawing;
 import shell.utils.RunListUtils;
 import shell.utils.StringBuff;
 

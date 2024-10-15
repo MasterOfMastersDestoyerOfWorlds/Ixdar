@@ -4,19 +4,17 @@ import java.util.ArrayList;
 
 import shell.cameras.Camera;
 import shell.file.FileManagement;
+import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.color.ColorBox;
 import shell.render.color.ColorLerp;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFUnion;
-import shell.render.text.Font;
-import static java.awt.Font.SANS_SERIF;
-import static java.awt.Font.PLAIN;
 import shell.ui.Canvas3D;
+import shell.ui.Drawing;
 
 public class MenuBox {
     SDFUnion menuOuterBorder;
-    Font font;
     int hoverItem = -1;
     float scale = 3f;
     float hoverX;
@@ -35,6 +33,7 @@ public class MenuBox {
     public static boolean menuVisible = true;
 
     public MenuBox() {
+        float start = Clock.time();
         alpha = 0.95f;
 
         innerColor = new ColorRGB(Color.NAVY, alpha);
@@ -48,9 +47,7 @@ public class MenuBox {
         String cachedFileName = FileManagement.getTestFileCache();
         activeMenu = new Menu.MainMenu(cachedFileName);
         menuItems = activeMenu.loadMenu();
-
-        font = new Font(new java.awt.Font(SANS_SERIF, PLAIN, 64), true);
-        font.maxTextWidth = 24;
+        System.out.println(Clock.time() - start);
     }
 
     public void draw(Camera camera) {
@@ -74,7 +71,7 @@ public class MenuBox {
                 menuOuterBorder.drawCentered(centerX, centerY, scale, camera);
 
             }
-            font.drawTextCentered(menuItems.get(i).itemString(), centerX, centerY + itemHeight * 0.045f,
+            Drawing.font.drawTextCentered(menuItems.get(i).itemString(), centerX, centerY + itemHeight * 0.045f,
                     itemHeight / 2,
                     Color.BLUE_WHITE, camera);
         }

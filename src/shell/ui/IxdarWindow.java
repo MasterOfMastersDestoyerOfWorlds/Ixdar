@@ -1,6 +1,7 @@
 package shell.ui;
 
 import java.awt.BorderLayout;
+import java.awt.Cursor;
 import java.awt.Dimension;
 
 import javax.swing.ImageIcon;
@@ -13,6 +14,7 @@ import org.lwjgl.opengl.awt.GLData;
 
 import shell.cameras.Camera2D;
 import shell.cameras.Camera3D;
+import shell.render.Clock;
 import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
 
@@ -21,28 +23,35 @@ public class IxdarWindow extends JFrame {
     public static IxdarWindow frame;
     public static Camera3D camera;
     public static Camera2D camera2D;
+    private static Canvas3D canvas;
+    private static MouseTrap mouseTrap;
+
+    private static boolean init = true;
 
     public static void main(String[] args) {
-        frame = new IxdarWindow();
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        frame.setLayout(new BorderLayout());
-        frame.setBackground(java.awt.Color.darkGray);
-        frame.setTitle("Ixdar");
 
-        ImageIcon img = new ImageIcon("res/decalSmall.png");
-        frame.setIconImage(img.getImage());
+        float start = Clock.time();
+
         camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f);
         camera2D = new Camera2D(600, 600, 1f, 0, 0, null);
-        MouseTrap mouseTrap = new MouseTrap(null, frame, camera, false);
+        mouseTrap = new MouseTrap(null, frame, camera, false);
+
         GLData context = new GLData();
         context.stencilSize = 8;
         context.majorVersion = 4;
         context.minorVersion = 3;
         context.swapInterval = 0;
-        Canvas3D canvas = new Canvas3D(context, camera, camera2D, mouseTrap, frame);
+        canvas = new Canvas3D(context, camera, camera2D, mouseTrap);
+        IxdarWindow.frame = new IxdarWindow();
+        frame.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        frame.setLayout(new BorderLayout());
+        frame.setBackground(java.awt.Color.darkGray);
+        frame.setTitle("Ixdar");
+        ImageIcon img = new ImageIcon("res/decalSmall.png");
+        frame.setIconImage(img.getImage());
         frame.add(canvas, BorderLayout.CENTER);
         frame.getContentPane().setPreferredSize(new Dimension(750, 750));
-
         KeyGuy keyGuy = new KeyGuy(camera, canvas);
         canvas.setKeys(keyGuy);
         frame.requestFocus();
@@ -61,6 +70,10 @@ public class IxdarWindow extends JFrame {
                 if (!canvas.isValid()) {
                     GL.setCapabilities(null);
                     return;
+                }
+                if (init) {
+                    init = false;
+                    System.out.println("Window Creation" + (Clock.time() - start));
                 }
                 canvas.render();
                 SwingUtilities.invokeLater(this);

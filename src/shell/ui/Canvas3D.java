@@ -140,7 +140,6 @@ public class Canvas3D extends AWTGLCanvas {
     public static Camera3D camera;
     public static MouseTrap mouse;
     public static int SIZE_FLOAT = 4;
-    public static JFrame frame;
     public static KeyGuy keys;
     public boolean printScreen = false;
     public File screenShotFile;
@@ -162,15 +161,17 @@ public class Canvas3D extends AWTGLCanvas {
     public static Canvas3D canvas;
     public static boolean active;
 
-    public Canvas3D(GLData context, Camera3D camera, Camera2D camera2D, MouseTrap mouseTrap, JFrame frame) {
+    public Canvas3D(GLData context, Camera3D camera, Camera2D camera2D, MouseTrap mouseTrap) {
         super(context);
         Canvas3D.camera = camera;
         Canvas3D.mouse = mouseTrap;
-        Canvas3D.frame = frame;
         Canvas3D.canvas = this;
         active = true;
         spotLight = new SpotLight(camera.position, camera.front,
                 new Vector3f(1.0f, 1.0f, 1.0f), 12.5f, 15f, 50f);
+        this.addMouseMotionListener(mouse);
+        this.addMouseListener(mouse);
+        this.addMouseWheelListener(mouse);
     }
 
     public void setKeys(KeyGuy keyGuy) {
@@ -179,17 +180,16 @@ public class Canvas3D extends AWTGLCanvas {
 
     @Override
     public void initGL() {
+
+        float start = Clock.time();
         AffineTransform t = this.getGraphicsConfiguration().getDefaultTransform();
         float sx = (float) t.getScaleX(), sy = (float) t.getScaleY();
         Canvas3D.frameBufferWidth = (int) (getWidth() * sx);
         Canvas3D.frameBufferHeight = (int) (getHeight() * sy);
-        this.addMouseMotionListener(mouse);
-        this.addMouseListener(mouse);
-        this.addMouseWheelListener(mouse);
         System.out.println("OpenGL version: " + effective.majorVersion + "." + effective.minorVersion
                 + " (Profile: " + effective.profile + ")");
         createCapabilities();
-        glClearColor(0.3f, 0.4f, 0.5f, 1);
+        System.out.println(Clock.time() - start);
         VertexArrayObject vao = new VertexArrayObject();
         VertexBufferObject vbo = new VertexBufferObject();
         vao.bind();
@@ -203,9 +203,6 @@ public class Canvas3D extends AWTGLCanvas {
         VertexArrayObject lvao = new VertexArrayObject();
         lightingShader = new LightShader(lvao, vbo);
         shaders.add(lightingShader);
-
-        font = new Font();
-        debugFont = new Font(12, false);
 
         // logo = new SDFTexture("decal_sdf.png", Color.BLUE_WHITE, 0.5f, 0.5f, false);
         menu = new MenuBox();
@@ -223,6 +220,8 @@ public class Canvas3D extends AWTGLCanvas {
         this.addComponentListener(listener);
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+
+        System.out.println(Clock.time() - start);
     }
 
     public final ComponentAdapter listener = new ComponentAdapter() {
@@ -240,7 +239,7 @@ public class Canvas3D extends AWTGLCanvas {
     @Override
     public void paintGL() {
         if (this.hasFocus()) {
-            frame.requestFocus();
+            IxdarWindow.frame.requestFocus();
         }
 
         glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
