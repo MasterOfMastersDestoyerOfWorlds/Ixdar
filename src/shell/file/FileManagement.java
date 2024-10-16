@@ -29,7 +29,7 @@ public class FileManagement {
     public static File getTestFile(String fileName) {
         String[] parts = fileName.split("_");
         if (fileName.contains(".ix")) {
-            return new File(solutionsFolder + parts[0] + "/" + fileName);
+            return new File(solutionsFolder + parts[0].replace(".ix", "") + "/" + fileName);
         }
         return new File(solutionsFolder + parts[0] + "/" + fileName + ".ix");
     }

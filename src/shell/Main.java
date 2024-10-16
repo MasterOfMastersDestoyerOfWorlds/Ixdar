@@ -89,8 +89,8 @@ public class Main {
 	public SDFTexture logo;
 	public Font font;
 
-	final int RIGHT_PANEL_SIZE = 250;
-	final int BOTTOM_PANEL_SIZE = 250;
+	final static int RIGHT_PANEL_SIZE = 250;
+	final static int BOTTOM_PANEL_SIZE = 250;
 	public static int MAIN_VIEW_OFFSET_X;
 	public static int MAIN_VIEW_OFFSET_Y;
 	public static int MAIN_VIEW_WIDTH;
@@ -126,6 +126,11 @@ public class Main {
 
 	public static void main(String[] args) {
 		main = new Main(args[0]);
+
+		MAIN_VIEW_WIDTH = Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE;
+		MAIN_VIEW_HEIGHT = Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE;
+		MAIN_VIEW_OFFSET_X = 0;
+		MAIN_VIEW_OFFSET_Y = BOTTOM_PANEL_SIZE;
 		camera.initCamera();
 		DistanceMatrix d = retTup.d;
 		if (retTup.d == null) {
@@ -327,7 +332,8 @@ public class Main {
 			updateView(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
 					Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
 			new SDFCircle().draw(new Vector2f(mouseTrap.normalizedPosX - camera.ScreenOffsetX,
-					mouseTrap.normalizedPosY - camera.ScreenOffsetY), Drawing.CIRCLE_RADIUS*camera.ScaleFactor, stickyColor,
+					mouseTrap.normalizedPosY - camera.ScreenOffsetY), Drawing.CIRCLE_RADIUS * camera.ScaleFactor,
+					stickyColor,
 					camera);
 			int row = 0;
 			float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
