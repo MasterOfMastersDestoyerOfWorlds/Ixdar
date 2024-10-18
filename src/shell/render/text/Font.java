@@ -166,7 +166,7 @@ public class Font {
         buffer.flip();
 
         /* Create texture */
-        Texture fontTexture = Texture.createTexture(width, height, buffer);
+        Texture fontTexture = Texture.createTexture(font.getName(), width, height, buffer);
         MemoryUtil.memFree(buffer);
         return fontTexture;
     }

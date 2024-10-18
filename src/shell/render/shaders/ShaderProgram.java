@@ -52,7 +52,7 @@ import shell.ui.Canvas3D;
 
 public abstract class ShaderProgram {
 
-    public enum ShaderType {
+    public static enum ShaderType {
         TextureSDF(SDFShader.class, "font.vs", "sdf.fs"),
 
         LineSDF(SDFShader.class, "font.vs", "sdf_line.fs"),
@@ -257,9 +257,20 @@ public abstract class ShaderProgram {
     }
 
     public void setTexture(String glslName, Texture tex, int i, int j) {
-        setInt(glslName, j);
-        glActiveTexture(i);
-        tex.bind();
+
+        if (tex != null) {
+            if (!tex.initialized) {
+                tex.initGL();
+                if (!tex.initialized) {
+                    return;
+                }
+            }
+
+            setInt(glslName, j);
+            glActiveTexture(i);
+            tex.bind();
+        }
+
     }
 
     public void bindFragmentDataLocation(int i, String string) {

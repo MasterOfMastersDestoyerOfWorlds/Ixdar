@@ -32,20 +32,44 @@ import org.lwjgl.stb.STBImage;
 
 public class Texture {
 
-    public final int id;
+    public int id = -1;
 
     public int width;
 
     public int height;
 
-    public Texture() {
+    private ByteBuffer image;
+
+    public boolean initialized;
+    String resourceName;
+
+    public Texture(String resourceName) {
+        this.resourceName = resourceName;
+        this.initialized = false;
         id = glGenTextures();
     }
 
-    public Texture(int texture, int width2, int height2) {
+    public Texture(String resourceName, int texture, int width2, int height2) {
+        this.resourceName = resourceName;
+        this.initialized = true;
         this.id = texture;
         this.width = width2;
         this.height = height2;
+    }
+
+    public Texture(String resourceName, ByteBuffer image, int width, int height) {
+        this.resourceName = resourceName;
+        this.initialized = false;
+        this.image = image;
+        this.width = width;
+        this.height = height;
+    }
+
+    public Texture(String resourceName, int width, int height) {
+        this.resourceName = resourceName;
+        this.initialized = false;
+        this.width = width;
+        this.height = height;
     }
 
     public void bind() {
@@ -84,11 +108,11 @@ public class Texture {
         }
     }
 
-    public static Texture createTexture(int width, int height, ByteBuffer data) {
-        Texture texture = new Texture();
+    public static Texture createTexture(String fontName, int width, int height, ByteBuffer data) {
+        Texture texture = new Texture(fontName);
         texture.setWidth(width);
         texture.setHeight(height);
-
+        texture.initialized = true;
         texture.bind();
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -99,6 +123,39 @@ public class Texture {
         texture.uploadData(GL_RGBA8, width, height, GL_RGBA, data);
 
         return texture;
+    }
+
+    public static Texture loadTextureThreaded(String resourceName) {
+
+        Texture tex = new Texture(resourceName);
+        Thread t1 = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                STBImage.stbi_set_flip_vertically_on_load(true);
+
+                IntBuffer w = BufferUtils.createIntBuffer(1);
+                IntBuffer h = BufferUtils.createIntBuffer(1);
+                IntBuffer channels = BufferUtils.createIntBuffer(1);
+                File file = new File("res/" + resourceName);
+                String filePath = file.getAbsolutePath();
+                ByteBuffer image = STBImage.stbi_load(filePath, w, h, channels, 4);
+                if (image == null) {
+                    System.out.println("Can't load file " + resourceName + " " + STBImage.stbi_failure_reason());
+                }
+                int width = w.get(0);
+                int height = h.get(0);
+
+                tex.setImage(width, height, image);
+            }
+        });
+        t1.start();
+        return tex;
+    }
+
+    protected void setImage(int width, int height, ByteBuffer image) {
+        this.width = width;
+        this.height = height;
+        this.image = image;
     }
 
     public static Texture loadTexture(String resourceName) {
@@ -128,8 +185,28 @@ public class Texture {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glEnable(GL_BLEND);
         STBImage.stbi_image_free(image);
-        Texture tex = new Texture(texture, width, height);
+        Texture tex = new Texture(resourceName, texture, width, height);
         return tex;
+    }
+
+    public void initGL() {
+        if (image == null) {
+            return;
+        }
+        initialized = true;
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        glBindTexture(GL_TEXTURE_2D, id);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_BLEND);
+        if (image != null) {
+            STBImage.stbi_image_free(image);
+        }
     }
 
 }

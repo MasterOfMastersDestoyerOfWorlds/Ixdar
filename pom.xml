@@ -2,11 +2,13 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>TSP</groupId>
-  <artifactId>TSP</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <groupId>IXDAR</groupId>
+  <artifactId>IXDAR</artifactId>
+  <version>0.0.1</version>
   <build>
     <sourceDirectory>src</sourceDirectory>
+    <testSourceDirectory>src/test</testSourceDirectory>
+
     <resources>
       <resource>
         <directory>src</directory>
@@ -21,15 +23,108 @@
         <version>3.8.0</version>
         <configuration>
           <release>13</release>
+          <archive>
+            <manifest>
+              <addClasspath>true</addClasspath>
+              <mainClass>shell.ui.IxdarWindow</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>create-my-bundle</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <descriptorRefs>
+                <descriptorRef>jar-with-dependencies</descriptorRef>
+              </descriptorRefs>
+              <archive>
+                <manifest>
+                  <addClasspath>true</addClasspath>
+                  <mainClass>shell.ui.IxdarWindow</mainClass>
+                </manifest>
+              </archive>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <version>2.4</version>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+          <release>13</release>
+          <archive>
+            <manifest>
+              <addClasspath>true</addClasspath>
+              <mainClass>shell.ui.IxdarWindow</mainClass>
+            </manifest>
+          </archive>
         </configuration>
       </plugin>
     </plugins>
+
   </build>
 
   <properties>
+    <native.maven.plugin.version>0.9.19</native.maven.plugin.version>
     <lwjgl.version>3.3.3</lwjgl.version>
     <lwjgl.natives>natives-windows</lwjgl.natives>
   </properties>
+  <pluginRepositories>
+    <pluginRepository>
+      <id>graalvm-native-build-tools-snapshots</id>
+      <name>GraalVM native-build-tools Snapshots</name>
+      <url>https://raw.githubusercontent.com/graalvm/native-build-tools/snapshots</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </pluginRepository>
+  </pluginRepositories>
+
+  <profiles>
+    <profile>
+      <id>native</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.graalvm.buildtools</groupId>
+            <artifactId>native-maven-plugin</artifactId>
+            <version>${native.maven.plugin.version}</version>
+            <extensions>true</extensions>
+            <executions>
+              <execution>
+                <id>build-native</id>
+                <goals>
+                  <goal>compile-no-fork</goal>
+                </goals>
+                <phase>package</phase>
+              </execution>
+            </executions>
+            <configuration>
+              <imageName>gvapp</imageName>
+              <mainClass>shell.ui.IxdarWindow</mainClass>
+              <verbose>true</verbose>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
 
   <dependencyManagement>
     <dependencies>
@@ -78,7 +173,7 @@
       <artifactId>joml</artifactId>
       <version>1.10.8</version>
     </dependency>
-    
+
     <dependency>
       <groupId>org.junit.platform</groupId>
       <artifactId>junit-platform-launcher</artifactId>

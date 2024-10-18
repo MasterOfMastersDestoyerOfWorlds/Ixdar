@@ -27,9 +27,9 @@ public class SDFUnion {
     public SDFUnion(String sdfInnerLocation, Color innerColor, float innerScale,
             float innerOffsetX, float innerOffsetY, String sdfOuterLocation, Color outerColor, float alpha,
             float numberPinStripes, float showPin) {
-
-        innerTexture = Texture.loadTexture(sdfInnerLocation);
-        outerTexture = Texture.loadTexture(sdfOuterLocation);
+        
+        innerTexture = Texture.loadTextureThreaded(sdfInnerLocation);
+        outerTexture = Texture.loadTextureThreaded(sdfOuterLocation);
         shader = ShaderType.UnionSDF.shader;
         this.innerColor = new ColorRGB(innerColor, alpha);
         this.innerScale = innerScale;

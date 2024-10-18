@@ -4,7 +4,6 @@ import java.util.ArrayList;
 
 import shell.cameras.Camera;
 import shell.file.FileManagement;
-import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.color.ColorBox;
 import shell.render.color.ColorLerp;
@@ -33,7 +32,6 @@ public class MenuBox {
     public static boolean menuVisible = true;
 
     public MenuBox() {
-        float start = Clock.time();
         alpha = 0.95f;
 
         innerColor = new ColorRGB(Color.NAVY, alpha);
@@ -42,18 +40,18 @@ public class MenuBox {
         menuOuterBorder = new SDFUnion("menu_inner.png", Color.NAVY, 0.95f, 0, -0.02f, "menu_outer.png",
                 Color.BLUE_WHITE, alpha, 5, 2);
         boundingBox = new ColorBox();
-        itemHeight = menuOuterBorder.outerTexture.height * scale / 2;
-        itemWidth = menuOuterBorder.outerTexture.width * scale * 0.91f;
         String cachedFileName = FileManagement.getTestFileCache();
         activeMenu = new Menu.MainMenu(cachedFileName);
         menuItems = activeMenu.loadMenu();
-        System.out.println(Clock.time() - start);
     }
 
     public void draw(Camera camera) {
+
         if (!menuVisible) {
             return;
         }
+        itemHeight = menuOuterBorder.outerTexture.height * scale / 2;
+        itemWidth = menuOuterBorder.outerTexture.width * scale * 0.91f;
         for (int i = 0; i < menuItems.size(); i++) {
             float centerX = Canvas3D.frameBufferWidth / 2;
             float centerY = Canvas3D.frameBufferHeight / 2 - (itemHeight * i * 1.5f) - scrollOffsetY;

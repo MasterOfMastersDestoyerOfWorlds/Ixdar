@@ -106,10 +106,10 @@ public class ColorRGB implements Color {
 
     public ColorRGB(Color color, float alpha) {
         Vector3f other = color.toVector3f();
-        setRed(other.x);
-        setGreen(other.y);
-        setBlue(other.z);
-        setAlpha(alpha);
+        red = other.x;
+        green = other.y;
+        blue = other.z;
+        this.alpha = alpha;
     }
 
     /**

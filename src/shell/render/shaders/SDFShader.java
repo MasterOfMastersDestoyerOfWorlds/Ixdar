@@ -42,6 +42,7 @@ public class SDFShader extends ShaderProgram {
         setMat4("view", view);
 
         updateProjectionMatrix(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight, 1f);
+        
     }
 
     @Override
