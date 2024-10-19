@@ -1,7 +1,5 @@
 package shell.cameras;
 
-import java.awt.event.MouseEvent;
-
 public interface Camera {
 
     void reset();
@@ -14,7 +12,7 @@ public interface Camera {
 
     void drag(float d, float e);
 
-    void mouseMove(float lastX, float lastY, MouseEvent e);
+    void mouseMove(float lastX, float lastY, float x, float y);
 
     public enum Direction {
         FORWARD, BACKWARD, LEFT, RIGHT

@@ -1,7 +1,5 @@
 package shell.cameras;
 
-import java.awt.event.MouseEvent;
-
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
@@ -111,14 +109,12 @@ public class Camera3D implements Camera {
     }
 
     @Override
-    public void mouseMove(float lastX, float lastY, MouseEvent e) {
-        float xpos = e.getX();
-        float ypos = e.getY();
+    public void mouseMove(float lastX, float lastY, float x, float y) {
 
-        float xoffset = xpos - lastX;
-        float yoffset = lastY - ypos;
-        lastX = xpos;
-        lastY = ypos;
+        float xoffset = x - lastX;
+        float yoffset = lastY - y;
+        lastX = x;
+        lastY = y;
 
         float sensitivity = 0.1f;
         xoffset *= sensitivity;
@@ -202,6 +198,7 @@ public class Camera3D implements Camera {
     public float getScreenWidthRatio() {
         return 1;
     }
+
     @Override
     public float getScreenHeightRatio() {
         return 1;

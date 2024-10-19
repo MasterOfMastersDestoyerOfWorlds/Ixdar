@@ -1,97 +1,217 @@
 package shell.ui;
 
-import java.awt.BorderLayout;
-import java.awt.Cursor;
-import java.awt.Dimension;
+import static org.lwjgl.glfw.Callbacks.glfwFreeCallbacks;
+import static org.lwjgl.glfw.GLFW.GLFW_RESIZABLE;
+import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
+import static org.lwjgl.glfw.GLFW.GLFW_VISIBLE;
+import static org.lwjgl.glfw.GLFW.glfwCreateWindow;
+import static org.lwjgl.glfw.GLFW.glfwDefaultWindowHints;
+import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
+import static org.lwjgl.glfw.GLFW.glfwGetPrimaryMonitor;
+import static org.lwjgl.glfw.GLFW.glfwGetVideoMode;
+import static org.lwjgl.glfw.GLFW.glfwGetWindowContentScale;
+import static org.lwjgl.glfw.GLFW.glfwGetWindowPos;
+import static org.lwjgl.glfw.GLFW.glfwGetWindowSize;
+import static org.lwjgl.glfw.GLFW.glfwInit;
+import static org.lwjgl.glfw.GLFW.glfwMakeContextCurrent;
+import static org.lwjgl.glfw.GLFW.glfwPollEvents;
+import static org.lwjgl.glfw.GLFW.glfwSetErrorCallback;
+import static org.lwjgl.glfw.GLFW.glfwSetWindowIcon;
+import static org.lwjgl.glfw.GLFW.glfwSetWindowPos;
+import static org.lwjgl.glfw.GLFW.glfwSetWindowSizeCallback;
+import static org.lwjgl.glfw.GLFW.glfwSetWindowTitle;
+import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
+import static org.lwjgl.glfw.GLFW.glfwSwapInterval;
+import static org.lwjgl.glfw.GLFW.glfwTerminate;
+import static org.lwjgl.glfw.GLFW.glfwWindowHint;
+import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
+import static org.lwjgl.system.MemoryStack.stackPush;
 
-import javax.swing.ImageIcon;
+import java.awt.Point;
+import java.io.File;
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+
 import javax.swing.JFrame;
-import javax.swing.SwingUtilities;
 
-import org.joml.Vector3f;
-import org.lwjgl.opengl.GL;
-import org.lwjgl.opengl.awt.GLData;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.glfw.GLFWErrorCallback;
+import org.lwjgl.glfw.GLFWImage;
+import org.lwjgl.glfw.GLFWVidMode;
+import org.lwjgl.stb.STBImage;
+import org.lwjgl.system.MemoryStack;
 
-import shell.cameras.Camera2D;
-import shell.cameras.Camera3D;
 import shell.render.Clock;
-import shell.ui.input.keys.KeyGuy;
-import shell.ui.input.mouse.MouseTrap;
 
-public class IxdarWindow extends JFrame {
+public class IxdarWindow {
 
-    public static IxdarWindow frame;
-    public static Camera3D camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f);
-    public static Camera2D camera2D;
+    public static JFrame frame;
     private static Canvas3D canvas;
-    private static MouseTrap mouseTrap = new MouseTrap(null, frame, camera, false);
-    private static boolean init = true;
     public static float startTime;
 
     public static void main(String[] args) {
-
         startTime = Clock.time();
-
-        GLData context = new GLData();
-        context.stencilSize = 8;
-        context.majorVersion = 4;
-        context.minorVersion = 3;
-        context.swapInterval = 0;
-        canvas = new Canvas3D(context, camera, mouseTrap);
-
-        System.out.println("Canvas Setup: " + (Clock.time() - startTime));
-        IxdarWindow.frame = new IxdarWindow();
-        frame.setLayout(new BorderLayout());
-        frame.setBackground(java.awt.Color.darkGray);
-
-        frame.add(canvas, BorderLayout.CENTER);
-        frame.getContentPane().setPreferredSize(new Dimension(750, 750));
-        // mouseTrap.captureMouse(false);
-        frame.setVisible(true);
-        frame.pack();
-        Runnable renderLoop = new Runnable() {
-            @Override
-            public void run() {
-                if (!canvas.isValid()) {
-                    GL.setCapabilities(null);
-                    return;
-                }
-                if (init) {
-                    init = false;
-                    System.out.println("Window Creation: " + (Clock.time() - startTime));
-                    Thread t1 = new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-
-                            frame.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-                            frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-                            
-                            frame.setTitle("Ixdar");
-                            ImageIcon img = new ImageIcon("res/decalSmall.png");
-                            frame.setIconImage(img.getImage());
-                            KeyGuy keyGuy = new KeyGuy(camera, canvas);
-                            canvas.setKeys(keyGuy);
-                            frame.transferFocus();
-                            frame.addKeyListener(keyGuy);
-                            frame.addMouseListener(mouseTrap);
-                            frame.addMouseMotionListener(mouseTrap);
-                            frame.addMouseWheelListener(mouseTrap);
-                            canvas.addMouseMotionListener(mouseTrap);
-                            canvas.addMouseListener(mouseTrap);
-                            canvas.addMouseWheelListener(mouseTrap);
-                        }
-                    });
-                    t1.start();
-                }
-                canvas.render();
-                SwingUtilities.invokeLater(this);
-            }
-        };
-        SwingUtilities.invokeLater(renderLoop);
+        new IxdarWindow().runGLFW();
     }
 
     public static float getAspectRatio() {
         return ((float) frame.getWidth()) / ((float) frame.getHeight());
+    }
+
+    public static long window;
+
+    public void runGLFW() {
+
+        init();
+        loop();
+
+        // Free the window callbacks and destroy the window
+        glfwFreeCallbacks(window);
+        glfwDestroyWindow(window);
+
+        // Terminate GLFW and free the error callback
+        glfwTerminate();
+        glfwSetErrorCallback(null).free();
+    }
+
+    private void init() {
+        // Setup an error callback. The default implementation
+        // will print the error message in System.err.
+        GLFWErrorCallback.createPrint(System.err).set();
+
+        // Initialize GLFW. Most GLFW functions will not work before doing this.
+        if (!glfwInit())
+            throw new IllegalStateException("Unable to initialize GLFW");
+        // Configure GLFW
+        glfwDefaultWindowHints(); // optional, the current window hints are already the default
+        glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE); // the window will stay hidden after creation
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // the window will be resizable
+
+        System.out.println("glfw init Time: " + (Clock.time() - startTime));
+
+        // Create the window
+        window = glfwCreateWindow(750, 750, "Ixdar", 0, 0);
+        if (window == 0)
+            throw new RuntimeException("Failed to create the GLFW window");
+
+        System.out.println("Window Create Time: " + (Clock.time() - startTime));
+        // Setup a key callback. It will be called every time a key is pressed, repeated
+        // or released.
+
+        canvas = new Canvas3D();
+
+        glfwSetWindowSizeCallback(window, (long windowID, int width, int height) -> {
+            try (MemoryStack stack = stackPush()) {
+                FloatBuffer xScale = stack.mallocFloat(1);
+                FloatBuffer yScale = stack.mallocFloat(1);
+                glfwGetWindowContentScale(windowID, xScale, yScale);
+                Canvas3D.frameBufferWidth = (int) (width * xScale.get(0));
+                Canvas3D.frameBufferHeight = (int) (height * yScale.get(0));
+                canvas.changedSize = true;
+            }
+        });
+        // Setting the window icon
+        IntBuffer w = BufferUtils.createIntBuffer(1);
+        IntBuffer h = BufferUtils.createIntBuffer(1);
+        IntBuffer channels = BufferUtils.createIntBuffer(1);
+        File file = new File("res/decalSmall.png");
+        String filePath = file.getAbsolutePath();
+        ByteBuffer icon = STBImage.stbi_load(filePath, w, h, channels, 4);
+
+        GLFWImage.Buffer gb = GLFWImage.create(1);
+        int width = w.get(0);
+        int height = h.get(0);
+        GLFWImage iconGI = GLFWImage.create().set(width, height, icon);
+        gb.put(0, iconGI);
+        glfwSetWindowIcon(window, gb);
+        STBImage.stbi_image_free(icon);
+
+        // Get the thread stack and push a new frame
+        try (MemoryStack stack = stackPush()) {
+            IntBuffer pWidth = stack.mallocInt(1); // int*
+            IntBuffer pHeight = stack.mallocInt(1); // int*
+
+            // Get the window size passed to glfwCreateWindow
+            glfwGetWindowSize(window, pWidth, pHeight);
+
+            FloatBuffer xScale = stack.mallocFloat(1);
+            FloatBuffer yScale = stack.mallocFloat(1);
+            glfwGetWindowContentScale(window, xScale, yScale);
+            Canvas3D.frameBufferWidth = (int) (pWidth.get(0) * xScale.get(0));
+            Canvas3D.frameBufferHeight = (int) (pHeight.get(0) * yScale.get(0));
+            // Get the resolution of the primary monitor
+            GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+
+            // Center the window
+            glfwSetWindowPos(
+                    window,
+                    (vidmode.width() / 2 - pWidth.get(0)) / 2,
+                    (vidmode.height() - pHeight.get(0)) / 2);
+        } // the stack frame is popped automatically
+
+        // Make the OpenGL context current
+        glfwMakeContextCurrent(window);
+        // Disable v-sync
+        glfwSwapInterval(0);
+
+        System.out.println("Window Time: " + (Clock.time() - startTime));
+        canvas.initGL();
+    }
+
+    private void loop() {
+        // This line is critical for LWJGL's interoperation with GLFW's
+        // OpenGL context, or any context that is managed externally.
+        // LWJGL detects the context that is current in the current thread,
+        // creates the GLCapabilities instance and makes the OpenGL
+        // bindings available for use.
+        System.out.println("Time to First Paint" + (Clock.time() - startTime));
+        // Set the clear color
+        // canvas.initGL();
+
+        // Run the rendering loop until the user has attempted to close
+        // the window or has pressed the ESCAPE key.
+        while (!glfwWindowShouldClose(window)) {
+
+            canvas.paintGL();
+
+            glfwSwapBuffers(window); // swap the color buffers
+
+            // Poll for window events. The key callback above will only be
+            // invoked during this call.
+            glfwPollEvents();
+        }
+    }
+
+    public static float getWidth() {
+        try (MemoryStack stack = stackPush()) {
+            IntBuffer pWidth = stack.mallocInt(1);
+            IntBuffer pHeight = stack.mallocInt(1);
+            glfwGetWindowSize(IxdarWindow.window, pWidth, pHeight);
+            return pWidth.get(0);
+        }
+    }
+
+    public static float getHeight() {
+        try (MemoryStack stack = stackPush()) {
+            IntBuffer pWidth = stack.mallocInt(1);
+            IntBuffer pHeight = stack.mallocInt(1);
+            glfwGetWindowSize(IxdarWindow.window, pWidth, pHeight);
+            return pHeight.get(0);
+        }
+    }
+
+    public static Point getLocationOnScreen() {
+        try (MemoryStack stack = stackPush()) {
+            IntBuffer pWidth = stack.mallocInt(1);
+            IntBuffer pHeight = stack.mallocInt(1);
+            glfwGetWindowPos(window, pWidth, pHeight);
+            return new Point(pWidth.get(0), pHeight.get(0));
+        }
+    }
+
+    public static void setTitle(String title) {
+        glfwSetWindowTitle(window, title);
     }
 
 }

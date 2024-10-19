@@ -1,9 +1,12 @@
 package shell.ui.input.keys;
 
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_CONTROL;
+import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
+import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
+
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -14,7 +17,6 @@ import java.util.Set;
 
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
-import javax.swing.JRootPane;
 
 import shell.Main;
 import shell.Toggle;
@@ -32,7 +34,7 @@ import shell.ui.tools.FindManifoldTool;
 import shell.ui.tools.NegativeCutMatchViewTool;
 import shell.ui.tools.Tool;
 
-public class KeyGuy implements KeyListener {
+public class KeyGuy {
 
     public final Set<Integer> pressedKeys = new HashSet<>();
     public Main main;
@@ -42,7 +44,6 @@ public class KeyGuy implements KeyListener {
 
     boolean controlMask;
     private Canvas3D canvas;
-    private JRootPane component;
     JFrame frame;
     SaveDialog dialog;
     NegativeCutMatchViewTool negativeCutMatchViewTool;
@@ -56,24 +57,22 @@ public class KeyGuy implements KeyListener {
 
     }
 
-    public KeyGuy(Main main, JFrame frame, String fileName, Camera camera) {
+    public KeyGuy(Main main, String fileName, Camera camera) {
         this.main = main;
         this.camera = camera;
-        this.component = frame.getRootPane();
         dialog = new SaveDialog(frame, fileName);
 
         generateManifoldTests = new GenerateManifoldTestsAction(frame, fileName);
         negativeCutMatchViewTool = new NegativeCutMatchViewTool();
     }
 
-    @Override
-    public void keyPressed(KeyEvent e) {
+    private void keyPressed(int key, int mods) {
         if (!active) {
             return;
         }
-        boolean firstPress = !pressedKeys.contains(e.getKeyCode());
-        pressedKeys.add(e.getKeyCode());
-        if (e.getKeyCode() == KeyEvent.VK_CONTROL) {
+        boolean firstPress = !pressedKeys.contains(key);
+        pressedKeys.add(key);
+        if (key == KeyEvent.VK_CONTROL) {
             controlMask = true;
         }
         if (controlMask && firstPress) {
@@ -84,9 +83,9 @@ public class KeyGuy implements KeyListener {
                     canvas.printScreen("./img/snap" + numInFolder + ".png");
                     return;
                 } else {
-                    BufferedImage img = new BufferedImage(component.getWidth(), component.getHeight(),
+                    BufferedImage img = new BufferedImage((int) IxdarWindow.getWidth(), (int) IxdarWindow.getHeight(),
                             BufferedImage.TYPE_INT_RGB);
-                    component.paint(img.getGraphics());
+                    canvas.paintGL();
                     int numInFolder = new File("./img").list().length;
                     File outputfile = new File("./img/snap" + numInFolder + ".png");
                     try {
@@ -127,15 +126,9 @@ public class KeyGuy implements KeyListener {
                 Main.tool = negativeCutMatchViewTool;
             }
         }
-
     }
 
-    @Override
-    public void keyTyped(KeyEvent e) {
-    }
-
-    @Override
-    public void keyReleased(KeyEvent e) {
+    public void keyReleased(int key, int mask) {
         if (!active) {
             return;
         }
@@ -240,15 +233,15 @@ public class KeyGuy implements KeyListener {
                 }
                 Main.tool = Main.freeTool;
             }
-        } else if(Canvas3D.active) {
+        } else if (Canvas3D.active) {
             if (KeyActions.Back.keyPressed(pressedKeys)) {
                 Canvas3D.menu.back();
             }
         }
-        if (e.getKeyCode() == KeyEvent.VK_CONTROL) {
+        if (key == GLFW_KEY_LEFT_CONTROL) {
             controlMask = false;
         }
-        pressedKeys.remove(e.getKeyCode());
+        pressedKeys.remove(key);
     }
 
     long REPRESS_TIME = 360;
@@ -288,7 +281,7 @@ public class KeyGuy implements KeyListener {
             }
             if (moved && main != null) {
                 Point mouseLocation = MouseInfo.getPointerInfo().getLocation();
-                Point frameLocation = IxdarWindow.frame.getRootPane().getLocationOnScreen();
+                Point frameLocation = IxdarWindow.getLocationOnScreen();
                 Main.tool.calculateHover((int) (mouseLocation.getX() - frameLocation.getX()),
                         (int) (mouseLocation.getY() - frameLocation.getY()));
             }
@@ -308,4 +301,18 @@ public class KeyGuy implements KeyListener {
             }
         }
     }
+
+    public void keyCallback(long window, int key, int scancode, int action, int mods) {
+        switch (action) {
+            case GLFW_PRESS:
+                keyPressed(key, mods);
+                break;
+            case GLFW_RELEASE:
+                keyReleased(key, mods);
+                break;
+            default:
+                break;
+        }
+    }
+
 }

@@ -1,6 +1,5 @@
 package shell.cameras;
 
-import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
 
 import shell.Main;
@@ -298,7 +297,7 @@ public class Camera2D implements Camera {
     }
 
     @Override
-    public void mouseMove(float lastX, float lastY, MouseEvent e) {
+    public void mouseMove(float lastX, float lastY, float x, float y) {
     }
 
     @Override

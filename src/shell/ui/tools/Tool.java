@@ -116,8 +116,8 @@ public abstract class Tool {
         Tool tool = Main.tool;
         float x = normalizedPosX - ScreenOffsetX;
         float y = normalizedPosY - ScreenOffsetY;
-        if (x <= IxdarWindow.frame.getWidth() && x >= 0
-                && y <= IxdarWindow.frame.getHeight() && y >= 0) {
+        if (x <= IxdarWindow.getWidth() && x >= 0
+                && y <= IxdarWindow.getHeight() && y >= 0) {
             ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
             Camera2D camera = Main.camera;
             if (knotsDisplayed != null) {

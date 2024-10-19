@@ -1,35 +1,36 @@
 package shell.ui.input.keys;
 
-import java.awt.event.KeyEvent;
+import static org.lwjgl.glfw.GLFW.*;
+
 import java.util.Set;
 
 public enum KeyActions {
-    CycleToolLeft(KeyEvent.VK_LEFT),
-    CycleToolRight(KeyEvent.VK_RIGHT),
-    ZoomIn(KeyEvent.VK_EQUALS),
-    ZoomOut(KeyEvent.VK_MINUS),
-    MoveRight(KeyEvent.VK_D),
-    MoveLeft(KeyEvent.VK_A),
-    MoveUp(KeyEvent.VK_W),
-    MoveDown(KeyEvent.VK_S),
-    DoubleSpeed(KeyEvent.VK_SHIFT),
-    DrawOriginal(KeyEvent.VK_O),
-    Confirm(KeyEvent.VK_ENTER),
-    Back(KeyEvent.VK_ESCAPE),
-    Reset(KeyEvent.VK_R),
-    UpdateFile(KeyEvent.VK_U),
-    IncreaseKnotLayer(KeyEvent.VK_CLOSE_BRACKET, KeyEvent.VK_UP),
-    DecreaseKnotLayer(KeyEvent.VK_OPEN_BRACKET, KeyEvent.VK_DOWN),
-    DrawMetroDiagram(KeyEvent.VK_M),
-    DrawCutMatch(KeyEvent.VK_B),
-    DrawKnotGradient(KeyEvent.VK_Y),
-    ColorRandomization(KeyEvent.VK_C),
-    PrintScreen(true, KeyEvent.VK_P),
-    GenerateManifoldTests(true, KeyEvent.VK_G),
-    Save(true, KeyEvent.VK_S),
-    Find(true, KeyEvent.VK_F),
-    EditManifold(true, KeyEvent.VK_E),
-    NegativeCutMatchViewTool(true, KeyEvent.VK_N);
+    CycleToolLeft(GLFW_KEY_LEFT),
+    CycleToolRight(GLFW_KEY_RIGHT),
+    ZoomIn(GLFW_KEY_EQUAL),
+    ZoomOut(GLFW_KEY_MINUS),
+    MoveRight(GLFW_KEY_D),
+    MoveLeft(GLFW_KEY_A),
+    MoveUp(GLFW_KEY_W),
+    MoveDown(GLFW_KEY_S),
+    DoubleSpeed(GLFW_KEY_LEFT_SHIFT),
+    DrawOriginal(GLFW_KEY_O),
+    Confirm(GLFW_KEY_ENTER),
+    Back(GLFW_KEY_ESCAPE),
+    Reset(GLFW_KEY_R),
+    UpdateFile(GLFW_KEY_U),
+    IncreaseKnotLayer(GLFW_KEY_RIGHT_BRACKET, GLFW_KEY_UP),
+    DecreaseKnotLayer(GLFW_KEY_LEFT_BRACKET, GLFW_KEY_DOWN),
+    DrawMetroDiagram(GLFW_KEY_M),
+    DrawCutMatch(GLFW_KEY_B),
+    DrawKnotGradient(GLFW_KEY_Y),
+    ColorRandomization(GLFW_KEY_C),
+    PrintScreen(true, GLFW_KEY_P),
+    GenerateManifoldTests(true, GLFW_KEY_G),
+    Save(true, GLFW_KEY_S),
+    Find(true, GLFW_KEY_F),
+    EditManifold(true, GLFW_KEY_E),
+    NegativeCutMatchViewTool(true, GLFW_KEY_N);
 
     Integer[] keys;
     boolean controlMask;
@@ -48,7 +49,7 @@ public enum KeyActions {
 
     public boolean keyPressed(Set<Integer> pressedKeys) {
         if (controlMask) {
-            if (pressedKeys.contains(KeyEvent.VK_CONTROL)) {
+            if (pressedKeys.contains(GLFW_KEY_LEFT_CONTROL)) {
                 boolean flag = false;
                 for (int i = 0; i < keys.length; i++) {
                     if (pressedKeys.contains(keys[i])) {

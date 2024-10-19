@@ -1,5 +1,8 @@
 package shell.ui;
 
+import static org.lwjgl.glfw.GLFW.glfwSetCursorPosCallback;
+import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
+import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
 import static org.lwjgl.opengl.GL.createCapabilities;
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
@@ -18,10 +21,7 @@ import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
 import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
 
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
 import java.awt.event.KeyEvent;
-import java.awt.geom.AffineTransform;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
@@ -31,8 +31,6 @@ import java.util.function.IntFunction;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.lwjgl.opengl.awt.AWTGLCanvas;
-import org.lwjgl.opengl.awt.GLData;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
@@ -56,7 +54,7 @@ import shell.ui.input.mouse.MouseTrap;
 import shell.ui.menu.MenuBox;
 import shell.utils.Utils;
 
-public class Canvas3D extends AWTGLCanvas {
+public class Canvas3D {
 
     public static final long serialVersionUID = 1L;
     float vertices[] = {
@@ -135,10 +133,7 @@ public class Canvas3D extends AWTGLCanvas {
     LightShader lightingShader;
     static Texture diffuseMap;
     static Texture specularMap;
-    public static Camera3D camera;
-    public static MouseTrap mouse;
     public static int SIZE_FLOAT = 4;
-    public static KeyGuy keys;
     public boolean printScreen = false;
     public File screenShotFile;
     public static int frameBufferWidth;
@@ -159,11 +154,15 @@ public class Canvas3D extends AWTGLCanvas {
     public static Canvas3D canvas;
     public static boolean active;
 
-    public Canvas3D(GLData context, Camera3D camera, MouseTrap mouseTrap) {
-        super(context);
-        Canvas3D.camera = camera;
-        Canvas3D.mouse = mouseTrap;
+    public static Camera3D camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f);
+    public static MouseTrap mouse = new MouseTrap(null, camera, false);
+    public static KeyGuy keys = new KeyGuy(camera, canvas);
+
+    public Canvas3D() {
+        activate(true);
         Canvas3D.canvas = this;
+        diffuseMap = Texture.loadTextureThreaded("container2.png");
+        specularMap = Texture.loadTextureThreaded("container2_specular.png");
         active = true;
     }
 
@@ -172,18 +171,11 @@ public class Canvas3D extends AWTGLCanvas {
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    @Override
     public void initGL() {
 
         float start = Clock.time();
         coldStartStack();
 
-        AffineTransform t = this.getGraphicsConfiguration().getDefaultTransform();
-        float sx = (float) t.getScaleX(), sy = (float) t.getScaleY();
-        Canvas3D.frameBufferWidth = (int) (getWidth() * sx);
-        Canvas3D.frameBufferHeight = (int) (getHeight() * sy);
-        System.out.println("OpenGL version: " + effective.majorVersion + "." + effective.minorVersion
-                + " (Profile: " + effective.profile + ")");
         createCapabilities(false, (IntFunction) null);
         System.out.println("capabilities: " + (Clock.time() - start));
         VertexArrayObject vao = new VertexArrayObject();
@@ -193,9 +185,6 @@ public class Canvas3D extends AWTGLCanvas {
         vbo.uploadData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
         shader = new DiffuseShader(vao, vbo);
         shaders.add(shader);
-
-        diffuseMap = Texture.loadTextureThreaded("container2.png");
-        specularMap = Texture.loadTextureThreaded("container2_specular.png");
 
         VertexArrayObject lvao = new VertexArrayObject();
         lightingShader = new LightShader(lvao, vbo);
@@ -208,12 +197,11 @@ public class Canvas3D extends AWTGLCanvas {
 
         // sdfLine = new SDFLine();
 
-        glViewport(0, 0, (int) frameBufferWidth, (int) frameBufferHeight);
+        glViewport(0, 0, (int) IxdarWindow.getWidth(), (int) IxdarWindow.getHeight());
         mouse.setCanvas(this);
         // mouseTrap.captureMouse(false);
 
         glEnable(GL_DEPTH_TEST);
-        this.addComponentListener(listener);
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
@@ -226,6 +214,7 @@ public class Canvas3D extends AWTGLCanvas {
             @Override
             public void run() {
                 try (MemoryStack stack = MemoryStack.stackPush()) {
+                    @SuppressWarnings("unused")
                     FloatBuffer buffer = new Matrix4f().get(stack.mallocFloat(16));
                 }
             }
@@ -233,23 +222,9 @@ public class Canvas3D extends AWTGLCanvas {
         t1.start();
     }
 
-    public final ComponentAdapter listener = new ComponentAdapter() {
-        @Override
-        public void componentResized(ComponentEvent e) {
-            java.awt.geom.AffineTransform t = Canvas3D.this.getGraphicsConfiguration().getDefaultTransform();
-            float sx = (float) t.getScaleX(), sy = (float) t.getScaleY();
-            Canvas3D.frameBufferWidth = (int) (getWidth() * sx);
-            Canvas3D.frameBufferHeight = (int) (getHeight() * sy);
-            Canvas3D.this.changedSize = true;
-        }
-    };
     public SDFCircle circle;
 
-    @Override
     public void paintGL() {
-        if (this.hasFocus()) {
-            IxdarWindow.frame.requestFocus();
-        }
 
         glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -325,7 +300,7 @@ public class Canvas3D extends AWTGLCanvas {
             Main.main.draw(camera);
         }
 
-        glViewport(0, 0, (int) frameBufferWidth, (int) frameBufferHeight);
+        glViewport(0, 0, (int) IxdarWindow.getWidth(), (int) IxdarWindow.getHeight());
         for (ShaderProgram s : shaders) {
             s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
         }
@@ -347,8 +322,6 @@ public class Canvas3D extends AWTGLCanvas {
             printScreen = false;
             printScreen(screenShotFile);
         }
-
-        swapBuffers();
     }
 
     public void printScreen(String fileName) {
@@ -368,6 +341,16 @@ public class Canvas3D extends AWTGLCanvas {
     }
 
     public static void activate(boolean state) {
+        if (state) {
+            glfwSetKeyCallback(IxdarWindow.window,
+                    (window, key, scancode, action, mods) -> keys.keyCallback(window, key, scancode, action, mods));
+
+            glfwSetMouseButtonCallback(IxdarWindow.window,
+                    (window, button, action, mods) -> mouse.clickCallback(window, button, action, mods));
+
+            glfwSetCursorPosCallback(IxdarWindow.window, (window, x, y) -> mouse.moveCallback(window, x, y));
+
+        }
         Canvas3D.keys.active = state;
         Canvas3D.mouse.active = state;
         MenuBox.menuVisible = state;

@@ -1,5 +1,8 @@
 package shell;
 
+import static org.lwjgl.glfw.GLFW.glfwSetCursorPosCallback;
+import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
+import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
 import static org.lwjgl.opengl.GL11.glViewport;
 
 import java.awt.Canvas;
@@ -84,13 +87,13 @@ public class Main {
 	public static boolean active;
 	public Canvas canvas;
 	public static KeyGuy keys;
-	public static MouseTrap mouseTrap;
+	public static MouseTrap mouse;
 	private static HyperString toolTip;
 	public SDFTexture logo;
 	public Font font;
 
-	final static int RIGHT_PANEL_SIZE = 250;
-	final static int BOTTOM_PANEL_SIZE = 250;
+	final static int RIGHT_PANEL_SIZE = 195;
+	final static int BOTTOM_PANEL_SIZE = 195;
 	public static int MAIN_VIEW_OFFSET_X;
 	public static int MAIN_VIEW_OFFSET_Y;
 	public static int MAIN_VIEW_WIDTH;
@@ -102,33 +105,29 @@ public class Main {
 		Main.fileName = fileName;
 		file = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(file);
-		IxdarWindow frame = IxdarWindow.frame;
-		frame.setTitle("Ixdar : " + fileName);
+		IxdarWindow.setTitle("Ixdar : " + fileName);
 
-		camera = new Camera2D(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE,
-				Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE, 0.9f, 0, BOTTOM_PANEL_SIZE,
+		int wWidth = (int) IxdarWindow.getWidth();
+		int wHeight = (int) IxdarWindow.getHeight();
+		camera = new Camera2D(wWidth - RIGHT_PANEL_SIZE,
+				wHeight - BOTTOM_PANEL_SIZE, 0.9f, 0, BOTTOM_PANEL_SIZE,
 				retTup.ps);
 
 		Toggle.manifold.value = !retTup.manifolds.isEmpty();
 
-		keys = new KeyGuy(this, frame, fileName, camera);
-		mouseTrap = new MouseTrap(this, frame, camera, false);
-
-		frame.addKeyListener(keys);
-		frame.addMouseListener(mouseTrap);
-		frame.addMouseMotionListener(mouseTrap);
-		frame.addMouseWheelListener(mouseTrap);
-		Canvas3D.canvas.addMouseMotionListener(mouseTrap);
-		Canvas3D.canvas.addMouseListener(mouseTrap);
-		Canvas3D.canvas.addMouseWheelListener(mouseTrap);
+		keys = new KeyGuy(this, fileName, camera);
+		mouse = new MouseTrap(this, camera, false);
+		activate(true);
 		tool = new FreeTool();
 	}
 
 	public static void main(String[] args) {
 		main = new Main(args[0]);
 
-		MAIN_VIEW_WIDTH = Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE;
-		MAIN_VIEW_HEIGHT = Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE;
+		int wWidth = (int) IxdarWindow.getWidth();
+		int wHeight = (int) IxdarWindow.getHeight();
+		MAIN_VIEW_WIDTH = wWidth - RIGHT_PANEL_SIZE;
+		MAIN_VIEW_HEIGHT = wHeight - BOTTOM_PANEL_SIZE;
 		MAIN_VIEW_OFFSET_X = 0;
 		MAIN_VIEW_OFFSET_Y = BOTTOM_PANEL_SIZE;
 		camera.initCamera();
@@ -276,8 +275,10 @@ public class Main {
 
 	public void draw(Camera camera3D) {
 		try {
-			MAIN_VIEW_WIDTH = Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE;
-			MAIN_VIEW_HEIGHT = Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE;
+			int wWidth = (int) IxdarWindow.getWidth();
+			int wHeight = (int) IxdarWindow.getHeight();
+			MAIN_VIEW_WIDTH = wWidth - RIGHT_PANEL_SIZE;
+			MAIN_VIEW_HEIGHT = wHeight - BOTTOM_PANEL_SIZE;
 			MAIN_VIEW_OFFSET_X = 0;
 			MAIN_VIEW_OFFSET_Y = BOTTOM_PANEL_SIZE;
 			updateView(MAIN_VIEW_OFFSET_X, MAIN_VIEW_OFFSET_Y, MAIN_VIEW_WIDTH, MAIN_VIEW_HEIGHT);
@@ -288,8 +289,8 @@ public class Main {
 			if (keys != null) {
 				keys.paintUpdate(SHIFT_MOD);
 			}
-			if (mouseTrap != null) {
-				mouseTrap.paintUpdate(SHIFT_MOD);
+			if (mouse != null) {
+				mouse.paintUpdate(SHIFT_MOD);
 			}
 			camera.setZIndex(camera3D);
 			camera.calculateCameraTransform();
@@ -326,13 +327,13 @@ public class Main {
 			if (logo == null) {
 				logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, 0.6f, 0f, true);
 			}
-			updateView(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
+			updateView(wWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
 			logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 
-			updateView(Canvas3D.frameBufferWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
-					Canvas3D.frameBufferHeight - BOTTOM_PANEL_SIZE);
-			new SDFCircle().draw(new Vector2f(mouseTrap.normalizedPosX - camera.ScreenOffsetX,
-					mouseTrap.normalizedPosY - camera.ScreenOffsetY), Drawing.CIRCLE_RADIUS * camera.ScaleFactor,
+			updateView(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
+					wHeight - BOTTOM_PANEL_SIZE);
+			new SDFCircle().draw(new Vector2f(mouse.normalizedPosX - camera.ScreenOffsetX,
+					mouse.normalizedPosY - camera.ScreenOffsetY), Drawing.CIRCLE_RADIUS * camera.ScaleFactor,
 					stickyColor,
 					camera);
 			int row = 0;
@@ -346,13 +347,13 @@ public class Main {
 			Drawing.font.drawHyperStringRows(toolInfo, rowHeight, row, camera);
 			row += toolInfo.lines;
 			if (toolTip != null && showToolTip) {
-				int isRight = mouseTrap.normalizedPosX > Canvas3D.frameBufferWidth / 2 ? 1 : 0;
+				int isRight = mouse.normalizedPosX > wWidth / 2 ? 1 : 0;
 				int toolTipWidth = toolTip.getWidthPixels();
 
-				int isTop = mouseTrap.normalizedPosY > Canvas3D.frameBufferHeight / 2 ? 1 : 0;
+				int isTop = mouse.normalizedPosY > wHeight / 2 ? 1 : 0;
 				int toolTipHeight = toolTip.getHeightPixels();
-				updateView((int) mouseTrap.normalizedPosX - (isRight * toolTipWidth),
-						(int) mouseTrap.normalizedPosY - (isTop * toolTipHeight),
+				updateView((int) mouse.normalizedPosX - (isRight * toolTipWidth),
+						(int) mouse.normalizedPosY - (isTop * toolTipHeight),
 						toolTip.getWidthPixels(),
 						toolTip.lines * (int) Drawing.FONT_HEIGHT_PIXELS);
 				new ColorBox().draw(Color.BLUE, camera);
@@ -540,8 +541,17 @@ public class Main {
 	}
 
 	public static void activate(boolean state) {
+		if (state) {
+			glfwSetKeyCallback(IxdarWindow.window,
+					(window, key, scancode, action, mods) -> keys.keyCallback(window, key, scancode, action, mods));
+
+			glfwSetMouseButtonCallback(IxdarWindow.window,
+					(window, button, action, mods) -> mouse.clickCallback(window, button, action, mods));
+
+			glfwSetCursorPosCallback(IxdarWindow.window, (window, x, y) -> mouse.moveCallback(window, x, y));
+		}
 		active = state;
-		mouseTrap.active = state;
+		mouse.active = state;
 		keys.active = state;
 	}
 

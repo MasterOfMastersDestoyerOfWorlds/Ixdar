@@ -104,9 +104,9 @@ public class FreeTool extends Tool {
         h.addWord("Position:");
         if (displayPoint == null) {
             h.addWord("X:"
-                    + (int) Main.camera.screenTransformX(Main.mouseTrap.normalizedPosX - Main.MAIN_VIEW_OFFSET_X)
+                    + (int) Main.camera.screenTransformX(Main.mouse.normalizedPosX - Main.MAIN_VIEW_OFFSET_X)
                     + " Y:"
-                    + (int) Main.camera.screenTransformY(Main.mouseTrap.normalizedPosY - Main.MAIN_VIEW_OFFSET_Y));
+                    + (int) Main.camera.screenTransformY(Main.mouse.normalizedPosY - Main.MAIN_VIEW_OFFSET_Y));
         } else {
             h.addWord("X:" + (int) coordPoint.getCoord(0) + " Y:"
                     + (int) coordPoint.getCoord(1));

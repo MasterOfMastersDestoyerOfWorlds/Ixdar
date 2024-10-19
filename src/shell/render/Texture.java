@@ -46,7 +46,6 @@ public class Texture {
     public Texture(String resourceName) {
         this.resourceName = resourceName;
         this.initialized = false;
-        id = glGenTextures();
     }
 
     public Texture(String resourceName, int texture, int width2, int height2) {
@@ -194,6 +193,7 @@ public class Texture {
             return;
         }
         initialized = true;
+        id = glGenTextures();
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);

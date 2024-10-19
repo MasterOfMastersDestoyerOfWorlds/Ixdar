@@ -1,36 +1,41 @@
 package shell.ui.input.mouse;
 
+import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
+import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
+import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
+import static org.lwjgl.glfw.GLFW.glfwGetCursorPos;
+import static org.lwjgl.glfw.GLFW.glfwGetMouseButton;
+import static org.lwjgl.system.MemoryStack.stackPush;
+
 import java.awt.AWTException;
-import java.awt.Cursor;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.awt.Robot;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
-import java.awt.event.MouseWheelListener;
 import java.awt.geom.Point2D;
+import java.nio.DoubleBuffer;
 import java.util.ArrayList;
 
-import javax.swing.JFrame;
-
-import org.lwjgl.opengl.awt.AWTGLCanvas;
+import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
+import org.joml.Vector2f;
+import org.lwjgl.system.MemoryStack;
 
 import shell.Main;
 import shell.cameras.Camera;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.render.Clock;
 import shell.render.text.HyperString;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.tools.Tool;
 
-public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheelListener {
+public class MouseTrap {
 
+    private static final float CLICK_TIME = 0.1f;
     public int queuedMouseWheelTicks = 0;
     Main main;
     long timeLastScroll;
@@ -43,21 +48,20 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     public boolean active = true;
     public static ArrayList<HyperString> hyperStrings = new ArrayList<>();
 
-    public MouseTrap(Main main, JFrame frame, Camera camera, boolean captureMouse) {
+    public MouseTrap(Main main, Camera camera, boolean captureMouse) {
         this.main = main;
         this.camera = camera;
         this.captureMouse = captureMouse;
         this.canvas = Canvas3D.canvas;
     }
 
-    @Override
-    public void mouseClicked(MouseEvent e) {
+    public void mouseClicked(float xPos, float yPos) {
         if (!active) {
             return;
         }
         Knot manifoldKnot = Main.manifoldKnot;
-        normalizedPosX = getNormalizePosX(e);
-        normalizedPosY = getNormalizedPosY(e);
+        normalizedPosX = getNormalizePosX(xPos);
+        normalizedPosY = getNormalizedPosY(yPos);
         if (Main.manifoldKnot != null && Main.active) {
             Tool tool = Main.tool;
             camera.calculateCameraTransform();
@@ -93,83 +97,76 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
         }
     }
 
-    private float getNormalizePosX(MouseEvent e) {
-        return (((((float) e.getX()) / ((float) canvas.getWidth()) * Canvas3D.frameBufferWidth)));
+    private float getNormalizePosX(float xPos) {
+        return (((((float) xPos) / ((float) IxdarWindow.getWidth()) * Canvas3D.frameBufferWidth)));
     }
 
-    private float getNormalizedPosY(MouseEvent e) {
-        return ((1 - ((float) e.getY()) / ((float) canvas.getHeight())) * Canvas3D.frameBufferHeight);
+    private float getNormalizedPosY(float yPos) {
+        return ((1 - (yPos) / ((float) IxdarWindow.getHeight())) * Canvas3D.frameBufferHeight);
     }
 
     double startX;
     double startY;
     private java.awt.geom.Point2D.Double center;
-    private AWTGLCanvas canvas;
+    private Canvas3D canvas;
     public float normalizedPosX;
     public float normalizedPosY;
 
-    @Override
-    public void mousePressed(MouseEvent e) {
-
-        normalizedPosX = getNormalizePosX(e);
-        normalizedPosY = getNormalizedPosY(e);
+    public void mousePressed(float x, float y) {
+        normalizedPosX = getNormalizePosX(x);
+        normalizedPosY = getNormalizedPosY(y);
         startX = normalizedPosX;
         startY = normalizedPosY;
     }
 
-    @Override
-    public void mouseDragged(MouseEvent e) {
+    public void mouseDragged(float x, float y) {
 
-        normalizedPosX = getNormalizePosX(e);
-        normalizedPosY = getNormalizedPosY(e);
+        normalizedPosX = getNormalizePosX(x);
+        normalizedPosY = getNormalizedPosY(y);
         // update pan x and y to follow the mouse
         camera.drag((float) (normalizedPosX - startX), (float) (normalizedPosY - startY));
         startX = normalizedPosX;
         startY = normalizedPosY;
+
     }
 
-    @Override
-    public void mouseReleased(MouseEvent e) {
+    public void mouseReleased() {
     }
 
-    @Override
-    public void mouseEntered(MouseEvent e) {
+    public void mouseEntered() {
     }
 
-    @Override
-    public void mouseExited(MouseEvent e) {
+    public void mouseExited() {
         if (main != null) {
             Main.tool.clearHover();
         }
     }
 
-    @Override
     public void mouseWheelMoved(MouseWheelEvent e) {
         queuedMouseWheelTicks += e.getWheelRotation();
         timeLastScroll = System.currentTimeMillis();
     }
 
-    public void setCanvas(AWTGLCanvas canvas) {
-        this.canvas = canvas;
+    public void setCanvas(Canvas3D canvas3d) {
+        this.canvas = canvas3d;
     }
 
-    @Override
-    public void mouseMoved(MouseEvent e) {
+    public void mouseMoved(float x, float y) {
         if (!active) {
             return;
         }
-        normalizedPosX = getNormalizePosX(e);
-        normalizedPosY = getNormalizedPosY(e);
+        normalizedPosX = getNormalizePosX(x);
+        normalizedPosY = getNormalizedPosY(y);
         if (captureMouse && center == null) {
             captureMouse(false);
             return;
         }
-        lastX = e.getX();
-        lastY = e.getY();
+        lastX = (int) x;
+        lastY = (int) y;
         if (captureMouse) {
-            camera.mouseMove((int) center.x, (int) center.y, e);
+            camera.mouseMove((int) center.x, (int) center.y, x, y);
         } else {
-            camera.mouseMove(lastX, lastY, e);
+            camera.mouseMove(lastX, lastY, x, y);
         }
         if (Canvas3D.menu != null && !(this.canvas == null)) {
 
@@ -211,8 +208,8 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
     public void captureMouse(boolean force) {
 
         if (canvas != null && (IxdarWindow.frame.hasFocus() || force)) {
-            Point2D topLeft = canvas.getLocationOnScreen();
-            center = new Point2D.Double((int) (canvas.getWidth() / 2), (int) (canvas.getHeight() / 2));
+            Point2D topLeft = IxdarWindow.getLocationOnScreen();
+            center = new Point2D.Double((int) (IxdarWindow.getWidth() / 2), (int) (IxdarWindow.getHeight() / 2));
             int x = (int) (topLeft.getX() + center.getX());
             int y = (int) (topLeft.getY() + center.getY());
             moveMouse(new Point2D.Double(x, y));
@@ -245,6 +242,45 @@ public class MouseTrap implements MouseListener, MouseMotionListener, MouseWheel
             }
         }
         return;
+    }
+
+    float leftMouseDown = -1;
+    Vector2f leftMouseDownPos;
+
+    public void clickCallback(long window, int button, int action, int mods) {
+        try (MemoryStack stack = stackPush()) {
+            DoubleBuffer xPos = stack.mallocDouble(1);
+            DoubleBuffer yPos = stack.mallocDouble(1);
+            glfwGetCursorPos(IxdarWindow.window, xPos, yPos);
+            float x = (float) xPos.get(0);
+            float y = (float) yPos.get(0);
+            if (action == GLFW_PRESS) {
+                leftMouseDown = Clock.time();
+                leftMouseDownPos = new Vector2f(x, y);
+                mousePressed(x, y);
+            } else if (action == GLFW_RELEASE) {
+                float downTime = Clock.time() - leftMouseDown;
+                if (leftMouseDownPos != null) {
+                    Vector2f mouseReleasePos = new Vector2f(x, y);
+                    if (mouseReleasePos.distance(leftMouseDownPos) < 3) {
+                        mouseClicked(x, y);
+                    } else {
+                        mouseReleased();
+                    }
+                }
+            }
+        }
+    }
+
+    public void moveCallback(long window, double x, double y) {
+        int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+        float downTime = Clock.time() - leftMouseDown;
+        Vector2f mouseReleasePos = new Vector2f((float) x, (float) y);
+        if (state == GLFW_PRESS && mouseReleasePos.distance(leftMouseDownPos) > 3) {
+            mouseDragged((float) x, (float) y);
+        } else {
+            mouseMoved((float) x, (float) y);
+        }
     }
 
 }
