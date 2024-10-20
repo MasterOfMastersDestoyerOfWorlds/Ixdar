@@ -17,7 +17,7 @@ public class SDFCircle {
     public SDFCircle() {
         shader = ShaderType.CircleSDF.shader;
         this.borderColor = Color.RED;
-        this.borderThickness = 0.1f;
+        this.borderThickness = 0.15f;
     }
 
     public void draw(Vector2f pA, float circleRadius, Color c, Camera camera) {
@@ -34,9 +34,9 @@ public class SDFCircle {
         float width = bL.distance(tL);
         float height = bL.distance(bR);
 
-        float edgeDist = 0.25f;
+        float edgeDist = 0.35f;
         shader.setFloat("edgeDist", edgeDist);
-        shader.setFloat("edgeSharpness", edgeDist / 10);
+        shader.setFloat("edgeSharpness", edgeDist / (8 * edgeDist * camera.getScaleFactor()));
 
         shader.setVec2("pointA", pA);
         shader.setFloat("width", width);
