@@ -53,6 +53,16 @@ public class MouseTrap {
         this.canvas = Canvas3D.canvas;
     }
 
+    public boolean inView(float x, float y) {
+        boolean inMainViewRightBound = x < Main.MAIN_VIEW_WIDTH + Main.MAIN_VIEW_OFFSET_X;
+        boolean inMainViewLeftBound = x > Main.MAIN_VIEW_OFFSET_X;
+        float invY = IxdarWindow.getHeight() - y;
+        boolean inMainViewLowerBound = invY > Main.MAIN_VIEW_OFFSET_Y;
+        boolean inMainViewUpperBound = invY < Main.MAIN_VIEW_HEIGHT + Main.MAIN_VIEW_OFFSET_Y;
+        return inMainViewLeftBound && inMainViewRightBound && inMainViewLowerBound
+                && inMainViewUpperBound;
+    }
+
     public void mouseClicked(float xPos, float yPos) {
         if (!active) {
             return;
@@ -60,7 +70,9 @@ public class MouseTrap {
         Knot manifoldKnot = Main.manifoldKnot;
         normalizedPosX = camera.getNormalizePosX(xPos);
         normalizedPosY = camera.getNormalizePosY(yPos);
-        if (Main.manifoldKnot != null && Main.active) {
+
+        boolean inMainView = inView(xPos, yPos);
+        if (Main.manifoldKnot != null && Main.active && inMainView) {
             Tool tool = Main.tool;
             camera.calculateCameraTransform();
             double x = camera.screenTransformX(normalizedPosX - tool.ScreenOffsetX);
@@ -95,8 +107,6 @@ public class MouseTrap {
         }
     }
 
-
-
     double startX;
     double startY;
     private java.awt.geom.Point2D.Double center;
@@ -116,10 +126,12 @@ public class MouseTrap {
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
         // update pan x and y to follow the mouse
-        camera.drag((float) (normalizedPosX - startX), (float) (normalizedPosY - startY));
-        startX = normalizedPosX;
-        startY = normalizedPosY;
-
+        boolean inMainView = inView((float) leftMouseDownPos.x, (float) leftMouseDownPos.y);
+        if (inMainView) {
+            camera.drag((float) (normalizedPosX - startX), (float) (normalizedPosY - startY));
+            startX = normalizedPosX;
+            startY = normalizedPosY;
+        }
     }
 
     public void mouseReleased() {
@@ -136,6 +148,11 @@ public class MouseTrap {
 
     public void mouseWheelMoved(MouseWheelEvent e) {
         queuedMouseWheelTicks += e.getWheelRotation();
+        timeLastScroll = System.currentTimeMillis();
+    }
+
+    public void mouseScrollCallback(long window, double y) {
+        queuedMouseWheelTicks += 4 * y;
         timeLastScroll = System.currentTimeMillis();
     }
 
@@ -164,8 +181,14 @@ public class MouseTrap {
 
             Canvas3D.menu.setHover(normalizedPosX, normalizedPosY);
         }
+
+        boolean inMainView = inView(x, y);
         if (main != null && Main.active) {
-            Main.tool.calculateHover(normalizedPosX, normalizedPosY);
+            if (inMainView) {
+                Main.tool.calculateHover(normalizedPosX, normalizedPosY);
+            } else {
+                Main.tool.clearHover();
+            }
         }
         for (HyperString h : hyperStrings) {
             h.calculateClearHover(normalizedPosX, normalizedPosY);
@@ -185,12 +208,12 @@ public class MouseTrap {
             queuedMouseWheelTicks = 0;
         }
         if (queuedMouseWheelTicks < 0) {
-            camera.zoom(true);
+            camera.zoom(false);
             Canvas3D.menu.scroll(true);
             queuedMouseWheelTicks++;
         }
         if (queuedMouseWheelTicks > 0) {
-            camera.zoom(false);
+            camera.zoom(true);
             Canvas3D.menu.scroll(false);
             queuedMouseWheelTicks--;
         }

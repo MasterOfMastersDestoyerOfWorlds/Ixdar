@@ -3,6 +3,7 @@ package shell;
 import static org.lwjgl.glfw.GLFW.glfwSetCursorPosCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
+import static org.lwjgl.glfw.GLFW.glfwSetScrollCallback;
 import static org.lwjgl.opengl.GL11.glViewport;
 
 import java.awt.Canvas;
@@ -369,9 +370,7 @@ public class Main {
 	}
 
 	public void updateView(int x, int y, int width, int height) {
-		camera.updateSize(width, height);
-		camera.ScreenOffsetX = x;
-		camera.ScreenOffsetY = y;
+		camera.updateViewBounds(x, y, width, height);
 		glViewport(x, y, width, height);
 		for (ShaderProgram s : Canvas3D.shaders) {
 			s.updateProjectionMatrix(width, height, 1f);
@@ -552,6 +551,8 @@ public class Main {
 					(window, button, action, mods) -> mouse.clickCallback(window, button, action, mods));
 
 			glfwSetCursorPosCallback(IxdarWindow.window, (window, x, y) -> mouse.moveCallback(window, x, y));
+
+			glfwSetScrollCallback(IxdarWindow.window, (window, x, y) -> mouse.mouseScrollCallback(window, y));
 		}
 		active = state;
 		mouse.active = state;

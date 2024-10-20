@@ -152,7 +152,7 @@ public class HyperString {
             }
             float wordY = camera.getHeight() - ((row + 1) * rowHeight);
             w.setBounds(wordX, wordY, camera.getScreenOffsetX() + offset,
-                    camera.getScreenOffsetY() + wordY, rowHeight);
+                    camera.getScreenOffsetY() + wordY, rowHeight, camera.viewBounds);
             offset += wordWidth;
         }
         return row - startRow + 1;
@@ -173,7 +173,7 @@ public class HyperString {
             float wordX = x + offset;
             float wordY = y;
             w.setBounds(wordX, wordY, camera.getScreenOffsetX() + wordX,
-                    camera.getScreenOffsetY() + wordY, font.getHeight(w.text));
+                    camera.getScreenOffsetY() + wordY, font.getHeight(w.text), camera.viewBounds);
             offset += Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * w.width;
         }
     }
@@ -196,7 +196,7 @@ public class HyperString {
             float wordX = x + offset - centerX;
             float wordY = y - centerY;
             w.setBounds(wordX, wordY, camera.getScreenOffsetX() + wordX,
-                    camera.getScreenOffsetY() + wordY, font.getHeight(w.text));
+                    camera.getScreenOffsetY() + wordY, font.getHeight(w.text), camera.viewBounds);
             offset += Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * w.width;
         }
     }

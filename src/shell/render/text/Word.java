@@ -1,5 +1,6 @@
 package shell.render.text;
 
+import shell.cameras.Bounds;
 import shell.render.color.Color;
 import shell.ui.Drawing;
 import shell.ui.actions.Action;
@@ -18,6 +19,7 @@ public class Word {
     public Action clearHover;
     public float x;
     public float y;
+    private Bounds viewBounds;
 
     public Word(String word, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         text = word;
@@ -25,6 +27,7 @@ public class Word {
         this.hoverAction = hoverAction;
         this.clearHover = clearHover;
         this.clickAction = clickAction;
+        viewBounds = new Bounds(0, 0, 0, 0);
     }
 
     public Word(Word w, Color defaultColor) {
@@ -37,16 +40,16 @@ public class Word {
         newLine = b;
     }
 
-    public void setBounds(float x, float y, float xScreen, float yScreen, float height) {
+    public void setBounds(float x, float y, float xScreen, float yScreen, float height, Bounds viewBounds) {
         this.width = Drawing.font.getWidth(text);
         this.x = x;
         this.y = y;
         this.xScreenOffset = xScreen;
         this.yScreenOffset = yScreen;
+        this.viewBounds.update(viewBounds);
         this.rowHeight = height;
     }
 
-    
     public void setWidth(Font font) {
         this.width = font.getWidth(text);
     }
@@ -60,7 +63,8 @@ public class Word {
 
     public void calculateHover(float normalizedPosX, float normalizedPosY) {
         if (!newLine && normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
-                normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight) {
+                normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight
+                && viewBounds.contains(normalizedPosX, normalizedPosY)) {
             hoverAction.perform();
         }
     }

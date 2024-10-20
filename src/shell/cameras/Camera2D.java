@@ -10,8 +10,8 @@ import shell.ui.IxdarWindow;
 
 public class Camera2D implements Camera {
 
-    public float ZOOM_SPEED = 0.01f;
-    public float PAN_SPEED = 10f;
+    public float ZOOM_SPEED = 0.1f;
+    public float PAN_SPEED = 20f;
     public int Width, Height;
     public float ScreenWidth, ScreenHeight;
     public float ScaleFactor;
@@ -35,6 +35,7 @@ public class Camera2D implements Camera {
     private float SHIFT_MOD = 1.0f;
     public float ScreenOffsetY;
     public float ScreenOffsetX;
+    public Bounds viewBounds;
 
     public Camera2D(int Width, int Height, float ScaleFactor, float ScreenOffsetX, float ScreenOffsetY, PointSet ps) {
         if (Height < Width) {
@@ -53,6 +54,7 @@ public class Camera2D implements Camera {
         this.ScaleFactor = ScaleFactor;
         this.ScreenOffsetX = ScreenOffsetX;
         this.ScreenOffsetY = ScreenOffsetY;
+        this.viewBounds = new Bounds(ScreenOffsetX, ScreenOffsetY, Width, Height);
         this.ps = ps;
         zIndex = 0;
 
@@ -359,6 +361,13 @@ public class Camera2D implements Camera {
     @Override
     public float getNormalizePosY(float yPos) {
         return IxdarWindow.getHeight() - (yPos);
+    }
+
+    public void updateViewBounds(int x, int y, int width, int height) {
+        viewBounds.update(x, y, width, height);
+        updateSize(width, height);
+        ScreenOffsetX = x;
+        ScreenOffsetY = y;
     }
 
 }

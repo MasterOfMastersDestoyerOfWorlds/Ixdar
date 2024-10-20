@@ -129,13 +129,17 @@ public class IxdarWindow {
         ByteBuffer icon = STBImage.stbi_load(filePath, w, h, channels, 4);
         int limit = icon.limit();
         ByteBuffer iconFlipped = MemoryUtil.memAlloc(limit);
-        for (int i = 0; i < limit / 4; i++) {
-            int pixelStart = i * 4;
-            int flippedPixel = limit - 4 - pixelStart;
-            iconFlipped.put(flippedPixel + 0, icon.get(pixelStart + 0));
-            iconFlipped.put(flippedPixel + 1, icon.get(pixelStart + 1));
-            iconFlipped.put(flippedPixel + 2, icon.get(pixelStart + 2));
-            iconFlipped.put(flippedPixel + 3, icon.get(pixelStart + 3));
+        int hPix = h.get(0);
+        int wPix = w.get(0);
+        for (int i = 0; i < hPix; i++) {
+            for (int j = 0; j < wPix; j++) {
+                int pixelStart = i * (wPix * 4) + j * 4;
+                int flippedPixel = (hPix - 1 - i) * (wPix * 4) + (j) * 4;
+                iconFlipped.put(flippedPixel + 0, icon.get(pixelStart + 0));
+                iconFlipped.put(flippedPixel + 1, icon.get(pixelStart + 1));
+                iconFlipped.put(flippedPixel + 2, icon.get(pixelStart + 2));
+                iconFlipped.put(flippedPixel + 3, icon.get(pixelStart + 3));
+            }
         }
         GLFWImage.Buffer gb = GLFWImage.create(1);
         int width = w.get(0);
