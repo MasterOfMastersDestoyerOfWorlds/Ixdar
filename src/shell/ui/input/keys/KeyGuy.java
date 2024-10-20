@@ -237,6 +237,9 @@ public class KeyGuy {
             if (KeyActions.Back.keyPressed(pressedKeys)) {
                 Canvas3D.menu.back();
             }
+            if (KeyActions.Reset.keyPressed(pressedKeys)) {
+                camera.reset();
+            }
         }
         if (key == GLFW_KEY_LEFT_CONTROL) {
             controlMask = false;

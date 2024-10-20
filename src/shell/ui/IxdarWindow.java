@@ -113,6 +113,10 @@ public class IxdarWindow {
                 Canvas3D.frameBufferWidth = (int) (width * xScale.get(0));
                 Canvas3D.frameBufferHeight = (int) (height * yScale.get(0));
                 canvas.changedSize = true;
+
+                canvas.paintGL();
+
+                glfwSwapBuffers(window);
             }
         });
         // Setting the window icon
@@ -157,8 +161,8 @@ public class IxdarWindow {
 
         // Make the OpenGL context current
         glfwMakeContextCurrent(window);
-        // Disable v-sync
-        glfwSwapInterval(0);
+        // Enable v-sync
+        glfwSwapInterval(1);
 
         System.out.println("Window Time: " + (Clock.time() - startTime));
         canvas.initGL();

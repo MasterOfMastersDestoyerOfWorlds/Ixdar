@@ -46,6 +46,7 @@ public interface Camera {
     float getScreenWidthRatio();
 
     float getScreenHeightRatio();
+    float getScaleFactor();
 
     float getNormalizePosX(float xPos);
     float getNormalizePosY(float yPos);

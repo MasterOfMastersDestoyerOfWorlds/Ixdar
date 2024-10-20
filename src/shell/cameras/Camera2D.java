@@ -298,6 +298,11 @@ public class Camera2D implements Camera {
     }
 
     @Override
+    public float getScaleFactor() {
+        return ScaleFactor;
+    }
+
+    @Override
     public void mouseMove(float lastX, float lastY, float x, float y) {
     }
 

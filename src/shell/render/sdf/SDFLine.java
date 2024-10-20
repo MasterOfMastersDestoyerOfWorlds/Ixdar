@@ -72,6 +72,7 @@ public class SDFLine {
         float width = bL.distance(tL);
         float height = bL.distance(bR);
 
+        shader.setFloat("edgeSharpness", edgeDist / (4 * edgeDist * camera.getScaleFactor()));
         shader.setFloat("dashPhase", Clock.spin(dashRate));
         shader.setFloat("lineLengthSq", lengthSq(pA, pB));
         shader.setVec2("pointA", pA);
@@ -108,7 +109,7 @@ public class SDFLine {
         this.roundCaps = roundCaps;
         this.endCaps = endCaps;
 
-        edgeDist = 0.25f;
+        edgeDist = 0.35f;
         setUniforms();
     }
 
@@ -123,9 +124,7 @@ public class SDFLine {
         shader.setBool("endCaps", endCaps);
         shader.setBool("roundCaps", roundCaps);
         shader.setFloat("dashLength", dashLength);
-        shader.setFloat("edgeSharpness", 0.05f);
         shader.setFloat("edgeDist", edgeDist);
-        shader.setFloat("edgeSharpness", edgeDist / 10);
     }
 
 }

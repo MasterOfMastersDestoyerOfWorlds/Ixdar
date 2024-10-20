@@ -20,6 +20,8 @@ public class Camera3D implements Camera {
     public Vector3f worldUp;
     public float yaw;
     public float pitch;
+    public float startYaw;
+    public float startPitch;
     double SHIFT_MOD;
     public double fov;
     private int zIndex;
@@ -28,7 +30,10 @@ public class Camera3D implements Camera {
         this.position = position;
         worldUp = new Vector3f(0.0f, 1.0f, 0.0f);
         this.yaw = yaw;
+        startYaw = yaw;
+
         this.pitch = pitch;
+        startPitch = pitch;
         front = new Vector3f();
         up = new Vector3f();
         right = new Vector3f();
@@ -64,8 +69,8 @@ public class Camera3D implements Camera {
 
     @Override
     public void reset() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'reset'");
+        yaw = startYaw;
+        pitch = startPitch;
     }
 
     @Override
@@ -107,6 +112,14 @@ public class Camera3D implements Camera {
 
     @Override
     public void drag(float d, float e) {
+        yaw += d;
+        pitch += e;
+        updateCameraVectors();
+    }
+
+    @Override
+    public float getScaleFactor() {
+        return 1;
     }
 
     @Override
