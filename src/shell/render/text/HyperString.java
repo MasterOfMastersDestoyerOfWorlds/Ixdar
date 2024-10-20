@@ -47,6 +47,14 @@ public class HyperString {
         }
     }
 
+    public void addWordClick(String word, Color c, Action clickAction) {
+        for (String w : word.split(" ")) {
+            addWord(w + " ", c, () -> {
+            }, () -> {
+            }, clickAction);
+        }
+    }
+
     public void addWord(String word, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         for (String w : word.split(" ")) {
             strMap.computeIfPresent(lines - 1, (key, val) -> val + w + " ");
@@ -54,14 +62,13 @@ public class HyperString {
         }
     }
 
-    public void addTooltip(String word, Color c, HyperString toolTipText) {
+    public void addTooltip(String word, Color c, HyperString toolTipText, Action clickAction) {
         for (String w : word.split(" ")) {
             strMap.computeIfPresent(lines - 1, (key, val) -> val + w + " ");
             words.add(new Word(word, c,
                     () -> Main.setTooltipText(toolTipText),
                     () -> Main.clearTooltipText(),
-                    () -> {
-                    }));
+                    clickAction));
         }
     }
 
@@ -117,6 +124,12 @@ public class HyperString {
     public void calculateHover(float normalizedPosX, float normalizedPosY) {
         for (Word w : words) {
             w.calculateHover(normalizedPosX, normalizedPosY);
+        }
+    }
+
+    public void click(float normalizedPosX, float normalizedPosY) {
+        for (Word w : words) {
+            w.click(normalizedPosX, normalizedPosY);
         }
     }
 
@@ -205,4 +218,5 @@ public class HyperString {
     public String toString() {
         return words.toString();
     }
+
 }

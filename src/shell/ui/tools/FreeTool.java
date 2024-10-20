@@ -97,8 +97,10 @@ public class FreeTool extends Tool {
             h.addWord("None");
         } else {
             coordPoint = ((Point) displayPoint).p;
-            pointInfo.addWord(coordPoint.toString());
-            h.addTooltip(displayPoint.id + "", Color.BLUE_WHITE, pointInfo);
+            final PointND coordPointF = ((Point) displayPoint).p;
+            pointInfo.addWord(coordPointF.toString());
+            h.addTooltip(displayPoint.id + "", Color.BLUE_WHITE, pointInfo,
+                    () -> Main.camera.centerOnPoint(coordPointF));
         }
         h.newLine();
         h.addWord("Position:");
@@ -149,9 +151,11 @@ public class FreeTool extends Tool {
                 c = Main.getMetroColor(displayPoint, containingKnot);
             }
             String pointStr = "" + displayPoint.id + " ";
-            h.addWord(containingKnot.beforeString(displayPoint.id), c);
-            h.addTooltip(pointStr, Color.BLUE_WHITE, pointInfo);
-            h.addWord(containingKnot.afterString(displayPoint.id), c);
+            final Knot reeK = containingKnot;
+            final PointND coordPointF = ((Point) displayPoint).p;
+            h.addWordClick(containingKnot.beforeString(displayPoint.id), c, () -> Main.camera.zoomToKnot(reeK));
+            h.addTooltip(pointStr, Color.BLUE_WHITE, pointInfo, () -> Main.camera.centerOnPoint(coordPointF));
+            h.addWordClick(containingKnot.afterString(displayPoint.id), c, () -> Main.camera.zoomToKnot(reeK));
         }
         h.wrap = true;
         return h;

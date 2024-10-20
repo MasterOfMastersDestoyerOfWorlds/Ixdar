@@ -23,7 +23,7 @@ public class SDFCircle {
     public void draw(Vector2f pA, float circleRadius, Color c, Camera camera) {
         shader.use();
         shader.setFloat("borderThickness", borderThickness);
-        shader.setVec4("borderColor", borderColor.toVector4f());
+        shader.setVec4("borderColor", c.toVector4f());
         shader.setVec2("pointA", pA);
         shader.setFloat("phase", Clock.spin(20));
         Vector2f tR = new Vector2f(pA).add(circleRadius, circleRadius);
@@ -43,7 +43,8 @@ public class SDFCircle {
         shader.setFloat("height", height);
 
         shader.begin();
-        shader.drawSDFRegion(bL.x, bL.y, bR.x, bR.y, tL.x, tL.y, tR.x, tR.y, camera.getZIndex(), 0, 0, 1, 1, c);
+        shader.drawSDFRegion(bL.x, bL.y, bR.x, bR.y, tL.x, tL.y, tR.x, tR.y, camera.getZIndex(), 0, 0, 1, 1,
+                Color.TRANSPARENT);
         shader.end();
         camera.incZIndex();
     }

@@ -23,14 +23,10 @@ import org.lwjgl.system.MemoryStack;
 
 import shell.Main;
 import shell.cameras.Camera;
-import shell.knot.Knot;
-import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.render.Clock;
 import shell.render.text.HyperString;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
-import shell.ui.tools.Tool;
 
 public class MouseTrap {
 
@@ -67,39 +63,18 @@ public class MouseTrap {
         if (!active) {
             return;
         }
-        Knot manifoldKnot = Main.manifoldKnot;
         normalizedPosX = camera.getNormalizePosX(xPos);
         normalizedPosY = camera.getNormalizePosY(yPos);
 
         boolean inMainView = inView(xPos, yPos);
         if (Main.manifoldKnot != null && Main.active && inMainView) {
-            Tool tool = Main.tool;
-            camera.calculateCameraTransform();
-            double x = camera.screenTransformX(normalizedPosX - tool.ScreenOffsetX);
-            double y = camera.screenTransformY(normalizedPosY - tool.ScreenOffsetY);
-            double minDist = Double.MAX_VALUE;
-            Segment hoverSegment = null;
-            for (Segment s : manifoldKnot.manifoldSegments) {
-                double result = s.boundContains(x, y);
-                if (result > 0) {
-                    if (result < minDist) {
-                        minDist = result;
-                        hoverSegment = s;
-                    }
-                }
-            }
-            VirtualPoint kp = null, cp = null;
-            if (hoverSegment != null) {
-                VirtualPoint closestPoint = hoverSegment.closestPoint(x, y);
-                if (closestPoint.equals(hoverSegment.first)) {
-                    kp = hoverSegment.first;
-                    cp = hoverSegment.last;
-                } else {
-                    kp = hoverSegment.last;
-                    cp = hoverSegment.first;
-                }
-            }
-            tool.click(hoverSegment, kp, cp);
+            
+            Main.tool.calculateClick(normalizedPosX, normalizedPosY);
+            
+        }
+
+        for (HyperString h : hyperStrings) {
+            h.click(normalizedPosX, normalizedPosY);
         }
         if (Canvas3D.menu != null) {
 

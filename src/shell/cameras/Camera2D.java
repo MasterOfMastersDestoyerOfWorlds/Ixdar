@@ -5,6 +5,9 @@ import java.awt.geom.Point2D;
 import shell.Main;
 import shell.PointND;
 import shell.PointSet;
+import shell.knot.Knot;
+import shell.knot.Point;
+import shell.knot.VirtualPoint;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 
@@ -203,6 +206,84 @@ public class Camera2D implements Camera {
         }
         PanX = offsetX;
         PanY = offsetY;
+    }
+
+    public void zoomToKnot(Knot containingKnot) {
+
+        offsetX = 0;
+        offsetY = 0;
+        float knotMinX = Float.MAX_VALUE;
+        float knotMinY = Float.MAX_VALUE;
+        float knotMaxX = Float.MIN_VALUE;
+        float knotMaxY = Float.MIN_VALUE;
+        for (VirtualPoint vp : containingKnot.knotPointsFlattened) {
+            PointND pn = ((Point) vp).p;
+            if (!pn.isDummyNode()) {
+                Point2D p = pn.toPoint2D();
+
+                if (p.getX() < knotMinX) {
+                    knotMinX = (float) p.getX();
+                }
+                if (p.getY() < knotMinY) {
+                    knotMinY = (float) p.getY();
+                }
+                if (p.getX() > knotMaxX) {
+                    knotMaxX = (float) p.getX();
+                }
+                if (p.getY() > knotMaxY) {
+                    knotMaxY = (float) p.getY();
+                }
+            }
+        }
+        float widthRatio = Math.abs(pointTransformX(maxX) - pointTransformX(minX))
+                / Math.abs(pointTransformX(knotMaxX) - pointTransformX(knotMinX));
+        float ScaleFactorX = InitialScale * widthRatio
+                + InitialScale * widthRatio * (Main.MAIN_VIEW_WIDTH - Width) / Width;
+        float heightRatio = Math.abs(pointTransformY(maxY) - pointTransformY(minY))
+                / Math.abs(pointTransformY(knotMaxY) - pointTransformY(knotMinY));
+        float ScaleFactorY = InitialScale * heightRatio
+                + InitialScale * heightRatio * (Main.MAIN_VIEW_HEIGHT - Height) / Height;
+        float aspectRatio = (knotMaxX - knotMinX) / (knotMaxY - knotMinY);
+        if (aspectRatio >= 1) {
+            ScaleFactor = ScaleFactorX;
+            width = Width * ScaleFactor;
+            height = Height * ScaleFactor;
+            float rangeX = (Math.abs(pointTransformX(knotMaxX) - pointTransformX(knotMinX)));
+            float rangeY = (Math.abs(pointTransformY(knotMaxY) - pointTransformY(knotMinY)));
+            if (rangeY > Main.MAIN_VIEW_HEIGHT) {
+
+                ScaleFactor = ScaleFactorY;
+                width = Width * ScaleFactor;
+                height = Height * ScaleFactor;
+                rangeX = (Math.abs(pointTransformX(knotMaxX) - pointTransformX(knotMinX)));
+                rangeY = (Math.abs(pointTransformY(knotMaxY) - pointTransformY(knotMinY)));
+            }
+            offsetX += (Main.MAIN_VIEW_WIDTH - rangeX) / 2;
+            offsetY += (Main.MAIN_VIEW_HEIGHT - rangeY) / 2;
+        } else {
+            ScaleFactor = ScaleFactorY;
+            width = Width * ScaleFactor;
+            height = Height * ScaleFactor;
+            float rangeX = (Math.abs(pointTransformX(knotMaxX) - pointTransformX(knotMinX)));
+            float rangeY = (Math.abs(pointTransformY(knotMaxY) - pointTransformY(knotMinY)));
+            if (rangeX > Main.MAIN_VIEW_WIDTH) {
+                ScaleFactor = ScaleFactorX;
+                width = Width * ScaleFactor;
+                height = Height * ScaleFactor;
+                rangeX = (Math.abs(pointTransformX(knotMaxX) - pointTransformX(knotMinX)));
+                rangeY = (Math.abs(pointTransformY(knotMaxY) - pointTransformY(knotMinY)));
+            }
+            offsetX += (Main.MAIN_VIEW_WIDTH - rangeX) / 2;
+            offsetY += (Main.MAIN_VIEW_HEIGHT - rangeY) / 2;
+        }
+        PanX = offsetX - Math.abs(pointTransformX(knotMinX) - pointTransformX(minX));
+        PanY = offsetY - Math.abs(pointTransformY(knotMinY) - pointTransformY(minY));
+    }
+
+    public void centerOnPoint(PointND pn) {
+        Point2D p = pn.toPoint2D();
+        PanX += Main.MAIN_VIEW_WIDTH / 2 - pointTransformX(p.getX());
+        PanY += Main.MAIN_VIEW_HEIGHT / 2 - pointTransformY(p.getY());
     }
 
     public float pointTransformX(double x) {

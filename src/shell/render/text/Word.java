@@ -74,4 +74,12 @@ public class Word {
         return (String) text;
     }
 
+    public void click(float normalizedPosX, float normalizedPosY) {
+        if (!newLine && normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
+                normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight
+                && viewBounds.contains(normalizedPosX, normalizedPosY)) {
+            clickAction.perform();
+        }
+    }
+
 }

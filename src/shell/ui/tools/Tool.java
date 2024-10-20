@@ -153,6 +153,46 @@ public abstract class Tool {
         }
     }
 
+    public void calculateClick(float normalizedPosX, float normalizedPosY) {
+
+        Tool tool = Main.tool;
+        float x = normalizedPosX - ScreenOffsetX;
+        float y = normalizedPosY - ScreenOffsetY;
+        ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
+        Camera2D camera = Main.camera;
+        if (knotsDisplayed != null) {
+            camera.calculateCameraTransform();
+            x = camera.screenTransformX(x);
+            y = camera.screenTransformY(y);
+            double minDist = Double.MAX_VALUE;
+            Segment hoverSegment = null;
+            for (Knot k : knotsDisplayed) {
+                for (Segment s : k.manifoldSegments) {
+                    double result = s.boundContains(x, y);
+                    if (result > 0) {
+                        if (result < minDist) {
+                            minDist = result;
+                            hoverSegment = s;
+                        }
+                    }
+                }
+            }
+            VirtualPoint kp = null, cp = null;
+            if (hoverSegment != null) {
+                VirtualPoint closestPoint = hoverSegment.closestPoint(x, y);
+                if (closestPoint.equals(hoverSegment.first)) {
+                    kp = hoverSegment.first;
+                    cp = hoverSegment.last;
+                } else {
+                    kp = hoverSegment.last;
+                    cp = hoverSegment.first;
+                }
+            }
+            tool.click(hoverSegment, kp, cp);
+        }
+
+    }
+
     public String displayName() {
         return "REEEEEEEE";
     }
