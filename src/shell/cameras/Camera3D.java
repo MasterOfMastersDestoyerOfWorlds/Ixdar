@@ -5,6 +5,7 @@ import org.joml.Vector3f;
 
 import shell.render.Clock;
 import shell.ui.Canvas3D;
+import shell.ui.IxdarWindow;
 
 public class Camera3D implements Camera {
 
@@ -129,6 +130,16 @@ public class Camera3D implements Camera {
             pitch = -89.0f;
 
         updateCameraVectors();
+    }
+
+    @Override
+    public float getNormalizePosX(float xPos) {
+        return (((((float) xPos) / ((float) IxdarWindow.getWidth()) * Canvas3D.frameBufferWidth)));
+    }
+
+    @Override
+    public float getNormalizePosY(float yPos) {
+        return ((1 - (yPos) / ((float) IxdarWindow.getHeight())) * Canvas3D.frameBufferHeight);
     }
 
     @Override

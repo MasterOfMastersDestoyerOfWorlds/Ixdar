@@ -18,12 +18,12 @@ import java.awt.geom.Point2D;
 import java.nio.DoubleBuffer;
 import java.util.ArrayList;
 
-import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
 import org.joml.Vector2f;
 import org.lwjgl.system.MemoryStack;
 
 import shell.Main;
 import shell.cameras.Camera;
+import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
@@ -35,7 +35,6 @@ import shell.ui.tools.Tool;
 
 public class MouseTrap {
 
-    private static final float CLICK_TIME = 0.1f;
     public int queuedMouseWheelTicks = 0;
     Main main;
     long timeLastScroll;
@@ -60,8 +59,8 @@ public class MouseTrap {
             return;
         }
         Knot manifoldKnot = Main.manifoldKnot;
-        normalizedPosX = getNormalizePosX(xPos);
-        normalizedPosY = getNormalizedPosY(yPos);
+        normalizedPosX = camera.getNormalizePosX(xPos);
+        normalizedPosY = camera.getNormalizePosY(yPos);
         if (Main.manifoldKnot != null && Main.active) {
             Tool tool = Main.tool;
             camera.calculateCameraTransform();
@@ -97,13 +96,7 @@ public class MouseTrap {
         }
     }
 
-    private float getNormalizePosX(float xPos) {
-        return (((((float) xPos) / ((float) IxdarWindow.getWidth()) * Canvas3D.frameBufferWidth)));
-    }
 
-    private float getNormalizedPosY(float yPos) {
-        return ((1 - (yPos) / ((float) IxdarWindow.getHeight())) * Canvas3D.frameBufferHeight);
-    }
 
     double startX;
     double startY;
@@ -113,16 +106,16 @@ public class MouseTrap {
     public float normalizedPosY;
 
     public void mousePressed(float x, float y) {
-        normalizedPosX = getNormalizePosX(x);
-        normalizedPosY = getNormalizedPosY(y);
+        normalizedPosX = camera.getNormalizePosX(x);
+        normalizedPosY = camera.getNormalizePosY(y);
         startX = normalizedPosX;
         startY = normalizedPosY;
     }
 
     public void mouseDragged(float x, float y) {
 
-        normalizedPosX = getNormalizePosX(x);
-        normalizedPosY = getNormalizedPosY(y);
+        normalizedPosX = camera.getNormalizePosX(x);
+        normalizedPosY = camera.getNormalizePosY(y);
         // update pan x and y to follow the mouse
         camera.drag((float) (normalizedPosX - startX), (float) (normalizedPosY - startY));
         startX = normalizedPosX;
@@ -155,8 +148,8 @@ public class MouseTrap {
         if (!active) {
             return;
         }
-        normalizedPosX = getNormalizePosX(x);
-        normalizedPosY = getNormalizedPosY(y);
+        normalizedPosX = camera.getNormalizePosX(x);
+        normalizedPosY = camera.getNormalizePosY(y);
         if (captureMouse && center == null) {
             captureMouse(false);
             return;
@@ -259,7 +252,6 @@ public class MouseTrap {
                 leftMouseDownPos = new Vector2f(x, y);
                 mousePressed(x, y);
             } else if (action == GLFW_RELEASE) {
-                float downTime = Clock.time() - leftMouseDown;
                 if (leftMouseDownPos != null) {
                     Vector2f mouseReleasePos = new Vector2f(x, y);
                     if (mouseReleasePos.distance(leftMouseDownPos) < 3) {
@@ -274,8 +266,8 @@ public class MouseTrap {
 
     public void moveCallback(long window, double x, double y) {
         int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
-        float downTime = Clock.time() - leftMouseDown;
         Vector2f mouseReleasePos = new Vector2f((float) x, (float) y);
+        // System.out.println("mouseMove: " + x + " " + normalizedPosX);
         if (state == GLFW_PRESS && mouseReleasePos.distance(leftMouseDownPos) > 3) {
             mouseDragged((float) x, (float) y);
         } else {

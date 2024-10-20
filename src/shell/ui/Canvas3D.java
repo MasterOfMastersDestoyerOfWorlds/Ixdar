@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.function.IntFunction;
 
 import org.joml.Matrix4f;
+import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
@@ -38,6 +39,7 @@ import shell.Main;
 import shell.cameras.Camera3D;
 import shell.render.Clock;
 import shell.render.Texture;
+import shell.render.color.Color;
 import shell.render.lights.DirectionalLight;
 import shell.render.lights.PointLight;
 import shell.render.lights.SpotLight;
@@ -316,6 +318,7 @@ public class Canvas3D {
         // frameBufferWidth / 2,
         // frameBufferHeight / 2, -1f, 1, Color.CYAN);
         // c.setAlpha(0.6f);
+
 
         Clock.frameRendered();
         if (printScreen) {

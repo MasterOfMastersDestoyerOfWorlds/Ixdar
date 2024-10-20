@@ -6,6 +6,7 @@ import shell.Main;
 import shell.PointND;
 import shell.PointSet;
 import shell.ui.Canvas3D;
+import shell.ui.IxdarWindow;
 
 public class Camera2D implements Camera {
 
@@ -344,4 +345,15 @@ public class Camera2D implements Camera {
     public float getScreenHeightRatio() {
         return Canvas3D.frameBufferHeight / ScreenHeight;
     }
+
+    @Override
+    public float getNormalizePosX(float xPos) {
+        return xPos;
+    }
+
+    @Override
+    public float getNormalizePosY(float yPos) {
+        return ((1 - (yPos) / ((float) IxdarWindow.getHeight())) * IxdarWindow.getHeight());
+    }
+
 }
