@@ -41,6 +41,7 @@ import org.lwjgl.glfw.GLFWImage;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 
 import shell.render.Clock;
 
@@ -126,14 +127,24 @@ public class IxdarWindow {
         File file = new File("res/decalSmall.png");
         String filePath = file.getAbsolutePath();
         ByteBuffer icon = STBImage.stbi_load(filePath, w, h, channels, 4);
-
+        int limit = icon.limit();
+        ByteBuffer iconFlipped = MemoryUtil.memAlloc(limit);
+        for (int i = 0; i < limit / 4; i++) {
+            int pixelStart = i * 4;
+            int flippedPixel = limit - 4 - pixelStart;
+            iconFlipped.put(flippedPixel + 0, icon.get(pixelStart + 0));
+            iconFlipped.put(flippedPixel + 1, icon.get(pixelStart + 1));
+            iconFlipped.put(flippedPixel + 2, icon.get(pixelStart + 2));
+            iconFlipped.put(flippedPixel + 3, icon.get(pixelStart + 3));
+        }
         GLFWImage.Buffer gb = GLFWImage.create(1);
         int width = w.get(0);
         int height = h.get(0);
-        GLFWImage iconGI = GLFWImage.create().set(width, height, icon);
+        GLFWImage iconGI = GLFWImage.create().set(width, height, iconFlipped);
         gb.put(0, iconGI);
         glfwSetWindowIcon(window, gb);
         STBImage.stbi_image_free(icon);
+        MemoryUtil.memFree(iconFlipped);
 
         // Get the thread stack and push a new frame
         try (MemoryStack stack = stackPush()) {
