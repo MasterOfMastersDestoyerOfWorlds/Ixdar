@@ -60,6 +60,8 @@ public class IxdarWindow {
     }
 
     public static long window;
+    private static int windowWidth;
+    private static int windowHeight;
 
     public void runGLFW() {
 
@@ -106,6 +108,8 @@ public class IxdarWindow {
                 FloatBuffer xScale = stack.mallocFloat(1);
                 FloatBuffer yScale = stack.mallocFloat(1);
                 glfwGetWindowContentScale(windowID, xScale, yScale);
+                IxdarWindow.windowWidth = width;
+                IxdarWindow.windowHeight = height;
                 Canvas3D.frameBufferWidth = (int) (width * xScale.get(0));
                 Canvas3D.frameBufferHeight = (int) (height * yScale.get(0));
                 canvas.changedSize = true;
@@ -134,12 +138,13 @@ public class IxdarWindow {
 
             // Get the window size passed to glfwCreateWindow
             glfwGetWindowSize(window, pWidth, pHeight);
-
+            windowWidth = pWidth.get(0);
+            windowHeight = pHeight.get(0);
             FloatBuffer xScale = stack.mallocFloat(1);
             FloatBuffer yScale = stack.mallocFloat(1);
             glfwGetWindowContentScale(window, xScale, yScale);
-            Canvas3D.frameBufferWidth = (int) (pWidth.get(0) * xScale.get(0));
-            Canvas3D.frameBufferHeight = (int) (pHeight.get(0) * yScale.get(0));
+            Canvas3D.frameBufferWidth = (int) (windowWidth * xScale.get(0));
+            Canvas3D.frameBufferHeight = (int) (windowHeight * yScale.get(0));
             // Get the resolution of the primary monitor
             GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
@@ -184,21 +189,11 @@ public class IxdarWindow {
     }
 
     public static float getWidth() {
-        try (MemoryStack stack = stackPush()) {
-            IntBuffer pWidth = stack.mallocInt(1);
-            IntBuffer pHeight = stack.mallocInt(1);
-            glfwGetWindowSize(IxdarWindow.window, pWidth, pHeight);
-            return pWidth.get(0);
-        }
+        return windowWidth;
     }
 
     public static float getHeight() {
-        try (MemoryStack stack = stackPush()) {
-            IntBuffer pWidth = stack.mallocInt(1);
-            IntBuffer pHeight = stack.mallocInt(1);
-            glfwGetWindowSize(IxdarWindow.window, pWidth, pHeight);
-            return pHeight.get(0);
-        }
+        return windowHeight;
     }
 
     public static Point getLocationOnScreen() {

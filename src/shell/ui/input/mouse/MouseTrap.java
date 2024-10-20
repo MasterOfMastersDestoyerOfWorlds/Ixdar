@@ -23,7 +23,6 @@ import org.lwjgl.system.MemoryStack;
 
 import shell.Main;
 import shell.cameras.Camera;
-import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
