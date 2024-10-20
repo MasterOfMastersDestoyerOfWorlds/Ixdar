@@ -353,7 +353,7 @@ public class Camera2D implements Camera {
 
     @Override
     public float getNormalizePosY(float yPos) {
-        return ((1 - (yPos) / ((float) IxdarWindow.getHeight())) * IxdarWindow.getHeight());
+        return IxdarWindow.getHeight() - (yPos);
     }
 
 }
