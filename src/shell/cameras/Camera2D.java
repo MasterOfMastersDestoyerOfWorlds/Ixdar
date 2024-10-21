@@ -10,6 +10,7 @@ import shell.knot.Point;
 import shell.knot.VirtualPoint;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
+import shell.ui.tools.Tool;
 
 public class Camera2D implements Camera {
 
@@ -165,7 +166,14 @@ public class Camera2D implements Camera {
 
     @Override
     public void reset() {
-
+        if (Main.tool != null) {
+            Tool tool = Main.tool;
+            Knot selectedKnot = tool.selectedKnot();
+            if (selectedKnot != null) {
+                zoomToKnot(selectedKnot);
+                return;
+            }
+        }
         offsetX = 0;
         offsetY = 0;
 

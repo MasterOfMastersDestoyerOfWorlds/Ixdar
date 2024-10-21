@@ -76,6 +76,10 @@ public abstract class Tool {
         }
     }
 
+    public Knot selectedKnot() {
+        return null;
+    }
+
     public void confirm() {
         throw new UnsupportedOperationException("Unimplemented method 'confirm'");
     };

@@ -160,4 +160,15 @@ public class FreeTool extends Tool {
         h.wrap = true;
         return h;
     }
+
+    @Override
+    public Knot selectedKnot() {
+        Knot containingKnot = null;
+        for (Knot k : Main.knotsDisplayed) {
+            if (k.contains(displayPoint)) {
+                containingKnot = k;
+            }
+        }
+        return containingKnot;
+    }
 }
