@@ -3,12 +3,12 @@ package shell.render.text;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import shell.Main;
 import shell.cameras.Camera2D;
 import shell.render.color.Color;
 import shell.ui.Drawing;
 import shell.ui.actions.Action;
 import shell.ui.input.mouse.MouseTrap;
+import shell.ui.main.Main;
 
 public class HyperString {
 
@@ -77,6 +77,11 @@ public class HyperString {
         return w;
     }
 
+    public Word getLastWord() {
+        Word w = words.get(words.size() - 1);
+        return w;
+    }
+
     public void newLine() {
         lines++;
         words.add(new Word(true));
@@ -133,15 +138,16 @@ public class HyperString {
         }
     }
 
-    public int setLineOffsetFromTopRow(Camera2D camera, int row, float rowHeight, Font font) {
+    public int setLineOffsetFromTopRow(Camera2D camera, int row, float scrollOffsetY, float rowHeight, Font font) {
         int startRow = row;
         for (int i = 0; i < lines; i++) {
-            row += setLineOffsetFromTopRow(camera, row, rowHeight, font, i);
+            row += setLineOffsetFromTopRow(camera, row, scrollOffsetY, rowHeight, font, i);
         }
         return row - startRow;
     }
 
-    public int setLineOffsetFromTopRow(Camera2D camera, int row, float rowHeight, Font font, int lineNumber) {
+    public int setLineOffsetFromTopRow(Camera2D camera, int row, float scrollOffsetY, float rowHeight, Font font,
+            int lineNumber) {
         int startRow = row;
         int idxStart = lineStartMap.get(lineNumber);
         int idxEnd = words.size();
@@ -163,7 +169,7 @@ public class HyperString {
                 offset = 0;
                 wordX = 0;
             }
-            float wordY = camera.getHeight() - ((row + 1) * rowHeight);
+            float wordY = camera.getHeight() - ((row + 1) * rowHeight) + scrollOffsetY;
             w.setBounds(wordX, wordY, camera.getScreenOffsetX() + offset,
                     camera.getScreenOffsetY() + wordY, rowHeight, camera.viewBounds);
             offset += wordWidth;

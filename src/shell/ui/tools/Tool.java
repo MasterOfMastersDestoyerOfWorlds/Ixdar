@@ -2,7 +2,6 @@ package shell.ui.tools;
 
 import java.util.ArrayList;
 
-import shell.Main;
 import shell.Toggle;
 import shell.ToggleType;
 import shell.cameras.Camera2D;
@@ -11,6 +10,7 @@ import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.text.HyperString;
 import shell.ui.IxdarWindow;
+import shell.ui.main.Main;
 
 public abstract class Tool {
 
@@ -105,6 +105,8 @@ public abstract class Tool {
     ToggleType[] disallowedToggles = new ToggleType[] {};
     public float ScreenOffsetY;
     public float ScreenOffsetX;
+    public float scrollOffsetY;
+    public float SCROLL_SPEED = 20f;
 
     public boolean canUseToggle(Toggle toggle) {
         for (int i = 0; i < disallowedToggles.length; i++) {
@@ -209,11 +211,32 @@ public abstract class Tool {
         Free, None
     }
 
-    public abstract HyperString info();
+    public abstract HyperString buildInfoText();
+
+    private HyperString cachedInfo;
+
+    public HyperString info() {
+        cachedInfo = buildInfoText();
+        return cachedInfo;
+    };
 
     public void setScreenOffset(Camera2D camera) {
         ScreenOffsetX = camera.ScreenOffsetX;
         ScreenOffsetY = camera.ScreenOffsetY;
+    }
+
+    public void scrollInfoPanel(boolean scrollUp) {
+
+        float menuBottom = cachedInfo.getLastWord().yScreenOffset;
+
+        if (scrollUp) {
+            scrollOffsetY -= SCROLL_SPEED;
+            if (scrollOffsetY < 0) {
+                scrollOffsetY = 0;
+            }
+        } else if (menuBottom < Main.MAIN_VIEW_OFFSET_Y) {
+            scrollOffsetY += SCROLL_SPEED;
+        }
     }
 
 }

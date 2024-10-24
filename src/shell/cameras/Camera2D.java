@@ -2,7 +2,6 @@ package shell.cameras;
 
 import java.awt.geom.Point2D;
 
-import shell.Main;
 import shell.PointND;
 import shell.PointSet;
 import shell.knot.Knot;
@@ -10,6 +9,7 @@ import shell.knot.Point;
 import shell.knot.VirtualPoint;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
+import shell.ui.main.Main;
 import shell.ui.tools.Tool;
 
 public class Camera2D implements Camera {

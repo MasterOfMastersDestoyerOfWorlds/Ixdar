@@ -21,12 +21,13 @@ import java.util.ArrayList;
 import org.joml.Vector2f;
 import org.lwjgl.system.MemoryStack;
 
-import shell.Main;
 import shell.cameras.Camera;
 import shell.render.Clock;
 import shell.render.text.HyperString;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
+import shell.ui.main.Main;
+import shell.ui.main.MainPanel;
 
 public class MouseTrap {
 
@@ -49,16 +50,6 @@ public class MouseTrap {
         this.canvas = Canvas3D.canvas;
     }
 
-    public boolean inView(float x, float y) {
-        boolean inMainViewRightBound = x < Main.MAIN_VIEW_WIDTH + Main.MAIN_VIEW_OFFSET_X;
-        boolean inMainViewLeftBound = x > Main.MAIN_VIEW_OFFSET_X;
-        float invY = IxdarWindow.getHeight() - y;
-        boolean inMainViewLowerBound = invY > Main.MAIN_VIEW_OFFSET_Y;
-        boolean inMainViewUpperBound = invY < Main.MAIN_VIEW_HEIGHT + Main.MAIN_VIEW_OFFSET_Y;
-        return inMainViewLeftBound && inMainViewRightBound && inMainViewLowerBound
-                && inMainViewUpperBound;
-    }
-
     public void mouseClicked(float xPos, float yPos) {
         if (!active) {
             return;
@@ -66,11 +57,11 @@ public class MouseTrap {
         normalizedPosX = camera.getNormalizePosX(xPos);
         normalizedPosY = camera.getNormalizePosY(yPos);
 
-        boolean inMainView = inView(xPos, yPos);
-        if (Main.manifoldKnot != null && Main.active && inMainView) {
-            
-            Main.tool.calculateClick(normalizedPosX, normalizedPosY);
-            
+        MainPanel inMainView = Main.inView(xPos, yPos);
+        if (Main.manifoldKnot != null && Main.active) {
+            if (inMainView == MainPanel.KnotView) {
+                Main.tool.calculateClick(normalizedPosX, normalizedPosY);
+            }
         }
 
         for (HyperString h : hyperStrings) {
@@ -101,8 +92,9 @@ public class MouseTrap {
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
         // update pan x and y to follow the mouse
-        boolean inMainView = inView((float) leftMouseDownPos.x, (float) leftMouseDownPos.y);
-        if (inMainView) {
+
+        MainPanel inMainView = Main.inView((float) leftMouseDownPos.x, (float) leftMouseDownPos.y);
+        if (inMainView == MainPanel.KnotView) {
             camera.drag((float) (normalizedPosX - startX), (float) (normalizedPosY - startY));
             startX = normalizedPosX;
             startY = normalizedPosY;
@@ -157,9 +149,9 @@ public class MouseTrap {
             Canvas3D.menu.setHover(normalizedPosX, normalizedPosY);
         }
 
-        boolean inMainView = inView(x, y);
+        MainPanel inMainView = Main.inView(x, y);
         if (main != null && Main.active) {
-            if (inMainView) {
+            if (inMainView == MainPanel.KnotView) {
                 Main.tool.calculateHover(normalizedPosX, normalizedPosY);
             } else {
                 Main.tool.clearHover();
@@ -182,13 +174,22 @@ public class MouseTrap {
         if (System.currentTimeMillis() - timeLastScroll > 60) {
             queuedMouseWheelTicks = 0;
         }
+        MainPanel view = Main.inView(lastX, lastY);
         if (queuedMouseWheelTicks < 0) {
-            camera.zoom(false);
+            if (view == MainPanel.KnotView) {
+                camera.zoom(false);
+            } else if (view == MainPanel.Info) {
+                Main.tool.scrollInfoPanel(true);
+            }
             Canvas3D.menu.scroll(true);
             queuedMouseWheelTicks++;
         }
         if (queuedMouseWheelTicks > 0) {
-            camera.zoom(true);
+            if (view == MainPanel.KnotView) {
+                camera.zoom(true);
+            } else if (view == MainPanel.Info) {
+                Main.tool.scrollInfoPanel(false);
+            }
             Canvas3D.menu.scroll(false);
             queuedMouseWheelTicks--;
         }

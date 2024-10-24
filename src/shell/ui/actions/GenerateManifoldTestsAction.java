@@ -6,13 +6,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import javax.swing.AbstractAction;
 import javax.swing.JFrame;
-import shell.Main;
+
 import shell.PointND;
 import shell.Toggle;
 import shell.exceptions.SegmentBalanceException;
 import shell.file.FileManagement;
 import shell.file.Manifold;
 import shell.shell.Shell;
+import shell.ui.main.Main;
 
 public class GenerateManifoldTestsAction extends AbstractAction {
 

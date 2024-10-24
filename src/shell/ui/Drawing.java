@@ -11,7 +11,6 @@ import org.apache.commons.math3.util.Pair;
 import org.joml.Random;
 import org.joml.Vector2f;
 
-import shell.Main;
 import shell.PointND;
 import shell.PointSet;
 import shell.cameras.Camera2D;
@@ -29,6 +28,7 @@ import shell.render.sdf.SDFLine;
 import shell.render.text.Font;
 import shell.render.text.HyperString;
 import shell.shell.Shell;
+import shell.ui.main.Main;
 
 public class Drawing {
 

@@ -18,7 +18,6 @@ import java.util.Set;
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 
-import shell.Main;
 import shell.Toggle;
 import shell.cameras.Camera;
 import shell.file.FileManagement;
@@ -29,6 +28,7 @@ import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.actions.GenerateManifoldTestsAction;
 import shell.ui.actions.SaveDialog;
+import shell.ui.main.Main;
 import shell.ui.tools.EditManifoldTool;
 import shell.ui.tools.FindManifoldTool;
 import shell.ui.tools.NegativeCutMatchViewTool;

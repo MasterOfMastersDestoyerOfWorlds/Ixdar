@@ -1,6 +1,6 @@
 package shell.cameras;
 
-import shell.Main;
+import shell.ui.main.Main;
 
 public class Bounds {
     public float offsetX;

@@ -2,7 +2,6 @@ package shell.ui.tools;
 
 import java.util.ArrayList;
 
-import shell.Main;
 import shell.ToggleType;
 import shell.cameras.Camera2D;
 import shell.file.Manifold;
@@ -10,6 +9,7 @@ import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.text.HyperString;
 import shell.ui.Drawing;
+import shell.ui.main.Main;
 
 public class FindManifoldTool extends Tool {
     public enum States {
@@ -95,7 +95,7 @@ public class FindManifoldTool extends Tool {
     }
 
     @Override
-    public HyperString info() {
+    public HyperString buildInfoText() {
         HyperString h = new HyperString();
         return h;
     }

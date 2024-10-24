@@ -5,7 +5,6 @@ import shell.render.text.HyperString;
 
 import java.util.ArrayList;
 
-import shell.Main;
 import shell.PointND;
 import shell.Toggle;
 import shell.cameras.Camera2D;
@@ -14,6 +13,7 @@ import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.ui.Drawing;
+import shell.ui.main.Main;
 
 public class FreeTool extends Tool {
 
@@ -88,7 +88,7 @@ public class FreeTool extends Tool {
     }
 
     @Override
-    public HyperString info() {
+    public HyperString buildInfoText() {
         HyperString h = new HyperString();
         HyperString pointInfo = new HyperString();
         PointND coordPoint = null;
@@ -157,6 +157,47 @@ public class FreeTool extends Tool {
             h.addTooltip(pointStr, Color.BLUE_WHITE, pointInfo, () -> Main.camera.centerOnPoint(coordPointF));
             h.addWordClick(containingKnot.afterString(displayPoint.id), c, () -> Main.camera.zoomToKnot(reeK));
         }
+
+        h.newLine();
+
+        h.addWord("TopKnot: [");
+        ArrayList<VirtualPoint> topKnot = ((Knot) Main.result.get(0)).knotPoints;
+        for (VirtualPoint vp : topKnot) {
+            containingKnot = null;
+            for (Knot k : Main.knotsDisplayed) {
+                if (k.contains(vp)) {
+                    containingKnot = k;
+                }
+            }
+            Color c = Main.stickyColor;
+            if (canUseToggle(Toggle.drawKnotGradient)) {
+                if (vp.isKnot) {
+                    c = Main.getKnotGradientColorFlatten((Knot) vp);
+                } else {
+                    c = Main.getKnotGradientColor(vp);
+                }
+            } else if (canUseToggle(Toggle.drawMetroDiagram)) {
+                if (vp.isKnot) {
+                    c = Main.getMetroColorFlatten((Knot) vp);
+                } else {
+                    c = Main.getMetroColor(vp, containingKnot);
+                }
+            }
+
+            if (vp.isKnot) {
+                final Knot reeK = (Knot) vp;
+                h.addWordClick(reeK.toString(), c, () -> Main.camera.zoomToKnot(reeK));
+            } else {
+                pointInfo = new HyperString();
+                final PointND coordPointF = ((Point) displayPoint).p;
+                pointInfo.addWord(coordPointF.toString());
+                h.addTooltip(vp.id + "", c, pointInfo,
+                        () -> Main.camera.centerOnPoint(coordPointF));
+            }
+
+        }
+
+        h.addWord("]");
         h.wrap = true;
         return h;
     }

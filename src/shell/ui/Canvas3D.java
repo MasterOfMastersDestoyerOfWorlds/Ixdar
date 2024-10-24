@@ -35,7 +35,6 @@ import org.joml.Vector3f;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
-import shell.Main;
 import shell.cameras.Camera3D;
 import shell.render.Clock;
 import shell.render.Texture;
@@ -52,6 +51,7 @@ import shell.render.shaders.VertexBufferObject;
 import shell.render.text.Font;
 import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
+import shell.ui.main.Main;
 import shell.ui.menu.MenuBox;
 import shell.utils.Utils;
 

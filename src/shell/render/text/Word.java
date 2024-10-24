@@ -19,7 +19,7 @@ public class Word {
     public Action clearHover;
     public float x;
     public float y;
-    private Bounds viewBounds;
+    public Bounds viewBounds;
 
     public Word(String word, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         text = word;

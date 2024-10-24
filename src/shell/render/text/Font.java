@@ -352,7 +352,8 @@ public class Font {
         drawText(text, x - textWidth / 2, y - textHeight / 2, height, c, camera);
     }
 
-    public void drawRow(String string, int row, float height, float rowSpacing, Color c, Camera camera) {
+    public void drawRow(String string, int row, float yScrollOffset, float height, float rowSpacing, Color c,
+            Camera camera) {
         drawText(string, 0, camera.getHeight() - ((row + 1) * height), height, c, camera);
     }
 
@@ -381,8 +382,9 @@ public class Font {
         }
     }
 
-    public void drawHyperStringRows(HyperString hyperString, float height, int row, Camera2D camera) {
-        hyperString.setLineOffsetFromTopRow(camera, row, height, this);
+    public void drawHyperStringRows(HyperString hyperString, int row, float scrollOffsetY, float height,
+            Camera2D camera) {
+        hyperString.setLineOffsetFromTopRow(camera, row, scrollOffsetY, height, this);
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
             ArrayList<Word> words = hyperString.getLine(lineNumber);
             for (int i = 0; i < words.size(); i++) {

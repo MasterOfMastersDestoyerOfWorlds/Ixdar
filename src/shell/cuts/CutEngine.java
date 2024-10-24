@@ -20,6 +20,7 @@ import shell.shell.Shell;
 public class CutEngine {
 
     public HashMap<Integer, Knot> flatKnots = new HashMap<>();
+    public HashMap<Integer, Integer> knotToFlatKnot = new HashMap<>();
     public HashMap<Integer, Integer> flatKnotsHeight = new HashMap<>();
     public HashMap<Integer, Integer> flatKnotsLayer = new HashMap<>();
     public HashMap<Integer, Integer> flatKnotsNumKnots = new HashMap<>();
@@ -633,6 +634,7 @@ public class CutEngine {
             flatKnotsHeight.put(knotNew.id, knot.getHeight());
             flatKnotsLayer.put(knotNew.id, layerNum);
             flatKnotsNumKnots.put(knotNew.id, knot.numKnots);
+            knotToFlatKnot.put(knot.id, knotNew.id);
             shell.updateSmallestCommonKnot(knotNew);
             shell.buff.add(flatKnots);
             flattenedKnots.add(knot.id);
@@ -656,6 +658,7 @@ public class CutEngine {
                 flatKnotsHeight.put(external1New.id, external1Knot.getHeight());
                 flatKnotsLayer.put(external1New.id, layerNum);
                 flatKnotsNumKnots.put(external1New.id, external1Knot.numKnots);
+                knotToFlatKnot.put(external1Knot.id, external1New.id);
                 shell.updateSmallestCommonKnot(external1New);
                 external1New.copyMatches(external1);
                 flattenedKnots.add(external1Knot.id);
@@ -676,6 +679,7 @@ public class CutEngine {
                 flatKnotsHeight.put(external2New.id, external2Knot.getHeight());
                 flatKnotsLayer.put(external2New.id, layerNum);
                 flatKnotsNumKnots.put(external2New.id, external2Knot.numKnots);
+                knotToFlatKnot.put(external2Knot.id, external2New.id);
                 flattenedKnots.add(external2Knot.id);
             }
         }

@@ -1,8 +1,8 @@
 package shell.ui.actions;
 
-import shell.Main;
 import shell.file.FileManagement;
 import shell.ui.Canvas3D;
+import shell.ui.main.Main;
 
 public class LoadIxAction implements Action {
 
