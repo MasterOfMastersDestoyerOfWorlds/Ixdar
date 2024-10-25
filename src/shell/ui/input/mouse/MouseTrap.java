@@ -157,12 +157,7 @@ public class MouseTrap {
                 Main.tool.clearHover();
             }
         }
-        for (HyperString h : hyperStrings) {
-            h.calculateClearHover(normalizedPosX, normalizedPosY);
-        }
-        for (HyperString h : hyperStrings) {
-            h.calculateHover(normalizedPosX, normalizedPosY);
-        }
+        updateHyperStrings();
         if (captureMouse) {
             // captureMouse(false);
         }
@@ -180,12 +175,7 @@ public class MouseTrap {
             } else if (view == MainPanel.Info) {
                 Main.tool.scrollInfoPanel(true);
 
-                for (HyperString h : hyperStrings) {
-                    h.calculateClearHover(normalizedPosX, normalizedPosY);
-                }
-                for (HyperString h : hyperStrings) {
-                    h.calculateHover(normalizedPosX, normalizedPosY);
-                }
+                updateHyperStrings();
             }
             Canvas3D.menu.scroll(true);
             queuedMouseWheelTicks++;
@@ -195,19 +185,22 @@ public class MouseTrap {
                 camera.zoom(true);
             } else if (view == MainPanel.Info) {
                 Main.tool.scrollInfoPanel(false);
-                
-                for (HyperString h : hyperStrings) {
-                    h.calculateClearHover(normalizedPosX, normalizedPosY);
-                }
-                for (HyperString h : hyperStrings) {
-                    h.calculateHover(normalizedPosX, normalizedPosY);
-                }
+                updateHyperStrings();
             }
             Canvas3D.menu.scroll(false);
             queuedMouseWheelTicks--;
         }
 
         MouseTrap.hyperStrings = new ArrayList<>();
+    }
+
+    private void updateHyperStrings() {
+        for (HyperString h : hyperStrings) {
+            h.calculateClearHover(normalizedPosX, normalizedPosY);
+        }
+        for (HyperString h : hyperStrings) {
+            h.calculateHover(normalizedPosX, normalizedPosY);
+        }
     }
 
     public void captureMouse(boolean force) {

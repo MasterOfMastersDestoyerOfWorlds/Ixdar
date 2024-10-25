@@ -15,7 +15,7 @@ import shell.ui.tools.Tool;
 
 public class Camera2D implements Camera {
 
-    public float ZOOM_SPEED = 0.1f;
+    public float ZOOM_SPEED = 1f;
     public float PAN_SPEED = 300f;
     public int Width, Height;
     public float ScreenWidth, ScreenHeight;
@@ -382,10 +382,11 @@ public class Camera2D implements Camera {
 
     @Override
     public void zoom(boolean b) {
+        float d = (float) Clock.deltaTime() * ScaleFactor;
         if (b) {
-            scale(ZOOM_SPEED * SHIFT_MOD);
+            scale(ZOOM_SPEED * SHIFT_MOD * d);
         } else {
-            scale(-1 * ZOOM_SPEED * SHIFT_MOD);
+            scale(-1 * ZOOM_SPEED * SHIFT_MOD * d);
         }
     }
 

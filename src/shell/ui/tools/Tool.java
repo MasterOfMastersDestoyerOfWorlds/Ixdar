@@ -8,6 +8,7 @@ import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.render.Clock;
 import shell.render.text.HyperString;
 import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
@@ -106,7 +107,7 @@ public abstract class Tool {
     public float ScreenOffsetY;
     public float ScreenOffsetX;
     public float scrollOffsetY;
-    public float SCROLL_SPEED = 20f;
+    public float SCROLL_SPEED = 300f;
 
     public boolean canUseToggle(Toggle toggle) {
         for (int i = 0; i < disallowedToggles.length; i++) {
@@ -228,14 +229,14 @@ public abstract class Tool {
     public void scrollInfoPanel(boolean scrollUp) {
 
         float menuBottom = cachedInfo.getLastWord().yScreenOffset;
-
+        double d = Clock.deltaTime();
         if (scrollUp) {
-            scrollOffsetY -= SCROLL_SPEED;
+            scrollOffsetY -= SCROLL_SPEED * d;
             if (scrollOffsetY < 0) {
                 scrollOffsetY = 0;
             }
         } else if (menuBottom < Main.MAIN_VIEW_OFFSET_Y) {
-            scrollOffsetY += SCROLL_SPEED;
+            scrollOffsetY += SCROLL_SPEED * d;
         }
     }
 
