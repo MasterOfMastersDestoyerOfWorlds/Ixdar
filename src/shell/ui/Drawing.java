@@ -32,7 +32,7 @@ import shell.ui.main.Main;
 
 public class Drawing {
 
-    public static final int MIN_THICKNESS = 1;
+    public static final int MIN_THICKNESS = 2;
     public static final float FONT_HEIGHT_PIXELS = 30;
     public static final float CIRCLE_RADIUS = 7.5f;
     public static SDFLine sdfLine = new SDFLine();
@@ -180,7 +180,8 @@ public class Drawing {
 
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
-        sdfLine.setStroke(2f * camera.ScaleFactor, true, 20 * camera.ScaleFactor, 1f, true, false);
+        sdfLine.setStroke(Drawing.MIN_THICKNESS * camera.ScaleFactor, true, 20 * camera.ScaleFactor, 1f, true,
+                false);
         sdfLine.draw(firstVec, lastVec, c, camera);
     }
 
@@ -243,9 +244,9 @@ public class Drawing {
             PointSet ps,
             boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed, Camera2D camera) {
         if (dashed) {
-            sdfLine.setStroke(2f * lineThickness * camera.ScaleFactor, true, 60f, 1f, true, true);
+            sdfLine.setStroke(lineThickness * camera.ScaleFactor, true, 60f, 1f, true, true);
         } else {
-            sdfLine.setStroke(2f * lineThickness * camera.ScaleFactor, false);
+            sdfLine.setStroke(lineThickness * camera.ScaleFactor, false);
         }
         PointND last = shell.getLast();
         PointND next;
@@ -290,7 +291,7 @@ public class Drawing {
             ArrayList<Pair<Long, Long>> lookUpPairs, HashMap<Long, Integer> colorLookup,
             ArrayList<Color> colors, Camera2D camera, int minLineThickness) {
 
-        sdfLine.setStroke(2f * minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false);
+        sdfLine.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false);
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
             if (lookUpPairs != null) {

@@ -110,7 +110,7 @@ public class KeyGuy {
                 findManifoldTool.reset();
                 findManifoldTool.state = FindManifoldTool.States.FindStart;
                 Main.tool = findManifoldTool;
-                Main.metroDrawLayer = Main.shell.cutEngine.totalLayers;
+                Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
                 Main.updateKnotsDisplayed();
             }
             if (KeyActions.EditManifold.keyPressed(pressedKeys)) {
@@ -159,11 +159,7 @@ public class KeyGuy {
                 Toggle.drawKnotGradient.toggle();
             }
             if (KeyActions.DrawMetroDiagram.keyPressed(pressedKeys)) {
-                if (Main.metroDrawLayer != -1) {
-                    Main.metroDrawLayer = -1;
-                } else {
-                    Main.metroDrawLayer = Main.shell.cutEngine.totalLayers;
-                }
+                Main.setDrawLevelMetro();
             }
             if (KeyActions.IncreaseKnotLayer.keyPressed(pressedKeys)) {
                 if (tool.canUseToggle(Toggle.canSwitchLayer)) {
@@ -173,12 +169,12 @@ public class KeyGuy {
                             Main.manifoldIdx = 0;
                         }
                     } else {
-                        Main.metroDrawLayer++;
-                        if (Main.metroDrawLayer > Main.shell.cutEngine.totalLayers) {
-                            Main.metroDrawLayer = Main.shell.cutEngine.totalLayers;
+                        Main.knotDrawLayer++;
+                        if (Main.knotDrawLayer > Main.shell.cutEngine.totalLayers) {
+                            Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
                         }
-                        if (Main.metroDrawLayer < 1) {
-                            Main.metroDrawLayer = 1;
+                        if (Main.knotDrawLayer < 1) {
+                            Main.knotDrawLayer = 1;
                         }
                         Main.updateKnotsDisplayed();
                     }
@@ -192,12 +188,12 @@ public class KeyGuy {
                             Main.manifoldIdx = Main.manifolds.size() - 1;
                         }
                     } else {
-                        if (Main.metroDrawLayer == -1) {
-                            Main.metroDrawLayer = Main.shell.cutEngine.totalLayers;
+                        if (Main.knotDrawLayer == -1) {
+                            Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
                         } else {
-                            Main.metroDrawLayer--;
-                            if (Main.metroDrawLayer < 1) {
-                                Main.metroDrawLayer = 1;
+                            Main.knotDrawLayer--;
+                            if (Main.knotDrawLayer < 1) {
+                                Main.knotDrawLayer = 1;
                             }
                         }
                         Main.updateKnotsDisplayed();

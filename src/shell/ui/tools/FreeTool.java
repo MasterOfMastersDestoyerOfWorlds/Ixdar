@@ -186,7 +186,10 @@ public class FreeTool extends Tool {
 
             if (vp.isKnot) {
                 final Knot reeK = (Knot) vp;
-                h.addWordClick(reeK.toString(), c, () -> Main.camera.zoomToKnot(reeK));
+                h.addWordClick(reeK.toString(), c, () -> {
+                    Main.setDrawLevelToKnot(reeK);
+                    Main.camera.zoomToKnot(reeK);
+                });
             } else {
                 pointInfo = new HyperString();
                 final PointND coordPointF = ((Point) displayPoint).p;

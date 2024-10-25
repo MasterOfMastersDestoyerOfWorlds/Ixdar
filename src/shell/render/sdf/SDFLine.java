@@ -8,6 +8,7 @@ import shell.render.color.Color;
 import shell.render.shaders.SDFShader;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
+import shell.ui.Drawing;
 
 public class SDFLine {
 
@@ -72,7 +73,7 @@ public class SDFLine {
         float width = bL.distance(tL);
         float height = bL.distance(bR);
 
-        shader.setFloat("edgeSharpness", edgeDist / (4 * edgeDist * camera.getScaleFactor()));
+        shader.setFloat("edgeSharpness", (Drawing.MIN_THICKNESS) / (lineWidth * 4));
         shader.setFloat("dashPhase", Clock.spin(dashRate));
         shader.setFloat("lineLengthSq", lengthSq(pA, pB));
         shader.setVec2("pointA", pA);
@@ -95,14 +96,14 @@ public class SDFLine {
     }
 
     public void setStroke(float lineWidth, boolean dashed) {
-        this.lineWidth = lineWidth;
+        this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS);
         this.dashed = dashed;
         setUniforms();
     }
 
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
             boolean endCaps) {
-        this.lineWidth = lineWidth;
+        this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS);
         this.dashed = dashed;
         this.dashLength = dashLength;
         this.dashRate = dashRate;

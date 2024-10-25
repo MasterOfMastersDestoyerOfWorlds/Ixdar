@@ -28,7 +28,7 @@ public class EditManifoldTool extends Tool {
         manifold = null;
         ArrayList<Manifold> manifolds = Main.manifolds;
         manifold = manifolds.get(Main.manifoldIdx).copy();
-        Main.metroDrawLayer = Main.shell.cutEngine.totalLayers;
+        Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
         lastPoint = Main.shell.pointMap.get(manifold.cp1);
     }
 

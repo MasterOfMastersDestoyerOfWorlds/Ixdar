@@ -45,7 +45,7 @@ public class NegativeCutMatchViewTool extends Tool {
 
     @Override
     public void draw(Camera2D camera, int minLineThickness) {
-        if (layerCalculated != Main.metroDrawLayer) {
+        if (layerCalculated != Main.knotDrawLayer) {
             initSegmentMap();
             return;
         }
@@ -92,7 +92,7 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     public void initSegmentMap() {
-        layerCalculated = Main.metroDrawLayer;
+        layerCalculated = Main.knotDrawLayer;
         ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
         negativeSegmentMap = new HashMap<>();
         colorLookup = new HashMap<>();

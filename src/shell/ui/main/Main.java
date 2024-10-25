@@ -78,14 +78,14 @@ public class Main {
 	public static Knot manifoldKnot;
 	public static int manifoldIdx = 0;
 	public static ArrayList<Manifold> manifolds;
-	public static int metroDrawLayer = -1;
+	public static int knotDrawLayer = -1;
 	static PriorityQueue<ShellPair> metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
 	public static PriorityQueue<ShellPair> metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
 	public static ArrayList<Knot> knotsDisplayed = new ArrayList<>();
 
 	public static Color stickyColor;
 	public static ArrayList<Color> metroColors = new ArrayList<>();
-	public static HashMap<Long, Integer> metroColorLookup = new HashMap<>();
+	public static HashMap<Long, Integer> knotLayerLookup = new HashMap<>();
 	public static ArrayList<Color> knotGradientColors = new ArrayList<>();
 	public static HashMap<Long, Integer> colorLookup = new HashMap<>();
 	public static boolean active;
@@ -216,7 +216,7 @@ public class Main {
 		if (totalLayers == -1) {
 			totalLayers = shell.cutEngine.totalLayers;
 		}
-		metroDrawLayer = totalLayers;
+		knotDrawLayer = totalLayers;
 		Set<Integer> knotIds = shell.cutEngine.flatKnots.keySet();
 		HashMap<Integer, Knot> flatKnots = shell.cutEngine.flatKnots;
 		HashMap<Integer, Integer> flatKnotsHeight = shell.cutEngine.flatKnotsHeight;
@@ -229,12 +229,12 @@ public class Main {
 			for (VirtualPoint p : k.knotPointsFlattened) {
 				knotShell.add(((Point) p).p);
 			}
-			if (totalLayers - layerNum == metroDrawLayer) {
+			if (totalLayers - layerNum == knotDrawLayer) {
 				knotsDisplayed.add(k);
 			}
 			metroPathsHeight.add(new ShellPair(knotShell, k, heightNum));
 			metroPathsLayer.add(new ShellPair(knotShell, k, totalLayers - layerNum));
-			metroColorLookup.put((long) k.id, totalLayers - layerNum);
+			knotLayerLookup.put((long) k.id, totalLayers - layerNum);
 		}
 
 		float startHueM = colorSeed.nextFloat();
@@ -381,7 +381,7 @@ public class Main {
 	}
 
 	public static void drawDisplayedKnots(Camera2D camera) {
-		if (metroDrawLayer == shell.cutEngine.totalLayers) {
+		if (knotDrawLayer == shell.cutEngine.totalLayers) {
 			if (tool.canUseToggle(Toggle.drawKnotGradient) && manifoldKnot != null) {
 				ArrayList<Pair<Long, Long>> idTransform = lookupPairs(manifoldKnot);
 				Drawing.drawGradientPath(manifoldKnot, idTransform, colorLookup, knotGradientColors, camera,
@@ -398,10 +398,10 @@ public class Main {
 			for (int i = 0; i < size; i++) {
 				ShellPair temp = metroPathsLayer.remove();
 				newQueue.add(temp);
-				if (metroDrawLayer >= 0 && temp.priority != metroDrawLayer) {
+				if (knotDrawLayer >= 0 && temp.priority != knotDrawLayer) {
 					continue;
 				}
-				if (metroDrawLayer < 0) {
+				if (knotDrawLayer < 0) {
 					if (tool.canUseToggle(Toggle.drawKnotGradient)) {
 						ArrayList<Pair<Long, Long>> idTransform = lookupPairs(temp.k);
 						Drawing.drawGradientPath(temp.k, idTransform, colorLookup, knotGradientColors,
@@ -462,17 +462,17 @@ public class Main {
 	}
 
 	public static Color getMetroColor(VirtualPoint displayPoint, Knot k) {
-		if (metroDrawLayer < 0) {
+		if (knotDrawLayer < 0) {
 			Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
-			return metroColors.get(metroColorLookup.get((long) smallestKnot.id));
+			return metroColors.get(knotLayerLookup.get((long) smallestKnot.id));
 		} else {
-			return metroColors.get(metroColorLookup.get((long) k.id));
+			return metroColors.get(knotLayerLookup.get((long) k.id));
 		}
 	}
 
 	public static Color getMetroColorFlatten(Knot thickKnot) {
 		Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.cutEngine.knotToFlatKnot.get(thickKnot.id));
-		return metroColors.get(metroColorLookup.get((long) smallestKnot.id));
+		return metroColors.get(knotLayerLookup.get((long) smallestKnot.id));
 	}
 
 	public static ArrayList<Pair<Long, Long>> lookupPairs(Knot k) {
@@ -547,7 +547,7 @@ public class Main {
 		knotsDisplayed = new ArrayList<>();
 		for (int i = 0; i < size; i++) {
 			ShellPair temp = metroPathsLayer.remove();
-			if (temp.priority == metroDrawLayer) {
+			if (temp.priority == knotDrawLayer) {
 				knotsDisplayed.add(temp.k);
 			}
 			newQueue.add(temp);
@@ -600,5 +600,20 @@ public class Main {
 			return MainPanel.Info;
 		}
 		return MainPanel.None;
+	}
+
+	public static void setDrawLevelToKnot(Knot k) {
+		Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.cutEngine.knotToFlatKnot.get(k.id));
+		knotDrawLayer = knotLayerLookup.get((long) smallestKnot.id);
+		updateKnotsDisplayed();
+	}
+
+	public static void setDrawLevelMetro() {
+		if (Main.knotDrawLayer != -1) {
+			Main.knotDrawLayer = -1;
+		} else {
+			Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
+		}
+		updateKnotsDisplayed();
 	}
 }
