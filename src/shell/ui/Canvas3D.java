@@ -319,7 +319,6 @@ public class Canvas3D {
         // c.setAlpha(0.6f);
 
 
-        Clock.frameRendered();
         if (printScreen) {
             printScreen = false;
             printScreen(screenShotFile);

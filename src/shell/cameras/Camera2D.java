@@ -7,6 +7,7 @@ import shell.PointSet;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.VirtualPoint;
+import shell.render.Clock;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
@@ -15,7 +16,7 @@ import shell.ui.tools.Tool;
 public class Camera2D implements Camera {
 
     public float ZOOM_SPEED = 0.1f;
-    public float PAN_SPEED = 20f;
+    public float PAN_SPEED = 300f;
     public int Width, Height;
     public float ScreenWidth, ScreenHeight;
     public float ScaleFactor;
@@ -355,18 +356,20 @@ public class Camera2D implements Camera {
 
     @Override
     public void move(Direction direction) {
+
+        double d = Clock.deltaTime();
         switch (direction) {
             case FORWARD:
-                PanY += PAN_SPEED * SHIFT_MOD;
+                PanY += PAN_SPEED * SHIFT_MOD * d;
                 break;
             case LEFT:
-                PanX -= PAN_SPEED * SHIFT_MOD;
+                PanX -= PAN_SPEED * SHIFT_MOD * d;
                 break;
             case BACKWARD:
-                PanY -= PAN_SPEED * SHIFT_MOD;
+                PanY -= PAN_SPEED * SHIFT_MOD * d;
                 break;
             case RIGHT:
-                PanX += PAN_SPEED * SHIFT_MOD;
+                PanX += PAN_SPEED * SHIFT_MOD * d;
                 break;
 
         }

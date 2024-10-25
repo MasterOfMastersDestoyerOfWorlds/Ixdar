@@ -4,6 +4,7 @@ public class Clock {
     public static final double TAU = (2 * Math.PI);
     public static final double startTimeMillis = System.currentTimeMillis();
     public static final double startTimeSeconds = startTimeMillis / 1000.0;
+    public static final long startTimeNanoSeconds = System.nanoTime();
     private static float lastFrameRendered = 0.0f;
 
     public static float oscillate(double offset, double range, double radsPerSecond) {
@@ -40,19 +41,28 @@ public class Clock {
     }
 
     public static float time() {
-        double timeSeconds = (((double) System.currentTimeMillis()) / 1000.0) - startTimeSeconds;
+        double timeSeconds = ((double) (System.nanoTime() - startTimeNanoSeconds) / 1000000000.0);
         return (float) timeSeconds;
     }
 
     static int frameNum;
 
+    private static float lastSecond = 0.0f;
+    public static Long lastFrameDouble = 0L;
+
+    private static float lastFrameRendered2 = 0.0f;
+    public static Long lastFrameDouble2 = 0L;
+
     public static void frameRendered() {
+        lastFrameRendered2 = lastFrameRendered;
+        lastFrameDouble2 = lastFrameDouble;
         lastFrameRendered = time();
+        lastFrameDouble = System.nanoTime();
         frameNum = (frameNum + 1) % 60;
     }
 
-    public static float deltaTime() {
-        return time() - lastFrameRendered;
+    public static double deltaTime() {
+        return (double) (System.nanoTime() - lastFrameDouble2) / 1000000000.0;
     }
 
     public static float sin(float offset, float amplitude, float freq, float phase) {
