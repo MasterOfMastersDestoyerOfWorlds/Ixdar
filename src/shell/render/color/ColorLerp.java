@@ -29,11 +29,19 @@ public class ColorLerp implements Color {
         this.channelLerp = channelLerp;
     }
 
+    public ColorLerp(Color startColor, Color endColor, byte[] channelLerp, float radsPerSecond) {
+        this.startColor = startColor;
+        this.endColor = endColor;
+        this.channelLerp = channelLerp;
+        this.radsPerSecond = radsPerSecond;
+    }
+
     /**
      * Returns the color as a (x,y,z)-Vector.
      *
      * @return The color as vec3.
      */
+    @Override
     public Vector3f toVector3f() {
         float occ = Clock.oscillate(1, 1, radsPerSecond);
         Vector3f vec = startColor.toVector3f();
@@ -48,6 +56,7 @@ public class ColorLerp implements Color {
      *
      * @return The color as vec4.
      */
+    @Override
     public Vector4f toVector4f() {
         float occ = Clock.oscillate(0, 1, radsPerSecond);
         Vector4f vec = startColor.toVector4f();

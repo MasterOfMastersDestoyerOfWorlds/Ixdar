@@ -36,13 +36,7 @@
 
 ## UI Free Tool
 
-1. - [ ] Pressing VK_K should switch to displaying the same information about the current knot the point is in.
-
-2. - [ ] Info Panel should the full knot structure with different colors for the different knots being represented by their metro diagram colors
-
-3. - [ ] hovering over the knot text should switch the metro draw index to display that knot and highlight it somehow
-
-4. - [ ] point's info should include generated or lookup city name.
+1. - [ ] point's info should include generated or lookup city name.
 
 ## UI CutMatch Tool
 
@@ -164,11 +158,11 @@
 
 ## UI Negative CutMatch View Tool
 
-1. - [ ] Info Panel shouuld show the current hover cut's length delta as well as name the segments involved
+1. - [ ] Info Panel should show the current hover cut's length delta as well as name the segments involved
 
 ## Shader Editor
 
-1. - [ ] pressing some hotkey (Ctrl, Shift, G) should look at the item that the mouse is currently hovering over and bring up it's glsl shader in vscode with the relevant shader? or should the texturebe on the right side of the screen and a text editor be on the left internal to the program?
+1. - [ ] pressing some hotkey (Ctrl, Shift, G) should look at the item that the mouse is currently hovering over and bring up it's glsl shader in vscode with the relevant shader? or should the texture on the right side of the screen and a text editor be on the left internal to the program?
 
 ## Filesystem
 

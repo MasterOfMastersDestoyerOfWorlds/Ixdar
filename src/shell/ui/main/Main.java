@@ -39,6 +39,7 @@ import shell.knot.VirtualPoint;
 import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.color.ColorBox;
+import shell.render.color.ColorLerp;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFCircle;
 import shell.render.sdf.SDFTexture;
@@ -104,6 +105,9 @@ public class Main {
 	public static int MAIN_VIEW_HEIGHT;
 	public static HyperString toolInfo;
 	private static boolean showToolTip;
+	public static Knot hoverKnot;
+	public static boolean showHoverKnot;
+	public static ColorLerp hoverKnotColor;
 
 	public Main(String fileName) {
 		Main.fileName = fileName;
@@ -355,15 +359,19 @@ public class Main {
 			row += toolInfo.lines;
 			if (toolTip != null && showToolTip) {
 				int isRight = mouse.normalizedPosX > wWidth / 2 ? 1 : 0;
-				int toolTipWidth = toolTip.getWidthPixels();
 
 				int isTop = mouse.normalizedPosY > wHeight / 2 ? 1 : 0;
+				toolTip.setLineOffsetFromTopRow(camera, 0, 0, rowHeight, Drawing.font);
+
+				float toolTipWidth = toolTip.getWidthPixels();
 				int toolTipHeight = toolTip.getHeightPixels();
-				updateView((int) mouse.normalizedPosX - (isRight * toolTipWidth),
+				updateView((int) (mouse.normalizedPosX - (isRight * toolTipWidth)),
 						(int) mouse.normalizedPosY - (isTop * toolTipHeight),
-						toolTip.getWidthPixels(),
-						toolTip.lines * (int) Drawing.FONT_HEIGHT_PIXELS);
-				new ColorBox().draw(Color.BLUE, camera);
+						(int) Math.ceil(toolTipWidth),
+						(int) (toolTip.getLines() * rowHeight));
+
+				new ColorBox().draw(Color.DARK_GRAY, camera);
+				Drawing.font.drawHyperStringRows(toolTip, 0, 0, rowHeight, camera);
 			}
 			camera3D.setZIndex(camera);
 
@@ -427,6 +435,9 @@ public class Main {
 			}
 			metroPathsLayer = newQueue;
 		}
+		if (showHoverKnot) {
+			Drawing.drawKnot(hoverKnot, hoverKnotColor, Drawing.MIN_THICKNESS, camera);
+		}
 		for (Knot k : knotsDisplayed) {
 			if (k.s1 != null && k.s2 != null) {
 
@@ -451,6 +462,16 @@ public class Main {
 		}
 	}
 
+	private static Color getKnotColor(Knot k) {
+		Color c = Main.stickyColor;
+		if (tool.canUseToggle(Toggle.drawKnotGradient)) {
+			c = Main.getKnotGradientColorFlatten((Knot) k);
+		} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
+			c = Main.getMetroColorFlatten((Knot) k);
+		}
+		return c;
+	}
+
 	public static Color getKnotGradientColor(VirtualPoint displayPoint) {
 		Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
 		return knotGradientColors.get(colorLookup.get((long) smallestKnot.id));
@@ -458,6 +479,9 @@ public class Main {
 
 	public static Color getKnotGradientColorFlatten(Knot k) {
 		Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.cutEngine.knotToFlatKnot.get(k.id));
+		if (smallestKnot == null) {
+			return Color.IXDAR;
+		}
 		return knotGradientColors.get(colorLookup.get((long) smallestKnot.id));
 	}
 
@@ -472,6 +496,9 @@ public class Main {
 
 	public static Color getMetroColorFlatten(Knot thickKnot) {
 		Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.cutEngine.knotToFlatKnot.get(thickKnot.id));
+		if (smallestKnot == null) {
+			return Color.IXDAR;
+		}
 		return metroColors.get(knotLayerLookup.get((long) smallestKnot.id));
 	}
 
@@ -583,6 +610,17 @@ public class Main {
 		showToolTip = false;
 	}
 
+	public static void setHoverKnot(Knot k) {
+		hoverKnot = k;
+		showHoverKnot = true;
+		hoverKnotColor = new ColorLerp(getKnotColor(hoverKnot), Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, 2f);
+	}
+
+	public static void clearHoverKnot() {
+		hoverKnot = null;
+		showHoverKnot = false;
+	}
+
 	public static MainPanel inView(float x, float y) {
 		boolean inMainViewRightBound = x < Main.MAIN_VIEW_WIDTH + Main.MAIN_VIEW_OFFSET_X;
 		boolean inMainViewLeftBound = x > Main.MAIN_VIEW_OFFSET_X;
@@ -604,7 +642,11 @@ public class Main {
 
 	public static void setDrawLevelToKnot(Knot k) {
 		Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.cutEngine.knotToFlatKnot.get(k.id));
-		knotDrawLayer = knotLayerLookup.get((long) smallestKnot.id);
+		if (smallestKnot == null) {
+			knotDrawLayer = Main.shell.cutEngine.totalLayers;
+		} else {
+			knotDrawLayer = knotLayerLookup.get((long) smallestKnot.id);
+		}
 		updateKnotsDisplayed();
 	}
 
@@ -615,5 +657,13 @@ public class Main {
 			Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
 		}
 		updateKnotsDisplayed();
+	}
+
+	public static Knot getKnotFlatten(Knot k) {
+		Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.cutEngine.knotToFlatKnot.get(k.id));
+		if (smallestKnot == null) {
+			return (Knot) result.get(0);
+		}
+		return smallestKnot;
 	}
 }

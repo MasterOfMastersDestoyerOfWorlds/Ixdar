@@ -167,6 +167,10 @@ public class Camera2D implements Camera {
     @Override
     public void reset() {
         if (Main.tool != null) {
+            if (Main.showHoverKnot) {
+                zoomToKnot(Main.hoverKnot);
+                return;
+            }
             Tool tool = Main.tool;
             Knot selectedKnot = tool.selectedKnot();
             if (selectedKnot != null) {

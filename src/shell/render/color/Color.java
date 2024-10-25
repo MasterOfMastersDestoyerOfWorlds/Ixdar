@@ -15,9 +15,13 @@ public interface Color {
     public static final Color IXDAR = new ColorRGB(150, 0, 36);
     public static final Color IXDAR_DARK = new ColorRGB(51, 1, 13);
     public static final Color TRANSPARENT = new ColorRGB(0, 0, 0, 0);
+    public static final Color TRANSPARENT25 = new ColorRGB(0, 0, 0, 0.25f);
+    public static final Color TRANSPARENT50 = new ColorRGB(0, 0, 0, 0.5f);
+    public static final Color TRANSPARENT75 = new ColorRGB(0, 0, 0, 0.75f);
     public static final Color YELLOW = new ColorRGB(0, 255, 255);
     public static final Color MAGENTA = new ColorRGB(1f, 0f, 1f);
     public static final Color LIGHT_GRAY = new ColorRGB(0.3f, 0.3f, 0.3f);
+    public static final Color DARK_GRAY = new ColorRGB(0.15f, 0.15f, 0.15f);
     public static final Color ORANGE = new ColorRGB(210, 105, 30);
 
     public Vector3f toVector3f();

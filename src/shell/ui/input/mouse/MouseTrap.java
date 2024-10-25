@@ -170,7 +170,6 @@ public class MouseTrap {
     }
 
     public void paintUpdate(float SHIFT_MOD) {
-        MouseTrap.hyperStrings = new ArrayList<>();
         if (System.currentTimeMillis() - timeLastScroll > 60) {
             queuedMouseWheelTicks = 0;
         }
@@ -180,6 +179,13 @@ public class MouseTrap {
                 camera.zoom(false);
             } else if (view == MainPanel.Info) {
                 Main.tool.scrollInfoPanel(true);
+
+                for (HyperString h : hyperStrings) {
+                    h.calculateClearHover(normalizedPosX, normalizedPosY);
+                }
+                for (HyperString h : hyperStrings) {
+                    h.calculateHover(normalizedPosX, normalizedPosY);
+                }
             }
             Canvas3D.menu.scroll(true);
             queuedMouseWheelTicks++;
@@ -189,11 +195,19 @@ public class MouseTrap {
                 camera.zoom(true);
             } else if (view == MainPanel.Info) {
                 Main.tool.scrollInfoPanel(false);
+                
+                for (HyperString h : hyperStrings) {
+                    h.calculateClearHover(normalizedPosX, normalizedPosY);
+                }
+                for (HyperString h : hyperStrings) {
+                    h.calculateHover(normalizedPosX, normalizedPosY);
+                }
             }
             Canvas3D.menu.scroll(false);
             queuedMouseWheelTicks--;
         }
 
+        MouseTrap.hyperStrings = new ArrayList<>();
     }
 
     public void captureMouse(boolean force) {

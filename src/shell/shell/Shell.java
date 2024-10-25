@@ -493,10 +493,7 @@ public class Shell extends LinkedList<PointND> {
 		if (!cutEngine.flatKnots.containsKey(knot.id)) {
 			this.updateSmallestKnot(knot);
 			this.updateSmallestCommonKnot(knot);
-			cutEngine.flatKnots.put(knot.id, knot);
-			cutEngine.flatKnotsHeight.put(knot.id, mainKnot.getHeight());
-			cutEngine.flatKnotsLayer.put(knot.id, 0);
-			cutEngine.flatKnotsNumKnots.put(knot.id, knot.numKnots);
+			cutEngine.setFlatKnot(0, knot, mainKnot);
 		}
 		Shell result = new Shell();
 		for (VirtualPoint p : knotList) {
@@ -633,7 +630,6 @@ public class Shell extends LinkedList<PointND> {
 		return length;
 
 	}
-
 
 	/**
 	 * Gets the distance from a point to its neighboring points in the shell

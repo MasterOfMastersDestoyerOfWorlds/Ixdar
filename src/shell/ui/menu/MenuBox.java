@@ -36,7 +36,7 @@ public class MenuBox {
 
         innerColor = new ColorRGB(Color.NAVY, alpha);
         outerColor = new ColorRGB(Color.BLUE_WHITE, alpha);
-        outerFlash = new ColorLerp(Color.BLUE_WHITE, Color.TRANSPARENT, new byte[] { 0, 0, 0, 1 });
+        outerFlash = new ColorLerp(Color.BLUE_WHITE, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 });
         menuOuterBorder = new SDFUnion("menu_inner.png", Color.NAVY, 0.95f, 0, -0.02f, "menu_outer.png",
                 Color.BLUE_WHITE, alpha, 5, 2);
         boundingBox = new ColorBox();

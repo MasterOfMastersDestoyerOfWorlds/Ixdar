@@ -213,9 +213,9 @@ public class Font {
         return image;
     }
 
-    public int getWidth(CharSequence text) {
-        int width = 0;
-        int lineWidth = 0;
+    public float getWidth(CharSequence text) {
+        float width = 0;
+        float lineWidth = 0;
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             if (c == '\n') {
@@ -233,6 +233,31 @@ public class Font {
             }
             Glyph g = glyphs.get(c);
             lineWidth += g.width;
+        }
+        width = Math.max(width, lineWidth);
+        return width;
+    }
+
+    public float getWidthScaled(CharSequence text, float glyphHeight) {
+        float width = 0;
+        float lineWidth = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\n') {
+                /*
+                 * Line end, set width to maximum from line width and stored
+                 * width
+                 */
+                width = Math.max(width, lineWidth);
+                lineWidth = 0;
+                continue;
+            }
+            if (c == '\r') {
+                /* Carriage return, just skip it */
+                continue;
+            }
+            Glyph g = glyphs.get(c);
+            lineWidth += glyphHeight * g.widthHeightRatio;
         }
         width = Math.max(width, lineWidth);
         return width;
@@ -354,7 +379,7 @@ public class Font {
 
     public void drawRow(String string, int row, float yScrollOffset, float height, float rowSpacing, Color c,
             Camera camera) {
-        drawText(string, 0, camera.getHeight() - ((row + 1) * height), height, c, camera);
+        drawText(string, 0, camera.getHeight() - ((row + 1) * height) + yScrollOffset, height, c, camera);
     }
 
     public void drawHyperStringRow(ArrayList<Word> hyperString, float height, Camera2D camera) {

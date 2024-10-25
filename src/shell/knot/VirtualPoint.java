@@ -3,6 +3,8 @@ package shell.knot;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+
+import shell.render.text.HyperString;
 import shell.shell.Shell;
 
 public abstract class VirtualPoint {
@@ -544,5 +546,7 @@ public abstract class VirtualPoint {
 		basePoint2 = vp.basePoint2;
 		s2 = vp.s2;
 	}
+
+	public abstract HyperString toHyperString();
 
 }

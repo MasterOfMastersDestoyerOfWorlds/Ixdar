@@ -3,7 +3,9 @@ package shell.render.text;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
+import shell.knot.Knot;
 import shell.render.color.Color;
 import shell.ui.Drawing;
 import shell.ui.actions.Action;
@@ -19,6 +21,9 @@ public class HyperString {
     public int lines = 1;
     public boolean debug;
     public boolean wrap;
+    public int charWrap = Integer.MAX_VALUE;
+    public Bounds bounds;
+    private int wrappedLines;
 
     public HyperString() {
         words = new ArrayList<>();
@@ -72,6 +77,30 @@ public class HyperString {
         }
     }
 
+    public void addHoverKnot(String word, Color c, Knot hoverKnot, Action clickAction) {
+        for (String w : word.split(" ")) {
+            strMap.computeIfPresent(lines - 1, (key, val) -> val + w + " ");
+            HyperString knotText = new HyperString();
+            knotText.addWord(hoverKnot.toString(), c);
+            knotText.setWrap(true, 30);
+            words.add(new Word(word, c,
+                    () -> {
+                        Main.setHoverKnot(hoverKnot);
+                        Main.setTooltipText(knotText);
+                    },
+                    () -> {
+                        Main.clearHoverKnot();
+                        Main.clearTooltipText();
+                    },
+                    clickAction));
+        }
+    }
+
+    private void setWrap(boolean b, int i) {
+        wrap = true;
+        charWrap = i;
+    }
+
     public Word getWord(int i) {
         Word w = words.get(i);
         return w;
@@ -89,22 +118,37 @@ public class HyperString {
         strMap.put(lines - 1, "");
     }
 
-    public int getWidthPixels() {
-        int max = 0;
+    public float getWidthPixels() {
+
+        float max = 0;
+        wrappedLines = 0;
         for (String str : strMap.values()) {
-            int width = Drawing.font.getWidth(str);
-            if (max < width) {
-                max = width;
+
+            int chars = 0;
+            float lineWidth = 0;
+            for (String w : str.split(" ")) {
+                String r = w + " ";
+                float width = Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * Drawing.font.getWidth(r);
+                chars += r.length();
+                if (wrap && chars > charWrap) {
+                    if (max < lineWidth) {
+                        max = lineWidth;
+                    }
+                    wrappedLines++;
+                    chars = r.length();
+                    lineWidth = 0;
+                }
+                lineWidth += width;
             }
-        }
-        if (max == 0) {
-            max = 100;
+            if (max < lineWidth) {
+                max = lineWidth;
+            }
         }
         return max;
     }
 
     public int getHeightPixels() {
-        return (int) Drawing.FONT_HEIGHT_PIXELS;
+        return (int) Drawing.FONT_HEIGHT_PIXELS * (wrap ? (lines + wrappedLines) : lines);
     }
 
     public ArrayList<Word> getLine(int i) {
@@ -155,6 +199,7 @@ public class HyperString {
             idxEnd = lineStartMap.get(lineNumber + 1);
         }
         float offset = 0;
+        float charLength = 0;
         for (int j = idxStart; j < idxEnd; j++) {
             Word w = words.get(j);
             if (w.newLine) {
@@ -162,12 +207,14 @@ public class HyperString {
             }
 
             w.setWidth(font);
+            charLength += w.text.length();
             float wordX = offset;
             float wordWidth = Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * w.width;
-            if (wrap && wordX + wordWidth > camera.getWidth()) {
+            if (wrap && (wordX + wordWidth > camera.getWidth() || charLength > charWrap)) {
                 row++;
                 offset = 0;
                 wordX = 0;
+                charLength = 0;
             }
             float wordY = camera.getHeight() - ((row + 1) * rowHeight) + scrollOffsetY;
             w.setBounds(wordX, wordY, camera.getScreenOffsetX() + offset,
@@ -180,17 +227,27 @@ public class HyperString {
     public void setLineOffset(Camera2D camera, float x, float y, Font font, int lineNumber) {
         int idxStart = lineStartMap.get(lineNumber);
         int idxEnd = words.size();
+        int row = 0;
         if (lineNumber < lines - 1) {
             idxEnd = lineStartMap.get(lineNumber + 1);
         }
         float offset = 0;
+        float charLength = 0;
         for (int j = idxStart; j < idxEnd; j++) {
             Word w = words.get(j);
             if (w.newLine) {
                 continue;
             }
             float wordX = x + offset;
-            float wordY = y;
+            charLength += w.text.length();
+            float wordWidth = Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * w.width;
+            if (wrap && (wordX + wordWidth > camera.getWidth() || charLength > charWrap)) {
+                row++;
+                offset = 0;
+                wordX = 0;
+                charLength = 0;
+            }
+            float wordY = y - ((row + 1) * Drawing.font.fontHeight);
             w.setBounds(wordX, wordY, camera.getScreenOffsetX() + wordX,
                     camera.getScreenOffsetY() + wordY, font.getHeight(w.text), camera.viewBounds);
             offset += Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * w.width;
@@ -223,6 +280,23 @@ public class HyperString {
     @Override
     public String toString() {
         return words.toString();
+    }
+
+    public void addHyperString(HyperString h) {
+        for (Word w : h.words) {
+            this.addWord(w);
+        }
+    }
+
+    private void addWord(Word w) {
+        this.addWord((String) w.text, w.color, w.hoverAction, w.clearHover, w.clickAction);
+    }
+
+    public int getLines() {
+        if (!wrap) {
+            return lines;
+        }
+        return wrappedLines + lines;
     }
 
 }

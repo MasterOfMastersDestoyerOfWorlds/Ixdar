@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import shell.PointND;
+import shell.render.text.HyperString;
 import shell.shell.Shell;
 
 public class Point extends VirtualPoint {
@@ -27,13 +28,14 @@ public class Point extends VirtualPoint {
         segmentLookup = new HashMap<>();
     }
 
+    @Override
     public Point getNearestBasePoint(VirtualPoint vp) {
         assert (basePoint1 != null);
         return basePoint1;
     }
-    
+
     @Override
-    public int getHeight(){
+    public int getHeight() {
         return 0;
     }
 
@@ -42,6 +44,7 @@ public class Point extends VirtualPoint {
         return "" + this.p.getID();
     }
 
+    @Override
     public String fullString() {
         return "" + this.p.getID()
                 + " match1: " + (match1 == null ? " none " : "" + match1)
@@ -52,10 +55,18 @@ public class Point extends VirtualPoint {
                 + " basepoint2: " + (basePoint2 == null ? " none " : "" + basePoint2.id);
     }
 
+    @Override
     public boolean contains(VirtualPoint vp) {
         if (this.equals(vp)) {
             return true;
         }
         return false;
+    }
+
+    @Override
+    public HyperString toHyperString() {
+        HyperString h = new HyperString();
+        h.addWord(this.toString());
+        return h;
     }
 }

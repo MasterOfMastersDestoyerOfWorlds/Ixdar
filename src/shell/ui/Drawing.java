@@ -333,4 +333,12 @@ public class Drawing {
         circle.draw(new Vector2f((float) xCoord, (float) yCoord), CIRCLE_RADIUS * camera.ScaleFactor, color, camera);
     }
 
+    public static void drawKnot(Knot k, Color c, int lineThickness, Camera2D camera) {
+        sdfLine.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false);
+        for (int i = 0; i < k.manifoldSegments.size(); i++) {
+            Segment s = k.manifoldSegments.get(i);
+            Drawing.drawSegment(s, c, camera);
+        }
+    }
+
 }

@@ -4,7 +4,13 @@ import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import shell.Toggle;
+import shell.render.color.Color;
+import shell.render.text.HyperString;
 import shell.shell.Shell;
+import shell.ui.actions.Action;
+import shell.ui.main.Main;
+import shell.ui.tools.Tool;
 import shell.utils.RunListUtils;
 
 public class Knot extends VirtualPoint {
@@ -433,6 +439,34 @@ public class Knot extends VirtualPoint {
     private static int WrapAt(int i, int n) {
         // "+n": Moves (-n..) up to (0..).
         return (i + n) % n;
+    }
+
+    @Override
+    public HyperString toHyperString() {
+        HyperString h = new HyperString();
+        Tool tool = Main.tool;
+        Color c = Main.stickyColor;
+        if (tool.canUseToggle(Toggle.drawKnotGradient)) {
+            c = Main.getKnotGradientColorFlatten((Knot) this);
+        } else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
+            c = Main.getMetroColorFlatten((Knot) this);
+        }
+        Action clickAction = () -> {
+            Main.setDrawLevelToKnot(this);
+            Main.camera.zoomToKnot(this);
+        };
+        Knot hoverKnot = Main.getKnotFlatten(this);
+        h.addHoverKnot("Knot[ ", c, hoverKnot, clickAction);
+        for (VirtualPoint vp : knotPoints) {
+            if (vp.isKnot) {
+                h.addHyperString(((Knot) vp).toHyperString());
+            } else {
+                h.addHoverKnot(vp + " ", c, hoverKnot, clickAction);
+            }
+        }
+
+        h.addHoverKnot("]", c, hoverKnot, clickAction);
+        return h;
     }
 
 }

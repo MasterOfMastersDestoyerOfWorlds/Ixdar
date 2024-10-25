@@ -54,6 +54,10 @@
 
 6. - [x] Knot's should display their closest two segments with rotating dashed lines. (use dash phase).
 
+7. - [x] Info Panel should the full knot structure with different colors for the different knots being represented by their metro diagram colors
+
+8. - [x] hovering over the knot text should switch the metro draw index to display that knot and highlight it somehow
+
 ## UI CutMatch Tool
 
 1. - [x] Make tool to test out new cut match groups.
