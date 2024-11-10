@@ -5,7 +5,6 @@ public class Clock {
     public static final double startTimeMillis = System.currentTimeMillis();
     public static final double startTimeSeconds = startTimeMillis / 1000.0;
     public static final long startTimeNanoSeconds = System.nanoTime();
-    private static float lastFrameRendered = 0.0f;
 
     public static float oscillate(double offset, double range, double radsPerSecond) {
         return oscillate((float) offset, (float) range, (float) radsPerSecond);
@@ -47,16 +46,12 @@ public class Clock {
 
     static int frameNum;
 
-    private static float lastSecond = 0.0f;
     public static Long lastFrameDouble = 0L;
 
-    private static float lastFrameRendered2 = 0.0f;
     public static Long lastFrameDouble2 = 0L;
 
     public static void frameRendered() {
-        lastFrameRendered2 = lastFrameRendered;
         lastFrameDouble2 = lastFrameDouble;
-        lastFrameRendered = time();
         lastFrameDouble = System.nanoTime();
         frameNum = (frameNum + 1) % 60;
     }

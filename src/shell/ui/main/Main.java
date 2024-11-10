@@ -305,10 +305,6 @@ public class Main {
 
 			tool.setScreenOffset(camera);
 			tool.draw(camera, Drawing.MIN_THICKNESS);
-			new SDFCircle().draw(new Vector2f(mouse.normalizedPosX - camera.ScreenOffsetX,
-					mouse.normalizedPosY - camera.ScreenOffsetY), Drawing.CIRCLE_RADIUS,
-					stickyColor,
-					camera);
 			if (sbe != null) {
 				Drawing.drawShell(resultShell, true, Drawing.MIN_THICKNESS * 2, Color.MAGENTA, retTup.ps,
 						camera);
@@ -343,10 +339,6 @@ public class Main {
 
 			updateView(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
 					wHeight - BOTTOM_PANEL_SIZE);
-			new SDFCircle().draw(new Vector2f(mouse.normalizedPosX - camera.ScreenOffsetX,
-					mouse.normalizedPosY - camera.ScreenOffsetY), Drawing.CIRCLE_RADIUS,
-					Color.RED,
-					camera);
 			int row = 0;
 			float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
 
