@@ -17,7 +17,6 @@ import java.util.Random;
 import java.util.Set;
 
 import org.apache.commons.math3.util.Pair;
-import org.joml.Vector2f;
 
 import shell.DistanceMatrix;
 import shell.PointND;
@@ -41,7 +40,6 @@ import shell.render.color.Color;
 import shell.render.color.ColorBox;
 import shell.render.color.ColorLerp;
 import shell.render.color.ColorRGB;
-import shell.render.sdf.SDFCircle;
 import shell.render.sdf.SDFTexture;
 import shell.render.shaders.ShaderProgram;
 import shell.render.text.Font;
@@ -52,6 +50,7 @@ import shell.shell.ShellPair;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 import shell.ui.IxdarWindow;
+import shell.ui.input.keys.KeyActions;
 import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
 import shell.ui.tools.FreeTool;
@@ -291,7 +290,7 @@ public class Main {
 			MAIN_VIEW_OFFSET_Y = BOTTOM_PANEL_SIZE;
 			updateView(MAIN_VIEW_OFFSET_X, MAIN_VIEW_OFFSET_Y, MAIN_VIEW_WIDTH, MAIN_VIEW_HEIGHT);
 			float SHIFT_MOD = 1;
-			if (keys != null && keys.pressedKeys.contains(KeyEvent.VK_SHIFT)) {
+			if (keys != null && KeyActions.DoubleSpeed.keyPressed(keys.pressedKeys)) {
 				SHIFT_MOD = 2;
 			}
 			if (keys != null) {
