@@ -133,9 +133,17 @@ public class FreeTool extends Tool {
             String pointStr = "" + displayKP.id + " ";
             final Knot reeK = containingKnot;
             final PointND coordPointF = ((Point) displayKP).p;
-            h.addWordClick(containingKnot.beforeString(displayKP.id), c, () -> Main.camera.zoomToKnot(reeK));
+            HyperString minKnotInfo = new HyperString();
+            if (containingKnot.s1 != null && containingKnot.s2 != null) {
+                minKnotInfo.addHyperString(containingKnot.s1.toHyperString(c, false));
+                minKnotInfo.addDistance(containingKnot.s1.distance, c);
+                minKnotInfo.newLine();
+                minKnotInfo.addHyperString(containingKnot.s2.toHyperString(c, false));
+                minKnotInfo.addDistance(containingKnot.s2.distance, c);
+            }
+            h.addTooltip(containingKnot.beforeString(displayKP.id), c, minKnotInfo, () -> Main.camera.zoomToKnot(reeK));
             h.addTooltip(pointStr, Color.BLUE_WHITE, pointInfo, () -> Main.camera.centerOnPoint(coordPointF));
-            h.addWordClick(containingKnot.afterString(displayKP.id), c, () -> Main.camera.zoomToKnot(reeK));
+            h.addTooltip(containingKnot.afterString(displayKP.id), c, minKnotInfo, () -> Main.camera.zoomToKnot(reeK));
         }
         h.newLine();
 

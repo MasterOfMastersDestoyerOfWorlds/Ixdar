@@ -64,14 +64,13 @@ public class HyperString {
     public void addWord(String word, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         for (String w : word.split(" ")) {
             strMap.computeIfPresent(lines - 1, (key, val) -> val + w + " ");
-            words.add(new Word(word, c, hoverAction, clearHover, clickAction));
+            words.add(new Word(w + " ", c, hoverAction, clearHover, clickAction));
         }
     }
 
     public void addTooltip(String word, Color c, HyperString toolTipText, Action clickAction) {
         for (String w : word.split(" ")) {
-            strMap.computeIfPresent(lines - 1, (key, val) -> val + w + " ");
-            words.add(new Word(word, c,
+            words.add(new Word(w + " ", c,
                     () -> Main.setTooltipText(toolTipText),
                     () -> Main.clearTooltipText(),
                     clickAction));

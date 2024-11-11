@@ -75,7 +75,7 @@ public class Main {
 
 	public static Knot manifoldKnot;
 	public static int manifoldIdx = 0;
-	public static ArrayList<Manifold> manifolds;
+	public static ArrayList<Manifold> manifolds = new ArrayList<>();
 	public static int knotDrawLayer = -1;
 	static PriorityQueue<ShellPair> metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
 	public static PriorityQueue<ShellPair> metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -110,6 +110,14 @@ public class Main {
 	public static ColorLerp hoverSegmentColor;
 
 	public Main(String fileName) {
+		metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
+		metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
+		manifolds = new ArrayList<>();
+		knotLayerLookup = new HashMap<>();
+		knotGradientColors = new ArrayList<>();
+		colorLookup = new HashMap<>();
+		metroColors = new ArrayList<>();
+		subPaths = new ArrayList<>();
 		Main.fileName = fileName;
 		file = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(file);
