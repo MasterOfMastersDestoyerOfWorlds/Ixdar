@@ -6,7 +6,6 @@ import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
 
 import java.awt.MouseInfo;
 import java.awt.Point;
-import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -46,7 +45,7 @@ public class KeyGuy {
     private Canvas3D canvas;
     JFrame frame;
     SaveDialog dialog;
-    NegativeCutMatchViewTool negativeCutMatchViewTool;
+    NegativeCutMatchViewTool negativeCutMatchViewTool = new NegativeCutMatchViewTool();
     FindManifoldTool findManifoldTool;
     EditManifoldTool editCutMatchTool;
     public boolean active = true;
@@ -63,7 +62,6 @@ public class KeyGuy {
         dialog = new SaveDialog(frame, fileName);
 
         generateManifoldTests = new GenerateManifoldTestsAction(frame, fileName);
-        negativeCutMatchViewTool = new NegativeCutMatchViewTool();
     }
 
     private void keyPressed(int key, int mods) {
@@ -72,7 +70,7 @@ public class KeyGuy {
         }
         boolean firstPress = !pressedKeys.contains(key);
         pressedKeys.add(key);
-        if (key == KeyEvent.VK_CONTROL) {
+        if (KeyActions.ControlMask.keyPressed(pressedKeys)) {
             controlMask = true;
         }
         if (controlMask && firstPress) {

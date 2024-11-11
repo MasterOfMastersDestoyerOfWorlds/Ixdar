@@ -22,9 +22,9 @@ public class EditManifoldTool extends Tool {
 
     @Override
     public void reset() {
-        hover = null;
-        hoverCP = null;
-        hoverKP = null;
+        displaySegment = null;
+        displayCP = null;
+        displayKP = null;
         manifold = null;
         ArrayList<Manifold> manifolds = Main.manifolds;
         manifold = manifolds.get(Main.manifoldIdx).copy();
@@ -34,12 +34,12 @@ public class EditManifoldTool extends Tool {
 
     @Override
     public void draw(Camera2D camera, int minLineThickness) {
-        if (hover != null && !lastPoint.equals(hoverKP)) {
-            long matchId = Segment.idTransform(lastPoint.id, hoverKP.id);
+        if (displaySegment != null && !lastPoint.equals(displayKP)) {
+            long matchId = Segment.idTransform(lastPoint.id, displayKP.id);
             Segment matchSeg = lastPoint.segmentLookup.get(matchId);
-            long cutId = Segment.idTransform(hoverKP.id, hoverCP.id);
-            Segment cutSeg = hoverKP.segmentLookup.get(cutId);
-            Drawing.drawSingleCutMatch(Main.main, matchSeg, cutSeg, Drawing.MIN_THICKNESS * 2, Main.retTup.ps,
+            long cutId = Segment.idTransform(displayKP.id, displayCP.id);
+            Segment cutSeg = displayKP.segmentLookup.get(cutId);
+            Drawing.drawSingleCutMatch(Main.main, matchSeg, cutSeg, Drawing.MIN_THICKNESS, Main.retTup.ps,
                     camera);
         }
         Drawing.drawCutMatch(manifold.cutMatchList, manifold.manifoldCutSegment1,

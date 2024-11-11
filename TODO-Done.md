@@ -14,31 +14,33 @@
 
 ## UI Tools General
 
-1. - [x] Should keep track of the current selected tool and not allow two tools to be active at once, all tools should only effect the ui's state once the final necessary selection is made
+1. - [x] Abstract Tool should have some general info that it displays for each tool including fps and name
 
-2. - [x] Need to have one side of the knotPoint/cutPoint pair follow the cursor instead of just defaulting to clockwise knotPoint.
+2. - [x] Should keep track of the current selected tool and not allow two tools to be active at once, all tools should only effect the ui's state once the final necessary selection is made
 
-3. - [x] Figure out screen-space to point-space conversion
+3. - [x] Need to have one side of the knotPoint/cutPoint pair follow the cursor instead of just defaulting to clockwise knotPoint.
 
-4. - [x] Figure out Skewed bounding boxes around Line Segments
+4. - [x] Figure out screen-space to point-space conversion
 
-5. - [x] Should set a segment as the "hover segment" when within some distance to one of the line Segments in the current Manifold Knot.
+5. - [x] Figure out Skewed bounding boxes around Line Segments
 
-6. - [x] Should expand the Segment Bounding boxes to work at any knot level not just the manifold knot.
+6. - [x] Should set a segment as the "hover segment" when within some distance to one of the line Segments in the current Manifold Knot.
 
-7. - [x] Should only have one tool active at a time and call the super class's draw and click functions
+7. - [x] Should expand the Segment Bounding boxes to work at any knot level not just the manifold knot.
 
-8. - [x] Clicking and dragging should change the panX, panY to where the new mouse position is.
+8. - [x] Should only have one tool active at a time and call the super class's draw and click functions
 
-9. - [x] Pressing Up/Down Arrow Key should change the Knot Level unless blocked.
+9. - [x] Clicking and dragging should change the panX, panY to where the new mouse position is.
 
-10. - [x] Pressing VK_R should reset the camera and reset the active tool but not exit it.
+10. - [x] Pressing Up/Down Arrow Key should change the Knot Level unless blocked.
 
-11. - [x] Pressing and Holding Left/Right should repeat the action at some reasonable rate.
+11. - [x] Pressing VK_R should reset the camera and reset the active tool but not exit it.
 
-12. - [x] Need to find some way to determine clockwise versus anti clockwise.
+12. - [x] Pressing and Holding Left/Right should repeat the action at some reasonable rate.
 
-13. - [x] Pressing VK_Enter should advance the tool if there is a selection active
+13. - [x] Need to find some way to determine clockwise versus anti clockwise.
+
+14. - [x] Pressing VK_Enter should advance the tool if there is a selection active
 
 ## UI Free Tool
 
@@ -104,6 +106,14 @@
 
 3. - [x] Menu Items should flash on hover
 
+## 2D Camera
+
+1. - [x] Need to tie the camera zooming and move speed to the framerate, should use the clock class to figure this out
+
+## Tooltip
+
+1. - [x] Should be the width of the text with some reasonable limits
+
 ## Shaders
 
 1. - [x] SDF Union between two textures
@@ -132,15 +142,17 @@
 
 1. - [x] Make tool to view which KnotPoints have any CutMatches that have a negative weight.
 
-2. - [x] On pressing Ctrl+N should display the top manifold with all half-segments that only have positive weights leading to them in Medium-Green.
+2. - [x] Info Panel should show the current hover cut's length delta as well as name the segments involved
 
-3. - [x] Half-Segments that have negative weight cut matches should be colored RED.
+3. - [x] On pressing Ctrl+N should display the top manifold with all half-segments that only have positive weights leading to them in Medium-Green.
 
-4. - [x] When we hover over a RED segment, display all of the cutMatches that lead to that KnotPoint with a negative weight, display the cut Segment in Yellow and the Match Segment in CYAN.
+4. - [x] Half-Segments that have negative weight cut matches should be colored RED.
 
-5. - [x] Pressing Left/Right Arrow Key should move the hover knotPoint to the next clockwise knotPoint with negative weight.
+5. - [x] When we hover over a RED segment, display all of the cutMatches that lead to that KnotPoint with a negative weight, display the cut Segment in Yellow and the Match Segment in CYAN.
 
-6. - [x] Need to make it so you can change the color at the point rather than having only one color per segment.
+6. - [x] Pressing Left/Right Arrow Key should move the hover knotPoint to the next clockwise knotPoint with negative weight.
+
+7. - [x] Need to make it so you can change the color at the point rather than having only one color per segment.
 
 ## Filesystem
 

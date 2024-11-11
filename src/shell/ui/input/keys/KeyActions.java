@@ -30,7 +30,8 @@ public enum KeyActions {
     Save(true, GLFW_KEY_S),
     Find(true, GLFW_KEY_F),
     EditManifold(true, GLFW_KEY_E),
-    NegativeCutMatchViewTool(true, GLFW_KEY_N);
+    NegativeCutMatchViewTool(true, GLFW_KEY_N),
+    ControlMask(GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL);
 
     Integer[] keys;
     boolean controlMask;

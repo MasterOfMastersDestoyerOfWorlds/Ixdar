@@ -144,7 +144,17 @@ public class Drawing {
         circle.draw(new Vector2f(kpCoords[0], kpCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN, camera);
     }
 
-    public static void drawSegment(Segment ex1, Color c, Camera2D camera) {
+    public static void drawSegment(Segment segment, Color c, int thickness, Camera2D camera) {
+        sdfLine.setStroke(thickness, false);
+        drawSegment(segment, c, camera);
+    }
+
+    public static void drawScaledSegment(Segment segment, Color c, int thickness, Camera2D camera) {
+        sdfLine.setStroke(thickness * camera.ScaleFactor, false);
+        drawSegment(segment, c, camera);
+    }
+
+    private static void drawSegment(Segment ex1, Color c, Camera2D camera) {
         Point2D first;
         Point2D last;
         if (ex1.first.isKnot) {
@@ -317,10 +327,10 @@ public class Drawing {
             Segment cutSegment, int lineThickness,
             PointSet ps, Camera2D camera) {
 
-        sdfLine.setStroke(lineThickness, false);
+        sdfLine.setStroke(lineThickness * camera.ScaleFactor, false);
         Drawing.drawSegment(matchSegment, Color.CYAN, camera);
 
-        sdfLine.setStroke(2 * lineThickness, false);
+        sdfLine.setStroke(2 * lineThickness * camera.ScaleFactor, false);
         Drawing.drawSegment(cutSegment, Color.ORANGE, camera);
     }
 

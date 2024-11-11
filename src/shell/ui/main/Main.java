@@ -7,7 +7,6 @@ import static org.lwjgl.glfw.GLFW.glfwSetScrollCallback;
 import static org.lwjgl.opengl.GL11.glViewport;
 
 import java.awt.Canvas;
-import java.awt.event.KeyEvent;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -35,7 +34,6 @@ import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.color.ColorBox;
 import shell.render.color.ColorLerp;
@@ -107,6 +105,9 @@ public class Main {
 	public static Knot hoverKnot;
 	public static boolean showHoverKnot;
 	public static ColorLerp hoverKnotColor;
+	public static Segment hoverSegment;
+	public static boolean showHoverSegment;
+	public static ColorLerp hoverSegmentColor;
 
 	public Main(String fileName) {
 		Main.fileName = fileName;
@@ -126,6 +127,7 @@ public class Main {
 		mouse = new MouseTrap(this, camera, false);
 		activate(true);
 		tool = new FreeTool();
+		logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, 0.6f, 0f, true);
 	}
 
 	public static void main(String[] args) {
@@ -305,15 +307,9 @@ public class Main {
 			tool.setScreenOffset(camera);
 			tool.draw(camera, Drawing.MIN_THICKNESS);
 			if (sbe != null) {
-				Drawing.drawShell(resultShell, true, Drawing.MIN_THICKNESS * 2, Color.MAGENTA, retTup.ps,
+				Drawing.drawShell(resultShell, true, Drawing.MIN_THICKNESS, Color.MAGENTA, retTup.ps,
 						camera);
-				Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
-			}
-			if (!(retTup == null)) {
-				Drawing.drawPath(retTup.tsp, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false,
-						true,
-						false,
-						camera);
+				Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS, retTup.ps, camera);
 			}
 			if (tool.canUseToggle(Toggle.drawCutMatch) && tool.canUseToggle(Toggle.manifold)
 					&& manifolds != null
@@ -330,8 +326,16 @@ public class Main {
 					&& shell != null) {
 				drawDisplayedKnots(camera);
 			}
-			if (logo == null) {
-				logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, 0.6f, 0f, true);
+
+			if (showHoverSegment) {
+				Drawing.drawScaledSegment(hoverSegment, hoverSegmentColor, Drawing.MIN_THICKNESS, camera);
+			}
+
+			if (!(retTup == null)) {
+				Drawing.drawPath(retTup.tsp, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false,
+						true,
+						false,
+						camera);
 			}
 			updateView(wWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
 			logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
@@ -341,13 +345,13 @@ public class Main {
 			int row = 0;
 			float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
 
-			Drawing.font.drawRow("FPS:" + Clock.fps(), row++, tool.scrollOffsetY, rowHeight, 0, Color.IXDAR, camera);
-			Drawing.font.drawRow("Tool: " + tool.displayName(), row++, tool.scrollOffsetY, rowHeight, 0, Color.IXDAR,
-					camera);
+			HyperString toolGeneralInfo = tool.toolGeneralInfo();
+			Drawing.font.drawHyperStringRows(toolGeneralInfo, row, tool.scrollOffsetY, rowHeight, camera);
+			row += toolGeneralInfo.getLines();
 
 			toolInfo = tool.info();
 			Drawing.font.drawHyperStringRows(toolInfo, row, tool.scrollOffsetY, rowHeight, camera);
-			row += toolInfo.lines;
+			row += toolInfo.getLines();
 			if (toolTip != null && showToolTip) {
 				int isRight = mouse.normalizedPosX > wWidth / 2 ? 1 : 0;
 
@@ -601,6 +605,18 @@ public class Main {
 		showToolTip = false;
 	}
 
+	public static void setHoverSegment(Segment segment, Color c) {
+		hoverSegment = segment;
+		showHoverSegment = true;
+		hoverSegmentColor = new ColorLerp(c, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, 4f);
+
+	}
+
+	public static void clearHoverSegment() {
+		hoverSegment = null;
+		showHoverSegment = false;
+	}
+
 	public static void setHoverKnot(Knot k) {
 		hoverKnot = k;
 		showHoverKnot = true;
@@ -657,4 +673,5 @@ public class Main {
 		}
 		return smallestKnot;
 	}
+
 }

@@ -20,35 +20,21 @@ public class FreeTool extends Tool {
     public Segment hover;
     public VirtualPoint hoverKP;
     public VirtualPoint hoverCP;
-    public VirtualPoint selectedPoint;
-    public VirtualPoint displayPoint;
 
     @Override
     public void draw(Camera2D camera, int minLineThickness) {
-        if (displayPoint != null) {
-            Drawing.drawCircle(displayPoint, Color.LIGHT_GRAY, camera, minLineThickness);
+        if (displayKP != null) {
+            Drawing.drawCircle(displayKP, Color.LIGHT_GRAY, camera, minLineThickness);
         }
-    }
-
-    @Override
-    public void setHover(Segment s, VirtualPoint kp, VirtualPoint cp) {
-        super.setHover(s, kp, cp);
-        displayPoint = kp;
-    }
-
-    @Override
-    public void clearHover() {
-        super.clearHover();
-        displayPoint = selectedPoint;
     }
 
     @Override
     public void cycleLeft() {
         ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
         for (Knot k : knotsDisplayed) {
-            if (k.contains(displayPoint)) {
-                selectedPoint = k.getNextClockWise(displayPoint);
-                displayPoint = selectedPoint;
+            if (k.contains(displayKP)) {
+                selectedKP = k.getNextClockWise(displayKP);
+                displayKP = selectedKP;
                 return;
             }
         }
@@ -58,9 +44,9 @@ public class FreeTool extends Tool {
     public void cycleRight() {
         ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
         for (Knot k : knotsDisplayed) {
-            if (k.contains(displayPoint)) {
-                selectedPoint = k.getNextCounterClockWise(displayPoint);
-                displayPoint = selectedPoint;
+            if (k.contains(displayKP)) {
+                selectedKP = k.getNextCounterClockWise(displayKP);
+                displayKP = selectedKP;
                 return;
             }
         }
@@ -69,12 +55,6 @@ public class FreeTool extends Tool {
     @Override
     public void confirm() {
         Main.calculateSubPaths();
-    }
-
-    @Override
-    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
-        selectedPoint = kp;
-        displayPoint = kp;
     }
 
     @Override
@@ -93,18 +73,18 @@ public class FreeTool extends Tool {
         HyperString pointInfo = new HyperString();
         PointND coordPoint = null;
         h.addWord("Point: ");
-        if (displayPoint == null) {
+        if (displayKP == null) {
             h.addWord("None");
         } else {
-            coordPoint = ((Point) displayPoint).p;
-            final PointND coordPointF = ((Point) displayPoint).p;
+            coordPoint = ((Point) displayKP).p;
+            final PointND coordPointF = ((Point) displayKP).p;
             pointInfo.addWord(coordPointF.toString());
-            h.addTooltip(displayPoint.id + "", Color.BLUE_WHITE, pointInfo,
+            h.addTooltip(displayKP.id + "", Color.BLUE_WHITE, pointInfo,
                     () -> Main.camera.centerOnPoint(coordPointF));
         }
         h.newLine();
         h.addWord("Position:");
-        if (displayPoint == null) {
+        if (displayKP == null) {
             h.addWord("X:"
                     + (int) Main.camera.screenTransformX(Main.mouse.normalizedPosX - Main.MAIN_VIEW_OFFSET_X)
                     + " Y:"
@@ -117,27 +97,27 @@ public class FreeTool extends Tool {
 
         h.newLine();
         h.addWord("Neighbors:");
-        if (displayPoint == null) {
+        if (displayKP == null) {
             h.addWord("None");
         } else {
-            h.addWord(displayPoint.match1.id + "");
-            h.addWord(displayPoint.match2.id + "");
+            h.addWord(displayKP.match1.id + "");
+            h.addWord(displayKP.match2.id + "");
         }
 
         h.newLine();
         h.addWord("Closest Points:");
-        if (displayPoint == null) {
+        if (displayKP == null) {
             h.addWord("None");
         } else {
-            h.addWord(displayPoint.sortedSegments.get(0).getOther(displayPoint).id + "");
-            h.addWord(displayPoint.sortedSegments.get(1).getOther(displayPoint).id + "");
+            h.addWord(displayKP.sortedSegments.get(0).getOther(displayKP).id + "");
+            h.addWord(displayKP.sortedSegments.get(1).getOther(displayKP).id + "");
         }
 
         h.newLine();
         h.addWord("MinKnot: ");
         Knot containingKnot = null;
         for (Knot k : Main.knotsDisplayed) {
-            if (k.contains(displayPoint)) {
+            if (k.contains(displayKP)) {
                 containingKnot = k;
             }
         }
@@ -146,16 +126,16 @@ public class FreeTool extends Tool {
         } else {
             Color c = Main.stickyColor;
             if (canUseToggle(Toggle.drawKnotGradient)) {
-                c = Main.getKnotGradientColor(displayPoint);
+                c = Main.getKnotGradientColor(displayKP);
             } else if (canUseToggle(Toggle.drawMetroDiagram)) {
-                c = Main.getMetroColor(displayPoint, containingKnot);
+                c = Main.getMetroColor(displayKP, containingKnot);
             }
-            String pointStr = "" + displayPoint.id + " ";
+            String pointStr = "" + displayKP.id + " ";
             final Knot reeK = containingKnot;
-            final PointND coordPointF = ((Point) displayPoint).p;
-            h.addWordClick(containingKnot.beforeString(displayPoint.id), c, () -> Main.camera.zoomToKnot(reeK));
+            final PointND coordPointF = ((Point) displayKP).p;
+            h.addWordClick(containingKnot.beforeString(displayKP.id), c, () -> Main.camera.zoomToKnot(reeK));
             h.addTooltip(pointStr, Color.BLUE_WHITE, pointInfo, () -> Main.camera.centerOnPoint(coordPointF));
-            h.addWordClick(containingKnot.afterString(displayPoint.id), c, () -> Main.camera.zoomToKnot(reeK));
+            h.addWordClick(containingKnot.afterString(displayKP.id), c, () -> Main.camera.zoomToKnot(reeK));
         }
         h.newLine();
 
@@ -169,7 +149,7 @@ public class FreeTool extends Tool {
     public Knot selectedKnot() {
         Knot containingKnot = null;
         for (Knot k : Main.knotsDisplayed) {
-            if (k.contains(displayPoint)) {
+            if (k.contains(displayKP)) {
                 containingKnot = k;
             }
         }

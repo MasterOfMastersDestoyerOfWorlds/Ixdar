@@ -15,36 +15,36 @@ import shell.ui.main.Main;
 
 public abstract class Tool {
 
-    public Segment hover;
-    public VirtualPoint hoverKP;
-    public VirtualPoint hoverCP;
+    public Segment displaySegment;
+    public VirtualPoint displayKP;
+    public VirtualPoint displayCP;
+
+    public Segment selectedSegment;
+    public VirtualPoint selectedKP;
+    public VirtualPoint selectedCP;
 
     public void draw(Camera2D camera, int lineThickness) {
         throw new UnsupportedOperationException("Unimplemented method 'draw'");
     };
 
-    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
-        throw new UnsupportedOperationException("Unimplemented method 'click'");
-    };
-
     public void cycleLeft() {
         ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
-        if (hover == null) {
-            hover = Main.manifoldKnot.manifoldSegments.get(0);
-            hoverKP = hover.first;
-            hoverCP = hover.last;
+        if (displaySegment == null) {
+            displaySegment = Main.manifoldKnot.manifoldSegments.get(0);
+            displayKP = displaySegment.first;
+            displayCP = displaySegment.last;
         } else {
             for (Knot k : knotsDisplayed) {
-                if (k.contains(hoverKP)) {
-                    VirtualPoint clockWise = k.getNextClockWise(hoverKP);
-                    if (clockWise.equals(hoverCP)) {
-                        clockWise = hoverKP;
-                        hoverKP = hoverCP;
-                        hoverCP = clockWise;
-                        hover = hoverKP.getSegment(hoverCP);
+                if (k.contains(displayKP)) {
+                    VirtualPoint clockWise = k.getNextClockWise(displayKP);
+                    if (clockWise.equals(displayCP)) {
+                        clockWise = displayKP;
+                        displayKP = displayCP;
+                        displayCP = clockWise;
+                        displaySegment = displayKP.getSegment(displayCP);
                     } else {
-                        hoverCP = clockWise;
-                        hover = hoverKP.getSegment(hoverCP);
+                        displayCP = clockWise;
+                        displaySegment = displayKP.getSegment(displayCP);
                     }
                     return;
                 }
@@ -53,23 +53,23 @@ public abstract class Tool {
     }
 
     public void cycleRight() {
-        if (hover == null) {
-            hover = Main.manifoldKnot.manifoldSegments.get(0);
-            hoverKP = hover.first;
-            hoverCP = hover.last;
+        if (displaySegment == null) {
+            displaySegment = Main.manifoldKnot.manifoldSegments.get(0);
+            displayKP = displaySegment.first;
+            displayCP = displaySegment.last;
         } else {
             ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
             for (Knot k : knotsDisplayed) {
-                if (k.contains(hoverKP)) {
-                    VirtualPoint clockWise = k.getNextCounterClockWise(hoverKP);
-                    if (clockWise.equals(hoverCP)) {
-                        clockWise = hoverKP;
-                        hoverKP = hoverCP;
-                        hoverCP = clockWise;
-                        hover = hoverKP.getSegment(hoverCP);
+                if (k.contains(displayKP)) {
+                    VirtualPoint clockWise = k.getNextCounterClockWise(displayKP);
+                    if (clockWise.equals(displayCP)) {
+                        clockWise = displayKP;
+                        displayKP = displayCP;
+                        displayCP = clockWise;
+                        displaySegment = displayKP.getSegment(displayCP);
                     } else {
-                        hoverCP = clockWise;
-                        hover = hoverKP.getSegment(hoverCP);
+                        displayCP = clockWise;
+                        displaySegment = displayKP.getSegment(displayCP);
                     }
                     return;
                 }
@@ -85,22 +85,34 @@ public abstract class Tool {
         throw new UnsupportedOperationException("Unimplemented method 'confirm'");
     };
 
+    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
+        selectedSegment = s;
+        selectedKP = kp;
+        selectedCP = cp;
+        displaySegment = s;
+        displayKP = kp;
+        displayCP = cp;
+    }
+
     public void reset() {
-        hover = null;
-        hoverCP = null;
-        hoverKP = null;
+        selectedSegment = null;
+        selectedKP = null;
+        selectedCP = null;
+        displaySegment = null;
+        displayKP = null;
+        displayCP = null;
     }
 
     public void clearHover() {
-        hover = null;
-        hoverCP = null;
-        hoverKP = null;
+        displaySegment = selectedSegment;
+        displayKP = selectedKP;
+        displayCP = selectedCP;
     }
 
     public void setHover(Segment s, VirtualPoint kp, VirtualPoint cp) {
-        hover = s;
-        hoverKP = kp;
-        hoverCP = cp;
+        displaySegment = s;
+        displayKP = kp;
+        displayCP = cp;
     }
 
     ToggleType[] disallowedToggles = new ToggleType[] {};
@@ -219,6 +231,15 @@ public abstract class Tool {
     public HyperString info() {
         cachedInfo = buildInfoText();
         return cachedInfo;
+    };
+
+    public HyperString toolGeneralInfo() {
+        HyperString h = new HyperString();
+        h.addWord("FPS:" + Clock.fps());
+        h.newLine();
+        h.addWord("Tool: " + this.displayName());
+        h.wrap();
+        return h;
     };
 
     public void setScreenOffset(Camera2D camera) {

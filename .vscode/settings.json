@@ -15,5 +15,8 @@
     "debug.autoExpandLazyVariables": "on",
     "editor.formatOnSave": true,
     "java.format.settings.url": "eclipse-formatter.xml",
-    "java.saveActions.organizeImports": false
+    "java.saveActions.organizeImports": false,
+    "cSpell.words": [
+        "Ixdar"
+    ]
 }

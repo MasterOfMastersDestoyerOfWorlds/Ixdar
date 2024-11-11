@@ -35,12 +35,7 @@ public class NegativeCutMatchViewTool extends Tool {
 
     @Override
     public void reset() {
-        hover = null;
-        hoverCP = null;
-        hoverKP = null;
-        manifold = null;
-        negativeSegmentMap = null;
-
+        super.reset();
     }
 
     @Override
@@ -49,17 +44,21 @@ public class NegativeCutMatchViewTool extends Tool {
             initSegmentMap();
             return;
         }
-        if (hover != null) {
-            long matchId = Segment.idTransformOrdered(hoverKP.id, hoverCP.id);
+        if (displaySegment != null) {
+            long matchId = Segment.idTransformOrdered(displayKP.id, displayCP.id);
             ArrayList<Segment> matchSegments = negativeSegmentMap.get(matchId);
-            long cutId = Segment.idTransform(hoverKP.id, hoverCP.id);
-            Segment cutSeg = hoverKP.segmentLookup.get(cutId);
+            long cutId = Segment.idTransform(displayKP.id, displayCP.id);
+            Segment cutSeg = displayKP.segmentLookup.get(cutId);
+            Drawing.drawScaledSegment(cutSeg, Color.ORANGE, 2 * Drawing.MIN_THICKNESS,
+                    camera);
             if (matchSegments != null) {
                 for (Segment s : matchSegments) {
-                    Drawing.drawSingleCutMatch(Main.main, s, cutSeg, Drawing.MIN_THICKNESS * 2, Main.retTup.ps,
-                            camera);
+                    if (!s.equals(Main.hoverSegment)) {
+                        Drawing.drawScaledSegment(s, Color.CYAN, Drawing.MIN_THICKNESS,
+                                camera);
+                    }
                 }
-                Drawing.drawCircle(hoverKP, Color.GREEN, camera, minLineThickness);
+                Drawing.drawCircle(displayKP, Color.GREEN, camera, minLineThickness);
             }
         }
         for (Knot k : Main.knotsDisplayed) {
@@ -79,11 +78,6 @@ public class NegativeCutMatchViewTool extends Tool {
             idTransform.add(new Pair<Long, Long>(matchId, matchId2));
         }
         return idTransform;
-    }
-
-    @Override
-    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
-
     }
 
     @Override
@@ -139,6 +133,30 @@ public class NegativeCutMatchViewTool extends Tool {
     @Override
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
+        if (displaySegment != null) {
+            h.addWord("Cut: ", Color.IXDAR);
+            h.addHyperString(displaySegment.toHyperString(Color.ORANGE, false));
+            h.newLine();
+            h.addWord("Cut Length: ");
+            h.addDistance(displaySegment.distance, Color.ORANGE);
+            h.newLine();
+            h.addWord("Knot Point: " + displayKP, Color.GREEN);
+            h.newLine();
+            h.addWord("Cut Point: " + displayCP, Color.ORANGE);
+            long matchId = Segment.idTransformOrdered(displayKP.id, displayCP.id);
+            ArrayList<Segment> matchSegments = negativeSegmentMap.get(matchId);
+            h.newLine();
+            h.addWord("Negative Matches:");
+            h.newLine();
+            for (Segment s : matchSegments) {
+                h.addHyperString(s.toHyperString(Color.CYAN, false));
+                h.addDistance(s.distance - displaySegment.distance, Color.RED);
+                h.newLine();
+            }
+            h.newLine();
+
+        }
+        h.wrap();
         return h;
     }
 }

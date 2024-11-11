@@ -6,6 +6,7 @@ import java.util.HashMap;
 import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
+import shell.knot.Segment;
 import shell.render.color.Color;
 import shell.ui.Drawing;
 import shell.ui.actions.Action;
@@ -78,22 +79,38 @@ public class HyperString {
     }
 
     public void addHoverKnot(String word, Color c, Knot hoverKnot, Action clickAction) {
-        for (String w : word.split(" ")) {
-            strMap.computeIfPresent(lines - 1, (key, val) -> val + w + " ");
-            HyperString knotText = new HyperString();
-            knotText.addWord(hoverKnot.toString(), c);
-            knotText.setWrap(true, 30);
-            words.add(new Word(word, c,
-                    () -> {
-                        Main.setHoverKnot(hoverKnot);
-                        Main.setTooltipText(knotText);
-                    },
-                    () -> {
-                        Main.clearHoverKnot();
-                        Main.clearTooltipText();
-                    },
-                    clickAction));
-        }
+        HyperString knotText = new HyperString();
+        knotText.addWord(hoverKnot.toString(), c);
+        knotText.setWrap(true, 30);
+        words.add(new Word(word, c,
+                () -> {
+                    Main.setHoverKnot(hoverKnot);
+                    Main.setTooltipText(knotText);
+                },
+                () -> {
+                    Main.clearHoverKnot();
+                    Main.clearTooltipText();
+                },
+                clickAction));
+    }
+
+    public void addHoverSegment(String str, Color c, Segment segment, Action clickAction) {
+        HyperString segmentInfo = new HyperString();
+        segmentInfo.addDistance(segment.distance, c);
+        words.add(new Word(str, c,
+                () -> {
+                    Main.setHoverSegment(segment, c);
+                    Main.setTooltipText(segmentInfo);
+                },
+                () -> {
+                    Main.clearHoverSegment();
+                    Main.clearTooltipText();
+                },
+                clickAction));
+    }
+
+    public void addDistance(double distance, Color c) {
+        addWord(String.format("%.2f", distance), c);
     }
 
     private void setWrap(boolean b, int i) {
@@ -200,18 +217,17 @@ public class HyperString {
         }
         float offset = 0;
         float charLength = 0;
+        wrappedLines = 0;
         for (int j = idxStart; j < idxEnd; j++) {
             Word w = words.get(j);
-            if (w.newLine) {
-                continue;
-            }
-
             w.setWidth(font);
             charLength += w.text.length();
             float wordX = offset;
             float wordWidth = Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * w.width;
+
             if (wrap && (wordX + wordWidth > camera.getWidth() || charLength > charWrap)) {
                 row++;
+                wrappedLines++;
                 offset = 0;
                 wordX = 0;
                 charLength = 0;
@@ -233,6 +249,7 @@ public class HyperString {
         }
         float offset = 0;
         float charLength = 0;
+        wrappedLines = 0;
         for (int j = idxStart; j < idxEnd; j++) {
             Word w = words.get(j);
             if (w.newLine) {
@@ -243,6 +260,7 @@ public class HyperString {
             float wordWidth = Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * w.width;
             if (wrap && (wordX + wordWidth > camera.getWidth() || charLength > charWrap)) {
                 row++;
+                wrappedLines++;
                 offset = 0;
                 wordX = 0;
                 charLength = 0;
@@ -297,6 +315,10 @@ public class HyperString {
             return lines;
         }
         return wrappedLines + lines;
+    }
+
+    public void wrap() {
+        wrap = true;
     }
 
 }

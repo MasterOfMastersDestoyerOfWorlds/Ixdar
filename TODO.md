@@ -1,4 +1,4 @@
-# TODO
+# Ixdar Algorithm
 
 ## Cutting Algorithm Changes
 
@@ -22,23 +22,41 @@
 
 2. - [ ] Need to Disallow making knots with all internals being knots where the first knot and the last knot do not actually want to match to each other. this is fine when everything is a point, but the correct way to represent this would be : Knot[Knot[Knot[1] Knot[2]] Knot[3]] instead of Knot[Knot[1] Knot[2] Knot[3]]
 
-## Unit Testing
+## General Speedup
+
+1. - [ ] Add worker pool for every dijkstra's call we make (algorithm is somewhat embarrassingly parallel)
+
+2. - [ ] Figure out how to turn into positive weight graph so we can disregard all settled Points.
+
+3. - [ ] Find some way to calculate all shortest paths for a manifold at once instead of in series (seems unlikely given path dependence)
+
+# Testing
+
+## Auto Build Unit Testing
 
 1. - [ ] Generate a Unit Test that runs all of the manifold solutions in the folder
 
 2. - [ ] Should compare against the manifold cut match answer in the master file
 
-## UI Tools General
+# UI
+
+## Features
+
+1. - [ ] VK_O should swap between showing the calculated cutMatch and the one stored in the file and use opposite colors on the color wheel to represent the cutMatch?
+
+2. - [ ] With fixed size lines there is sometimes a problem of overlap where you can't distinguish between lines once the points get close enough to each other, so we should calculate the minimum width to ensure that this does not happen on startup.
+
+## Tools
 
 1. - [ ] Tools should specify what type of bounding boxes that they should use? (Segment rectangle versus radius from point?)
 
 2. - [ ] Each Tool should tell the user some information about what to do when using it in the message pool.
 
-## UI Free Tool
+### Free Tool
 
-1. - [ ] point's info should include generated or lookup city name.
+![Complete](readme_img\complete.png)
 
-## UI CutMatch Tool
+### CutMatch Tool
 
 1. - [ ] The original calculated cut match group should be at like opacity 40 or 30.
 
@@ -56,13 +74,25 @@
 
 8. - [ ] the info panel should show the current length, the length computed length to beat, the list of cuts made so far, the hovered cut and its length delta.
 
-## UI Manifold Find Tool
+### Find Manifold Tool
 
 1. - [ ] If the manifold does not exist ask the user if they'd like to calculate it and add it to the file, otherwise reset without changes.
 
 2. - [ ] Need to change the search to search for closest available to one the user inputted?
 
-## UI Message Panel
+### Knot Surface View Tool
+
+1. - [ ] Make a tool that shows the user which of the half segment pairs have low enough external travel cost to check their internal cost, when compared to the lowest simple cut.
+
+2. - [ ] Should display the lowest simple cut when not hovering.
+
+3. - [ ] Should display all the pairs that could be possible as well as the dashed line to it's external value.
+
+### Negative CutMatch View Tool
+
+![Complete](readme_img\complete.png)
+
+## Message Panel
 
 1. - [ ] Should be like a terminal where you can ask questions about the knot you are looking at.
 
@@ -72,7 +102,7 @@
 
 4. - [ ] Typing should bring up a tooltip about the the terminal with the commands that have the right letters
 
-## UI Info Panel
+## Info Panel
 
 1. - [ ] Should have some panel on the right hand side above logo with name of test set, wether the test set is passing, the current tool mode, difference in length between test set answer and calculated answer, etc.
 
@@ -80,11 +110,21 @@
 
 3. - [ ] Default shown info should be saved to a file as defaults on startup
 
-## UI
+## Tooltip
 
-1. - [ ] Make a message pool on the bottom panel
+1. - [ ] Should be rounded rectangle
 
-2. - [ ] VK_O should swap between showing the calculated cutMatch and the one stored in the file and use opposite colors on the color wheel to represent the cutMatch?
+2. - [ ] Should have some constant padding amount
+
+3. - [ ] Should fade text at bottom if too long
+
+4. - [ ] should be light grey with dark grey border
+
+## 2D Camera
+
+![Complete](readme_img\complete.png)
+
+# Menu
 
 ## Main Menu
 
@@ -114,25 +154,13 @@
 
 5. - [ ] Menu Items should use a custom SDF Font Atlas
 
-## 2D camera
-
-1. - [ ] Need to tie the camera zooming and move speed to the framerate, should use the clock class to figure this out
-
-## Tooltip
-
-1. - [ ] Should be rounded rectangle
-
-2. - [ ] Should be the width of the text with some reasonable limits
-
-3. - [ ] Should have some constant padding amount
-
-4. - [ ] Should fade text at bottom if too long
-
-5. - [ ] should be light grey with dark grey border
+# Rendering
 
 ## Shaders
 
 1. - [ ] Font Atlas from SDF Atlas.
+
+2. - [ ] Line rendering, need to prevent alpha adding on line endpoint intersections when using transparency
 
 ## 3D Graphics
 
@@ -142,13 +170,11 @@
 
 3. - [ ] Figure out particle systems for sand/dust.
 
-## UI Knot Surface View Tool
+## Shader Editor
 
-1. - [ ] Make a tool that shows the user which of the half segment pairs have low enough external travel cost to check their internal cost, when compared to the lowest simple cut.
+1. - [ ] pressing some hotkey (Ctrl, Shift, G) should look at the item that the mouse is currently hovering over and bring up it's glsl shader in vscode with the relevant shader? or should the texture on the right side of the screen and a text editor be on the left internal to the program?
 
-2. - [ ] Should display the lowest simple cut when not hovering.
-
-3. - [ ] Should display all the pairs that could be possible as well as the dashed line to it's external value.
+# System I/O
 
 ## Key Input
 
@@ -156,22 +182,40 @@
 
 2. - [ ] Should save to a Key bindings file on change and load from the same file on startup
 
-## UI Negative CutMatch View Tool
-
-1. - [ ] Info Panel should show the current hover cut's length delta as well as name the segments involved
-
-## Shader Editor
-
-1. - [ ] pressing some hotkey (Ctrl, Shift, G) should look at the item that the mouse is currently hovering over and bring up it's glsl shader in vscode with the relevant shader? or should the texture on the right side of the screen and a text editor be on the left internal to the program?
-
 ## Filesystem
 
 1. - [ ] Hot reload glsl shaders on change for rapid development
 
-## General Speedup
+# City Info
 
-1. - [ ] Add worker pool for every dijkstra's call we make (algorithm is somewhat embarrassingly parallel)
+## Display Info
 
-2. - [ ] Figure out how to turn into positive weight graph so we can disregard all settled Points.
+1. - [ ] Every city should have a name, population size, land size in hectares, arable land percent, list of crops, list of exploitable natural resources, list of goods produced
 
-3. - [ ] Find some way to calculate all shortest paths for a manifold at once instead of in series (seems unlikely given path dependence)
+## Natural Resources
+
+1. - [ ] Natural Resources should have an
+  - icon
+  - quantity in units/hectares/month produces
+  - replenish rate in units/hectares/month
+  - discovery chance in percent chance to find/hectare
+  - discovered resource amount range following a prato distribution
+  - cost to explore a hectare
+  - percent of explored land for that resource
+  - which hectares have been explored
+  - consumption rate of the resource by the city
+  - price of the resource in the city and all other cities even where you cannot find the resource related to the consumption rate and production cost of the good
+  - wether the demand for the resource is elastic or inelastic
+  - wether the resource can be exploited on land used for other purposes (e.g. drilling doesn't interfere with farming).
+
+<style>
+:root {
+  --ixdar: rgb(150, 0, 36); /* set a value "red" to the "color" variable */
+}
+img[alt=Complete] {
+    max-width:300px;
+}
+h1{
+    color: var(--ixdar);
+}
+</style>

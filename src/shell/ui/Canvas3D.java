@@ -22,7 +22,6 @@ import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
 import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
 
-import java.awt.event.KeyEvent;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
@@ -49,6 +48,7 @@ import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.VertexArrayObject;
 import shell.render.shaders.VertexBufferObject;
 import shell.render.text.Font;
+import shell.ui.input.keys.KeyActions;
 import shell.ui.input.keys.KeyGuy;
 import shell.ui.input.mouse.MouseTrap;
 import shell.ui.main.Main;
@@ -234,7 +234,7 @@ public class Canvas3D {
         if (MenuBox.menuVisible) {
 
             float SHIFT_MOD = 1;
-            if (keys != null && keys.pressedKeys.contains(KeyEvent.VK_SHIFT)) {
+            if (keys != null && KeyActions.DoubleSpeed.keyPressed(keys.pressedKeys)) {
                 SHIFT_MOD = 2;
             }
             if (keys != null) {
@@ -318,7 +318,6 @@ public class Canvas3D {
         // frameBufferHeight / 2, -1f, 1, Color.CYAN);
         // c.setAlpha(0.6f);
 
-
         if (printScreen) {
             printScreen = false;
             printScreen(screenShotFile);
@@ -350,7 +349,7 @@ public class Canvas3D {
                     (window, button, action, mods) -> mouse.clickCallback(window, button, action, mods));
 
             glfwSetCursorPosCallback(IxdarWindow.window, (window, x, y) -> mouse.moveCallback(window, x, y));
-            
+
             glfwSetScrollCallback(IxdarWindow.window, (window, x, y) -> mouse.mouseScrollCallback(window, y));
 
         }

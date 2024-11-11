@@ -30,14 +30,10 @@ public class Word {
         viewBounds = new Bounds(0, 0, 0, 0);
     }
 
-    public Word(Word w, Color defaultColor) {
-        text = w.text;
-        color = defaultColor;
-    }
-
     public Word(boolean b) {
-
         newLine = b;
+        text = "";
+        viewBounds = new Bounds(0, 0, 0, 0);
     }
 
     public void setBounds(float x, float y, float xScreen, float yScreen, float height, Bounds viewBounds) {
@@ -51,7 +47,15 @@ public class Word {
     }
 
     public void setWidth(Font font) {
-        this.width = font.getWidth(text);
+        if (this.newLine) {
+            this.width = 0;
+        } else {
+            this.width = font.getWidth(text);
+        }
+    }
+
+    public void setZeroWidth() {
+        this.width = 0;
     }
 
     public void calculateClearHover(float normalizedPosX, float normalizedPosY) {

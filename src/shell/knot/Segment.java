@@ -1,8 +1,14 @@
 package shell.knot;
 
 import java.util.ArrayList;
+
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
+
 import shell.PointND;
+import shell.render.color.Color;
+import shell.render.text.HyperString;
+import shell.ui.actions.Action;
+import shell.ui.main.Main;
 
 public class Segment implements Comparable<Segment> {
     public VirtualPoint first;
@@ -73,11 +79,6 @@ public class Segment implements Comparable<Segment> {
             }
         }
         return -1;
-    }
-
-    @Override
-    public String toString() {
-        return "Segment[" + first.id + ":" + last.id + "]";
     }
 
     @Override
@@ -183,7 +184,8 @@ public class Segment implements Comparable<Segment> {
 
     public static long idTransform(long a, long b) {
         return a >= b ? a * a + a + b : b + a + b * b;
-    }    
+    }
+
     public static long idTransformOrdered(long a, long b) {
         return a * a + a + b;
     }
@@ -236,6 +238,26 @@ public class Segment implements Comparable<Segment> {
             return last;
         }
 
+    }
+
+    @Override
+    public String toString() {
+        return "Segment[" + first.id + ":" + last.id + "]";
+    }
+
+    public HyperString toHyperString(Color color, boolean labelAsSegment) {
+        HyperString h = new HyperString();
+        Action clickAction = () -> {
+            Main.camera.zoomToSegment(this);
+        };
+        String str = "";
+
+        if (labelAsSegment) {
+            str += "Segment";
+        }
+        str += "[" + first.id + ":" + last.id + "]";
+        h.addHoverSegment(str, color, this, clickAction);
+        return h;
     }
 
 }

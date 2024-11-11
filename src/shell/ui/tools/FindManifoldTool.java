@@ -30,9 +30,9 @@ public class FindManifoldTool extends Tool {
     @Override
     public void reset() {
         state = States.FindStart;
-        hover = null;
-        hoverCP = null;
-        hoverKP = null;
+        displaySegment = null;
+        displayCP = null;
+        displayKP = null;
         firstSelectedSegment = null;
         firstSelectedKP = null;
         firstSelectedCP = null;
@@ -40,9 +40,9 @@ public class FindManifoldTool extends Tool {
 
     @Override
     public void draw(Camera2D camera, int minLineThickness) {
-        if (hover != null
-                && !hover.equals(firstSelectedSegment)) {
-            Drawing.drawManifoldCut(hoverKP, hoverCP, camera,
+        if (displaySegment != null
+                && !displaySegment.equals(firstSelectedSegment)) {
+            Drawing.drawManifoldCut(displayKP, displayCP, camera,
                     minLineThickness * 2);
         }
         if (firstSelectedSegment != null) {
@@ -61,24 +61,24 @@ public class FindManifoldTool extends Tool {
     public void confirm() {
         ArrayList<Manifold> manifolds = Main.manifolds;
 
-        if (hover != null) {
+        if (displaySegment != null) {
             if (state == FindManifoldTool.States.FindStart) {
-                firstSelectedSegment = hover;
-                firstSelectedKP = hoverKP;
-                firstSelectedCP = hoverCP;
+                firstSelectedSegment = displaySegment;
+                firstSelectedKP = displayKP;
+                firstSelectedCP = displayCP;
                 state = FindManifoldTool.States.FirstSelected;
                 clearHover();
             } else if (state == FindManifoldTool.States.FirstSelected) {
-                if (!hover.equals(firstSelectedSegment)) {
+                if (!displaySegment.equals(firstSelectedSegment)) {
                     for (int i = 0; i < manifolds.size(); i++) {
                         Manifold m = manifolds.get(i);
                         if (m.manifoldCutSegment1.equals(firstSelectedSegment)
-                                && m.manifoldCutSegment2.equals(hover)) {
+                                && m.manifoldCutSegment2.equals(displaySegment)) {
                             Main.manifoldIdx = i;
                             break;
                         }
                         if (m.manifoldCutSegment2.equals(firstSelectedSegment)
-                                && m.manifoldCutSegment1.equals(hover)) {
+                                && m.manifoldCutSegment1.equals(displaySegment)) {
                             Main.manifoldIdx = i;
                             break;
                         }
