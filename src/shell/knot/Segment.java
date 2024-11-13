@@ -75,6 +75,11 @@ public class Segment implements Comparable<Segment> {
             } else if (s.distance > this.distance) {
                 return -1;
             } else {
+                if (s.id < this.id) {
+                    return 1;
+                } else if (s.id > this.id) {
+                    return -1;
+                }
                 return 0;
             }
         }

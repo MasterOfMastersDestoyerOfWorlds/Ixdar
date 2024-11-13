@@ -502,7 +502,11 @@ public class Main {
 		if (smallestKnot == null) {
 			return Color.IXDAR;
 		}
-		return metroColors.get(knotLayerLookup.get((long) smallestKnot.id));
+		int knotLayer = knotLayerLookup.get((long) smallestKnot.id);
+		if (knotLayer == -1) {
+			return Color.IXDAR;
+		}
+		return metroColors.get(knotLayer);
 	}
 
 	public static ArrayList<Pair<Long, Long>> lookupPairs(Knot k) {

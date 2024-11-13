@@ -136,8 +136,33 @@ public class FileManagement {
                             }
                             index++;
                         }
+                    } else if (cords[0].equals("TRI")) {
+                        System.out.println("TRIANGLE FOUND!");
+                        double xCenter = java.lang.Double.parseDouble(cords[1]);
+                        double yCenter = java.lang.Double.parseDouble(cords[2]);
+                        double radius = java.lang.Double.parseDouble(cords[3]);
+                        int numPoints = 3;
+                        double radians = 2 * Math.PI / ((double) numPoints);
+                        for (int i = 0; i < numPoints; i++) {
+                            double xCoord = radius * Math.cos(i * radians) + xCenter;
+                            double yCoord = radius * Math.sin(i * radians) + yCenter;
+                            PointND pt = new PointND.Double(index, xCoord, yCoord);
+                            pt2d = pt.toPoint2D();
+                            lookUp.put(index, pt);
+                            lines.add(pt);
+                            ps.add(pt);
+                            tsp.add(pt);
+
+                            if (first) {
+                                path.moveTo(pt2d.getX(), pt2d.getY());
+                                first = false;
+                            } else {
+                                path.lineTo(pt2d.getX(), pt2d.getY());
+                            }
+                            index++;
+                        }
                     } else if (cords[0].equals("ARC")) {
-                        System.out.println("CIRCLE FOUND!");
+                        System.out.println("ARC FOUND!");
                         double xCenter = java.lang.Double.parseDouble(cords[1]);
                         double yCenter = java.lang.Double.parseDouble(cords[2]);
                         double radius = java.lang.Double.parseDouble(cords[3]);
