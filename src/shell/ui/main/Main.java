@@ -100,7 +100,6 @@ public class Main {
 	public static int MAIN_VIEW_OFFSET_Y;
 	public static int MAIN_VIEW_WIDTH;
 	public static int MAIN_VIEW_HEIGHT;
-	public static HyperString toolInfo;
 	private static boolean showToolTip;
 	public static Knot hoverKnot;
 	public static boolean showHoverKnot;
@@ -108,6 +107,8 @@ public class Main {
 	public static Segment hoverSegment;
 	public static boolean showHoverSegment;
 	public static ColorLerp hoverSegmentColor;
+	public static Terminal terminal;
+	public static Info info;
 
 	public Main(String fileName) {
 		metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -118,6 +119,8 @@ public class Main {
 		colorLookup = new HashMap<>();
 		metroColors = new ArrayList<>();
 		subPaths = new ArrayList<>();
+		terminal = new Terminal();
+		info = new Info();
 		Main.fileName = fileName;
 		file = FileManagement.getTestFile(fileName);
 		retTup = FileManagement.importFromFile(file);
@@ -130,6 +133,8 @@ public class Main {
 				retTup.ps);
 
 		Toggle.manifold.value = !retTup.manifolds.isEmpty();
+
+		Toggle.setPanelFocus(PanelTypes.KnotView);
 
 		keys = new KeyGuy(this, fileName, camera);
 		mouse = new MouseTrap(this, camera, false);
@@ -256,6 +261,8 @@ public class Main {
 			metroColors.add(Color.getHSBColor((startHueM + stepM * j) % 1.0f, 1.0f, 1.0f));
 		}
 
+		Drawing.initDrawingSizes(shell, camera, d);
+
 		long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
 		double knotCuttingSeconds = ((double) endTimeKnotCutting) / 1000.0;
 		double ixdarSeconds = ((double) shell.cutEngine.internalPathEngine.totalTimeIxdar) / 1000.0;
@@ -281,7 +288,8 @@ public class Main {
 		System.out.println("Ixdar profile time: " + ixdarProfileSeconds);
 		System.out.println(
 				"Ixdar Profile %: " + 100 * (ixdarProfileSeconds / (ixdarSeconds)));
-		System.out.println("Best Length: " + orgShell.getLength());
+		System.out.println("Saved Answer Length: " + orgShell.getLength());
+		// System.out.println("Calculated Length: " + shell.getLength());
 		System.out.println("===============================================");
 
 		System.out.println(shell.cutEngine.flatKnots);
@@ -350,17 +358,13 @@ public class Main {
 
 			updateView(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
 					wHeight - BOTTOM_PANEL_SIZE);
-			int row = 0;
-			float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
+			info.draw(camera);
 
-			HyperString toolGeneralInfo = tool.toolGeneralInfo();
-			Drawing.font.drawHyperStringRows(toolGeneralInfo, row, tool.scrollOffsetY, rowHeight, camera);
-			row += toolGeneralInfo.getLines();
+			updateView(0, 0, MAIN_VIEW_WIDTH, BOTTOM_PANEL_SIZE);
+			terminal.draw(camera);
 
-			toolInfo = tool.info();
-			Drawing.font.drawHyperStringRows(toolInfo, row, tool.scrollOffsetY, rowHeight, camera);
-			row += toolInfo.getLines();
 			if (toolTip != null && showToolTip) {
+				float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
 				int isRight = mouse.normalizedPosX > wWidth / 2 ? 1 : 0;
 
 				int isTop = mouse.normalizedPosY > wHeight / 2 ? 1 : 0;
@@ -383,7 +387,7 @@ public class Main {
 		}
 	}
 
-	public void updateView(int x, int y, int width, int height) {
+	public static void updateView(int x, int y, int width, int height) {
 		camera.updateViewBounds(x, y, width, height);
 		glViewport(x, y, width, height);
 		for (ShaderProgram s : Canvas3D.shaders) {
@@ -640,7 +644,7 @@ public class Main {
 		showHoverKnot = false;
 	}
 
-	public static MainPanel inView(float x, float y) {
+	public static PanelTypes inView(float x, float y) {
 		boolean inMainViewRightBound = x < Main.MAIN_VIEW_WIDTH + Main.MAIN_VIEW_OFFSET_X;
 		boolean inMainViewLeftBound = x > Main.MAIN_VIEW_OFFSET_X;
 		float invY = IxdarWindow.getHeight() - y;
@@ -648,15 +652,15 @@ public class Main {
 		boolean inMainViewUpperBound = invY < Main.MAIN_VIEW_HEIGHT + Main.MAIN_VIEW_OFFSET_Y;
 		if (inMainViewLeftBound && inMainViewRightBound && inMainViewLowerBound
 				&& inMainViewUpperBound) {
-			return MainPanel.KnotView;
+			return PanelTypes.KnotView;
 		} else if (!inMainViewLowerBound && !inMainViewRightBound) {
-			return MainPanel.Logo;
+			return PanelTypes.Logo;
 		} else if (!inMainViewLowerBound && inMainViewRightBound && inMainViewLeftBound) {
-			return MainPanel.Terminal;
+			return PanelTypes.Terminal;
 		} else if (inMainViewLowerBound && inMainViewUpperBound && !inMainViewRightBound) {
-			return MainPanel.Info;
+			return PanelTypes.Info;
 		}
-		return MainPanel.None;
+		return PanelTypes.None;
 	}
 
 	public static void setDrawLevelToKnot(Knot k) {

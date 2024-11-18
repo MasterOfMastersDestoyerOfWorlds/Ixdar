@@ -22,7 +22,7 @@ public class FreeTool extends Tool {
     public VirtualPoint hoverCP;
 
     @Override
-    public void draw(Camera2D camera, int minLineThickness) {
+    public void draw(Camera2D camera, float minLineThickness) {
         if (displayKP != null) {
             Drawing.drawCircle(displayKP, Color.LIGHT_GRAY, camera, minLineThickness);
         }
@@ -148,7 +148,10 @@ public class FreeTool extends Tool {
         h.newLine();
 
         h.addWord("TopKnot:");
-        h.addHyperString(((Knot) Main.result.get(0)).toHyperString());
+        VirtualPoint topStruct = Main.result.get(0);
+        if (topStruct.isKnot) {
+            h.addHyperString(((Knot) Main.result.get(0)).toHyperString());
+        }
         h.wrap = true;
         return h;
     }

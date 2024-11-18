@@ -11,6 +11,7 @@ import org.apache.commons.math3.util.Pair;
 import org.joml.Random;
 import org.joml.Vector2f;
 
+import shell.DistanceMatrix;
 import shell.PointND;
 import shell.PointSet;
 import shell.cameras.Camera2D;
@@ -32,21 +33,42 @@ import shell.ui.main.Main;
 
 public class Drawing {
 
-    public static final int MIN_THICKNESS = 2;
-    public static final float FONT_HEIGHT_PIXELS = 30;
-    public static final float CIRCLE_RADIUS = 7.5f;
+    public static final float MIN_THICKNESS_START = 2;
+    public static final float FONT_HEIGHT_PIXELS_START = 30;
+    public static final float CIRCLE_RADIUS_START = 7.5f;
+    public static float MIN_THICKNESS = 2;
+    public static float FONT_HEIGHT_PIXELS = 30;
+    public static float FONT_HEIGHT_LABELS_PIXELS = 30;
+    public static float CIRCLE_RADIUS = 7.5f;
     public static SDFLine sdfLine = new SDFLine();
     public static SDFCircle circle = new SDFCircle();
     public static Font font = new Font(new java.awt.Font(SANS_SERIF, PLAIN, 32), true);
 
-    public static void drawCutMatch(SegmentBalanceException sbe, int lineThickness,
+    public static void initDrawingSizes(Shell shell, Camera2D camera, DistanceMatrix d) {
+
+        double smallestLength = d.getSmallestSegmentLength();
+        double smallestLengthScreenSpace = camera.pointSpaceLengthToScreenSpace(smallestLength);
+        if (MIN_THICKNESS_START > smallestLengthScreenSpace) {
+            MIN_THICKNESS = (float) (smallestLengthScreenSpace);
+            FONT_HEIGHT_PIXELS = FONT_HEIGHT_PIXELS_START;
+            FONT_HEIGHT_LABELS_PIXELS = (FONT_HEIGHT_PIXELS_START / MIN_THICKNESS_START) * MIN_THICKNESS;
+            CIRCLE_RADIUS = (CIRCLE_RADIUS_START / MIN_THICKNESS_START) * MIN_THICKNESS;
+        } else {
+            MIN_THICKNESS = MIN_THICKNESS_START;
+            FONT_HEIGHT_PIXELS = FONT_HEIGHT_PIXELS_START;
+            FONT_HEIGHT_LABELS_PIXELS = FONT_HEIGHT_PIXELS_START;
+            CIRCLE_RADIUS = CIRCLE_RADIUS_START;
+        }
+    }
+
+    public static void drawCutMatch(SegmentBalanceException sbe, float lineThickness,
             PointSet ps, Camera2D camera) {
         drawCutMatch(sbe.cutMatchList, sbe.cut1, sbe.cut2, sbe.ex1, sbe.ex2, sbe.topKnot,
                 lineThickness, ps, camera);
     }
 
     public static void drawCutMatch(CutMatchList cml,
-            Segment cut1, Segment cut2, Segment ex1, Segment ex2, Knot topKnot, int lineThickness,
+            Segment cut1, Segment cut2, Segment ex1, Segment ex2, Knot topKnot, float lineThickness,
             PointSet ps, Camera2D camera) {
 
         float[] firstCoords = new float[2];
@@ -124,7 +146,7 @@ public class Drawing {
     }
 
     public static void drawManifoldCut(VirtualPoint hoverKP, VirtualPoint hoverCP, Camera2D camera,
-            int lineThickness) {
+            float lineThickness) {
 
         float[] kpCoords = new float[2];
         float[] cpCoords = new float[2];
@@ -144,12 +166,12 @@ public class Drawing {
         circle.draw(new Vector2f(kpCoords[0], kpCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN, camera);
     }
 
-    public static void drawSegment(Segment segment, Color c, int thickness, Camera2D camera) {
+    public static void drawSegment(Segment segment, Color c, float thickness, Camera2D camera) {
         sdfLine.setStroke(thickness, false);
         drawSegment(segment, c, camera);
     }
 
-    public static void drawScaledSegment(Segment segment, Color c, int thickness, Camera2D camera) {
+    public static void drawScaledSegment(Segment segment, Color c, float thickness, Camera2D camera) {
         sdfLine.setStroke(thickness * camera.ScaleFactor, false);
         drawSegment(segment, c, camera);
     }
@@ -270,7 +292,7 @@ public class Drawing {
             }
 
             if (drawNumbers) {
-                float numberPixelDistance = camera.ScaleFactor * FONT_HEIGHT_PIXELS / 4;
+                float numberPixelDistance = camera.ScaleFactor * FONT_HEIGHT_LABELS_PIXELS / 4;
                 Vector2f point = new Vector2f(x, y);
                 Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getCoord(0)),
                         camera.pointTransformY(last.getCoord(1))).sub(point);
@@ -285,7 +307,8 @@ public class Drawing {
                 number.addTooltip(p.getID() + "", color, pointInfo, () -> {
                 });
                 number.debug = true;
-                Drawing.font.drawHyperString(number, textCenter.x, textCenter.y, FONT_HEIGHT_PIXELS, camera);
+                Drawing.font.drawHyperString(number, textCenter.x, textCenter.y,
+                        camera.ScaleFactor * FONT_HEIGHT_LABELS_PIXELS, camera);
             }
             if (drawLines) {
                 float lx = camera.pointTransformX(last.getCoord(0));
@@ -299,7 +322,7 @@ public class Drawing {
 
     public static void drawGradientPath(Knot k,
             ArrayList<Pair<Long, Long>> lookUpPairs, HashMap<Long, Integer> colorLookup,
-            ArrayList<Color> colors, Camera2D camera, int minLineThickness) {
+            ArrayList<Color> colors, Camera2D camera, float minLineThickness) {
 
         sdfLine.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false);
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
@@ -324,7 +347,7 @@ public class Drawing {
     }
 
     public static void drawSingleCutMatch(Main main, Segment matchSegment,
-            Segment cutSegment, int lineThickness,
+            Segment cutSegment, float lineThickness,
             PointSet ps, Camera2D camera) {
 
         sdfLine.setStroke(lineThickness * camera.ScaleFactor, false);
@@ -335,7 +358,7 @@ public class Drawing {
     }
 
     public static void drawCircle(VirtualPoint displayPoint, Color color, Camera2D camera,
-            int lineThickness) {
+            float lineThickness) {
         sdfLine.setStroke(lineThickness, false);
         Point p = (Point) displayPoint;
         double xCoord = camera.pointTransformX(p.p.getCoord(0));
@@ -343,7 +366,7 @@ public class Drawing {
         circle.draw(new Vector2f((float) xCoord, (float) yCoord), CIRCLE_RADIUS * camera.ScaleFactor, color, camera);
     }
 
-    public static void drawKnot(Knot k, Color c, int lineThickness, Camera2D camera) {
+    public static void drawKnot(Knot k, Color c, float lineThickness, Camera2D camera) {
         sdfLine.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false);
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);

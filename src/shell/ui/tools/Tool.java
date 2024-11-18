@@ -23,7 +23,7 @@ public abstract class Tool {
     public VirtualPoint selectedKP;
     public VirtualPoint selectedCP;
 
-    public void draw(Camera2D camera, int lineThickness) {
+    public void draw(Camera2D camera, float lineThickness) {
         throw new UnsupportedOperationException("Unimplemented method 'draw'");
     };
 
@@ -118,8 +118,6 @@ public abstract class Tool {
     ToggleType[] disallowedToggles = new ToggleType[] {};
     public float ScreenOffsetY;
     public float ScreenOffsetX;
-    public float scrollOffsetY;
-    public float SCROLL_SPEED = 300f;
 
     public boolean canUseToggle(Toggle toggle) {
         for (int i = 0; i < disallowedToggles.length; i++) {
@@ -226,11 +224,8 @@ public abstract class Tool {
 
     public abstract HyperString buildInfoText();
 
-    private HyperString cachedInfo;
-
     public HyperString info() {
-        cachedInfo = buildInfoText();
-        return cachedInfo;
+        return buildInfoText();
     };
 
     public HyperString toolGeneralInfo() {
@@ -245,20 +240,6 @@ public abstract class Tool {
     public void setScreenOffset(Camera2D camera) {
         ScreenOffsetX = camera.ScreenOffsetX;
         ScreenOffsetY = camera.ScreenOffsetY;
-    }
-
-    public void scrollInfoPanel(boolean scrollUp) {
-
-        float menuBottom = cachedInfo.getLastWord().yScreenOffset;
-        double d = Clock.deltaTime();
-        if (scrollUp) {
-            scrollOffsetY -= SCROLL_SPEED * d;
-            if (scrollOffsetY < 0) {
-                scrollOffsetY = 0;
-            }
-        } else if (menuBottom < Main.MAIN_VIEW_OFFSET_Y) {
-            scrollOffsetY += SCROLL_SPEED * d;
-        }
     }
 
 }

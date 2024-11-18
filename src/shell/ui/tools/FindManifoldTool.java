@@ -39,7 +39,7 @@ public class FindManifoldTool extends Tool {
     }
 
     @Override
-    public void draw(Camera2D camera, int minLineThickness) {
+    public void draw(Camera2D camera, float minLineThickness) {
         if (displaySegment != null
                 && !displaySegment.equals(firstSelectedSegment)) {
             Drawing.drawManifoldCut(displayKP, displayCP, camera,

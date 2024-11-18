@@ -11,6 +11,7 @@ import shell.PointND;
 import shell.PointSet;
 import shell.cuts.CutEngine;
 import shell.exceptions.BalancerException;
+import shell.exceptions.IdDoesNotExistException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Point;
@@ -702,6 +703,22 @@ public class Shell extends LinkedList<PointND> {
 		return result;
 	}
 
+	public int getIndexByID(int idTarget) throws IdDoesNotExistException {
+		int idx = 0;
+		for (PointND p : this) {
+			if (p.getID() == idTarget) {
+				return idx;
+			}
+			idx++;
+		}
+		throw new IdDoesNotExistException(idTarget);
+	}
+
+	public PointND removeByID(int idTarget) throws IdDoesNotExistException {
+		int idx = getIndexByID(idTarget);
+		return this.remove(idx);
+	}
+
 	public Shell removeRotate(PointSet ps) {
 
 		Shell before = new Shell(), after = new Shell();
@@ -938,6 +955,18 @@ public class Shell extends LinkedList<PointND> {
 			return this.get(0);
 		}
 		return this.get(i + 1);
+	}
+
+	public void moveAfter(int idTarget, int idDest) throws IdDoesNotExistException {
+		if (!containsID(idTarget)) {
+			throw new IdDoesNotExistException(idTarget);
+		}
+		if (!containsID(idDest)) {
+			throw new IdDoesNotExistException(idDest);
+		}
+		PointND p = this.removeByID(idTarget);
+		int idxDest = this.getIndexByID(idDest);
+		this.add(idxDest + 1, p);
 	}
 
 }

@@ -15,7 +15,6 @@ public class Segment implements Comparable<Segment> {
     public VirtualPoint last;
     public double distance;
     public long id;
-    public static int numSegments = 0;
 
     public Segment(VirtualPoint first,
             VirtualPoint last,

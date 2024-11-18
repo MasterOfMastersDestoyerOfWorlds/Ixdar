@@ -43,6 +43,7 @@ public class Camera2D implements Camera {
     public float ScreenOffsetY;
     public float ScreenOffsetX;
     public Bounds viewBounds;
+    private double screenSpaceDistanceOverPointSpaceDistanceRatio;
 
     public Camera2D(int Width, int Height, float ScaleFactor, float ScreenOffsetX, float ScreenOffsetY, PointSet ps) {
         if (Height < Width) {
@@ -221,6 +222,10 @@ public class Camera2D implements Camera {
         }
         PanX = offsetX;
         PanY = offsetY;
+        Point2D origin = new Point2D.Double(pointTransformX(0.0), pointTransformY(0.0));
+        Point2D p2 = new Point2D.Double(pointTransformX(1.0), pointTransformY(1.0));
+        screenSpaceDistanceOverPointSpaceDistanceRatio = origin.distance(p2) / Math.sqrt(2);
+
     }
 
     public void zoomToKnot(Knot containingKnot) {
@@ -310,6 +315,10 @@ public class Camera2D implements Camera {
         Point2D p = pn.toPoint2D();
         PanX += Main.MAIN_VIEW_WIDTH / 2 - pointTransformX(p.getX());
         PanY += Main.MAIN_VIEW_HEIGHT / 2 - pointTransformY(p.getY());
+    }
+
+    public double pointSpaceLengthToScreenSpace(double smallestLength) {
+        return smallestLength * screenSpaceDistanceOverPointSpaceDistanceRatio;
     }
 
     public float pointTransformX(double x) {
@@ -420,7 +429,7 @@ public class Camera2D implements Camera {
 
     @Override
     public void incZIndex() {
-        zIndex++;
+        zIndex += 0.01;
     }
 
     @Override

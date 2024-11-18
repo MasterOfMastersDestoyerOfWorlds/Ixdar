@@ -21,13 +21,14 @@ import java.util.ArrayList;
 import org.joml.Vector2f;
 import org.lwjgl.system.MemoryStack;
 
+import shell.Toggle;
 import shell.cameras.Camera;
 import shell.render.Clock;
 import shell.render.text.HyperString;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
-import shell.ui.main.MainPanel;
+import shell.ui.main.PanelTypes;
 
 public class MouseTrap {
 
@@ -57,10 +58,13 @@ public class MouseTrap {
         normalizedPosX = camera.getNormalizePosX(xPos);
         normalizedPosY = camera.getNormalizePosY(yPos);
 
-        MainPanel inMainView = Main.inView(xPos, yPos);
+        PanelTypes inMainView = Main.inView(xPos, yPos);
+        Toggle.setPanelFocus(inMainView);
         if (Main.manifoldKnot != null && Main.active) {
-            if (inMainView == MainPanel.KnotView) {
+            if (inMainView == PanelTypes.KnotView) {
                 Main.tool.calculateClick(normalizedPosX, normalizedPosY);
+            } else if (inMainView == PanelTypes.Terminal) {
+                Main.terminal.calculateClick(normalizedPosX, normalizedPosY);
             }
         }
 
@@ -93,8 +97,8 @@ public class MouseTrap {
         normalizedPosY = camera.getNormalizePosY(y);
         // update pan x and y to follow the mouse
 
-        MainPanel inMainView = Main.inView((float) leftMouseDownPos.x, (float) leftMouseDownPos.y);
-        if (inMainView == MainPanel.KnotView) {
+        PanelTypes inMainView = Main.inView((float) leftMouseDownPos.x, (float) leftMouseDownPos.y);
+        if (inMainView == PanelTypes.KnotView) {
             camera.drag((float) (normalizedPosX - startX), (float) (normalizedPosY - startY));
             startX = normalizedPosX;
             startY = normalizedPosY;
@@ -149,9 +153,9 @@ public class MouseTrap {
             Canvas3D.menu.setHover(normalizedPosX, normalizedPosY);
         }
 
-        MainPanel inMainView = Main.inView(x, y);
+        PanelTypes inMainView = Main.inView(x, y);
         if (main != null && Main.active) {
-            if (inMainView == MainPanel.KnotView) {
+            if (inMainView == PanelTypes.KnotView) {
                 Main.tool.calculateHover(normalizedPosX, normalizedPosY);
             } else {
                 Main.tool.clearHover();
@@ -168,12 +172,12 @@ public class MouseTrap {
         if (System.currentTimeMillis() - timeLastScroll > 60) {
             queuedMouseWheelTicks = 0;
         }
-        MainPanel view = Main.inView(lastX, lastY);
+        PanelTypes view = Main.inView(lastX, lastY);
         if (queuedMouseWheelTicks < 0) {
-            if (view == MainPanel.KnotView) {
+            if (view == PanelTypes.KnotView) {
                 camera.zoom(false);
-            } else if (view == MainPanel.Info) {
-                Main.tool.scrollInfoPanel(true);
+            } else if (view == PanelTypes.Info) {
+                Main.info.scrollInfoPanel(true);
 
                 updateHyperStrings();
             }
@@ -181,10 +185,10 @@ public class MouseTrap {
             queuedMouseWheelTicks++;
         }
         if (queuedMouseWheelTicks > 0) {
-            if (view == MainPanel.KnotView) {
+            if (view == PanelTypes.KnotView) {
                 camera.zoom(true);
-            } else if (view == MainPanel.Info) {
-                Main.tool.scrollInfoPanel(false);
+            } else if (view == PanelTypes.Info) {
+                Main.info.scrollInfoPanel(false);
                 updateHyperStrings();
             }
             Canvas3D.menu.scroll(false);

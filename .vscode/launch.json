@@ -4,13 +4,12 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
         {
             "type": "java",
             "name": "Launch Main",
             "request": "launch",
             "mainClass": "shell.Main",
-            "projectName": "TSP",
+            "projectName": "IXDAR",
             "args": "djbouti",
             "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true"
         },
@@ -19,10 +18,9 @@
             "name": "Ixdar",
             "request": "launch",
             "mainClass": "shell.ui.IxdarWindow",
-            "projectName": "TSP",
+            "projectName": "IXDAR",
             "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true"
         },
-
         {
             "type": "java",
             "name": "Launch Current File",
@@ -36,9 +34,8 @@
             "name": "Launch Profile",
             "request": "launch",
             "mainClass": "shell.Main",
-            "projectName": "TSP",
+            "projectName": "IXDAR",
             "vmArgs": "-enableassertions -agentpath:Z:/VisualVM/visualvm_219/visualvm/lib/deployed/jdk16/windows-amd64/profilerinterface.dll=Z:\\VisualVM\\visualvm_219\\visualvm\\lib,5140"
         }
-
     ]
 }

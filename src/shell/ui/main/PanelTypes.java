@@ -1,6 +1,6 @@
 package shell.ui.main;
 
-public enum MainPanel {
+public enum PanelTypes {
     KnotView,
     Logo,
     Info,

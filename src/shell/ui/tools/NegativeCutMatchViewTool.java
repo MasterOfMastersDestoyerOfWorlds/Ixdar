@@ -39,7 +39,7 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     @Override
-    public void draw(Camera2D camera, int minLineThickness) {
+    public void draw(Camera2D camera, float minLineThickness) {
         if (layerCalculated != Main.knotDrawLayer) {
             initSegmentMap();
             return;

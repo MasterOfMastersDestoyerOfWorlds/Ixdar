@@ -470,4 +470,34 @@ public class DistanceMatrix {
 		return matrix.length;
 	}
 
+	public double getSmallestSegmentLength() {
+		double minLength = Double.MAX_VALUE;
+		for (int i = 0; i < matrix.length; i++) {
+			for (int j = 0; j < matrix.length; j++) {
+				if (i != j) {
+					double matrixValue = matrix[i][j];
+					if (matrixValue < minLength) {
+						minLength = matrixValue;
+					}
+				}
+			}
+		}
+		return minLength;
+
+	}
+
+	public double getLargestSegmentLength() {
+		double maxLength = Double.MIN_VALUE;
+		for (int i = 0; i < matrix.length; i++) {
+			for (int j = 0; j < matrix.length; j++) {
+				double matrixValue = matrix[i][j];
+				if (matrixValue > maxLength) {
+					maxLength = matrixValue;
+				}
+			}
+		}
+		return maxLength;
+
+	}
+
 }

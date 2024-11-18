@@ -33,7 +33,7 @@ public class EditManifoldTool extends Tool {
     }
 
     @Override
-    public void draw(Camera2D camera, int minLineThickness) {
+    public void draw(Camera2D camera, float minLineThickness) {
         if (displaySegment != null && !lastPoint.equals(displayKP)) {
             long matchId = Segment.idTransform(lastPoint.id, displayKP.id);
             Segment matchSeg = lastPoint.segmentLookup.get(matchId);

@@ -73,7 +73,7 @@ public class SDFLine {
         float width = bL.distance(tL);
         float height = bL.distance(bR);
 
-        shader.setFloat("edgeSharpness", (Drawing.MIN_THICKNESS) / (lineWidth * 4));
+        shader.setFloat("edgeSharpness", (float) Math.min(1 / (lineWidth * 2), 0.1));
         shader.setFloat("dashPhase", Clock.spin(dashRate));
         shader.setFloat("lineLengthSq", lengthSq(pA, pB));
         shader.setVec2("pointA", pA);
