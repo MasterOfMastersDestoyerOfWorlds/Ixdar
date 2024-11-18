@@ -3,6 +3,8 @@ package shell;
 import java.awt.geom.Point2D;
 import java.io.Serializable;
 
+import shell.cuts.FileStringable;
+
 /**
  * The {@code PointND} class defines a point representing a location in
  * {@code (x,y, ...)} coordinate space.
@@ -14,7 +16,7 @@ import java.io.Serializable;
  * @author Andrew Wollack
  * 
  */
-public abstract class PointND implements Cloneable {
+public abstract class PointND implements Cloneable, FileStringable {
 
 	/**
 	 * The {@code Float} class defines a point specified in float precision.
@@ -148,6 +150,15 @@ public abstract class PointND implements Cloneable {
 			sb.append(fs[fs.length - 1]);
 			sb.append("]");
 			return this.getID() + " ";
+		}
+
+		@Override
+		public String toFileString() {
+			String res = this.ID + " ";
+			for (int i = 0; i < fs.length; i++) {
+				res += String.format("%.4f", fs[i]) + " ";
+			}
+			return res;
 		}
 
 		/*
@@ -315,6 +326,15 @@ public abstract class PointND implements Cloneable {
 			return this.getID() + "";
 		}
 
+		@Override
+		public String toFileString() {
+			String res = this.ID + " ";
+			for (int i = 0; i < ds.length; i++) {
+				res += String.format("%.4f", ds[i]) + " ";
+			}
+			return res;
+		}
+
 		/*
 		 * JDK 1.6 serialVersionUID
 		 */
@@ -344,7 +364,7 @@ public abstract class PointND implements Cloneable {
 	protected PointND() {
 	}
 
-	private int ID = -1;
+	protected int ID = -1;
 
 	private boolean isCentroid = false;
 

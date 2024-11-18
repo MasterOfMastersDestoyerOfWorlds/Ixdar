@@ -969,4 +969,16 @@ public class Shell extends LinkedList<PointND> {
 		this.add(idxDest + 1, p);
 	}
 
+	public void moveBefore(int idTarget, int idDest) throws IdDoesNotExistException {
+		if (!containsID(idTarget)) {
+			throw new IdDoesNotExistException(idTarget);
+		}
+		if (!containsID(idDest)) {
+			throw new IdDoesNotExistException(idDest);
+		}
+		PointND p = this.removeByID(idTarget);
+		int idxDest = this.getIndexByID(idDest);
+		this.add(idxDest, p);
+	}
+
 }

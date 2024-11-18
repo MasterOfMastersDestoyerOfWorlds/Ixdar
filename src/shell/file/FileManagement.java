@@ -458,9 +458,22 @@ public class FileManagement {
         }
     }
 
-    public static void moveAfter(int idTarget, int idDest) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'moveAfter'");
+    public static void rewriteSolutionFile(File file, Shell shell) {
+
+        FileWriter fw;
+        try {
+            fw = new FileWriter(file);
+            BufferedWriter out = new BufferedWriter(fw);
+            for (PointND pn : shell) {
+                out.write(pn.toFileString());
+                out.newLine();
+            }
+            out.flush();
+            out.close();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 
 }

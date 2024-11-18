@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
 import static org.lwjgl.glfw.GLFW.glfwGetKeyName;
 
 import shell.cameras.Camera2D;
@@ -17,9 +18,11 @@ import shell.ui.Drawing;
 public class Terminal {
     ArrayList<String> history;
     String commandLine;
+    String nextLogicalCommand;
 
     public Terminal() {
         commandLine = "";
+        nextLogicalCommand = "";
         history = new ArrayList<>();
     }
 
@@ -46,6 +49,12 @@ public class Terminal {
             commandLine += " ";
             return;
         }
+        if (key == GLFW_KEY_TAB) {
+            if (commandLine.isBlank() && !nextLogicalCommand.isBlank()) {
+                commandLine = nextLogicalCommand;
+                return;
+            }
+        }
         String str = glfwGetKeyName(key, mods);
         commandLine += str;
     }
@@ -62,12 +71,12 @@ public class Terminal {
                 history.add("exception: arguments are not integers");
             }
         }
-        if (args[0].equals("ma") || args[0].equals("move-after")) {
-            String usage = "usage: ma|move-after [target point to move(int)] [point 1 in destination(int)]";
+        if (args[0].equals("ma") || args[0].equals("moveafter")) {
+            String usage = "usage: ma|moveafter  [point at destination(int)] [target point to move(int)]";
             if (args[1].equals("-h") || args[1].equals("--help")) {
-                history.add("move-after - used to move a point in the file after another point");
+                history.add("moveafter - used to move a point in the file after another point");
                 history.add(usage);
-                history.add("example: ma 1 5 would move point with id 1 after 5 and wrap to zero if necessary");
+                history.add("example: ma 5 1 would move point with id 1 after 5 and wrap to zero if necessary");
                 history.add("exception: no point with id exists");
                 history.add("exception: arguments are not integers");
                 history.add("exception: not enough arguments");
@@ -76,10 +85,38 @@ public class Terminal {
                 if (args.length != 3) {
                     history.add("exception: not enough args: " + usage);
                 }
-                int idTarget = Integer.parseInt(args[1]);
-                int idDest = Integer.parseInt(args[2]);
+                int idTarget = Integer.parseInt(args[2]);
+                int idDest = Integer.parseInt(args[1]);
                 Main.orgShell.moveAfter(idTarget, idDest);
-                FileManagement.moveAfter(idTarget, idDest);
+                FileManagement.rewriteSolutionFile(Main.file, Main.orgShell);
+                nextLogicalCommand = "ma " + idTarget + " ";
+
+            } catch (NumberFormatException e) {
+                history.add("exception: arguments are not integers: " + usage);
+            } catch (IdDoesNotExistException e) {
+                history.add("exception: no point with id " + e.ID + " exists");
+            }
+        }
+        if (args[0].equals("mb") || args[0].equals("movebefore")) {
+            String usage = "usage: ma|movebefore [point at destination(int)] [target point to move(int)]";
+            if (args[1].equals("-h") || args[1].equals("--help")) {
+                history.add("movebefore - used to move a point in the file before another point");
+                history.add(usage);
+                history.add(
+                        "example: mb 5 1 would move point with id 1 before 5 and wrap to the end of the list if necessary");
+                history.add("exception: no point with id exists");
+                history.add("exception: arguments are not integers");
+                history.add("exception: not enough arguments");
+            }
+            try {
+                if (args.length < 3) {
+                    history.add("exception: not enough args: " + usage);
+                }
+                int idTarget = Integer.parseInt(args[2]);
+                int idDest = Integer.parseInt(args[1]);
+                Main.orgShell.moveBefore(idTarget, idDest);
+                FileManagement.rewriteSolutionFile(Main.file, Main.orgShell);
+                nextLogicalCommand = "mb " + idTarget + " ";
 
             } catch (NumberFormatException e) {
                 history.add("exception: arguments are not integers: " + usage);
