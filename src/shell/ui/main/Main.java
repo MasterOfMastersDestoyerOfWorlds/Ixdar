@@ -45,6 +45,7 @@ import shell.render.text.HyperString;
 import shell.shell.Shell;
 import shell.shell.ShellComparator;
 import shell.shell.ShellPair;
+import shell.terminal.Terminal;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 import shell.ui.IxdarWindow;
