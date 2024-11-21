@@ -4,6 +4,8 @@ import java.util.ArrayList;
 
 import shell.exceptions.IdDoesNotExistException;
 import shell.file.FileManagement;
+import shell.render.color.Color;
+import shell.render.text.HyperString;
 import shell.ui.main.Main;
 
 public class MoveAfterCommand extends TerminalCommand {
@@ -29,7 +31,7 @@ public class MoveAfterCommand extends TerminalCommand {
     }
 
     @Override
-    public String run(String[] args, int startIdx, ArrayList<String> history) {
+    public String run(String[] args, int startIdx, HyperString history) {
         try {
             int idTarget = Integer.parseInt(args[startIdx + 1]);
             int idDest = Integer.parseInt(args[startIdx]);
@@ -38,9 +40,9 @@ public class MoveAfterCommand extends TerminalCommand {
             return "ma " + idTarget + " ";
 
         } catch (NumberFormatException e) {
-            history.add("exception: arguments are not integers: " + this.usage());
+            history.addLine("exception: arguments are not integers: " + this.usage(), Color.RED);
         } catch (IdDoesNotExistException e) {
-            history.add("exception: no point with id " + e.ID + " exists");
+            history.addLine("exception: no point with id " + e.ID + " exists", Color.RED);
         }
         return "";
     }

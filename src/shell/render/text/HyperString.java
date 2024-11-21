@@ -68,6 +68,16 @@ public class HyperString {
         }
     }
 
+    public void addLine(String word, Color c) {
+        addWord(word, c);
+        this.newLine();
+    }
+
+    public void addLine(String word) {
+        addWord(word);
+        this.newLine();
+    }
+
     public void addTooltip(String word, Color c, HyperString toolTipText, Action clickAction) {
         for (String w : word.split(" ")) {
             words.add(new Word(w + " ", c,
@@ -306,7 +316,12 @@ public class HyperString {
     }
 
     private void addWord(Word w) {
-        this.addWord((String) w.text, w.color, w.hoverAction, w.clearHover, w.clickAction);
+        if (w.newLine) {
+            this.newLine();
+        } else {
+            this.addWord((String) w.text, w.color, w.hoverAction, w.clearHover, w.clickAction);
+        }
+
     }
 
     public int getLines() {

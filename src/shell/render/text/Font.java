@@ -417,6 +417,9 @@ public class Font {
                 if (word.newLine) {
                     continue;
                 }
+                if(word.color == null){
+                    float z = 0;
+                }
                 drawText(word.text, word.x,
                         word.y, height, word.color,
                         camera);

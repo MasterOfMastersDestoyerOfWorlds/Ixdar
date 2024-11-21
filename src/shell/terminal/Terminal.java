@@ -6,7 +6,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
 import static org.lwjgl.glfw.GLFW.glfwGetKeyName;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 
 import shell.cameras.Camera2D;
 import shell.render.Clock;
@@ -17,10 +17,9 @@ import shell.terminal.commands.MoveBeforeCommand;
 import shell.terminal.commands.MoveCommand;
 import shell.terminal.commands.TerminalCommand;
 import shell.ui.Drawing;
-import shell.ui.main.Main;
 
 public class Terminal {
-    ArrayList<String> history;
+    HyperString history;
     String commandLine;
     String nextLogicalCommand;
 
@@ -35,12 +34,19 @@ public class Terminal {
             new MoveAfterCommand(),
             new MoveBeforeCommand(),
     };
+    public static HashMap<String, TerminalCommand> commandMap = new HashMap<>();
+    static {
+        for (TerminalCommand command : commandList) {
+            commandMap.put(command.fullName(), command);
+            commandMap.put(command.shortName(), command);
+        }
+    }
 
     public Terminal() {
         commandLine = "";
         nextLogicalCommand = "";
         scrollToCommandLine = false;
-        history = new ArrayList<>();
+        history = new HyperString();
     }
 
     public void calculateClick(float normalizedPosX, float normalizedPosY) {
@@ -57,7 +63,7 @@ public class Terminal {
             return;
         }
         if (key == GLFW_KEY_ENTER) {
-            history.add(commandLine);
+            history.addLine(commandLine);
             run(commandLine);
             scrollToCommandLine = true;
             commandLine = "";
@@ -85,43 +91,36 @@ public class Terminal {
         if (remainingArgs == 0) {
             return;
         }
-        for (TerminalCommand command : commandList) {
-            if (args[0].equals(command.shortName()) || args[0].equals(command.fullName())) {
-                remainingArgs--;
-                if (remainingArgs == 0) {
-                    history.add("exception: not enough args: " + command.usage());
-                    return;
-                }
-                if (args[1].equals("-h") || args[1].equals("--help")) {
-                    command.help(history);
-                    remainingArgs--;
-                    startIdx++;
-                    if (remainingArgs == 0) {
-                        return;
-                    }
-                }
-                if (remainingArgs != command.argLength()) {
-                    history.add("exception: not enough args: " + command.usage());
-                    return;
-                }
-                String cmd = command.run(args, startIdx, history);
-                if (!cmd.isBlank()) {
-                    nextLogicalCommand = cmd;
-                }
-
-                break;
+        TerminalCommand command = commandMap.get(args[0]);
+        remainingArgs--;
+        if (remainingArgs == 0) {
+            history.addLine("exception: not enough args: " + command.usage(), Color.RED);
+            return;
+        }
+        if (args[1].equals("-h") || args[1].equals("--help")) {
+            command.help(history);
+            remainingArgs--;
+            startIdx++;
+            if (remainingArgs == 0) {
+                return;
             }
         }
+        if (remainingArgs != command.argLength()) {
+            history.addLine("exception: not enough args: " + command.usage(), Color.RED);
+            return;
+        }
+        String cmd = command.run(args, startIdx, history);
+        if (!cmd.isBlank()) {
+            nextLogicalCommand = cmd;
+        }
+
     }
 
     public void draw(Camera2D camera) {
         int row = 0;
         float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
         HyperString commandHyperString = new HyperString();
-        for (String s : history) {
-            commandHyperString.addWord(s, Color.LIGHT_GRAY);
-            commandHyperString.newLine();
-        }
+        commandHyperString.addHyperString(history);
         commandHyperString.newLine();
         commandHyperString.addWord(commandLine);
         commandHyperString.wrap();
@@ -131,6 +130,7 @@ public class Terminal {
             scrollToCommandLine = false;
             scrollOffsetY -= cachedInfo.getLastWord().yScreenOffset;
         }
+
     }
 
     public void scrollTerminal(boolean scrollUp) {

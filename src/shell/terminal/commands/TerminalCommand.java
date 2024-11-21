@@ -1,26 +1,28 @@
 package shell.terminal.commands;
 
+import shell.render.color.*;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.util.ArrayList;
+
+import shell.render.text.HyperString;
 
 public abstract class TerminalCommand {
-    public void help(ArrayList<String> history) {
+    public void help(HyperString history) {
         String commandName = this.fullName();
         String fileLoc = "./src/shell/terminal/help/" + commandName + ".help";
         File f = new File(fileLoc);
         try (BufferedReader br = new BufferedReader(new FileReader(f))) {
             String line = br.readLine();
             while (line != null) {
-                history.add(line);
+                history.addLine(line, Color.LIGHT_GRAY);
                 line = br.readLine();
             }
             br.close();
         } catch (Exception e) {
-            history.add("!TERMINAL ERROR: helpfile: " + commandName + ".help not found at: " + fileLoc);
+            history.addLine("!TERMINAL ERROR: helpfile: " + commandName + ".help not found at: " + fileLoc, Color.RED);
         }
-        history.add(this.usage());
+        history.addLine(this.usage(), Color.GREEN);
     }
 
     public abstract String usage();
@@ -31,5 +33,5 @@ public abstract class TerminalCommand {
 
     public abstract int argLength();
 
-    public abstract String run(String[] args, int startIdx, ArrayList<String> history);
+    public abstract String run(String[] args, int startIdx, HyperString history);
 }
