@@ -13,7 +13,6 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.awt.Robot;
-import java.awt.event.MouseWheelEvent;
 import java.awt.geom.Point2D;
 import java.nio.DoubleBuffer;
 import java.util.ArrayList;
@@ -117,11 +116,6 @@ public class MouseTrap {
         }
     }
 
-    public void mouseWheelMoved(MouseWheelEvent e) {
-        queuedMouseWheelTicks += e.getWheelRotation();
-        timeLastScroll = System.currentTimeMillis();
-    }
-
     public void mouseScrollCallback(long window, double y) {
         queuedMouseWheelTicks += 4 * y;
         timeLastScroll = System.currentTimeMillis();
@@ -178,7 +172,10 @@ public class MouseTrap {
                 camera.zoom(false);
             } else if (view == PanelTypes.Info) {
                 Main.info.scrollInfoPanel(true);
-
+            } else if (view == PanelTypes.Terminal) {
+                Main.terminal.scrollTerminal(true);
+            }
+            if (view != PanelTypes.None) {
                 updateHyperStrings();
             }
             Canvas3D.menu.scroll(true);
@@ -189,6 +186,10 @@ public class MouseTrap {
                 camera.zoom(true);
             } else if (view == PanelTypes.Info) {
                 Main.info.scrollInfoPanel(false);
+            } else if (view == PanelTypes.Terminal) {
+                Main.terminal.scrollTerminal(false);
+            }
+            if (view != PanelTypes.None) {
                 updateHyperStrings();
             }
             Canvas3D.menu.scroll(false);

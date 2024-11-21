@@ -9,6 +9,7 @@ import static org.lwjgl.glfw.GLFW.glfwGetKeyName;
 import java.util.ArrayList;
 
 import shell.cameras.Camera2D;
+import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
 import shell.terminal.commands.MoveAfterCommand;
@@ -16,11 +17,18 @@ import shell.terminal.commands.MoveBeforeCommand;
 import shell.terminal.commands.MoveCommand;
 import shell.terminal.commands.TerminalCommand;
 import shell.ui.Drawing;
+import shell.ui.main.Main;
 
 public class Terminal {
     ArrayList<String> history;
     String commandLine;
     String nextLogicalCommand;
+
+    private HyperString cachedInfo;
+
+    public float scrollOffsetY = 0;
+    public float SCROLL_SPEED = 300f;
+
     public static TerminalCommand[] commandList = new TerminalCommand[] {
             new MoveCommand(),
             new MoveAfterCommand(),
@@ -113,6 +121,23 @@ public class Terminal {
         commandHyperString.newLine();
         commandHyperString.addWord(commandLine);
         commandHyperString.wrap();
-        Drawing.font.drawHyperStringRows(commandHyperString, row, 0, rowHeight, camera);
+        cachedInfo = commandHyperString;
+        Drawing.font.drawHyperStringRows(commandHyperString, row, scrollOffsetY, rowHeight, camera);
+    }
+
+    public void scrollTerminal(boolean scrollUp) {
+        float menuBottom = cachedInfo.getLastWord().yScreenOffset;
+        double d = Clock.deltaTime();
+        if (scrollUp) {
+            scrollOffsetY -= SCROLL_SPEED * d;
+            if (scrollOffsetY < 0) {
+                scrollOffsetY = 0;
+            }
+        } else if (menuBottom < Main.MAIN_VIEW_OFFSET_Y) {
+            scrollOffsetY += SCROLL_SPEED * d;
+            if (menuBottom > cachedInfo.getLastWord().rowHeight) {
+                scrollOffsetY -= SCROLL_SPEED * d;
+            }
+        }
     }
 }
