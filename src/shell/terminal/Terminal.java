@@ -28,6 +28,7 @@ public class Terminal {
 
     public float scrollOffsetY = 0;
     public float SCROLL_SPEED = 300f;
+    boolean scrollToCommandLine;
 
     public static TerminalCommand[] commandList = new TerminalCommand[] {
             new MoveCommand(),
@@ -38,6 +39,7 @@ public class Terminal {
     public Terminal() {
         commandLine = "";
         nextLogicalCommand = "";
+        scrollToCommandLine = false;
         history = new ArrayList<>();
     }
 
@@ -57,6 +59,7 @@ public class Terminal {
         if (key == GLFW_KEY_ENTER) {
             history.add(commandLine);
             run(commandLine);
+            scrollToCommandLine = true;
             commandLine = "";
             return;
         }
@@ -87,6 +90,7 @@ public class Terminal {
                 remainingArgs--;
                 if (remainingArgs == 0) {
                     history.add("exception: not enough args: " + command.usage());
+                    return;
                 }
                 if (args[1].equals("-h") || args[1].equals("--help")) {
                     command.help(history);
@@ -123,6 +127,10 @@ public class Terminal {
         commandHyperString.wrap();
         cachedInfo = commandHyperString;
         Drawing.font.drawHyperStringRows(commandHyperString, row, scrollOffsetY, rowHeight, camera);
+        if (scrollToCommandLine) {
+            scrollToCommandLine = false;
+            scrollOffsetY -= cachedInfo.getLastWord().yScreenOffset;
+        }
     }
 
     public void scrollTerminal(boolean scrollUp) {
@@ -133,7 +141,7 @@ public class Terminal {
             if (scrollOffsetY < 0) {
                 scrollOffsetY = 0;
             }
-        } else if (menuBottom < Main.MAIN_VIEW_OFFSET_Y) {
+        } else if (menuBottom < 0) {
             scrollOffsetY += SCROLL_SPEED * d;
             if (menuBottom > cachedInfo.getLastWord().rowHeight) {
                 scrollOffsetY -= SCROLL_SPEED * d;
