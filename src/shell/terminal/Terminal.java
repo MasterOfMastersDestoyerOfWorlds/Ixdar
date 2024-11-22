@@ -7,6 +7,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
 import static org.lwjgl.glfw.GLFW.glfwGetKeyName;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
@@ -34,17 +35,19 @@ public class Terminal {
     public float scrollOffsetY = 0;
     public float SCROLL_SPEED = 300f;
     boolean scrollToCommandLine;
+    public File loadedFile;
 
     public static ArrayList<TerminalCommand> commandList = new ArrayList<>();
     public static HashMap<String, TerminalCommand> commandMap = new HashMap<>();
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    public Terminal(String directory) {
+    public Terminal(File loadedFile) {
         commandLine = "";
         nextLogicalCommand = new String[] {};
         nextLogicalCommandIdx = 0;
         scrollToCommandLine = false;
-        this.directory = directory;
+        this.directory = loadedFile.getParent();
+        this.loadedFile = loadedFile;
         history = new HyperString();
         String packageName = "shell.terminal.commands";
         InputStream stream = ClassLoader.getSystemClassLoader()
@@ -138,10 +141,12 @@ public class Terminal {
                 return;
             }
         }
-        if (remainingArgs != command.argLength()) {
+        int argLength = command.argLength();
+        if (remainingArgs != argLength && argLength >= 0) {
             history.addLine("exception: not enough args: " + command.usage(), Color.RED);
             return;
         }
+
         String[] cmd = command.run(args, startIdx, this);
         if (cmd != null) {
             nextLogicalCommand = cmd;

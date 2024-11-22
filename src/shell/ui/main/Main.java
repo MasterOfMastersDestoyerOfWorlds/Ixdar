@@ -123,7 +123,7 @@ public class Main {
 		info = new Info();
 		Main.fileName = fileName;
 		file = FileManagement.getTestFile(fileName);
-		terminal = new Terminal(file.getParent());
+		terminal = new Terminal(file);
 		retTup = FileManagement.importFromFile(file);
 		IxdarWindow.setTitle("Ixdar : " + fileName);
 

@@ -981,4 +981,13 @@ public class Shell extends LinkedList<PointND> {
 		this.add(idxDest, p);
 	}
 
+	public boolean hasPoint(int id) {
+		for (PointND p : this) {
+			if (p.getID() == id) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 }
