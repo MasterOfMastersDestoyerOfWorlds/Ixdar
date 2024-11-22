@@ -120,10 +120,10 @@ public class Main {
 		colorLookup = new HashMap<>();
 		metroColors = new ArrayList<>();
 		subPaths = new ArrayList<>();
-		terminal = new Terminal();
 		info = new Info();
 		Main.fileName = fileName;
 		file = FileManagement.getTestFile(fileName);
+		terminal = new Terminal(file.getParent());
 		retTup = FileManagement.importFromFile(file);
 		IxdarWindow.setTitle("Ixdar : " + fileName);
 

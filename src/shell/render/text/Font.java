@@ -1,13 +1,18 @@
 
 package shell.render.text;
 
+import static java.awt.Font.MONOSPACED;
+import static java.awt.Font.PLAIN;
+import static java.awt.Font.TRUETYPE_FONT;
+import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
+
+import java.awt.FontFormatException;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
-import java.awt.FontFormatException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -23,11 +28,6 @@ import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
-
-import static java.awt.Font.MONOSPACED;
-import static java.awt.Font.PLAIN;
-import static java.awt.Font.TRUETYPE_FONT;
-import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 
 public class Font {
 
@@ -417,14 +417,11 @@ public class Font {
                 if (word.newLine) {
                     continue;
                 }
-                if(word.color == null){
-                    float z = 0;
-                }
                 drawText(word.text, word.x,
                         word.y, height, word.color,
                         camera);
             }
         }
     }
-
+ 
 }

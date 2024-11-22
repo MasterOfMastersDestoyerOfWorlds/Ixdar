@@ -6,47 +6,79 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
 import static org.lwjgl.glfw.GLFW.glfwGetKeyName;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import shell.cameras.Camera2D;
 import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
-import shell.terminal.commands.MoveAfterCommand;
-import shell.terminal.commands.MoveBeforeCommand;
-import shell.terminal.commands.MoveCommand;
 import shell.terminal.commands.TerminalCommand;
 import shell.ui.Drawing;
 
 public class Terminal {
-    HyperString history;
+    public HyperString history;
     String commandLine;
-    String nextLogicalCommand;
-
+    String[] nextLogicalCommand;
+    private int nextLogicalCommandIdx;
+    public String directory;
     private HyperString cachedInfo;
 
     public float scrollOffsetY = 0;
     public float SCROLL_SPEED = 300f;
     boolean scrollToCommandLine;
 
-    public static TerminalCommand[] commandList = new TerminalCommand[] {
-            new MoveCommand(),
-            new MoveAfterCommand(),
-            new MoveBeforeCommand(),
-    };
+    public static ArrayList<TerminalCommand> commandList = new ArrayList<>();
     public static HashMap<String, TerminalCommand> commandMap = new HashMap<>();
-    static {
+
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    public Terminal(String directory) {
+        commandLine = "";
+        nextLogicalCommand = new String[] {};
+        nextLogicalCommandIdx = 0;
+        scrollToCommandLine = false;
+        this.directory = directory;
+        history = new HyperString();
+        String packageName = "shell.terminal.commands";
+        InputStream stream = ClassLoader.getSystemClassLoader()
+                .getResourceAsStream(packageName.replaceAll("[.]", "/"));
+        BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+        List<Class> commandClasses = reader.lines()
+                .filter(line -> line.endsWith(".class"))
+                .map(line -> getClass(line, packageName))
+                .collect(Collectors.toList());
+        for (Class c : commandClasses) {
+            if (!Modifier.isAbstract(c.getModifiers())) {
+                try {
+                    commandList.add((TerminalCommand) c.getConstructor().newInstance());
+                } catch (InstantiationException | IllegalAccessException | IllegalArgumentException
+                        | InvocationTargetException | NoSuchMethodException | SecurityException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
         for (TerminalCommand command : commandList) {
             commandMap.put(command.fullName(), command);
             commandMap.put(command.shortName(), command);
         }
     }
 
-    public Terminal() {
-        commandLine = "";
-        nextLogicalCommand = "";
-        scrollToCommandLine = false;
-        history = new HyperString();
+    @SuppressWarnings("rawtypes")
+    private Class getClass(String className, String packageName) {
+        try {
+            return Class.forName(packageName + "."
+                    + className.substring(0, className.lastIndexOf('.')));
+        } catch (ClassNotFoundException e) {
+            // handle the exception
+        }
+        return null;
     }
 
     public void calculateClick(float normalizedPosX, float normalizedPosY) {
@@ -74,8 +106,9 @@ public class Terminal {
             return;
         }
         if (key == GLFW_KEY_TAB) {
-            if (commandLine.isBlank() && !nextLogicalCommand.isBlank()) {
-                commandLine = nextLogicalCommand;
+            if (commandLine.isBlank() && nextLogicalCommand.length > 0) {
+                commandLine = nextLogicalCommand[nextLogicalCommandIdx];
+                nextLogicalCommandIdx = (nextLogicalCommandIdx + 1) % nextLogicalCommand.length;
                 return;
             }
         }
@@ -92,12 +125,12 @@ public class Terminal {
             return;
         }
         TerminalCommand command = commandMap.get(args[0]);
-        remainingArgs--;
-        if (remainingArgs == 0) {
-            history.addLine("exception: not enough args: " + command.usage(), Color.RED);
+        if (command == null) {
+            history.addLine("command not found: " + args[0], Color.RED);
             return;
         }
-        if (args[1].equals("-h") || args[1].equals("--help")) {
+        remainingArgs--;
+        if (remainingArgs >= 1 && (args[1].equals("-h") || args[1].equals("--help"))) {
             command.help(history);
             remainingArgs--;
             startIdx++;
@@ -109,9 +142,10 @@ public class Terminal {
             history.addLine("exception: not enough args: " + command.usage(), Color.RED);
             return;
         }
-        String cmd = command.run(args, startIdx, history);
-        if (!cmd.isBlank()) {
+        String[] cmd = command.run(args, startIdx, this);
+        if (cmd != null) {
             nextLogicalCommand = cmd;
+            nextLogicalCommandIdx = 0;
         }
 
     }

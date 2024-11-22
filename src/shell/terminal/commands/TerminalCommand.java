@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileReader;
 
 import shell.render.text.HyperString;
+import shell.terminal.Terminal;
 
 public abstract class TerminalCommand {
     public void help(HyperString history) {
@@ -33,5 +34,5 @@ public abstract class TerminalCommand {
 
     public abstract int argLength();
 
-    public abstract String run(String[] args, int startIdx, HyperString history);
+    public abstract String[] run(String[] args, int startIdx, Terminal terminal);
 }

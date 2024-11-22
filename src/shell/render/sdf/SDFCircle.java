@@ -1,22 +1,22 @@
 package shell.render.sdf;
 
+import org.joml.Vector2f;
+
 import shell.cameras.Camera;
 import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 
-import org.joml.Vector2f;
-
 public class SDFCircle {
 
     public ShaderProgram shader;
-    private Color borderColor;
+    // private Color borderColor;
     private float borderThickness;
 
     public SDFCircle() {
         shader = ShaderType.CircleSDF.shader;
-        this.borderColor = Color.RED;
+        // this.borderColor = Color.RED;
         this.borderThickness = 0.15f;
     }
 
