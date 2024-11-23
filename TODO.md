@@ -16,6 +16,8 @@
 
 7. - [ ] Need to figure out the maximum number of moves within a knot so we can relax the constraints of where we can move and not have as much calculation.
 
+8. - [ ] Need to figure out how to reuse the shortest path info already calculated, f.e. if we move the terminal cut segment counter clockwise we should only invalidate the three effected points and their connections, the rest of the connections should still be valid although we will have to recalculate which of the available cuts are allowed by rules of the hole-moving game.
+
 ## Knot Finding
 
 1. - [ ] If we have a VirtualPoint A that points to two different internal VirtualPoints B and C in the top layer of a Knot, we need to insert A between B and C.

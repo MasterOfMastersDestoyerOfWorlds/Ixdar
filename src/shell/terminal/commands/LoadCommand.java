@@ -11,26 +11,26 @@ import shell.shell.Shell;
 import shell.terminal.Terminal;
 import shell.ui.main.Main;
 
-public class SubGraphCommand extends TerminalCommand {
+public class LoadCommand extends TerminalCommand {
 
     @Override
     public String fullName() {
-        return "subgraph";
+        return "load";
     }
 
     @Override
     public String shortName() {
-        return "sg";
+        return "ld";
     }
 
     @Override
     public String usage() {
-        return "usage: sg|subgraph [id range 1(range)] ... [id range n(range)]";
+        return "usage: ld|load [file to load(filename)]";
     }
 
     @Override
     public int argLength() {
-        return -1;
+        return 1;
     }
 
     @Override
@@ -86,6 +86,6 @@ public class SubGraphCommand extends TerminalCommand {
         }
 
         FileManagement.rewriteSolutionFile(newFile, subGraph);
-        return new String[] { "ld " + subGraphFileName };
+        return new String[] { "op " + subGraphFileName };
     }
 }
