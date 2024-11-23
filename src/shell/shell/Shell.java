@@ -950,6 +950,21 @@ public class Shell extends LinkedList<PointND> {
 		return false;
 	}
 
+	public boolean containsRange(Range r) {
+		boolean hasStart = false;
+		boolean hasEnd = false;
+		for (PointND pointND : this) {
+			if (pointND.getID() == r.endIdx) {
+				hasEnd = true;
+			}
+
+			if (pointND.getID() == r.startIdx) {
+				hasStart = true;
+			}
+		}
+		return hasStart && hasEnd;
+	}
+
 	public PointND getNext(int i) {
 		if (i + 1 >= this.size()) {
 			return this.get(0);
@@ -957,28 +972,28 @@ public class Shell extends LinkedList<PointND> {
 		return this.get(i + 1);
 	}
 
-	public void moveAfter(int idTarget, int idDest) throws IdDoesNotExistException {
-		if (!containsID(idTarget)) {
+	public void moveAfter(Range idTarget, int idDest) throws IdDoesNotExistException {
+		if (!containsRange(idTarget)) {
 			throw new IdDoesNotExistException(idTarget);
 		}
 		if (!containsID(idDest)) {
 			throw new IdDoesNotExistException(idDest);
 		}
-		PointND p = this.removeByID(idTarget);
+		ArrayList<PointND> p = this.removeAllInRange(idTarget);
 		int idxDest = this.getIndexByID(idDest);
-		this.add(idxDest + 1, p);
+		this.addAll(idxDest + 1, p);
 	}
 
-	public void moveBefore(int idTarget, int idDest) throws IdDoesNotExistException {
-		if (!containsID(idTarget)) {
+	public void moveBefore(Range idTarget, int idDest) throws IdDoesNotExistException {
+		if (!containsRange(idTarget)) {
 			throw new IdDoesNotExistException(idTarget);
 		}
 		if (!containsID(idDest)) {
 			throw new IdDoesNotExistException(idDest);
 		}
-		PointND p = this.removeByID(idTarget);
+		ArrayList<PointND> p = this.removeAllInRange(idTarget);
 		int idxDest = this.getIndexByID(idDest);
-		this.add(idxDest, p);
+		this.addAll(idxDest, p);
 	}
 
 	public boolean hasPoint(int id) {
@@ -988,6 +1003,35 @@ public class Shell extends LinkedList<PointND> {
 			}
 		}
 		return false;
+	}
+
+	public void addAllInRange(Range r, Shell orgShell) {
+		for (PointND p : orgShell) {
+			if (r.hasPoint(p)) {
+				this.add(p);
+			}
+		}
+	}
+
+	public ArrayList<PointND> getAllInRange(Range r) {
+		ArrayList<PointND> points = new ArrayList<>();
+		for (PointND p : this) {
+			if (r.hasPoint(p)) {
+				points.add(p);
+			}
+		}
+		return points;
+	}
+
+	public ArrayList<PointND> removeAllInRange(Range r) {
+		ArrayList<PointND> points = new ArrayList<>();
+		for (PointND p : this) {
+			if (r.hasPoint(p)) {
+				points.add(p);
+			}
+		}
+		this.removeAll(points);
+		return points;
 	}
 
 }

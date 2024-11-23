@@ -1,0 +1,66 @@
+package shell.shell;
+
+import shell.PointND;
+import shell.exceptions.RangeParseException;
+
+public class Range {
+    public int startIdx;
+    public int endIdx;
+
+    public Range(int startIdx, int endIdx) {
+        this.startIdx = startIdx;
+        this.endIdx = endIdx;
+    }
+
+    public static Range parse(String arg) throws RangeParseException {
+        if (arg.contains("-")) {
+            String[] parts = arg.split("-");
+            if (parts.length != 2) {
+                throw new RangeParseException("more than one dash in range");
+            }
+            int start = 0;
+            int end = 0;
+            try {
+                start = Integer.parseInt(parts[0]);
+            } catch (NumberFormatException e) {
+                throw new RangeParseException("first half of range is not an integer");
+            }
+
+            try {
+                end = Integer.parseInt(parts[1]);
+            } catch (NumberFormatException e) {
+                throw new RangeParseException("second half of range is not an integer");
+            }
+            return new Range(start, end);
+        } else {
+            try {
+                int start = Integer.parseInt(arg);
+                return new Range(start, start);
+            } catch (NumberFormatException e) {
+                throw new RangeParseException("first half of range is not an integer");
+            }
+        }
+    }
+
+    @Override
+    public String toString() {
+        if (startIdx != endIdx) {
+            return startIdx + "-" + endIdx;
+        }
+        return startIdx + "";
+    }
+
+    public boolean hasPoint(PointND p) {
+        if (startIdx > endIdx) {
+            if (p.getID() >= startIdx || p.getID() <= endIdx) {
+                return true;
+            }
+        } else {
+            if (p.getID() >= startIdx && p.getID() <= endIdx) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+}

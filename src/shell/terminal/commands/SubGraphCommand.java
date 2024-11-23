@@ -1,9 +1,13 @@
 package shell.terminal.commands;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 
+import shell.file.FileManagement;
 import shell.render.color.Color;
+import shell.shell.Range;
+import shell.shell.Shell;
 import shell.terminal.Terminal;
 import shell.ui.main.Main;
 
@@ -21,7 +25,7 @@ public class SubGraphCommand extends TerminalCommand {
 
     @Override
     public String usage() {
-        return "usage: sg|subgraph [id range 1] ... [id range n]";
+        return "usage: sg|subgraph [id range 1(range)] ... [id range n(range)]";
     }
 
     @Override
@@ -31,7 +35,6 @@ public class SubGraphCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        int argLength = args.length - startIdx - 1;
         ArrayList<Range> ranges = new ArrayList<>();
         for (int i = startIdx; i < args.length; i++) {
             String arg = args[i];
@@ -55,8 +58,34 @@ public class SubGraphCommand extends TerminalCommand {
             }
 
         }
-        String newFileName = terminal.loadedFile.getName();
-        return new String[] { "op " + newFileName };
+        String subGraphFileName = terminal.loadedFile.getName();
+        int extension = terminal.directory.lastIndexOf("\\") + 1;
+        if (extension == -1) {
+            extension = 0;
+        }
+        subGraphFileName = terminal.directory.substring(extension, terminal.directory.length()) + "_";
 
+        for (int i = 0; i < ranges.size() - 1; i++) {
+            Range r = ranges.get(i);
+            subGraphFileName += r.toString() + "p";
+        }
+
+        Range lastRange = ranges.get(ranges.size() - 1);
+        subGraphFileName += lastRange.toString();
+
+        subGraphFileName += ".ix";
+        File newFile = new File(terminal.directory + "\\" + subGraphFileName);
+        try {
+            newFile.createNewFile();
+        } catch (IOException e) {
+            terminal.history.addLine("exception: could not create subgraph: " + subGraphFileName, Color.RED);
+        }
+        Shell subGraph = new Shell();
+        for (Range r : ranges) {
+            subGraph.addAllInRange(r, Main.orgShell);
+        }
+
+        FileManagement.rewriteSolutionFile(newFile, subGraph);
+        return new String[] { "op " + subGraphFileName };
     }
 }
