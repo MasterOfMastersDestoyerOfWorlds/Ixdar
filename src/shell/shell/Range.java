@@ -6,10 +6,18 @@ import shell.exceptions.RangeParseException;
 public class Range {
     public int startIdx;
     public int endIdx;
+    public int rangeLength;
+    public boolean reversed;
 
     public Range(int startIdx, int endIdx) {
         this.startIdx = startIdx;
         this.endIdx = endIdx;
+        if (startIdx == endIdx) {
+            rangeLength = 1;
+        } else {
+            rangeLength = Math.abs(endIdx - startIdx) + 1;
+        }
+        reversed = startIdx > endIdx;
     }
 
     public static Range parse(String arg) throws RangeParseException {
@@ -51,8 +59,8 @@ public class Range {
     }
 
     public boolean hasPoint(PointND p) {
-        if (startIdx > endIdx) {
-            if (p.getID() >= startIdx || p.getID() <= endIdx) {
+        if (reversed) {
+            if (p.getID() <= startIdx && p.getID() >= endIdx) {
                 return true;
             }
         } else {

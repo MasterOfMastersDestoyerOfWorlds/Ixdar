@@ -3,6 +3,7 @@ package shell.shell;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 
@@ -972,6 +973,13 @@ public class Shell extends LinkedList<PointND> {
 		return this.get(i + 1);
 	}
 
+	public PointND getPrev(int i) {
+		if (i - 1 < 0) {
+			return this.get(this.size() - 1);
+		}
+		return this.get(i - 1);
+	}
+
 	public void moveAfter(Range idTarget, int idDest) throws IdDoesNotExistException {
 		if (!containsRange(idTarget)) {
 			throw new IdDoesNotExistException(idTarget);
@@ -981,7 +989,12 @@ public class Shell extends LinkedList<PointND> {
 		}
 		ArrayList<PointND> p = this.removeAllInRange(idTarget);
 		int idxDest = this.getIndexByID(idDest);
-		this.addAll(idxDest + 1, p);
+		if (idTarget.reversed) {
+			Collections.reverse(p);
+			this.addAll(idxDest + 1, p);
+		} else {
+			this.addAll(idxDest + 1, p);
+		}
 	}
 
 	public void moveBefore(Range idTarget, int idDest) throws IdDoesNotExistException {
@@ -1032,6 +1045,27 @@ public class Shell extends LinkedList<PointND> {
 		}
 		this.removeAll(points);
 		return points;
+	}
+
+	public boolean isLocalMinima() {
+		for (int i = 0; i < this.size(); i++) {
+			PointND curr = this.get(i);
+			PointND next = this.getNext(i);
+			PointND prev = this.getPrev(i);
+			double delta = next.distance(prev) - next.distance(curr) - prev.distance(curr);
+			for (int j = 0; j < this.size(); j++) {
+				int nextJ = j + 1 >= this.size() ? 0 : j + 1;
+				if (i != j && i != nextJ) {
+					PointND currD = this.get(j);
+					PointND nextD = this.get(nextJ);
+					double delta2 = delta - currD.distance(nextD) + currD.distance(curr) + nextD.distance(curr);
+					if (delta2 < 0) {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
 	}
 
 }

@@ -5,21 +5,21 @@ import java.io.File;
 import shell.render.color.Color;
 import shell.terminal.Terminal;
 
-public class ListFilesCommand extends TerminalCommand {
+public class CheckCommand extends TerminalCommand {
 
     @Override
     public String fullName() {
-        return "listfiles";
+        return "check";
     }
 
     @Override
     public String shortName() {
-        return "ls";
+        return "ck";
     }
 
     @Override
     public String usage() {
-        return "usage: ls|listfiles";
+        return "usage: ck|check [value to display or question to ask(Value|Question)]";
     }
 
     @Override
