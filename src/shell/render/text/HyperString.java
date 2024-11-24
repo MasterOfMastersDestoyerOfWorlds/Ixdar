@@ -10,7 +10,7 @@ import shell.knot.Segment;
 import shell.render.color.Color;
 import shell.ui.Drawing;
 import shell.ui.actions.Action;
-import shell.ui.input.mouse.MouseTrap;
+import shell.ui.input.MouseTrap;
 import shell.ui.main.Main;
 
 public class HyperString {

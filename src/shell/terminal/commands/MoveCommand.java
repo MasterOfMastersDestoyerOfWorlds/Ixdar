@@ -3,12 +3,14 @@ package shell.terminal.commands;
 import shell.exceptions.IdDoesNotExistException;
 import shell.exceptions.RangeParseException;
 import shell.file.FileManagement;
-import shell.render.color.Color;
 import shell.shell.Range;
 import shell.terminal.Terminal;
 import shell.ui.main.Main;
 
 public class MoveCommand extends TerminalCommand {
+
+    public static String cmd = "mv";
+
     @Override
     public String fullName() {
         return "move";
@@ -16,7 +18,7 @@ public class MoveCommand extends TerminalCommand {
 
     @Override
     public String shortName() {
-        return "mv";
+        return cmd;
     }
 
     @Override
@@ -39,11 +41,11 @@ public class MoveCommand extends TerminalCommand {
             return new String[] { "mb " + idTarget + " " };
 
         } catch (NumberFormatException e) {
-            terminal.history.addLine("exception: arguments are not integers: " + this.usage(), Color.RED);
+            terminal.error("arguments are not integers: " + this.usage());
         } catch (IdDoesNotExistException e) {
-            terminal.history.addLine("exception: no point with id " + e.ID + " exists", Color.RED);
+            terminal.error("no point with id " + e.ID + " exists");
         } catch (RangeParseException e) {
-            terminal.history.addLine("exception: could not parse range: " + e.message, Color.RED);
+            terminal.error("could not parse range: " + e.message);
         }
         return null;
     }

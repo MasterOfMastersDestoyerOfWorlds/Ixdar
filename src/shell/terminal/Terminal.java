@@ -58,7 +58,7 @@ public class Terminal {
                 .map(line -> getClass(line, packageName))
                 .collect(Collectors.toList());
         for (Class c : commandClasses) {
-            if (!Modifier.isAbstract(c.getModifiers())) {
+            if (!Modifier.isAbstract(c.getModifiers()) && !c.isEnum()) {
                 try {
                     commandList.add((TerminalCommand) c.getConstructor().newInstance());
                 } catch (InstantiationException | IllegalAccessException | IllegalArgumentException
@@ -119,7 +119,7 @@ public class Terminal {
         commandLine += str;
     }
 
-    private void run(String commandLine) {
+    public void run(String commandLine) {
         String[] args = commandLine.split(" +");
 
         int remainingArgs = args.length;
@@ -134,7 +134,7 @@ public class Terminal {
         }
         remainingArgs--;
         if (remainingArgs >= 1 && (args[1].equals("-h") || args[1].equals("--help"))) {
-            command.help(history);
+            command.help(this);
             remainingArgs--;
             startIdx++;
             if (remainingArgs == 0) {
@@ -186,5 +186,9 @@ public class Terminal {
                 scrollOffsetY -= SCROLL_SPEED * d;
             }
         }
+    }
+
+    public void error(String string) {
+        this.history.addLine("EXCEPTION: " + string, Color.RED);
     }
 }

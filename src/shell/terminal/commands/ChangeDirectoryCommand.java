@@ -2,10 +2,11 @@ package shell.terminal.commands;
 
 import java.io.File;
 
-import shell.render.color.Color;
 import shell.terminal.Terminal;
 
 public class ChangeDirectoryCommand extends TerminalCommand {
+
+    public static String cmd = "cd";
 
     @Override
     public String fullName() {
@@ -14,7 +15,7 @@ public class ChangeDirectoryCommand extends TerminalCommand {
 
     @Override
     public String shortName() {
-        return "cd";
+        return cmd;
     }
 
     @Override
@@ -42,7 +43,7 @@ public class ChangeDirectoryCommand extends TerminalCommand {
             terminal.directory = dirLoc;
             return new String[] { "ls" };
         }
-        terminal.history.addLine("directory not found: " + dirLoc, Color.RED);
+        terminal.error("directory not found: " + dirLoc);
         return null;
 
     }

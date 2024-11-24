@@ -7,6 +7,8 @@ import shell.terminal.Terminal;
 
 public class CheckCommand extends TerminalCommand {
 
+    public static String cmd = "ck";
+
     @Override
     public String fullName() {
         return "check";
@@ -14,7 +16,7 @@ public class CheckCommand extends TerminalCommand {
 
     @Override
     public String shortName() {
-        return "ck";
+        return cmd;
     }
 
     @Override

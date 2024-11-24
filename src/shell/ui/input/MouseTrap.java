@@ -1,4 +1,4 @@
-package shell.ui.input.mouse;
+package shell.ui.input;
 
 import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;

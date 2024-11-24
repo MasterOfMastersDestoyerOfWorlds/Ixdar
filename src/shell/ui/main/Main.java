@@ -49,9 +49,9 @@ import shell.terminal.Terminal;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 import shell.ui.IxdarWindow;
-import shell.ui.input.keys.KeyActions;
-import shell.ui.input.keys.KeyGuy;
-import shell.ui.input.mouse.MouseTrap;
+import shell.ui.input.KeyActions;
+import shell.ui.input.KeyGuy;
+import shell.ui.input.MouseTrap;
 import shell.ui.tools.FreeTool;
 import shell.ui.tools.Tool;
 
@@ -80,7 +80,7 @@ public class Main {
 	public static int knotDrawLayer = -1;
 	static PriorityQueue<ShellPair> metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
 	public static PriorityQueue<ShellPair> metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
-	public static ArrayList<Knot> knotsDisplayed = new ArrayList<>();
+	public static ArrayList<Knot> knotsDisplayed;
 
 	public static Color stickyColor;
 	public static ArrayList<Color> metroColors = new ArrayList<>();
@@ -117,6 +117,7 @@ public class Main {
 		manifolds = new ArrayList<>();
 		knotLayerLookup = new HashMap<>();
 		knotGradientColors = new ArrayList<>();
+		knotsDisplayed = new ArrayList<>();
 		colorLookup = new HashMap<>();
 		metroColors = new ArrayList<>();
 		subPaths = new ArrayList<>();
@@ -482,6 +483,9 @@ public class Main {
 
 	public static Color getKnotGradientColor(VirtualPoint displayPoint) {
 		Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
+		if (smallestKnot == null) {
+			return Color.IXDAR;
+		}
 		return knotGradientColors.get(colorLookup.get((long) smallestKnot.id));
 	}
 

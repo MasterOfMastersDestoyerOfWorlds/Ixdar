@@ -1,4 +1,4 @@
-package shell.ui.input.keys;
+package shell.ui.input;
 
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_CONTROL;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
@@ -9,9 +9,7 @@ import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Random;
 import java.util.Set;
 
 import javax.imageio.ImageIO;
@@ -20,9 +18,11 @@ import javax.swing.JFrame;
 import shell.Toggle;
 import shell.cameras.Camera;
 import shell.file.FileManagement;
-import shell.render.color.Color;
-import shell.render.color.ColorRGB;
 import shell.shell.Shell;
+import shell.terminal.commands.ColorCommand;
+import shell.terminal.commands.ExitCommand;
+import shell.terminal.commands.ResetCommand;
+import shell.terminal.commands.ResetCommand.ResetOption;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.actions.GenerateManifoldTestsAction;
@@ -139,23 +139,7 @@ public class KeyGuy {
             Tool tool = Main.tool;
             if (tool.canUseToggle(Toggle.isMainFocused)) {
                 if (KeyActions.ColorRandomization.keyPressed(pressedKeys)) {
-                    Random colorSeed = new Random();
-                    Main.stickyColor = new ColorRGB(colorSeed.nextFloat(), colorSeed.nextFloat(),
-                            colorSeed.nextFloat());
-                    if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
-                        Main.metroColors = new ArrayList<>();
-                        int totalLayers = Main.shell.cutEngine.totalLayers;
-                        float startHue = colorSeed.nextFloat();
-                        float step = 1.0f / ((float) totalLayers);
-                        for (int i = 0; i <= totalLayers; i++) {
-                            Main.metroColors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
-                        }
-                    }
-                    float startHue = colorSeed.nextFloat();
-                    float step = 1.0f / ((float) Main.shell.cutEngine.flatKnots.size());
-                    for (int i = 0; i < Main.knotGradientColors.size(); i++) {
-                        Main.knotGradientColors.set(i, Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
-                    }
+                    ColorCommand.run();
                 }
                 if (KeyActions.DrawCutMatch.keyPressed(pressedKeys)) {
                     Toggle.drawCutMatch.toggle();
@@ -224,15 +208,10 @@ public class KeyGuy {
                     Main.tool.confirm();
                 }
                 if (KeyActions.Reset.keyPressed(pressedKeys)) {
-                    camera.reset();
-                    Main.tool.reset();
+                    ResetCommand.run(ResetOption.All);
                 }
                 if (KeyActions.Back.keyPressed(pressedKeys)) {
-                    if (Main.tool.toolType() == Tool.Type.Free) {
-                        Canvas3D.activate(true);
-                        Main.activate(false);
-                    }
-                    Main.tool = Main.freeTool;
+                    ExitCommand.run();
                 }
             }
         } else if (Canvas3D.active) {

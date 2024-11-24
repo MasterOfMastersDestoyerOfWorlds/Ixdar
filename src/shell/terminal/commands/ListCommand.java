@@ -7,6 +7,8 @@ import shell.terminal.Terminal;
 
 public class ListCommand extends TerminalCommand {
 
+    public static String cmd = "ls";
+
     @Override
     public String fullName() {
         return "list";
@@ -14,7 +16,7 @@ public class ListCommand extends TerminalCommand {
 
     @Override
     public String shortName() {
-        return "ls";
+        return cmd;
     }
 
     @Override

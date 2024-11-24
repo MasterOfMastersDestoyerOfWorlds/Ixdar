@@ -1,4 +1,4 @@
-package shell.ui.input.keys;
+package shell.ui.input;
 
 import static org.lwjgl.glfw.GLFW.*;
 

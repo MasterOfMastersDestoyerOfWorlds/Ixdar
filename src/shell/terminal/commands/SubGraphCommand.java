@@ -5,13 +5,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 import shell.file.FileManagement;
-import shell.render.color.Color;
 import shell.shell.Range;
 import shell.shell.Shell;
 import shell.terminal.Terminal;
 import shell.ui.main.Main;
 
 public class SubGraphCommand extends TerminalCommand {
+
+    public static String cmd = "sg";
 
     @Override
     public String fullName() {
@@ -20,7 +21,7 @@ public class SubGraphCommand extends TerminalCommand {
 
     @Override
     public String shortName() {
-        return "sg";
+        return cmd;
     }
 
     @Override
@@ -41,19 +42,16 @@ public class SubGraphCommand extends TerminalCommand {
             try {
                 Range r = Range.parse(arg);
                 if (!Main.orgShell.hasPoint(r.startIdx)) {
-                    terminal.history
-                            .addLine("exception: argument " + arg
-                                    + " was out of bounds", Color.RED);
+                    terminal.error("argument " + arg
+                            + " was out of bounds");
                 } else if (!Main.orgShell.hasPoint(r.endIdx)) {
-                    terminal.history
-                            .addLine("exception: argument " + arg
-                                    + " was out of bounds", Color.RED);
+                    terminal.error("argument " + arg
+                            + " was out of bounds");
                 }
                 ranges.add(r);
             } catch (Exception e) {
-                terminal.history
-                        .addLine("exception: argument " + arg
-                                + " was could not be parsed: " + e.getMessage(), Color.RED);
+                terminal.error("argument " + arg
+                        + " was could not be parsed: " + e.getMessage());
                 return null;
             }
 
@@ -78,7 +76,7 @@ public class SubGraphCommand extends TerminalCommand {
         try {
             newFile.createNewFile();
         } catch (IOException e) {
-            terminal.history.addLine("exception: could not create subgraph: " + subGraphFileName, Color.RED);
+            terminal.error("could not create subgraph: " + subGraphFileName);
         }
         Shell subGraph = new Shell();
         for (Range r : ranges) {
