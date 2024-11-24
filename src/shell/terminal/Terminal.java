@@ -88,7 +88,7 @@ public class Terminal {
 
     }
 
-    public void type(int key, int mods) {
+    public void keyPress(int key, int mods) {
         if (key == GLFW_KEY_BACKSPACE) {
             int back = commandLine.length() - 1;
             if (back < 0) {
@@ -115,8 +115,13 @@ public class Terminal {
                 return;
             }
         }
-        String str = glfwGetKeyName(key, mods);
-        commandLine += str;
+    }
+
+    public void type(String typedCharacter) {
+        if (typedCharacter.isBlank()) {
+            return;
+        }
+        commandLine += typedCharacter;
     }
 
     public void run(String commandLine) {

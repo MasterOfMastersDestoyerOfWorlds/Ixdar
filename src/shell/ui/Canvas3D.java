@@ -1,5 +1,6 @@
 package shell.ui;
 
+import static org.lwjgl.glfw.GLFW.glfwSetCharCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetCursorPosCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
@@ -345,6 +346,8 @@ public class Canvas3D {
             glfwSetKeyCallback(IxdarWindow.window,
                     (window, key, scancode, action, mods) -> keys.keyCallback(window, key, scancode, action, mods));
 
+            glfwSetCharCallback(IxdarWindow.window,
+                    (window, codepoint) -> keys.charCallback(window, codepoint));
             glfwSetMouseButtonCallback(IxdarWindow.window,
                     (window, button, action, mods) -> mouse.clickCallback(window, button, action, mods));
 

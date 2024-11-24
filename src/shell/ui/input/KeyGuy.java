@@ -124,10 +124,12 @@ public class KeyGuy {
                 negativeCutMatchViewTool.initSegmentMap();
                 Main.tool = negativeCutMatchViewTool;
             }
-        } else {
-            if (Toggle.isTerminalFocused.value) {
-                Main.terminal.type(key, mods);
-            }
+
+        } else if (Toggle.isTerminalFocused.value) {
+            Main.terminal.keyPress(key, mods);
+        }
+        if (KeyActions.Back.keyPressed(pressedKeys)) {
+            ExitCommand.run();
         }
     }
 
@@ -209,9 +211,6 @@ public class KeyGuy {
                 }
                 if (KeyActions.Reset.keyPressed(pressedKeys)) {
                     ResetCommand.run(ResetOption.All);
-                }
-                if (KeyActions.Back.keyPressed(pressedKeys)) {
-                    ExitCommand.run();
                 }
             }
         } else if (Canvas3D.active) {
@@ -296,6 +295,13 @@ public class KeyGuy {
                 break;
             default:
                 break;
+        }
+    }
+
+    public void charCallback(long window, int codepoint) {
+        String currentText = "" + (char) codepoint;
+        if (Toggle.isTerminalFocused.value) {
+            Main.terminal.type(currentText);
         }
     }
 

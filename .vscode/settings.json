@@ -17,6 +17,7 @@
     "java.format.settings.url": "eclipse-formatter.xml",
     "java.saveActions.organizeImports": false,
     "cSpell.words": [
+        "bezier",
         "Ixdar"
     ]
 }

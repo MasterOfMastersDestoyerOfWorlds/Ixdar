@@ -94,15 +94,45 @@
 
 ![Complete](readme_img\complete.png)
 
-## Message Panel
+## Terminal Panel
 
-1. - [ ] Should be like a terminal where you can ask questions about the knot you are looking at.
+### Commands
 
-2. - [ ] Display a scrollable pool of past commands and messages.
+1. - [ ] Every command + key action should also be accessible from the terminal
 
-3. - [ ] Messages should use hyper text when possible.
+2. - [ ] Should be like a terminal where you can ask questions about the knot you are looking at.
 
-4. - [ ] Typing should bring up a tooltip about the the terminal with the commands that have the right letters
+3. - [ ] Make Unit Tests Command
+
+### Tab Completion
+
+1. - [x] Pressing tab on an empty line after running another command should type the next likely command
+
+2. - [ ] Pressing tab on a line with a typed command but missing arguments should cycle through the available options for that command (no cycle on integer inputs).
+
+3. - [ ] Pressing the up arrow should replace the current command line with the previous one in hte history all the way back to the beginning.
+
+### Cursor
+
+1. - [ ] Should have a flashing cursor at the end of the command line
+
+2. - [ ] Pressing right and left arrow should move the cursor's position
+
+3. - [ ] Clicking on the command line should move the cursor to the mouses position.
+
+4. - [ ] Should have a right arrow at the beginning of the command line
+
+### General
+
+1. - [x] Display a scrollable pool of past commands and messages.
+
+2. - [ ] Pressing control and clicking a point or a knot should bring its id into the terminal at the cursor
+
+3. - [ ] Bezier curve animation behind terminal as fast fluid sim?
+
+4. - [ ] Messages should use hyper text when possible.
+
+5. - [ ] Typing should bring up a tooltip about the the terminal with the commands that have the right letters
 
 ## Info Panel
 

@@ -26,6 +26,8 @@ public class FileManagement {
 
     public static final String testFileCacheLocation = "./src/test/cache/cache";
 
+    public static final String subGraphUnitTestFolder = "./src/test/unit/subgraphs/";
+
     public static File getTestFile(String fileName) {
         String[] parts = fileName.split("_");
         if (fileName.contains(".ix")) {
@@ -473,6 +475,32 @@ public class FileManagement {
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
+        }
+    }
+
+    public static void writeSubGraphTest(String fileName, String template) {
+        File unitTest = new File(subGraphUnitTestFolder + fileName);
+        try {
+            unitTest.createNewFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return;
+        }
+        String[] lines = template.split("\n");
+        FileWriter fw;
+        try {
+            fw = new FileWriter(unitTest);
+            BufferedWriter out = new BufferedWriter(fw);
+            for (String line : lines) {
+                out.write(line);
+                out.newLine();
+            }
+            out.flush();
+            out.close();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            return;
         }
     }
 
