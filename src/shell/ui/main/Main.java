@@ -156,9 +156,6 @@ public class Main {
 		MAIN_VIEW_OFFSET_X = 0;
 		MAIN_VIEW_OFFSET_Y = BOTTOM_PANEL_SIZE;
 		camera.initCamera();
-		if (camera.screenSpaceDistanceOverPointSpaceDistanceRatio == 0.0) {
-			float z = 0;
-		}
 		DistanceMatrix d = retTup.d;
 		if (retTup.d == null) {
 			d = new DistanceMatrix(retTup.ps);

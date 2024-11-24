@@ -1065,7 +1065,7 @@ public class Shell extends LinkedList<PointND> {
 					PointND currD = this.get(j);
 					PointND nextD = this.get(nextJ);
 					double delta2 = delta - currD.distance(nextD) + currD.distance(curr) + nextD.distance(curr);
-					if (delta2 < 0) {
+					if (delta2 < 0 && delta2 < -0.0000001) {
 						return false;
 					}
 				}
