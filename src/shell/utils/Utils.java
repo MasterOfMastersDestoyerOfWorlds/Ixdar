@@ -320,7 +320,6 @@ public final class Utils {
         AffineTransformOp opRotated = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
         BufferedImage imageOut = opRotated.filter(imageIn, null);
 
-
         int numInFolder = new File("./img").list().length;
         File outputfile = new File("./img/snap" + numInFolder + ".png");
         try {
@@ -328,5 +327,14 @@ public final class Utils {
         } catch (Exception e) {
             System.out.println("ScreenShot() exception: " + e);
         }
+    }
+
+    public static boolean hasKnot(ArrayList<VirtualPoint> runList, int i) {
+        for (VirtualPoint vp : runList) {
+            if (vp.id == i) {
+                return true;
+            }
+        }
+        return false;
     }
 }

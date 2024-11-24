@@ -95,12 +95,19 @@ public abstract class VirtualPoint {
 
 	public boolean shouldJoinKnot(Knot k) {
 		shell.buff.add(k.fullString());
-		int desiredCount = k.size() * this.size();
+		int otherSize = k.size();
+		int lowerSize = otherSize < this.size() ? otherSize : this.size();
+		int desiredCount = lowerSize * lowerSize;
+		// desiredCount = otherSize * this.size();
 		boolean oneOutFlag = false;
+		HashMap<Integer, Integer> countById = new HashMap<>();
 		for (Segment s : this.sortedSegments) {
-			VirtualPoint vp = s.getOtherKnot(this);
-
-			if (!k.contains(vp)) {
+			VirtualPoint other = s.getOtherKnot(this);
+			VirtualPoint vp = s.getOther(other);
+			if (countById.getOrDefault(vp.id, 0) >= otherSize) {
+				continue;
+			}
+			if (!k.contains(other)) {
 				if (!oneOutFlag) {
 					oneOutFlag = true;
 				} else {
@@ -109,6 +116,7 @@ public abstract class VirtualPoint {
 					return false;
 				}
 			}
+			countById.put(vp.id, countById.getOrDefault(vp.id, 0) + 1);
 			desiredCount--;
 			if (desiredCount == 0) {
 				return true;
@@ -122,7 +130,10 @@ public abstract class VirtualPoint {
 		exclude.remove(this);
 		exclude.remove(k);
 		shell.buff.add(k.fullString());
+		int otherSize = k.size();
+		int lowerSize = otherSize < this.size() ? otherSize : this.size();
 		int desiredCount = k.size() * this.size();
+		desiredCount = lowerSize * lowerSize;
 		HashMap<Integer, Integer> count = new HashMap<>();
 		boolean oneOutFlag = false;
 		for (Segment s : k.sortedSegments) {
@@ -162,7 +173,10 @@ public abstract class VirtualPoint {
 
 	public boolean shouldKnotConsume(Knot k) {
 		shell.buff.add(k.fullString());
+		int otherSize = k.size();
+		int lowerSize = otherSize < this.size() ? otherSize : this.size();
 		int desiredCount = k.size() * this.size();
+		desiredCount = lowerSize * lowerSize;
 		boolean oneOutFlag = false;
 		HashMap<Integer, Integer> count = new HashMap<>();
 		for (Segment s : k.sortedSegments) {

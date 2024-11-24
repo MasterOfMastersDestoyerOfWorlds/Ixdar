@@ -43,7 +43,7 @@ public class Camera2D implements Camera {
     public float ScreenOffsetY;
     public float ScreenOffsetX;
     public Bounds viewBounds;
-    private double screenSpaceDistanceOverPointSpaceDistanceRatio;
+    public double screenSpaceDistanceOverPointSpaceDistanceRatio = -1;
 
     public Camera2D(int Width, int Height, float ScaleFactor, float ScreenOffsetX, float ScreenOffsetY, PointSet ps) {
         if (Height < Width) {
@@ -225,6 +225,9 @@ public class Camera2D implements Camera {
         Point2D origin = new Point2D.Double(pointTransformX(0.0), pointTransformY(0.0));
         Point2D p2 = new Point2D.Double(pointTransformX(1.0), pointTransformY(1.0));
         screenSpaceDistanceOverPointSpaceDistanceRatio = origin.distance(p2) / Math.sqrt(2);
+        if (screenSpaceDistanceOverPointSpaceDistanceRatio == 0.0) {
+            float z = 0;
+        }
 
     }
 

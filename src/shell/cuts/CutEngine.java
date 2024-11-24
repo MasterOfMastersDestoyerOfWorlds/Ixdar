@@ -21,6 +21,7 @@ public class CutEngine {
 
     public HashMap<Integer, Knot> flatKnots = new HashMap<>();
     public HashMap<Integer, Integer> knotToFlatKnot = new HashMap<>();
+    public HashMap<Integer, Integer> flatKnotToKnot = new HashMap<>();
     public HashMap<Integer, Integer> flatKnotsHeight = new HashMap<>();
     public HashMap<Integer, Integer> flatKnotsLayer = new HashMap<>();
     public HashMap<Integer, Integer> flatKnotsNumKnots = new HashMap<>();
@@ -627,6 +628,7 @@ public class CutEngine {
         flatKnotsNumKnots.put(flatKnot.id, k.numKnots);
         knotToFlatKnot.put(flatKnot.id, flatKnot.id);
         knotToFlatKnot.put(k.id, flatKnot.id);
+        flatKnotToKnot.put(flatKnot.id, k.id);
     }
 
     public Knot flattenKnots(Knot knot, VirtualPoint external1, VirtualPoint external2,

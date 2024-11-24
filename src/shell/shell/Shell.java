@@ -21,6 +21,7 @@ import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.utils.RunListUtils;
 import shell.utils.StringBuff;
+import shell.utils.Utils;
 
 /**
  * This class represents a list of some points in the point set. Initially each
@@ -205,7 +206,12 @@ public class Shell extends LinkedList<PointND> {
 						}
 					}
 					if (runList.size() > 2) {
+
+						if (Utils.hasKnot(runList, 46) && Utils.hasKnot(runList, 53)) {
+							float z = 0;
+						}
 						for (int i = 0; i < runList.size() && runList.size() > 1; i++) {
+
 							VirtualPoint vp = runList.get(i);
 							Segment s1 = vp.getFirstUnmatched(runList);
 							VirtualPoint other = s1.getOtherKnot(vp).topGroup;
