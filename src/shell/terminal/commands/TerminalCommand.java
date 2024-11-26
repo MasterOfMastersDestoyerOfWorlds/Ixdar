@@ -28,6 +28,8 @@ public abstract class TerminalCommand {
 
     public abstract String usage();
 
+    public abstract String desc();
+
     public abstract String fullName();
 
     public abstract String shortName();

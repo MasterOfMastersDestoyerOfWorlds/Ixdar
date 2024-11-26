@@ -63,6 +63,14 @@ public class ColorRGB implements Color {
         setAlpha(alpha);
     }
 
+    public ColorRGB(float red, float green, float blue, float alpha, String name) {
+        setRed(red);
+        setGreen(green);
+        setBlue(blue);
+        setAlpha(alpha);
+        this.name = name;
+    }
+
     /**
      * Creates a RGB-Color with an alpha value of 1.
      *
@@ -75,6 +83,11 @@ public class ColorRGB implements Color {
      */
     public ColorRGB(int red, int green, int blue) {
         this(red, green, blue, 255);
+    }
+
+    public ColorRGB(int red, int green, int blue, String name) {
+        this(red, green, blue, 255);
+        this.name = name;
     }
 
     /**
@@ -94,6 +107,14 @@ public class ColorRGB implements Color {
         setGreen(green);
         setBlue(blue);
         setAlpha(alpha);
+    }
+
+    public ColorRGB(int red, int green, int blue, int alpha, String string) {
+        setRed(red);
+        setGreen(green);
+        setBlue(blue);
+        setAlpha(alpha);
+        this.name = string;
     }
 
     public ColorRGB(Color color) {

@@ -4,10 +4,17 @@ import java.io.File;
 
 import shell.render.color.Color;
 import shell.terminal.Terminal;
+import shell.ui.input.KeyActions;
 
 public class ListCommand extends TerminalCommand {
 
     public static String cmd = "ls";
+
+    public static OptionList keyOptionAliases = new OptionList("keys", "keymap", "shortcuts", "bindings",
+            "keybindings");
+
+    public static OptionList commandOptionAliases = new OptionList("command", "cmds", "cmd", "commands",
+            "commandlist");
 
     @Override
     public String fullName() {
@@ -17,6 +24,11 @@ public class ListCommand extends TerminalCommand {
     @Override
     public String shortName() {
         return cmd;
+    }
+
+    @Override
+    public String desc() {
+        return "list information about an object";
     }
 
     @Override
@@ -45,6 +57,17 @@ public class ListCommand extends TerminalCommand {
             }
             if (args[startIdx].equals("questions")) {
 
+            }
+            if (keyOptionAliases.contains(args[startIdx])) {
+                for (KeyActions k : KeyActions.values()) {
+                    terminal.history.addLine(k.toString(), Color.GREEN);
+                }
+            }
+            if (commandOptionAliases.contains(args[startIdx])) {
+                for (TerminalCommand tc : Terminal.commandList) {
+                    terminal.history.addWord(tc.shortName(), Color.COMMAND);
+                    terminal.history.addLine(" - " + tc.desc(), Color.GREEN);
+                }
             }
             return null;
         }

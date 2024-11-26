@@ -208,7 +208,7 @@ public class Shell extends LinkedList<PointND> {
 					if (runList.size() > 2) {
 
 						if (Utils.hasKnot(runList, 46) && Utils.hasKnot(runList, 53)) {
-							float z = 0;
+							//float z = 0;
 						}
 						for (int i = 0; i < runList.size() && runList.size() > 1; i++) {
 

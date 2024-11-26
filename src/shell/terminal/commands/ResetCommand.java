@@ -34,6 +34,11 @@ public class ResetCommand extends TerminalCommand {
     }
 
     @Override
+    public String desc() {
+        return "reset an object to its initial state or reinitialize it";
+    }
+
+    @Override
     public String usage() {
         return "usage: rst|reset camera|tool|all";
     }

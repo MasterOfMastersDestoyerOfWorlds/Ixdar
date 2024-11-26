@@ -20,6 +20,11 @@ public class CheckCommand extends TerminalCommand {
     }
 
     @Override
+    public String desc() {
+        return "check a value or ask a question about an object";
+    }
+
+    @Override
     public String usage() {
         return "usage: ck|check [value to display or question to ask(Value|Question)]";
     }

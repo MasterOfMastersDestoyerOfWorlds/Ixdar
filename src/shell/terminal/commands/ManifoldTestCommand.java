@@ -5,7 +5,7 @@ import java.io.File;
 import shell.file.FileManagement;
 import shell.terminal.Terminal;
 
-public class UnitTestCommand extends TerminalCommand {
+public class ManifoldTestCommand extends TerminalCommand {
 
     public static String cmd = "ut";
 
@@ -21,7 +21,7 @@ public class UnitTestCommand extends TerminalCommand {
 
     @Override
     public String desc() {
-        return "write a test to check if ixdar can find the smallest known length";
+        return "write a test to find the shortest cutmatch sequence between two points";
     }
 
     @Override

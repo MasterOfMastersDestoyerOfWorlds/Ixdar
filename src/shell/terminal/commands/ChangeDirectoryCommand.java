@@ -19,6 +19,11 @@ public class ChangeDirectoryCommand extends TerminalCommand {
     }
 
     @Override
+    public String desc() {
+        return "change the current working directory";
+    }
+
+    @Override
     public String usage() {
         return "usage: cd|changedirectory [directory name]";
     }

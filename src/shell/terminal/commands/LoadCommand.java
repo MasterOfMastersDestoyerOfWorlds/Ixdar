@@ -22,6 +22,11 @@ public class LoadCommand extends TerminalCommand {
     }
 
     @Override
+    public String desc() {
+        return "load an ixdar file and begin calculations";
+    }
+
+    @Override
     public String usage() {
         return "usage: ld|load [file to load(filename)]";
     }

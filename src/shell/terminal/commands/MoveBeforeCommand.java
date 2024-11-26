@@ -22,8 +22,13 @@ public class MoveBeforeCommand extends TerminalCommand {
     }
 
     @Override
+    public String desc() {
+        return "move before a point a sequence of points; order by id";
+    }
+
+    @Override
     public String usage() {
-        return "usage: mb|movebefore [point at destination(int)] [id range to move(range)]";
+        return "usage: mb|movebefore [point at destination(id)] [id range to move(range)]";
     }
 
     @Override

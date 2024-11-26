@@ -25,6 +25,11 @@ public class SubGraphCommand extends TerminalCommand {
     }
 
     @Override
+    public String desc() {
+        return "create a new ixdar file from a subgraph of the current graph";
+    }
+
+    @Override
     public String usage() {
         return "usage: sg|subgraph [id range 1(range)] ... [id range n(range)]";
     }

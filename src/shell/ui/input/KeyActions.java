@@ -82,4 +82,37 @@ public enum KeyActions {
 
     }
 
+    public static String extraNames(int keyCode) {
+        switch (keyCode) {
+            case GLFW_KEY_ESCAPE:
+                return "Escape";
+            case GLFW_KEY_LEFT_CONTROL:
+            case GLFW_KEY_RIGHT_CONTROL:
+                return "Ctrl";
+            case GLFW_KEY_LEFT_SHIFT:
+            case GLFW_KEY_RIGHT_SHIFT:
+                return "Shift";
+            case GLFW_KEY_LEFT:
+                return "Left";
+            case GLFW_KEY_RIGHT:
+                return "Right";
+            case GLFW_KEY_UP:
+                return "Up";
+            case GLFW_KEY_DOWN:
+                return "Down";
+            case GLFW_KEY_ENTER:
+                return "Enter";
+            default:
+                return glfwGetKeyName(keyCode, 0);
+        }
+    }
+
+    @Override
+    public String toString() {
+
+        String name = extraNames(this.keys[0]) + "";
+        return this.name() + " => " + (this.controlMask ? "Ctrl + " : "")
+                + name.substring(0, 1).toUpperCase() + name.substring(1);
+    }
+
 }

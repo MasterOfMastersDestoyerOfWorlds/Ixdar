@@ -24,6 +24,11 @@ public class ColorCommand extends TerminalCommand {
     }
 
     @Override
+    public String desc() {
+        return "randomize the colors in the graph";
+    }
+
+    @Override
     public String usage() {
         return "usage: clr|color";
     }

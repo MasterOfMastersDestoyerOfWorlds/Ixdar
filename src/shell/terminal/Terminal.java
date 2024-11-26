@@ -4,7 +4,6 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
-import static org.lwjgl.glfw.GLFW.glfwGetKeyName;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -58,7 +57,7 @@ public class Terminal {
                 .map(line -> getClass(line, packageName))
                 .collect(Collectors.toList());
         for (Class c : commandClasses) {
-            if (!Modifier.isAbstract(c.getModifiers()) && !c.isEnum()) {
+            if (!Modifier.isAbstract(c.getModifiers()) && !c.isEnum() && c.getName().contains("Command")) {
                 try {
                     commandList.add((TerminalCommand) c.getConstructor().newInstance());
                 } catch (InstantiationException | IllegalAccessException | IllegalArgumentException

@@ -22,6 +22,11 @@ public class ReloadCommand extends TerminalCommand {
     }
 
     @Override
+    public String desc() {
+        return "reload current ixdar file and begin calculations";
+    }
+
+    @Override
     public String usage() {
         return "usage: rld|reload";
     }

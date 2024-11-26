@@ -22,8 +22,13 @@ public class MoveAfterCommand extends TerminalCommand {
     }
 
     @Override
+    public String desc() {
+        return "move after a point a sequence of points; order by id";
+    }
+
+    @Override
     public String usage() {
-        return "usage: ma|moveafter  [point at destination(int)] [id range to move(range)]";
+        return "usage: ma|moveafter  [point at destination(id)] [id range to move(range)]";
     }
 
     @Override

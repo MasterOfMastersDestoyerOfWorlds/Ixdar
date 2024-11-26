@@ -20,6 +20,11 @@ public class ExitCommand extends TerminalCommand {
     }
 
     @Override
+    public String desc() {
+        return "exit the tool or view";
+    }
+
+    @Override
     public String usage() {
         return "usage: ex|exit";
     }

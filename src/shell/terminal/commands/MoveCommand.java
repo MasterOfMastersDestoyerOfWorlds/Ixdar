@@ -22,8 +22,13 @@ public class MoveCommand extends TerminalCommand {
     }
 
     @Override
+    public String desc() {
+        return "move point to coordinates";
+    }
+
+    @Override
     public String usage() {
-        return "usage: mv|move [point at destination(int)] [target point to move(int)]";
+        return "usage: mv|move [target point to move(id)] [coordinate dimension 1(double)] ... [coordinate dimension n(double)]";
     }
 
     @Override
