@@ -1,34 +1,27 @@
 package shell.shell;
 
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.geom.GeneralPath;
-import java.awt.geom.Path2D;
-import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.Random;
-
-import javax.swing.JComponent;
 
 import shell.DistanceMatrix;
 import shell.PointND;
 import shell.PointSet;
-import shell.cameras.Camera2D;
 import shell.cuts.CutEngine;
 import shell.exceptions.BalancerException;
+import shell.exceptions.IdDoesNotExistException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.ui.Drawing;
 import shell.utils.RunListUtils;
 import shell.utils.StringBuff;
+import shell.utils.Utils;
 
 /**
  * This class represents a list of some points in the point set. Initially each
@@ -213,7 +206,12 @@ public class Shell extends LinkedList<PointND> {
 						}
 					}
 					if (runList.size() > 2) {
+
+						if (Utils.hasKnot(runList, 46) && Utils.hasKnot(runList, 53)) {
+							//float z = 0;
+						}
 						for (int i = 0; i < runList.size() && runList.size() > 1; i++) {
+
 							VirtualPoint vp = runList.get(i);
 							Segment s1 = vp.getFirstUnmatched(runList);
 							VirtualPoint other = s1.getOtherKnot(vp).topGroup;
@@ -256,9 +254,9 @@ public class Shell extends LinkedList<PointND> {
 								knotFlag = true;
 								makeHalfKnot(runList, vp, other);
 								i = -1;
-							}
-							else if (vp.isKnot && !runList.contains(other)) {
-								//TODO: Need to figure out what to do here, if the other's next best point is also in the runlist, form a knot!
+							} else if (vp.isKnot && !runList.contains(other)) {
+								// TODO: Need to figure out what to do here, if the other's next best point is
+								// also in the runlist, form a knot!
 							}
 						}
 					}
@@ -503,10 +501,7 @@ public class Shell extends LinkedList<PointND> {
 		if (!cutEngine.flatKnots.containsKey(knot.id)) {
 			this.updateSmallestKnot(knot);
 			this.updateSmallestCommonKnot(knot);
-			cutEngine.flatKnots.put(knot.id, knot);
-			cutEngine.flatKnotsHeight.put(knot.id, mainKnot.getHeight());
-			cutEngine.flatKnotsLayer.put(knot.id, 0);
-			cutEngine.flatKnotsNumKnots.put(knot.id, knot.numKnots);
+			cutEngine.setFlatKnot(0, knot, mainKnot);
 		}
 		Shell result = new Shell();
 		for (VirtualPoint p : knotList) {
@@ -645,27 +640,6 @@ public class Shell extends LinkedList<PointND> {
 	}
 
 	/**
-	 * Draws the Shell and its children if drawChildren is true
-	 * 
-	 * @param frame        where to draw the shell
-	 * @param g2           graphics object for frame
-	 * @param drawChildren whether or not to draw child shells
-	 * @param c            the color to draw the shell (set to null to get a random
-	 *                     color)
-	 */
-	public void drawShell(Graphics2D g2, boolean drawChildren, float lineThickness, Color c,
-			PointSet ps, Camera2D camera) {
-		if (c == null) {
-			Random colorSeed = new Random();
-			Drawing.drawPath(g2, toPath(this), lineThickness,
-					new Color(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps,
-					true, false, false, false, camera);
-		} else {
-			Drawing.drawPath(g2, toPath(this), lineThickness, c, ps, true, false, false, false, camera);
-		}
-	}
-
-	/**
 	 * Gets the distance from a point to its neighboring points in the shell
 	 * 
 	 * @param p
@@ -736,6 +710,22 @@ public class Shell extends LinkedList<PointND> {
 		return result;
 	}
 
+	public int getIndexByID(int idTarget) throws IdDoesNotExistException {
+		int idx = 0;
+		for (PointND p : this) {
+			if (p.getID() == idTarget) {
+				return idx;
+			}
+			idx++;
+		}
+		throw new IdDoesNotExistException(idTarget);
+	}
+
+	public PointND removeByID(int idTarget) throws IdDoesNotExistException {
+		int idx = getIndexByID(idTarget);
+		return this.remove(idx);
+	}
+
 	public Shell removeRotate(PointSet ps) {
 
 		Shell before = new Shell(), after = new Shell();
@@ -791,29 +781,6 @@ public class Shell extends LinkedList<PointND> {
 			copy.add(q);
 		}
 		return copy;
-	}
-
-	/**
-	 * Turns a shell into a path object
-	 * 
-	 * @param shell
-	 * @return a path that represnts the path through all points in the shell
-	 */
-	public static Path2D toPath(Shell shell) {
-		Path2D path = new GeneralPath();
-		boolean first = true;
-		for (PointND p : shell) {
-			Point2D p2d = p.toPoint2D();
-			if (first) {
-				path.moveTo(p2d.getX(), p2d.getY());
-				first = false;
-			} else {
-				path.lineTo(p2d.getX(), p2d.getY());
-			}
-
-		}
-		return path;
-
 	}
 
 	/**
@@ -988,6 +955,123 @@ public class Shell extends LinkedList<PointND> {
 			}
 		}
 		return false;
+	}
+
+	public boolean containsRange(Range r) {
+		boolean hasStart = false;
+		boolean hasEnd = false;
+		for (PointND pointND : this) {
+			if (pointND.getID() == r.endIdx) {
+				hasEnd = true;
+			}
+
+			if (pointND.getID() == r.startIdx) {
+				hasStart = true;
+			}
+		}
+		return hasStart && hasEnd;
+	}
+
+	public PointND getNext(int i) {
+		if (i + 1 >= this.size()) {
+			return this.get(0);
+		}
+		return this.get(i + 1);
+	}
+
+	public PointND getPrev(int i) {
+		if (i - 1 < 0) {
+			return this.get(this.size() - 1);
+		}
+		return this.get(i - 1);
+	}
+
+	public void moveAfter(Range idTarget, int idDest) throws IdDoesNotExistException {
+		if (!containsRange(idTarget)) {
+			throw new IdDoesNotExistException(idTarget);
+		}
+		if (!containsID(idDest)) {
+			throw new IdDoesNotExistException(idDest);
+		}
+		ArrayList<PointND> p = this.removeAllInRange(idTarget);
+		int idxDest = this.getIndexByID(idDest);
+		if (idTarget.reversed) {
+			Collections.reverse(p);
+			this.addAll(idxDest + 1, p);
+		} else {
+			this.addAll(idxDest + 1, p);
+		}
+	}
+
+	public void moveBefore(Range idTarget, int idDest) throws IdDoesNotExistException {
+		if (!containsRange(idTarget)) {
+			throw new IdDoesNotExistException(idTarget);
+		}
+		if (!containsID(idDest)) {
+			throw new IdDoesNotExistException(idDest);
+		}
+		ArrayList<PointND> p = this.removeAllInRange(idTarget);
+		int idxDest = this.getIndexByID(idDest);
+		this.addAll(idxDest, p);
+	}
+
+	public boolean hasPoint(int id) {
+		for (PointND p : this) {
+			if (p.getID() == id) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public void addAllInRange(Range r, Shell orgShell) {
+		for (PointND p : orgShell) {
+			if (r.hasPoint(p)) {
+				this.add(p);
+			}
+		}
+	}
+
+	public ArrayList<PointND> getAllInRange(Range r) {
+		ArrayList<PointND> points = new ArrayList<>();
+		for (PointND p : this) {
+			if (r.hasPoint(p)) {
+				points.add(p);
+			}
+		}
+		return points;
+	}
+
+	public ArrayList<PointND> removeAllInRange(Range r) {
+		ArrayList<PointND> points = new ArrayList<>();
+		for (PointND p : this) {
+			if (r.hasPoint(p)) {
+				points.add(p);
+			}
+		}
+		this.removeAll(points);
+		return points;
+	}
+
+	public boolean isLocalMinima() {
+		for (int i = 0; i < this.size(); i++) {
+			PointND curr = this.get(i);
+			PointND next = this.getNext(i);
+			PointND prev = this.getPrev(i);
+			double delta = next.distance(prev) - next.distance(curr) - prev.distance(curr);
+			for (int j = 0; j < this.size(); j++) {
+				int nextJ = j + 1 >= this.size() ? 0 : j + 1;
+				if (i != j && i != nextJ) {
+					PointND currD = this.get(j);
+					PointND nextD = this.get(nextJ);
+					double delta2 = delta - currD.distance(nextD) + currD.distance(curr) + nextD.distance(curr);
+					if (delta2 < 0 && delta2 < -0.0000001) {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
 	}
 
 }

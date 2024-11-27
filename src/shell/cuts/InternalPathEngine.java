@@ -8,19 +8,19 @@ import java.util.PriorityQueue;
 import java.util.Set;
 
 import shell.BalanceMap;
-import shell.enums.Group;
-import shell.enums.RouteType;
-import shell.enums.State;
+import shell.cuts.enums.Group;
+import shell.cuts.enums.RouteType;
+import shell.cuts.enums.State;
+import shell.cuts.route.Route;
+import shell.cuts.route.RouteInfo;
+import shell.cuts.route.RouteMap;
+import shell.cuts.route.RoutePair;
 import shell.exceptions.BalancerException;
 import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.route.Route;
-import shell.route.RouteInfo;
-import shell.route.RouteMap;
-import shell.route.RoutePair;
 import shell.shell.Shell;
 
 public class InternalPathEngine {

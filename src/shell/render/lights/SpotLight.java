@@ -1,8 +1,7 @@
 package shell.render.lights;
 
 import org.joml.Vector3f;
-
-import shell.render.Shader;
+import shell.render.shaders.ShaderProgram;
 
 public class SpotLight {
     public Vector3f position;
@@ -40,7 +39,7 @@ public class SpotLight {
         }
     }
 
-    public void setShaderInfo(Shader shader, int i) {
+    public void setShaderInfo(ShaderProgram shader, int i) {
         shader.setVec3("spotLight.position", position);
         shader.setVec3("spotLight.direction", direction);
         shader.setVec3("spotLight.ambient", ambient);

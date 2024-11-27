@@ -3,6 +3,8 @@ package shell;
 import java.awt.geom.Point2D;
 import java.io.Serializable;
 
+import shell.cuts.FileStringable;
+
 /**
  * The {@code PointND} class defines a point representing a location in
  * {@code (x,y, ...)} coordinate space.
@@ -14,7 +16,7 @@ import java.io.Serializable;
  * @author Andrew Wollack
  * 
  */
-public abstract class PointND implements Cloneable {
+public abstract class PointND implements Cloneable, FileStringable {
 
 	/**
 	 * The {@code Float} class defines a point specified in float precision.
@@ -37,7 +39,6 @@ public abstract class PointND implements Cloneable {
 			this.setID(ID);
 			fs = new float[1];
 		}
-		
 
 		/**
 		 * Constructs and initializes a {@code PointND} with the specified coordinates.
@@ -49,18 +50,18 @@ public abstract class PointND implements Cloneable {
 
 			this.setID(ID);
 			int ind = 1;
-		    for (int i = fs.length-1; i >=0; i--) { 
-		        if (fs[i] != 0) { 
-		            ind = i+1; 
-		            break; 
-		        } 
-		    } 
+			for (int i = fs.length - 1; i >= 0; i--) {
+				if (fs[i] != 0) {
+					ind = i + 1;
+					break;
+				}
+			}
 			this.fs = new float[ind];
-			for(int i = 0; i < this.fs.length; i++) {
+			for (int i = 0; i < this.fs.length; i++) {
 				this.fs[i] = fs[i];
 			}
 		}
-		
+
 		/**
 		 * Constructs and initializes a {@code PointND} with coordinates (0,&nbsp;0).
 		 * 
@@ -81,24 +82,23 @@ public abstract class PointND implements Cloneable {
 
 			this.setID(maxID);
 			int ind = 1;
-		    for (int i = fs.length-1; i >=0; i--) { 
-		        if (fs[i] != 0) { 
-		            ind = i+1; 
-		            break; 
-		        } 
-		    } 
+			for (int i = fs.length - 1; i >= 0; i--) {
+				if (fs[i] != 0) {
+					ind = i + 1;
+					break;
+				}
+			}
 			this.fs = new float[ind];
-			for(int i = 0; i < this.fs.length; i++) {
+			for (int i = 0; i < this.fs.length; i++) {
 				this.fs[i] = fs[i];
 			}
 		}
-
 
 		@Override
 		public int hashCode() {
 			return this.getID();
 		}
-		
+
 		/**
 		 * @return the dimension of the vector
 		 */
@@ -152,6 +152,15 @@ public abstract class PointND implements Cloneable {
 			return this.getID() + " ";
 		}
 
+		@Override
+		public String toFileString() {
+			String res = this.ID + " ";
+			for (int i = 0; i < fs.length; i++) {
+				res += String.format("%.4f", fs[i]) + " ";
+			}
+			return res;
+		}
+
 		/*
 		 * JDK 1.6 serialVersionUID
 		 */
@@ -196,22 +205,23 @@ public abstract class PointND implements Cloneable {
 		 * 
 		 */
 		public Double(double... fs) {
-			this.setID(maxID);			
+			this.setID(maxID);
 			int ind = 1;
-		    for (int i = fs.length-1; i >=0; i--) { 
-		        if (fs[i] != 0) { 
-		            ind = i+1; 
-		            break; 
-		        } 
-		    } 
+			for (int i = fs.length - 1; i >= 0; i--) {
+				if (fs[i] != 0) {
+					ind = i + 1;
+					break;
+				}
+			}
 			ds = new double[ind];
-			for(int i = 0; i < ds.length; i++) {
+			for (int i = 0; i < ds.length; i++) {
 				ds[i] = fs[i];
 			}
 		}
-		
+
 		/**
 		 * Constructs and initializes a {@code PointND} with coordinates (0,&nbsp;0).
+		 * 
 		 * @param ID for comparison purposes across basis
 		 */
 		public Double(int ID) {
@@ -225,39 +235,40 @@ public abstract class PointND implements Cloneable {
 		 * @param ds the n coordinates of the newly constructed {@code PointND}
 		 * @param ID for comparison purposes across basis
 		 */
-				public Double(int ID, double... fs) {
-				this.setID(ID);
+		public Double(int ID, double... fs) {
+			this.setID(ID);
 			int ind = 1;
-		    for (int i = fs.length-1; i >=0; i--) { 
-		        if (fs[i] != 0) { 
-		            ind = i+1; 
-		            break; 
-		        } 
-		    } 
+			for (int i = fs.length - 1; i >= 0; i--) {
+				if (fs[i] != 0) {
+					ind = i + 1;
+					break;
+				}
+			}
 			ds = new double[ind];
-			for(int i = 0; i < ds.length; i++) {
+			for (int i = 0; i < ds.length; i++) {
 				ds[i] = fs[i];
 			}
 		}
 
 		/**
 		 * Constructs a {@code PointND} as the centtrroid of the specified PointSet
+		 * 
 		 * @param ps
 		 */
 		public Double(PointSet ps) {
 			this.setID(maxID);
 			ds = new double[ps.getMaxDim()];
-			for(PointND p : ps) {
-				for(int i = 0 ; i < p.getDim(); i ++) {
+			for (PointND p : ps) {
+				for (int i = 0; i < p.getDim(); i++) {
 					ds[i] += p.getCoord(i);
 				}
 			}
-			
-			for(int i = 0; i < ds.length; i ++) {
-				ds[i] = ds[i]/ps.size();
+
+			for (int i = 0; i < ds.length; i++) {
+				ds[i] = ds[i] / ps.size();
 			}
 		}
-		
+
 		@Override
 		public int hashCode() {
 			return this.getID();
@@ -272,7 +283,7 @@ public abstract class PointND implements Cloneable {
 		 * 
 		 */
 		public double getCoord(int dim) {
-			if(dim >= ds.length){
+			if (dim >= ds.length) {
 				return 0.0;
 			}
 			return (double) ds[dim];
@@ -315,6 +326,15 @@ public abstract class PointND implements Cloneable {
 			return this.getID() + "";
 		}
 
+		@Override
+		public String toFileString() {
+			String res = this.ID + " ";
+			for (int i = 0; i < ds.length; i++) {
+				res += String.format("%.4f", ds[i]) + " ";
+			}
+			return res;
+		}
+
 		/*
 		 * JDK 1.6 serialVersionUID
 		 */
@@ -344,18 +364,19 @@ public abstract class PointND implements Cloneable {
 	protected PointND() {
 	}
 
-	private int ID = -1;
-	
+	protected int ID = -1;
+
 	private boolean isCentroid = false;
-	
+
 	private boolean isNSphereCenter = false;
-	
+
 	private boolean isDummyNode = false;
-	
+
 	private static int maxID = 0;
-	
+
 	/**
-	 * Returns the nth coordinate of this {@code PointND} in {@code double} precision.
+	 * Returns the nth coordinate of this {@code PointND} in {@code double}
+	 * precision.
 	 * 
 	 * @param dim nth dimension to retrieve
 	 * 
@@ -401,7 +422,7 @@ public abstract class PointND implements Cloneable {
 	 * point.
 	 *
 	 * @param p the coordinates of the specified point to be measured against this
-	 *           {@code PointND}
+	 *          {@code PointND}
 	 * @return the square of the distance between this {@code PointND} and the
 	 *         specified point.
 	 * 
@@ -423,17 +444,15 @@ public abstract class PointND implements Cloneable {
 		double sum = 0;
 
 		int length = Math.max(pt.getDim(), getDim());
-		
+
 		for (int i = 0; i < length; i++) {
-			
+
 			double val;
-			if(i >= pt.getDim()) {
+			if (i >= pt.getDim()) {
 				val = getCoord(i);
-			}
-			else if(i >= getDim()) {
+			} else if (i >= getDim()) {
 				val = 0 - pt.getCoord(i);
-			}
-			else {
+			} else {
 				val = getCoord(i) - pt.getCoord(i);
 			}
 			sum += val * val;
@@ -445,7 +464,7 @@ public abstract class PointND implements Cloneable {
 	 * Returns the distance from this {@code PointND} to a specified point.
 	 *
 	 * @param p the coordinates of the specified point to be measured against this
-	 *           {@code PointND}
+	 *          {@code PointND}
 	 * @return the distance between this {@code PointND} and a specified point.
 	 * 
 	 */
@@ -467,22 +486,20 @@ public abstract class PointND implements Cloneable {
 		double sum = 0;
 		int length = Math.max(pt.getDim(), getDim());
 		for (int i = 0; i < length; i++) {
-			
+
 			double val;
-			if(i >= pt.getDim()) {
+			if (i >= pt.getDim()) {
 				val = getCoord(i);
-			}
-			else if(i >= getDim()) {
+			} else if (i >= getDim()) {
 				val = 0 - pt.getCoord(i);
-			}
-			else {
+			} else {
 				val = getCoord(i) - pt.getCoord(i);
 			}
 			sum += val * val;
 		}
 		return Math.sqrt(sum);
 	}
-	
+
 	/**
 	 * Returns the point vector centered at a specified {@code PointND}.
 	 *
@@ -494,18 +511,15 @@ public abstract class PointND implements Cloneable {
 		double[] ds;
 		if (pt.getDim() > getDim()) {
 			ds = new double[pt.getDim()];
-		}
-		else {
+		} else {
 			ds = new double[getDim()];
 		}
 		for (int i = 0; i < ds.length; i++) {
-			if(i >= pt.getDim()) {
+			if (i >= pt.getDim()) {
 				ds[i] = getCoord(i);
-			}
-			else if(i >= getDim()) {
+			} else if (i >= getDim()) {
 				ds[i] = 0 - pt.getCoord(i);
-			}
-			else {
+			} else {
 				ds[i] = getCoord(i) - pt.getCoord(i);
 			}
 		}
@@ -528,8 +542,6 @@ public abstract class PointND implements Cloneable {
 			throw new InternalError(e);
 		}
 	}
-	
-	
 
 	/**
 	 * Determines whether or not two points are equal. Two instances of
@@ -544,7 +556,10 @@ public abstract class PointND implements Cloneable {
 	public boolean equals(Object obj) {
 		if (obj instanceof PointND) {
 			PointND pt = (PointND) obj;
-			if(pt.getID() == getID()) {
+			if (pt.getID() == getID()) {
+				return true;
+			}
+			if (pt.distance(this) == 0.0) {
 				return true;
 			}
 
@@ -554,12 +569,14 @@ public abstract class PointND implements Cloneable {
 	}
 
 	/**
-	 * Converts the N dimensional Point to a 2 Dimensional Point for graphing purposes
+	 * Converts the N dimensional Point to a 2 Dimensional Point for graphing
+	 * purposes
 	 * 
-	 * @return a {@code Point2D} that consists of the first 2 coordinates of this point
+	 * @return a {@code Point2D} that consists of the first 2 coordinates of this
+	 *         point
 	 */
 	public Point2D toPoint2D() {
-		if(this.isDummyNode){
+		if (this.isDummyNode) {
 			return new Point2D.Double(-1000000, -1000000);
 		}
 		return new Point2D.Double(getCoord(0), getCoord(1));
@@ -570,7 +587,7 @@ public abstract class PointND implements Cloneable {
 	}
 
 	public void setID(int ID) {
-		if(ID >= maxID ) {
+		if (ID >= maxID) {
 			maxID = ID + 1;
 		}
 		this.ID = ID;
@@ -583,7 +600,7 @@ public abstract class PointND implements Cloneable {
 	public void setCentroid() {
 		this.isCentroid = true;
 	}
-	
+
 	public boolean isNSphereCenter() {
 		return isNSphereCenter;
 	}

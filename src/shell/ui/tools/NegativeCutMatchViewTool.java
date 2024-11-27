@@ -1,13 +1,13 @@
 package shell.ui.tools;
 
-import java.awt.Color;
-import java.awt.Graphics2D;
+import shell.render.color.Color;
+import shell.render.text.HyperString;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.apache.commons.math3.util.Pair;
 
-import shell.Main;
 import shell.ToggleType;
 import shell.cameras.Camera2D;
 import shell.file.Manifold;
@@ -15,6 +15,7 @@ import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.ui.Drawing;
+import shell.ui.main.Main;
 
 public class NegativeCutMatchViewTool extends Tool {
 
@@ -34,35 +35,34 @@ public class NegativeCutMatchViewTool extends Tool {
 
     @Override
     public void reset() {
-        hover = null;
-        hoverCP = null;
-        hoverKP = null;
-        manifold = null;
-        negativeSegmentMap = null;
-
+        super.reset();
     }
 
     @Override
-    public void draw(Graphics2D g2, Camera2D camera, int minLineThickness) {
-        if (layerCalculated != Main.metroDrawLayer) {
+    public void draw(Camera2D camera, float minLineThickness) {
+        if (layerCalculated != Main.knotDrawLayer) {
             initSegmentMap();
             return;
         }
-        if (hover != null) {
-            long matchId = Segment.idTransformOrdered(hoverKP.id, hoverCP.id);
+        if (displaySegment != null) {
+            long matchId = Segment.idTransformOrdered(displayKP.id, displayCP.id);
             ArrayList<Segment> matchSegments = negativeSegmentMap.get(matchId);
-            long cutId = Segment.idTransform(hoverKP.id, hoverCP.id);
-            Segment cutSeg = hoverKP.segmentLookup.get(cutId);
+            long cutId = Segment.idTransform(displayKP.id, displayCP.id);
+            Segment cutSeg = displayKP.segmentLookup.get(cutId);
+            Drawing.drawScaledSegment(cutSeg, Color.ORANGE, 2 * Drawing.MIN_THICKNESS,
+                    camera);
             if (matchSegments != null) {
                 for (Segment s : matchSegments) {
-                    Drawing.drawSingleCutMatch(Main.main, g2, s, cutSeg, Drawing.MIN_THICKNESS * 2, Main.retTup.ps,
-                            camera);
+                    if (!s.equals(Main.hoverSegment)) {
+                        Drawing.drawScaledSegment(s, Color.CYAN, Drawing.MIN_THICKNESS,
+                                camera);
+                    }
                 }
-                Drawing.drawCircle(g2, hoverKP, Color.green, camera, minLineThickness);
+                Drawing.drawCircle(displayKP, Color.GREEN, camera, minLineThickness);
             }
         }
         for (Knot k : Main.knotsDisplayed) {
-            Drawing.drawGradientPath(g2, k, lookupPairs(k), colorLookup, colors,
+            Drawing.drawGradientPath(k, lookupPairs(k), colorLookup, colors,
                     camera,
                     Drawing.MIN_THICKNESS);
         }
@@ -81,17 +81,12 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     @Override
-    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
-
-    }
-
-    @Override
     public String displayName() {
         return "Negative Cut Match View";
     }
 
     public void initSegmentMap() {
-        layerCalculated = Main.metroDrawLayer;
+        layerCalculated = Main.knotDrawLayer;
         ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
         negativeSegmentMap = new HashMap<>();
         colorLookup = new HashMap<>();
@@ -133,6 +128,35 @@ public class NegativeCutMatchViewTool extends Tool {
             }
 
         }
-        Main.main.repaint();
+    }
+
+    @Override
+    public HyperString buildInfoText() {
+        HyperString h = new HyperString();
+        if (displaySegment != null) {
+            h.addWord("Cut: ", Color.IXDAR);
+            h.addHyperString(displaySegment.toHyperString(Color.ORANGE, false));
+            h.newLine();
+            h.addWord("Cut Length: ");
+            h.addDistance(displaySegment.distance, Color.ORANGE);
+            h.newLine();
+            h.addWord("Knot Point: " + displayKP, Color.GREEN);
+            h.newLine();
+            h.addWord("Cut Point: " + displayCP, Color.ORANGE);
+            long matchId = Segment.idTransformOrdered(displayKP.id, displayCP.id);
+            ArrayList<Segment> matchSegments = negativeSegmentMap.get(matchId);
+            h.newLine();
+            h.addWord("Negative Matches:");
+            h.newLine();
+            for (Segment s : matchSegments) {
+                h.addHyperString(s.toHyperString(Color.CYAN, false));
+                h.addDistance(s.distance - displaySegment.distance, Color.RED);
+                h.newLine();
+            }
+            h.newLine();
+
+        }
+        h.wrap();
+        return h;
     }
 }

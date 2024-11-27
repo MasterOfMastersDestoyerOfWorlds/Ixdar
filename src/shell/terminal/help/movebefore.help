@@ -1,0 +1,5 @@
+movebefore - used to move a point in the file before another point
+example: mb 5 1 would move point with id 1 before 5 and wrap to the length of the file if necessary
+exception: no point with id exists
+exception: arguments are not integers
+exception: not enough arguments

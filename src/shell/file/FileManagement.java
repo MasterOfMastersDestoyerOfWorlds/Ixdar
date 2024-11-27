@@ -24,9 +24,40 @@ public class FileManagement {
 
     public static final String solutionsFolder = "./src/test/solutions/";
 
+    public static final String testFileCacheLocation = "./src/test/cache/cache";
+
+    public static final String subGraphUnitTestFolder = "./src/test/unit/subgraphs/";
+
     public static File getTestFile(String fileName) {
         String[] parts = fileName.split("_");
+        if (fileName.contains(".ix")) {
+            return new File(solutionsFolder + parts[0].replace(".ix", "") + "/" + fileName);
+        }
         return new File(solutionsFolder + parts[0] + "/" + fileName + ".ix");
+    }
+
+    public static String getTestFileCache() {
+        File cache = new File(testFileCacheLocation);
+        try (BufferedReader br = new BufferedReader(new FileReader(cache))) {
+            String line = br.readLine();
+            br.close();
+            return line;
+        } catch (Exception e) {
+
+        }
+        return "";
+    }
+
+    public static void updateTestFileCache(String cachedLocation) {
+        File cache = new File(testFileCacheLocation);
+        try (FileWriter fw = new FileWriter(cache)) {
+            BufferedWriter out = new BufferedWriter(fw);
+            out.write(cachedLocation);
+            out.flush();
+            out.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -51,6 +82,8 @@ public class FileManagement {
             HashMap<Integer, PointND> lookUp = new HashMap<>();
             ArrayList<Integer> answerOrder = new ArrayList<>();
             int lineNumber = 1;
+            ArrayList<Integer> duplicatePointIndexes = new ArrayList<>();
+            boolean removeDuplicates = false;
             while (line != null) {
                 if (flag == true) {
                     String[] cords = line.split(" ");
@@ -107,8 +140,33 @@ public class FileManagement {
                             }
                             index++;
                         }
+                    } else if (cords[0].equals("TRI")) {
+                        System.out.println("TRIANGLE FOUND!");
+                        double xCenter = java.lang.Double.parseDouble(cords[1]);
+                        double yCenter = java.lang.Double.parseDouble(cords[2]);
+                        double radius = java.lang.Double.parseDouble(cords[3]);
+                        int numPoints = 3;
+                        double radians = 2 * Math.PI / ((double) numPoints);
+                        for (int i = 0; i < numPoints; i++) {
+                            double xCoord = radius * Math.cos(i * radians) + xCenter;
+                            double yCoord = radius * Math.sin(i * radians) + yCenter;
+                            PointND pt = new PointND.Double(index, xCoord, yCoord);
+                            pt2d = pt.toPoint2D();
+                            lookUp.put(index, pt);
+                            lines.add(pt);
+                            ps.add(pt);
+                            tsp.add(pt);
+
+                            if (first) {
+                                path.moveTo(pt2d.getX(), pt2d.getY());
+                                first = false;
+                            } else {
+                                path.lineTo(pt2d.getX(), pt2d.getY());
+                            }
+                            index++;
+                        }
                     } else if (cords[0].equals("ARC")) {
-                        System.out.println("CIRCLE FOUND!");
+                        System.out.println("ARC FOUND!");
                         double xCenter = java.lang.Double.parseDouble(cords[1]);
                         double yCenter = java.lang.Double.parseDouble(cords[2]);
                         double radius = java.lang.Double.parseDouble(cords[3]);
@@ -200,23 +258,34 @@ public class FileManagement {
                         if (retTup.d != null) {
                             d = new DistanceMatrix(ps);
                         }
+                    } else if (cords[0].equals("FLAG")) {
+                        if (cords[1].equals("REMOVE_DUPLICATES")) {
+                            removeDuplicates = true;
+                        }
+
                     } else {
                         PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(cords[1]),
                                 java.lang.Double.parseDouble(cords[2]));
-                        pt2d = pt.toPoint2D();
-                        lookUp.put(index, pt);
-                        lines.add(pt);
-                        ps.add(pt);
-                        tsp.add(pt);
 
-                        if (first) {
-                            path.moveTo(pt2d.getX(), pt2d.getY());
-                            first = false;
+                        if (ps.contains(pt)) {
+                            System.out.println("Duplicated found: " + index);
+                            duplicatePointIndexes.add(lineNumber);
                         } else {
-                            path.lineTo(pt2d.getX(), pt2d.getY());
-                        }
+                            pt2d = pt.toPoint2D();
+                            lookUp.put(index, pt);
+                            lines.add(pt);
+                            ps.add(pt);
+                            tsp.add(pt);
 
-                        index++;
+                            if (first) {
+                                path.moveTo(pt2d.getX(), pt2d.getY());
+                                first = false;
+                            } else {
+                                path.lineTo(pt2d.getX(), pt2d.getY());
+                            }
+
+                            index++;
+                        }
                     }
 
                 }
@@ -238,13 +307,43 @@ public class FileManagement {
                 }
                 tsp = newAns;
             }
-
+            if (removeDuplicates && duplicatePointIndexes.size() > 0) {
+                removeDuplicates(f, duplicatePointIndexes);
+            }
             return new PointSetPath(ps, path, tsp, d, manifolds);
         } catch (NumberFormatException | IOException | FileParseException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
         return null;
+    }
+
+    private static void removeDuplicates(File f, ArrayList<Integer> duplicatePointIndexes) {
+
+        List<String> lines = new ArrayList<String>();
+        String line = null;
+        try {
+            FileReader fr = new FileReader(f);
+            BufferedReader br = new BufferedReader(fr);
+            int lineNumber = 1;
+            while ((line = br.readLine()) != null) {
+                if (!duplicatePointIndexes.contains(lineNumber)) {
+                    lines.add(line + "\n");
+                }
+                lineNumber++;
+            }
+            fr.close();
+            br.close();
+
+            FileWriter fw = new FileWriter(f);
+            BufferedWriter out = new BufferedWriter(fw);
+            for (String s : lines)
+                out.write(s);
+            out.flush();
+            out.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 
     public static void copyFileContents(File src, File dest) {
@@ -358,6 +457,50 @@ public class FileManagement {
             out.close();
         } catch (Exception ex) {
             ex.printStackTrace();
+        }
+    }
+
+    public static void rewriteSolutionFile(File file, Shell shell) {
+
+        FileWriter fw;
+        try {
+            fw = new FileWriter(file);
+            BufferedWriter out = new BufferedWriter(fw);
+            for (PointND pn : shell) {
+                out.write(pn.toFileString());
+                out.newLine();
+            }
+            out.flush();
+            out.close();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    public static void writeSubGraphTest(String fileName, String template) {
+        File unitTest = new File(subGraphUnitTestFolder + fileName);
+        try {
+            unitTest.createNewFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return;
+        }
+        String[] lines = template.split("\n");
+        FileWriter fw;
+        try {
+            fw = new FileWriter(unitTest);
+            BufferedWriter out = new BufferedWriter(fw);
+            for (String line : lines) {
+                out.write(line);
+                out.newLine();
+            }
+            out.flush();
+            out.close();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            return;
         }
     }
 

@@ -1,15 +1,15 @@
 package shell.ui.tools;
 
-import java.awt.Graphics2D;
 import java.util.ArrayList;
 
-import shell.Main;
 import shell.ToggleType;
 import shell.cameras.Camera2D;
 import shell.file.Manifold;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.render.text.HyperString;
 import shell.ui.Drawing;
+import shell.ui.main.Main;
 
 public class FindManifoldTool extends Tool {
     public enum States {
@@ -30,23 +30,23 @@ public class FindManifoldTool extends Tool {
     @Override
     public void reset() {
         state = States.FindStart;
-        hover = null;
-        hoverCP = null;
-        hoverKP = null;
+        displaySegment = null;
+        displayCP = null;
+        displayKP = null;
         firstSelectedSegment = null;
         firstSelectedKP = null;
         firstSelectedCP = null;
     }
 
     @Override
-    public void draw(Graphics2D g2, Camera2D camera, int minLineThickness) {
-        if (hover != null
-                && !hover.equals(firstSelectedSegment)) {
-            Drawing.drawManifoldCut(g2, hoverKP, hoverCP, camera,
+    public void draw(Camera2D camera, float minLineThickness) {
+        if (displaySegment != null
+                && !displaySegment.equals(firstSelectedSegment)) {
+            Drawing.drawManifoldCut(displayKP, displayCP, camera,
                     minLineThickness * 2);
         }
         if (firstSelectedSegment != null) {
-            Drawing.drawManifoldCut(g2, firstSelectedKP, firstSelectedCP,
+            Drawing.drawManifoldCut(firstSelectedKP, firstSelectedCP,
                     camera,
                     minLineThickness * 2);
         }
@@ -61,25 +61,24 @@ public class FindManifoldTool extends Tool {
     public void confirm() {
         ArrayList<Manifold> manifolds = Main.manifolds;
 
-        if (hover != null) {
+        if (displaySegment != null) {
             if (state == FindManifoldTool.States.FindStart) {
-                firstSelectedSegment = hover;
-                firstSelectedKP = hoverKP;
-                firstSelectedCP = hoverCP;
+                firstSelectedSegment = displaySegment;
+                firstSelectedKP = displayKP;
+                firstSelectedCP = displayCP;
                 state = FindManifoldTool.States.FirstSelected;
                 clearHover();
-            }
-            else if (state == FindManifoldTool.States.FirstSelected) {
-                if (!hover.equals(firstSelectedSegment)) {
+            } else if (state == FindManifoldTool.States.FirstSelected) {
+                if (!displaySegment.equals(firstSelectedSegment)) {
                     for (int i = 0; i < manifolds.size(); i++) {
                         Manifold m = manifolds.get(i);
                         if (m.manifoldCutSegment1.equals(firstSelectedSegment)
-                                && m.manifoldCutSegment2.equals(hover)) {
+                                && m.manifoldCutSegment2.equals(displaySegment)) {
                             Main.manifoldIdx = i;
                             break;
                         }
                         if (m.manifoldCutSegment2.equals(firstSelectedSegment)
-                                && m.manifoldCutSegment1.equals(hover)) {
+                                && m.manifoldCutSegment1.equals(displaySegment)) {
                             Main.manifoldIdx = i;
                             break;
                         }
@@ -90,9 +89,14 @@ public class FindManifoldTool extends Tool {
         }
     }
 
-
     @Override
     public String displayName() {
         return "Find Manifold";
+    }
+
+    @Override
+    public HyperString buildInfoText() {
+        HyperString h = new HyperString();
+        return h;
     }
 }

@@ -20,6 +20,8 @@ import shell.shell.Shell;
 public class CutEngine {
 
     public HashMap<Integer, Knot> flatKnots = new HashMap<>();
+    public HashMap<Integer, Integer> knotToFlatKnot = new HashMap<>();
+    public HashMap<Integer, Integer> flatKnotToKnot = new HashMap<>();
     public HashMap<Integer, Integer> flatKnotsHeight = new HashMap<>();
     public HashMap<Integer, Integer> flatKnotsLayer = new HashMap<>();
     public HashMap<Integer, Integer> flatKnotsNumKnots = new HashMap<>();
@@ -528,10 +530,7 @@ public class CutEngine {
                     shell.updateSmallestKnot(knot);
                     shell.updateSmallestCommonKnot(knot);
                     if (!flatKnots.containsKey(knot.id)) {
-                        flatKnots.put(knot.id, knot);
-                        flatKnotsHeight.put(knot.id, knot.getHeight());
-                        flatKnotsLayer.put(knot.id, layerNum);
-                        flatKnotsNumKnots.put(knot.id, knot.numKnots);
+                        setFlatKnot(layerNum, knot, knot);
                     }
                 }
 
@@ -622,6 +621,16 @@ public class CutEngine {
         return knotList;
     }
 
+    public void setFlatKnot(int layerNum, Knot flatKnot, Knot k) {
+        flatKnots.put(flatKnot.id, flatKnot);
+        flatKnotsHeight.put(flatKnot.id, k.getHeight());
+        flatKnotsLayer.put(flatKnot.id, layerNum);
+        flatKnotsNumKnots.put(flatKnot.id, k.numKnots);
+        knotToFlatKnot.put(flatKnot.id, flatKnot.id);
+        knotToFlatKnot.put(k.id, flatKnot.id);
+        flatKnotToKnot.put(flatKnot.id, k.id);
+    }
+
     public Knot flattenKnots(Knot knot, VirtualPoint external1, VirtualPoint external2,
             ArrayList<VirtualPoint> knotList, int layerNum) throws SegmentBalanceException, BalancerException {
 
@@ -629,13 +638,10 @@ public class CutEngine {
         Knot knotNew = new Knot(flattenKnots, shell);
         knotNew.copyMatches(knot);
         if (!flattenedKnots.contains(knot.id) && !flatKnots.containsKey(knot.id)) {
-            flatKnots.put(knotNew.id, knotNew);
-            flatKnotsHeight.put(knotNew.id, knot.getHeight());
-            flatKnotsLayer.put(knotNew.id, layerNum);
-            flatKnotsNumKnots.put(knotNew.id, knot.numKnots);
+            setFlatKnot(layerNum, knotNew, knot);
+            flattenedKnots.add(knot.id);
             shell.updateSmallestCommonKnot(knotNew);
             shell.buff.add(flatKnots);
-            flattenedKnots.add(knot.id);
         }
         boolean makeExternal1 = external1.isKnot;
 
@@ -652,10 +658,7 @@ public class CutEngine {
             external1New = new Knot(flattenKnotsExternal1, shell);
 
             if (!flattenedKnots.contains(external1Knot.id)) {
-                flatKnots.put(external1New.id, external1New);
-                flatKnotsHeight.put(external1New.id, external1Knot.getHeight());
-                flatKnotsLayer.put(external1New.id, layerNum);
-                flatKnotsNumKnots.put(external1New.id, external1Knot.numKnots);
+                setFlatKnot(layerNum, external1New, external1Knot);
                 shell.updateSmallestCommonKnot(external1New);
                 external1New.copyMatches(external1);
                 flattenedKnots.add(external1Knot.id);
@@ -671,11 +674,8 @@ public class CutEngine {
             external2New = new Knot(flattenKnotsExternal2, shell);
             external2New.copyMatches(external2);
             if (!flattenedKnots.contains(external2Knot.id)) {
+                setFlatKnot(layerNum, external2New, external2Knot);
                 shell.updateSmallestCommonKnot(external2New);
-                flatKnots.put(external2New.id, external2New);
-                flatKnotsHeight.put(external2New.id, external2Knot.getHeight());
-                flatKnotsLayer.put(external2New.id, layerNum);
-                flatKnotsNumKnots.put(external2New.id, external2Knot.numKnots);
                 flattenedKnots.add(external2Knot.id);
             }
         }

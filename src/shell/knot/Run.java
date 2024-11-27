@@ -3,6 +3,7 @@ package shell.knot;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import shell.render.text.HyperString;
 import shell.shell.Shell;
 import shell.utils.RunListUtils;
 
@@ -101,6 +102,7 @@ public class Run extends VirtualPoint {
         shell.unvisited.add(this);
     }
 
+    @Override
     public Point getNearestBasePoint(VirtualPoint vp) {
         for (int i = 0; i < sortedSegments.size(); i++) {
             Segment s = sortedSegments.get(i);
@@ -131,6 +133,7 @@ public class Run extends VirtualPoint {
         return str;
     }
 
+    @Override
     public String fullString() {
         return "" + this
                 + " match1: " + (match1 == null ? " none " : "" + match1)
@@ -143,6 +146,14 @@ public class Run extends VirtualPoint {
                 + " endPoint2: " + (endpoint2 == null ? " none " : "" + endpoint2.id);
     }
 
+    @Override
+    public HyperString toHyperString() {
+        HyperString h = new HyperString();
+        h.addWord(this.toString());
+        return h;
+    }
+
+    @Override
     public boolean contains(VirtualPoint vp) {
         if (this.equals(vp)) {
             return true;

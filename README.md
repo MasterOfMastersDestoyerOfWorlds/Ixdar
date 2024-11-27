@@ -16,6 +16,10 @@
 
 ## Preface
 
+<div width="50%" style="text-align:center"><i>Programming forces one to be precise and formal without being excessively rigorous. The computer does not tolerate vague descriptions or incomplete constructions. Thus the act of programming makes one keenly aware of one's errors of reasoning or unsupported conclusions.</i></div>
+<div width="50%" style="text-align:right">
+<br><br> - Gerald Jay Sussman </div>
+
 ## A Short Trip Through Time and Space
 
 Let's say that we are aliens in some far off star system on the other side of the Milky Way and we want to visit Saturn's Moon Titan. With our current rocket technology it will take us a year to travel to Titan, but, given the way our rocket works, we can't course correct along the way. We need to point to where Titan will be a year from now and be accurate enough to hit the mark when we launch from our home planet.
@@ -64,6 +68,32 @@ Notice that the tides exist both on the side facing the satellite as well as the
 If we think of the Diagram above instead of in a dual planetary system, but in a planetary system with 3 or more bodies, then for each planetary body, other than the one we are examining, we could make a similar diagram of the stress forces on our main planet. Then to find the total tidal force over the surface we could sum these diagrams. I expect that to someone who did not know how the sub diagrams were generated, the completed diagram might look very similar to random except for the standout of the nearest body's tidal being the most obvious.
 
 It should also be noted that the tidal bulges come in pairs. So when looking for a natural abstraction in the complete graph we should seriously think if the connections between those abstractions might have a similar rule to follow around the counting of entrances and exits from the abstraction.
+
+### Grouping By Splitting
+
+If we look at how Josh Barnes and Piet Hut approximated N-Body simulations, where the N bodies are gravitationally similarly sized objects in space and we'd like to efficiently determine how they move in time, we can see some basic abstractions at play. Their method, splits the plane into a Quad-Tree in the plane (and an Octant-Tree in 3D Space) and adds all of the points in the quadrant to its section of the quad tree, for each quadrant we repeat this recursively until each leaf node has exactly one Gravitational Body in it's region.
+
+<img src="readme_img\barnes_hut_tree.png" alt="MatchTwiceAndStitch" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+
+<p style="text-align:center"> Barnes-Hut Quad-Tree for N-Body Gravitational Simulations</p>
+
+Then, when we would like to calculate our gravitational simulations we can look at the sum of the mass in our neighboring quadrants instead of looking at each neighboring body individually. This works because the neighboring quadrants are far enough away that they act as one large body; as far as any individual in the current sector is concerned.
+
+In computer graphics, a similar technique is used to preform Ray-Tracing and Ray Mesh Collision Detection. Let's say we want to determine quickly if a Ray of light is going to intersect with one of the Triangles in a Mesh that we are rendering, how would we do this? The simplest and slowest way would be to check if the light ray passes through each and every triangle of the mesh, but this is not very fast. But, just like in our N-body simulation problem, space is continuous, so neighboring octants of the split-space will be able to tell their neighbors useful information.
+
+<img src="readme_img\sparse_voxel_oct_tree.png" alt="MatchTwiceAndStitch" width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
+
+<p style="text-align:center"> Dragon Mesh Subdivided into Oct-Tree for Ray Tracing</p>
+
+For example, if we split the mesh into eight subregions, we can check each one and if the ray does not pass through one of the subregions, it cannot pass through any of that region's children! So in a number of checks roughly equivalent to 8*N Log(N) we can determine wether the light ray hits our object or not. This let's us tell whether the light ray should bounce off of our mesh and this technique is partly why ray tracing is possible on modern hardware (Insert Coding Adventure Video Link).
+
+Plane splitting has been one of the approximation algorithms used for attempting to solve the Traveling Salesman Problem as well, but what can be gained from splitting the plane when attacking graph cycles? If you split the plane enough so that you have a number of points that you can easily solve (i.e. they form a convex hull in 2D), then you have gained some information. But I see two problems with this route: First the neighboring quadrants don't tell you as much as in the N-body Simulation or the Ray Collision Detection examples, Also as the problem goes to a N-Dimensions, the number of subregions you can split space into approaches 2^N, so no new information is gained by splitting space into sub regions! These flaw do not mean we should throw out the idea of grouping and group summation entirely, just that creating an abstraction by splitting space into subregions does not form a natural abstraction.
+
+And this is easy to see, if we had four points all very close to zero but in adjacent quadrants from each other, as well as many points far away from the origin, the four points would be split up from each other even though they would likely be their closest neighbors in the graph and grouped with points that are very far away.
+
+A useful question when designing abstractions is: "Does this make sense, If I were one of the members of the grouping I'm making, would I want to be split up this way?" as this builds on our human intuition of both social relationships and social hierarchies. Keep this question in the back of your mind throughout the next section.
+
+When we can simplify a collection of many vectors into one vector by assuming that the collection is infinitely far away, as though all of the vectors in the collection were essentially parallel to each other, then we can greatly reduce the complexity of the problem we are working on! This can be used to great effect as we have seen in the problem of the Tides, N-body Simulations, and Prospective Geometry. I'd argue that this is also true of TSP, though figuring out under what circumstances vectors become parallel and how that helps us find shortest cycles is much less clear, but at the heart of it is the natural abstraction of the graph.
 
 ### In Search of the Natural Abstraction for a Graph
 
@@ -943,15 +973,15 @@ A few things to notice:
 
 * Moving from the Left Knot to the Right Knot flips the state from connected to disconnected and visa versa
 * Wether we need to re-connect our path depends on wether we arrive to the Right Knot in the disconnected state, not on our starting state.
-    * Ex2 starts out connected, but becomes disconnected by the time we arrive at the Right Knot.
-    * Ex3 starts out disconnected but becomes connected by the time we arrive at the Right Knot.
-    * Side Note: you can notice the same effect in the rings_4 example, where if we are traversing all four knots we end up disconnected, but if instead our destination was only three knots away from the start (Say CP:23) then we would not need to reconnect the path.
+  * Ex2 starts out connected, but becomes disconnected by the time we arrive at the Right Knot.
+  * Ex3 starts out disconnected but becomes connected by the time we arrive at the Right Knot.
+  * Side Note: you can notice the same effect in the rings_4 example, where if we are traversing all four knots we end up disconnected, but if instead our destination was only three knots away from the start (Say CP:23) then we would not need to reconnect the path.
 * There is exactly one segment in each example that straddles the Knot border and will allow us to transfer between knots without forming multiple cycles in the graph.
-    * in Ex1 if we had instead connected from 4 to 0 and cut to 15 we'd form multiple cycles in the graph.
-    * in Ex2 if we had instead connected from 5 to 9 and cut to 16 we'd form multiple cycles in the graph.
-    * in Ex3 if we had instead connected from 4 to 0 and cut to 15 we'd form multiple cycles in the graph.
-    * in Ex4 if we had instead connected from 5 to 9 and cut to 16 we'd form multiple cycles in the graph.
-    * This is a restatement of what we learned in [The Fly in the Ointment](#the-fly-in-the-ointment) with the added knowledge that there is only one cut segment that moves us to the next Knot without breaking the knot contract (that a knot is more tightly coupled to itself than its neighbors).
+  * in Ex1 if we had instead connected from 4 to 0 and cut to 15 we'd form multiple cycles in the graph.
+  * in Ex2 if we had instead connected from 5 to 9 and cut to 16 we'd form multiple cycles in the graph.
+  * in Ex3 if we had instead connected from 4 to 0 and cut to 15 we'd form multiple cycles in the graph.
+  * in Ex4 if we had instead connected from 5 to 9 and cut to 16 we'd form multiple cycles in the graph.
+  * This is a restatement of what we learned in [The Fly in the Ointment](#the-fly-in-the-ointment) with the added knowledge that there is only one cut segment that moves us to the next Knot without breaking the knot contract (that a knot is more tightly coupled to itself than its neighbors).
 
 ### Traversing from the edge of the border of a Knot
 
@@ -1009,10 +1039,6 @@ Ok so we've seen with some consistency and a few caveats that we can traverse re
 
 <img src="readme_img\paths.gif" alt="paths"  width="60%" style="max-width: 700px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center">All of paths from KnotPoint  7 to each other possible KnotPoint in djbouti_8-34 rotating clockwise</p>
-
-
-
-
 
 ### Algorithm Speedup Potential NOTES
 
