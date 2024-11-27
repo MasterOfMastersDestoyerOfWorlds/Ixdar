@@ -21,11 +21,11 @@ import shell.file.FileManagement;
 import shell.shell.Shell;
 import shell.terminal.commands.ColorCommand;
 import shell.terminal.commands.ExitCommand;
+import shell.terminal.commands.ManifoldTestCommand;
 import shell.terminal.commands.ResetCommand;
 import shell.terminal.commands.ResetCommand.ResetOption;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
-import shell.ui.actions.GenerateManifoldTestsAction;
 import shell.ui.actions.SaveDialog;
 import shell.ui.main.Main;
 import shell.ui.tools.EditManifoldTool;
@@ -39,14 +39,12 @@ public class KeyGuy {
     public Main main;
     public Camera camera;
 
-    static GenerateManifoldTestsAction generateManifoldTests;
-
     boolean controlMask;
     private Canvas3D canvas;
     JFrame frame;
     SaveDialog dialog;
     NegativeCutMatchViewTool negativeCutMatchViewTool = new NegativeCutMatchViewTool();
-    FindManifoldTool findManifoldTool;
+    FindManifoldTool findManifoldTool = new FindManifoldTool();
     EditManifoldTool editCutMatchTool;
     public boolean active = true;
 
@@ -60,8 +58,6 @@ public class KeyGuy {
         this.main = main;
         this.camera = camera;
         dialog = new SaveDialog(frame, fileName);
-
-        generateManifoldTests = new GenerateManifoldTestsAction(frame, fileName);
     }
 
     private void keyPressed(int key, int mods) {
@@ -103,7 +99,8 @@ public class KeyGuy {
                 }
             }
             if (KeyActions.GenerateManifoldTests.keyPressed(pressedKeys)) {
-                generateManifoldTests.actionPerformed(null);
+                ManifoldTestCommand.run(Main.file.getName(),
+                        FileManagement.solutionsFolder + "/" + Main.file.getName().replace(".ix", ""));
             }
             if (KeyActions.Find.keyPressed(pressedKeys)) {
                 findManifoldTool.reset();

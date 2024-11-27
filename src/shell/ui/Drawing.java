@@ -59,8 +59,8 @@ public class Drawing {
             FONT_HEIGHT_LABELS_PIXELS = FONT_HEIGHT_PIXELS_START;
             CIRCLE_RADIUS = CIRCLE_RADIUS_START;
         }
-        if(MIN_THICKNESS == 0.0){
-            float z =0;
+        if (MIN_THICKNESS == 0.0) {
+            System.out.println(1 / 0);
         }
     }
 

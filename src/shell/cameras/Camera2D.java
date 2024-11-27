@@ -225,9 +225,6 @@ public class Camera2D implements Camera {
         Point2D origin = new Point2D.Double(pointTransformX(0.0), pointTransformY(0.0));
         Point2D p2 = new Point2D.Double(pointTransformX(1.0), pointTransformY(1.0));
         screenSpaceDistanceOverPointSpaceDistanceRatio = origin.distance(p2) / Math.sqrt(2);
-        if (screenSpaceDistanceOverPointSpaceDistanceRatio == 0.0) {
-            float z = 0;
-        }
 
     }
 
