@@ -125,8 +125,11 @@ public class Main {
 		info = new Info();
 		Main.fileName = fileName;
 		file = FileManagement.getTestFile(fileName);
-		terminal = new Terminal(file);
 		retTup = FileManagement.importFromFile(file);
+		terminal = new Terminal(file);
+		for (String comment : retTup.comments) {
+			terminal.history.addLine(comment, Color.BLUE_WHITE);
+		}
 		IxdarWindow.setTitle("Ixdar : " + fileName);
 
 		int wWidth = (int) IxdarWindow.getWidth();

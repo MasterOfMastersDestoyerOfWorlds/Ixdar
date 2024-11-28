@@ -74,6 +74,7 @@ public class FileManagement {
             PointSet ps = new PointSet();
             Path2D path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
             Shell tsp = new Shell();
+            ArrayList<String> comments = new ArrayList<>();
             ArrayList<Manifold> manifolds = new ArrayList<>();
             Manifold m = null;
             boolean flag = true, first = true;
@@ -263,6 +264,8 @@ public class FileManagement {
                             removeDuplicates = true;
                         }
 
+                    } else if (cords[0].contains("//")) {
+                        comments.add(line);
                     } else {
                         PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(cords[1]),
                                 java.lang.Double.parseDouble(cords[2]));
@@ -310,7 +313,7 @@ public class FileManagement {
             if (removeDuplicates && duplicatePointIndexes.size() > 0) {
                 removeDuplicates(f, duplicatePointIndexes);
             }
-            return new PointSetPath(ps, path, tsp, d, manifolds);
+            return new PointSetPath(ps, path, tsp, d, manifolds, comments);
         } catch (NumberFormatException | IOException | FileParseException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();

@@ -42,6 +42,12 @@
 
 # UI
 
+## Bugfix
+
+1. - [ ] number labels no longer are aligned with the segment bisector.
+
+2. - [ ] line segments have jagged edges.
+
 ## Features
 
 1. - [ ] VK_O should swap between showing the calculated cutMatch and the one stored in the file and use opposite colors on the color wheel to represent the cutMatch?
@@ -80,7 +86,7 @@
 
 1. - [ ] If the manifold does not exist ask the user if they'd like to calculate it and add it to the file, otherwise reset without changes.
 
-2. - [ ] Need to change the search to search for closest available to one the user inputted?
+2. - [x] Need to change the search to search for closest available to one the user inputted?
 
 ### Knot Surface View Tool
 
@@ -102,7 +108,7 @@
 
 2. - [ ] Should be like a terminal where you can ask questions about the knot you are looking at.
 
-3. - [ ] Make Unit Tests Command
+3. - [x] Make Unit Tests Command
 
 ### Tab Completion
 
@@ -110,7 +116,7 @@
 
 2. - [ ] Pressing tab on a line with a typed command but missing arguments should cycle through the available options for that command (no cycle on integer inputs).
 
-3. - [ ] Pressing the up arrow should replace the current command line with the previous one in hte history all the way back to the beginning.
+3. - [ ] Pressing the up arrow should replace the current command line with the previous one in hte history all the way back to the beginning. cache?
 
 ### Cursor
 
@@ -126,7 +132,7 @@
 
 1. - [x] Display a scrollable pool of past commands and messages.
 
-2. - [ ] Pressing control and clicking a point or a knot should bring its id into the terminal at the cursor
+2. - [ ] Pressing control and clicking a point, a knot, or a segment should bring its id into the terminal at the cursor
 
 3. - [ ] Bezier curve animation behind terminal as fast fluid sim?
 
