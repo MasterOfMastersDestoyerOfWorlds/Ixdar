@@ -149,11 +149,12 @@ public class FreeTool extends Tool {
 
         }
         h.newLine();
-
-        h.addWord("TopKnot:");
-        VirtualPoint topStruct = Main.result.get(0);
-        if (topStruct.isKnot) {
-            h.addHyperString(((Knot) Main.result.get(0)).toHyperString());
+        if (Main.result.size() > 0) {
+            h.addWord("TopKnot:");
+            VirtualPoint topStruct = Main.result.get(0);
+            if (topStruct.isKnot) {
+                h.addHyperString(((Knot) Main.result.get(0)).toHyperString());
+            }
         }
         h.wrap = true;
         return h;

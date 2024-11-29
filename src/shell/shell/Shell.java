@@ -208,7 +208,7 @@ public class Shell extends LinkedList<PointND> {
 					if (runList.size() > 2) {
 
 						if (Utils.hasKnot(runList, 46) && Utils.hasKnot(runList, 53)) {
-							//float z = 0;
+							// float z = 0;
 						}
 						for (int i = 0; i < runList.size() && runList.size() > 1; i++) {
 
@@ -607,6 +607,9 @@ public class Shell extends LinkedList<PointND> {
 	 * @return the length of the path between all points in the shell
 	 */
 	public double getLength() {
+		if (this.size() == 0) {
+			return 0;
+		}
 		PointND first = null, last = null;
 		double length = 0.0;
 		for (PointND p : this) {

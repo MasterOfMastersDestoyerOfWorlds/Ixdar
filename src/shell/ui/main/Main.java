@@ -10,6 +10,7 @@ import static org.lwjgl.opengl.GL11.glViewport;
 import java.awt.Canvas;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.PriorityQueue;
@@ -59,7 +60,9 @@ import shell.ui.tools.Tool;
 public class Main {
 
 	public static File file;
+	public static File tempFile;
 	static String fileName;
+	static String tempFileName;
 
 	public static Main main;
 	public static Camera2D camera;
@@ -123,10 +126,17 @@ public class Main {
 		metroColors = new ArrayList<>();
 		subPaths = new ArrayList<>();
 		info = new Info();
-		Main.fileName = fileName;
-		file = FileManagement.getTestFile(fileName);
-		retTup = FileManagement.importFromFile(file);
-		terminal = new Terminal(file);
+		tempFile = FileManagement.getTempFile(fileName);
+		Main.tempFileName = tempFile.getName();
+		if (fileName.isBlank()) {
+			retTup = FileManagement.importFromFile(tempFile);
+			terminal = new Terminal(tempFile);
+		} else {
+			Main.fileName = fileName;
+			file = FileManagement.getTestFile(fileName);
+			retTup = FileManagement.importFromFile(file);
+			terminal = new Terminal(file);
+		}
 		for (String comment : retTup.comments) {
 			terminal.history.addLine(comment, Color.BLUE_WHITE);
 		}
@@ -191,9 +201,11 @@ public class Main {
 
 		long startTimeKnotCutting = System.currentTimeMillis();
 		calculateSubPaths();
-
-		manifoldKnot = shell.cutEngine.flatKnots.values().iterator().next();
-		for (Knot f : shell.cutEngine.flatKnots.values()) {
+		Collection<Knot> flatKnots = shell.cutEngine.flatKnots.values();
+		if (flatKnots.size() > 0) {
+			manifoldKnot = flatKnots.iterator().next();
+		}
+		for (Knot f : flatKnots) {
 			if (f.knotPointsFlattened.size() > manifoldKnot.size()) {
 				manifoldKnot = f;
 			}
@@ -227,11 +239,11 @@ public class Main {
 
 		Random colorSeed = new Random();
 
-		int numKnots = shell.cutEngine.flatKnots.size();
+		int numKnots = flatKnots.size();
 		float startHue = colorSeed.nextFloat();
 		float step = 1.0f / ((float) numKnots);
 		int i = 0;
-		for (Knot k : shell.cutEngine.flatKnots.values()) {
+		for (Knot k : flatKnots) {
 			knotGradientColors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
 			colorLookup.put((long) k.id, i);
 			i++;
@@ -243,11 +255,11 @@ public class Main {
 		}
 		knotDrawLayer = totalLayers;
 		Set<Integer> knotIds = shell.cutEngine.flatKnots.keySet();
-		HashMap<Integer, Knot> flatKnots = shell.cutEngine.flatKnots;
+		HashMap<Integer, Knot> flatKnotMap = shell.cutEngine.flatKnots;
 		HashMap<Integer, Integer> flatKnotsHeight = shell.cutEngine.flatKnotsHeight;
 		HashMap<Integer, Integer> flatKnotsLayer = shell.cutEngine.flatKnotsLayer;
 		for (Integer id : knotIds) {
-			Knot k = flatKnots.get(id);
+			Knot k = flatKnotMap.get(id);
 			int heightNum = flatKnotsHeight.get(id);
 			int layerNum = flatKnotsLayer.get(id);
 			Shell knotShell = new Shell();

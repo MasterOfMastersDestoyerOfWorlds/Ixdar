@@ -8,7 +8,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import shell.BalanceMap;
 import shell.cuts.CutInfo;
 import shell.cuts.CutMatchList;
-import shell.cuts.FileStringable;
 import shell.exceptions.FileParseException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
@@ -51,6 +50,7 @@ public class Manifold implements FileStringable {
         return res;
     }
 
+    @Override
     public String toString() {
         return "MANIFOLD_" + kp1 + "-" + cp1 + "_" + kp2 + "-" + cp2 + "_" + (knotPointsConnected ? "C" : "DC")
 

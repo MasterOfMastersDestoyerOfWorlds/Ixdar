@@ -125,7 +125,7 @@ public class KeyGuy {
         } else if (Toggle.isTerminalFocused.value) {
             Main.terminal.keyPress(key, mods);
         }
-        if (KeyActions.Back.keyPressed(pressedKeys)) {
+        if (KeyActions.Back.keyPressed(pressedKeys) && Main.active) {
             ExitCommand.run();
         }
     }

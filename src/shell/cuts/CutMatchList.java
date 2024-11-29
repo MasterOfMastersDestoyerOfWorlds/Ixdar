@@ -9,6 +9,7 @@ import org.apache.commons.collections4.map.MultiKeyMap;
 import org.apache.commons.math3.util.Pair;
 
 import shell.exceptions.SegmentBalanceException;
+import shell.file.FileStringable;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
@@ -37,6 +38,7 @@ public class CutMatchList implements FileStringable {
     }
 
 
+    @Override
     public String toString() {
         String str = "CML[ topKnot:" + superKnot + "\n" + cutMatches + " \n]\n totalDelta: " + delta;
         return str;

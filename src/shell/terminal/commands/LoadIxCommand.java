@@ -7,13 +7,13 @@ import shell.terminal.Terminal;
 import shell.ui.Canvas3D;
 import shell.ui.main.Main;
 
-public class LoadCommand extends TerminalCommand {
+public class LoadIxCommand extends TerminalCommand {
 
     public static String cmd = "ld";
 
     @Override
     public String fullName() {
-        return "load";
+        return "loadix";
     }
 
     @Override
@@ -28,12 +28,20 @@ public class LoadCommand extends TerminalCommand {
 
     @Override
     public String usage() {
-        return "usage: ld|load [file to load(filename)]";
+        return "usage: ld|loadix [file to load(filename)]";
     }
 
     @Override
     public int argLength() {
         return 1;
+    }
+
+    public static void run(String fileName) {
+        FileManagement.updateTestFileCache(fileName);
+        Canvas3D.activate(false);
+        Main.main(new String[] { fileName });
+        Main.activate(true);
+
     }
 
     @Override
@@ -42,10 +50,7 @@ public class LoadCommand extends TerminalCommand {
         String dirLoc = terminal.directory + "/" + fileName;
         File newDir = new File(dirLoc);
         if (newDir.exists() && newDir.isFile()) {
-            FileManagement.updateTestFileCache(fileName);
-            Canvas3D.activate(false);
-            Main.main(new String[] { fileName });
-            Main.activate(true);
+            run(fileName);
             return new String[] { "ls " };
         }
         terminal.error("file not found: " + dirLoc);

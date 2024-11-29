@@ -278,6 +278,9 @@ public class Drawing {
     public static void drawPath(Shell shell, float lineThickness, Color color,
             PointSet ps,
             boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed, Camera2D camera) {
+        if (shell.size() == 0) {
+            return;
+        }
         if (dashed) {
             sdfLine.setStroke(lineThickness * camera.ScaleFactor, true, 60f, 1f, true, true);
         } else {

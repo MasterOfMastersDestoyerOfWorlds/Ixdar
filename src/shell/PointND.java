@@ -3,7 +3,7 @@ package shell;
 import java.awt.geom.Point2D;
 import java.io.Serializable;
 
-import shell.cuts.FileStringable;
+import shell.file.FileStringable;
 
 /**
  * The {@code PointND} class defines a point representing a location in
@@ -102,21 +102,24 @@ public abstract class PointND implements Cloneable, FileStringable {
 		/**
 		 * @return the dimension of the vector
 		 */
-		public int getDim() {
+		@Override
+        public int getDim() {
 			return fs.length;
 		}
 
 		/**
 		 * {@inheritDoc}
 		 */
-		public double getCoord(int dim) {
+		@Override
+        public double getCoord(int dim) {
 			return (double) fs[dim];
 		}
 
 		/**
 		 * {@inheritDoc}
 		 */
-		public void setLocation(double... ds) {
+		@Override
+        public void setLocation(double... ds) {
 			float[] fs = new float[ds.length];
 			for (int i = 0; i < ds.length; i++) {
 				fs[i] = (float) ds[i];
@@ -141,7 +144,8 @@ public abstract class PointND implements Cloneable, FileStringable {
 		 * @return a string representation of this {@code PointND}.
 		 * 
 		 */
-		public String toString() {
+		@Override
+        public String toString() {
 			StringBuilder sb = new StringBuilder("PointND.Float[");
 			for (int i = 0; i < fs.length - 1; i++) {
 				sb.append(fs[i]);
@@ -274,7 +278,8 @@ public abstract class PointND implements Cloneable, FileStringable {
 			return this.getID();
 		}
 
-		public int getDim() {
+		@Override
+        public int getDim() {
 			return ds.length;
 		}
 
@@ -282,7 +287,8 @@ public abstract class PointND implements Cloneable, FileStringable {
 		 * {@inheritDoc}
 		 * 
 		 */
-		public double getCoord(int dim) {
+		@Override
+        public double getCoord(int dim) {
 			if (dim >= ds.length) {
 				return 0.0;
 			}
@@ -293,7 +299,8 @@ public abstract class PointND implements Cloneable, FileStringable {
 		 * {@inheritDoc}
 		 * 
 		 */
-		public void setLocation(double... ds) {
+		@Override
+        public void setLocation(double... ds) {
 			this.ds = ds;
 		}
 
@@ -315,7 +322,8 @@ public abstract class PointND implements Cloneable, FileStringable {
 		 * @return a string representation of this {@code PointND}.
 		 * 
 		 */
-		public String toString() {
+		@Override
+        public String toString() {
 			StringBuilder sb = new StringBuilder("PointND.Double[");
 			for (int i = 0; i < ds.length - 1; i++) {
 				sb.append(ds[i]);
@@ -534,7 +542,8 @@ public abstract class PointND implements Cloneable, FileStringable {
 	 * @exception OutOfMemoryError if there is not enough memory.
 	 * @see java.lang.Cloneable
 	 */
-	public Object clone() {
+	@Override
+    public Object clone() {
 		try {
 			return super.clone();
 		} catch (CloneNotSupportedException e) {
@@ -553,7 +562,8 @@ public abstract class PointND implements Cloneable, FileStringable {
 	 * @return {@code true} if the object to be compared is an instance of
 	 *         {@code PointND} and has the same values; {@code false} otherwise.
 	 */
-	public boolean equals(Object obj) {
+	@Override
+    public boolean equals(Object obj) {
 		if (obj instanceof PointND) {
 			PointND pt = (PointND) obj;
 			if (pt.getID() == getID()) {
