@@ -1,25 +1,35 @@
-package shell.file;
+package shell.objects;
 
 import java.util.ArrayList;
 
-import shell.PointND;
+import shell.exceptions.TerminalParseException;
 import shell.terminal.commands.OptionList;
 
-public class Circle extends PointCollection implements FileStringable {
+public class Circle extends PointCollection {
+    public static String cmd = "circ";
     public static OptionList opts = new OptionList("c", "circ", "circle");
 
-    public static ArrayList<PointND> parse(String[] args, int startIdx) {
+    public static ArrayList<PointND> parse(String[] args, int startIdx) throws TerminalParseException {
         Circle c = parseCircle(args, startIdx);
         return c.points;
     }
 
-    public static Circle parseCircle(String[] args, int startIdx) {
+    public static Circle parseCircle(String[] args, int startIdx) throws TerminalParseException {
+        if (args.length - startIdx == 0) {
+            return new Circle();
+        }
         double xCenter = java.lang.Double.parseDouble(args[startIdx]);
         double yCenter = java.lang.Double.parseDouble(args[startIdx + 1]);
         double radius = java.lang.Double.parseDouble(args[startIdx + 2]);
         int numPoints = java.lang.Integer.parseInt(args[startIdx + 3]);
         double rotation = Math.PI * java.lang.Double.parseDouble(args[startIdx + 4]) / 180.0;
         return new Circle(xCenter, yCenter, radius, numPoints, rotation);
+    }
+
+    @Override
+    public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {
+        PointCollection c = parseCircle(args, startIdx);
+        return c;
     }
 
     @Override
@@ -51,6 +61,11 @@ public class Circle extends PointCollection implements FileStringable {
         return 5;
     }
 
+    @Override
+    public OptionList options() {
+        return opts;
+    }
+
     double xCenter;
     double yCenter;
     double radius;
@@ -79,6 +94,16 @@ public class Circle extends PointCollection implements FileStringable {
     @Override
     public String toFileString() {
         return "CIRCLE " + xCenter + " " + yCenter + " " + radius + " " + numPoints + " " + rotation;
+    }
+
+    @Override
+    public String fullName() {
+        return "circle";
+    }
+
+    @Override
+    public String shortName() {
+        return cmd;
     }
 
 }

@@ -1,5 +1,8 @@
 package shell.file;
 
+import java.awt.geom.GeneralPath;
+import java.awt.geom.Path2D;
+import java.awt.geom.Point2D;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -11,14 +14,16 @@ import java.util.HashMap;
 import java.util.List;
 
 import shell.DistanceMatrix;
-import shell.PointND;
 import shell.PointSet;
 import shell.exceptions.FileParseException;
+import shell.exceptions.TerminalParseException;
+import shell.objects.Arc;
+import shell.objects.Circle;
+import shell.objects.Ix;
+import shell.objects.Line;
+import shell.objects.PointND;
+import shell.objects.Triangle;
 import shell.shell.Shell;
-
-import java.awt.geom.GeneralPath;
-import java.awt.geom.Path2D;
-import java.awt.geom.Point2D;
 
 public class FileManagement {
 
@@ -62,14 +67,16 @@ public class FileManagement {
     }
 
     public static void updateTestFileCache(String cachedLocation) {
-        File cache = new File(testFileCacheLocation);
-        try (FileWriter fw = new FileWriter(cache)) {
-            BufferedWriter out = new BufferedWriter(fw);
-            out.write(cachedLocation);
-            out.flush();
-            out.close();
-        } catch (IOException e) {
-            e.printStackTrace();
+        if (!cachedLocation.isBlank()) {
+            File cache = new File(testFileCacheLocation);
+            try (FileWriter fw = new FileWriter(cache)) {
+                BufferedWriter out = new BufferedWriter(fw);
+                out.write(cachedLocation);
+                out.flush();
+                out.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -113,8 +120,9 @@ public class FileManagement {
      * 
      * @param f
      * @return the optimal PointSetPath
+     * @throws TerminalParseException
      */
-    public static PointSetPath importFromFile(File f) {
+    public static PointSetPath importFromFile(File f) throws TerminalParseException {
 
         try (BufferedReader br = new BufferedReader(new FileReader(f))) {
             String line = br.readLine();
@@ -235,8 +243,8 @@ public class FileManagement {
                             index++;
                         }
                     }
-
                 }
+
                 if (line.contains("NODE_COORD_SECTION")) {
                     flag = true;
                 }

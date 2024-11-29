@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import shell.cameras.Camera2D;
+import shell.objects.PointCollection;
 import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
@@ -36,10 +37,10 @@ public class Terminal {
     boolean scrollToCommandLine;
     public File loadedFile;
 
-    public static ArrayList<TerminalCommand> commandList = new ArrayList<>();
+    public static ArrayList<TerminalCommand> commandList;
     public static HashMap<String, TerminalCommand> commandMap = new HashMap<>();
+    public static ArrayList<PointCollection> pointCollectionList;
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
     public Terminal(File loadedFile) {
         commandLine = "";
         nextLogicalCommand = new String[] {};
@@ -48,7 +49,23 @@ public class Terminal {
         this.directory = loadedFile.getParent();
         this.loadedFile = loadedFile;
         history = new HyperString();
-        String packageName = "shell.terminal.commands";
+        if (commandList == null) {
+            commandList = new ArrayList<>();
+            loadClassType("shell.terminal.commands", commandList, TerminalCommand.class);
+            for (TerminalCommand command : commandList) {
+                commandMap.put(command.fullName(), command);
+                commandMap.put(command.shortName(), command);
+            }
+        }
+        if (pointCollectionList == null) {
+            pointCollectionList = new ArrayList<>();
+            loadClassType("shell.objects", pointCollectionList, PointCollection.class);
+        }
+
+    }
+
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private <E> void loadClassType(String packageName, ArrayList<E> list, Class<E> type) {
         InputStream stream = ClassLoader.getSystemClassLoader()
                 .getResourceAsStream(packageName.replaceAll("[.]", "/"));
         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
@@ -57,18 +74,15 @@ public class Terminal {
                 .map(line -> getClass(line, packageName))
                 .collect(Collectors.toList());
         for (Class c : commandClasses) {
-            if (!Modifier.isAbstract(c.getModifiers()) && !c.isEnum() && c.getName().contains("Command")) {
+            Class superClass = c.getSuperclass();
+            if (!Modifier.isAbstract(c.getModifiers()) && !c.isEnum() && superClass == type) {
                 try {
-                    commandList.add((TerminalCommand) c.getConstructor().newInstance());
+                    list.add((E) c.getConstructor().newInstance());
                 } catch (InstantiationException | IllegalAccessException | IllegalArgumentException
                         | InvocationTargetException | NoSuchMethodException | SecurityException e) {
                     e.printStackTrace();
                 }
             }
-        }
-        for (TerminalCommand command : commandList) {
-            commandMap.put(command.fullName(), command);
-            commandMap.put(command.shortName(), command);
         }
     }
 

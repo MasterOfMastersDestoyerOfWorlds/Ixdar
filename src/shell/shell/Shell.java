@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 
 import shell.DistanceMatrix;
-import shell.PointND;
 import shell.PointSet;
 import shell.cuts.CutEngine;
 import shell.exceptions.BalancerException;
@@ -19,6 +18,7 @@ import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.objects.PointND;
 import shell.utils.RunListUtils;
 import shell.utils.StringBuff;
 import shell.utils.Utils;

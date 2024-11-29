@@ -26,7 +26,6 @@ import shell.terminal.commands.ResetCommand;
 import shell.terminal.commands.ResetCommand.ResetOption;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
-import shell.ui.actions.SaveDialog;
 import shell.ui.main.Main;
 import shell.ui.tools.EditManifoldTool;
 import shell.ui.tools.FindManifoldTool;
@@ -40,9 +39,9 @@ public class KeyGuy {
     public Camera camera;
 
     boolean controlMask;
+    boolean shiftMask;
     private Canvas3D canvas;
     JFrame frame;
-    SaveDialog dialog;
     NegativeCutMatchViewTool negativeCutMatchViewTool = new NegativeCutMatchViewTool();
     FindManifoldTool findManifoldTool = new FindManifoldTool();
     EditManifoldTool editCutMatchTool;
@@ -57,7 +56,6 @@ public class KeyGuy {
     public KeyGuy(Main main, String fileName, Camera camera) {
         this.main = main;
         this.camera = camera;
-        dialog = new SaveDialog(frame, fileName);
     }
 
     private void keyPressed(int key, int mods) {
@@ -69,6 +67,9 @@ public class KeyGuy {
 
         if (KeyActions.ControlMask.keyPressed(pressedKeys)) {
             controlMask = true;
+        }
+        if (KeyActions.ShiftMask.keyPressed(pressedKeys)) {
+            shiftMask = true;
         }
         if (controlMask && firstPress) {
             if (KeyActions.PrintScreen.keyPressed(pressedKeys)) {
@@ -92,11 +93,14 @@ public class KeyGuy {
                 }
             }
             if (KeyActions.Save.keyPressed(pressedKeys)) {
-                String newFilename = dialog.showDialog();
+                if (Main.file == null && Main.tempFile != null) {
 
-                if ((newFilename != null) && (newFilename.length() > 0)) {
-                    System.out.println("Saving to file: " + newFilename);
+                } else if (Main.file != null) {
+
                 }
+            }
+            if (KeyActions.SaveAs.keyPressed(pressedKeys)) {
+
             }
             if (KeyActions.GenerateManifoldTests.keyPressed(pressedKeys)) {
                 ManifoldTestCommand.run(Main.file.getName(),

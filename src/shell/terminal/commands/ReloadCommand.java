@@ -2,6 +2,7 @@ package shell.terminal.commands;
 
 import java.io.File;
 
+import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
 import shell.terminal.Terminal;
 import shell.ui.Canvas3D;
@@ -41,11 +42,15 @@ public class ReloadCommand extends TerminalCommand {
         String fileName = terminal.loadedFile.getName();
         File newDir = terminal.loadedFile;
         if (newDir.exists() && newDir.isFile()) {
-            FileManagement.updateTestFileCache(fileName);
-            Canvas3D.activate(false);
-            Main.main(new String[] { fileName });
-            Main.activate(true);
-            return new String[] { "ls " };
+            try {
+                Main.main(new String[] { fileName });
+                FileManagement.updateTestFileCache(fileName);
+                Canvas3D.activate(false);
+                Main.activate(true);
+                return new String[] { "ls " };
+            } catch (TerminalParseException e) {
+                terminal.error(e.message);
+            }
         }
         terminal.error("file not found: " + fileName);
 

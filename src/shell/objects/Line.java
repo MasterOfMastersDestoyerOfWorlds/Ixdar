@@ -1,20 +1,23 @@
-package shell.file;
+package shell.objects;
 
 import java.util.ArrayList;
 
-import shell.PointND;
+import shell.exceptions.TerminalParseException;
 import shell.terminal.commands.OptionList;
 
-public class Line extends PointCollection implements FileStringable {
-
+public class Line extends PointCollection {
+    public static String cmd = "ln";
     public static OptionList opts = new OptionList("l", "ln", "line");
 
-    public static ArrayList<PointND> parse(String[] args, int startIdx) {
+    public static ArrayList<PointND> parse(String[] args, int startIdx) throws TerminalParseException {
         Line l = parseLine(args, startIdx);
         return l.points;
     }
 
-    public static Line parseLine(String[] args, int startIdx) {
+    public static Line parseLine(String[] args, int startIdx) throws TerminalParseException {
+        if (args.length - startIdx == 0) {
+            return new Line();
+        }
         double xStart = java.lang.Double.parseDouble(args[startIdx]);
         double yStart = java.lang.Double.parseDouble(args[startIdx + 1]);
         double xEnd = java.lang.Double.parseDouble(args[startIdx + 2]);
@@ -22,6 +25,12 @@ public class Line extends PointCollection implements FileStringable {
         int numPoints = java.lang.Integer.parseInt(args[startIdx + 4]);
         Line l = new Line(xStart, yStart, numPoints, xEnd, yEnd);
         return l;
+    }
+
+    @Override
+    public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {
+        PointCollection c = parseLine(args, startIdx);
+        return c;
     }
 
     @Override
@@ -39,6 +48,16 @@ public class Line extends PointCollection implements FileStringable {
     }
 
     @Override
+    public String fullName() {
+        return "line";
+    }
+
+    @Override
+    public String shortName() {
+        return cmd;
+    }
+
+    @Override
     public String desc() {
         return "a line with n points";
     }
@@ -51,6 +70,11 @@ public class Line extends PointCollection implements FileStringable {
     @Override
     public int argLength() {
         return 5;
+    }
+
+    @Override
+    public OptionList options() {
+        return opts;
     }
 
     double xStart;

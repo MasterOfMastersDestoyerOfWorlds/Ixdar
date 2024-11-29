@@ -20,7 +20,6 @@ import java.util.Set;
 import org.apache.commons.math3.util.Pair;
 
 import shell.DistanceMatrix;
-import shell.PointND;
 import shell.Toggle;
 import shell.cameras.Camera;
 import shell.cameras.Camera2D;
@@ -28,6 +27,7 @@ import shell.cuts.CutEngine;
 import shell.cuts.InternalPathEngine;
 import shell.cuts.route.RouteInfo;
 import shell.exceptions.SegmentBalanceException;
+import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
 import shell.file.Manifold;
 import shell.file.PointSetPath;
@@ -36,6 +36,7 @@ import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.objects.PointND;
 import shell.render.color.Color;
 import shell.render.color.ColorBox;
 import shell.render.color.ColorLerp;
@@ -115,7 +116,7 @@ public class Main {
 	public static Terminal terminal;
 	public static Info info;
 
-	public Main(String fileName) {
+	public Main(String fileName) throws TerminalParseException {
 		metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
 		metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
 		manifolds = new ArrayList<>();
@@ -159,7 +160,7 @@ public class Main {
 		logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, 0.6f, 0f, true);
 	}
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws TerminalParseException {
 		main = new Main(args[0]);
 
 		int wWidth = (int) IxdarWindow.getWidth();

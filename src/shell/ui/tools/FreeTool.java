@@ -5,13 +5,13 @@ import shell.render.text.HyperString;
 
 import java.util.ArrayList;
 
-import shell.PointND;
 import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.objects.PointND;
 import shell.ui.Drawing;
 import shell.ui.main.Main;
 

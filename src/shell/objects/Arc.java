@@ -1,20 +1,23 @@
-package shell.file;
+package shell.objects;
 
 import java.util.ArrayList;
 
-import shell.PointND;
+import shell.exceptions.TerminalParseException;
 import shell.terminal.commands.OptionList;
 
-public class Arc extends PointCollection implements FileStringable {
-
+public class Arc extends PointCollection {
+    public static String cmd = "arc";
     public static OptionList opts = new OptionList("a", "arc");
 
-    public static ArrayList<PointND> parse(String[] args, int startIdx) {
+    public static ArrayList<PointND> parse(String[] args, int startIdx) throws TerminalParseException {
         Arc arc = parseArc(args, startIdx);
         return arc.points;
     }
 
-    public static Arc parseArc(String[] args, int startIdx) {
+    public static Arc parseArc(String[] args, int startIdx) throws TerminalParseException {
+        if (args.length - startIdx == 0) {
+            return new Arc();
+        }
         double xCenter = java.lang.Double.parseDouble(args[startIdx]);
         double yCenter = java.lang.Double.parseDouble(args[startIdx + 1]);
         double radius = java.lang.Double.parseDouble(args[startIdx + 2]);
@@ -22,6 +25,12 @@ public class Arc extends PointCollection implements FileStringable {
         double startAngle = java.lang.Double.parseDouble(args[startIdx + 4]) * (Math.PI / 180);
         double endAngle = java.lang.Double.parseDouble(args[startIdx + 5]) * (Math.PI / 180);
         return new Arc(xCenter, yCenter, radius, numPoints, startAngle, endAngle);
+    }
+
+    @Override
+    public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {
+        PointCollection c = parseArc(args, startIdx);
+        return c;
     }
 
     @Override
@@ -82,8 +91,23 @@ public class Arc extends PointCollection implements FileStringable {
     }
 
     @Override
+    public OptionList options() {
+        return opts;
+    }
+
+    @Override
     public String toFileString() {
         return "ARC " + xCenter + " " + yCenter + " " + radius + " " + numPoints + " " + startAngle + " " + endAngle;
+    }
+
+    @Override
+    public String fullName() {
+        return "arc";
+    }
+
+    @Override
+    public String shortName() {
+        return cmd;
     }
 
 }

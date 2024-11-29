@@ -12,7 +12,6 @@ import org.joml.Random;
 import org.joml.Vector2f;
 
 import shell.DistanceMatrix;
-import shell.PointND;
 import shell.PointSet;
 import shell.cameras.Camera2D;
 import shell.cuts.CutMatch;
@@ -22,6 +21,7 @@ import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.objects.PointND;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFCircle;

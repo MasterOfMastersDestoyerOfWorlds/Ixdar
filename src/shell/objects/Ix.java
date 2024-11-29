@@ -1,30 +1,43 @@
-package shell.file;
+package shell.objects;
 
 import java.io.File;
 import java.util.ArrayList;
 
-import shell.PointND;
+import shell.exceptions.TerminalParseException;
+import shell.file.FileManagement;
+import shell.file.PointSetPath;
 import shell.terminal.commands.OptionList;
 
-public class Ix extends PointCollection implements FileStringable {
-
+public class Ix extends PointCollection {
+    public static String cmd = "ix";
     public static OptionList opts = new OptionList("i", "ix", "ixdar", "load", "ld");
 
-    public static ArrayList<PointND> parse(String[] args, int startIdx) {
+    public static ArrayList<PointND> parse(String[] args, int startIdx) throws TerminalParseException {
         PointSetPath retTup = parseFull(args, startIdx);
         return retTup.ps;
     }
 
-    public static PointSetPath parseFull(String[] args, int startIdx) {
+    public static PointSetPath parseFull(String[] args, int startIdx) throws TerminalParseException {
         File loadFile = FileManagement.getTestFile(args[startIdx]);
         PointSetPath retTup = FileManagement.importFromFile(loadFile);
         return retTup;
     }
 
-    public static Ix parseIx(String[] args, int startIdx) {
+    public static Ix parseIx(String[] args, int startIdx) throws TerminalParseException {
         PointSetPath retTup = parseFull(args, startIdx);
         Ix ix = new Ix(args[startIdx], retTup.ps);
         return ix;
+    }
+
+    @Override
+    public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {
+        PointCollection c = parseIx(args, startIdx);
+        return c;
+    }
+
+    @Override
+    public int minArgLength() {
+        return 1;
     }
 
     @Override
@@ -47,6 +60,11 @@ public class Ix extends PointCollection implements FileStringable {
         return 1;
     }
 
+    @Override
+    public OptionList options() {
+        return opts;
+    }
+
     String fileName;
     ArrayList<PointND> points;
 
@@ -62,6 +80,16 @@ public class Ix extends PointCollection implements FileStringable {
     @Override
     public String toFileString() {
         return "IX " + fileName;
+    }
+
+    @Override
+    public String fullName() {
+        return "ixdar";
+    }
+
+    @Override
+    public String shortName() {
+        return "ix";
     }
 
 }

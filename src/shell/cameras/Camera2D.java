@@ -3,12 +3,12 @@ package shell.cameras;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 
-import shell.PointND;
 import shell.PointSet;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.objects.PointND;
 import shell.render.Clock;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;

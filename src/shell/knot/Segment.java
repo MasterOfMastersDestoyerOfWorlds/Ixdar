@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
 
-import shell.PointND;
+import shell.objects.PointND;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
 import shell.ui.actions.Action;

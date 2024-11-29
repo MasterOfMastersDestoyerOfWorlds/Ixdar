@@ -3,7 +3,7 @@ package shell.knot;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import shell.PointND;
+import shell.objects.PointND;
 import shell.render.text.HyperString;
 import shell.shell.Shell;
 
