@@ -1,0 +1,7 @@
+example 1: ls - lists all of the files and sub-directories in the current directory
+example 2: ls cmd - lists all of the commands that can be run through the terminal and their descriptions
+example 3: ls obj - lists all of the point collections that can be added to or moved in the current file(e.g. circle, points, ...)
+example 4: ls ? - lists all of the questions you can check in the current file and it's solution
+example 5: ls keys - lists all of the key shortcuts and what they do
+example 6: ls val - lists all of the values that you can check in the terminal
+example 7: ls [some other command] - lists all of the options that the other command excepts (e.g. add circle|point|triangle|...)

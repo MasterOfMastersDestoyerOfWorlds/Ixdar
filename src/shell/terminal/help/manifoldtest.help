@@ -1,0 +1,6 @@
+example: mtf - this command will calculate all shortest cutmatch paths (see readme: hole moving game) on all pairs of cut segments
+in the top knot of the current ixdar file. So if our current knot is a circle formed by 5 segments, then the resulting manifold master file would 
+contain 4*(5^2) cutmatch paths; accounting for all orientations of the starting cut segments.
+
+if the current file is named ixdar.ix in the /solutions/ixdar/ folder the resulting manifold test file would be in /solutions/ixdar-manifold/ with 
+the name ixdar-manifold_master.ix

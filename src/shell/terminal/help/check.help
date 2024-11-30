@@ -1,0 +1,5 @@
+example 1: check ans isLocalMinima - would look at the file's proposed solution and check if any 2-opt swaps can be made to lower the total length
+of the tour.
+example 2: check ans - prints the file's proposed solution
+example 3: check ans length - prints the file's proposed solution's total length
+example 4: check 3 - prints all of the information about virtual point with id 3 (its type, it's members, the first n segments of its sorted segment list, etc.)

@@ -39,7 +39,7 @@ public class Triangle extends PointCollection {
 
     @Override
     public String usage() {
-        return "usage: add triangle [x center(double)] [y center(double)] [radius (double)]";
+        return "usage: add triangle [x center(double)] [y center(double)] [radius (double)] [rotation degrees (double)]";
     }
 
     @Override

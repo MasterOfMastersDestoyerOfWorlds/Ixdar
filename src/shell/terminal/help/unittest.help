@@ -1,0 +1,3 @@
+example: ut - makes or overrides a unit test that encompasses all of the ixdar files in the current terminal directory. so if we had a folder /ixdar/
+with files ixdar.ix, ixdar_19-29.ix and ixdar_12-123p200.ix in it, all of these files would be tested in the resulting unit test java file in 
+/shell/test/unit/subgraphs/Ixdar.java

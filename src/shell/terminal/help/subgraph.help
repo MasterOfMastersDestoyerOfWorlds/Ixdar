@@ -1,0 +1,2 @@
+example: sg 20-30 40 make a new file with points 20 through 30 and point 40 of the current file
+if the parent file was named ix179 the new file would be named ix179_20-30p40 

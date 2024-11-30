@@ -14,6 +14,8 @@ public abstract class TerminalCommand implements TerminalOption {
         String commandName = this.fullName();
         String fileLoc = "./src/shell/terminal/help/" + commandName + ".help";
         File f = new File(fileLoc);
+        terminal.history.addWord(this.fullName(), Color.COMMAND);
+        terminal.history.addLine(this.desc(), Color.GREEN);
         try (BufferedReader br = new BufferedReader(new FileReader(f))) {
             String line = br.readLine();
             while (line != null) {

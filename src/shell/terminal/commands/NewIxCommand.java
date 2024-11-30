@@ -24,7 +24,7 @@ public class NewIxCommand extends TerminalCommand {
 
     @Override
     public String desc() {
-        return "create a blank ixdar file with a name";
+        return "creates a new blank ixdar file with no points and a new directory";
     }
 
     @Override

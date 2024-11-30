@@ -1,0 +1,2 @@
+example: sv ixdar.ix - saves the temporary file onto ixdar.ix 
+the file should only differ in points added by the add command.
