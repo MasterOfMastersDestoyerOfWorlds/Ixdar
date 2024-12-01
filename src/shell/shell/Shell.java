@@ -543,14 +543,12 @@ public class Shell extends LinkedList<PointND> {
 		for (VirtualPoint vp : knotNew.knotPointsFlattened) {
 			int low = vp.id;
 			for (VirtualPoint vp2 : knotNew.knotPointsFlattened) {
-				if (!vp.equals(vp2)) {
-					int high = vp2.id;
-					if (smallestCommonKnotLookup[high][low] != -1) {
-						continue;
-					}
-					smallestCommonKnotLookup[high][low] = knotNew.id;
-					smallestCommonKnotLookup[low][high] = knotNew.id;
+				int high = vp2.id;
+				if (smallestCommonKnotLookup[high][low] != -1) {
+					continue;
 				}
+				smallestCommonKnotLookup[high][low] = knotNew.id;
+				smallestCommonKnotLookup[low][high] = knotNew.id;
 			}
 		}
 	}

@@ -18,6 +18,9 @@
     "java.saveActions.organizeImports": false,
     "cSpell.words": [
         "bezier",
+        "cutmatches",
+        "cutpoint",
+        "cutsegments",
         "Ixdar"
     ]
 }

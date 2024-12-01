@@ -5,6 +5,7 @@ import java.util.Random;
 
 import shell.DistanceMatrix;
 import shell.exceptions.SegmentBalanceException;
+import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
 import shell.file.PointSetPath;
 import shell.shell.Shell;
@@ -14,7 +15,13 @@ import shell.shell.Shell;
  */
 public class SubGraphs {
 	public static void testMethod(String fileName) {
-		PointSetPath retTup = FileManagement.importFromFile(FileManagement.getTestFile(fileName));
+		PointSetPath retTup = null;
+		try {
+			retTup = FileManagement.importFromFile(FileManagement.getTestFile(fileName));
+		} catch (TerminalParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		Shell answer = new Shell();
 		int n = retTup.ps.size();
 
