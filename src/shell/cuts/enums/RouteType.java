@@ -9,6 +9,7 @@ public enum RouteType {
 
     public boolean isConnected, isNext, isPrev;
     public RouteType oppositeRoute;
+    public RouteType oppositeConnectionRoute;
 
     RouteType(boolean isConnected, boolean isNext, boolean isPrev) {
         this.isConnected = isConnected;
@@ -22,6 +23,13 @@ public enum RouteType {
         prevC.oppositeRoute = nextC;
         nextDC.oppositeRoute = prevDC;
         prevDC.oppositeRoute = nextDC;
+    }
+
+    static {
+        nextC.oppositeConnectionRoute = nextDC;
+        prevC.oppositeConnectionRoute = prevDC;
+        nextDC.oppositeConnectionRoute = nextC;
+        prevDC.oppositeConnectionRoute = prevC;
     }
 
     public int idTransform(int id) {

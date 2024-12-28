@@ -7,6 +7,8 @@ import java.util.HashSet;
 import java.util.PriorityQueue;
 import java.util.Set;
 
+import org.apache.commons.math3.util.Pair;
+
 import shell.BalanceMap;
 import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
@@ -35,7 +37,7 @@ public class InternalPathEngine {
         this.cutEngine = cutEngine;
     }
 
-    public CutMatchList calculateInternalPathLength(
+    public Pair<CutMatchList, RouteMap<Integer, RouteInfo>> calculateInternalPathLength(
             VirtualPoint knotPoint1, VirtualPoint cutPoint1, VirtualPoint external1,
             VirtualPoint knotPoint2, VirtualPoint cutPoint2, VirtualPoint external2,
             Knot knot, BalanceMap balanceMap, CutInfo c, boolean knotPointsConnected)
@@ -66,18 +68,19 @@ public class InternalPathEngine {
                     + (knotPointsConnected ? 0 : 1));
         }
         if (smallestKnot1.id == smallestKnot2.id) {
-            if (knotPointsConnected) {
-                CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
-                Segment simpleMatch = cutPoint1.getClosestSegment(cutPoint2, null);
-                ArrayList<Segment> segList = new ArrayList<>();
-                segList.add(simpleMatch);
-                cutMatchList.addLists(new ArrayList<Segment>(), segList, knot, "InternalPathEngine");
-                return cutMatchList;
-            }
+            // if (knotPointsConnected) {
+            // CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
+            // Segment simpleMatch = cutPoint1.getClosestSegment(cutPoint2, null);
+            // ArrayList<Segment> segList = new ArrayList<>();
+            // segList.add(simpleMatch);
+            // cutMatchList.addLists(new ArrayList<Segment>(), segList, knot,
+            // "InternalPathEngine");
+            // return new Pair<>(cutMatchList, null);
+            // }
         }
         long startTimeIxdar = System.currentTimeMillis();
-         knotLayer = shell.cutEngine.flatKnots.size();
-        HashMap<Integer, RouteInfo> routeMap = ixdar(knotPoint1, cutPoint1, knotPoint2, cutPoint2,
+        knotLayer = shell.cutEngine.flatKnots.size();
+        RouteMap<Integer, RouteInfo> routeMap = ixdar(knotPoint1, cutPoint1, knotPoint2, cutPoint2,
                 knot, knotPointsConnected, cutSegment1, cutSegment2, -1, -1, RouteType.None, knotLayer,
                 smallestCommonKnot);
         ixdarCalls++;
@@ -94,8 +97,7 @@ public class InternalPathEngine {
         Route route = curr.getRoute(prevCutSide);
         ArrayList<Segment> cutSegments = route.cuts;
         ArrayList<Segment> matchSegments = route.matches;
-        ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
-        DisjointUnionSets unionSet = new DisjointUnionSets(knotPoints);
+        DisjointUnionSets unionSet = new DisjointUnionSets(knot.knotPointsFlattened);
         for (Segment s : matchSegments) {
             unionSet.union(s.first.id, s.last.id);
         }
@@ -121,7 +123,7 @@ public class InternalPathEngine {
             System.out.println(knotLayer);
             throw new MultipleCyclesFoundException(shell, cutMatchList, matchSegments, cutSegments, c);
         }
-        return cutMatchList;
+        return new Pair<>(cutMatchList, routeMap);
     }
 
     public RouteMap<Integer, RouteInfo> ixdar(VirtualPoint knotPoint1, VirtualPoint cutPoint1,
@@ -248,12 +250,6 @@ public class InternalPathEngine {
                     if (v.id == knotPoint1.id && neighbor.id == cutPoint1.id) {
                         continue;
                     }
-                    if (v.id == cutPoint2.id && neighbor.id == knotPoint2.id) {
-                        continue;
-                    }
-                    if (uParent.id == knotPoint2.id && u.neighbor.id == cutPoint2.id) {
-                        continue;
-                    }
 
                     boolean vIsConnected = vRouteType.isConnected;
                     boolean uIsConnected = u.routeType.isConnected;
@@ -322,7 +318,7 @@ public class InternalPathEngine {
                     }
                     long endTimeIxdar = System.currentTimeMillis() - startTimeIxdar;
                     profileTimeIxdar += endTimeIxdar;
-                    if (!isSettled) {
+                    if (!isSettled && !cutSeg.equals(cutSegment2)) {
                         RoutePair routePair = new RoutePair(vRoute);
                         q.add(routePair);
                     }
