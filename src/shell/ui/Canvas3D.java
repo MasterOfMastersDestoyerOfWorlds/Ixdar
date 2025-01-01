@@ -42,6 +42,7 @@ import shell.render.lights.DirectionalLight;
 import shell.render.lights.PointLight;
 import shell.render.lights.SpotLight;
 import shell.render.sdf.SDFCircle;
+import shell.render.sdf.SDFFluid;
 import shell.render.shaders.DiffuseShader;
 import shell.render.shaders.FontShader;
 import shell.render.shaders.LightShader;
@@ -194,6 +195,7 @@ public class Canvas3D {
 
         // logo = new SDFTexture("decal_sdf.png", Color.BLUE_WHITE, 0.5f, 0.5f, false);
         menu = new MenuBox();
+        fluid = new SDFFluid();
         // menuInnerBorder = new SDFTexture("menu_inner.png", Color.BLUE_WHITE, 0.25f,
         // 0f, true);
 
@@ -225,6 +227,7 @@ public class Canvas3D {
     }
 
     public SDFCircle circle;
+    public SDFFluid fluid;
 
     public void paintGL() {
 
@@ -234,6 +237,7 @@ public class Canvas3D {
 
         if (MenuBox.menuVisible) {
 
+            fluid.draw(0, 0, frameBufferWidth, frameBufferHeight, null, camera);
             float SHIFT_MOD = 1;
             if (keys != null && KeyActions.DoubleSpeed.keyPressed(keys.pressedKeys)) {
                 SHIFT_MOD = 2;
@@ -306,7 +310,6 @@ public class Canvas3D {
         for (ShaderProgram s : shaders) {
             s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
         }
-
         if (MenuBox.menuVisible) {
             menu.draw(camera);
         }
