@@ -47,11 +47,11 @@ public class SDFFluid {
 
         shader.begin();
 
-        shader.drawSDFRegion(bL.x, bL.y, bR.x, bR.y, tL.x, tL.y, tR.x, tR.y, camera.getZIndex(), 0, 0, 1, 1,
+        shader.drawSDFRegion(bL.x, bL.y, bR.x, bR.y, tL.x, tL.y, tR.x, tR.y, camera.getFarZIndex(), 0, 0, 1, 1,
                 Color.WHITE);
 
         shader.end();
-        camera.incZIndex();
+        camera.decFarZIndex();
     }
 
     public void drawCentered(float drawX, float drawY, float width, float height, Color c, Camera camera) {

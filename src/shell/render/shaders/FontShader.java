@@ -5,9 +5,9 @@ import static org.lwjgl.opengl.GL20.*;
 
 import org.joml.Matrix4f;
 
-public class FontShader extends ShaderProgram {
+import shell.ui.Canvas3D;
 
-    
+public class FontShader extends ShaderProgram {
 
     public FontShader(int framebufferWidth, int framebufferHeight) {
         super("font.vs", "font.fs", new VertexArrayObject(), new VertexBufferObject(), true);
@@ -40,7 +40,7 @@ public class FontShader extends ShaderProgram {
         Matrix4f view = new Matrix4f();
         setMat4("view", view);
 
-        updateProjectionMatrix(framebufferWidth, framebufferHeight, 1f);
+        updateProjectionMatrix(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight, 1f);
     }
 
     @Override

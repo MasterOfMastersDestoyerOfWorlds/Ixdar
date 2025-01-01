@@ -235,9 +235,9 @@ public class Canvas3D {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         camera.resetZIndex();
 
+        fluid.draw(0, 0, frameBufferWidth, frameBufferHeight, null, camera);
         if (MenuBox.menuVisible) {
 
-            fluid.draw(0, 0, frameBufferWidth, frameBufferHeight, null, camera);
             float SHIFT_MOD = 1;
             if (keys != null && KeyActions.DoubleSpeed.keyPressed(keys.pressedKeys)) {
                 SHIFT_MOD = 2;
