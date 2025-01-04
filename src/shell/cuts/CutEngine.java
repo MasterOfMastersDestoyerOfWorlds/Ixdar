@@ -102,7 +102,7 @@ public class CutEngine {
         }
         boolean ixdarSkip = true;
         boolean answerSharing = true;
-        boolean checkAnswer = false;
+        boolean checkAnswer = true;
         for (int a = 0; a < knot.knotPoints.size(); a++) {
             for (int b = a; b < knot.knotPoints.size(); b++) {
                 VirtualPoint knotPoint11 = knot.knotPoints.get(a);

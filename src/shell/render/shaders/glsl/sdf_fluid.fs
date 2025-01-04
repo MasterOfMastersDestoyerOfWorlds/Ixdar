@@ -22,17 +22,16 @@ uniform highp vec4 colour_3;
 uniform highp float contrast;
 uniform highp float spin_amount;
 uniform highp float pixel_filter;
-#define SPIN_EASE 1.0
+#define SPIN_EASE 0.0
 #define PI 3.1415926538
 #define TAU 2*3.1415926538
 
 vec4 effect(vec2 screenSize, vec2 screen_coords) {
 	//Convert to UV coords (0-1) and floor for pixel effect
-    highp float pixel_size = length(screenSize.xy) / pixel_filter;
-    highp vec2 uv = (floor(screen_coords.xy * (1. / pixel_size)) * pixel_size - 0.5 * screenSize.xy) / length(screenSize.xy) - offset;
+    highp vec2 uv = (screen_coords.xy - 0.5 * screenSize.xy) / length(screenSize.xy) - offset;
     highp float uv_len = length(uv);
 
-	//Adding in a center swirl, changes with time. Only applies meaningfully if the 'spin amount' is a non-zero number
+	// //Adding in a center swirl, changes with time. Only applies meaningfully if the 'spin amount' is a non-zero number
     highp float speed = (spin_rotation * SPIN_EASE * 0.2) + 302.2;
     highp float new_pixel_angle = (atan(uv.y, uv.x)) + speed - SPIN_EASE * 20. * (1. * spin_amount * uv_len + (1. - 1. * spin_amount));
     highp vec2 mid = (screenSize.xy / length(screenSize.xy)) / 2.;
