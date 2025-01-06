@@ -5,9 +5,6 @@ import shell.render.text.HyperString;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-
-import org.apache.commons.math3.util.Pair;
-
 import shell.ToggleType;
 import shell.cameras.Camera2D;
 import shell.file.Manifold;
@@ -66,18 +63,6 @@ public class NegativeCutMatchViewTool extends Tool {
                     camera,
                     Drawing.MIN_THICKNESS);
         }
-    }
-
-    public static ArrayList<Pair<Long, Long>> lookupPairs(Knot k) {
-
-        ArrayList<Pair<Long, Long>> idTransform = new ArrayList<>();
-        for (int i = 0; i < k.manifoldSegments.size(); i++) {
-            Segment s = k.manifoldSegments.get(i);
-            long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
-            long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
-            idTransform.add(new Pair<Long, Long>(matchId, matchId2));
-        }
-        return idTransform;
     }
 
     @Override

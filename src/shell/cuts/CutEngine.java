@@ -7,7 +7,6 @@ import org.apache.commons.collections4.map.MultiKeyMap;
 import org.apache.commons.math3.util.Pair;
 
 import shell.BalanceMap;
-import shell.cuts.InternalPathEngine.DisjointUnionSets;
 import shell.cuts.enums.RouteType;
 import shell.cuts.route.Route;
 import shell.cuts.route.RouteInfo;
@@ -15,7 +14,6 @@ import shell.cuts.route.RouteMap;
 import shell.exceptions.BalancerException;
 import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
-import shell.exceptions.ShorterPathNotFoundException;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;

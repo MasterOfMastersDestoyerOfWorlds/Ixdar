@@ -566,4 +566,12 @@ public abstract class VirtualPoint {
 
 	public abstract HyperString toHyperString();
 
+	@Override
+	public boolean equals(Object o) {
+		if (o == null || !(o instanceof VirtualPoint)) {
+			return false;
+		}
+		return this.id == ((VirtualPoint) o).id;
+	}
+
 }

@@ -27,6 +27,7 @@ import shell.terminal.commands.ResetCommand.ResetOption;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
+import shell.ui.tools.CompareManifoldTool;
 import shell.ui.tools.EditManifoldTool;
 import shell.ui.tools.FindManifoldTool;
 import shell.ui.tools.NegativeCutMatchViewTool;
@@ -46,6 +47,7 @@ public class KeyGuy {
     FindManifoldTool findManifoldTool = new FindManifoldTool();
     EditManifoldTool editCutMatchTool;
     public boolean active = true;
+    CompareManifoldTool compareManifoldTool = new CompareManifoldTool();
 
     public KeyGuy(Camera camera, Canvas3D canvas) {
         this.camera = camera;
@@ -110,6 +112,13 @@ public class KeyGuy {
                 findManifoldTool.reset();
                 findManifoldTool.state = FindManifoldTool.States.FindStart;
                 Main.tool = findManifoldTool;
+                Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
+                Main.updateKnotsDisplayed();
+            }
+            if (KeyActions.Compare.keyPressed(pressedKeys)) {
+                compareManifoldTool.reset();
+                compareManifoldTool.state = CompareManifoldTool.States.FindStart;
+                Main.tool = compareManifoldTool;
                 Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
                 Main.updateKnotsDisplayed();
             }

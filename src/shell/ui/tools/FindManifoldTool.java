@@ -1,6 +1,6 @@
 package shell.ui.tools;
 
-import java.util.ArrayList;
+import org.apache.commons.math3.util.Pair;
 
 import shell.ToggleType;
 import shell.cameras.Camera2D;
@@ -30,13 +30,12 @@ public class FindManifoldTool extends Tool {
 
     @Override
     public void reset() {
+        super.reset();
         state = States.FindStart;
-        displaySegment = null;
-        displayCP = null;
-        displayKP = null;
         firstSelectedSegment = null;
         firstSelectedKP = null;
         firstSelectedCP = null;
+        Main.terminal.instruct("Select the starting cut");
     }
 
     @Override
@@ -60,7 +59,6 @@ public class FindManifoldTool extends Tool {
 
     @Override
     public void confirm() {
-        ArrayList<Manifold> manifolds = Main.manifolds;
 
         if (displaySegment != null) {
             if (state == FindManifoldTool.States.FindStart) {
@@ -68,39 +66,21 @@ public class FindManifoldTool extends Tool {
                 firstSelectedKP = displayKP;
                 firstSelectedCP = displayCP;
                 state = FindManifoldTool.States.FirstSelected;
+                Main.terminal.instruct("Select the ending cut");
                 clearHover();
             } else if (state == FindManifoldTool.States.FirstSelected) {
                 if (!displaySegment.equals(firstSelectedSegment)) {
-                    boolean foundManifold = false;
-                    Manifold found = null;
-                    for (int i = 0; i < manifolds.size(); i++) {
-                        Manifold m = manifolds.get(i);
-                        if (m.cp1 == firstSelectedCP.id
-                                && m.kp1 == firstSelectedKP.id
-                                && m.kp2 == displayKP.id
-                                && m.cp2 == displayCP.id) {
-                            Main.manifoldIdx = i;
-                            foundManifold = true;
-                            found = m;
-                            break;
-                        }
-                        if (m.cp2 == firstSelectedCP.id
-                                && m.kp2 == firstSelectedKP.id
-                                && m.kp1 == displayKP.id
-                                && m.cp1 == displayCP.id) {
-                            Main.manifoldIdx = i;
-                            foundManifold = true;
-                            found = m;
-                            break;
-                        }
-                    }
-                    if (!foundManifold) {
+                    Pair<Manifold, Integer> p = Manifold.findManifold(firstSelectedCP, firstSelectedKP, displayCP,
+                            displayKP, Main.manifolds);
+                    Manifold m = p.getFirst();
+                    if (m == null) {
                         Main.terminal.error("No Manifold Found");
                     } else {
-                        Main.terminal.history.addLine(found.toFileString(), Color.GREEN);
-                        Main.terminal.history.addLine("Delta: " + found.cutMatchList.delta, Color.BLUE_WHITE);
+                        Main.manifoldIdx = p.getSecond();
+                        Main.terminal.history.addLine(m.toFileString(), Color.GREEN);
+                        Main.terminal.history.addLine("Delta: " + m.cutMatchList.delta, Color.BLUE_WHITE);
                     }
-                    Main.tool = Main.freeTool;
+                    Main.tool.freeTool();
                 }
             }
         }

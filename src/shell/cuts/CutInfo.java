@@ -160,8 +160,9 @@ public class CutInfo {
             this.balanceMap.addCut(upperKnotPoint, upperCutPoint);
             this.balanceMap.addExternalMatch(lowerKnotPoint, externalPoint51, null);
             this.balanceMap.addExternalMatch(upperKnotPoint, externalPoint52, null);
-        } else {
+        } else if (balanceMap != null) {
             this.balanceMap = balanceMap;
+            balanceMap.sbe = this.sbe;
         }
 
     }

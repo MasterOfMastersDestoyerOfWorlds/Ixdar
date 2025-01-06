@@ -29,9 +29,6 @@ public class SegmentBalanceException extends Exception {
         this.c = c;
         VirtualPoint kp1 = c.lowerKnotPoint;
         VirtualPoint kp2 = c.upperKnotPoint;
-        if (kp1 == null) {
-            float z = 0;
-        }
         cutName = shell.knotName + "_cut" + kp1 + "-" + cut1.getOther(kp1) + "and" + kp2
                 + "-" + cut2.getOther(kp2) + "\n" + cutMatchList;
     }

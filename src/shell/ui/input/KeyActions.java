@@ -30,6 +30,7 @@ public enum KeyActions {
     Save(true, GLFW_KEY_S),
     SaveAs(true, GLFW_KEY_Q),
     Find(true, GLFW_KEY_F),
+    Compare(true, GLFW_KEY_C),
     EditManifold(true, GLFW_KEY_E),
     NegativeCutMatchViewTool(true, GLFW_KEY_N),
     ControlMask(GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL),
@@ -65,6 +66,9 @@ public enum KeyActions {
                 return false;
             }
         } else {
+            if (this != KeyActions.ControlMask && KeyActions.ControlMask.keyPressed(pressedKeys)) {
+                return false;
+            }
             boolean flag = false;
             for (int i = 0; i < keys.length; i++) {
                 if (pressedKeys.contains(keys[i])) {

@@ -2,6 +2,8 @@ package shell.ui.tools;
 
 import java.util.ArrayList;
 
+import org.apache.commons.math3.util.Pair;
+
 import shell.Toggle;
 import shell.ToggleType;
 import shell.cameras.Camera2D;
@@ -46,10 +48,11 @@ public abstract class Tool {
                         displayCP = clockWise;
                         displaySegment = displayKP.getSegment(displayCP);
                     }
-                    return;
+                    break;
                 }
             }
         }
+        hoverChanged();
     }
 
     public void cycleRight() {
@@ -71,10 +74,11 @@ public abstract class Tool {
                         displayCP = clockWise;
                         displaySegment = displayKP.getSegment(displayCP);
                     }
-                    return;
+                    break;
                 }
             }
         }
+        hoverChanged();
     }
 
     public Knot selectedKnot() {
@@ -101,6 +105,12 @@ public abstract class Tool {
         displaySegment = null;
         displayKP = null;
         displayCP = null;
+        Main.terminal.clearInstruct();
+    }
+
+    public void freeTool() {
+        Main.tool = Main.freeTool;
+        Main.freeTool.reset();
     }
 
     public void clearHover() {
@@ -110,9 +120,16 @@ public abstract class Tool {
     }
 
     public void setHover(Segment s, VirtualPoint kp, VirtualPoint cp) {
+        boolean changed = (kp != null && !kp.equals(displayKP)) || (cp != null && !cp.equals(displayCP));
         displaySegment = s;
         displayKP = kp;
         displayCP = cp;
+        if (changed) {
+            hoverChanged();
+        }
+    }
+
+    public void hoverChanged() {
     }
 
     ToggleType[] disallowedToggles = new ToggleType[] {};
@@ -208,6 +225,18 @@ public abstract class Tool {
             tool.click(hoverSegment, kp, cp);
         }
 
+    }
+
+    public static ArrayList<Pair<Long, Long>> lookupPairs(Knot k) {
+
+        ArrayList<Pair<Long, Long>> idTransform = new ArrayList<>();
+        for (int i = 0; i < k.manifoldSegments.size(); i++) {
+            Segment s = k.manifoldSegments.get(i);
+            long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
+            long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
+            idTransform.add(new Pair<Long, Long>(matchId, matchId2));
+        }
+        return idTransform;
     }
 
     public String displayName() {

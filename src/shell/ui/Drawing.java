@@ -127,23 +127,25 @@ public class Drawing {
         drawSegment(ex2, Color.GREEN, camera);
 
         // Draw Cuts and Matches
-        for (CutMatch cutMatch : cml.cutMatches) {
+        if (cml != null) {
+            for (CutMatch cutMatch : cml.cutMatches) {
 
-            for (Segment s : cutMatch.matchSegments) {
-                drawSegment(s, Color.CYAN, camera);
-            }
+                for (Segment s : cutMatch.matchSegments) {
+                    drawSegment(s, Color.CYAN, camera);
+                }
 
-            // Draw Cuts
-            sdfLine.setStroke(2 * lineThickness, false);
-            for (Segment s : cutMatch.cutSegments) {
-                drawSegment(s, Color.ORANGE, camera);
-            }
-            // Draw SubKnot
-            Shell result = new Shell();
-            for (VirtualPoint p : cutMatch.knot.knotPoints) {
-                result.add(((Point) p).p);
-            }
+                // Draw Cuts
+                sdfLine.setStroke(2 * lineThickness, false);
+                for (Segment s : cutMatch.cutSegments) {
+                    drawSegment(s, Color.ORANGE, camera);
+                }
+                // Draw SubKnot
+                Shell result = new Shell();
+                for (VirtualPoint p : cutMatch.knot.knotPoints) {
+                    result.add(((Point) p).p);
+                }
 
+            }
         }
 
     }

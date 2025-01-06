@@ -78,4 +78,6 @@ public interface Color {
     public static Color getHSBColor(float h, float s, float b) {
         return new ColorRGB(HSBtoRGB(h, s, b));
     }
+
+    public String getName();
 }

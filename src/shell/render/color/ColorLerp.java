@@ -1,6 +1,8 @@
 
 package shell.render.color;
 
+import java.util.HashMap;
+
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
@@ -8,25 +10,32 @@ import shell.render.Clock;
 
 public class ColorLerp implements Color {
 
+    static HashMap<Color, ColorLerp> flashColors = new HashMap<>();
+
     public Color startColor;
     public Color endColor;
     public byte[] channelLerp = { 1, 1, 1, 0 };
     public float radsPerSecond = 6f;
 
+    private String name;
+
     public ColorLerp(Color startColor, Color endColor) {
         this.startColor = startColor;
         this.endColor = endColor;
+        this.name = startColor.getName() + "-" + endColor.getName() + "-Lerp";
     }
 
     public ColorLerp(Color startColor, Color endColor, float alpha) {
         this.startColor = new ColorRGB(startColor, alpha);
         this.endColor = new ColorRGB(endColor, alpha);
+        this.name = startColor.getName() + "-" + endColor.getName() + "-Lerp";
     }
 
     public ColorLerp(Color startColor, Color endColor, byte[] channelLerp) {
         this.startColor = startColor;
         this.endColor = endColor;
         this.channelLerp = channelLerp;
+        this.name = startColor.getName() + "-" + endColor.getName() + "-Lerp";
     }
 
     public ColorLerp(Color startColor, Color endColor, byte[] channelLerp, float radsPerSecond) {
@@ -34,6 +43,12 @@ public class ColorLerp implements Color {
         this.endColor = endColor;
         this.channelLerp = channelLerp;
         this.radsPerSecond = radsPerSecond;
+        this.name = startColor.getName() + "-" + endColor.getName() + "-Lerp";
+    }
+
+    public static ColorLerp flashColor(Color c, float radsPerSecond) {
+        flashColors.putIfAbsent(c, new ColorLerp(c, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, radsPerSecond));
+        return flashColors.get(c);
     }
 
     /**
@@ -69,6 +84,11 @@ public class ColorLerp implements Color {
         lerp.w = Math.fma(other.w() - lerp.w, occ * channelLerp[3], lerp.w);
 
         return lerp;
+    }
+
+    @Override
+    public String getName() {
+        return name;
     }
 
 }

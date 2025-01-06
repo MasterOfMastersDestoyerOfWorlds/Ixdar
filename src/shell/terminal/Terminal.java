@@ -20,6 +20,7 @@ import shell.cameras.Camera2D;
 import shell.objects.PointCollection;
 import shell.render.Clock;
 import shell.render.color.Color;
+import shell.render.color.ColorLerp;
 import shell.render.text.HyperString;
 import shell.terminal.commands.TerminalCommand;
 import shell.ui.Drawing;
@@ -27,6 +28,8 @@ import shell.ui.Drawing;
 public class Terminal {
     public HyperString history;
     String commandLine;
+    String commandLineInstruct;
+    ColorLerp instructColor = ColorLerp.flashColor(Color.BLUE_WHITE, 3);
     String[] nextLogicalCommand;
     private int nextLogicalCommandIdx;
     public String directory;
@@ -43,6 +46,7 @@ public class Terminal {
 
     public Terminal(File loadedFile) {
         commandLine = "";
+        commandLineInstruct = "";
         nextLogicalCommand = new String[] {};
         nextLogicalCommandIdx = 0;
         scrollToCommandLine = false;
@@ -179,7 +183,11 @@ public class Terminal {
         HyperString commandHyperString = new HyperString();
         commandHyperString.addHyperString(history);
         commandHyperString.newLine();
-        commandHyperString.addWord(commandLine);
+        if (commandLine.isEmpty()) {
+            commandHyperString.addWord(commandLineInstruct, instructColor);
+        } else {
+            commandHyperString.addWord(commandLine);
+        }
         commandHyperString.wrap();
         cachedInfo = commandHyperString;
         Drawing.font.drawHyperStringRows(commandHyperString, row, scrollOffsetY, rowHeight, camera);
@@ -204,6 +212,14 @@ public class Terminal {
                 scrollOffsetY -= SCROLL_SPEED * d;
             }
         }
+    }
+
+    public void instruct(String instruction) {
+        this.commandLineInstruct = instruction;
+    }
+
+    public void clearInstruct() {
+        this.commandLineInstruct = "";
     }
 
     public void error(String string) {

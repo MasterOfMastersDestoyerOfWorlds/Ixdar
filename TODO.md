@@ -96,21 +96,29 @@
 
 Idea behind tool is that we would like to compare two pairs of cut segment shortest path information where the pair have the same starting cut segment but differing end cut segments.
 
-1. - [ ] Color all half-segments cyan who match entirely on the currently selected route view (All, Disconnected, Connected, nextC, prevC, nextDC, prevDC)
+1. - [ ] A matching channel should have the same shortest route delta back to the start as its comparison peer
 
-2. - [ ] Color all non-matching half-segments orange
+2. - [ ] Color all half-segments blue who match entirely on the currently selected route view (All, Disconnected, Connected)
 
-3. - [ ] Clicking on a half-segment/vp should display in the Info Tab the route information of the two routemaps similarly coloring matching beices orange or cyan.
+3. - [ ] Color all non-matching half-segments red
 
-4. - [ ] When a half-segment is selected we should see its route of cutmatches leading back to the start.
+4. - [ ] Color all half wrong half-segments cyan (only one of the channels is matching and the other is not)
 
-5. - [ ] Increasing or decreasing level keys: '[' and ']' should change the route view.
+5. - [ ] Color all flipped and half wrong half-segments orange (the connected and disconnected channels are flipped but one of them does not match it's flipped peer)
 
-6. - [ ] Tool should have two states Find and Compare
+6. - [ ] Color all flipped half-segments yellow (the connected and disconnected channels are flipped)
 
-7. - [ ] Compare state is the novel pieces of this description and can only be started after the Find state.
+7. - [ ] Clicking on a half-segment/vp should display in the Info Tab the route information of the two routemaps similarly coloring matching beices orange or cyan.
 
-8. - [ ] Find state is the starting state and is similar to the find manifold tool except we need to find 3 segments
+8. - [x] When a half-segment is selected we should see its route of cutmatches leading back to the start.
+
+9. - [ ] Increasing or decreasing level keys: '[' and ']' should change the route view.
+
+10. - [x] Tool should have two states Find and Compare
+
+11. - [ ] Compare state is the novel pieces of this description and can only be started after the Find state.
+
+12. - [x] Find state is the starting state and is similar to the find manifold tool except we need to find 3 segments
 
 ### Knot Surface View Tool
 
