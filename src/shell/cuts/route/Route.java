@@ -6,6 +6,8 @@ import shell.cuts.enums.RouteType;
 import shell.cuts.enums.State;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.render.color.Color;
+import shell.render.text.HyperString;
 
 public class Route implements Comparable<Route> {
     public RouteType routeType;
@@ -90,8 +92,33 @@ public class Route implements Comparable<Route> {
 
     @Override
     public String toString() {
-        return routeType.name() + "," + (ancestor == null ? "NULL"
-                : ancestor.id) + "," + (delta == Double.MAX_VALUE ? "INF" : delta);
+        return routeType.name() + ", " + (ancestor == null ? "NULL"
+                : ancestor.id) + ", " + (delta == Double.MAX_VALUE ? "INF" : delta);
+    }
+
+    public HyperString compareHyperString(Route otherRoute, Color matchColor, Color cutColor) {
+        HyperString h = new HyperString();
+        int maxSize = Math.max(this.matches.size(), this.cuts.size());
+        for (int i = 0; i < maxSize; i++) {
+            Segment match = i < this.matches.size() ? this.matches.get(i) : null;
+            Segment cut = i < this.cuts.size() ? this.cuts.get(i) : null;
+            if (match != null) {
+                if (otherRoute.matches.contains(match)) {
+                    h.addHyperString(match.toHyperString(Color.CYAN, false));
+                } else {
+                    h.addHyperString(match.toHyperString(matchColor, false));
+                }
+            }
+            if (cut != null) {
+                if (otherRoute.cuts.contains(cut)) {
+                    h.addHyperString(cut.toHyperString(Color.ORANGE, false));
+                } else {
+                    h.addHyperString(cut.toHyperString(cutColor, false));
+                }
+                h.newLine();
+            }
+        }
+        return h;
     }
 
 }

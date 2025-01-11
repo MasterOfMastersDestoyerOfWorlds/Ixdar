@@ -66,6 +66,11 @@ public class CompareManifoldTool extends Tool {
     public static ArrayList<Color> colors;
 
     Knot manifoldKnot;
+    final static Color alphaMatchColor = Color.PURPLE;
+    final static Color alphaCutColor = Color.GREEN;
+
+    final static Color betaMatchColor = Color.MAGENTA;
+    final static Color betaCutColor = Color.YELLOW;
 
     public CompareManifoldTool() {
         disallowedToggles = new ToggleType[] { ToggleType.DrawCutMatch, ToggleType.CanSwitchLayer,
@@ -126,7 +131,8 @@ public class CompareManifoldTool extends Tool {
             }
         } else if (state == States.Compare) {
             if (displayRouteAlpha != null) {
-                Drawing.drawRouteComparison(displayRouteAlpha, displayRouteBeta, Drawing.MIN_THICKNESS * 2,
+                Drawing.drawRouteComparison(displayRouteAlpha, alphaMatchColor, alphaCutColor, displayRouteBeta,
+                        Color.MAGENTA, Color.YELLOW, Drawing.MIN_THICKNESS * 2,
                         Main.retTup.ps, camera);
             }
         }
@@ -137,18 +143,15 @@ public class CompareManifoldTool extends Tool {
         }
         if (startSegment != null && state.atOrAfter(States.StartSelected)) {
             Drawing.drawManifoldCut(startKP, startCP,
-                    camera,
-                    minLineThickness * 2);
+                    camera, minLineThickness * 2);
         }
         if (alphaEndSegment != null && state.atOrAfter(States.AlphaEndSelected)) {
-            Drawing.drawManifoldCut(alphaEndKP, alphaEndCP,
-                    camera,
-                    minLineThickness * 2);
+            Drawing.drawManifoldCut(alphaEndKP, alphaEndCP, alphaMatchColor, alphaCutColor,
+                    camera, minLineThickness * 2);
         }
         if (betaEndSegment != null && state.atOrAfter(States.Compare)) {
-            Drawing.drawManifoldCut(betaEndKP, betaEndCP,
-                    camera,
-                    minLineThickness * 2);
+            Drawing.drawManifoldCut(betaEndKP, betaEndCP, Color.MAGENTA, Color.YELLOW,
+                    camera, minLineThickness * 2);
         }
         if (colorLookup == null) {
             initSegmentMap();
@@ -349,6 +352,18 @@ public class CompareManifoldTool extends Tool {
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
         h.addLine("View Level: " + routeView.name());
+        if (state == States.Compare) {
+            if (displayRouteAlpha != null) {
+                h.addLine("Route Alpha: ", alphaMatchColor);
+                h.addLine(displayRouteAlpha.toString(), alphaCutColor);
+                h.addHyperString(
+                        displayRouteAlpha.compareHyperString(displayRouteBeta, alphaMatchColor, alphaCutColor));
+                h.addLine("Route Beta: ", Color.MAGENTA);
+                h.addLine(displayRouteBeta.toString(), Color.YELLOW);
+                h.addHyperString(
+                        displayRouteBeta.compareHyperString(displayRouteAlpha, betaMatchColor, betaCutColor));
+            }
+        }
         h.wrap();
         return h;
     }

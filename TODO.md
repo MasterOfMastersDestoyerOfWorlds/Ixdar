@@ -104,7 +104,7 @@ Idea behind tool is that we would like to compare two pairs of cut segment short
 
 4. - [x] Color all flipped half-segments yellow (the connected and disconnected channels are flipped)
 
-5. - [ ] Clicking on a half-segment/vp should display in the Info Tab the route information of the two routemaps similarly coloring matching beices orange or cyan.
+5. - [x] Clicking on a half-segment/vp should display in the Info Tab the route information.
 
 6. - [x] When a half-segment is selected we should see its route of cutmatches leading back to the start.
 

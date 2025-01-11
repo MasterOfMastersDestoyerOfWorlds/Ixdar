@@ -18,7 +18,6 @@ import shell.cuts.CutMatch;
 import shell.cuts.CutMatchList;
 import shell.cuts.route.Route;
 import shell.exceptions.SegmentBalanceException;
-import shell.file.Manifold;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
@@ -152,7 +151,8 @@ public class Drawing {
 
     }
 
-    public static void drawRouteComparison(Route r1, Route r2,
+    public static void drawRouteComparison(Route r1, Color r1MatchColor, Color r1CutColor, Route r2, Color r2MatchColor,
+            Color r2CutColor,
             float lineThickness, PointSet ps, Camera2D camera) {
 
         // Draw Matches for route 1 and 2
@@ -162,12 +162,12 @@ public class Drawing {
             if (r2.matches.contains(s)) {
                 drawSegment(s, Color.CYAN, camera);
             } else {
-                drawSegment(s, Color.PURPLE, camera);
+                drawSegment(s, r1MatchColor, camera);
             }
         }
         for (Segment s : r2.matches) {
             if (!r1.matches.contains(s)) {
-                drawSegment(s, Color.MAGENTA, camera);
+                drawSegment(s, r2MatchColor, camera);
             }
         }
 
@@ -177,19 +177,24 @@ public class Drawing {
             if (r2.cuts.contains(s)) {
                 drawSegment(s, Color.ORANGE, camera);
             } else {
-                drawSegment(s, Color.GREEN, camera);
+                drawSegment(s, r1CutColor, camera);
             }
         }
 
         for (Segment s : r2.cuts) {
             if (!r1.cuts.contains(s)) {
-                drawSegment(s, Color.YELLOW, camera);
+                drawSegment(s, r2CutColor, camera);
             }
         }
     }
 
     public static void drawManifoldCut(VirtualPoint hoverKP, VirtualPoint hoverCP, Camera2D camera,
             float lineThickness) {
+        Drawing.drawManifoldCut(hoverKP, hoverCP, Color.GREEN, Color.ORANGE, camera, lineThickness);
+    }
+
+    public static void drawManifoldCut(VirtualPoint hoverKP, VirtualPoint hoverCP, Color circleColor, Color xColor,
+            Camera2D camera, float lineThickness) {
 
         float[] kpCoords = new float[2];
         float[] cpCoords = new float[2];
@@ -205,8 +210,8 @@ public class Drawing {
         cpCoords[1] = camera.pointTransformY(cp.getY());
         midCoords[0] = (kpCoords[0] + cpCoords[0]) / 2.0f;
         midCoords[1] = (kpCoords[1] + cpCoords[1]) / 2.0f;
-        font.drawTextCentered("X", midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, Color.ORANGE, camera);
-        circle.draw(new Vector2f(kpCoords[0], kpCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN, camera);
+        font.drawTextCentered("X", midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, xColor, camera);
+        circle.draw(new Vector2f(kpCoords[0], kpCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, circleColor, camera);
     }
 
     public static void drawSegment(Segment segment, Color c, float thickness, Camera2D camera) {
