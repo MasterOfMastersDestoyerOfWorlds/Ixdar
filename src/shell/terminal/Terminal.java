@@ -14,6 +14,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import shell.cameras.Camera2D;
@@ -24,6 +25,8 @@ import shell.render.color.ColorLerp;
 import shell.render.text.HyperString;
 import shell.terminal.commands.TerminalCommand;
 import shell.ui.Drawing;
+import shell.ui.main.Main;
+import shell.ui.tools.Tool;
 
 public class Terminal {
     public HyperString history;
@@ -42,7 +45,12 @@ public class Terminal {
 
     public static ArrayList<TerminalCommand> commandList;
     public static HashMap<String, TerminalCommand> commandMap = new HashMap<>();
+    public static HashMap<Class<TerminalCommand>, TerminalCommand> commandClassMap = new HashMap<>();
+    public static ArrayList<Tool> tools;
+    public static HashMap<String, Tool> toolMap = new HashMap<>();
+    public static HashMap<Class<Tool>, Tool> toolClassMap = new HashMap<>();
     public static ArrayList<PointCollection> pointCollectionList;
+    public static HashMap<Class<PointCollection>, PointCollection> pointCollectionClassMap = new HashMap<>();
 
     public Terminal(File loadedFile) {
         commandLine = "";
@@ -55,21 +63,29 @@ public class Terminal {
         history = new HyperString();
         if (commandList == null) {
             commandList = new ArrayList<>();
-            loadClassType("shell.terminal.commands", commandList, TerminalCommand.class);
+            loadClassType("shell.terminal.commands", commandList, commandClassMap, TerminalCommand.class);
             for (TerminalCommand command : commandList) {
                 commandMap.put(command.fullName(), command);
                 commandMap.put(command.shortName(), command);
             }
         }
+        if (tools == null) {
+            tools = new ArrayList<>();
+            loadClassType("shell.ui.tools", tools, toolClassMap, Tool.class);
+            for (Tool t : tools) {
+                toolMap.put(t.shortName(), t);
+                toolMap.put(t.fullName(), t);
+            }
+        }
         if (pointCollectionList == null) {
             pointCollectionList = new ArrayList<>();
-            loadClassType("shell.objects", pointCollectionList, PointCollection.class);
+            loadClassType("shell.objects", pointCollectionList, pointCollectionClassMap, PointCollection.class);
         }
 
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private <E> void loadClassType(String packageName, ArrayList<E> list, Class<E> type) {
+    private <E> void loadClassType(String packageName, ArrayList<E> list, Map<Class<E>, E> classMap, Class<E> type) {
         InputStream stream = ClassLoader.getSystemClassLoader()
                 .getResourceAsStream(packageName.replaceAll("[.]", "/"));
         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
@@ -81,7 +97,9 @@ public class Terminal {
             Class superClass = c.getSuperclass();
             if (!Modifier.isAbstract(c.getModifiers()) && !c.isEnum() && superClass == type) {
                 try {
-                    list.add((E) c.getConstructor().newInstance());
+                    E e = (E) c.getConstructor().newInstance();
+                    list.add(e);
+                    classMap.put((Class<E>) e.getClass(), e);
                 } catch (InstantiationException | IllegalAccessException | IllegalArgumentException
                         | InvocationTargetException | NoSuchMethodException | SecurityException e) {
                     e.printStackTrace();
@@ -130,6 +148,15 @@ public class Terminal {
                 commandLine = nextLogicalCommand[nextLogicalCommandIdx];
                 nextLogicalCommandIdx = (nextLogicalCommandIdx + 1) % nextLogicalCommand.length;
                 return;
+            } else {
+                for (int i = 0; i < nextLogicalCommand.length; i++) {
+                    if (nextLogicalCommand[i].equals(commandLine)) {
+                        nextLogicalCommandIdx = (i + 1) % nextLogicalCommand.length;
+                        commandLine = nextLogicalCommand[nextLogicalCommandIdx];
+                        nextLogicalCommandIdx = (i + 1) % nextLogicalCommand.length;
+                        break;
+                    }
+                }
             }
         }
     }
@@ -224,5 +251,12 @@ public class Terminal {
 
     public void error(String string) {
         this.history.addLine("EXCEPTION: " + string, Color.RED);
+    }
+
+    public static <E extends TerminalCommand> void runNoArgs(Class<E> cmd) {
+        TerminalCommand tc = commandClassMap.get(cmd);
+        if (tc.argLength() <= 0) {
+            tc.run(null, 0, Main.terminal);
+        }
     }
 }

@@ -33,6 +33,7 @@ public class NegativeCutMatchViewTool extends Tool {
     @Override
     public void reset() {
         super.reset();
+        initSegmentMap();
     }
 
     @Override
@@ -63,11 +64,6 @@ public class NegativeCutMatchViewTool extends Tool {
                     camera,
                     Drawing.MIN_THICKNESS);
         }
-    }
-
-    @Override
-    public String displayName() {
-        return "Negative Cut Match View";
     }
 
     public void initSegmentMap() {
@@ -143,5 +139,25 @@ public class NegativeCutMatchViewTool extends Tool {
         }
         h.wrap();
         return h;
+    }
+
+    @Override
+    public String displayName() {
+        return "Negative Cut Match View";
+    }
+
+    @Override
+    public String shortName() {
+        return "neg";
+    }
+
+    @Override
+    public String fullName() {
+        return "negativecutmatchview";
+    }
+
+    @Override
+    public String desc() {
+        return "A tool to view hole moves that have negative total length";
     }
 }

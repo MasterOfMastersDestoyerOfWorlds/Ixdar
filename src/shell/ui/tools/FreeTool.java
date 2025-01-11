@@ -52,16 +52,6 @@ public class FreeTool extends Tool {
     }
 
     @Override
-    public Type toolType() {
-        return Type.Free;
-    }
-
-    @Override
-    public String displayName() {
-        return "Free";
-    }
-
-    @Override
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
         HyperString pointInfo = new HyperString();
@@ -163,5 +153,30 @@ public class FreeTool extends Tool {
             }
         }
         return containingKnot;
+    }
+
+    @Override
+    public Type toolType() {
+        return Type.Free;
+    }
+
+    @Override
+    public String displayName() {
+        return "Free";
+    }
+
+    @Override
+    public String fullName() {
+        return "free";
+    }
+
+    @Override
+    public String shortName() {
+        return "fr";
+    }
+
+    @Override
+    public String desc() {
+        return "The default tool. Gives the most information about knot structure and connections";
     }
 }

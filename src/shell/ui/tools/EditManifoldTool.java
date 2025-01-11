@@ -51,13 +51,28 @@ public class EditManifoldTool extends Tool {
     }
 
     @Override
-    public String displayName() {
-        return "Edit Cut Match";
-    }
-
-    @Override
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
         return h;
+    }
+
+    @Override
+    public String displayName() {
+        return "Edit Manifold";
+    }
+
+    @Override
+    public String fullName() {
+        return "editmanifold";
+    }
+
+    @Override
+    public String shortName() {
+        return "edm";
+    }
+
+    @Override
+    public String desc() {
+        return "A tool to edit the shortest hole moving path for a specified cut pair. Need to run find manifold before this tool";
     }
 }

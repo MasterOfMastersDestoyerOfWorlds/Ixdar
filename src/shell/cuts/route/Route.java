@@ -80,7 +80,7 @@ public class Route implements Comparable<Route> {
                 return false;
             }
         }
-        return (this.routeId == rt.routeId);
+        return true;
     }
 
     @Override

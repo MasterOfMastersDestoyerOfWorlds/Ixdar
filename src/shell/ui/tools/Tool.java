@@ -12,6 +12,7 @@ import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.Clock;
 import shell.render.text.HyperString;
+import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
 
@@ -239,10 +240,6 @@ public abstract class Tool {
         return idTransform;
     }
 
-    public String displayName() {
-        return "REEEEEEEE";
-    }
-
     public Type toolType() {
         return Type.None;
     }
@@ -266,9 +263,66 @@ public abstract class Tool {
         return h;
     };
 
+    public void back() {
+        if (Main.tool.toolType() == Tool.Type.Free) {
+            Canvas3D.activate(true);
+            Main.activate(false);
+        }
+        Main.tool.freeTool();
+    }
+
     public void setScreenOffset(Camera2D camera) {
         ScreenOffsetX = camera.ScreenOffsetX;
         ScreenOffsetY = camera.ScreenOffsetY;
     }
+
+    public void increaseViewLayer() {
+        if (canUseToggle(Toggle.canSwitchLayer)) {
+            if (canUseToggle(Toggle.manifold) && canUseToggle(Toggle.drawCutMatch)) {
+                Main.manifoldIdx++;
+                if (Main.manifoldIdx >= Main.manifolds.size()) {
+                    Main.manifoldIdx = 0;
+                }
+            } else {
+                Main.knotDrawLayer++;
+                if (Main.knotDrawLayer > Main.shell.cutEngine.totalLayers) {
+                    Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
+                }
+                if (Main.knotDrawLayer < 1) {
+                    Main.knotDrawLayer = 1;
+                }
+                Main.updateKnotsDisplayed();
+            }
+        }
+    }
+
+    public void decreaseViewLayer() {
+        if (canUseToggle(Toggle.canSwitchLayer)) {
+            if (canUseToggle(Toggle.manifold) && canUseToggle(Toggle.drawCutMatch)) {
+                Main.manifoldIdx--;
+                if (Main.manifoldIdx < 0) {
+                    Main.manifoldIdx = Main.manifolds.size() - 1;
+                }
+            } else {
+                if (Main.knotDrawLayer == -1) {
+                    Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
+                } else {
+                    Main.knotDrawLayer--;
+                    if (Main.knotDrawLayer < 1) {
+                        Main.knotDrawLayer = 1;
+                    }
+                }
+                Main.updateKnotsDisplayed();
+            }
+        }
+    }
+
+    public abstract String displayName();
+
+    public abstract String fullName();
+
+    public abstract String shortName();
+
+    public abstract String desc();
 
 }

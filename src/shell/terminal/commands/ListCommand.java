@@ -6,6 +6,7 @@ import shell.objects.PointCollection;
 import shell.render.color.Color;
 import shell.terminal.Terminal;
 import shell.ui.input.KeyActions;
+import shell.ui.tools.Tool;
 
 public class ListCommand extends TerminalCommand {
 
@@ -19,6 +20,8 @@ public class ListCommand extends TerminalCommand {
 
     public static OptionList pointCollectionOptionAliases = new OptionList("pc", "pointcollection", "pointcollections",
             "object", "obj", "objects", "objs");
+
+    public static OptionList toolOptionAliases = new OptionList("tools", "views", "tool", "view", "tl", "vw");
 
     @Override
     public String fullName() {
@@ -74,10 +77,15 @@ public class ListCommand extends TerminalCommand {
                 for (PointCollection pc : Terminal.pointCollectionList) {
                     terminal.history.addWord(pc.shortName(), Color.COMMAND);
                     terminal.history.addLine(" - " + pc.desc(), Color.GREEN);
-
                 }
+            } else if (toolOptionAliases.contains(target)) {
+                for (Tool t : Terminal.tools) {
+                    terminal.history.addWord(t.shortName(), Color.COMMAND);
+                    terminal.history.addLine(" - " + t.desc(), Color.GREEN);
+                }
+            } else if (Terminal.commandMap.containsKey(target)) {
+                
             }
-
             return null;
         }
 

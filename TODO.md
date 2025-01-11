@@ -96,29 +96,27 @@
 
 Idea behind tool is that we would like to compare two pairs of cut segment shortest path information where the pair have the same starting cut segment but differing end cut segments.
 
-1. - [ ] A matching channel should have the same shortest route delta back to the start as its comparison peer
+1. - [x] A matching channel should have the same shortest route delta back to the start as its comparison peer
 
-2. - [ ] Color all half-segments blue who match entirely on the currently selected route view (All, Disconnected, Connected)
+2. - [x] Color all half-segments blue who match entirely on the currently selected route view (Disconnected, Connected)
 
-3. - [ ] Color all non-matching half-segments red
+3. - [x] Color all non-matching half-segments red
 
-4. - [ ] Color all half wrong half-segments cyan (only one of the channels is matching and the other is not)
+4. - [x] Color all flipped half-segments yellow (the connected and disconnected channels are flipped)
 
-5. - [ ] Color all flipped and half wrong half-segments orange (the connected and disconnected channels are flipped but one of them does not match it's flipped peer)
+5. - [ ] Clicking on a half-segment/vp should display in the Info Tab the route information of the two routemaps similarly coloring matching beices orange or cyan.
 
-6. - [ ] Color all flipped half-segments yellow (the connected and disconnected channels are flipped)
+6. - [x] When a half-segment is selected we should see its route of cutmatches leading back to the start.
 
-7. - [ ] Clicking on a half-segment/vp should display in the Info Tab the route information of the two routemaps similarly coloring matching beices orange or cyan.
+7. - [x] Increasing or decreasing level keys: '[' and ']' should change the route view.
 
-8. - [x] When a half-segment is selected we should see its route of cutmatches leading back to the start.
+8. - [x] Tool should have two states Find and Compare
 
-9. - [ ] Increasing or decreasing level keys: '[' and ']' should change the route view.
+9. - [x] Compare state is the novel pieces of this description and can only be started after the Find state.
 
-10. - [x] Tool should have two states Find and Compare
+10. - [x] Find state is the starting state and is similar to the find manifold tool except we need to find 3 segments
 
-11. - [ ] Compare state is the novel pieces of this description and can only be started after the Find state.
-
-12. - [x] Find state is the starting state and is similar to the find manifold tool except we need to find 3 segments
+11. - [ ] When in compare mode we should still show the the cutmatches on hover but in comparison, matching cuts and matches will still be in cyan and orange, non-matching cuts from the alpha manifold will be in purple and green and non-matching cuts from the beta manifold will be in magenta and yellow
 
 ### Knot Surface View Tool
 
@@ -136,7 +134,7 @@ Idea behind tool is that we would like to compare two pairs of cut segment short
 
 ### Commands
 
-1. - [ ] Every command + key action should also be accessible from the terminal
+1. - [x] Every command + key action should also be accessible from the terminal
 
 2. - [ ] Should be like a terminal where you can ask questions about the knot you are looking at.
 
@@ -166,7 +164,7 @@ Idea behind tool is that we would like to compare two pairs of cut segment short
 
 2. - [ ] Pressing control and clicking a point, a knot, or a segment should bring its id into the terminal at the cursor
 
-3. - [ ] Bezier curve animation behind terminal as fast fluid sim?
+3. - [x] Bezier curve animation behind terminal as fast fluid sim?
 
 4. - [ ] Messages should use hyper text when possible.
 
@@ -245,6 +243,8 @@ Idea behind tool is that we would like to compare two pairs of cut segment short
 1. - [ ] Font Atlas from SDF Atlas.
 
 2. - [ ] Line rendering, need to prevent alpha adding on line endpoint intersections when using transparency
+
+3. - [ ] Line rendering, need to divide large line boxes into segments so that wew don't get flickering when doing the sdf.
 
 ## 3D Graphics
 
