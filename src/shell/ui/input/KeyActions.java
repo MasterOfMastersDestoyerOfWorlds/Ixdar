@@ -28,10 +28,13 @@ public enum KeyActions {
     PrintScreen(true, GLFW_KEY_P),
     GenerateManifoldTests(true, GLFW_KEY_G),
     Save(true, GLFW_KEY_S),
+    SaveAs(true, GLFW_KEY_Q),
     Find(true, GLFW_KEY_F),
+    Compare(true, GLFW_KEY_C),
     EditManifold(true, GLFW_KEY_E),
     NegativeCutMatchViewTool(true, GLFW_KEY_N),
-    ControlMask(GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL);
+    ControlMask(GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL),
+    ShiftMask(GLFW_KEY_LEFT_SHIFT, GLFW_KEY_RIGHT_SHIFT);
 
     Integer[] keys;
     boolean controlMask;
@@ -50,7 +53,7 @@ public enum KeyActions {
 
     public boolean keyPressed(Set<Integer> pressedKeys) {
         if (controlMask) {
-            if (pressedKeys.contains(GLFW_KEY_LEFT_CONTROL)) {
+            if (KeyActions.ControlMask.keyPressed(pressedKeys)) {
                 boolean flag = false;
                 for (int i = 0; i < keys.length; i++) {
                     if (pressedKeys.contains(keys[i])) {
@@ -63,6 +66,9 @@ public enum KeyActions {
                 return false;
             }
         } else {
+            if (this != KeyActions.ControlMask && KeyActions.ControlMask.keyPressed(pressedKeys)) {
+                return false;
+            }
             boolean flag = false;
             for (int i = 0; i < keys.length; i++) {
                 if (pressedKeys.contains(keys[i])) {

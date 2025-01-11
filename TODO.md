@@ -18,17 +18,21 @@
 
 8. - [ ] Need to figure out how to reuse the shortest path info already calculated, f.e. if we move the terminal cut segment counter clockwise we should only invalidate the three effected points and their connections, the rest of the connections should still be valid although we will have to recalculate which of the available cuts are allowed by rules of the hole-moving game.
 
+9. - [x] Figure out how to share shortest path info from a cut to it's flipped version where the ending cutsegment is in the disconnected orientation.
+
 ## Knot Finding
 
 1. - [ ] If we have a VirtualPoint A that points to two different internal VirtualPoints B and C in the top layer of a Knot, we need to insert A between B and C.
 
 2. - [ ] Need to Disallow making knots with all internals being knots where the first knot and the last knot do not actually want to match to each other. this is fine when everything is a point, but the correct way to represent this would be : Knot[Knot[Knot[1] Knot[2]] Knot[3]] instead of Knot[Knot[1] Knot[2] Knot[3]]
 
+3. - [ ] Need some rule about joining single points to knots in runs since we are too greedily joining them in 2-knots
+
 ## General Speedup
 
 1. - [ ] Add worker pool for every dijkstra's call we make (algorithm is somewhat embarrassingly parallel)
 
-2. - [ ] Figure out how to turn into positive weight graph so we can disregard all settled Points.
+2. - [ ] Figure out how to turn into positive weight graph so we can disregard all settled Points. (Note from future: as long as the knot we are cutting is already a shortest tour subset then we can disregard the settled points, its only when we screw up knot finding or lower level knot cutting that this becomes NP time).
 
 3. - [ ] Find some way to calculate all shortest paths for a manifold at once instead of in series (seems unlikely given path dependence)
 
@@ -41,6 +45,12 @@
 2. - [ ] Should compare against the manifold cut match answer in the master file
 
 # UI
+
+## Bugfix
+
+1. - [ ] number labels no longer are aligned with the segment bisector.
+
+2. - [ ] line segments have jagged edges.
 
 ## Features
 
@@ -80,7 +90,35 @@
 
 1. - [ ] If the manifold does not exist ask the user if they'd like to calculate it and add it to the file, otherwise reset without changes.
 
-2. - [ ] Need to change the search to search for closest available to one the user inputted?
+2. - [x] Need to change the search to search for closest available to one the user inputted?
+
+### Compare Route Map Tool
+
+Idea behind tool is that we would like to compare two pairs of cut segment shortest path information where the pair have the same starting cut segment but differing end cut segments.
+
+1. - [ ] A matching channel should have the same shortest route delta back to the start as its comparison peer
+
+2. - [ ] Color all half-segments blue who match entirely on the currently selected route view (All, Disconnected, Connected)
+
+3. - [ ] Color all non-matching half-segments red
+
+4. - [ ] Color all half wrong half-segments cyan (only one of the channels is matching and the other is not)
+
+5. - [ ] Color all flipped and half wrong half-segments orange (the connected and disconnected channels are flipped but one of them does not match it's flipped peer)
+
+6. - [ ] Color all flipped half-segments yellow (the connected and disconnected channels are flipped)
+
+7. - [ ] Clicking on a half-segment/vp should display in the Info Tab the route information of the two routemaps similarly coloring matching beices orange or cyan.
+
+8. - [x] When a half-segment is selected we should see its route of cutmatches leading back to the start.
+
+9. - [ ] Increasing or decreasing level keys: '[' and ']' should change the route view.
+
+10. - [x] Tool should have two states Find and Compare
+
+11. - [ ] Compare state is the novel pieces of this description and can only be started after the Find state.
+
+12. - [x] Find state is the starting state and is similar to the find manifold tool except we need to find 3 segments
 
 ### Knot Surface View Tool
 
@@ -102,7 +140,7 @@
 
 2. - [ ] Should be like a terminal where you can ask questions about the knot you are looking at.
 
-3. - [ ] Make Unit Tests Command
+3. - [x] Make Unit Tests Command
 
 ### Tab Completion
 
@@ -110,7 +148,7 @@
 
 2. - [ ] Pressing tab on a line with a typed command but missing arguments should cycle through the available options for that command (no cycle on integer inputs).
 
-3. - [ ] Pressing the up arrow should replace the current command line with the previous one in hte history all the way back to the beginning.
+3. - [ ] Pressing the up arrow should replace the current command line with the previous one in hte history all the way back to the beginning. cache?
 
 ### Cursor
 
@@ -126,7 +164,7 @@
 
 1. - [x] Display a scrollable pool of past commands and messages.
 
-2. - [ ] Pressing control and clicking a point or a knot should bring its id into the terminal at the cursor
+2. - [ ] Pressing control and clicking a point, a knot, or a segment should bring its id into the terminal at the cursor
 
 3. - [ ] Bezier curve animation behind terminal as fast fluid sim?
 
@@ -185,6 +223,20 @@
 4. - [ ] Menu Items should make an electronic noise click noise when hovered over
 
 5. - [ ] Menu Items should use a custom SDF Font Atlas
+
+# Map Editor
+
+1. - [ ] Should have a grid what shows both horizontal and vertical lines as well as diagonal lines that have a slope of 1 (with this setup the diagonals would have length of root 2), or create a hexagon grid tessellated with equilateral triangles (all grid lengths have length 1)
+
+2. - [ ] Should have a feature that snaps all created or moved points to the grid
+
+3. - [ ] Should be able to drag objects around the map changing the location of all grouped points
+
+4. - [ ] Create a group by selecting a few points and groups of points and pressing ctrl G
+
+5. - [ ] Should be able to bring in Circles, Triangles, other ix files and combine them in one new ix file. Objects should be brought in by either hte command line or by clicking on an add button in the info panel.
+
+6. - [ ] Added objects should be in an group with the points in the object to start.
 
 # Rendering
 

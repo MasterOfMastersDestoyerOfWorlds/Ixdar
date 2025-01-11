@@ -1,25 +1,19 @@
 package shell.ui.tools;
 
-import shell.render.color.Color;
-import shell.render.text.HyperString;
-
 import java.util.ArrayList;
 
-import shell.PointND;
 import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Point;
-import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.objects.PointND;
+import shell.render.color.Color;
+import shell.render.text.HyperString;
 import shell.ui.Drawing;
 import shell.ui.main.Main;
 
 public class FreeTool extends Tool {
-
-    public Segment hover;
-    public VirtualPoint hoverKP;
-    public VirtualPoint hoverCP;
 
     @Override
     public void draw(Camera2D camera, float minLineThickness) {
@@ -149,11 +143,12 @@ public class FreeTool extends Tool {
 
         }
         h.newLine();
-
-        h.addWord("TopKnot:");
-        VirtualPoint topStruct = Main.result.get(0);
-        if (topStruct.isKnot) {
-            h.addHyperString(((Knot) Main.result.get(0)).toHyperString());
+        if (Main.result.size() > 0) {
+            h.addWord("TopKnot:");
+            VirtualPoint topStruct = Main.result.get(0);
+            if (topStruct.isKnot) {
+                h.addHyperString(((Knot) Main.result.get(0)).toHyperString());
+            }
         }
         h.wrap = true;
         return h;

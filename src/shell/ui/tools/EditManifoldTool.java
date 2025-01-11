@@ -22,9 +22,7 @@ public class EditManifoldTool extends Tool {
 
     @Override
     public void reset() {
-        displaySegment = null;
-        displayCP = null;
-        displayKP = null;
+        super.reset();
         manifold = null;
         ArrayList<Manifold> manifolds = Main.manifolds;
         manifold = manifolds.get(Main.manifoldIdx).copy();

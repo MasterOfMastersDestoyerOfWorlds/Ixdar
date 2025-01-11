@@ -29,8 +29,8 @@ public interface Menu {
                         menuItems.add(new MenuItem("Continue", new LoadIxAction(cachedFileString)));
                         menuItems.add(new MenuItem("Load",
                                         new ChangeScreenAction(new LoadMenu(FileManagement.solutionsFolder, this))));
-                        menuItems.add(new MenuItem("Puzzle", null));
-                        menuItems.add(new MenuItem("Map Editor", null));
+                        menuItems.add(new MenuItem("Settings", null));
+                        menuItems.add(new MenuItem("Map Editor", new LoadIxAction("")));
                 }
 
                 @Override
@@ -68,7 +68,8 @@ public interface Menu {
                                                 String dir = f.getName();
                                                 menuItems.add(new MenuItem(dir,
                                                                 new ChangeScreenAction(
-                                                                                new LoadMenu(folder + "/" + dir, this))));
+                                                                                new LoadMenu(folder + "/" + dir,
+                                                                                                this))));
                                         } else {
                                                 String dir = f.getName();
                                                 menuItems.add(new MenuItem(dir, new LoadIxAction(dir)));

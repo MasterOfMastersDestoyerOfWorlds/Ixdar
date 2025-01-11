@@ -34,7 +34,7 @@ public class Route implements Comparable<Route> {
 
     }
 
-    public void reset(){
+    public void reset() {
         delta = Double.MAX_VALUE;
         ancestors = new ArrayList<>();
         cuts = new ArrayList<>();
@@ -54,6 +54,33 @@ public class Route implements Comparable<Route> {
 
             return (this.routeId == r2.routeId);
         }
+    }
+
+    public boolean sameRoute(Route rt) {
+
+        if (rt == null) {
+            return false;
+        }
+        if (this.delta != rt.delta) {
+            return false;
+        }
+        if (this.cuts.size() != rt.cuts.size()) {
+            return false;
+        }
+        if (this.matches.size() != rt.matches.size()) {
+            return false;
+        }
+        for (int i = 0; i < this.cuts.size(); i++) {
+            if (!this.cuts.get(i).equals(rt.cuts.get(i))) {
+                return false;
+            }
+        }
+        for (int i = 0; i < this.matches.size(); i++) {
+            if (!this.matches.get(i).equals(rt.matches.get(i))) {
+                return false;
+            }
+        }
+        return (this.routeId == rt.routeId);
     }
 
     @Override

@@ -2,18 +2,19 @@ package shell.terminal.commands;
 
 import java.io.File;
 
+import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
 import shell.terminal.Terminal;
 import shell.ui.Canvas3D;
 import shell.ui.main.Main;
 
-public class LoadCommand extends TerminalCommand {
+public class NewIxCommand extends TerminalCommand {
 
-    public static String cmd = "ld";
+    public static String cmd = "nw";
 
     @Override
     public String fullName() {
-        return "load";
+        return "newix";
     }
 
     @Override
@@ -23,17 +24,25 @@ public class LoadCommand extends TerminalCommand {
 
     @Override
     public String desc() {
-        return "load an ixdar file and begin calculations";
+        return "creates a new blank ixdar file with no points and a new directory";
     }
 
     @Override
     public String usage() {
-        return "usage: ld|load [file to load(filename)]";
+        return "usage: nw|newix [base filename of new file(filename)]";
     }
 
     @Override
     public int argLength() {
         return 1;
+    }
+
+    public static void run(String fileName) throws TerminalParseException {
+        FileManagement.updateTestFileCache(fileName);
+        Canvas3D.activate(false);
+        Main.main(new String[] { fileName });
+        Main.activate(true);
+
     }
 
     @Override
@@ -42,11 +51,13 @@ public class LoadCommand extends TerminalCommand {
         String dirLoc = terminal.directory + "/" + fileName;
         File newDir = new File(dirLoc);
         if (newDir.exists() && newDir.isFile()) {
-            FileManagement.updateTestFileCache(fileName);
-            Canvas3D.activate(false);
-            Main.main(new String[] { fileName });
-            Main.activate(true);
-            return new String[] { "ls " };
+            try {
+                run(fileName);
+                return new String[] { "ls " };
+            } catch (TerminalParseException e) {
+                terminal.error(e.message);
+                return null;
+            }
         }
         terminal.error("file not found: " + dirLoc);
 

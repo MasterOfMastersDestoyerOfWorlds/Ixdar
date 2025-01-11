@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
@@ -60,6 +61,8 @@ public abstract class ShaderProgram {
         CircleSDF(SDFShader.class, "font.vs", "sdf_circle.fs"),
 
         UnionSDF(SDFShader.class, "font.vs", "sdf_union.fs"),
+
+        Fluid(SDFShader.class, "font.vs", "sdf_fluid.fs"),
 
         Font(FontShader.class, "font.vs", "font.fs"),
 
@@ -94,6 +97,7 @@ public abstract class ShaderProgram {
     CharSequence[] fragmentShaderSource;
     public VertexArrayObject vao;
     public VertexBufferObject vbo;
+    public HashMap<String, Integer> uniformLocations;
 
     protected int ID;
 
@@ -101,8 +105,8 @@ public abstract class ShaderProgram {
     private int numVertices;
     private boolean drawing;
 
-    public final float ORTHO_NEAR = -1000f;
-    public final float ORTHO_FAR = 1000f;
+    public final static float ORTHO_NEAR = -100f;
+    public final static float ORTHO_FAR = 100f;
 
     @SuppressWarnings("unused")
     private String vertexShaderLocation, fragmentShaderLocation;
@@ -111,6 +115,7 @@ public abstract class ShaderProgram {
             VertexBufferObject vbo, boolean useBuffer) {
         this.fragmentShaderLocation = fragmentShaderLocation;
         this.vertexShaderLocation = vertexShaderLocation;
+        this.uniformLocations = new HashMap<>();
         this.vao = vao;
         this.vbo = vbo;
         try {
@@ -166,55 +171,82 @@ public abstract class ShaderProgram {
     }
 
     public void setBool(String name, boolean value) {
-        glUniform1i(glGetUniformLocation(ID, name), value ? 1 : 0);
+        if (!uniformLocations.containsKey(name)) {
+            uniformLocations.put(name, glGetUniformLocation(ID, name));
+        }
+        glUniform1i(uniformLocations.get(name), value ? 1 : 0);
     }
 
     public void setInt(String name, int value) {
-        glUniform1i(glGetUniformLocation(ID, name), value);
+        if (!uniformLocations.containsKey(name)) {
+            uniformLocations.put(name, glGetUniformLocation(ID, name));
+        }
+        glUniform1i(uniformLocations.get(name), value);
     }
 
     public void setFloat(String name, float value) {
-        glUniform1f(glGetUniformLocation(ID, name), value);
+        if (!uniformLocations.containsKey(name)) {
+            uniformLocations.put(name, glGetUniformLocation(ID, name));
+        }
+        glUniform1f(uniformLocations.get(name), value);
     }
 
     public void setMat4(String name, Matrix4f mat) {
+        if (!uniformLocations.containsKey(name)) {
+            uniformLocations.put(name, glGetUniformLocation(ID, name));
+        }
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer buffer = mat.get(stack.mallocFloat(16));
-            glUniformMatrix4fv(glGetUniformLocation(ID, name), false, buffer);
+            glUniformMatrix4fv(uniformLocations.get(name), false, buffer);
         }
     }
 
     public void setMat4(String name, FloatBuffer allocatedBuffer) {
-        glUniformMatrix4fv(glGetUniformLocation(ID, name), false, allocatedBuffer);
+        if (!uniformLocations.containsKey(name)) {
+            uniformLocations.put(name, glGetUniformLocation(ID, name));
+        }
+        glUniformMatrix4fv(uniformLocations.get(name), false, allocatedBuffer);
     }
 
     public void setVec2(String name, Vector2f vec2) {
 
+        if (!uniformLocations.containsKey(name)) {
+            uniformLocations.put(name, glGetUniformLocation(ID, name));
+        }
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer buffer = vec2.get(stack.mallocFloat(2));
-            glUniform2fv(glGetUniformLocation(ID, name), buffer);
+            glUniform2fv(uniformLocations.get(name), buffer);
         }
     }
 
     public void setVec3(String name, float f, float g, float h) {
+        if (!uniformLocations.containsKey(name)) {
+            uniformLocations.put(name, glGetUniformLocation(ID, name));
+        }
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer vec3 = new Vector3f(f, g, h).get(stack.mallocFloat(3));
-            glUniform3fv(glGetUniformLocation(ID, name), vec3);
+            glUniform3fv(uniformLocations.get(name), vec3);
         }
     }
 
     public void setVec3(String name, Vector3f vec3) {
 
+        if (!uniformLocations.containsKey(name)) {
+            uniformLocations.put(name, glGetUniformLocation(ID, name));
+        }
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer buffer = vec3.get(stack.mallocFloat(3));
-            glUniform3fv(glGetUniformLocation(ID, name), buffer);
+            glUniform3fv(uniformLocations.get(name), buffer);
         }
     }
 
     public void setVec4(String name, Vector4f vec4) {
+        if (!uniformLocations.containsKey(name)) {
+            uniformLocations.put(name, glGetUniformLocation(ID, name));
+        }
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer buffer = vec4.get(stack.mallocFloat(4));
-            glUniform4fv(glGetUniformLocation(ID, name), buffer);
+            glUniform4fv(uniformLocations.get(name), buffer);
         }
     }
 

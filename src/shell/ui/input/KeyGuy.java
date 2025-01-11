@@ -26,8 +26,8 @@ import shell.terminal.commands.ResetCommand;
 import shell.terminal.commands.ResetCommand.ResetOption;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
-import shell.ui.actions.SaveDialog;
 import shell.ui.main.Main;
+import shell.ui.tools.CompareManifoldTool;
 import shell.ui.tools.EditManifoldTool;
 import shell.ui.tools.FindManifoldTool;
 import shell.ui.tools.NegativeCutMatchViewTool;
@@ -40,13 +40,14 @@ public class KeyGuy {
     public Camera camera;
 
     boolean controlMask;
+    boolean shiftMask;
     private Canvas3D canvas;
     JFrame frame;
-    SaveDialog dialog;
     NegativeCutMatchViewTool negativeCutMatchViewTool = new NegativeCutMatchViewTool();
     FindManifoldTool findManifoldTool = new FindManifoldTool();
     EditManifoldTool editCutMatchTool;
     public boolean active = true;
+    CompareManifoldTool compareManifoldTool = new CompareManifoldTool();
 
     public KeyGuy(Camera camera, Canvas3D canvas) {
         this.camera = camera;
@@ -57,7 +58,6 @@ public class KeyGuy {
     public KeyGuy(Main main, String fileName, Camera camera) {
         this.main = main;
         this.camera = camera;
-        dialog = new SaveDialog(frame, fileName);
     }
 
     private void keyPressed(int key, int mods) {
@@ -69,6 +69,9 @@ public class KeyGuy {
 
         if (KeyActions.ControlMask.keyPressed(pressedKeys)) {
             controlMask = true;
+        }
+        if (KeyActions.ShiftMask.keyPressed(pressedKeys)) {
+            shiftMask = true;
         }
         if (controlMask && firstPress) {
             if (KeyActions.PrintScreen.keyPressed(pressedKeys)) {
@@ -92,11 +95,14 @@ public class KeyGuy {
                 }
             }
             if (KeyActions.Save.keyPressed(pressedKeys)) {
-                String newFilename = dialog.showDialog();
+                if (Main.file == null && Main.tempFile != null) {
 
-                if ((newFilename != null) && (newFilename.length() > 0)) {
-                    System.out.println("Saving to file: " + newFilename);
+                } else if (Main.file != null) {
+
                 }
+            }
+            if (KeyActions.SaveAs.keyPressed(pressedKeys)) {
+
             }
             if (KeyActions.GenerateManifoldTests.keyPressed(pressedKeys)) {
                 ManifoldTestCommand.run(Main.file.getName(),
@@ -106,6 +112,13 @@ public class KeyGuy {
                 findManifoldTool.reset();
                 findManifoldTool.state = FindManifoldTool.States.FindStart;
                 Main.tool = findManifoldTool;
+                Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
+                Main.updateKnotsDisplayed();
+            }
+            if (KeyActions.Compare.keyPressed(pressedKeys)) {
+                compareManifoldTool.reset();
+                compareManifoldTool.state = CompareManifoldTool.States.FindStart;
+                Main.tool = compareManifoldTool;
                 Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
                 Main.updateKnotsDisplayed();
             }
@@ -125,7 +138,7 @@ public class KeyGuy {
         } else if (Toggle.isTerminalFocused.value) {
             Main.terminal.keyPress(key, mods);
         }
-        if (KeyActions.Back.keyPressed(pressedKeys)) {
+        if (KeyActions.Back.keyPressed(pressedKeys) && Main.active) {
             ExitCommand.run();
         }
     }

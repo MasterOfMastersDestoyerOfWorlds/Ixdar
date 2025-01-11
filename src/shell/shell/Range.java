@@ -1,7 +1,7 @@
 package shell.shell;
 
-import shell.PointND;
-import shell.exceptions.RangeParseException;
+import shell.exceptions.TerminalParseException;
+import shell.objects.PointND;
 
 public class Range {
     public int startIdx;
@@ -20,24 +20,24 @@ public class Range {
         reversed = startIdx > endIdx;
     }
 
-    public static Range parse(String arg) throws RangeParseException {
+    public static Range parse(String arg) throws TerminalParseException {
         if (arg.contains("-")) {
             String[] parts = arg.split("-");
             if (parts.length != 2) {
-                throw new RangeParseException("more than one dash in range");
+                throw new TerminalParseException("more than one dash in range");
             }
             int start = 0;
             int end = 0;
             try {
                 start = Integer.parseInt(parts[0]);
             } catch (NumberFormatException e) {
-                throw new RangeParseException("first half of range is not an integer");
+                throw new TerminalParseException("first half of range is not an integer");
             }
 
             try {
                 end = Integer.parseInt(parts[1]);
             } catch (NumberFormatException e) {
-                throw new RangeParseException("second half of range is not an integer");
+                throw new TerminalParseException("second half of range is not an integer");
             }
             return new Range(start, end);
         } else {
@@ -45,7 +45,7 @@ public class Range {
                 int start = Integer.parseInt(arg);
                 return new Range(start, start);
             } catch (NumberFormatException e) {
-                throw new RangeParseException("first half of range is not an integer");
+                throw new TerminalParseException("first half of range is not an integer");
             }
         }
     }

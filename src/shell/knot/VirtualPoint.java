@@ -97,6 +97,7 @@ public abstract class VirtualPoint {
 		shell.buff.add(k.fullString());
 		int otherSize = k.size();
 		int lowerSize = otherSize < this.size() ? otherSize : this.size();
+		lowerSize = Math.max(2, lowerSize);
 		int desiredCount = lowerSize * lowerSize;
 		// desiredCount = otherSize * this.size();
 		boolean oneOutFlag = false;
@@ -132,6 +133,7 @@ public abstract class VirtualPoint {
 		shell.buff.add(k.fullString());
 		int otherSize = k.size();
 		int lowerSize = otherSize < this.size() ? otherSize : this.size();
+		lowerSize = Math.max(2, lowerSize);
 		int desiredCount = k.size() * this.size();
 		desiredCount = lowerSize * lowerSize;
 		HashMap<Integer, Integer> count = new HashMap<>();
@@ -175,6 +177,7 @@ public abstract class VirtualPoint {
 		shell.buff.add(k.fullString());
 		int otherSize = k.size();
 		int lowerSize = otherSize < this.size() ? otherSize : this.size();
+		lowerSize = Math.max(2, lowerSize);
 		int desiredCount = k.size() * this.size();
 		desiredCount = lowerSize * lowerSize;
 		boolean oneOutFlag = false;
@@ -562,5 +565,13 @@ public abstract class VirtualPoint {
 	}
 
 	public abstract HyperString toHyperString();
+
+	@Override
+	public boolean equals(Object o) {
+		if (o == null || !(o instanceof VirtualPoint)) {
+			return false;
+		}
+		return this.id == ((VirtualPoint) o).id;
+	}
 
 }

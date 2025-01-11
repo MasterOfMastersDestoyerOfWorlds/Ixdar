@@ -3,13 +3,14 @@ package shell.cameras;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 
-import shell.PointND;
 import shell.PointSet;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.objects.PointND;
 import shell.render.Clock;
+import shell.render.shaders.ShaderProgram;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
@@ -38,6 +39,7 @@ public class Camera2D implements Camera {
     private float maxY;
     private float height;
     public float zIndex;
+    public float farZIndex;
     float width;
     private float SHIFT_MOD = 1.0f;
     public float ScreenOffsetY;
@@ -450,6 +452,17 @@ public class Camera2D implements Camera {
     @Override
     public void resetZIndex() {
         zIndex = 0;
+        farZIndex = ShaderProgram.ORTHO_FAR - 0.01f;
+    }
+
+    @Override
+    public void decFarZIndex() {
+        farZIndex -= 0.01;
+    }
+
+    @Override
+    public float getFarZIndex() {
+        return farZIndex;
     }
 
     @Override

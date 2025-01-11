@@ -4,11 +4,11 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 
-import shell.PointND;
 import shell.Toggle;
 import shell.exceptions.SegmentBalanceException;
 import shell.file.FileManagement;
 import shell.file.Manifold;
+import shell.objects.PointND;
 import shell.shell.Shell;
 import shell.terminal.Terminal;
 import shell.ui.main.Main;

@@ -39,7 +39,7 @@ public class ExitCommand extends TerminalCommand {
             Canvas3D.activate(true);
             Main.activate(false);
         }
-        Main.tool = Main.freeTool;
+        Main.tool.freeTool();
     }
 
     @Override

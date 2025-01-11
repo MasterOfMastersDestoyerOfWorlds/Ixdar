@@ -9,6 +9,7 @@ import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.ui.main.Main;
 
 public class BalanceMap {
     public Knot knot;
@@ -19,7 +20,7 @@ public class BalanceMap {
     HashMap<Integer, Integer> externalGroupCount;
     public ArrayList<Segment> externalMatches;
     public ArrayList<VirtualPoint> externals;
-    SegmentBalanceException sbe;
+    public SegmentBalanceException sbe;
     static int numCuts = 0;
     int numGroups = 0;
     int ID;
@@ -70,6 +71,10 @@ public class BalanceMap {
         this.topExternal1 = bMap.topExternal1;
         this.topExternal2 = bMap.topExternal2;
         numCuts++;
+    }
+
+    public void addDummyExternalMatch(VirtualPoint vp) {
+
     }
 
     public void addExternalMatch(VirtualPoint vp, VirtualPoint external, Knot superKnot) throws BalancerException {

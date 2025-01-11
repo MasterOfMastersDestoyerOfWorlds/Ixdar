@@ -12,7 +12,6 @@ import org.joml.Random;
 import org.joml.Vector2f;
 
 import shell.DistanceMatrix;
-import shell.PointND;
 import shell.PointSet;
 import shell.cameras.Camera2D;
 import shell.cuts.CutMatch;
@@ -22,6 +21,7 @@ import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.objects.PointND;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFCircle;
@@ -127,23 +127,25 @@ public class Drawing {
         drawSegment(ex2, Color.GREEN, camera);
 
         // Draw Cuts and Matches
-        for (CutMatch cutMatch : cml.cutMatches) {
+        if (cml != null) {
+            for (CutMatch cutMatch : cml.cutMatches) {
 
-            for (Segment s : cutMatch.matchSegments) {
-                drawSegment(s, Color.CYAN, camera);
-            }
+                for (Segment s : cutMatch.matchSegments) {
+                    drawSegment(s, Color.CYAN, camera);
+                }
 
-            // Draw Cuts
-            sdfLine.setStroke(2 * lineThickness, false);
-            for (Segment s : cutMatch.cutSegments) {
-                drawSegment(s, Color.ORANGE, camera);
-            }
-            // Draw SubKnot
-            Shell result = new Shell();
-            for (VirtualPoint p : cutMatch.knot.knotPoints) {
-                result.add(((Point) p).p);
-            }
+                // Draw Cuts
+                sdfLine.setStroke(2 * lineThickness, false);
+                for (Segment s : cutMatch.cutSegments) {
+                    drawSegment(s, Color.ORANGE, camera);
+                }
+                // Draw SubKnot
+                Shell result = new Shell();
+                for (VirtualPoint p : cutMatch.knot.knotPoints) {
+                    result.add(((Point) p).p);
+                }
 
+            }
         }
 
     }
@@ -278,6 +280,9 @@ public class Drawing {
     public static void drawPath(Shell shell, float lineThickness, Color color,
             PointSet ps,
             boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed, Camera2D camera) {
+        if (shell.size() == 0) {
+            return;
+        }
         if (dashed) {
             sdfLine.setStroke(lineThickness * camera.ScaleFactor, true, 60f, 1f, true, true);
         } else {

@@ -7,10 +7,13 @@ import org.apache.commons.collections4.map.MultiKeyMap;
 import org.apache.commons.math3.util.Pair;
 
 import shell.BalanceMap;
+import shell.cuts.enums.RouteType;
+import shell.cuts.route.Route;
+import shell.cuts.route.RouteInfo;
+import shell.cuts.route.RouteMap;
 import shell.exceptions.BalancerException;
 import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
-import shell.exceptions.ShorterPathNotFoundException;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
@@ -96,6 +99,8 @@ public class CutEngine {
             }
         }
         boolean ixdarSkip = true;
+        boolean answerSharing = true;
+        boolean checkAnswer = true;
         for (int a = 0; a < knot.knotPoints.size(); a++) {
             for (int b = a; b < knot.knotPoints.size(); b++) {
                 VirtualPoint knotPoint11 = knot.knotPoints.get(a);
@@ -109,48 +114,33 @@ public class CutEngine {
                 Pair<Segment, Segment> p = new Pair<Segment, Segment>(cutSegment1, cutSegment2);
                 segmentPairs.add(p);
                 if (cutSegment1.partialOverlaps(cutSegment2)) {
-                    continue;
+                    if (knot.size() <= 4) {
+                        // provable impossible to make any series of cutmatches that will return to the
+                        // singular cutpoint when the cutsegments overlap in a knot of size <= 4
+                        continue;
+                    }
+                    // goal is to throw away any overlapped segments where kp2==cp1, kp1 == cp2, or
+                    // kp1 == kp2, the remaining combination where cp1 == cp2 is the one we are
+                    // interested in and is only valid for knots of size > 4.
                 }
                 if (cutSegment1.equals(cutSegment2)) {
                     continue;
                 } else {
                     double delta = Double.MAX_VALUE;
                     double regDelta = -cutSegment1.distance - cutSegment2.distance;
-                    Segment s11 = knotPoint11.getClosestSegment(external1, null);
-                    Segment s12 = knotPoint21.getClosestSegment(external2, s11);
                     double d1 = Double.MAX_VALUE;
                     CutMatchList cutMatch1 = null;
-                    double mind1 = s12.distance + s11.distance + regDelta;
-                    CutMatchList internalCuts12 = null;
-                    VirtualPoint externalPoint11 = s11.getOther(knotPoint11);
-                    VirtualPoint externalPoint12 = s12.getOther(knotPoint21);
-                    CutInfo c1 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, externalPoint11,
-                            knotPoint21,
-                            knotPoint22, cutSegment2,
-                            externalPoint12, knot, null);
-                    SegmentBalanceException sbe12 = new SegmentBalanceException(shell, null, c1);
-                    if (mind1 < minDelta || !ixdarSkip) {
-                        BalanceMap balanceMap1 = new BalanceMap(knot, sbe12);
-                        balanceMap1.addCut(knotPoint11, knotPoint12);
-                        balanceMap1.addCut(knotPoint21, knotPoint22);
-                        balanceMap1.addExternalMatch(knotPoint11, externalPoint11, null);
-                        balanceMap1.addExternalMatch(knotPoint21, externalPoint12, null);
-                        c1.balanceMap = balanceMap1;
-                        shell.buff.add("12 -------------------------------------------");
-                        try {
-                            internalCuts12 = internalPathEngine.calculateInternalPathLength(
-                                    knotPoint11, knotPoint12, externalPoint11,
-                                    knotPoint21, knotPoint22, externalPoint12, knot, balanceMap1, c1, true);
-                        } catch (SegmentBalanceException sbe) {
 
-                            shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
-                                    / (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
-                            throw sbe;
-                        }
-                        cutMatch1 = new CutMatchList(shell, sbe12, c1.superKnot);
-                        cutMatch1.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },
-                                new Segment[] { s12, s11 },
-                                internalCuts12, c1, "CutEngine1");
+                    CutInfo c1 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, external1,
+                            knotPoint21, knotPoint22, cutSegment2, external2, knot, null);
+                    double mind1 = c1.lowerMatchSegment.distance + c1.upperMatchSegment.distance + regDelta;
+                    Pair<CutMatchList, RouteMap<Integer, RouteInfo>> internalCuts12 = null;
+                    if ((mind1 < minDelta || !ixdarSkip) && c1.overlapOrientationCorrect) {
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
+                                null, null, c1,
+                                false, false, true);
+                        internalCuts12 = temp.getSecond();
+                        cutMatch1 = temp.getFirst();
                         d1 = cutMatch1.delta;
                         delta = d1 < delta ? d1 : delta;
                         countCalculated++;
@@ -158,109 +148,35 @@ public class CutEngine {
                         countSkipped++;
                     }
 
-                    Segment s21 = knotPoint21.getClosestSegment(external1, null);
-                    Segment s22 = knotPoint11.getClosestSegment(external2, s21);
                     double d2 = Double.MAX_VALUE;
                     CutMatchList cutMatch2 = null;
-                    double mind2 = s22.distance + s21.distance + regDelta;
-                    if (mind2 < minDelta || !ixdarSkip) {
-                        VirtualPoint externalPoint21 = s21.getOther(knotPoint21);
-                        VirtualPoint externalPoint22 = s22.getOther(knotPoint11);
-                        CutInfo c2 = new CutInfo(shell, knotPoint21, knotPoint22, cutSegment2, externalPoint21,
-                                knotPoint11,
-                                knotPoint12, cutSegment1,
-                                externalPoint22, knot, null);
-                        SegmentBalanceException sbe2 = new SegmentBalanceException(shell, null, c2);
-                        BalanceMap balanceMap2 = new BalanceMap(knot, sbe12);
-                        balanceMap2.addCut(knotPoint11, knotPoint12);
-                        balanceMap2.addCut(knotPoint21, knotPoint22);
-                        balanceMap2.addExternalMatch(knotPoint21, externalPoint21, null);
-                        balanceMap2.addExternalMatch(knotPoint11, externalPoint22, null);
-                        c2.balanceMap = balanceMap2;
-                        if (internalCuts12 == null) {
-                            try {
-                                internalCuts12 = internalPathEngine.calculateInternalPathLength(
-                                        knotPoint11, knotPoint12, externalPoint11,
-                                        knotPoint21, knotPoint22, externalPoint12, knot, balanceMap2, c1, true);
-
-                            } catch (SegmentBalanceException sbe) {
-
-                                shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
-                                        / (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
-                                throw sbe;
-                            }
-                        }
-                        cutMatch2 = new CutMatchList(shell, sbe2, c2.superKnot);
-                        cutMatch2.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },
-                                new Segment[] { s22, s21 },
-                                internalCuts12, c2, "CutEngine2");
+                    CutInfo c2 = c1.copyAndSwapExternals();
+                    double mind2 = c2.lowerMatchSegment.distance + c2.upperMatchSegment.distance + regDelta;
+                    if ((mind2 < minDelta || !ixdarSkip) && c2.overlapOrientationCorrect) {
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
+                                null, internalCuts12, c2,
+                                false, false, true);
+                        internalCuts12 = temp.getSecond();
+                        cutMatch2 = temp.getFirst();
                         d2 = cutMatch2.delta;
                         delta = d2 < delta ? d2 : delta;
                         countCalculated++;
                     } else {
                         countSkipped++;
                     }
-                    if (internalCuts12 != null) {
-                        boolean foundShorter12 = internalCuts12.delta <= knotPoint12.getClosestSegment(knotPoint22,
-                                null).distance;
-                        if (!foundShorter12) {
-                            shell.buff.add(knot);
-                            shell.buff.add("Cut Info 12: Cut1: knotPoint1: " + knotPoint11 + " cutpointA: "
-                                    + knotPoint12
-                                    + " ex1:" + external1 + " knotPoint2: " + knotPoint21 + " cutPointB: " + knotPoint22
-                                    + " ex2: " + external2);
-                            shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
-                                    / (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
-                            shell.buff
-                                    .add(shell.knotName + "_cut" + knotPoint11 + "-" + knotPoint12 + "and" + knotPoint21
-                                            + "-" + knotPoint22);
-                            if (!foundShorter12) {
-                                shell.buff.add("NO SHORTER PATH FOUND THAN SIMPLE CUT : ");
-                                throw new ShorterPathNotFoundException(shell, internalCuts12, c1);
-                            }
-                        }
-                    }
 
-                    shell.buff.flush();
-
-                    shell.buff.add("34 -------------------------------------------");
-                    Segment s31 = knotPoint12.getClosestSegment(external1, null);
-                    Segment s32 = knotPoint22.getClosestSegment(external2, s31);
-                    VirtualPoint externalPoint31 = s31.getOther(knotPoint12);
-                    VirtualPoint externalPoint32 = s32.getOther(knotPoint22);
-                    CutInfo c3 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, externalPoint31, knotPoint22,
-                            knotPoint21, cutSegment2,
-                            externalPoint32, knot, null);
-                    SegmentBalanceException sbe3 = new SegmentBalanceException(shell, null, c3);
-                    CutMatchList internalCuts34 = null;
+                    CutInfo c3 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint22,
+                            knotPoint21, cutSegment2, external2, knot, null);
+                    Pair<CutMatchList, RouteMap<Integer, RouteInfo>> internalCuts34 = null;
                     CutMatchList cutMatch3 = null;
                     double d3 = Double.MAX_VALUE;
-                    double mind3 = s32.distance + s31.distance + regDelta;
-                    if (mind3 < minDelta || !ixdarSkip) {
-
-                        BalanceMap balanceMap3 = new BalanceMap(knot, sbe3);
-                        balanceMap3.addCut(knotPoint11, knotPoint12);
-                        balanceMap3.addCut(knotPoint21, knotPoint22);
-                        balanceMap3.addExternalMatch(knotPoint12, externalPoint31, null);
-                        balanceMap3.addExternalMatch(knotPoint22, externalPoint32, null);
-                        c3.balanceMap = balanceMap3;
-                        try {
-                            internalCuts34 = internalPathEngine.calculateInternalPathLength(
-                                    knotPoint12, knotPoint11, externalPoint31,
-                                    knotPoint22, knotPoint21, externalPoint32, knot, balanceMap3, c3, true);
-
-                        } catch (SegmentBalanceException sbe) {
-                            shell.buff.add("Original Cut Info 34: " + c3);
-
-                            shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
-                                    / (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
-                            throw sbe;
-                        }
-
-                        cutMatch3 = new CutMatchList(shell, sbe3, c3.superKnot);
-                        cutMatch3.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },
-                                new Segment[] { s32, s31 },
-                                internalCuts34, c3, "CutEngine3");
+                    double mind3 = c3.lowerMatchSegment.distance + c3.upperMatchSegment.distance + regDelta;
+                    if ((mind3 < minDelta || !ixdarSkip) && c3.overlapOrientationCorrect) {
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
+                                null, null, c3,
+                                false, false, true);
+                        internalCuts34 = temp.getSecond();
+                        cutMatch3 = temp.getFirst();
                         d3 = cutMatch3.delta;
                         delta = d3 < delta ? d3 : delta;
                         countCalculated++;
@@ -268,44 +184,16 @@ public class CutEngine {
                         countSkipped++;
                     }
 
-                    Segment s41 = knotPoint22.getClosestSegment(external1, null);
-                    Segment s42 = knotPoint12.getClosestSegment(external2, s41);
-                    VirtualPoint externalPoint41 = s41.getOther(knotPoint22);
-                    VirtualPoint externalPoint42 = s42.getOther(knotPoint12);
-                    CutInfo c4 = new CutInfo(shell, knotPoint22, knotPoint21, cutSegment2, externalPoint41, knotPoint12,
-                            knotPoint11, cutSegment1,
-                            externalPoint42, knot, null);
-
-                    SegmentBalanceException sbe4 = new SegmentBalanceException(shell, null, c4);
-
+                    CutInfo c4 = c3.copyAndSwapExternals();
                     CutMatchList cutMatch4 = null;
                     double d4 = Double.MAX_VALUE;
-                    double mind4 = s42.distance + s41.distance + regDelta;
-                    if (mind4 < minDelta || !ixdarSkip) {
-                        BalanceMap balanceMap4 = new BalanceMap(knot, sbe4);
-                        balanceMap4.addCut(knotPoint11, knotPoint12);
-                        balanceMap4.addCut(knotPoint21, knotPoint22);
-                        balanceMap4.addExternalMatch(knotPoint22, externalPoint41, null);
-                        balanceMap4.addExternalMatch(knotPoint12, externalPoint42, null);
-                        c4.balanceMap = balanceMap4;
-
-                        if (internalCuts34 == null) {
-                            try {
-                                internalCuts34 = internalPathEngine.calculateInternalPathLength(
-                                        knotPoint12, knotPoint11, externalPoint31,
-                                        knotPoint22, knotPoint21, externalPoint32, knot, balanceMap4, c4, true);
-                            } catch (SegmentBalanceException sbe) {
-                                shell.buff.add("Original Cut Info 34: " + c3);
-
-                                shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
-                                        / (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
-                                throw sbe;
-                            }
-                        }
-                        cutMatch4 = new CutMatchList(shell, sbe4, c4.superKnot);
-                        cutMatch4.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },
-                                new Segment[] { s42, s41 },
-                                internalCuts34, c4, "CutEngine4");
+                    double mind4 = c4.lowerMatchSegment.distance + c4.upperMatchSegment.distance + regDelta;
+                    if ((mind4 < minDelta || !ixdarSkip) && c4.overlapOrientationCorrect) {
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
+                                null, internalCuts34, c4,
+                                false, false, true);
+                        internalCuts34 = temp.getSecond();
+                        cutMatch4 = temp.getFirst();
                         d4 = cutMatch4.delta;
                         delta = d4 < delta ? d4 : delta;
                         countCalculated++;
@@ -313,153 +201,52 @@ public class CutEngine {
                         countSkipped++;
                     }
 
-                    if (internalCuts34 != null) {
-                        boolean foundShorter34 = internalCuts34.delta <= knotPoint11.getClosestSegment(knotPoint21,
-                                null).distance;
-                        if (!foundShorter34) {
-                            shell.buff.add(knot);
-                            shell.buff.add("Cut Info 34: Cut1: knotPoint1: " + knotPoint12 + " cutpointA: "
-                                    + knotPoint11
-                                    + " ex1:" + external1 + " knotPoint2: " + knotPoint22 + " cutPointB: " + knotPoint21
-                                    + " ex2: " + external2);
-                            shell.buff.add("%complete this knot: " + 100.0 * (((double) a) * ((double) a - 1) + b)
-                                    / (((double) knot.knotPoints.size()) * ((double) knot.knotPoints.size())));
-                            shell.buff
-                                    .add(shell.knotName + "_cut" + knotPoint12 + "-" + knotPoint11 + "and" + knotPoint22
-                                            + "-" + knotPoint21);
-                            if (!foundShorter34) {
-                                shell.buff.add("NO SHORTER PATH FOUND THAN SIMPLE CUT");
-
-                                throw new ShorterPathNotFoundException(shell, internalCuts34, c3);
-                            }
-                        }
-                    }
-
-                    shell.buff.flush();
-                    shell.buff.add(" 56 -------------------------------------------");
-
-                    Segment s51 = knotPoint11.getClosestSegment(external1, null);
-                    Segment s52 = knotPoint22.getClosestSegment(external2, s51);
-                    VirtualPoint externalPoint51 = s51.getOther(knotPoint11);
-                    VirtualPoint externalPoint52 = s52.getOther(knotPoint22);
-
-                    CutInfo c5 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, externalPoint51, knotPoint22,
-                            knotPoint21, cutSegment2, externalPoint52, knot, null);
-                    SegmentBalanceException sbe5 = new SegmentBalanceException(shell, null, c5);
-                    BalanceMap balanceMap5 = new BalanceMap(knot, sbe5);
-                    balanceMap5.addCut(knotPoint11, knotPoint12);
-                    balanceMap5.addCut(knotPoint21, knotPoint22);
-
-                    balanceMap5.addExternalMatch(knotPoint11, externalPoint51, null);
-                    balanceMap5.addExternalMatch(knotPoint22, externalPoint52, null);
-                    c5.balanceMap = balanceMap5;
-
+                    CutInfo c5 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, external1, knotPoint22,
+                            knotPoint21, cutSegment2, external2, knot, null);
                     double d5 = Double.MAX_VALUE, d7 = Double.MAX_VALUE, d6 = Double.MAX_VALUE, d8 = Double.MAX_VALUE;
                     CutMatchList cutMatch7 = null, cutMatch8 = null, cutMatch5 = null, cutMatch6 = null;
-                    CutMatchList internalCuts56 = null;
-                    double mind5 = s52.distance + s51.distance + regDelta;
-                    if (mind5 < minDelta || !ixdarSkip) {
-                        internalCuts56 = internalPathEngine.calculateInternalPathLength(
-                                knotPoint11, knotPoint12, externalPoint51,
-                                knotPoint22, knotPoint21, externalPoint52, knot, balanceMap5, c5, false);
-                        cutMatch5 = new CutMatchList(shell, sbe5, c5.superKnot);
-                        cutMatch5.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },
-                                new Segment[] { s52, s51 },
-                                internalCuts56, c5, "CutEngine5");
+                    Pair<CutMatchList, RouteMap<Integer, RouteInfo>> internalCuts56 = null;
+                    double mind5 = c5.lowerMatchSegment.distance + c5.upperMatchSegment.distance + regDelta;
+                    if ((mind5 < minDelta || !ixdarSkip) && c5.overlapOrientationCorrect) {
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
+                                internalCuts12, null, c5, answerSharing, checkAnswer, false);
+                        internalCuts56 = temp.getSecond();
+                        cutMatch5 = temp.getFirst();
                         d5 = cutMatch5.delta;
                         delta = d5 < delta ? d5 : delta;
                     }
-                    Segment s61 = knotPoint22.getClosestSegment(external1, null);
-                    Segment s62 = knotPoint11.getClosestSegment(external2, s61);
-                    VirtualPoint externalPoint61 = s61.getOther(knotPoint22);
-                    VirtualPoint externalPoint62 = s62.getOther(knotPoint11);
-                    CutInfo c6 = new CutInfo(shell, knotPoint22, knotPoint21, cutSegment2, externalPoint61,
-                            knotPoint11,
-                            knotPoint12, cutSegment1,
-                            externalPoint62, knot, null);
-
-                    SegmentBalanceException sbe6 = new SegmentBalanceException(shell, null, c6);
-                    BalanceMap balanceMap6 = new BalanceMap(knot, sbe6);
-                    balanceMap6.addCut(knotPoint11, knotPoint12);
-                    balanceMap6.addCut(knotPoint21, knotPoint22);
-                    balanceMap6.addExternalMatch(knotPoint22, externalPoint61, null);
-                    balanceMap6.addExternalMatch(knotPoint11, externalPoint62, null);
-                    c6.balanceMap = balanceMap6;
-
-                    double mind6 = s62.distance + s61.distance + regDelta;
-                    if (mind6 < minDelta || !ixdarSkip) {
-                        if (internalCuts56 == null) {
-                            internalCuts56 = internalPathEngine.calculateInternalPathLength(
-                                    knotPoint11, knotPoint12, externalPoint61,
-                                    knotPoint22, knotPoint21, externalPoint62, knot, balanceMap6, c6, false);
-                        }
-                        cutMatch6 = new CutMatchList(shell, sbe6, c6.superKnot);
-                        cutMatch6.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },
-                                new Segment[] { s62, s61 },
-                                internalCuts56, c6, "CutEngine6");
+                    CutInfo c6 = c5.copyAndSwapExternals();
+                    double mind6 = c6.lowerMatchSegment.distance + c6.upperMatchSegment.distance + regDelta;
+                    if ((mind6 < minDelta || !ixdarSkip) && c6.overlapOrientationCorrect) {
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
+                                internalCuts12, internalCuts56, c6, answerSharing, checkAnswer, false);
+                        internalCuts56 = temp.getSecond();
+                        cutMatch6 = temp.getFirst();
                         d6 = cutMatch6.delta;
                         delta = d6 < delta ? d6 : delta;
                     }
                     shell.buff.flush();
-                    shell.buff.add(" 78 -------------------------------------------");
-                    Segment s71 = knotPoint12.getClosestSegment(external1, null);
-                    Segment s72 = knotPoint21.getClosestSegment(external2, s71);
-                    VirtualPoint externalPoint71 = s71.getOther(knotPoint12);
-                    VirtualPoint externalPoint72 = s72.getOther(knotPoint21);
-                    CutInfo c7 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, externalPoint71,
-                            knotPoint21,
-                            knotPoint22, cutSegment2, externalPoint72, knot, null);
 
-                    SegmentBalanceException sbe7 = new SegmentBalanceException(shell, null, c7);
-                    BalanceMap balanceMap7 = new BalanceMap(knot, sbe7);
-                    balanceMap7.addCut(knotPoint11, knotPoint12);
-                    balanceMap7.addCut(knotPoint21, knotPoint22);
-                    balanceMap7.addExternalMatch(knotPoint12, externalPoint71, null);
-                    balanceMap7.addExternalMatch(knotPoint21, externalPoint72, null);
-                    c7.balanceMap = balanceMap7;
-
-                    double mind7 = s72.distance + s71.distance + regDelta;
-                    CutMatchList internalCuts78 = null;
-                    if (mind7 < minDelta || !ixdarSkip) {
-                        internalCuts78 = internalPathEngine.calculateInternalPathLength(
-                                knotPoint12, knotPoint11, externalPoint71,
-                                knotPoint21, knotPoint22, externalPoint72, knot, balanceMap7, c7, false);
-                        cutMatch7 = new CutMatchList(shell, sbe7, c7.superKnot);
-                        cutMatch7.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },
-                                new Segment[] { s72, s71 },
-                                internalCuts78, c7, "CutEngine7");
+                    CutInfo c7 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1,
+                            knotPoint21, knotPoint22, cutSegment2, external2, knot, null);
+                    double mind7 = c7.lowerMatchSegment.distance + c7.upperMatchSegment.distance + regDelta;
+                    Pair<CutMatchList, RouteMap<Integer, RouteInfo>> internalCuts78 = null;
+                    if ((mind7 < minDelta || !ixdarSkip) && c7.overlapOrientationCorrect) {
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
+                                internalCuts34, null, c7, answerSharing, checkAnswer, false);
+                        internalCuts78 = temp.getSecond();
+                        cutMatch7 = temp.getFirst();
                         d7 = cutMatch7.delta;
                         delta = d7 < delta ? d7 : delta;
                     }
+                    CutInfo c8 = c7.copyAndSwapExternals();
 
-                    Segment s81 = knotPoint21.getClosestSegment(external1, null);
-                    Segment s82 = knotPoint12.getClosestSegment(external2, s81);
-                    VirtualPoint externalPoint81 = s81.getOther(knotPoint21);
-                    VirtualPoint externalPoint82 = s82.getOther(knotPoint12);
-                    CutInfo c8 = new CutInfo(shell, knotPoint21, knotPoint22, cutSegment2, externalPoint81,
-                            knotPoint12,
-                            knotPoint11, cutSegment1,
-                            externalPoint82, knot, null);
-
-                    SegmentBalanceException sbe8 = new SegmentBalanceException(shell, null, c8);
-                    BalanceMap balanceMap8 = new BalanceMap(knot, sbe8);
-                    balanceMap8.addCut(knotPoint11, knotPoint12);
-                    balanceMap8.addCut(knotPoint21, knotPoint22);
-                    balanceMap8.addExternalMatch(knotPoint21, externalPoint81, null);
-                    balanceMap8.addExternalMatch(knotPoint12, externalPoint82, null);
-                    c8.balanceMap = balanceMap8;
-
-                    double mind8 = s82.distance + s81.distance + regDelta;
-                    if (mind8 < minDelta || !ixdarSkip) {
-                        if (internalCuts78 == null) {
-                            internalCuts78 = internalPathEngine.calculateInternalPathLength(
-                                    knotPoint12, knotPoint11, externalPoint81,
-                                    knotPoint21, knotPoint22, externalPoint82, knot, balanceMap8, c8, false);
-                        }
-                        cutMatch8 = new CutMatchList(shell, sbe8, c8.superKnot);
-                        cutMatch8.addCutMatch(new Segment[] { cutSegment1, cutSegment2 },
-                                new Segment[] { s82, s81 },
-                                internalCuts78, c8, "CutEngine8");
+                    double mind8 = c8.lowerMatchSegment.distance + c8.upperMatchSegment.distance + regDelta;
+                    if ((mind8 < minDelta || !ixdarSkip) && c8.overlapOrientationCorrect) {
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
+                                internalCuts34, internalCuts78, c8, answerSharing, checkAnswer, false);
+                        internalCuts78 = temp.getSecond();
+                        cutMatch8 = temp.getFirst();
                         d8 = cutMatch8.delta;
                         delta = d8 < delta ? d8 : delta;
                     }
@@ -491,6 +278,92 @@ public class CutEngine {
             }
         }
         return result;
+
+    }
+
+    public Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> answerSharing(
+            Pair<CutMatchList, RouteMap<Integer, RouteInfo>> cutsOld,
+            Pair<CutMatchList, RouteMap<Integer, RouteInfo>> cutsNew, CutInfo c,
+            boolean answerSharing, boolean checkAnswer, boolean knotPointsConnected)
+            throws SegmentBalanceException {
+        CutMatchList cutMatch = null;
+        boolean isNull = true;
+        if (cutsOld != null && answerSharing) {
+            RouteMap<Integer, RouteInfo> routeMap12 = cutsOld.getSecond();
+            RouteInfo curr = routeMap12.get(c.upperKnotPoint.id);
+            RouteType prevCutSide = RouteType.None;
+            if (curr.prevC.neighbor.id == c.upperCutPoint.id) {
+                prevCutSide = RouteType.prevDC;
+            } else {
+                prevCutSide = RouteType.nextDC;
+            }
+
+            Route route = curr.getRoute(prevCutSide);
+            Route connectedRoute = curr.getRoute(prevCutSide.oppositeConnectionRoute);
+            if (connectedRoute.ancestorRouteType != RouteType.None) {
+                if (!connectedRoute.ancestorRouteType.isConnected) {
+                    route = connectedRoute;
+                }
+            }
+            if (route.ancestorRouteType == RouteType.None) {
+                isNull = true;
+            } else {
+                ArrayList<Segment> cutSegments = route.cuts;
+                ArrayList<Segment> matchSegments = route.matches;
+                cutSegments.remove(c.lowerCutSegment);
+                cutSegments.remove(c.upperCutSegment);
+
+                CutMatchList cutMatchList = new CutMatchList(shell, c.sbe, c.knot);
+                try {
+                    cutMatchList.addLists(cutSegments, matchSegments, c.knot, "CutEngine5Cheating");
+                } catch (SegmentBalanceException be) {
+                    throw be;
+                }
+                cutMatch = new CutMatchList(shell, c.sbe, c.superKnot);
+                try {
+                    cutMatch.addCutMatch(new Segment[] { c.lowerCutSegment, c.upperCutSegment },
+                            new Segment[] { c.lowerMatchSegment, c.upperMatchSegment },
+                            cutMatchList, c, "CutEngine5");
+                } catch (SegmentBalanceException be) {
+                    throw be;
+                }
+                isNull = false;
+                countSkipped++;
+            }
+        }
+        if (isNull) {
+            if (cutsNew == null) {
+                cutsNew = internalPathEngine.calculateInternalPathLength(
+                        c.lowerKnotPoint, c.lowerCutPoint, c.lowerExternal,
+                        c.upperKnotPoint, c.upperCutPoint, c.upperExternal, c.knot, c.balanceMap, c,
+                        knotPointsConnected);
+            }
+            cutMatch = new CutMatchList(shell, c.sbe, c.superKnot);
+            cutMatch.addCutMatch(new Segment[] { c.lowerCutSegment, c.upperCutSegment },
+                    new Segment[] { c.lowerMatchSegment, c.upperMatchSegment },
+                    cutsNew.getFirst(), c, "CutEngine5");
+
+            countCalculated++;
+        }
+        if (answerSharing && checkAnswer) {
+            if (cutsNew == null) {
+
+                cutsNew = internalPathEngine.calculateInternalPathLength(
+                        c.lowerKnotPoint, c.lowerCutPoint, c.lowerExternal,
+                        c.upperKnotPoint, c.upperCutPoint, c.upperExternal, c.knot, c.balanceMap, c,
+                        knotPointsConnected);
+                CutMatchList cutMatchCheck = new CutMatchList(shell, c.sbe, c.superKnot);
+                cutMatchCheck.addCutMatch(new Segment[] { c.lowerCutSegment, c.upperCutSegment },
+                        new Segment[] { c.lowerMatchSegment, c.upperMatchSegment },
+                        cutsNew.getFirst(), c, "CutEngine5");
+
+                if (cutMatchCheck.delta != cutMatch.delta) {
+                    cutMatch = cutMatchCheck;
+                }
+            }
+        }
+        return new Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>>(cutMatch,
+                cutsNew);
 
     }
 

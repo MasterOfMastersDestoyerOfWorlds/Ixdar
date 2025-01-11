@@ -16,17 +16,21 @@ public class PointSetPath {
 	public Shell tsp;
 	public DistanceMatrix d;
 	public ArrayList<Manifold> manifolds;
-
+	public ArrayList<String> comments;
 
 	/**
 	 * Initializes the path and pointset variables
+	 * 
+	 * @param comments
 	 */
-	public PointSetPath(PointSet ps, Path2D path, Shell tsp, DistanceMatrix d, ArrayList<Manifold> manifolds) {
+	public PointSetPath(PointSet ps, Path2D path, Shell tsp, DistanceMatrix d, ArrayList<Manifold> manifolds,
+			ArrayList<String> comments) {
 		this.path = path;
 		this.ps = ps;
 		this.tsp = tsp;
 		this.d = d;
 		this.manifolds = manifolds;
+		this.comments = comments;
 	}
 
 }

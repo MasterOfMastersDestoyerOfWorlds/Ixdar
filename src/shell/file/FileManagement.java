@@ -1,5 +1,8 @@
 package shell.file;
 
+import java.awt.geom.GeneralPath;
+import java.awt.geom.Path2D;
+import java.awt.geom.Point2D;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -11,20 +14,24 @@ import java.util.HashMap;
 import java.util.List;
 
 import shell.DistanceMatrix;
-import shell.PointND;
 import shell.PointSet;
 import shell.exceptions.FileParseException;
+import shell.exceptions.TerminalParseException;
+import shell.objects.Arc;
+import shell.objects.Circle;
+import shell.objects.Ix;
+import shell.objects.Line;
+import shell.objects.PointND;
+import shell.objects.Triangle;
 import shell.shell.Shell;
-
-import java.awt.geom.GeneralPath;
-import java.awt.geom.Path2D;
-import java.awt.geom.Point2D;
 
 public class FileManagement {
 
     public static final String solutionsFolder = "./src/test/solutions/";
 
     public static final String testFileCacheLocation = "./src/test/cache/cache";
+
+    public static final String cacheFolder = "./src/test/cache/";
 
     public static final String subGraphUnitTestFolder = "./src/test/unit/subgraphs/";
 
@@ -34,6 +41,17 @@ public class FileManagement {
             return new File(solutionsFolder + parts[0].replace(".ix", "") + "/" + fileName);
         }
         return new File(solutionsFolder + parts[0] + "/" + fileName + ".ix");
+    }
+
+    public static File getTempFile(String fileName) {
+        File temp = null;
+        try {
+            temp = File.createTempFile("temp", ".ix");
+            temp.deleteOnExit();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return temp;
     }
 
     public static String getTestFileCache() {
@@ -49,15 +67,52 @@ public class FileManagement {
     }
 
     public static void updateTestFileCache(String cachedLocation) {
-        File cache = new File(testFileCacheLocation);
-        try (FileWriter fw = new FileWriter(cache)) {
-            BufferedWriter out = new BufferedWriter(fw);
-            out.write(cachedLocation);
-            out.flush();
-            out.close();
-        } catch (IOException e) {
-            e.printStackTrace();
+        if (!cachedLocation.isBlank()) {
+            File cache = new File(testFileCacheLocation);
+            try (FileWriter fw = new FileWriter(cache)) {
+                BufferedWriter out = new BufferedWriter(fw);
+                out.write(cachedLocation);
+                out.flush();
+                out.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
+    }
+
+    static PointSet ps;
+    static Path2D path;
+    static Shell tsp;
+    static ArrayList<String> comments;
+    static ArrayList<Manifold> manifolds;
+    static Manifold m;
+    static boolean flag, first;
+    static int index;
+    static DistanceMatrix d;
+    static HashMap<Integer, PointND> lookUp;
+    static ArrayList<Integer> answerOrder;
+    static int lineNumber;
+    static ArrayList<Integer> duplicatePointIndexes;
+    static boolean removeDuplicates;
+    static ArrayList<PointND> lines;
+
+    public static void initImport() {
+        ps = new PointSet();
+        path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
+        tsp = new Shell();
+        comments = new ArrayList<>();
+        manifolds = new ArrayList<>();
+        m = null;
+        flag = true;
+        first = true;
+        index = 0;
+        d = null;
+        lookUp = new HashMap<>();
+        answerOrder = new ArrayList<>();
+        lineNumber = 1;
+        duplicatePointIndexes = new ArrayList<>();
+        removeDuplicates = false;
+        lines = new ArrayList<PointND>();
     }
 
     /**
@@ -65,140 +120,40 @@ public class FileManagement {
      * 
      * @param f
      * @return the optimal PointSetPath
+     * @throws TerminalParseException
      */
-    public static PointSetPath importFromFile(File f) {
+    public static PointSetPath importFromFile(File f) throws TerminalParseException {
 
         try (BufferedReader br = new BufferedReader(new FileReader(f))) {
-            ArrayList<PointND> lines = new ArrayList<PointND>();
             String line = br.readLine();
-            PointSet ps = new PointSet();
-            Path2D path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
-            Shell tsp = new Shell();
-            ArrayList<Manifold> manifolds = new ArrayList<>();
-            Manifold m = null;
-            boolean flag = true, first = true;
-            int index = 0;
-            DistanceMatrix d = null;
-            HashMap<Integer, PointND> lookUp = new HashMap<>();
-            ArrayList<Integer> answerOrder = new ArrayList<>();
-            int lineNumber = 1;
-            ArrayList<Integer> duplicatePointIndexes = new ArrayList<>();
-            boolean removeDuplicates = false;
+            initImport();
             while (line != null) {
                 if (flag == true) {
-                    String[] cords = line.split(" ");
+                    String[] args = line.split(" ");
                     Point2D pt2d = null;
-                    if (cords[0].equals("CIRCLE")) {
+                    if (Circle.opts.contains(args[0])) {
                         System.out.println("CIRCLE FOUND!");
-                        double xCenter = java.lang.Double.parseDouble(cords[1]);
-                        double yCenter = java.lang.Double.parseDouble(cords[2]);
-                        double radius = java.lang.Double.parseDouble(cords[3]);
-                        int numPoints = java.lang.Integer.parseInt(cords[4]);
-                        double radians = 2 * Math.PI / ((double) numPoints);
-                        for (int i = 0; i < numPoints; i++) {
-                            double xCoord = radius * Math.cos(i * radians) + xCenter;
-                            double yCoord = radius * Math.sin(i * radians) + yCenter;
-                            PointND pt = new PointND.Double(index, xCoord, yCoord);
-                            pt2d = pt.toPoint2D();
-                            lookUp.put(index, pt);
-                            lines.add(pt);
-                            ps.add(pt);
-                            tsp.add(pt);
-
-                            if (first) {
-                                path.moveTo(pt2d.getX(), pt2d.getY());
-                                first = false;
-                            } else {
-                                path.lineTo(pt2d.getX(), pt2d.getY());
-                            }
-                            index++;
-                        }
-                    } else if (cords[0].equals("LINE")) {
+                        ArrayList<PointND> points = Circle.parse(args, 1);
+                        addPoints(points);
+                    } else if (Line.opts.contains(args[0])) {
                         System.out.println("LINE FOUND!");
-                        double xStart = java.lang.Double.parseDouble(cords[1]);
-                        double yStart = java.lang.Double.parseDouble(cords[2]);
-                        double xEnd = java.lang.Double.parseDouble(cords[3]);
-                        double yEnd = java.lang.Double.parseDouble(cords[4]);
-                        int numPoints = java.lang.Integer.parseInt(cords[5]);
-                        double slopeX = (xEnd - xStart) / ((double) numPoints - 1);
-                        double slopeY = (yEnd - yStart) / ((double) numPoints - 1);
-                        for (int i = 0; i < numPoints; i++) {
-                            double xCoord = (slopeX * i) + xStart;
-                            double yCoord = (slopeY * i) + yStart;
-                            PointND pt = new PointND.Double(index, xCoord, yCoord);
-                            pt2d = pt.toPoint2D();
-                            lookUp.put(index, pt);
-                            lines.add(pt);
-                            ps.add(pt);
-                            tsp.add(pt);
-
-                            if (first) {
-                                path.moveTo(pt2d.getX(), pt2d.getY());
-                                first = false;
-                            } else {
-                                path.lineTo(pt2d.getX(), pt2d.getY());
-                            }
-                            index++;
-                        }
-                    } else if (cords[0].equals("TRI")) {
+                        ArrayList<PointND> points = Line.parse(args, 1);
+                        addPoints(points);
+                    } else if (Triangle.opts.contains(args[0])) {
                         System.out.println("TRIANGLE FOUND!");
-                        double xCenter = java.lang.Double.parseDouble(cords[1]);
-                        double yCenter = java.lang.Double.parseDouble(cords[2]);
-                        double radius = java.lang.Double.parseDouble(cords[3]);
-                        int numPoints = 3;
-                        double radians = 2 * Math.PI / ((double) numPoints);
-                        for (int i = 0; i < numPoints; i++) {
-                            double xCoord = radius * Math.cos(i * radians) + xCenter;
-                            double yCoord = radius * Math.sin(i * radians) + yCenter;
-                            PointND pt = new PointND.Double(index, xCoord, yCoord);
-                            pt2d = pt.toPoint2D();
-                            lookUp.put(index, pt);
-                            lines.add(pt);
-                            ps.add(pt);
-                            tsp.add(pt);
-
-                            if (first) {
-                                path.moveTo(pt2d.getX(), pt2d.getY());
-                                first = false;
-                            } else {
-                                path.lineTo(pt2d.getX(), pt2d.getY());
-                            }
-                            index++;
-                        }
-                    } else if (cords[0].equals("ARC")) {
+                        ArrayList<PointND> points = Triangle.parse(args, 1);
+                        addPoints(points);
+                    } else if (Arc.opts.contains(args[0])) {
                         System.out.println("ARC FOUND!");
-                        double xCenter = java.lang.Double.parseDouble(cords[1]);
-                        double yCenter = java.lang.Double.parseDouble(cords[2]);
-                        double radius = java.lang.Double.parseDouble(cords[3]);
-                        int numPoints = java.lang.Integer.parseInt(cords[4]);
-                        double startAngle = java.lang.Double.parseDouble(cords[5]) * (Math.PI / 180);
-                        double endAngle = java.lang.Double.parseDouble(cords[6]) * (Math.PI / 180);
-                        double radians = Math.abs(endAngle - startAngle) / ((double) numPoints);
-                        for (int i = 0; i < numPoints; i++) {
-                            double xCoord = radius * Math.cos(i * radians + startAngle) + xCenter;
-                            double yCoord = radius * Math.sin(i * radians + startAngle) + yCenter;
-                            PointND pt = new PointND.Double(index, xCoord, yCoord);
-                            pt2d = pt.toPoint2D();
-                            lookUp.put(index, pt);
-                            lines.add(pt);
-                            ps.add(pt);
-                            tsp.add(pt);
-
-                            if (first) {
-                                path.moveTo(pt2d.getX(), pt2d.getY());
-                                first = false;
-                            } else {
-                                path.lineTo(pt2d.getX(), pt2d.getY());
-                            }
-                            index++;
-                        }
-                    } else if (cords[0].equals("WH")) {
+                        ArrayList<PointND> points = Arc.parse(args, 1);
+                        addPoints(points);
+                    } else if (args[0].equals("WH")) {
                         System.out.println("WORMHOLEFOUND!");
                         if (d == null) {
                             d = new DistanceMatrix(ps);
                         }
-                        int firstPointId = java.lang.Integer.parseInt(cords[1]);
-                        int secondPointId = java.lang.Integer.parseInt(cords[2]);
+                        int firstPointId = java.lang.Integer.parseInt(args[1]);
+                        int secondPointId = java.lang.Integer.parseInt(args[2]);
                         PointND wormHole = d.addDummyNode(index, lookUp.get(firstPointId),
                                 lookUp.get(secondPointId));
                         int insertIdx = firstPointId;
@@ -219,25 +174,24 @@ public class FileManagement {
                         }
 
                         index++;
-                    } else if (cords[0].equals("MANIFOLD")) {
+                    } else if (args[0].equals("MANIFOLD")) {
                         System.out.println("MANIFOLD FOUND!");
-                        m = new Manifold(java.lang.Integer.parseInt(cords[1]), java.lang.Integer.parseInt(cords[2]),
-                                java.lang.Integer.parseInt(cords[3]), java.lang.Integer.parseInt(cords[4]),
-                                cords[5].equals("C"));
+                        m = new Manifold(java.lang.Integer.parseInt(args[1]), java.lang.Integer.parseInt(args[2]),
+                                java.lang.Integer.parseInt(args[3]), java.lang.Integer.parseInt(args[4]),
+                                args[5].equals("C"));
                         try {
-                            m.parse(cords);
+                            m.parse(args);
                         } catch (FileParseException fpe) {
                             throw new FileParseException(f.toPath(), f.getName(), lineNumber);
                         }
                         manifolds.add(m);
 
-                    } else if (cords[0].equals("ANS")) {
-                        for (int i = 1; i < cords.length; i++) {
-                            answerOrder.add(java.lang.Integer.parseInt(cords[i]));
+                    } else if (args[0].equals("ANS")) {
+                        for (int i = 1; i < args.length; i++) {
+                            answerOrder.add(java.lang.Integer.parseInt(args[i]));
                         }
-                    } else if (cords[0].equals("LOAD")) {
-                        File loadFile = getTestFile(cords[1]);
-                        PointSetPath retTup = importFromFile(loadFile);
+                    } else if (Ix.opts.contains(args[0])) {
+                        PointSetPath retTup = Ix.parseFull(args, 1);
                         manifolds.addAll(retTup.manifolds);
                         for (PointND pt : retTup.ps) {
                             pt2d = pt.toPoint2D();
@@ -258,14 +212,16 @@ public class FileManagement {
                         if (retTup.d != null) {
                             d = new DistanceMatrix(ps);
                         }
-                    } else if (cords[0].equals("FLAG")) {
-                        if (cords[1].equals("REMOVE_DUPLICATES")) {
+                    } else if (args[0].equals("FLAG")) {
+                        if (args[1].equals("REMOVE_DUPLICATES")) {
                             removeDuplicates = true;
                         }
 
+                    } else if (args[0].contains("//")) {
+                        comments.add(line);
                     } else {
-                        PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(cords[1]),
-                                java.lang.Double.parseDouble(cords[2]));
+                        PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(args[1]),
+                                java.lang.Double.parseDouble(args[2]));
 
                         if (ps.contains(pt)) {
                             System.out.println("Duplicated found: " + index);
@@ -287,8 +243,8 @@ public class FileManagement {
                             index++;
                         }
                     }
-
                 }
+
                 if (line.contains("NODE_COORD_SECTION")) {
                     flag = true;
                 }
@@ -310,12 +266,31 @@ public class FileManagement {
             if (removeDuplicates && duplicatePointIndexes.size() > 0) {
                 removeDuplicates(f, duplicatePointIndexes);
             }
-            return new PointSetPath(ps, path, tsp, d, manifolds);
+            return new PointSetPath(ps, path, tsp, d, manifolds, comments);
         } catch (NumberFormatException | IOException | FileParseException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
         return null;
+    }
+
+    public static void addPoints(ArrayList<PointND> points) {
+        for (int i = 0; i < points.size(); i++) {
+            PointND pt = points.get(i);
+            pt.setID(index);
+            Point2D pt2d = pt.toPoint2D();
+            lookUp.put(index, pt);
+            lines.add(pt);
+            ps.add(pt);
+            tsp.add(pt);
+            if (first) {
+                path.moveTo(pt2d.getX(), pt2d.getY());
+                first = false;
+            } else {
+                path.lineTo(pt2d.getX(), pt2d.getY());
+            }
+            index++;
+        }
     }
 
     private static void removeDuplicates(File f, ArrayList<Integer> duplicatePointIndexes) {

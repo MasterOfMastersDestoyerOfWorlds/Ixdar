@@ -9,8 +9,18 @@ public class Lu634Test {
 	}
 
 	@Test
+	public void test_lu634_105_127() {
+		SubGraphs.testMethod("lu634_105-127");
+	}
+
+	@Test
 	public void test_lu634_256_276() {
 		SubGraphs.testMethod("lu634_256-276");
+	}
+
+	@Test
+	public void test_lu634_350_391() {
+		SubGraphs.testMethod("lu634_350-391");
 	}
 
 	@Test

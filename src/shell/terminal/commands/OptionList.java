@@ -10,4 +10,14 @@ public class OptionList extends ArrayList<String> {
         }
     }
 
+    @Override
+    public boolean contains(Object o) {
+        if (!(o instanceof String)) {
+            return false;
+        }
+        String str = (String) o;
+        return super.contains(str.toLowerCase());
+
+    }
+
 }

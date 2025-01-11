@@ -302,4 +302,9 @@ public class ColorRGB implements Color {
         }
     }
 
+    @Override
+    public String getName() {
+        return name;
+    }
+
 }

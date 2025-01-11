@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 
 import shell.DistanceMatrix;
-import shell.PointND;
 import shell.PointSet;
 import shell.cuts.CutEngine;
 import shell.exceptions.BalancerException;
@@ -19,6 +18,7 @@ import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.objects.PointND;
 import shell.utils.RunListUtils;
 import shell.utils.StringBuff;
 import shell.utils.Utils;
@@ -208,7 +208,7 @@ public class Shell extends LinkedList<PointND> {
 					if (runList.size() > 2) {
 
 						if (Utils.hasKnot(runList, 46) && Utils.hasKnot(runList, 53)) {
-							//float z = 0;
+							// float z = 0;
 						}
 						for (int i = 0; i < runList.size() && runList.size() > 1; i++) {
 
@@ -543,14 +543,12 @@ public class Shell extends LinkedList<PointND> {
 		for (VirtualPoint vp : knotNew.knotPointsFlattened) {
 			int low = vp.id;
 			for (VirtualPoint vp2 : knotNew.knotPointsFlattened) {
-				if (!vp.equals(vp2)) {
-					int high = vp2.id;
-					if (smallestCommonKnotLookup[high][low] != -1) {
-						continue;
-					}
-					smallestCommonKnotLookup[high][low] = knotNew.id;
-					smallestCommonKnotLookup[low][high] = knotNew.id;
+				int high = vp2.id;
+				if (smallestCommonKnotLookup[high][low] != -1) {
+					continue;
 				}
+				smallestCommonKnotLookup[high][low] = knotNew.id;
+				smallestCommonKnotLookup[low][high] = knotNew.id;
 			}
 		}
 	}
@@ -607,6 +605,9 @@ public class Shell extends LinkedList<PointND> {
 	 * @return the length of the path between all points in the shell
 	 */
 	public double getLength() {
+		if (this.size() == 0) {
+			return 0;
+		}
 		PointND first = null, last = null;
 		double length = 0.0;
 		for (PointND p : this) {

@@ -1,7 +1,7 @@
 package shell.terminal.commands;
 
 import shell.exceptions.IdDoesNotExistException;
-import shell.exceptions.RangeParseException;
+import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
 import shell.shell.Range;
 import shell.terminal.Terminal;
@@ -49,7 +49,7 @@ public class MoveCommand extends TerminalCommand {
             terminal.error("arguments are not integers: " + this.usage());
         } catch (IdDoesNotExistException e) {
             terminal.error("no point with id " + e.ID + " exists");
-        } catch (RangeParseException e) {
+        } catch (TerminalParseException e) {
             terminal.error("could not parse range: " + e.message);
         }
         return null;

@@ -6,6 +6,7 @@ import org.apache.commons.collections4.map.MultiKeyMap;
 import org.apache.commons.math3.util.Pair;
 
 import shell.BalanceMap;
+import shell.exceptions.BalancerException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
@@ -14,21 +15,21 @@ import shell.shell.Shell;
 import shell.utils.Utils;
 
 public class CutInfo {
-    Knot knot;
-    VirtualPoint external1;
-    VirtualPoint external2;
-    Segment cutSegment1;
-    VirtualPoint kp1;
-    VirtualPoint cp1;
+    public Knot knot;
+    public VirtualPoint external1;
+    public VirtualPoint external2;
+    public Segment cutSegment1;
+    public VirtualPoint kp1;
+    public VirtualPoint cp1;
     public Knot superKnot;
 
-    Segment kpSegment;
-    ArrayList<Segment> innerNeighborSegments;
+    public Segment kpSegment;
+    public ArrayList<Segment> innerNeighborSegments;
 
     public MultiKeyMap<Integer, Segment> innerNeighborSegmentLookup;
-    ArrayList<Segment> neighborSegments;
+    public ArrayList<Segment> neighborSegments;
 
-    ArrayList<Pair<Segment, VirtualPoint>> neighborCutSegments;
+    public ArrayList<Pair<Segment, VirtualPoint>> neighborCutSegments;
 
     VirtualPoint upperCutPoint;
 
@@ -36,12 +37,12 @@ public class CutInfo {
     boolean bothKnotPointsInside;
     boolean bothCutPointsOutside;
 
-    VirtualPoint upperKnotPoint;
-    VirtualPoint upperExternal;
+    public VirtualPoint upperKnotPoint;
+    public VirtualPoint upperExternal;
     public Segment upperCutSegment;
     public Segment upperMatchSegment;
 
-    VirtualPoint lowerKnotPoint;
+    public VirtualPoint lowerKnotPoint;
     VirtualPoint lowerExternal;
     public Segment lowerCutSegment;
     public Segment lowerMatchSegment;
@@ -53,14 +54,16 @@ public class CutInfo {
     boolean bothKnotPointsOutside;
     public BalanceMap balanceMap;
 
+    public boolean partialOverlaps;
+    public boolean overlapOrientationCorrect;
+
     public CutInfo(Shell shell, Knot knot, VirtualPoint external1, VirtualPoint external2, Segment cutSegment1,
-            VirtualPoint kp1,
-            VirtualPoint cp1, Knot superKnot, Segment kpSegment, ArrayList<Segment> innerNeighborSegments,
-            MultiKeyMap<Integer, Segment> innerNeighborSegmentLookup, ArrayList<Segment> neighborSegments,
-            ArrayList<Pair<Segment, VirtualPoint>> neighborCutSegments,
-            VirtualPoint topCutPoint, boolean needTwoNeighborMatches, boolean bothKnotPointsInside, boolean bothKnotPointsOutside,
-            boolean bothCutPointsOutside, VirtualPoint upperKnotPoint, Segment upperMatchSegment,
-            Segment upperCutSegment,
+            VirtualPoint kp1, VirtualPoint cp1, Knot superKnot, Segment kpSegment,
+            ArrayList<Segment> innerNeighborSegments, MultiKeyMap<Integer, Segment> innerNeighborSegmentLookup,
+            ArrayList<Segment> neighborSegments, ArrayList<Pair<Segment, VirtualPoint>> neighborCutSegments,
+            VirtualPoint topCutPoint, boolean needTwoNeighborMatches,
+            boolean bothKnotPointsInside, boolean bothKnotPointsOutside, boolean bothCutPointsOutside,
+            VirtualPoint upperKnotPoint, Segment upperMatchSegment, Segment upperCutSegment,
             VirtualPoint lowerKnotPoint, Segment lowerMatchSegment, Segment lowerCutSegment, BalanceMap balanceMap) {
         this.shell = shell;
         this.knot = knot;
@@ -104,7 +107,15 @@ public class CutInfo {
     public CutInfo(Shell shell, VirtualPoint lowerKnotPoint, VirtualPoint lowerCutPoint, Segment lowerCutSegment,
             VirtualPoint lowerExternal,
             VirtualPoint upperKnotPoint, VirtualPoint upperCutPoint, Segment upperCutSegment,
-            VirtualPoint upperExternal, Knot superKnot, BalanceMap balanceMap) {
+            VirtualPoint upperExternal,
+            Knot superKnot, BalanceMap balanceMap) throws BalancerException {
+
+        this.external1 = lowerExternal;
+        this.external2 = upperExternal;
+        Segment s51 = lowerKnotPoint.getClosestSegment(lowerExternal, null);
+        Segment s52 = upperKnotPoint.getClosestSegment(upperExternal, s51);
+        VirtualPoint externalPoint51 = s51.getOther(lowerKnotPoint);
+        VirtualPoint externalPoint52 = s52.getOther(upperKnotPoint);
         numCuts++;
         cutID = numCuts;
         this.shell = shell;
@@ -115,20 +126,45 @@ public class CutInfo {
         this.innerNeighborSegments = new ArrayList<>();
         this.neighborCutSegments = new ArrayList<>();
 
-        this.lowerExternal = lowerExternal;
+        this.lowerExternal = externalPoint51;
         this.lowerKnotPoint = lowerKnotPoint;
         this.lowerCutSegment = lowerCutSegment;
         this.lowerCutPoint = lowerCutSegment.getOther(lowerKnotPoint);
-        this.lowerMatchSegment = lowerKnotPoint.getClosestSegment(lowerExternal, null);
+        this.lowerMatchSegment = s51;
 
         this.neighborSegments = new ArrayList<>();
 
         this.upperKnotPoint = upperKnotPoint;
-        this.upperMatchSegment = upperKnotPoint.getClosestSegment(upperExternal, lowerMatchSegment);
+        this.upperMatchSegment = s52;
         this.upperCutPoint = upperCutPoint;
-        this.upperExternal = upperExternal;
+        this.upperExternal = externalPoint52;
         this.upperCutSegment = upperCutSegment;
-        this.balanceMap = balanceMap;
+
+        if (this.upperCutSegment.partialOverlaps(this.lowerCutSegment)) {
+            this.partialOverlaps = true;
+            if (lowerKnotPoint.equals(upperCutPoint) || lowerCutPoint.equals(upperKnotPoint)
+                    || lowerKnotPoint.equals(upperKnotPoint)) {
+                this.overlapOrientationCorrect = false;
+            } else if (lowerCutPoint.equals(upperCutPoint)) {
+                this.overlapOrientationCorrect = true;
+            }
+        } else {
+            this.partialOverlaps = false;
+            this.overlapOrientationCorrect = true;
+        }
+
+        this.sbe = new SegmentBalanceException(shell, null, this);
+        if (balanceMap == null && this.overlapOrientationCorrect) {
+            this.balanceMap = new BalanceMap(knot, this.sbe);
+            this.balanceMap.addCut(lowerKnotPoint, lowerCutPoint);
+            this.balanceMap.addCut(upperKnotPoint, upperCutPoint);
+            this.balanceMap.addExternalMatch(lowerKnotPoint, externalPoint51, null);
+            this.balanceMap.addExternalMatch(upperKnotPoint, externalPoint52, null);
+        } else if (balanceMap != null) {
+            this.balanceMap = balanceMap;
+            balanceMap.sbe = this.sbe;
+        }
+
     }
 
     public CutInfo(Shell shell, Segment cutSegmentFinal, Segment matchSegment1Final, Segment cutSegment2Final,
@@ -144,9 +180,9 @@ public class CutInfo {
         this.upperCutSegment = cutSegment2Final;
         this.upperMatchSegment = matchSegment2Final;
         this.superKnot = knot;
-        // TODO Auto-generated constructor stub
     }
-    public CutInfo(CutInfo c){
+
+    public CutInfo(CutInfo c) {
         this.shell = c.shell;
         this.knot = c.knot;
         this.superKnot = c.superKnot;
@@ -182,13 +218,17 @@ public class CutInfo {
         this.lowerExternal = c.lowerExternal;
         this.balanceMap = c.balanceMap;
 
+        this.partialOverlaps = c.partialOverlaps;
+        this.overlapOrientationCorrect = c.overlapOrientationCorrect;
+
         this.sbe = c.sbe;
 
-
     }
+
     @Override
     public String toString() {
-        return "ID: " + cutID + " minKnot: " + knot + " | external " + external1 + " | neighbor: " + external2 + " | cutSegment1: "
+        return "ID: " + cutID + " minKnot: " + knot + " | external " + external1 + " | neighbor: " + external2
+                + " | cutSegment1: "
                 + cutSegment1 + " | kp1: " + kp1 + " | cp1: " + cp1 + " | superKnot: " + superKnot + " | kpSegment: "
                 + kpSegment +
 
@@ -211,6 +251,31 @@ public class CutInfo {
     public SegmentBalanceException genNewSegmentBalanceException() {
 
         return new SegmentBalanceException(shell, null, this);
+    }
+
+    public CutInfo copyAndSwapExternals() throws BalancerException {
+        CutInfo c = new CutInfo(this);
+        Segment s41 = this.upperKnotPoint.getClosestSegment(this.external1, null);
+        Segment s42 = this.lowerKnotPoint.getClosestSegment(this.external2, s41);
+        VirtualPoint externalPoint41 = s41.getOther(this.upperKnotPoint);
+        VirtualPoint externalPoint42 = s42.getOther(this.lowerKnotPoint);
+        c.lowerMatchSegment = s41;
+        c.upperMatchSegment = s42;
+        c.external1 = this.external2;
+        c.external2 = this.external1;
+        this.lowerExternal = externalPoint42;
+        this.upperExternal = externalPoint41;
+
+        c.sbe = new SegmentBalanceException(shell, null, c);
+        if (this.overlapOrientationCorrect) {
+            c.balanceMap = new BalanceMap(knot, c.sbe);
+            c.balanceMap.addCut(lowerKnotPoint, lowerCutPoint);
+            c.balanceMap.addCut(upperKnotPoint, upperCutPoint);
+            c.balanceMap.addExternalMatch(lowerKnotPoint, externalPoint42, null);
+            c.balanceMap.addExternalMatch(upperKnotPoint, externalPoint41, null);
+        }
+
+        return c;
     }
 
 }

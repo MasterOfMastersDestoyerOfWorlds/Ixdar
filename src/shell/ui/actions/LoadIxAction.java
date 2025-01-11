@@ -1,8 +1,7 @@
 package shell.ui.actions;
 
-import shell.file.FileManagement;
-import shell.ui.Canvas3D;
-import shell.ui.main.Main;
+import shell.exceptions.TerminalParseException;
+import shell.terminal.commands.LoadIxCommand;
 
 public class LoadIxAction implements Action {
 
@@ -14,10 +13,10 @@ public class LoadIxAction implements Action {
 
     @Override
     public void perform() {
-        FileManagement.updateTestFileCache(fileName);
-        Canvas3D.activate(false);
-        Main.main(new String[] { fileName });
-        Main.activate(true);
-
+        try {
+            LoadIxCommand.run(fileName);
+        } catch (TerminalParseException e) {
+            System.out.println(e.message);
+        }
     }
 }

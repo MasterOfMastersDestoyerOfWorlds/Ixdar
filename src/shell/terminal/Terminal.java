@@ -17,8 +17,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import shell.cameras.Camera2D;
+import shell.objects.PointCollection;
 import shell.render.Clock;
 import shell.render.color.Color;
+import shell.render.color.ColorLerp;
 import shell.render.text.HyperString;
 import shell.terminal.commands.TerminalCommand;
 import shell.ui.Drawing;
@@ -26,6 +28,8 @@ import shell.ui.Drawing;
 public class Terminal {
     public HyperString history;
     String commandLine;
+    String commandLineInstruct;
+    ColorLerp instructColor = ColorLerp.flashColor(Color.BLUE_WHITE, 3);
     String[] nextLogicalCommand;
     private int nextLogicalCommandIdx;
     public String directory;
@@ -36,19 +40,36 @@ public class Terminal {
     boolean scrollToCommandLine;
     public File loadedFile;
 
-    public static ArrayList<TerminalCommand> commandList = new ArrayList<>();
+    public static ArrayList<TerminalCommand> commandList;
     public static HashMap<String, TerminalCommand> commandMap = new HashMap<>();
+    public static ArrayList<PointCollection> pointCollectionList;
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
     public Terminal(File loadedFile) {
         commandLine = "";
+        commandLineInstruct = "";
         nextLogicalCommand = new String[] {};
         nextLogicalCommandIdx = 0;
         scrollToCommandLine = false;
         this.directory = loadedFile.getParent();
         this.loadedFile = loadedFile;
         history = new HyperString();
-        String packageName = "shell.terminal.commands";
+        if (commandList == null) {
+            commandList = new ArrayList<>();
+            loadClassType("shell.terminal.commands", commandList, TerminalCommand.class);
+            for (TerminalCommand command : commandList) {
+                commandMap.put(command.fullName(), command);
+                commandMap.put(command.shortName(), command);
+            }
+        }
+        if (pointCollectionList == null) {
+            pointCollectionList = new ArrayList<>();
+            loadClassType("shell.objects", pointCollectionList, PointCollection.class);
+        }
+
+    }
+
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private <E> void loadClassType(String packageName, ArrayList<E> list, Class<E> type) {
         InputStream stream = ClassLoader.getSystemClassLoader()
                 .getResourceAsStream(packageName.replaceAll("[.]", "/"));
         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
@@ -57,18 +78,15 @@ public class Terminal {
                 .map(line -> getClass(line, packageName))
                 .collect(Collectors.toList());
         for (Class c : commandClasses) {
-            if (!Modifier.isAbstract(c.getModifiers()) && !c.isEnum() && c.getName().contains("Command")) {
+            Class superClass = c.getSuperclass();
+            if (!Modifier.isAbstract(c.getModifiers()) && !c.isEnum() && superClass == type) {
                 try {
-                    commandList.add((TerminalCommand) c.getConstructor().newInstance());
+                    list.add((E) c.getConstructor().newInstance());
                 } catch (InstantiationException | IllegalAccessException | IllegalArgumentException
                         | InvocationTargetException | NoSuchMethodException | SecurityException e) {
                     e.printStackTrace();
                 }
             }
-        }
-        for (TerminalCommand command : commandList) {
-            commandMap.put(command.fullName(), command);
-            commandMap.put(command.shortName(), command);
         }
     }
 
@@ -165,7 +183,11 @@ public class Terminal {
         HyperString commandHyperString = new HyperString();
         commandHyperString.addHyperString(history);
         commandHyperString.newLine();
-        commandHyperString.addWord(commandLine);
+        if (commandLine.isEmpty()) {
+            commandHyperString.addWord(commandLineInstruct, instructColor);
+        } else {
+            commandHyperString.addWord(commandLine);
+        }
         commandHyperString.wrap();
         cachedInfo = commandHyperString;
         Drawing.font.drawHyperStringRows(commandHyperString, row, scrollOffsetY, rowHeight, camera);
@@ -190,6 +212,14 @@ public class Terminal {
                 scrollOffsetY -= SCROLL_SPEED * d;
             }
         }
+    }
+
+    public void instruct(String instruction) {
+        this.commandLineInstruct = instruction;
+    }
+
+    public void clearInstruct() {
+        this.commandLineInstruct = "";
     }
 
     public void error(String string) {

@@ -6,12 +6,13 @@ import shell.file.PointSetPath;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.objects.PointND;
 import shell.shell.Shell;
-import shell.PointND;
 import shell.cuts.enums.RouteType;
 import shell.cuts.route.Route;
 import shell.cuts.route.RouteInfo;
 import shell.cuts.route.RouteMap;
+import shell.exceptions.TerminalParseException;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -31,73 +32,73 @@ public class HoleMoving {
 	 */
 
 	@Test
-	public void test_lines_kp1_10_kp2_9_layer_1() {
+	public void test_lines_kp1_10_kp2_9_layer_1() throws TerminalParseException {
 		testMethod("lines", "lines_kp1_10_kp2_9_layer_1.csv", 1, 10, 0, 9, 19, true, 0, RouteType.nextC);
 	}
 
 	@Test
-	public void test_lines_kp1_10_kp2_9_layer_2() {
+	public void test_lines_kp1_10_kp2_9_layer_2() throws TerminalParseException {
 		testMethod("lines", "lines_kp1_10_kp2_9_layer_2.csv", 2, 10, 0, 9, 19, true, 1, RouteType.prevC);
 	}
 
 	@Test
-	public void test_two_circles_kp1_5_kp2_10_layer_1() {
+	public void test_two_circles_kp1_5_kp2_10_layer_1() throws TerminalParseException {
 		testMethod("two_circle_in_10", "two_circles_kp1_5_kp2_10_layer_1.csv", 1, 5, 4, 10, 19, true, 4,
 				RouteType.nextC);
 	}
 
 	@Test
-	public void two_circles_kp1_5_kp2_10_after_16() {
+	public void two_circles_kp1_5_kp2_10_after_16() throws TerminalParseException {
 		testMethod("two_circle_in_10", "two_circles_kp1_5_kp2_10_after_16.csv", -1, 5, 4, 10, 19, true, 16,
 				RouteType.prevDC);
 	}
 
 	@Test
-	public void djibouti_14_31_kp1_3_kp2_0_layer_1() {
+	public void djibouti_14_31_kp1_3_kp2_0_layer_1() throws TerminalParseException {
 		testMethod("djbouti_14-31-simple", "djibouti_14_31_kp1_3_kp2_0_layer_1.csv", -1, 3, 4, 0, 5, false, -1,
 				RouteType.nextC);
 	}
 
 	@Test
-	public void test_wi29_5_25_kp1_0_kp2_3_layer_1() {
+	public void test_wi29_5_25_kp1_0_kp2_3_layer_1() throws TerminalParseException {
 		testMethod("wi29_5-25-simple", "wi29_5_25_kp1_0_kp2_3_layer_1.csv", 1, 5, 6, 2, 3, true, 6, RouteType.prevC);
 	}
 
 	@Test
-	public void test_wi29_5_25_kp1_0_kp2_3_layer_2() {
+	public void test_wi29_5_25_kp1_0_kp2_3_layer_2() throws TerminalParseException {
 		testMethod("wi29_5-25-simple", "wi29_5_25_kp1_0_kp2_3_layer_2.csv", 2, 5, 6, 2, 3, true, 0, RouteType.nextC);
 	}
 
 	@Test
-	public void test_wi29_5_25_kp1_0_kp2_3_layer_3() {
+	public void test_wi29_5_25_kp1_0_kp2_3_layer_3() throws TerminalParseException {
 		testMethod("wi29_5-25-simple", "wi29_5_25_kp1_0_kp2_3_layer_3.csv", 3, 5, 6, 2, 3, true, 4, RouteType.nextDC);
 	}
 
 	@Test
-	public void test_wi29_5_25_kp1_0_kp2_3_layer_4() {
+	public void test_wi29_5_25_kp1_0_kp2_3_layer_4() throws TerminalParseException {
 		testMethod("wi29_5-25-simple", "wi29_5_25_kp1_0_kp2_3_layer_4.csv", 4, 5, 6, 2, 3, true, 1, RouteType.nextC);
 	}
 
 	@Test
-	public void test_wi29_5_25_kp1_0_kp2_3_layer_5() {
+	public void test_wi29_5_25_kp1_0_kp2_3_layer_5() throws TerminalParseException {
 		testMethod("wi29_5-25-simple", "wi29_5_25_kp1_0_kp2_3_layer_5.csv", 5, 5, 6, 2, 3, true, 4, RouteType.prevC);
 	}
 
 	@Test
-	public void wi29_6_25p20_kp1_4_kp2_7_layer_1() {
+	public void wi29_6_25p20_kp1_4_kp2_7_layer_1() throws TerminalParseException {
 		testMethod("wi29_6-25p20", "wi29_6_25p20_kp1_4_kp2_7_layer_1.csv", -1, 4, 5, 7, 6, false, 1,
 				RouteType.nextC);
 	}
 
 	@Test
-	public void circle_in_5_arc_kp1_2_kp2_6_layer_1() {
+	public void circle_in_5_arc_kp1_2_kp2_6_layer_1() throws TerminalParseException {
 		testMethod("circle_in_5_arc", "circle_in_5_arc_kp1_2_kp2_6_layer_1.csv", 1, 2, 3, 6, 5, true, 3,
 				RouteType.prevC);
 	}
 
 	@SuppressWarnings("unused")
 	public void testMethod(String fileName, String stateFile, int layer, int kp1, int cp1, int kp2, int cp2,
-			boolean knotPointsConnected, int sourcePoint, RouteType routeType) {
+			boolean knotPointsConnected, int sourcePoint, RouteType routeType) throws TerminalParseException {
 		PointSetPath retTup = FileManagement.importFromFile(new File("./src/test/solutions/" + fileName));
 		Shell answer = new Shell();
 		int n = retTup.ps.size();

@@ -4,6 +4,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import shell.render.Clock;
+import shell.render.shaders.ShaderProgram;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 
@@ -24,7 +25,8 @@ public class Camera3D implements Camera {
     public float startPitch;
     double SHIFT_MOD;
     public double fov;
-    private int zIndex;
+    private float zIndex;
+    private float farZIndex;
 
     public Camera3D(Vector3f position, float yaw, float pitch) {
         this.position = position;
@@ -157,7 +159,7 @@ public class Camera3D implements Camera {
 
     @Override
     public void incZIndex() {
-        zIndex++;
+        zIndex += 0.01;
     }
 
     @Override
@@ -178,6 +180,17 @@ public class Camera3D implements Camera {
     @Override
     public void resetZIndex() {
         zIndex = 0;
+        farZIndex = ShaderProgram.ORTHO_NEAR + 0.01f;
+    }
+
+    @Override
+    public void decFarZIndex() {
+        farZIndex += 0.01;
+    }
+
+    @Override
+    public float getFarZIndex() {
+        return farZIndex;
     }
 
     @Override

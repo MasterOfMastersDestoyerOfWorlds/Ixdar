@@ -50,4 +50,8 @@ public interface Camera {
 
     float getNormalizePosX(float xPos);
     float getNormalizePosY(float yPos);
+
+    float getFarZIndex();
+
+    void decFarZIndex();
 }
