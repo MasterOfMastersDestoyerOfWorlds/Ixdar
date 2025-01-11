@@ -157,7 +157,7 @@ public class Main {
 		mouse = new MouseTrap(this, camera, false);
 		activate(true);
 		tool = new FreeTool();
-		logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, 0.6f, 0f, true);
+		logo = new SDFTexture("decal_sdf_small.png", Color.DARK_IXDAR, 0.6f, 0f, true);
 	}
 
 	public static void main(String[] args) throws TerminalParseException {

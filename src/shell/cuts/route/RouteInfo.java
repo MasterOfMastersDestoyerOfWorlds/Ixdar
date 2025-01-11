@@ -162,4 +162,9 @@ public class RouteInfo{
         
     }
 
+    public void getNeighborRoute(VirtualPoint cp) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getNeighborRoute'");
+    }
+
 }

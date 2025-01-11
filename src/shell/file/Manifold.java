@@ -235,4 +235,12 @@ public class Manifold implements FileStringable {
             return routeMap.get(f.id).nextDC;
         }
     }
+
+    public Route getNeighborRoute(VirtualPoint f, VirtualPoint neighbor, boolean connected) {
+        if (connected) {
+            return getNeighborRouteC(f, neighbor);
+        } else {
+            return getNeighborRouteDC(f, neighbor);
+        }
+    }
 }

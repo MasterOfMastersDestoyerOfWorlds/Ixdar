@@ -116,7 +116,7 @@ Idea behind tool is that we would like to compare two pairs of cut segment short
 
 10. - [x] Find state is the starting state and is similar to the find manifold tool except we need to find 3 segments
 
-11. - [ ] When in compare mode we should still show the the cutmatches on hover but in comparison, matching cuts and matches will still be in cyan and orange, non-matching cuts from the alpha manifold will be in purple and green and non-matching cuts from the beta manifold will be in magenta and yellow
+11. - [x] When in compare mode we should still show the the cutmatches on hover but in comparison, matching cuts and matches will still be in cyan and orange, non-matching cuts from the alpha manifold will be in purple and green and non-matching cuts from the beta manifold will be in magenta and yellow
 
 ### Knot Surface View Tool
 

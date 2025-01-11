@@ -16,7 +16,9 @@ import shell.PointSet;
 import shell.cameras.Camera2D;
 import shell.cuts.CutMatch;
 import shell.cuts.CutMatchList;
+import shell.cuts.route.Route;
 import shell.exceptions.SegmentBalanceException;
+import shell.file.Manifold;
 import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
@@ -148,6 +150,42 @@ public class Drawing {
             }
         }
 
+    }
+
+    public static void drawRouteComparison(Route r1, Route r2,
+            float lineThickness, PointSet ps, Camera2D camera) {
+
+        // Draw Matches for route 1 and 2
+
+        sdfLine.setStroke(lineThickness, false);
+        for (Segment s : r1.matches) {
+            if (r2.matches.contains(s)) {
+                drawSegment(s, Color.CYAN, camera);
+            } else {
+                drawSegment(s, Color.PURPLE, camera);
+            }
+        }
+        for (Segment s : r2.matches) {
+            if (!r1.matches.contains(s)) {
+                drawSegment(s, Color.MAGENTA, camera);
+            }
+        }
+
+        // Draw Cuts for route 1 and 2
+        sdfLine.setStroke(2 * lineThickness, false);
+        for (Segment s : r1.cuts) {
+            if (r2.cuts.contains(s)) {
+                drawSegment(s, Color.ORANGE, camera);
+            } else {
+                drawSegment(s, Color.GREEN, camera);
+            }
+        }
+
+        for (Segment s : r2.cuts) {
+            if (!r1.cuts.contains(s)) {
+                drawSegment(s, Color.YELLOW, camera);
+            }
+        }
     }
 
     public static void drawManifoldCut(VirtualPoint hoverKP, VirtualPoint hoverCP, Camera2D camera,

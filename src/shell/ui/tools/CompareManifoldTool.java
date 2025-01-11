@@ -44,6 +44,8 @@ public class CompareManifoldTool extends Tool {
     private RouteView routeView;
 
     public Manifold displayManifold;
+    public Route displayRouteAlpha;
+    public Route displayRouteBeta;
 
     public Segment startSegment;
     public VirtualPoint startKP;
@@ -93,6 +95,8 @@ public class CompareManifoldTool extends Tool {
         betaEndKP = null;
         betaManifold = null;
         colorLookup = null;
+        displayRouteAlpha = null;
+        displayRouteBeta = null;
         Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
         Main.updateKnotsDisplayed();
         instruct();
@@ -106,7 +110,8 @@ public class CompareManifoldTool extends Tool {
                         .getFirst();
             }
         } else if (state == States.Compare) {
-
+            displayRouteAlpha = alphaManifold.getNeighborRoute(displayKP, displayCP, routeView == RouteView.Connected);
+            displayRouteBeta = betaManifold.getNeighborRoute(displayKP, displayCP, routeView == RouteView.Connected);
         }
     }
 
@@ -118,6 +123,11 @@ public class CompareManifoldTool extends Tool {
                 Drawing.drawCutMatch(m.cutMatchList, m.manifoldCutSegment1,
                         m.manifoldCutSegment2, m.manifoldExSegment1, m.manifoldExSegment2,
                         m.manifoldKnot, Drawing.MIN_THICKNESS * 2, Main.retTup.ps, camera);
+            }
+        } else if (state == States.Compare) {
+            if (displayRouteAlpha != null) {
+                Drawing.drawRouteComparison(displayRouteAlpha, displayRouteBeta, Drawing.MIN_THICKNESS * 2,
+                        Main.retTup.ps, camera);
             }
         }
         if (displaySegment != null
