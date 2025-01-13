@@ -212,6 +212,9 @@ public class FileManagement {
                         if (retTup.d != null) {
                             d = new DistanceMatrix(ps);
                         }
+                    } else if (PointND.Hex.opts.contains(args[0])) {
+                        PointND pt = PointND.Hex.parse(args, 1);
+                        addPoint(pt);
                     } else if (args[0].equals("FLAG")) {
                         if (args[1].equals("REMOVE_DUPLICATES")) {
                             removeDuplicates = true;
@@ -223,25 +226,7 @@ public class FileManagement {
                         PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(args[1]),
                                 java.lang.Double.parseDouble(args[2]));
 
-                        if (ps.contains(pt)) {
-                            System.out.println("Duplicated found: " + index);
-                            duplicatePointIndexes.add(lineNumber);
-                        } else {
-                            pt2d = pt.toPoint2D();
-                            lookUp.put(index, pt);
-                            lines.add(pt);
-                            ps.add(pt);
-                            tsp.add(pt);
-
-                            if (first) {
-                                path.moveTo(pt2d.getX(), pt2d.getY());
-                                first = false;
-                            } else {
-                                path.lineTo(pt2d.getX(), pt2d.getY());
-                            }
-
-                            index++;
-                        }
+                        addPoint(pt);
                     }
                 }
 
@@ -268,26 +253,45 @@ public class FileManagement {
             }
             return new PointSetPath(ps, path, tsp, d, manifolds, comments);
         } catch (NumberFormatException | IOException | FileParseException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
         return null;
+    }
+
+    private static void addPoint(PointND pt) {
+        if (ps.contains(pt)) {
+            System.out.println("Duplicated found: " + index);
+            duplicatePointIndexes.add(lineNumber);
+        } else {
+            lookUp.put(index, pt);
+            lines.add(pt);
+            ps.add(pt);
+            tsp.add(pt);
+
+            if (first) {
+                path.moveTo(pt.getScreenX(), pt.getScreenY());
+                first = false;
+            } else {
+                path.lineTo(pt.getScreenX(), pt.getScreenY());
+            }
+
+            index++;
+        }
     }
 
     public static void addPoints(ArrayList<PointND> points) {
         for (int i = 0; i < points.size(); i++) {
             PointND pt = points.get(i);
             pt.setID(index);
-            Point2D pt2d = pt.toPoint2D();
             lookUp.put(index, pt);
             lines.add(pt);
             ps.add(pt);
             tsp.add(pt);
             if (first) {
-                path.moveTo(pt2d.getX(), pt2d.getY());
+                path.moveTo(pt.getScreenX(), pt.getScreenY());
                 first = false;
             } else {
-                path.lineTo(pt2d.getX(), pt2d.getY());
+                path.lineTo(pt.getScreenX(), pt.getScreenY());
             }
             index++;
         }

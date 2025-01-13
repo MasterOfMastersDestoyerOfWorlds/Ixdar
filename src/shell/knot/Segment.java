@@ -197,10 +197,10 @@ public class Segment implements Comparable<Segment> {
     public double boundContains(double x, double y) {
         PointND p1 = ((Point) first).p;
         PointND p2 = ((Point) last).p;
-        double x1 = p1.getCoord(0);
-        double y1 = p1.getCoord(1);
-        double x2 = p2.getCoord(0);
-        double y2 = p2.getCoord(1);
+        double x1 = p1.getScreenX();
+        double y1 = p1.getScreenY();
+        double x2 = p2.getScreenX();
+        double y2 = p2.getScreenY();
         double dx = x2 - x1;
         double dy = y2 - y1;
         double normalX = -dy;
@@ -230,10 +230,10 @@ public class Segment implements Comparable<Segment> {
     public VirtualPoint closestPoint(double x, double y) {
         PointND p1 = ((Point) first).p;
         PointND p2 = ((Point) last).p;
-        double x1 = p1.getCoord(0);
-        double y1 = p1.getCoord(1);
-        double x2 = p2.getCoord(0);
-        double y2 = p2.getCoord(1);
+        double x1 = p1.getScreenX();
+        double y1 = p1.getScreenY();
+        double x2 = p2.getScreenX();
+        double y2 = p2.getScreenY();
         double distFirst = Math.sqrt((x1 - x) * (x1 - x) + (y1 - y) * (y1 - y));
         double distLast = Math.sqrt((x2 - x) * (x2 - x) + (y2 - y) * (y2 - y));
         if (distFirst < distLast) {

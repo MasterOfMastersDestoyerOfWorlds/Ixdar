@@ -336,8 +336,8 @@ public class Drawing {
         int count = 0;
         for (PointND p : shell) {
             next = shell.getNext(count);
-            float x = camera.pointTransformX(p.getCoord(0));
-            float y = camera.pointTransformY(p.getCoord(1));
+            float x = camera.pointTransformX(p.getScreenX());
+            float y = camera.pointTransformY(p.getScreenY());
             if (drawCircles) {
                 circle.draw(new Vector2f(x, y), CIRCLE_RADIUS * camera.ScaleFactor, color, camera);
             }
@@ -345,10 +345,10 @@ public class Drawing {
             if (drawNumbers) {
                 float numberPixelDistance = camera.ScaleFactor * FONT_HEIGHT_LABELS_PIXELS / 4;
                 Vector2f point = new Vector2f(x, y);
-                Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getCoord(0)),
-                        camera.pointTransformY(last.getCoord(1))).sub(point);
-                Vector2f nextVector = new Vector2f(camera.pointTransformX(next.getCoord(0)),
-                        camera.pointTransformY(next.getCoord(1))).sub(point);
+                Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getScreenX()),
+                        camera.pointTransformY(last.getScreenY())).sub(point);
+                Vector2f nextVector = new Vector2f(camera.pointTransformX(next.getScreenX()),
+                        camera.pointTransformY(next.getScreenY())).sub(point);
                 Vector2f bisector = new Vector2f(lastVector).normalize().add(new Vector2f(nextVector).normalize())
                         .normalize().mul(numberPixelDistance);
                 Vector2f textCenter = point.sub(bisector);
@@ -362,8 +362,8 @@ public class Drawing {
                         camera.ScaleFactor * FONT_HEIGHT_LABELS_PIXELS, camera);
             }
             if (drawLines) {
-                float lx = camera.pointTransformX(last.getCoord(0));
-                float ly = camera.pointTransformY(last.getCoord(1));
+                float lx = camera.pointTransformX(last.getScreenX());
+                float ly = camera.pointTransformY(last.getScreenY());
                 sdfLine.draw(new Vector2f(lx, ly), new Vector2f(x, y), color, camera);
             }
             last = p;
@@ -412,8 +412,8 @@ public class Drawing {
             float lineThickness) {
         sdfLine.setStroke(lineThickness, false);
         Point p = (Point) displayPoint;
-        double xCoord = camera.pointTransformX(p.p.getCoord(0));
-        double yCoord = camera.pointTransformY(p.p.getCoord(1));
+        double xCoord = camera.pointTransformX(p.p.getScreenX());
+        double yCoord = camera.pointTransformY(p.p.getScreenY());
         circle.draw(new Vector2f((float) xCoord, (float) yCoord), CIRCLE_RADIUS * camera.ScaleFactor, color, camera);
     }
 

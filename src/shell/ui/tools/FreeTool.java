@@ -74,8 +74,8 @@ public class FreeTool extends Tool {
                     + " Y:"
                     + (int) Main.camera.screenTransformY(Main.mouse.normalizedPosY - Main.MAIN_VIEW_OFFSET_Y));
         } else {
-            h.addWord("X:" + (int) coordPoint.getCoord(0) + " Y:"
-                    + (int) coordPoint.getCoord(1));
+
+            h.addWord(coordPoint.toCoordString());
 
         }
 

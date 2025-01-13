@@ -68,6 +68,10 @@
 
 ![Complete](readme_img\complete.png)
 
+### Compare Route Map Tool
+
+![Complete](readme_img\complete.png)
+
 ### CutMatch Tool
 
 1. - [ ] The original calculated cut match group should be at like opacity 40 or 30.
@@ -91,32 +95,6 @@
 1. - [ ] If the manifold does not exist ask the user if they'd like to calculate it and add it to the file, otherwise reset without changes.
 
 2. - [x] Need to change the search to search for closest available to one the user inputted?
-
-### Compare Route Map Tool
-
-Idea behind tool is that we would like to compare two pairs of cut segment shortest path information where the pair have the same starting cut segment but differing end cut segments.
-
-1. - [x] A matching channel should have the same shortest route delta back to the start as its comparison peer
-
-2. - [x] Color all half-segments blue who match entirely on the currently selected route view (Disconnected, Connected)
-
-3. - [x] Color all non-matching half-segments red
-
-4. - [x] Color all flipped half-segments yellow (the connected and disconnected channels are flipped)
-
-5. - [x] Clicking on a half-segment/vp should display in the Info Tab the route information.
-
-6. - [x] When a half-segment is selected we should see its route of cutmatches leading back to the start.
-
-7. - [x] Increasing or decreasing level keys: '[' and ']' should change the route view.
-
-8. - [x] Tool should have two states Find and Compare
-
-9. - [x] Compare state is the novel pieces of this description and can only be started after the Find state.
-
-10. - [x] Find state is the starting state and is similar to the find manifold tool except we need to find 3 segments
-
-11. - [x] When in compare mode we should still show the the cutmatches on hover but in comparison, matching cuts and matches will still be in cyan and orange, non-matching cuts from the alpha manifold will be in purple and green and non-matching cuts from the beta manifold will be in magenta and yellow
 
 ### Knot Surface View Tool
 
@@ -269,6 +247,24 @@ Idea behind tool is that we would like to compare two pairs of cut segment short
 ## Filesystem
 
 1. - [ ] Hot reload glsl shaders on change for rapid development
+
+# Triangular Grid
+
+## Hex Points
+
+1. - [x] Write an extension to the PointND for points located on the intersections of the Triangle Grid
+
+2. - [x] Each Point should have three coordinates and distance should be found by taking the max of the differences in the coordinates of two points (this is similar to manhattan distance in the xy plane). see: <https://www.redblobgames.com/grids/hexagons/#distances>
+
+3. - [ ] Lines between hex points can only follow the grid-lines
+
+4. - [ ] The grid of possible values should be tiled by equilateral triangles with side length 1
+
+## Show Grid-lines
+
+1. - [ ] new Option in the ixdar file type to show grid-lines on startup
+
+2. - [ ] Grid-lines should disappear at scales of ten (so if we zoom out from being able to see a 10 by 10 area to a 100 by 100 area there should be hte same number of grid-lines shown once we have some illegible density)
 
 # City Info
 

@@ -94,8 +94,7 @@ public class Terminal {
                 .map(line -> getClass(line, packageName))
                 .collect(Collectors.toList());
         for (Class c : commandClasses) {
-            Class superClass = c.getSuperclass();
-            if (!Modifier.isAbstract(c.getModifiers()) && !c.isEnum() && superClass == type) {
+            if (!Modifier.isAbstract(c.getModifiers()) && !c.isEnum() && hasSuperClass(c, type)) {
                 try {
                     E e = (E) c.getConstructor().newInstance();
                     list.add(e);
@@ -106,6 +105,18 @@ public class Terminal {
                 }
             }
         }
+    }
+
+    @SuppressWarnings("rawtypes")
+    private <E> boolean hasSuperClass(Class c, Class<E> type) {
+        Class superClass = c.getSuperclass();
+        while (superClass != null) {
+            if (superClass == type) {
+                return true;
+            }
+            superClass = superClass.getSuperclass();
+        }
+        return false;
     }
 
     @SuppressWarnings("rawtypes")

@@ -260,7 +260,8 @@ public abstract class PointND extends PointCollection implements Cloneable {
 		/**
 		 * Constructs and initializes a {@code PointND} with the specified coordinates.
 		 *
-		 * @param ds the n coordinates of the newly constructed {@code PointND}
+		 * @param hexCoordinates the n coordinates of the newly constructed
+		 *                       {@code PointND}
 		 * 
 		 */
 		public Double(double... fs) {
@@ -291,8 +292,9 @@ public abstract class PointND extends PointCollection implements Cloneable {
 		/**
 		 * Constructs and initializes a {@code PointND} with the specified coordinates.
 		 *
-		 * @param ds the n coordinates of the newly constructed {@code PointND}
-		 * @param ID for comparison purposes across basis
+		 * @param hexCoordinates the n coordinates of the newly constructed
+		 *                       {@code PointND}
+		 * @param ID             for comparison purposes across basis
 		 */
 		public Double(int ID, double... fs) {
 			this.setID(ID);
@@ -458,6 +460,297 @@ public abstract class PointND extends PointCollection implements Cloneable {
 		@Override
 		public String shortName() {
 			return cmd;
+		}
+	}
+
+	/**
+	 * The {@code Hex} class defines a point specified in the triangular grid with
+	 * {@code integer} precision.
+	 * we use three coordinates to represent the grid and some points are
+	 * represented by multiple mappings
+	 * 
+	 * (q, r, s)
+	 * q - left is negative, right is positive
+	 * r - down and left is negative, up and right is positive
+	 * s - down and right is negative, up and left is positive
+	 * 
+	 * under this scheme point A (0,2,0) is the same as point B (1,1,1); although if
+	 * you traced the paths used to get to the point, point A is the shortest of the
+	 * two. There should always be a coordinate that is zero if you put it in
+	 * shortest path form.
+	 */
+	public static class Hex extends PointND implements Serializable {
+
+		public static OptionList opts = new OptionList("hex", "hx");
+		/**
+		 * The q coordinate of this {@code PointND.Hex}.
+		 * 
+		 * right is positive
+		 * left is negative
+		 * 
+		 * @serial
+		 */
+		public int q;
+
+		/**
+		 * The r coordinate of this {@code PointND.Hex}.
+		 * 
+		 * right and up is positive
+		 * left and down is negative
+		 * 
+		 * @serial
+		 */
+		public int r;
+
+		/**
+		 * The s coordinate of this {@code PointND.Hex}.
+		 * 
+		 * left and up is positive
+		 * right and down is negative
+		 * 
+		 * @serial
+		 */
+		public int s;
+
+		/**
+		 * Constructs and initializes a {@code PointND.Hex} with coordinates
+		 * (0,&nbsp;0,&nbsp;0).
+		 * 
+		 */
+		public Hex() {
+			this.setID(maxID);
+			q = 0;
+			r = 0;
+			s = 0;
+		}
+
+		/**
+		 * Constructs and initializes a {@code PointND} with the specified coordinates.
+		 *
+		 * @param hexCoordinates the n coordinates of the newly constructed
+		 *                       {@code PointND}
+		 * 
+		 */
+		public Hex(int q, int r, int s) {
+			this.setID(maxID);
+			this.q = q;
+			this.r = r;
+			this.s = s;
+		}
+
+		/**
+		 * Constructs and initializes a {@code PointND.Hex} with coordinates
+		 * (0,&nbsp;0,&nbsp;0).
+		 * 
+		 * @param ID for comparison purposes across basis
+		 */
+		public Hex(int ID) {
+			this.setID(ID);
+			q = 0;
+			r = 0;
+			s = 0;
+		}
+
+		/**
+		 * Constructs and initializes a {@code PointND.Hex} with the specified
+		 * coordinates.
+		 *
+		 * @param ID for comparison purposes across basis
+		 * @param q
+		 * @param r
+		 * @param s
+		 */
+		public Hex(int ID, int q, int r, int s) {
+			this.setID(ID);
+			this.q = q;
+			this.r = r;
+			this.s = s;
+		}
+
+		public Hex(int[] coords) {
+			this.setID(maxID);
+			this.q = coords[0];
+			this.r = coords[1];
+			this.s = coords[2];
+		}
+
+		@Override
+		public int hashCode() {
+			return this.getID();
+		}
+
+		@Override
+		public int getDim() {
+			return 3;
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * 
+		 */
+		@Override
+		public double getCoord(int dim) {
+			if (dim == 0) {
+				return q;
+			} else if (dim == 1) {
+				return r;
+			} else if (dim == 2) {
+				return s;
+			}
+			return Integer.MIN_VALUE;
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * 
+		 */
+		@Override
+		public void setLocation(double... ds) {
+			q = (int) ds[0];
+			r = (int) ds[1];
+			s = (int) ds[2];
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * 
+		 */
+		public void setLocation(float... fs) {
+			q = (int) fs[0];
+			r = (int) fs[1];
+			s = (int) fs[2];
+		}
+
+		/**
+		 * Returns a {@code String} that represents the value of this {@code PointND}.
+		 * 
+		 * @return a string representation of this {@code PointND}.
+		 * 
+		 */
+		@Override
+		public String toString() {
+			StringBuilder sb = new StringBuilder("PointND.Hex[");
+			sb.append(q);
+			sb.append(", ");
+			sb.append(r);
+			sb.append(", ");
+			sb.append(s);
+			sb.append("]");
+			return this.getID() + "";
+		}
+
+		@Override
+		public String toFileString() {
+			return "HEX " + q + " " + r + " " + s;
+		}
+
+		/*
+		 * JDK 1.6 serialVersionUID
+		 */
+		private static final long serialVersionUID = 6150783262733311327L;
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public double[] getCoordList() {
+			return new double[] { q, r, s };
+		}
+
+		@Override
+		public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {
+			return Hex.parse(args, startIdx);
+		}
+
+		public static PointND parse(String[] args, int startIdx) throws TerminalParseException {
+			if (args.length - startIdx != 3) {
+				throw new TerminalParseException(
+						"expected 3 coordinates to parse Hex Point got " + (args.length - startIdx));
+			}
+			int[] coords = new int[3];
+			for (int i = 0; i < coords.length; i++) {
+				coords[i] = java.lang.Integer.parseInt(args[startIdx + i]);
+			}
+			PointND pt = new Hex(coords);
+			return pt;
+		}
+
+		@Override
+		public String usage() {
+			return "add point [q, r, s]";
+		}
+
+		@Override
+		public String desc() {
+			return "a point in 3-dimensional hex space";
+		}
+
+		@Override
+		public int argLength() {
+			return -1;
+		}
+
+		@Override
+		public int minArgLength() {
+			return -1;
+		}
+
+		@Override
+		public OptionList options() {
+			return opts;
+		}
+
+		@Override
+		public ArrayList<PointND> realizePoints() {
+			ArrayList<PointND> lst = new ArrayList<>();
+			lst.add(this);
+			return lst;
+		}
+
+		@Override
+		public String fullName() {
+			return "point";
+		}
+
+		@Override
+		public String shortName() {
+			return cmd;
+		}
+
+		private static final double root3over3 = 0.577350269;
+		private static final double root3over2 = 0.866025404;
+		private static final double root3 = 1.73205081;
+
+		@Override
+		public double distance(PointND pt) {
+			if (pt instanceof PointND.Hex) {
+				PointND.Hex other = (PointND.Hex) pt;
+				return Math.max(Math.max(Math.abs(this.q - other.q), Math.abs(this.r - other.r)),
+						Math.abs(this.s - other.s));
+			} else {
+				return Integer.MIN_VALUE;
+			}
+		}
+
+		public void pixel_to_hex(double x, double y) {
+			var q = (root3over3 * x - 1. / 3 * y);
+			var r = (2. / 3 * y);
+
+		}
+
+		@Override
+		public double getScreenY() {
+			return 1.5 * r;
+		}
+
+		public double getScreenX() {
+			return root3 * q + root3over2 * r;
+		}
+
+		@Override
+		public String toCoordString() {
+			return "Q:" + (int) q + " R:"
+					+ (int) r + " S:" + (int) s;
 		}
 	}
 
@@ -705,7 +998,7 @@ public abstract class PointND extends PointCollection implements Cloneable {
 		if (this.isDummyNode) {
 			return new Point2D.Double(-1000000, -1000000);
 		}
-		return new Point2D.Double(getCoord(0), getCoord(1));
+		return new Point2D.Double(this.getScreenX(), this.getScreenY());
 	}
 
 	public int getID() {
@@ -741,5 +1034,24 @@ public abstract class PointND extends PointCollection implements Cloneable {
 
 	public void setDummyNode() {
 		this.isDummyNode = true;
+	}
+
+	public double getScreenX() {
+		if (this.isDummyNode) {
+			return -1000000;
+		}
+		return getCoord(0);
+	}
+
+	public double getScreenY() {
+		if (this.isDummyNode) {
+			return -1000000;
+		}
+		return getCoord(1);
+	}
+
+	public String toCoordString() {
+		return "X:" + (int) this.getScreenX() + " Y:"
+				+ (int) this.getScreenY();
 	}
 }
