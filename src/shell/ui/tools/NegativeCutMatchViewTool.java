@@ -5,7 +5,7 @@ import shell.render.text.HyperString;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import shell.ToggleType;
+import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.file.Manifold;
 import shell.knot.Knot;
@@ -23,8 +23,8 @@ public class NegativeCutMatchViewTool extends Tool {
     public static ArrayList<Color> colors;
 
     public NegativeCutMatchViewTool() {
-        disallowedToggles = new ToggleType[] { ToggleType.DrawCutMatch, ToggleType.DrawKnotGradient,
-                ToggleType.DrawMetroDiagram, ToggleType.DrawDisplayedKnots };
+        disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.DrawKnotGradient,
+                Toggle.DrawMetroDiagram, Toggle.DrawDisplayedKnots };
         colors = new ArrayList<>();
         colors.add(Color.BLUE);
         colors.add(Color.RED);

@@ -5,7 +5,7 @@ import java.util.HashMap;
 
 import org.apache.commons.math3.util.Pair;
 
-import shell.ToggleType;
+import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.cuts.route.Route;
 import shell.exceptions.SegmentBalanceException;
@@ -73,8 +73,8 @@ public class CompareManifoldTool extends Tool {
     final static Color betaCutColor = Color.YELLOW;
 
     public CompareManifoldTool() {
-        disallowedToggles = new ToggleType[] { ToggleType.DrawCutMatch, ToggleType.CanSwitchLayer,
-                ToggleType.DrawKnotGradient, ToggleType.DrawMetroDiagram, ToggleType.DrawDisplayedKnots };
+        disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.CanSwitchLayer,
+                Toggle.DrawKnotGradient, Toggle.DrawMetroDiagram, Toggle.DrawDisplayedKnots };
 
         colors = new ArrayList<>();
         colors.add(Color.BLUE);

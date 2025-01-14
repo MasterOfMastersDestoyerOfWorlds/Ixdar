@@ -43,7 +43,7 @@ public class ColorCommand extends TerminalCommand {
         Random colorSeed = new Random();
         Main.stickyColor = new ColorRGB(colorSeed.nextFloat(), colorSeed.nextFloat(),
                 colorSeed.nextFloat());
-        if (Main.tool.canUseToggle(Toggle.drawMetroDiagram)) {
+        if (Main.tool.canUseToggle(Toggle.DrawMetroDiagram)) {
             Main.metroColors = new ArrayList<>();
             int totalLayers = Main.shell.cutEngine.totalLayers;
             float startHue = colorSeed.nextFloat();

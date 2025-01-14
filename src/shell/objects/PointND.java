@@ -732,10 +732,11 @@ public abstract class PointND extends PointCollection implements Cloneable {
 			}
 		}
 
-		public void pixel_to_hex(double x, double y) {
-			var q = (root3over3 * x - 1. / 3 * y);
-			var r = (2. / 3 * y);
-
+		public static double[] pixelToHexCoords(double x, double y) {
+			double q = (root3over3 * x - 1.0 / 3.0 * y);
+			double r = (2.0 / 3.0 * y);
+			double s = -q - r;
+			return new double[] { q, r, s };
 		}
 
 		@Override

@@ -69,14 +69,9 @@ public class FreeTool extends Tool {
         h.newLine();
         h.addWord("Position:");
         if (displayKP == null) {
-            h.addWord("X:"
-                    + (int) Main.camera.screenTransformX(Main.mouse.normalizedPosX - Main.MAIN_VIEW_OFFSET_X)
-                    + " Y:"
-                    + (int) Main.camera.screenTransformY(Main.mouse.normalizedPosY - Main.MAIN_VIEW_OFFSET_Y));
+            h.addWord(Main.grid.toCoordString());
         } else {
-
             h.addWord(coordPoint.toCoordString());
-
         }
 
         h.newLine();
@@ -109,9 +104,9 @@ public class FreeTool extends Tool {
             h.addWord("None");
         } else {
             Color c = Main.stickyColor;
-            if (canUseToggle(Toggle.drawKnotGradient)) {
+            if (canUseToggle(Toggle.DrawKnotGradient)) {
                 c = Main.getKnotGradientColor(displayKP);
-            } else if (canUseToggle(Toggle.drawMetroDiagram)) {
+            } else if (canUseToggle(Toggle.DrawMetroDiagram)) {
                 c = Main.getMetroColor(displayKP, containingKnot);
             }
             String pointStr = "" + displayKP.id + " ";

@@ -446,9 +446,9 @@ public class Knot extends VirtualPoint {
         HyperString h = new HyperString();
         Tool tool = Main.tool;
         Color c = Main.stickyColor;
-        if (tool.canUseToggle(Toggle.drawKnotGradient)) {
+        if (tool.canUseToggle(Toggle.DrawKnotGradient)) {
             c = Main.getKnotGradientColorFlatten((Knot) this);
-        } else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
+        } else if (tool.canUseToggle(Toggle.DrawMetroDiagram)) {
             c = Main.getMetroColorFlatten((Knot) this);
         }
         Action clickAction = () -> {

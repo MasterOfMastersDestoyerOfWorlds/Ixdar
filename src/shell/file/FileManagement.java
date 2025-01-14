@@ -19,6 +19,7 @@ import shell.exceptions.FileParseException;
 import shell.exceptions.TerminalParseException;
 import shell.objects.Arc;
 import shell.objects.Circle;
+import shell.objects.Grid;
 import shell.objects.Ix;
 import shell.objects.Line;
 import shell.objects.PointND;
@@ -95,6 +96,7 @@ public class FileManagement {
     static ArrayList<Integer> duplicatePointIndexes;
     static boolean removeDuplicates;
     static ArrayList<PointND> lines;
+    static Grid grid;
 
     public static void initImport() {
         ps = new PointSet();
@@ -251,14 +253,26 @@ public class FileManagement {
             if (removeDuplicates && duplicatePointIndexes.size() > 0) {
                 removeDuplicates(f, duplicatePointIndexes);
             }
-            return new PointSetPath(ps, path, tsp, d, manifolds, comments);
+            return new PointSetPath(ps, path, tsp, d, manifolds, comments, grid);
         } catch (NumberFormatException | IOException | FileParseException e) {
             e.printStackTrace();
         }
         return null;
     }
 
-    private static void addPoint(PointND pt) {
+    private static void addPoint(PointND pt) throws TerminalParseException {
+        if (grid == null) {
+            if (pt instanceof PointND.Double || pt instanceof PointND.Float) {
+                grid = new Grid.CartesianGrid();
+            } else if (pt instanceof PointND.Hex) {
+                grid = new Grid.HexGrid();
+            }
+        } else {
+            if (!grid.allowsPoint(pt)) {
+                throw new TerminalParseException("Expected all points to be in: " + grid.allowableTypes()
+                        + " but found point of type: " + pt.getClass());
+            }
+        }
         if (ps.contains(pt)) {
             System.out.println("Duplicated found: " + index);
             duplicatePointIndexes.add(lineNumber);

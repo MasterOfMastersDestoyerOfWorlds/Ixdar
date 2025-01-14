@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import org.apache.commons.math3.util.Pair;
 
 import shell.Toggle;
-import shell.ToggleType;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
@@ -133,13 +132,13 @@ public abstract class Tool {
     public void hoverChanged() {
     }
 
-    ToggleType[] disallowedToggles = new ToggleType[] {};
+    Toggle[] disallowedToggles = new Toggle[] {};
     public float ScreenOffsetY;
     public float ScreenOffsetX;
 
     public boolean canUseToggle(Toggle toggle) {
         for (int i = 0; i < disallowedToggles.length; i++) {
-            if (disallowedToggles[i].equals(toggle.type)) {
+            if (disallowedToggles[i].equals(toggle)) {
                 return false;
             }
         }
@@ -277,8 +276,8 @@ public abstract class Tool {
     }
 
     public void increaseViewLayer() {
-        if (canUseToggle(Toggle.canSwitchLayer)) {
-            if (canUseToggle(Toggle.manifold) && canUseToggle(Toggle.drawCutMatch)) {
+        if (canUseToggle(Toggle.CanSwitchLayer)) {
+            if (canUseToggle(Toggle.Manifold) && canUseToggle(Toggle.DrawCutMatch)) {
                 Main.manifoldIdx++;
                 if (Main.manifoldIdx >= Main.manifolds.size()) {
                     Main.manifoldIdx = 0;
@@ -297,8 +296,8 @@ public abstract class Tool {
     }
 
     public void decreaseViewLayer() {
-        if (canUseToggle(Toggle.canSwitchLayer)) {
-            if (canUseToggle(Toggle.manifold) && canUseToggle(Toggle.drawCutMatch)) {
+        if (canUseToggle(Toggle.CanSwitchLayer)) {
+            if (canUseToggle(Toggle.Manifold) && canUseToggle(Toggle.DrawCutMatch)) {
                 Main.manifoldIdx--;
                 if (Main.manifoldIdx < 0) {
                     Main.manifoldIdx = Main.manifolds.size() - 1;

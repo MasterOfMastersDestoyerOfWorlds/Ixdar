@@ -1,9 +1,6 @@
 package shell.terminal.commands;
 
-import shell.exceptions.TerminalParseException;
-import shell.file.FileManagement;
 import shell.knot.VirtualPoint;
-import shell.objects.PointCollection;
 import shell.render.color.Color;
 import shell.terminal.Terminal;
 import shell.ui.main.Main;

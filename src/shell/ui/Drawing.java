@@ -224,6 +224,12 @@ public class Drawing {
         drawSegment(segment, c, camera);
     }
 
+    public static void drawScaledSegment(Vector2f a, Vector2f b, Color c, float thickness, Camera2D camera) {
+        sdfLine.setStroke(thickness * camera.ScaleFactor, false);
+        sdfLine.dashed = false;
+        sdfLine.draw(a, b, c, camera);
+    }
+
     private static void drawSegment(Segment ex1, Color c, Camera2D camera) {
         Point2D first;
         Point2D last;

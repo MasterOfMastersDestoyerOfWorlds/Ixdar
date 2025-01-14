@@ -90,7 +90,7 @@ public class KeyGuy {
                 ChangeToolCommand.run(CompareManifoldTool.class);
             }
             if (KeyActions.EditManifold.keyPressed(pressedKeys)) {
-                if (Toggle.manifold.value && Toggle.drawCutMatch.value) {
+                if (Toggle.Manifold.value && Toggle.DrawCutMatch.value) {
                     ChangeToolCommand.run(EditManifoldTool.class);
                 }
             }
@@ -98,7 +98,7 @@ public class KeyGuy {
                 ChangeToolCommand.run(NegativeCutMatchViewTool.class);
             }
 
-        } else if (Toggle.isTerminalFocused.value) {
+        } else if (Toggle.IsTerminalFocused.value) {
             Main.terminal.keyPress(key, mods);
         }
         if (KeyActions.Back.keyPressed(pressedKeys) && Main.active) {
@@ -112,15 +112,15 @@ public class KeyGuy {
         }
         if (main != null && Main.active) {
             Tool tool = Main.tool;
-            if (tool.canUseToggle(Toggle.isMainFocused)) {
+            if (tool.canUseToggle(Toggle.IsMainFocused)) {
                 if (KeyActions.ColorRandomization.keyPressed(pressedKeys)) {
                     Terminal.runNoArgs(ColorCommand.class);
                 }
                 if (KeyActions.DrawCutMatch.keyPressed(pressedKeys)) {
-                    Toggle.drawCutMatch.toggle();
+                    Toggle.DrawCutMatch.toggle();
                 }
                 if (KeyActions.DrawKnotGradient.keyPressed(pressedKeys)) {
-                    Toggle.drawKnotGradient.toggle();
+                    Toggle.DrawKnotGradient.toggle();
                 }
                 if (KeyActions.DrawMetroDiagram.keyPressed(pressedKeys)) {
                     Main.setDrawLevelMetro();
@@ -132,7 +132,10 @@ public class KeyGuy {
                     tool.decreaseViewLayer();
                 }
                 if (KeyActions.DrawOriginal.keyPressed(pressedKeys)) {
-                    Toggle.drawMainPath.toggle();
+                    Toggle.DrawMainPath.toggle();
+                }
+                if (KeyActions.DrawGridLines.keyPressed(pressedKeys)) {
+                    Toggle.DrawGridLines.toggle();
                 }
                 if (KeyActions.UpdateFile.keyPressed(pressedKeys)) {
                     Terminal.runNoArgs(UpdateCommand.class);
@@ -162,7 +165,7 @@ public class KeyGuy {
     long lastPressTime;
 
     public void paintUpdate(float SHIFT_MOD) {
-        if (!active || Toggle.isTerminalFocused.value) {
+        if (!active || Toggle.IsTerminalFocused.value) {
             return;
         }
         camera.setShiftMod(SHIFT_MOD);
@@ -231,7 +234,7 @@ public class KeyGuy {
 
     public void charCallback(long window, int codepoint) {
         String currentText = "" + (char) codepoint;
-        if (Toggle.isTerminalFocused.value) {
+        if (Toggle.IsTerminalFocused.value) {
             Main.terminal.type(currentText);
         }
     }

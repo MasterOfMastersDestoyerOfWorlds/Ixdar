@@ -36,6 +36,7 @@ import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.objects.Grid;
 import shell.objects.PointND;
 import shell.render.color.Color;
 import shell.render.color.ColorBox;
@@ -115,6 +116,7 @@ public class Main {
 	public static ColorLerp hoverSegmentColor;
 	public static Terminal terminal;
 	public static Info info;
+	public static Grid grid;
 
 	public Main(String fileName) throws TerminalParseException {
 		metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -149,10 +151,10 @@ public class Main {
 				wHeight - BOTTOM_PANEL_SIZE, 0.9f, 0, BOTTOM_PANEL_SIZE,
 				retTup.ps);
 
-		Toggle.manifold.value = !retTup.manifolds.isEmpty();
+		Toggle.Manifold.value = !retTup.manifolds.isEmpty();
 
 		Toggle.setPanelFocus(PanelTypes.KnotView);
-
+		grid = retTup.grid;
 		keys = new KeyGuy(this, fileName, camera);
 		mouse = new MouseTrap(this, camera, false);
 		activate(true);
@@ -182,9 +184,9 @@ public class Main {
 			}
 		}
 		retTup.tsp.removeAll(toRemove);
-		if (tool.canUseToggle(Toggle.manifold)) {
-			Toggle.manifold.value = true;
-			Toggle.calculateKnot.value = false;
+		if (tool.canUseToggle(Toggle.Manifold)) {
+			Toggle.Manifold.value = true;
+			Toggle.CalculateKnot.value = false;
 		}
 		orgShell = retTup.tsp;
 
@@ -221,10 +223,10 @@ public class Main {
 			}
 		}
 
-		if (tool.canUseToggle(Toggle.manifold)) {
+		if (tool.canUseToggle(Toggle.Manifold)) {
 			if (result.size() > 1) {
-				Toggle.manifold.value = false;
-				Toggle.calculateKnot.value = true;
+				Toggle.Manifold.value = false;
+				Toggle.CalculateKnot.value = true;
 			}
 
 			manifolds.parallelStream().forEach((m) -> {
@@ -340,6 +342,10 @@ public class Main {
 			camera.setZIndex(camera3D);
 			camera.calculateCameraTransform();
 
+			if (tool.canUseToggle(Toggle.DrawGridLines)) {
+				grid.draw(camera, Drawing.MIN_THICKNESS / 2);
+			}
+
 			tool.setScreenOffset(camera);
 			tool.draw(camera, Drawing.MIN_THICKNESS);
 			if (sbe != null) {
@@ -347,7 +353,7 @@ public class Main {
 						camera);
 				Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS, retTup.ps, camera);
 			}
-			if (tool.canUseToggle(Toggle.drawCutMatch) && tool.canUseToggle(Toggle.manifold)
+			if (tool.canUseToggle(Toggle.DrawCutMatch) && tool.canUseToggle(Toggle.Manifold)
 					&& manifolds != null
 					&& manifolds.get(manifoldIdx).cutMatchList != null) {
 				Manifold m = manifolds.get(manifoldIdx);
@@ -355,10 +361,10 @@ public class Main {
 						m.manifoldCutSegment2, m.manifoldExSegment1, m.manifoldExSegment2,
 						m.manifoldKnot, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
 			}
-			if (tool.canUseToggle(Toggle.drawMainPath)) {
+			if (tool.canUseToggle(Toggle.DrawMainPath)) {
 				Drawing.drawShell(orgShell, false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
 			}
-			if (tool.canUseToggle(Toggle.drawDisplayedKnots) && tool.canUseToggle(Toggle.drawMetroDiagram)
+			if (tool.canUseToggle(Toggle.DrawDisplayedKnots) && tool.canUseToggle(Toggle.DrawMetroDiagram)
 					&& shell != null) {
 				drawDisplayedKnots(camera);
 			}
@@ -417,11 +423,11 @@ public class Main {
 
 	public static void drawDisplayedKnots(Camera2D camera) {
 		if (knotDrawLayer == shell.cutEngine.totalLayers) {
-			if (tool.canUseToggle(Toggle.drawKnotGradient) && manifoldKnot != null) {
+			if (tool.canUseToggle(Toggle.DrawKnotGradient) && manifoldKnot != null) {
 				ArrayList<Pair<Long, Long>> idTransform = lookupPairs(manifoldKnot);
 				Drawing.drawGradientPath(manifoldKnot, idTransform, colorLookup, knotGradientColors, camera,
 						Drawing.MIN_THICKNESS);
-			} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
+			} else if (tool.canUseToggle(Toggle.DrawMetroDiagram)) {
 				for (Shell temp : subPaths) {
 					Drawing.drawShell(temp, true, Drawing.MIN_THICKNESS,
 							metroColors.get(0), retTup.ps, camera);
@@ -437,23 +443,23 @@ public class Main {
 					continue;
 				}
 				if (knotDrawLayer < 0) {
-					if (tool.canUseToggle(Toggle.drawKnotGradient)) {
+					if (tool.canUseToggle(Toggle.DrawKnotGradient)) {
 						ArrayList<Pair<Long, Long>> idTransform = lookupPairs(temp.k);
 						Drawing.drawGradientPath(temp.k, idTransform, colorLookup, knotGradientColors,
 								camera,
 								Drawing.MIN_THICKNESS);
-					} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
+					} else if (tool.canUseToggle(Toggle.DrawMetroDiagram)) {
 						Drawing.drawShell(temp.shell, true,
 								Drawing.MIN_THICKNESS + Drawing.MIN_THICKNESS * (temp.priority - 1),
 								metroColors.get(temp.priority), retTup.ps, camera);
 					}
 				} else {
-					if (tool.canUseToggle(Toggle.drawKnotGradient)) {
+					if (tool.canUseToggle(Toggle.DrawKnotGradient)) {
 						ArrayList<Pair<Long, Long>> idTransform = lookupPairs(temp.k);
 						Drawing.drawGradientPath(temp.k, idTransform, colorLookup, knotGradientColors,
 								camera,
 								Drawing.MIN_THICKNESS);
-					} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
+					} else if (tool.canUseToggle(Toggle.DrawMetroDiagram)) {
 						Drawing.drawShell(temp.shell, true, Drawing.MIN_THICKNESS,
 								metroColors.get(temp.priority), retTup.ps, camera);
 					}
@@ -478,9 +484,9 @@ public class Main {
 				}
 
 				Color c = Color.WHITE;
-				if (tool.canUseToggle(Toggle.drawKnotGradient)) {
+				if (tool.canUseToggle(Toggle.DrawKnotGradient)) {
 					c = getKnotGradientColor(s1.last);
-				} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
+				} else if (tool.canUseToggle(Toggle.DrawMetroDiagram)) {
 					c = getMetroColor(s1.last, k);
 				}
 				Drawing.drawDashedSegment(s1, c, camera);
@@ -491,9 +497,9 @@ public class Main {
 
 	private static Color getKnotColor(Knot k) {
 		Color c = Main.stickyColor;
-		if (tool.canUseToggle(Toggle.drawKnotGradient)) {
+		if (tool.canUseToggle(Toggle.DrawKnotGradient)) {
 			c = Main.getKnotGradientColorFlatten((Knot) k);
-		} else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
+		} else if (tool.canUseToggle(Toggle.DrawMetroDiagram)) {
 			c = Main.getMetroColorFlatten((Knot) k);
 		}
 		return c;

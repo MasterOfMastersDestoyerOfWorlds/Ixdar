@@ -51,7 +51,7 @@ public class UpdateCommand extends TerminalCommand {
             terminal.history.addLine(oldLength + "", Color.BLUE_WHITE);
             terminal.history.addWord("New tour length is:", Color.GREEN);
             terminal.history.addLine(newLength + "", Color.BLUE_WHITE);
-            if (Main.tool.canUseToggle(Toggle.manifold)) {
+            if (Main.tool.canUseToggle(Toggle.Manifold)) {
                 FileManagement.appendCutAns(Main.file, Main.manifolds);
             }
         }

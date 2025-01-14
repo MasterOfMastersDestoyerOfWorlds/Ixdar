@@ -2,7 +2,7 @@ package shell.ui.tools;
 
 import java.util.ArrayList;
 
-import shell.ToggleType;
+import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.file.Manifold;
 import shell.knot.Segment;
@@ -17,7 +17,7 @@ public class EditManifoldTool extends Tool {
     VirtualPoint lastPoint;
 
     public EditManifoldTool() {
-        disallowedToggles = new ToggleType[] { ToggleType.DrawCutMatch, ToggleType.CanSwitchLayer };
+        disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.CanSwitchLayer };
     }
 
     @Override

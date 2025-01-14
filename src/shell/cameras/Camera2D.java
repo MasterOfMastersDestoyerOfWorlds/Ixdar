@@ -33,10 +33,10 @@ public class Camera2D implements Camera {
     public float rangeX;
     public float rangeY;
     public PointSet ps;
-    private float minX;
-    private float minY;
-    private float maxX;
-    private float maxY;
+    public float minX;
+    public float minY;
+    public float maxX;
+    public float maxY;
     private float height;
     public float zIndex;
     public float farZIndex;

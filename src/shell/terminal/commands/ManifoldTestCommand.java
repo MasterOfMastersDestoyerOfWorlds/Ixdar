@@ -50,7 +50,7 @@ public class ManifoldTestCommand extends TerminalCommand {
         }
         fileName = fileName.substring(0, idx) + "-manifold";
         String dirPath = directory + "/";
-        if (!Main.tool.canUseToggle(Toggle.manifold)) {
+        if (!Main.tool.canUseToggle(Toggle.Manifold)) {
             Shell manifold = Main.orgShell;
             if (manifold == null) {
                 return "";

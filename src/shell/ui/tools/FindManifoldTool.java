@@ -2,7 +2,7 @@ package shell.ui.tools;
 
 import org.apache.commons.math3.util.Pair;
 
-import shell.ToggleType;
+import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.file.Manifold;
 import shell.knot.Segment;
@@ -25,7 +25,7 @@ public class FindManifoldTool extends Tool {
     public VirtualPoint firstSelectedCP;
 
     public FindManifoldTool() {
-        disallowedToggles = new ToggleType[] { ToggleType.DrawCutMatch, ToggleType.CanSwitchLayer };
+        disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.CanSwitchLayer };
     }
 
     @Override

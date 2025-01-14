@@ -96,7 +96,7 @@ public class SDFLine {
     }
 
     public void setStroke(float lineWidth, boolean dashed) {
-        this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS);
+        this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS / 3f);
         this.dashed = dashed;
         setUniforms();
     }
