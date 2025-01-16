@@ -65,39 +65,77 @@ public class KeyGuy {
         if (KeyActions.ShiftMask.keyPressed(pressedKeys)) {
             shiftMask = true;
         }
-        if (controlMask && firstPress) {
-            if (KeyActions.PrintScreen.keyPressed(pressedKeys)) {
-                Terminal.runNoArgs(ScreenShotCommand.class);
-            }
-            if (KeyActions.Save.keyPressed(pressedKeys)) {
-                if (Main.file == null && Main.tempFile != null) {
+        if (firstPress) {
+            if (controlMask) {
+                if (KeyActions.PrintScreen.keyPressed(pressedKeys)) {
+                    Terminal.runNoArgs(ScreenShotCommand.class);
+                }
+                if (KeyActions.Save.keyPressed(pressedKeys)) {
+                    if (Main.file == null && Main.tempFile != null) {
 
-                } else if (Main.file != null) {
+                    } else if (Main.file != null) {
+
+                    }
+                }
+                if (KeyActions.SaveAs.keyPressed(pressedKeys)) {
 
                 }
-            }
-            if (KeyActions.SaveAs.keyPressed(pressedKeys)) {
-
-            }
-            if (KeyActions.GenerateManifoldTests.keyPressed(pressedKeys)) {
-                ManifoldTestCommand.run(Main.file.getName(),
-                        FileManagement.solutionsFolder + "/" + Main.file.getName().replace(".ix", ""));
-            }
-            if (KeyActions.Find.keyPressed(pressedKeys)) {
-                ChangeToolCommand.run(FindManifoldTool.class);
-            }
-            if (KeyActions.Compare.keyPressed(pressedKeys)) {
-                ChangeToolCommand.run(CompareManifoldTool.class);
-            }
-            if (KeyActions.EditManifold.keyPressed(pressedKeys)) {
-                if (Toggle.Manifold.value && Toggle.DrawCutMatch.value) {
-                    ChangeToolCommand.run(EditManifoldTool.class);
+                if (KeyActions.GenerateManifoldTests.keyPressed(pressedKeys)) {
+                    ManifoldTestCommand.run(Main.file.getName(),
+                            FileManagement.solutionsFolder + "/" + Main.file.getName().replace(".ix", ""));
+                }
+                if (KeyActions.Find.keyPressed(pressedKeys)) {
+                    ChangeToolCommand.run(FindManifoldTool.class);
+                }
+                if (KeyActions.Compare.keyPressed(pressedKeys)) {
+                    ChangeToolCommand.run(CompareManifoldTool.class);
+                }
+                if (KeyActions.EditManifold.keyPressed(pressedKeys)) {
+                    if (Toggle.Manifold.value && Toggle.DrawCutMatch.value) {
+                        ChangeToolCommand.run(EditManifoldTool.class);
+                    }
+                }
+                if (KeyActions.NegativeCutMatchViewTool.keyPressed(pressedKeys)) {
+                    ChangeToolCommand.run(NegativeCutMatchViewTool.class);
+                }
+            } else {
+                Tool tool = Main.tool;
+                if (tool.canUseToggle(Toggle.IsMainFocused)) {
+                    if (KeyActions.ColorRandomization.keyPressed(pressedKeys)) {
+                        Terminal.runNoArgs(ColorCommand.class);
+                    }
+                    if (KeyActions.DrawCutMatch.keyPressed(pressedKeys)) {
+                        Toggle.DrawCutMatch.toggle();
+                    }
+                    if (KeyActions.DrawKnotGradient.keyPressed(pressedKeys)) {
+                        Toggle.DrawKnotGradient.toggle();
+                    }
+                    if (KeyActions.DrawMetroDiagram.keyPressed(pressedKeys)) {
+                        Main.setDrawLevelMetro();
+                    }
+                    if (KeyActions.IncreaseKnotLayer.keyPressed(pressedKeys)) {
+                        tool.increaseViewLayer();
+                    }
+                    if (KeyActions.DecreaseKnotLayer.keyPressed(pressedKeys)) {
+                        tool.decreaseViewLayer();
+                    }
+                    if (KeyActions.DrawOriginal.keyPressed(pressedKeys)) {
+                        Toggle.DrawMainPath.toggle();
+                    }
+                    if (KeyActions.DrawGridLines.keyPressed(pressedKeys)) {
+                        Toggle.DrawGridLines.toggle();
+                    }
+                    if (KeyActions.UpdateFile.keyPressed(pressedKeys)) {
+                        Terminal.runNoArgs(UpdateCommand.class);
+                    }
+                    if (KeyActions.Confirm.keyPressed(pressedKeys)) {
+                        Main.tool.confirm();
+                    }
+                    if (KeyActions.Reset.keyPressed(pressedKeys)) {
+                        ResetCommand.run(ResetOption.Camera);
+                    }
                 }
             }
-            if (KeyActions.NegativeCutMatchViewTool.keyPressed(pressedKeys)) {
-                ChangeToolCommand.run(NegativeCutMatchViewTool.class);
-            }
-
         } else if (Toggle.IsTerminalFocused.value) {
             Main.terminal.keyPress(key, mods);
         }
@@ -111,42 +149,7 @@ public class KeyGuy {
             return;
         }
         if (main != null && Main.active) {
-            Tool tool = Main.tool;
-            if (tool.canUseToggle(Toggle.IsMainFocused)) {
-                if (KeyActions.ColorRandomization.keyPressed(pressedKeys)) {
-                    Terminal.runNoArgs(ColorCommand.class);
-                }
-                if (KeyActions.DrawCutMatch.keyPressed(pressedKeys)) {
-                    Toggle.DrawCutMatch.toggle();
-                }
-                if (KeyActions.DrawKnotGradient.keyPressed(pressedKeys)) {
-                    Toggle.DrawKnotGradient.toggle();
-                }
-                if (KeyActions.DrawMetroDiagram.keyPressed(pressedKeys)) {
-                    Main.setDrawLevelMetro();
-                }
-                if (KeyActions.IncreaseKnotLayer.keyPressed(pressedKeys)) {
-                    tool.increaseViewLayer();
-                }
-                if (KeyActions.DecreaseKnotLayer.keyPressed(pressedKeys)) {
-                    tool.decreaseViewLayer();
-                }
-                if (KeyActions.DrawOriginal.keyPressed(pressedKeys)) {
-                    Toggle.DrawMainPath.toggle();
-                }
-                if (KeyActions.DrawGridLines.keyPressed(pressedKeys)) {
-                    Toggle.DrawGridLines.toggle();
-                }
-                if (KeyActions.UpdateFile.keyPressed(pressedKeys)) {
-                    Terminal.runNoArgs(UpdateCommand.class);
-                }
-                if (KeyActions.Confirm.keyPressed(pressedKeys)) {
-                    Main.tool.confirm();
-                }
-                if (KeyActions.Reset.keyPressed(pressedKeys)) {
-                    ResetCommand.run(ResetOption.Camera);
-                }
-            }
+
         } else if (Canvas3D.active) {
             if (KeyActions.Back.keyPressed(pressedKeys)) {
                 Canvas3D.menu.back();
