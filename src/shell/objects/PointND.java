@@ -4,6 +4,8 @@ import java.awt.geom.Point2D;
 import java.io.Serializable;
 import java.util.ArrayList;
 
+import org.joml.Vector2f;
+
 import shell.PointSet;
 import shell.exceptions.TerminalParseException;
 import shell.terminal.commands.OptionList;
@@ -739,13 +741,30 @@ public abstract class PointND extends PointCollection implements Cloneable {
 			return new double[] { q, r, s };
 		}
 
+		public static Vector2f getRightUpVector() {
+			return new Vector2f((float) (root3over2 * 1), 1.5f);
+		}
+
+		public static Vector2f getRightDownVector() {
+			return new Vector2f((float) (root3 * 1 + root3over2 * -1), -1.5f);
+		}
+
+		public static Vector2f getHorizontalVector() {
+			return new Vector2f((float) (root3 * 1), 0);
+		}
+
 		@Override
 		public double getScreenY() {
 			return 1.5 * r;
 		}
 
+		@Override
 		public double getScreenX() {
 			return root3 * q + root3over2 * r;
+		}
+
+		public static Vector2f hexCoordsToPixel(float q, float r) {
+			return new Vector2f((float) (root3 * q + root3over2 * r), (float) (1.5 * r));
 		}
 
 		@Override
