@@ -39,6 +39,14 @@ public class Knot extends VirtualPoint {
     }
 
     public void constructor(ArrayList<VirtualPoint> knotPointsToAdd, Shell shell, boolean setMatches) {
+        for (VirtualPoint vp : knotPointsToAdd) {
+            if (vp.isKnot && ((Knot) vp).knotPoints.size() == 2) {
+                float z = 0;
+            }
+        }
+        if (RunListUtils.containsID(knotPointsToAdd, 67)) {
+            float z = 0;
+        }
         this.shell = shell;
         if (setMatches) {
             if (knotPointsToAdd.get(0).match2 == null
@@ -259,13 +267,12 @@ public class Knot extends VirtualPoint {
 
     @Override
     public String fullString() {
-        return "" + this
-                + " match1: " + (match1 == null ? " none " : "" + match1)
-                + " match1endpoint: " + (match1endpoint == null ? " none " : "" + match1endpoint.id)
-                + " basepoint1: " + (basePoint1 == null ? " none " : "" + basePoint1.id)
-                + " match2: " + (match2 == null ? " none " : "" + match2)
-                + " match2endpoint: " + (match2endpoint == null ? " none " : "" + match2endpoint.id)
-                + " basepoint2: " + (basePoint2 == null ? " none " : "" + basePoint2.id);
+        return "" + this + " match1: " + (match1 == null ? " none " : "" + match1) + " match1endpoint: "
+                + (match1endpoint == null ? " none " : "" + match1endpoint.id) + " basepoint1: "
+                + (basePoint1 == null ? " none " : "" + basePoint1.id) + " match2: "
+                + (match2 == null ? " none " : "" + match2) + " match2endpoint: "
+                + (match2endpoint == null ? " none " : "" + match2endpoint.id) + " basepoint2: "
+                + (basePoint2 == null ? " none " : "" + basePoint2.id);
     }
 
     @Override
@@ -396,16 +403,12 @@ public class Knot extends VirtualPoint {
         // TBD: check for "==0", in which case is not defined?
         // Can that happen? Do we need to check other vertices / eliminate duplicate
         // vertices?
-        WindingOrder result = detOrient > 0
-                ? WindingOrder.Clockwise
-                : WindingOrder.CounterClockwise;
+        WindingOrder result = detOrient > 0 ? WindingOrder.Clockwise : WindingOrder.CounterClockwise;
         return result;
     }
 
     public enum WindingOrder {
-        None,
-        Clockwise,
-        CounterClockwise
+        None, Clockwise, CounterClockwise
     }
 
     // Find vertex along one edge of bounding box.

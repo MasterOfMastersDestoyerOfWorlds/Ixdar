@@ -1,6 +1,7 @@
 package shell.terminal.commands;
 
 import shell.exceptions.IdDoesNotExistException;
+import shell.exceptions.IdsNotConcurrentException;
 import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
 import shell.shell.Range;
@@ -33,17 +34,18 @@ public class MoveCommand extends TerminalCommand {
 
     @Override
     public int argLength() {
-        return 2;
+        return 3;
     }
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
         try {
-            Range idTarget = Range.parse(args[startIdx + 1]);
-            int idDest = Integer.parseInt(args[startIdx]);
-            Main.orgShell.moveBefore(idTarget, idDest);
+            Range idTarget = Range.parse(args[startIdx]);
+            int idDest1 = Integer.parseInt(args[startIdx + 1]);
+            int idDest2 = Integer.parseInt(args[startIdx + 2]);
+            Main.orgShell.moveBetween(idTarget, idDest1, idDest2);
             FileManagement.rewriteSolutionFile(Main.file, Main.orgShell);
-            return new String[] { "mb " + idTarget + " " };
+            return new String[] { "mv " + idTarget + " " };
 
         } catch (NumberFormatException e) {
             terminal.error("arguments are not integers: " + this.usage());
@@ -51,6 +53,8 @@ public class MoveCommand extends TerminalCommand {
             terminal.error("no point with id " + e.ID + " exists");
         } catch (TerminalParseException e) {
             terminal.error("could not parse range: " + e.message);
+        } catch (IdsNotConcurrentException e) {
+            terminal.error("point " + e.ID + " and point " + e.ID2 + " are not neighbors");
         }
         return null;
     }

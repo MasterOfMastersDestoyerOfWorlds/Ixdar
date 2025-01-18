@@ -16,9 +16,7 @@ public class Segment implements Comparable<Segment> {
     public double distance;
     public long id;
 
-    public Segment(VirtualPoint first,
-            VirtualPoint last,
-            double distance) {
+    public Segment(VirtualPoint first, VirtualPoint last, double distance) {
         this.first = first;
         this.last = last;
         this.distance = distance;
@@ -101,8 +99,8 @@ public class Segment implements Comparable<Segment> {
     }
 
     public boolean partialOverlaps(Segment cutSegment2) {
-        if ((cutSegment2.contains(first) && !cutSegment2.contains(last)) ||
-                (cutSegment2.contains(last) && !cutSegment2.contains(first))) {
+        if ((cutSegment2.contains(first) && !cutSegment2.contains(last))
+                || (cutSegment2.contains(last) && !cutSegment2.contains(first))) {
             return true;
         }
         return false;
@@ -215,10 +213,10 @@ public class Segment implements Comparable<Segment> {
         Vector2D bR = lastVec.subtract(normalUnitVector);
         Vector2D pointVector = new Vector2D(x, y);
 
-        if ((x - tL.getX()) * (tL.getY() - bL.getY()) + (y - tL.getY()) * (bL.getX() - tL.getX()) > 0 &&
-                (x - bL.getX()) * (bL.getY() - bR.getY()) + (y - bL.getY()) * (bR.getX() - bL.getX()) > 0 &&
-                (x - bR.getX()) * (bR.getY() - tR.getY()) + (y - bR.getY()) * (tR.getX() - bR.getX()) > 0 &&
-                (x - tR.getX()) * (tR.getY() - tL.getY()) + (y - tR.getY()) * (tL.getX() - tR.getX()) > 0) {
+        if ((x - tL.getX()) * (tL.getY() - bL.getY()) + (y - tL.getY()) * (bL.getX() - tL.getX()) > 0
+                && (x - bL.getX()) * (bL.getY() - bR.getY()) + (y - bL.getY()) * (bR.getX() - bL.getX()) > 0
+                && (x - bR.getX()) * (bR.getY() - tR.getY()) + (y - bR.getY()) * (tR.getX() - bR.getX()) > 0
+                && (x - tR.getX()) * (tR.getY() - tL.getY()) + (y - tR.getY()) * (tL.getX() - tR.getX()) > 0) {
             double result = Math.abs(
                     (y2 - y1) * pointVector.getX() - ((x2 - x1) * pointVector.getY()) + x2 * y1 - y2 * x1) / distance;
             return result;
@@ -250,6 +248,10 @@ public class Segment implements Comparable<Segment> {
     }
 
     public HyperString toHyperString(Color color, boolean labelAsSegment) {
+        return toHyperString(color, labelAsSegment, false);
+    }
+
+    public HyperString toHyperString(Color color, boolean labelAsSegment, boolean labelDistance) {
         HyperString h = new HyperString();
         Action clickAction = () -> {
             Main.camera.zoomToSegment(this);
@@ -260,6 +262,9 @@ public class Segment implements Comparable<Segment> {
             str += "Segment";
         }
         str += "[" + first.id + ":" + last.id + "]";
+        if (labelDistance) {
+            str += ", " + this.distance;
+        }
         h.addHoverSegment(str, color, this, clickAction);
         return h;
     }

@@ -28,6 +28,10 @@
 
 3. - [ ] Need some rule about joining single points to knots in runs since we are too greedily joining them in 2-knots
 
+4. - [ ] Need to replace "oneOutFlag" in VirtualPoint with a mapping so that we don't trigger over the same point twice. (Do we actually need to remove this?)
+
+5. - [ ] Need to have another method or re-write shouldKnotConsume so that if we see one of our matches instead of quitting we also check to see if that should be consumed, there is a three way check that needs to happen. rather if i am a point and I have am checking if i should be consumed by my neihgbor in the runlist and i run into the oneoutflag break down problems but I break on another knot in the runlist, have to think about what to do there should we form a knot wiht all three? Look at lu634_105-127.ix
+
 ## General Speedup
 
 1. - [ ] Add worker pool for every dijkstra's call we make (algorithm is somewhat embarrassingly parallel)

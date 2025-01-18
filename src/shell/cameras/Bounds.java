@@ -1,7 +1,5 @@
 package shell.cameras;
 
-import shell.ui.main.Main;
-
 public class Bounds {
     public float offsetX;
     public float offsetY;
@@ -33,9 +31,8 @@ public class Bounds {
     public boolean contains(float x, float y) {
         boolean inViewRightBound = x < viewWidth + offsetX;
         boolean inViewLeftBound = x > offsetX;
-        boolean inViewLowerBound = y > Main.MAIN_VIEW_OFFSET_Y;
-        boolean inViewUpperBound = y < Main.MAIN_VIEW_HEIGHT + Main.MAIN_VIEW_OFFSET_Y;
-        return inViewLeftBound && inViewRightBound && inViewLowerBound
-                && inViewUpperBound;
+        boolean inViewLowerBound = y > offsetY;
+        boolean inViewUpperBound = y < viewHeight + offsetY;
+        return inViewLeftBound && inViewRightBound && inViewLowerBound && inViewUpperBound;
     }
 }

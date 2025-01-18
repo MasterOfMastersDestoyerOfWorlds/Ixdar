@@ -6,6 +6,7 @@ import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Point;
+import shell.knot.Run;
 import shell.knot.VirtualPoint;
 import shell.objects.PointND;
 import shell.render.color.Color;
@@ -63,8 +64,7 @@ public class FreeTool extends Tool {
             coordPoint = ((Point) displayKP).p;
             final PointND coordPointF = ((Point) displayKP).p;
             pointInfo.addWord(coordPointF.toString());
-            h.addTooltip(displayKP.id + "", Color.BLUE_WHITE, pointInfo,
-                    () -> Main.camera.centerOnPoint(coordPointF));
+            h.addTooltip(displayKP.id + "", Color.BLUE_WHITE, pointInfo, () -> Main.camera.centerOnPoint(coordPointF));
         }
         h.newLine();
         h.addWord("Position:");
@@ -130,9 +130,17 @@ public class FreeTool extends Tool {
         h.newLine();
         if (Main.result.size() > 0) {
             h.addWord("TopKnot:");
-            VirtualPoint topStruct = Main.result.get(0);
-            if (topStruct.isKnot) {
-                h.addHyperString(((Knot) Main.result.get(0)).toHyperString());
+            for (VirtualPoint topStruct : Main.result) {
+                if (topStruct.isKnot) {
+                    h.newLine();
+                    h.newLine();
+                    h.addHyperString(((Knot) topStruct).toHyperString());
+                }
+                if (topStruct.isRun) {
+                    h.newLine();
+                    h.newLine();
+                    h.addHyperString(((Run) topStruct).toHyperString());
+                }
             }
         }
         h.wrap = true;
