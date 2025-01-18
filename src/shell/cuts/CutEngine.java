@@ -56,9 +56,8 @@ public class CutEngine {
             Segment s11 = knotPoint11.getClosestSegment(external1, null);
             Segment s12 = knotPoint12.getClosestSegment(external2, s11);
 
-            CutInfo c1 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, external1, knotPoint12,
-                    knotPoint11, cutSegment1,
-                    external2, knot, null);
+            CutInfo c1 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, external1, knotPoint12, knotPoint11,
+                    cutSegment1, external2, knot, null);
             SegmentBalanceException sbe = new SegmentBalanceException(shell, null, c1);
             BalanceMap balanceMap1 = new BalanceMap(knot, sbe);
             balanceMap1.addCut(knotPoint11, knotPoint12);
@@ -67,21 +66,18 @@ public class CutEngine {
             c1.balanceMap = balanceMap1;
 
             CutMatchList cutMatch1 = new CutMatchList(shell, sbe, c1.superKnot);
-            cutMatch1.addCutMatch(new Segment[] { cutSegment1 },
-                    new Segment[] { s11, s12 }, c1,
+            cutMatch1.addCutMatch(new Segment[] { cutSegment1 }, new Segment[] { s11, s12 }, c1,
                     "CutEngineSegmentsFullyOverlap1");
             double d1 = cutMatch1.delta;
 
             Segment s21 = knotPoint12.getClosestSegment(external1, null);
             Segment s22 = knotPoint11.getClosestSegment(external2, s21);
 
-            CutInfo c2 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint11,
-                    knotPoint12, cutSegment1,
-                    external2, knot, balanceMap1);
+            CutInfo c2 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint11, knotPoint12,
+                    cutSegment1, external2, knot, balanceMap1);
 
             CutMatchList cutMatch2 = new CutMatchList(shell, sbe, c2.superKnot);
-            cutMatch2.addCutMatch(new Segment[] { cutSegment1 },
-                    new Segment[] { s21, s22 }, c2,
+            cutMatch2.addCutMatch(new Segment[] { cutSegment1 }, new Segment[] { s21, s22 }, c2,
                     "CutEngineSegmentsFullyOverlap2");
             double d2 = cutMatch2.delta;
 
@@ -99,7 +95,7 @@ public class CutEngine {
             }
         }
         boolean ixdarSkip = true;
-        boolean answerSharing = true;
+        boolean answerSharing = false;
         boolean checkAnswer = true;
         for (int a = 0; a < knot.knotPoints.size(); a++) {
             for (int b = a; b < knot.knotPoints.size(); b++) {
@@ -131,14 +127,13 @@ public class CutEngine {
                     double d1 = Double.MAX_VALUE;
                     CutMatchList cutMatch1 = null;
 
-                    CutInfo c1 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, external1,
-                            knotPoint21, knotPoint22, cutSegment2, external2, knot, null);
+                    CutInfo c1 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, external1, knotPoint21,
+                            knotPoint22, cutSegment2, external2, knot, null);
                     double mind1 = c1.lowerMatchSegment.distance + c1.upperMatchSegment.distance + regDelta;
                     Pair<CutMatchList, RouteMap<Integer, RouteInfo>> internalCuts12 = null;
                     if ((mind1 < minDelta || !ixdarSkip) && c1.overlapOrientationCorrect) {
-                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
-                                null, null, c1,
-                                false, false, true);
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(null,
+                                null, c1, false, false, true);
                         internalCuts12 = temp.getSecond();
                         cutMatch1 = temp.getFirst();
                         d1 = cutMatch1.delta;
@@ -153,9 +148,8 @@ public class CutEngine {
                     CutInfo c2 = c1.copyAndSwapExternals();
                     double mind2 = c2.lowerMatchSegment.distance + c2.upperMatchSegment.distance + regDelta;
                     if ((mind2 < minDelta || !ixdarSkip) && c2.overlapOrientationCorrect) {
-                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
-                                null, internalCuts12, c2,
-                                false, false, true);
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(null,
+                                internalCuts12, c2, false, false, true);
                         internalCuts12 = temp.getSecond();
                         cutMatch2 = temp.getFirst();
                         d2 = cutMatch2.delta;
@@ -172,9 +166,8 @@ public class CutEngine {
                     double d3 = Double.MAX_VALUE;
                     double mind3 = c3.lowerMatchSegment.distance + c3.upperMatchSegment.distance + regDelta;
                     if ((mind3 < minDelta || !ixdarSkip) && c3.overlapOrientationCorrect) {
-                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
-                                null, null, c3,
-                                false, false, true);
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(null,
+                                null, c3, false, false, true);
                         internalCuts34 = temp.getSecond();
                         cutMatch3 = temp.getFirst();
                         d3 = cutMatch3.delta;
@@ -189,9 +182,8 @@ public class CutEngine {
                     double d4 = Double.MAX_VALUE;
                     double mind4 = c4.lowerMatchSegment.distance + c4.upperMatchSegment.distance + regDelta;
                     if ((mind4 < minDelta || !ixdarSkip) && c4.overlapOrientationCorrect) {
-                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
-                                null, internalCuts34, c4,
-                                false, false, true);
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(null,
+                                internalCuts34, c4, false, false, true);
                         internalCuts34 = temp.getSecond();
                         cutMatch4 = temp.getFirst();
                         d4 = cutMatch4.delta;
@@ -227,8 +219,8 @@ public class CutEngine {
                     }
                     shell.buff.flush();
 
-                    CutInfo c7 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1,
-                            knotPoint21, knotPoint22, cutSegment2, external2, knot, null);
+                    CutInfo c7 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint21,
+                            knotPoint22, cutSegment2, external2, knot, null);
                     double mind7 = c7.lowerMatchSegment.distance + c7.upperMatchSegment.distance + regDelta;
                     Pair<CutMatchList, RouteMap<Integer, RouteInfo>> internalCuts78 = null;
                     if ((mind7 < minDelta || !ixdarSkip) && c7.overlapOrientationCorrect) {
@@ -283,9 +275,8 @@ public class CutEngine {
 
     public Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> answerSharing(
             Pair<CutMatchList, RouteMap<Integer, RouteInfo>> cutsOld,
-            Pair<CutMatchList, RouteMap<Integer, RouteInfo>> cutsNew, CutInfo c,
-            boolean answerSharing, boolean checkAnswer, boolean knotPointsConnected)
-            throws SegmentBalanceException {
+            Pair<CutMatchList, RouteMap<Integer, RouteInfo>> cutsNew, CutInfo c, boolean answerSharing,
+            boolean checkAnswer, boolean knotPointsConnected) throws SegmentBalanceException {
         CutMatchList cutMatch = null;
         boolean isNull = true;
         if (cutsOld != null && answerSharing) {
@@ -322,8 +313,7 @@ public class CutEngine {
                 cutMatch = new CutMatchList(shell, c.sbe, c.superKnot);
                 try {
                     cutMatch.addCutMatch(new Segment[] { c.lowerCutSegment, c.upperCutSegment },
-                            new Segment[] { c.lowerMatchSegment, c.upperMatchSegment },
-                            cutMatchList, c, "CutEngine5");
+                            new Segment[] { c.lowerMatchSegment, c.upperMatchSegment }, cutMatchList, c, "CutEngine5");
                 } catch (SegmentBalanceException be) {
                     throw be;
                 }
@@ -333,37 +323,33 @@ public class CutEngine {
         }
         if (isNull) {
             if (cutsNew == null) {
-                cutsNew = internalPathEngine.calculateInternalPathLength(
-                        c.lowerKnotPoint, c.lowerCutPoint, c.lowerExternal,
-                        c.upperKnotPoint, c.upperCutPoint, c.upperExternal, c.knot, c.balanceMap, c,
+                cutsNew = internalPathEngine.calculateInternalPathLength(c.lowerKnotPoint, c.lowerCutPoint,
+                        c.lowerExternal, c.upperKnotPoint, c.upperCutPoint, c.upperExternal, c.knot, c.balanceMap, c,
                         knotPointsConnected);
             }
             cutMatch = new CutMatchList(shell, c.sbe, c.superKnot);
             cutMatch.addCutMatch(new Segment[] { c.lowerCutSegment, c.upperCutSegment },
-                    new Segment[] { c.lowerMatchSegment, c.upperMatchSegment },
-                    cutsNew.getFirst(), c, "CutEngine5");
+                    new Segment[] { c.lowerMatchSegment, c.upperMatchSegment }, cutsNew.getFirst(), c, "CutEngine5");
 
             countCalculated++;
         }
         if (answerSharing && checkAnswer) {
             if (cutsNew == null) {
 
-                cutsNew = internalPathEngine.calculateInternalPathLength(
-                        c.lowerKnotPoint, c.lowerCutPoint, c.lowerExternal,
-                        c.upperKnotPoint, c.upperCutPoint, c.upperExternal, c.knot, c.balanceMap, c,
+                cutsNew = internalPathEngine.calculateInternalPathLength(c.lowerKnotPoint, c.lowerCutPoint,
+                        c.lowerExternal, c.upperKnotPoint, c.upperCutPoint, c.upperExternal, c.knot, c.balanceMap, c,
                         knotPointsConnected);
                 CutMatchList cutMatchCheck = new CutMatchList(shell, c.sbe, c.superKnot);
                 cutMatchCheck.addCutMatch(new Segment[] { c.lowerCutSegment, c.upperCutSegment },
-                        new Segment[] { c.lowerMatchSegment, c.upperMatchSegment },
-                        cutsNew.getFirst(), c, "CutEngine5");
+                        new Segment[] { c.lowerMatchSegment, c.upperMatchSegment }, cutsNew.getFirst(), c,
+                        "CutEngine5");
 
                 if (cutMatchCheck.delta != cutMatch.delta) {
                     cutMatch = cutMatchCheck;
                 }
             }
         }
-        return new Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>>(cutMatch,
-                cutsNew);
+        return new Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>>(cutMatch, cutsNew);
 
     }
 
@@ -389,8 +375,8 @@ public class CutEngine {
                 VirtualPoint external2 = knot.match2;
 
                 if ((knot.getHeight() > 1)) {
-                    shell.buff.add("Need to simplify knots internally before matching : knot: " + knot
-                            + " external1: " + external1 + " external2: " + external2);
+                    shell.buff.add("Need to simplify knots internally before matching : knot: " + knot + " external1: "
+                            + external1 + " external2: " + external2);
                     Knot knotNew = flattenKnots(knot, external1, external2, knotList, layerNum);
                     int prevIdx = knotList.indexOf(knotNew) - 1;
                     if (prevIdx < 0) {

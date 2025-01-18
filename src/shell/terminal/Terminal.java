@@ -86,13 +86,10 @@ public class Terminal {
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private <E> void loadClassType(String packageName, ArrayList<E> list, Map<Class<E>, E> classMap, Class<E> type) {
-        InputStream stream = ClassLoader.getSystemClassLoader()
-                .getResourceAsStream(packageName.replaceAll("[.]", "/"));
+        InputStream stream = ClassLoader.getSystemClassLoader().getResourceAsStream(packageName.replaceAll("[.]", "/"));
         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
-        List<Class> commandClasses = reader.lines()
-                .filter(line -> line.endsWith(".class"))
-                .map(line -> getClass(line, packageName))
-                .collect(Collectors.toList());
+        List<Class> commandClasses = reader.lines().filter(line -> line.endsWith(".class"))
+                .map(line -> getClass(line, packageName)).collect(Collectors.toList());
         for (Class c : commandClasses) {
             if (!Modifier.isAbstract(c.getModifiers()) && !c.isEnum() && hasSuperClass(c, type)) {
                 try {
@@ -122,8 +119,7 @@ public class Terminal {
     @SuppressWarnings("rawtypes")
     private Class getClass(String className, String packageName) {
         try {
-            return Class.forName(packageName + "."
-                    + className.substring(0, className.lastIndexOf('.')));
+            return Class.forName(packageName + "." + className.substring(0, className.lastIndexOf('.')));
         } catch (ClassNotFoundException e) {
             // handle the exception
         }
@@ -267,7 +263,7 @@ public class Terminal {
     public static <E extends TerminalCommand> void runNoArgs(Class<E> cmd) {
         TerminalCommand tc = commandClassMap.get(cmd);
         if (tc.argLength() <= 0) {
-            tc.run(null, 0, Main.terminal);
+            tc.run(new String[] {}, 0, Main.terminal);
         }
     }
 }

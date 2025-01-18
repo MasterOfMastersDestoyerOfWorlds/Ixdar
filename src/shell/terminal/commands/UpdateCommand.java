@@ -11,6 +11,8 @@ public class UpdateCommand extends TerminalCommand {
 
     public static String cmd = "updt";
 
+    public static OptionList forceOptionAliases = new OptionList("f", "force");
+
     @Override
     public String fullName() {
         return "update";
@@ -28,21 +30,22 @@ public class UpdateCommand extends TerminalCommand {
 
     @Override
     public String usage() {
-        return "usage: updt|update";
+        return "usage: updt|update [f|force]";
     }
 
     @Override
     public int argLength() {
-        return 0;
+        return -1;
     }
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
+        boolean force = (args.length != startIdx) && forceOptionAliases.contains(args[startIdx]);
         if (Main.subPaths.size() == 1) {
             Shell ans = Main.subPaths.get(0);
             double oldLength = Main.orgShell.getLength();
             double newLength = ans.getLength();
-            if (oldLength > newLength) {
+            if (oldLength > newLength || force) {
                 FileManagement.appendAns(Main.file, ans);
                 Main.orgShell = ans;
                 terminal.history.addLine(oldLength + "New Shortest Tour Found", Color.COMMAND);

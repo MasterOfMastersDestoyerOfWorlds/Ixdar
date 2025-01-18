@@ -134,10 +134,10 @@ public class KeyGuy {
                     if (KeyActions.Reset.keyPressed(pressedKeys)) {
                         ResetCommand.run(ResetOption.Camera);
                     }
+                } else if (Toggle.IsTerminalFocused.value) {
+                    Main.terminal.keyPress(key, mods);
                 }
             }
-        } else if (Toggle.IsTerminalFocused.value) {
-            Main.terminal.keyPress(key, mods);
         }
         if (KeyActions.Back.keyPressed(pressedKeys) && Main.active) {
             Terminal.runNoArgs(ExitCommand.class);
@@ -208,8 +208,7 @@ public class KeyGuy {
         }
 
         if (main != null) {
-            long timeSinceLastPress = System.currentTimeMillis()
-                    - lastPressTime;
+            long timeSinceLastPress = System.currentTimeMillis() - lastPressTime;
             if (!pressedKeys.isEmpty() && timeSinceLastPress > REPRESS_TIME / SHIFT_MOD) {
                 lastPressTime = System.currentTimeMillis();
                 if (KeyActions.CycleToolLeft.keyPressed(pressedKeys)) {
@@ -224,14 +223,14 @@ public class KeyGuy {
 
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
         switch (action) {
-            case GLFW_PRESS:
-                keyPressed(key, mods);
-                break;
-            case GLFW_RELEASE:
-                keyReleased(key, mods);
-                break;
-            default:
-                break;
+        case GLFW_PRESS:
+            keyPressed(key, mods);
+            break;
+        case GLFW_RELEASE:
+            keyReleased(key, mods);
+            break;
+        default:
+            break;
         }
     }
 
