@@ -60,10 +60,6 @@
 
 ## Tools
 
-1. - [ ] Tools should specify what type of bounding boxes that they should use? (Segment rectangle versus radius from point?)
-
-2. - [ ] Each Tool should tell the user some information about what to do when using it in the message pool.
-
 ### Free Tool
 
 ![Complete](readme_img\complete.png)
@@ -95,6 +91,8 @@
 1. - [ ] If the manifold does not exist ask the user if they'd like to calculate it and add it to the file, otherwise reset without changes.
 
 2. - [x] Need to change the search to search for closest available to one the user inputted?
+
+3. - [ ] Need to change the manifold finding algo to always find the manifold with the first cut being the source in the routeMap.
 
 ### Knot Surface View Tool
 
@@ -202,7 +200,7 @@
 
 # Map Editor
 
-1. - [ ] Should have a grid what shows both horizontal and vertical lines as well as diagonal lines that have a slope of 1 (with this setup the diagonals would have length of root 2), or create a hexagon grid tessellated with equilateral triangles (all grid lengths have length 1)
+1. - [x] Should have a hexagon grid tessellated with equilateral triangles (all grid lengths have length 1)
 
 2. - [ ] Should have a feature that snaps all created or moved points to the grid
 
@@ -258,13 +256,13 @@
 
 3. - [ ] Lines between hex points can only follow the grid-lines
 
-4. - [ ] The grid of possible values should be tiled by equilateral triangles with side length 1
+4. - [x] The grid of possible values should be tiled by equilateral triangles with side length 1
 
 ## Show Grid-lines
 
-1. - [ ] new Option in the ixdar file type to show grid-lines on startup
+1. - [ ] new Option in the ixdar file type to show grid-lines on startup. If not specified defaulting to the cartesian grid and hidden initially.
 
-2. - [ ] Grid-lines should disappear at scales of ten (so if we zoom out from being able to see a 10 by 10 area to a 100 by 100 area there should be hte same number of grid-lines shown once we have some illegible density)
+2. - [ ] Grid-lines should disappear at multiples of three (so if we zoom out from being able to see a 10 by 10 area to a 100 by 100 area there should be hte same number of grid-lines shown once we have some illegible density)
 
 # City Info
 

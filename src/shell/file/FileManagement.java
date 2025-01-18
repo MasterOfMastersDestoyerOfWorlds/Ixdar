@@ -293,9 +293,21 @@ public class FileManagement {
         }
     }
 
-    public static void addPoints(ArrayList<PointND> points) {
+    public static void addPoints(ArrayList<PointND> points) throws TerminalParseException {
         for (int i = 0; i < points.size(); i++) {
             PointND pt = points.get(i);
+            if (grid == null) {
+                if (pt instanceof PointND.Double || pt instanceof PointND.Float) {
+                    grid = new Grid.CartesianGrid();
+                } else if (pt instanceof PointND.Hex) {
+                    grid = new Grid.HexGrid();
+                }
+            } else {
+                if (!grid.allowsPoint(pt)) {
+                    throw new TerminalParseException("Expected all points to be in: " + grid.allowableTypes()
+                            + " but found point of type: " + pt.getClass());
+                }
+            }
             pt.setID(index);
             lookUp.put(index, pt);
             lines.add(pt);

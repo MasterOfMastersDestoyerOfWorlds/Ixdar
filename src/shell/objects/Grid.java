@@ -10,12 +10,13 @@ import shell.ui.main.Main;
 @SuppressWarnings("rawtypes")
 public abstract class Grid {
 
+    private static final Color gridColor = Color.LIGHT_GRAY;
+
     public static class CartesianGrid extends Grid {
         @Override
         public String toCoordString() {
             return "X:" + (int) Main.camera.screenTransformX(Main.mouse.normalizedPosX - Main.MAIN_VIEW_OFFSET_X)
-                    + " Y:"
-                    + (int) Main.camera.screenTransformY(Main.mouse.normalizedPosY - Main.MAIN_VIEW_OFFSET_Y);
+                    + " Y:" + (int) Main.camera.screenTransformY(Main.mouse.normalizedPosY - Main.MAIN_VIEW_OFFSET_Y);
         }
 
         @Override
@@ -30,8 +31,39 @@ public abstract class Grid {
 
         @Override
         public void draw(Camera2D camera, float gridLineThickness) {
-            Drawing.drawScaledSegment(new Vector2f(0, 0), new Vector2f(1, 1), Color.RED, gridLineThickness,
-                    camera);
+            double[] hexCoordsTopLeft = new double[] { Main.camera.screenTransformX(0),
+                    Main.camera.screenTransformY(camera.getHeight()) };
+
+            double[] hexCoordsBotRight = new double[] { Main.camera.screenTransformX(camera.getWidth()),
+                    Main.camera.screenTransformY(0) };
+
+            double unitsPerPixel = Math.abs(hexCoordsTopLeft[0] - hexCoordsBotRight[0]) / camera.getWidth();
+            int gridBucketsLogLevel = (int) (Math.log10(unitsPerPixel * 1000)) - 1;
+            int mod = 1;
+            if (gridBucketsLogLevel >= 0) {
+                mod = (int) Math.pow(10, gridBucketsLogLevel);
+            }
+            int gridBucketsY = (int) Math.ceil(Math.abs(hexCoordsTopLeft[1] - hexCoordsBotRight[1])) / mod + 1;
+            int gridBucketsX = (int) Math.ceil(Math.abs(hexCoordsTopLeft[0] - hexCoordsBotRight[0])) / mod + 1;
+            int closestMultipleOfMod = (int) (Math.ceil(hexCoordsTopLeft[0] / mod) * mod);
+            for (int i = 0; i < gridBucketsX; i++) {
+                Vector2f top = new Vector2f(camera.pointTransformX(closestMultipleOfMod + (i * mod)),
+                        camera.getHeight());
+                Vector2f bot = new Vector2f(top.x, 0);
+
+                Drawing.drawScaledSegment(top, bot, gridColor, gridLineThickness, camera);
+
+            }
+
+            closestMultipleOfMod = (int) (Math.ceil(hexCoordsBotRight[1] / mod) * mod);
+            for (int i = 0; i < gridBucketsY; i++) {
+                Vector2f left = new Vector2f(camera.getWidth(),
+                        camera.pointTransformY(closestMultipleOfMod + (i * mod)));
+                Vector2f right = new Vector2f(0, left.y);
+
+                Drawing.drawScaledSegment(left, right, gridColor, gridLineThickness, camera);
+
+            }
         }
     }
 
@@ -41,8 +73,7 @@ public abstract class Grid {
             double[] hexCoords = PointND.Hex.pixelToHexCoords(
                     Main.camera.screenTransformX(Main.mouse.normalizedPosX - Main.MAIN_VIEW_OFFSET_X),
                     Main.camera.screenTransformY(Main.mouse.normalizedPosY - Main.MAIN_VIEW_OFFSET_Y));
-            return "Q:" + (hexCoords[0]) + " R:" + (hexCoords[1]) + " S:"
-                    + (hexCoords[2]);
+            return "Q:" + (hexCoords[0]) + " R:" + (hexCoords[1]) + " S:" + (hexCoords[2]);
         }
 
         @Override
@@ -57,37 +88,30 @@ public abstract class Grid {
 
         @Override
         public void draw(Camera2D camera, float gridLineThickness) {
-            Color gridColor = Color.LIGHT_GRAY;
-            double[] hexCoordsBotLeft = PointND.Hex.pixelToHexCoords(
-                    Main.camera.screenTransformX(0),
+            double[] hexCoordsBotLeft = PointND.Hex.pixelToHexCoords(Main.camera.screenTransformX(0),
                     Main.camera.screenTransformY(0));
 
-            double[] hexCoordsTopLeft = PointND.Hex.pixelToHexCoords(
-                    Main.camera.screenTransformX(0),
+            double[] hexCoordsTopLeft = PointND.Hex.pixelToHexCoords(Main.camera.screenTransformX(0),
                     Main.camera.screenTransformY(camera.getHeight()));
 
-            double[] hexCoordsTopRight = PointND.Hex.pixelToHexCoords(
-                    Main.camera.screenTransformX(camera.getWidth()),
+            double[] hexCoordsTopRight = PointND.Hex.pixelToHexCoords(Main.camera.screenTransformX(camera.getWidth()),
                     Main.camera.screenTransformY(camera.getHeight()));
 
-            double[] hexCoordsBotRight = PointND.Hex.pixelToHexCoords(
-                    Main.camera.screenTransformX(camera.getWidth()),
+            double[] hexCoordsBotRight = PointND.Hex.pixelToHexCoords(Main.camera.screenTransformX(camera.getWidth()),
                     Main.camera.screenTransformY(0));
             int gridBucketsQ = (int) Math.ceil(Math.abs(hexCoordsTopLeft[0] - hexCoordsBotRight[0]));
             int gridBucketsR = (int) Math.ceil(Math.abs(hexCoordsTopLeft[1] - hexCoordsBotRight[1]));
             int gridBucketsS = (int) Math.ceil(Math.abs(hexCoordsBotLeft[2] - hexCoordsTopRight[2]));
 
-            double[] hexCoordsMidPoint = PointND.Hex.pixelToHexCoords(
-                    Main.camera.screenTransformX(0),
+            double[] hexCoordsMidPoint = PointND.Hex.pixelToHexCoords(Main.camera.screenTransformX(0),
                     Main.camera.screenTransformY(camera.getHeight()));
 
             Vector2f leftDiagonal = PointND.Hex.getRightDownVector();
 
             Vector2f rightDiagonal = PointND.Hex.getRightUpVector();
 
-            float midcoord = camera
-                    .pointTransformX(PointND.Hex.hexCoordsToPixel((float) Math.floor(hexCoordsBotLeft[0]),
-                            (float) hexCoordsMidPoint[1]).x);
+            float midcoord = camera.pointTransformX(PointND.Hex
+                    .hexCoordsToPixel((float) Math.floor(hexCoordsBotLeft[0]), (float) hexCoordsMidPoint[1]).x);
             for (int i = 0; i < gridBucketsQ; i++) {
                 Vector2f botLeftPointSpace = PointND.Hex.hexCoordsToPixel((float) Math.floor(hexCoordsBotLeft[0]) + i,
                         (float) Math.floor(hexCoordsBotLeft[1]));
@@ -96,18 +120,14 @@ public abstract class Grid {
                 double[] hexCoordsOffsetTopLeft = PointND.Hex.pixelToHexCoords(camera.screenTransformX(botLeft.x),
                         camera.screenTransformY(botLeft.y));
                 Vector2f finalBotPointSpace = PointND.Hex.hexCoordsToPixel(
-                        (float) Math.floor(hexCoordsOffsetTopLeft[0]),
-                        (float) hexCoordsOffsetTopLeft[1]);
+                        (float) Math.floor(hexCoordsOffsetTopLeft[0]), (float) hexCoordsOffsetTopLeft[1]);
 
                 Vector2f finalBotLeft = new Vector2f(camera.pointTransformX(finalBotPointSpace.x),
                         camera.pointTransformY(finalBotPointSpace.y));
                 Vector2f topRight = new Vector2f(rightDiagonal).mul(camera.getWidth()).add(finalBotLeft);
 
                 // drawing rightup diagonal
-                Drawing.drawScaledSegment(finalBotLeft, topRight,
-                        gridColor,
-                        gridLineThickness,
-                        camera);
+                Drawing.drawScaledSegment(finalBotLeft, topRight, gridColor, gridLineThickness, camera);
             }
             for (int i = 0; i < gridBucketsS; i++) {
                 Vector2f topLeftPointSpace = PointND.Hex.hexCoordsToPixel((float) Math.floor(hexCoordsTopLeft[0]) + i,
@@ -118,36 +138,29 @@ public abstract class Grid {
                 double[] hexCoordsOffsetTopLeft = PointND.Hex.pixelToHexCoords(camera.screenTransformX(topLeft.x),
                         camera.screenTransformY(topLeft.y));
                 Vector2f finalTopPointSpace = PointND.Hex.hexCoordsToPixel(
-                        (float) Math.floor(hexCoordsOffsetTopLeft[0]),
-                        (float) hexCoordsOffsetTopLeft[1]);
+                        (float) Math.floor(hexCoordsOffsetTopLeft[0]), (float) hexCoordsOffsetTopLeft[1]);
 
                 Vector2f finalTopLeft = new Vector2f(camera.pointTransformX(finalTopPointSpace.x),
                         camera.pointTransformY(finalTopPointSpace.y));
                 Vector2f botRight = new Vector2f(leftDiagonal).mul(camera.getWidth()).add(finalTopLeft);
 
                 // drawing leftup diagonal
-                Drawing.drawScaledSegment(finalTopLeft, botRight,
-                        gridColor,
-                        gridLineThickness,
-                        camera);
+                Drawing.drawScaledSegment(finalTopLeft, botRight, gridColor, gridLineThickness, camera);
 
             }
 
             for (int i = 0; i < gridBucketsR; i++) {
                 Vector2f botRightPointSpace = PointND.Hex.hexCoordsToPixel((float) Math.floor(hexCoordsBotRight[0]),
                         (float) Math.ceil(hexCoordsBotRight[1]) + i);
-                Vector2f botRight = new Vector2f(camera.getWidth(),
-                        camera.pointTransformY(botRightPointSpace.y));
+                Vector2f botRight = new Vector2f(camera.getWidth(), camera.pointTransformY(botRightPointSpace.y));
                 Vector2f botLeft = new Vector2f(0, botRight.y);
 
-                // drawing leftup diagonal
-                Drawing.drawScaledSegment(botRight, botLeft,
-                        gridColor,
-                        gridLineThickness,
-                        camera);
+                // drawing horizontals
+                Drawing.drawScaledSegment(botRight, botLeft, gridColor, gridLineThickness, camera);
 
             }
         }
+
     }
 
     public abstract String toCoordString();
