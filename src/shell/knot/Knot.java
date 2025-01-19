@@ -74,6 +74,7 @@ public class Knot extends VirtualPoint {
         isKnot = true;
         isRun = false;
         this.topGroup = this;
+        this.topKnot = this;
         this.group = this;
         size = knotPoints.size();
         knotPointsFlattened = new ArrayList<VirtualPoint>();
@@ -128,6 +129,7 @@ public class Knot extends VirtualPoint {
             if (setMatches) {
                 vp.group = this;
                 vp.topGroup = this;
+                vp.topKnot = this;
                 for (VirtualPoint flat : vp.knotPointsFlattened) {
                     flat.topGroupVirtualPoint = vp;
                 }
@@ -137,6 +139,7 @@ public class Knot extends VirtualPoint {
         if (setMatches) {
             for (VirtualPoint p : knotPointsFlattened) {
                 p.topGroup = this;
+                p.topKnot = this;
             }
         }
         sortedSegments.sort(null);

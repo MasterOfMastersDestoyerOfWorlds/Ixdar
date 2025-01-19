@@ -6,7 +6,6 @@ import java.util.HashMap;
 
 import shell.render.text.HyperString;
 import shell.shell.Shell;
-import shell.utils.RunListUtils;
 
 public abstract class VirtualPoint {
     public int numMatches;
@@ -27,6 +26,7 @@ public abstract class VirtualPoint {
     public boolean isRun;
     public VirtualPoint group;
     public VirtualPoint topGroup;
+    public VirtualPoint topKnot;
     VirtualPoint topGroupVirtualPoint;
     Shell shell;
 
@@ -99,8 +99,7 @@ public abstract class VirtualPoint {
         int lowerSize = otherSize < this.size() ? otherSize : this.size();
         lowerSize = Math.max(2, lowerSize);
         int desiredCount = lowerSize * lowerSize;
-        // desiredCount = otherSize * this.size();
-        boolean oneOutFlag = false;
+        int oneOutFlag = -1;
         HashMap<Integer, Integer> countById = new HashMap<>();
         for (Segment s : this.sortedSegments) {
             VirtualPoint other = s.getOtherKnot(this);
@@ -109,9 +108,9 @@ public abstract class VirtualPoint {
                 continue;
             }
             if (!k.contains(other)) {
-                if (!oneOutFlag) {
-                    oneOutFlag = true;
-                } else {
+                if (oneOutFlag < 0) {
+                    oneOutFlag = other.topKnot.id;
+                } else if (other.topKnot.id != oneOutFlag) {
                     shell.buff.add("broke on this segment: " + s + " desired count: " + desiredCount + " org count: "
                             + k.knotPoints.size() + " sorted segments: " + this.sortedSegments);
                     return false;
@@ -134,16 +133,15 @@ public abstract class VirtualPoint {
         int otherSize = k.size();
         int lowerSize = otherSize < this.size() ? otherSize : this.size();
         lowerSize = Math.max(2, lowerSize);
-        int desiredCount = k.size() * this.size();
-        desiredCount = lowerSize * lowerSize;
+        int desiredCount = lowerSize * lowerSize;
         HashMap<Integer, Integer> count = new HashMap<>();
-        boolean oneOutFlag = false;
+        int oneOutFlag = -1;
         for (Segment s : k.sortedSegments) {
             VirtualPoint vp = s.getOtherKnot(k);
             VirtualPoint knotVp = s.getOther(vp);
             boolean continueFlag = false;
             int val = count.getOrDefault(knotVp.id, 0);
-            if (val >= k.size()) {
+            if (val >= otherSize) {
                 continue;
             }
             for (VirtualPoint eVP : exclude) {
@@ -156,9 +154,9 @@ public abstract class VirtualPoint {
                 continue;
             }
             if (!this.contains(vp)) {
-                if (!oneOutFlag) {
-                    oneOutFlag = true;
-                } else {
+                if (oneOutFlag < 0) {
+                    oneOutFlag = vp.topKnot.id;
+                } else if (vp.topKnot.id != oneOutFlag) {
                     shell.buff.add("broke on this segment: " + s + " desired count: " + desiredCount + " org count: "
                             + k.knotPoints.size() + " sorted segments: " + this.sortedSegments);
                     return false;
@@ -178,21 +176,20 @@ public abstract class VirtualPoint {
         int otherSize = k.size();
         int lowerSize = otherSize < this.size() ? otherSize : this.size();
         lowerSize = Math.max(2, lowerSize);
-        int desiredCount = k.size() * this.size();
-        desiredCount = lowerSize * lowerSize;
-        boolean oneOutFlag = false;
+        int desiredCount = lowerSize * lowerSize;
+        int oneOutFlag = -1;
         HashMap<Integer, Integer> count = new HashMap<>();
         for (Segment s : k.sortedSegments) {
             VirtualPoint vp = s.getOtherKnot(k);
             VirtualPoint knotVp = s.getOther(vp);
             int val = count.getOrDefault(knotVp.id, 0);
-            if (val >= k.size()) {
+            if (val >= otherSize) {
                 continue;
             }
             if (!this.contains(vp)) {
-                if (!oneOutFlag) {
-                    oneOutFlag = true;
-                } else {
+                if (oneOutFlag < 0) {
+                    oneOutFlag = vp.topKnot.id;
+                } else if (vp.topKnot.id != oneOutFlag) {
                     shell.buff.add("broke on this segment: " + s + " desired count: " + desiredCount + " org count: "
                             + k.knotPoints.size() + " sorted segments: " + this.sortedSegments);
                     return false;
@@ -517,6 +514,7 @@ public abstract class VirtualPoint {
         basePoint2 = null;
         group = this;
         topGroup = this;
+        topKnot = this;
         s1 = null;
         s2 = null;
     }

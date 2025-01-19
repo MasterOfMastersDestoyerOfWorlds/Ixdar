@@ -19,6 +19,7 @@ public class Point extends VirtualPoint {
         isRun = false;
         group = this;
         topGroup = this;
+        topKnot = this;
         topGroupVirtualPoint = this;
         this.externalVirtualPoints = new ArrayList<>();
         externalVirtualPoints.add(this);

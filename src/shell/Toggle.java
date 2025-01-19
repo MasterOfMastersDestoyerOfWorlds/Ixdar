@@ -15,7 +15,11 @@ public enum Toggle {
     CanSwitchLayer(true),
     IsMainFocused(true),
     IsTerminalFocused(false),
-    IsInfoFocused(false);
+    IsInfoFocused(false),
+    IxdarSkip(true),
+    IxdarMirrorAnswerSharing(false),
+    IxdarRotationalAnswerSharing(true),
+    IxdarCheckMirroredAnswerSharing(false);
 
     public boolean value;
 

@@ -7,6 +7,7 @@ import org.apache.commons.collections4.map.MultiKeyMap;
 import org.apache.commons.math3.util.Pair;
 
 import shell.BalanceMap;
+import shell.Toggle;
 import shell.cuts.enums.RouteType;
 import shell.cuts.route.Route;
 import shell.cuts.route.RouteInfo;
@@ -94,9 +95,9 @@ public class CutEngine {
                 minDelta = delta;
             }
         }
-        boolean ixdarSkip = true;
-        boolean answerSharing = false;
-        boolean checkAnswer = true;
+        boolean ixdarSkip = Toggle.IxdarSkip.value;
+        boolean answerSharing = Toggle.IxdarMirrorAnswerSharing.value;
+        boolean checkAnswer = Toggle.IxdarCheckMirroredAnswerSharing.value;
         for (int a = 0; a < knot.knotPoints.size(); a++) {
             for (int b = a; b < knot.knotPoints.size(); b++) {
                 VirtualPoint knotPoint11 = knot.knotPoints.get(a);

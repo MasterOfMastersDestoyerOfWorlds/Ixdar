@@ -4,10 +4,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import shell.render.color.Color;
-import shell.render.color.ColorRGB;
 import shell.render.text.HyperString;
 import shell.shell.Shell;
-import shell.ui.main.Main;
 import shell.utils.RunListUtils;
 
 public class Run extends VirtualPoint {

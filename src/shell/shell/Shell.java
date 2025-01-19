@@ -205,7 +205,7 @@ public class Shell extends LinkedList<PointND> {
                         }
                     }
                     if (runList.size() > 2) {
-                        if (RunListUtils.containsID(runList, 32)) {
+                        if (RunListUtils.containsID(runList, 26)) {
                             float z = 0;
                         }
                         for (int i = 0; i < runList.size() && runList.size() > 1; i++) {
