@@ -205,9 +205,10 @@ public class Shell extends LinkedList<PointND> {
                         }
                     }
                     if (runList.size() > 2) {
-                        if (RunListUtils.containsID(runList, 26)) {
+                        if (RunListUtils.containsID(runList, 5)) {
                             float z = 0;
                         }
+
                         for (int i = 0; i < runList.size() && runList.size() > 1; i++) {
 
                             VirtualPoint vp = runList.get(i);
@@ -257,8 +258,56 @@ public class Shell extends LinkedList<PointND> {
                                 // also in the runlist, form a knot!
                             }
                         }
-                    }
 
+                    }
+                    //TODO figure out if this makes sense
+                    if (true) {
+                        double minDistLeft = Double.MAX_VALUE;
+                        VirtualPoint leftEndMinPoint = null;
+                        VirtualPoint leftEnd = runList.get(0);
+                        boolean changed = false;
+                        if (!leftEnd.isKnot) {
+                            for (VirtualPoint runPoint : runList) {
+                                if (!leftEnd.hasMatch(runPoint) && leftEnd.id != runPoint.id) {
+                                    Segment s = runPoint.getClosestSegment(leftEnd, null);
+                                    if (s.distance < minDistLeft) {
+                                        leftEndMinPoint = runPoint;
+                                        minDistLeft = s.distance;
+                                        if (!runPoint.isKnot) {
+                                            changed = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (changed && leftEnd.shouldJoinEndsExclude(leftEndMinPoint, runList)) {
+                            knotFlag = true;
+                            makeHalfKnot(runList, leftEnd, leftEndMinPoint);
+                        }
+                        VirtualPoint rightEnd = runList.get(runList.size() - 1);
+                        double minDistRight = Double.MAX_VALUE;
+                        changed = false;
+                        VirtualPoint rightEndMinPoint = null;
+                        if (!rightEnd.isKnot) {
+                            for (VirtualPoint runPoint : runList) {
+                                if (!rightEnd.hasMatch(runPoint)
+                                        && rightEnd.id != runPoint.id) {
+                                    Segment s = runPoint.getClosestSegment(rightEnd, null);
+                                    if (s.distance < minDistRight) {
+                                        rightEndMinPoint = runPoint;
+                                        minDistRight = s.distance;
+                                        if (!runPoint.isKnot) {
+                                            changed = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (changed && rightEnd.shouldJoinEndsExclude(rightEndMinPoint, runList)) {
+                            knotFlag = true;
+                            makeHalfKnot(runList, rightEnd, rightEndMinPoint);
+                        }
+                    }
                     if (knotFlag) {
                         for (VirtualPoint vp : runList) {
                             vp.reset();

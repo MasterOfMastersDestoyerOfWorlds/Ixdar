@@ -307,7 +307,7 @@ public class Main {
         System.out.println("Ixdar profile time: " + ixdarProfileSeconds);
         System.out.println("Ixdar Profile %: " + 100 * (ixdarProfileSeconds / (ixdarSeconds)));
         System.out.println("Saved Answer Length: " + orgShell.getLength());
-        // System.out.println("Calculated Length: " + shell.getLength());
+        System.out.println("Calculated Length: " + shell.getLength());
         System.out.println("===============================================");
 
         System.out.println(shell.cutEngine.flatKnots);
@@ -522,7 +522,7 @@ public class Main {
             return Color.IXDAR;
         }
         int knotLayer = knotLayerLookup.get((long) smallestKnot.id);
-        if (knotLayer == -1) {
+        if (knotLayer < 0) {
             return Color.IXDAR;
         }
         return metroColors.get(knotLayer);

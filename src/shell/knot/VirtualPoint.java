@@ -171,6 +171,52 @@ public abstract class VirtualPoint {
         return true;
     }
 
+    public boolean shouldJoinEndsExclude(VirtualPoint other, ArrayList<VirtualPoint> runList) {
+        ArrayList<VirtualPoint> exclude = new ArrayList<>(runList);
+        exclude.remove(this);
+        exclude.remove(other);
+        int otherSize = other.size();
+        int lowerSize = otherSize < this.size() ? otherSize : this.size();
+        lowerSize = Math.max(2, lowerSize);
+        if (!other.isKnot && !this.isKnot) {
+            lowerSize = 1;
+        }
+        int desiredCount = lowerSize * lowerSize;
+        HashMap<Integer, Integer> count = new HashMap<>();
+        int oneOutFlag = -1;
+        for (Segment s : other.sortedSegments) {
+            VirtualPoint vp = s.getOtherKnot(other);
+            VirtualPoint knotVp = s.getOther(vp);
+            boolean continueFlag = false;
+            int val = count.getOrDefault(knotVp.id, 0);
+            if (val >= otherSize) {
+                continue;
+            }
+            for (VirtualPoint eVP : exclude) {
+                if (eVP.contains(vp)) {
+                    continueFlag = true;
+                    break;
+                }
+            }
+            if (continueFlag) {
+                continue;
+            }
+            if (!this.contains(vp)) {
+                if (oneOutFlag < 0) {
+                    oneOutFlag = vp.topKnot.id;
+                } else if (vp.topKnot.id != oneOutFlag) {
+                    return false;
+                }
+            }
+            count.put(knotVp.id, val + 1);
+            desiredCount--;
+            if (desiredCount == 0) {
+                return true;
+            }
+        }
+        return true;
+    }
+
     public boolean shouldKnotConsume(Knot k) {
         shell.buff.add(k.fullString());
         int otherSize = k.size();
