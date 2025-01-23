@@ -53,10 +53,20 @@ public class Knot extends VirtualPoint {
                     VirtualPoint lastKnotPoint = lastSeg.getOtherKnot(last);
                     Segment nextSeg = next.getClosestSegment(vp, lastSeg);
                     VirtualPoint nextKnotPoint = nextSeg.getOtherKnot(next);
-                    if ((vp1.contains(lastKnotPoint) && vp2.contains(nextKnotPoint))
-                            || (vp1.contains(nextKnotPoint) && vp2.contains(lastKnotPoint))) {
+                    if ((vp1.contains(lastKnotPoint) && vp2.contains(nextKnotPoint))) {
                         addList.add(vp1);
                         addList.add(vp2);
+                        vp1.resetMatch2();
+                        vp2.resetMatch2();
+                        next.reset(vp);
+                        last.reset(vp);
+                    } else if (vp1.contains(nextKnotPoint) && vp2.contains(lastKnotPoint)) {
+                        addList.add(vp2);
+                        addList.add(vp1);
+                        vp1.resetMatch2();
+                        vp2.resetMatch2();
+                        next.reset(vp);
+                        last.reset(vp);
                     } else {
                         addList.add(vp);
                     }

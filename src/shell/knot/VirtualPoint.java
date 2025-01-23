@@ -635,4 +635,19 @@ public abstract class VirtualPoint {
         return this.id == ((VirtualPoint) o).id;
     }
 
+    public void resetMatches() {
+        match1 = null;
+        match1endpoint = null;
+        basePoint1 = null;
+        match2 = null;
+        match2endpoint = null;
+        basePoint2 = null;
+    }
+
+    public void resetMatch2() {
+        match2 = null;
+        match2endpoint = null;
+        basePoint2 = null;
+    }
+
 }
