@@ -39,8 +39,13 @@ public class Knot extends VirtualPoint {
     }
 
     public void constructor(ArrayList<VirtualPoint> knotPointsToAdd, Shell shell, boolean setMatches) {
+        knotPointsToAdd = new ArrayList<>(knotPointsToAdd);
         ArrayList<VirtualPoint> addList = new ArrayList<>();
         int size = knotPointsToAdd.size();
+
+        if (RunListUtils.containsID(knotPointsToAdd, 78)) {
+            float z = 0;
+        }
         for (int i = 0; i < knotPointsToAdd.size(); i++) {
             VirtualPoint vp = knotPointsToAdd.get(i);
             if (vp.isKnot && ((Knot) vp).knotPoints.size() == 2) {
@@ -56,6 +61,11 @@ public class Knot extends VirtualPoint {
                     if ((vp1.contains(lastKnotPoint) && vp2.contains(nextKnotPoint))) {
                         addList.add(vp1);
                         addList.add(vp2);
+                        knotPointsToAdd.remove(i);
+                        knotPointsToAdd.add(i, vp2);
+                        knotPointsToAdd.add(i, vp1);
+                        size++;
+                        i++;
                         vp1.resetMatch2();
                         vp2.resetMatch2();
                         next.reset(vp);
@@ -63,6 +73,11 @@ public class Knot extends VirtualPoint {
                     } else if (vp1.contains(nextKnotPoint) && vp2.contains(lastKnotPoint)) {
                         addList.add(vp2);
                         addList.add(vp1);
+                        knotPointsToAdd.remove(i);
+                        knotPointsToAdd.add(i, vp1);
+                        knotPointsToAdd.add(i, vp2);
+                        size++;
+                        i++;
                         vp1.resetMatch2();
                         vp2.resetMatch2();
                         next.reset(vp);
@@ -76,9 +91,6 @@ public class Knot extends VirtualPoint {
             } else {
                 addList.add(vp);
             }
-        }
-        if (RunListUtils.containsID(addList, 67)) {
-            float z = 0;
         }
         this.shell = shell;
         if (setMatches) {
