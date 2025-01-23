@@ -260,7 +260,6 @@ public class Shell extends LinkedList<PointND> {
                         }
 
                     }
-                    //TODO figure out if this makes sense
                     if (true) {
                         double minDistLeft = Double.MAX_VALUE;
                         VirtualPoint leftEndMinPoint = null;

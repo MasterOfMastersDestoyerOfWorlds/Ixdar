@@ -41,7 +41,9 @@ public class Knot extends VirtualPoint {
     public void constructor(ArrayList<VirtualPoint> knotPointsToAdd, Shell shell, boolean setMatches) {
         for (VirtualPoint vp : knotPointsToAdd) {
             if (vp.isKnot && ((Knot) vp).knotPoints.size() == 2) {
-                float z = 0;
+                if (((Knot) vp).knotPoints.get(0).isKnot && ((Knot) vp).knotPoints.get(1).isKnot) {
+                    float z = 0;
+                }
             }
         }
         if (RunListUtils.containsID(knotPointsToAdd, 67)) {

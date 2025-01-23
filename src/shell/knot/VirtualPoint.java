@@ -93,6 +93,33 @@ public abstract class VirtualPoint {
         return s1;
     }
 
+    public boolean shouldJoinKnotStupid(Knot k) {
+        shell.buff.add(k.fullString());
+        int otherSize = k.size();
+        int lowerSize = otherSize < this.size() ? otherSize : this.size();
+        lowerSize = Math.max(2, lowerSize);
+        int desiredCount = lowerSize * lowerSize;
+        HashMap<Integer, Integer> countById = new HashMap<>();
+        for (Segment s : this.sortedSegments) {
+            VirtualPoint other = s.getOtherKnot(this);
+            VirtualPoint vp = s.getOther(other);
+            if (countById.getOrDefault(vp.id, 0) >= otherSize) {
+                continue;
+            }
+            if (!k.contains(other)) {
+                shell.buff.add("broke on this segment: " + s + " desired count: " + desiredCount + " org count: "
+                        + k.knotPoints.size() + " sorted segments: " + this.sortedSegments);
+                return false;
+            }
+            countById.put(vp.id, countById.getOrDefault(vp.id, 0) + 1);
+            desiredCount--;
+            if (desiredCount == 0) {
+                return true;
+            }
+        }
+        return true;
+    }
+
     public boolean shouldJoinKnot(Knot k) {
         shell.buff.add(k.fullString());
         int otherSize = k.size();
