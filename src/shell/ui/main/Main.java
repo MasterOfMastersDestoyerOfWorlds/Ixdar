@@ -117,6 +117,7 @@ public class Main {
     public static Terminal terminal;
     public static Info info;
     public static Grid grid;
+    public static int totalLayers = -1;
 
     public Main(String fileName) throws TerminalParseException {
         metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -188,7 +189,7 @@ public class Main {
             Toggle.CalculateKnot.value = false;
         }
         orgShell = retTup.tsp;
-
+        totalLayers = -1;
         shell = orgShell.copyShallow();
 
         shell.knotName = fileName;
@@ -250,8 +251,7 @@ public class Main {
             colorLookup.put((long) k.id, i);
             i++;
         }
-
-        int totalLayers = shell.cutEngine.totalLayers;
+        
         if (totalLayers == -1) {
             totalLayers = shell.cutEngine.totalLayers;
         }
@@ -411,7 +411,7 @@ public class Main {
     }
 
     public static void drawDisplayedKnots(Camera2D camera) {
-        if (knotDrawLayer == shell.cutEngine.totalLayers) {
+        if (knotDrawLayer == totalLayers) {
             if (tool.canUseToggle(Toggle.DrawKnotGradient) && manifoldKnot != null) {
                 ArrayList<Pair<Long, Long>> idTransform = lookupPairs(manifoldKnot);
                 Drawing.drawGradientPath(manifoldKnot, idTransform, colorLookup, knotGradientColors, camera,
@@ -554,6 +554,9 @@ public class Main {
                     Shell temp = shell.cutKnot((Knot) vp);
                     System.out.println("Knot: " + temp + " Length: " + temp.getLength());
                     subPaths.add(temp);
+                    if (vp.getHeight() > totalLayers) {
+                        totalLayers = vp.getHeight();
+                    }
                 }
                 if (vp.isRun) {
                     Run run = (Run) vp;
@@ -563,6 +566,9 @@ public class Main {
                             Shell temp = shell.cutKnot((Knot) sub);
                             subPaths.add(temp);
                             System.out.println("Knot: " + temp + " Length: " + temp.getLength());
+                            if (sub.getHeight() > totalLayers) {
+                                totalLayers = sub.getHeight();
+                            }
                         }
 
                     }
@@ -682,7 +688,7 @@ public class Main {
     public static void setDrawLevelToKnot(Knot k) {
         Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.cutEngine.knotToFlatKnot.get(k.id));
         if (smallestKnot == null) {
-            knotDrawLayer = Main.shell.cutEngine.totalLayers;
+            knotDrawLayer = totalLayers;
         } else {
             knotDrawLayer = knotLayerLookup.get((long) smallestKnot.id);
         }
@@ -693,7 +699,7 @@ public class Main {
         if (Main.knotDrawLayer != -1) {
             Main.knotDrawLayer = -1;
         } else {
-            Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
+            Main.knotDrawLayer = totalLayers;
         }
         updateKnotsDisplayed();
     }

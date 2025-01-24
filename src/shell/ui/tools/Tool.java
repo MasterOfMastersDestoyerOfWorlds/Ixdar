@@ -284,8 +284,8 @@ public abstract class Tool {
                 }
             } else {
                 Main.knotDrawLayer++;
-                if (Main.knotDrawLayer > Main.shell.cutEngine.totalLayers) {
-                    Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
+                if (Main.knotDrawLayer > Main.totalLayers) {
+                    Main.knotDrawLayer = Main.totalLayers;
                 }
                 if (Main.knotDrawLayer < 1) {
                     Main.knotDrawLayer = 1;
@@ -304,7 +304,7 @@ public abstract class Tool {
                 }
             } else {
                 if (Main.knotDrawLayer == -1) {
-                    Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
+                    Main.knotDrawLayer = Main.totalLayers;
                 } else {
                     Main.knotDrawLayer--;
                     if (Main.knotDrawLayer < 1) {
