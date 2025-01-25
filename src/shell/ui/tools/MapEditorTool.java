@@ -70,10 +70,10 @@ public class MapEditorTool extends Tool {
         displayRouteBeta = null;
         Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
         Main.updateKnotsDisplayed();
-        instruct();
         pointCollectionClassMap = Terminal.pointCollectionClassMap;
         currentCollectionType = Main.grid.allowableTypes()[0];
         currentCollection = pointCollectionClassMap.get(currentCollectionType);
+        instruct();
     }
 
     @Override
@@ -96,7 +96,7 @@ public class MapEditorTool extends Tool {
     public void instruct() {
         switch (state) {
         case Add:
-            Main.terminal.instruct("Add " + currentCollection.fullName() + " to the grid.");
+            Main.terminal.instruct("Add a " + currentCollection.fullName() + " to the grid by clicking.");
         case Delete:
             Main.terminal.instruct("Select any group and press enter to remove it from the grid.");
         case Group:
@@ -104,7 +104,7 @@ public class MapEditorTool extends Tool {
         case UnGroup:
             Main.terminal.instruct("Select any group and press enter to ungroup them.");
         case Move:
-            Main.terminal.instruct("Select any group and press enter to ungroup them.");
+            Main.terminal.instruct("Select any point or group and drag to move it.");
         default:
             Main.terminal.clearInstruct();
             break;
