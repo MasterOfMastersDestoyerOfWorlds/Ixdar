@@ -25,6 +25,7 @@ public class SDFLine {
     public float dashRate;
     public boolean endCaps;
     private float edgeDist;
+    public boolean culling = true;
 
     public SDFLine() {
         shader = ShaderType.LineSDF.shader;
@@ -55,73 +56,76 @@ public class SDFLine {
     }
 
     public void draw(Vector2f pA, Vector2f pB, Color c, Color c2, Camera camera) {
-        boolean containsA = camera.contains(pA);
-        boolean containsB = camera.contains(pB);
-        if (!containsA || !containsB) {
-            // Test square intersection
-            float width = camera.getWidth();
-            float height = camera.getHeight();
-            Vector2f botLeft = new Vector2f(0, 0);
-            Vector2f topLeft = new Vector2f(0, height);
-            Vector2f topRight = new Vector2f(width, height);
-            Vector2f botRight = new Vector2f(width, 0);
-            Pair<Boolean, Vector2f> right = get_line_intersection(pA, pB, topRight, botRight);
-            Pair<Boolean, Vector2f> left = get_line_intersection(pA, pB, topLeft, botLeft);
-            Pair<Boolean, Vector2f> up = get_line_intersection(pA, pB, topLeft, topRight);
-            Pair<Boolean, Vector2f> down = get_line_intersection(pA, pB, botLeft, botRight);
-            Vector2f dir = new Vector2f(pA).sub(pB).normalize().mul(width);
+        if (culling) {
+            boolean containsA = camera.contains(pA);
+            boolean containsB = camera.contains(pB);
+            if (!containsA || !containsB) {
+                // Test square intersection
+                float width = camera.getWidth();
+                float height = camera.getHeight();
+                Vector2f botLeft = new Vector2f(0, 0);
+                Vector2f topLeft = new Vector2f(0, height);
+                Vector2f topRight = new Vector2f(width, height);
+                Vector2f botRight = new Vector2f(width, 0);
+                Pair<Boolean, Vector2f> right = get_line_intersection(pA, pB, topRight, botRight);
+                Pair<Boolean, Vector2f> left = get_line_intersection(pA, pB, topLeft, botLeft);
+                Pair<Boolean, Vector2f> up = get_line_intersection(pA, pB, topLeft, topRight);
+                Pair<Boolean, Vector2f> down = get_line_intersection(pA, pB, botLeft, botRight);
+                float diagonalDistance = botLeft.distance(topRight);
+                Vector2f dir = new Vector2f(pA).sub(pB).normalize().mul(diagonalDistance);
 
-            if (right.getFirst()) {
-                if (containsA) {
-                    pB = right.getSecond();
-                } else if (containsB) {
-                    pA = right.getSecond();
-                } else {
-                    pA = right.getSecond();
-                    pB = new Vector2f(pA).add(dir);
-                    if (pB.x > width) {
-                        pB = new Vector2f(pA).add(dir.negate());
+                if (right.getFirst()) {
+                    if (containsA) {
+                        pB = right.getSecond();
+                    } else if (containsB) {
+                        pA = right.getSecond();
+                    } else {
+                        pA = right.getSecond();
+                        pB = new Vector2f(pA).add(dir);
+                        if (pB.x > width) {
+                            pB = new Vector2f(pA).add(dir.negate());
+                        }
                     }
-                }
-            } else if (left.getFirst()) {
-                if (containsA) {
-                    pB = left.getSecond();
-                } else if (containsB) {
-                    pA = left.getSecond();
-                } else {
-                    pA = left.getSecond();
-                    pB = new Vector2f(pA).add(dir);
-                    if (pB.x < 0) {
-                        pB = new Vector2f(pA).add(dir.negate());
+                } else if (left.getFirst()) {
+                    if (containsA) {
+                        pB = left.getSecond();
+                    } else if (containsB) {
+                        pA = left.getSecond();
+                    } else {
+                        pA = left.getSecond();
+                        pB = new Vector2f(pA).add(dir);
+                        if (pB.x < 0) {
+                            pB = new Vector2f(pA).add(dir.negate());
+                        }
                     }
-                }
-            } else if (up.getFirst()) {
+                } else if (up.getFirst()) {
 
-                if (containsA) {
-                    pB = up.getSecond();
-                } else if (containsB) {
-                    pA = up.getSecond();
-                } else {
-                    pA = up.getSecond();
-                    pB = new Vector2f(pA).add(dir);
-                    if (pB.y > height) {
-                        pB = new Vector2f(pA).add(dir.negate());
+                    if (containsA) {
+                        pB = up.getSecond();
+                    } else if (containsB) {
+                        pA = up.getSecond();
+                    } else {
+                        pA = up.getSecond();
+                        pB = new Vector2f(pA).add(dir);
+                        if (pB.y > height) {
+                            pB = new Vector2f(pA).add(dir.negate());
+                        }
                     }
-                }
-            } else if (down.getFirst()) {
-                if (containsA) {
-                    pB = down.getSecond();
-                } else if (containsB) {
-                    pA = down.getSecond();
-                } else {
-                    pA = down.getSecond();
-                    pB = new Vector2f(pA).add(dir);
-                    if (pB.y < 0) {
-                        pB = new Vector2f(pA).add(dir.negate());
+                } else if (down.getFirst()) {
+                    if (containsA) {
+                        pB = down.getSecond();
+                    } else if (containsB) {
+                        pA = down.getSecond();
+                    } else {
+                        pA = down.getSecond();
+                        pB = new Vector2f(pA).add(dir);
+                        if (pB.y < 0) {
+                            pB = new Vector2f(pA).add(dir.negate());
+                        }
                     }
+                } else {
+                    return;
                 }
-            } else {
-                return;
             }
         }
         shader.use();
@@ -166,6 +170,7 @@ public class SDFLine {
     public void setStroke(float lineWidth, boolean dashed) {
         this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS / 3f);
         this.dashed = dashed;
+        edgeDist = 0.35f;
         setUniforms();
     }
 

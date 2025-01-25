@@ -95,6 +95,7 @@ public class FileManagement {
     static int lineNumber;
     static ArrayList<Integer> duplicatePointIndexes;
     static boolean removeDuplicates;
+    static boolean showGrid;
     static ArrayList<PointND> lines;
     static Grid grid;
 
@@ -114,6 +115,7 @@ public class FileManagement {
         lineNumber = 1;
         duplicatePointIndexes = new ArrayList<>();
         removeDuplicates = false;
+        showGrid = false;
         lines = new ArrayList<PointND>();
     }
 
@@ -221,6 +223,9 @@ public class FileManagement {
                         if (args[1].equals("REMOVE_DUPLICATES")) {
                             removeDuplicates = true;
                         }
+                        if (args[1].equals("SHOW_GRID")) {
+                            showGrid = true;
+                        }
 
                     } else if (args[0].contains("//")) {
                         comments.add(line);
@@ -252,6 +257,13 @@ public class FileManagement {
             }
             if (removeDuplicates && duplicatePointIndexes.size() > 0) {
                 removeDuplicates(f, duplicatePointIndexes);
+            }
+            if (showGrid) {
+                grid.showGrid();
+            }
+            if (grid == null) {
+                grid = new Grid.HexGrid();
+                grid.showGrid();
             }
             return new PointSetPath(ps, path, tsp, d, manifolds, comments, grid);
         } catch (NumberFormatException | IOException | FileParseException e) {

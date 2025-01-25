@@ -7,7 +7,7 @@ import shell.terminal.Terminal;
 
 public class CheckCommand extends TerminalCommand {
 
-    public static String cmd = "ck";
+    public static String cmd = "chk";
 
     @Override
     public String fullName() {
@@ -26,7 +26,7 @@ public class CheckCommand extends TerminalCommand {
 
     @Override
     public String usage() {
-        return "usage: ck|check [value to display or question to ask(Value|Question)]";
+        return "usage: chk|check [value to display or question to ask(Value|Question)]";
     }
 
     @Override

@@ -132,6 +132,7 @@ public class Main {
         info = new Info();
         tempFile = FileManagement.getTempFile(fileName);
         Main.tempFileName = tempFile.getName();
+        PointND.resetIds();
         if (fileName.isBlank()) {
             retTup = FileManagement.importFromFile(tempFile);
             terminal = new Terminal(tempFile);
@@ -239,7 +240,7 @@ public class Main {
 
         }
         shell.buff.flush();
-
+        retTup.grid.init();
         Random colorSeed = new Random();
 
         int numKnots = flatKnots.size();
@@ -515,9 +516,9 @@ public class Main {
     public static Color getMetroColor(VirtualPoint displayPoint, Knot k) {
         if (knotDrawLayer < 0) {
             Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
-            return metroColors.get(knotLayerLookup.get((long) smallestKnot.id));
+            return metroColors.get(knotLayerLookup.get(smallestKnot.id));
         } else {
-            return metroColors.get(knotLayerLookup.get((long) k.id));
+            return metroColors.get(knotLayerLookup.get(k.id));
         }
     }
 
@@ -526,7 +527,7 @@ public class Main {
         if (smallestKnot == null) {
             return Color.IXDAR;
         }
-        int knotLayer = knotLayerLookup.get((long) smallestKnot.id);
+        int knotLayer = knotLayerLookup.get(smallestKnot.id);
         if (knotLayer < 0) {
             return Color.IXDAR;
         }
@@ -695,7 +696,7 @@ public class Main {
         if (smallestKnot == null) {
             knotDrawLayer = totalLayers;
         } else {
-            knotDrawLayer = knotLayerLookup.get((long) smallestKnot.id);
+            knotDrawLayer = knotLayerLookup.get(smallestKnot.id);
         }
         updateKnotsDisplayed();
     }

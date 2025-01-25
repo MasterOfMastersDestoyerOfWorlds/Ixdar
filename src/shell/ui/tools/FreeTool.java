@@ -49,7 +49,6 @@ public class FreeTool extends Tool {
 
     @Override
     public void confirm() {
-        Main.calculateSubPaths();
     }
 
     @Override

@@ -2,12 +2,12 @@ package shell.objects;
 
 import org.joml.Vector2f;
 
+import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.render.color.Color;
 import shell.ui.Drawing;
 import shell.ui.main.Main;
 
-@SuppressWarnings("rawtypes")
 public abstract class Grid {
 
     private static final Color gridColor = Color.LIGHT_GRAY;
@@ -24,8 +24,9 @@ public abstract class Grid {
             return pt instanceof PointND.Double || pt instanceof PointND.Float;
         }
 
+        @SuppressWarnings("unchecked")
         @Override
-        public Class[] allowableTypes() {
+        public Class<? extends PointCollection>[] allowableTypes() {
             return new Class[] { PointND.Double.class, PointND.Float.class };
         }
 
@@ -46,6 +47,8 @@ public abstract class Grid {
             int gridBucketsY = (int) Math.ceil(Math.abs(hexCoordsTopLeft[1] - hexCoordsBotRight[1])) / mod + 1;
             int gridBucketsX = (int) Math.ceil(Math.abs(hexCoordsTopLeft[0] - hexCoordsBotRight[0])) / mod + 1;
             int closestMultipleOfMod = (int) (Math.ceil(hexCoordsTopLeft[0] / mod) * mod);
+
+            Drawing.sdfLine.culling = false;
             for (int i = 0; i < gridBucketsX; i++) {
                 Vector2f top = new Vector2f(camera.pointTransformX(closestMultipleOfMod + (i * mod)),
                         camera.getHeight());
@@ -64,6 +67,7 @@ public abstract class Grid {
                 Drawing.drawScaledSegment(left, right, gridColor, gridLineThickness, camera);
 
             }
+            Drawing.sdfLine.culling = true;
         }
     }
 
@@ -81,8 +85,9 @@ public abstract class Grid {
             return pt instanceof PointND.Hex;
         }
 
+        @SuppressWarnings("unchecked")
         @Override
-        public Class[] allowableTypes() {
+        public Class<? extends PointCollection>[] allowableTypes() {
             return new Class[] { PointND.Hex.class };
         }
 
@@ -109,7 +114,7 @@ public abstract class Grid {
             Vector2f leftDiagonal = PointND.Hex.getRightDownVector();
 
             Vector2f rightDiagonal = PointND.Hex.getRightUpVector();
-
+            Drawing.sdfLine.culling = false;
             float midcoord = camera.pointTransformX(PointND.Hex
                     .hexCoordsToPixel((float) Math.floor(hexCoordsBotLeft[0]), (float) hexCoordsMidPoint[1]).x);
             for (int i = 0; i < gridBucketsQ; i++) {
@@ -159,15 +164,26 @@ public abstract class Grid {
                 Drawing.drawScaledSegment(botRight, botLeft, gridColor, gridLineThickness, camera);
 
             }
+            Drawing.sdfLine.culling = true;
         }
 
+    }
+
+    public boolean showGrid = false;
+
+    public void showGrid() {
+        showGrid = true;
+    }
+
+    public void init() {
+        Toggle.DrawGridLines.value = showGrid;
     }
 
     public abstract String toCoordString();
 
     public abstract boolean allowsPoint(PointND pt);
 
-    public abstract Class[] allowableTypes();
+    public abstract Class<? extends PointCollection>[] allowableTypes();
 
     public abstract void draw(Camera2D camera, float gridLineThickness);
 }

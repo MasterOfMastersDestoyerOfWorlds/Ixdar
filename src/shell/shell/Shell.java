@@ -24,7 +24,6 @@ import shell.knot.VirtualPoint;
 import shell.objects.PointND;
 import shell.utils.RunListUtils;
 import shell.utils.StringBuff;
-import shell.utils.Utils;
 
 /**
  * This class represents a list of some points in the point set. Initially each
@@ -205,9 +204,6 @@ public class Shell extends LinkedList<PointND> {
                         }
                     }
                     if (runList.size() > 2) {
-                        if (RunListUtils.containsID(runList, 5)) {
-                            float z = 0;
-                        }
 
                         for (int i = 0; i < runList.size() && runList.size() > 1; i++) {
 

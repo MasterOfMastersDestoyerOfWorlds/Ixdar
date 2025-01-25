@@ -56,6 +56,8 @@
 
 2. - [ ] line segments have jagged edges.
 
+3. - [ ] bug on line culling where the colors flip directions when touching multiple sides of the screen
+
 ## Features
 
 1. - [ ] VK_O should swap between showing the calculated cutMatch and the one stored in the file and use opposite colors on the color wheel to represent the cutMatch?
@@ -112,13 +114,19 @@
 
 ## Terminal Panel
 
+### Keyboard Input
+
+1. - [ ] Should be able to hold down a key and see it repeatedly type
+
 ### Commands
 
 1. - [x] Every command + key action should also be accessible from the terminal
 
-2. - [ ] Should be like a terminal where you can ask questions about the knot you are looking at.
+2. - [x] Should be like a terminal where you can ask questions about the knot you are looking at.
 
 3. - [x] Make Unit Tests Command
+
+4. - [ ] Make a comment on file command
 
 ### Tab Completion
 
@@ -162,7 +170,7 @@
 
 1. - [ ] Should be rounded rectangle
 
-2. - [ ] Should have some constant padding amount
+2. - [x] Should have some constant padding amount
 
 3. - [ ] Should fade text at bottom if too long
 
@@ -224,7 +232,7 @@
 
 2. - [ ] Line rendering, need to prevent alpha adding on line endpoint intersections when using transparency
 
-3. - [ ] Line rendering, need to divide large line boxes into segments so that wew don't get flickering when doing the sdf.
+3. - [x] Line rendering, need to divide large line boxes into segments so that wew don't get flickering when doing the sdf.
 
 ## 3D Graphics
 
@@ -264,7 +272,7 @@
 
 ## Show Grid-lines
 
-1. - [ ] new Option in the ixdar file type to show grid-lines on startup. If not specified defaulting to the cartesian grid and hidden initially.
+1. - [x] new Option in the ixdar file type to show grid-lines on startup. If not specified defaulting to the cartesian grid and hidden initially.
 
 2. - [ ] Grid-lines should disappear at multiples of three (so if we zoom out from being able to see a 10 by 10 area to a 100 by 100 area there should be hte same number of grid-lines shown once we have some illegible density)
 

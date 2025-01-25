@@ -94,6 +94,12 @@ public class Camera2D implements Camera {
         minY = java.lang.Float.MAX_VALUE;
         maxX = 0;
         maxY = 0;
+        if (ps.size() == 0) {
+            minX = -10;
+            minY = -10;
+            maxX = 10;
+            maxY = 10;
+        }
         for (PointND pn : ps) {
             if (!pn.isDummyNode()) {
                 Point2D p = pn.toPoint2D();
@@ -121,7 +127,6 @@ public class Camera2D implements Camera {
 
         if (rangeX > rangeY) {
             rangeY = rangeX;
-
         } else {
             rangeX = rangeY;
         }
@@ -132,6 +137,14 @@ public class Camera2D implements Camera {
         minY = java.lang.Float.MAX_VALUE;
         maxX = 0;
         maxY = 0;
+        boolean empty = ps.size() == 0;
+        if (empty) {
+            minX = -10;
+            minY = -10;
+            maxX = 10;
+            maxY = 10;
+        }
+
         for (PointND pn : ps) {
             if (!pn.isDummyNode()) {
                 Point2D p = pn.toPoint2D();
@@ -161,7 +174,6 @@ public class Camera2D implements Camera {
         } else {
             rangeX = rangeY;
         }
-
         offsetX += (Width - (Math.abs(pointTransformX(maxX) - pointTransformX(minX)))) / 2;
         offsetY += (Height - (Math.abs(pointTransformY(maxY) - pointTransformY(minY)))) / 2;
 
@@ -330,6 +342,7 @@ public class Camera2D implements Camera {
     }
 
     // transform from point space to screen space
+    @Override
     public float pointTransformX(float x) {
         return ((((x - minX) * width) / rangeX) + offsetX);
     }
@@ -350,6 +363,7 @@ public class Camera2D implements Camera {
     }
 
     // transform from point space to screen space
+    @Override
     public float pointTransformY(float y) {
         return ((((y - minY) * height) / rangeY) + offsetY);
     }
@@ -504,6 +518,7 @@ public class Camera2D implements Camera {
         ScreenOffsetY = y;
     }
 
+    @Override
     public Bounds getBounds() {
         return viewBounds;
     }
