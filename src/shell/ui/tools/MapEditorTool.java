@@ -113,7 +113,7 @@ public class MapEditorTool extends Tool {
 
     @Override
     public void calculateClick(float mouseX, float mouseY) {
-        
+
     }
 
     @Override
@@ -129,14 +129,19 @@ public class MapEditorTool extends Tool {
         switch (state) {
         case Add:
             Main.terminal.instruct("Add a " + currentCollection.fullName() + " to the grid by clicking.");
+            break;
         case Delete:
             Main.terminal.instruct("Select any group and press enter to remove it from the grid.");
+            break;
         case Group:
             Main.terminal.instruct("Select any number of points and groups and press enter to group them together.");
+            break;
         case UnGroup:
             Main.terminal.instruct("Select any group and press enter to ungroup them.");
+            break;
         case Move:
             Main.terminal.instruct("Select any point or group and drag to move it.");
+            break;
         default:
             Main.terminal.clearInstruct();
             break;
