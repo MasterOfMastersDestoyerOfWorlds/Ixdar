@@ -484,6 +484,7 @@ public class Shell extends LinkedList<PointND> {
             buff.add("visited:" + visited);
             buff.add("================= - Layer: " + idx + " - =================\n");
             if (idx == 30) {
+                System.out.println("Recursion Limit REACHED");
                 float zero = 1 / 0;
             }
             idx++;

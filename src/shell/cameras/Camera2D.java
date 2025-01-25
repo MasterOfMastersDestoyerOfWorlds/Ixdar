@@ -3,6 +3,8 @@ package shell.cameras;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 
+import org.joml.Vector2f;
+
 import shell.PointSet;
 import shell.knot.Knot;
 import shell.knot.Point;
@@ -383,18 +385,18 @@ public class Camera2D implements Camera {
 
         double d = Clock.deltaTime();
         switch (direction) {
-            case FORWARD:
-                PanY += PAN_SPEED * SHIFT_MOD * d;
-                break;
-            case LEFT:
-                PanX -= PAN_SPEED * SHIFT_MOD * d;
-                break;
-            case BACKWARD:
-                PanY -= PAN_SPEED * SHIFT_MOD * d;
-                break;
-            case RIGHT:
-                PanX += PAN_SPEED * SHIFT_MOD * d;
-                break;
+        case FORWARD:
+            PanY += PAN_SPEED * SHIFT_MOD * d;
+            break;
+        case LEFT:
+            PanX -= PAN_SPEED * SHIFT_MOD * d;
+            break;
+        case BACKWARD:
+            PanY -= PAN_SPEED * SHIFT_MOD * d;
+            break;
+        case RIGHT:
+            PanX += PAN_SPEED * SHIFT_MOD * d;
+            break;
 
         }
     }
@@ -500,6 +502,19 @@ public class Camera2D implements Camera {
         updateSize(width, height);
         ScreenOffsetX = x;
         ScreenOffsetY = y;
+    }
+
+    public Bounds getBounds() {
+        return viewBounds;
+    }
+
+    @Override
+    public boolean contains(Vector2f pB) {
+        if ((pB.x <= ScreenWidth && pB.x >= 0) &&
+                (pB.y <= ScreenHeight && pB.y >= 0)) {
+            return true;
+        }
+        return false;
     }
 
 }

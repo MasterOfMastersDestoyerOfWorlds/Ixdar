@@ -1,6 +1,7 @@
 package shell.cameras;
 
 import org.joml.Matrix4f;
+import org.joml.Vector2f;
 import org.joml.Vector3f;
 
 import shell.render.Clock;
@@ -201,13 +202,21 @@ public class Camera3D implements Camera {
 
     @Override
     public float screenTransformX(float normalizedPosX) {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'screenTransformX'");
     }
 
     @Override
     public float screenTransformY(float normalizedPosY) {
-        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'screenTransformY'");
+    }
+
+    @Override
+    public float pointTransformX(float normalizedPosX) {
+        throw new UnsupportedOperationException("Unimplemented method 'screenTransformX'");
+    }
+
+    @Override
+    public float pointTransformY(float normalizedPosY) {
         throw new UnsupportedOperationException("Unimplemented method 'screenTransformY'");
     }
 
@@ -239,5 +248,14 @@ public class Camera3D implements Camera {
     @Override
     public float getScreenHeightRatio() {
         return 1;
+    }
+
+    public Bounds getBounds() {
+        return null;
+    }
+
+    @Override
+    public boolean contains(Vector2f pB) {
+        return false;
     }
 }

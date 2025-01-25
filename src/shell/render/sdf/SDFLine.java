@@ -1,7 +1,7 @@
 package shell.render.sdf;
 
+import org.apache.commons.math3.util.Pair;
 import org.joml.Vector2f;
-
 import shell.cameras.Camera;
 import shell.render.Clock;
 import shell.render.color.Color;
@@ -55,7 +55,75 @@ public class SDFLine {
     }
 
     public void draw(Vector2f pA, Vector2f pB, Color c, Color c2, Camera camera) {
+        boolean containsA = camera.contains(pA);
+        boolean containsB = camera.contains(pB);
+        if (!containsA || !containsB) {
+            // Test square intersection
+            float width = camera.getWidth();
+            float height = camera.getHeight();
+            Vector2f botLeft = new Vector2f(0, 0);
+            Vector2f topLeft = new Vector2f(0, height);
+            Vector2f topRight = new Vector2f(width, height);
+            Vector2f botRight = new Vector2f(width, 0);
+            Pair<Boolean, Vector2f> right = get_line_intersection(pA, pB, topRight, botRight);
+            Pair<Boolean, Vector2f> left = get_line_intersection(pA, pB, topLeft, botLeft);
+            Pair<Boolean, Vector2f> up = get_line_intersection(pA, pB, topLeft, topRight);
+            Pair<Boolean, Vector2f> down = get_line_intersection(pA, pB, botLeft, botRight);
+            Vector2f dir = new Vector2f(pA).sub(pB).normalize().mul(width);
 
+            if (right.getFirst()) {
+                if (containsA) {
+                    pB = right.getSecond();
+                } else if (containsB) {
+                    pA = right.getSecond();
+                } else {
+                    pA = right.getSecond();
+                    pB = new Vector2f(pA).add(dir);
+                    if (pB.x > width) {
+                        pB = new Vector2f(pA).add(dir.negate());
+                    }
+                }
+            } else if (left.getFirst()) {
+                if (containsA) {
+                    pB = left.getSecond();
+                } else if (containsB) {
+                    pA = left.getSecond();
+                } else {
+                    pA = left.getSecond();
+                    pB = new Vector2f(pA).add(dir);
+                    if (pB.x < 0) {
+                        pB = new Vector2f(pA).add(dir.negate());
+                    }
+                }
+            } else if (up.getFirst()) {
+
+                if (containsA) {
+                    pB = up.getSecond();
+                } else if (containsB) {
+                    pA = up.getSecond();
+                } else {
+                    pA = up.getSecond();
+                    pB = new Vector2f(pA).add(dir);
+                    if (pB.y > height) {
+                        pB = new Vector2f(pA).add(dir.negate());
+                    }
+                }
+            } else if (down.getFirst()) {
+                if (containsA) {
+                    pB = down.getSecond();
+                } else if (containsB) {
+                    pA = down.getSecond();
+                } else {
+                    pA = down.getSecond();
+                    pB = new Vector2f(pA).add(dir);
+                    if (pB.y < 0) {
+                        pB = new Vector2f(pA).add(dir.negate());
+                    }
+                }
+            } else {
+                return;
+            }
+        }
         shader.use();
         float dx = pB.x - pA.x;
         float dy = pB.y - pA.y;
@@ -126,6 +194,28 @@ public class SDFLine {
         shader.setBool("roundCaps", roundCaps);
         shader.setFloat("dashLength", dashLength);
         shader.setFloat("edgeDist", edgeDist);
+    }
+
+    /**
+     * Returns 1 if the lines intersect, otherwise 0. In addition, if the lines /*
+     * intersect the intersection point may be stored in the floats i_x and i_y.
+     */
+    public Pair<Boolean, Vector2f> get_line_intersection(Vector2f pA, Vector2f pB, Vector2f pC, Vector2f pD) {
+        float s1_x, s1_y, s2_x, s2_y;
+        s1_x = pB.x - pA.x;
+        s1_y = pB.y - pA.y;
+        s2_x = pD.x - pC.x;
+        s2_y = pD.y - pC.y;
+
+        float s, t;
+        s = (-s1_y * (pA.x - pC.x) + s1_x * (pA.y - pC.y)) / (-s2_x * s1_y + s1_x * s2_y);
+        t = (s2_x * (pA.y - pC.y) - s2_y * (pA.x - pC.x)) / (-s2_x * s1_y + s1_x * s2_y);
+
+        if (s >= 0 && s <= 1 && t >= 0 && t <= 1) {
+            return new Pair<Boolean, Vector2f>(true, new Vector2f(pA.x + (t * s1_x), pA.y + (t * s1_y)));
+        }
+
+        return new Pair<Boolean, Vector2f>(false, null);
     }
 
 }

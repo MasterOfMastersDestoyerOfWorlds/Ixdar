@@ -1,5 +1,7 @@
 package shell.cameras;
 
+import org.joml.Vector2f;
+
 public class Bounds {
     public float offsetX;
     public float offsetY;
@@ -34,5 +36,9 @@ public class Bounds {
         boolean inViewLowerBound = y > offsetY;
         boolean inViewUpperBound = y < viewHeight + offsetY;
         return inViewLeftBound && inViewRightBound && inViewLowerBound && inViewUpperBound;
+    }
+
+    public boolean contains(Vector2f pA) {
+        return contains(pA.x, pA.y);
     }
 }

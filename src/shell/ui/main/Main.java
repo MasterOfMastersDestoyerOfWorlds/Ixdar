@@ -90,7 +90,7 @@ public class Main {
 
     public static Color stickyColor;
     public static ArrayList<Color> metroColors = new ArrayList<>();
-    public static HashMap<Long, Integer> knotLayerLookup = new HashMap<>();
+    public static HashMap<Integer, Integer> knotLayerLookup = new HashMap<>();
     public static ArrayList<Color> knotGradientColors = new ArrayList<>();
     public static HashMap<Long, Integer> colorLookup = new HashMap<>();
     public static boolean active;
@@ -251,7 +251,7 @@ public class Main {
             colorLookup.put((long) k.id, i);
             i++;
         }
-        
+
         if (totalLayers == -1) {
             totalLayers = shell.cutEngine.totalLayers;
         }
@@ -273,7 +273,7 @@ public class Main {
             }
             metroPathsHeight.add(new ShellPair(knotShell, k, heightNum));
             metroPathsLayer.add(new ShellPair(knotShell, k, totalLayers - layerNum));
-            knotLayerLookup.put((long) k.id, totalLayers - layerNum);
+            knotLayerLookup.put(k.id, totalLayers - layerNum);
         }
 
         float startHueM = colorSeed.nextFloat();
@@ -413,9 +413,14 @@ public class Main {
     public static void drawDisplayedKnots(Camera2D camera) {
         if (knotDrawLayer == totalLayers) {
             if (tool.canUseToggle(Toggle.DrawKnotGradient) && manifoldKnot != null) {
-                ArrayList<Pair<Long, Long>> idTransform = lookupPairs(manifoldKnot);
-                Drawing.drawGradientPath(manifoldKnot, idTransform, colorLookup, knotGradientColors, camera,
-                        Drawing.MIN_THICKNESS);
+                for (Integer id : knotLayerLookup.keySet()) {
+                    if (knotLayerLookup.get(id) == totalLayers) {
+                        Knot drawKnot = shell.cutEngine.flatKnots.get(id);
+                        ArrayList<Pair<Long, Long>> idTransform = lookupPairs(drawKnot);
+                        Drawing.drawGradientPath(drawKnot, idTransform, colorLookup, knotGradientColors, camera,
+                                Drawing.MIN_THICKNESS);
+                    }
+                }
             } else if (tool.canUseToggle(Toggle.DrawMetroDiagram)) {
                 for (Shell temp : subPaths) {
                     Drawing.drawShell(temp, true, Drawing.MIN_THICKNESS, metroColors.get(0), retTup.ps, camera);
