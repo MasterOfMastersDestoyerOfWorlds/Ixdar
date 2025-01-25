@@ -13,6 +13,12 @@ public abstract class Grid {
     private static final Color gridColor = Color.LIGHT_GRAY;
 
     public static class CartesianGrid extends Grid {
+
+        @Override
+        public Vector2f coordinateToNearestGridPoint(float mouseX, float mouseY) {
+            return new Vector2f(mouseX, mouseY);
+        }
+
         @Override
         public String toCoordString() {
             return "X:" + (int) Main.camera.screenTransformX(Main.mouse.normalizedPosX - Main.MAIN_VIEW_OFFSET_X)
@@ -72,6 +78,15 @@ public abstract class Grid {
     }
 
     public static class HexGrid extends Grid {
+        @Override
+        public Vector2f coordinateToNearestGridPoint(float x, float y) {
+            double[] hexCoords = PointND.Hex.pixelToHexCoords(x, y);
+            hexCoords[0] = Math.round(hexCoords[0]);
+            hexCoords[1] = Math.round(hexCoords[1]);
+            hexCoords[2] = Math.round(hexCoords[2]);
+            return PointND.Hex.hexCoordsToPixel(hexCoords);
+        }
+
         @Override
         public String toCoordString() {
             double[] hexCoords = PointND.Hex.pixelToHexCoords(
@@ -186,4 +201,6 @@ public abstract class Grid {
     public abstract Class<? extends PointCollection>[] allowableTypes();
 
     public abstract void draw(Camera2D camera, float gridLineThickness);
+
+    public abstract Vector2f coordinateToNearestGridPoint(float mouseX, float mouseY);
 }

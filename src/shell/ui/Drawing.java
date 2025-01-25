@@ -423,6 +423,12 @@ public class Drawing {
         circle.draw(new Vector2f((float) xCoord, (float) yCoord), CIRCLE_RADIUS * camera.ScaleFactor, color, camera);
     }
 
+    public static void drawCircle(Vector2f cameraPoint, Color color, Camera2D camera,
+            float lineThickness) {
+        sdfLine.setStroke(lineThickness, false);
+        circle.draw(new Vector2f(cameraPoint.x, cameraPoint.y), CIRCLE_RADIUS * camera.ScaleFactor, color, camera);
+    }
+
     public static void drawKnot(Knot k, Color c, float lineThickness, Camera2D camera) {
         sdfLine.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false);
         for (int i = 0; i < k.manifoldSegments.size(); i++) {

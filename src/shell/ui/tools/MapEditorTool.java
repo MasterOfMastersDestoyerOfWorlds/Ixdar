@@ -3,16 +3,23 @@ package shell.ui.tools;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import org.joml.Vector2f;
+
 import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.cuts.route.Route;
 import shell.file.Manifold;
+import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.objects.Grid;
 import shell.objects.PointCollection;
+import shell.objects.PointND;
 import shell.render.color.Color;
+import shell.render.color.ColorRGB;
 import shell.render.text.HyperString;
 import shell.terminal.Terminal;
+import shell.ui.Drawing;
 import shell.ui.main.Main;
 
 public class MapEditorTool extends Tool {
@@ -43,6 +50,7 @@ public class MapEditorTool extends Tool {
     public VirtualPoint startKP;
     public VirtualPoint startCP;
 
+    public Vector2f hoverPoint;
     HashMap<Long, Integer> colorLookup;
 
     public static ArrayList<Color> colors;
@@ -77,11 +85,35 @@ public class MapEditorTool extends Tool {
     }
 
     @Override
+    public void calculateHover(float mouseX, float mouseY) {
+        mouseX = mouseX - ScreenOffsetX;
+        mouseY = mouseY - ScreenOffsetY;
+        Camera2D camera = Main.camera;
+        camera.calculateCameraTransform();
+        float x = camera.screenTransformX(mouseX);
+        float y = camera.screenTransformY(mouseY);
+        if (Toggle.SnapToGrid.value) {
+            Grid grid = Main.grid;
+            hoverPoint = grid.coordinateToNearestGridPoint(x, y);
+            hoverPoint.x = camera.pointTransformX(hoverPoint.x);
+            hoverPoint.y = camera.pointTransformY(hoverPoint.y);
+        }
+    }
+
+    @Override
     public void hoverChanged() {
     }
 
     @Override
     public void draw(Camera2D camera, float minLineThickness) {
+        if (hoverPoint != null) {
+            Drawing.drawCircle(hoverPoint, ColorRGB.RED, camera, minLineThickness);
+        }
+    }
+
+    @Override
+    public void calculateClick(float mouseX, float mouseY) {
+        
     }
 
     @Override
@@ -128,6 +160,14 @@ public class MapEditorTool extends Tool {
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
         h.addLine("Tool State: " + state.name());
+
+        h.addWord("Position:");
+        if (displayKP == null) {
+            h.addWord(Main.grid.toCoordString());
+        } else {
+            PointND coordPoint = ((Point) displayKP).p;
+            h.addWord(coordPoint.toCoordString());
+        }
         h.wrap();
         return h;
     }

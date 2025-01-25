@@ -762,6 +762,10 @@ public abstract class PointND extends PointCollection implements Cloneable {
             return new Vector2f((float) (root3 * q + root3over2 * r), (float) (1.5 * r));
         }
 
+        public static Vector2f hexCoordsToPixel(double[] hexCoords) {
+            return new Vector2f((float) (root3 * hexCoords[0] + root3over2 * hexCoords[1]), (float) (1.5 * hexCoords[1]));
+        }
+
         @Override
         public String toCoordString() {
             return "Q:" + (int) q + " R:"
