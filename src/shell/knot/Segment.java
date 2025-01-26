@@ -184,6 +184,12 @@ public class Segment implements Comparable<Segment> {
         return null;
     }
 
+    public static long idTransform(Segment s) {
+        long a = s.first.id;
+        long b = s.last.id;
+        return a >= b ? a * a + a + b : b + a + b * b;
+    }
+
     public static long idTransform(long a, long b) {
         return a >= b ? a * a + a + b : b + a + b * b;
     }

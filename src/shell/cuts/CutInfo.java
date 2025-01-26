@@ -278,4 +278,30 @@ public class CutInfo {
         return c;
     }
 
+    public VirtualPoint getExternalMatchPointFromCutSegment(Segment cutSegment, VirtualPoint exclude) {
+        if (cutSegment.id == lowerCutSegment.id && (exclude == null || exclude.id != lowerExternal.id)) {
+            return lowerExternal;
+        } else if (cutSegment.id == upperCutSegment.id && (exclude == null || exclude.id != upperExternal.id)) {
+            return upperExternal;
+        }
+        return null;
+    }
+
+    public VirtualPoint getKnotPointFromCutSegment(Segment cutSegment, VirtualPoint exclude) {
+        if (cutSegment.id == lowerCutSegment.id && (exclude == null || exclude.id != lowerKnotPoint.id)) {
+            return lowerKnotPoint;
+        } else if (cutSegment.id == upperCutSegment.id && (exclude == null || exclude.id != upperKnotPoint.id)) {
+            return upperKnotPoint;
+        }
+        return null;
+    }
+
+    public Segment getCutSegmentFromKnotPoint(VirtualPoint prevMatchPoint) {
+        if (prevMatchPoint.id == lowerKnotPoint.id) {
+            return lowerCutSegment;
+        } else if (prevMatchPoint.id == upperKnotPoint.id) {
+            return upperCutSegment;
+        }
+        return null;
+    }
 }
