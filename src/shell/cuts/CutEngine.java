@@ -1,7 +1,10 @@
 package shell.cuts;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.PriorityQueue;
 
 import org.apache.commons.collections4.map.MultiKeyMap;
 import org.apache.commons.math3.util.Pair;
@@ -12,6 +15,7 @@ import shell.cuts.enums.RouteType;
 import shell.cuts.route.Route;
 import shell.cuts.route.RouteInfo;
 import shell.cuts.route.RouteMap;
+import shell.cuts.route.RoutePair;
 import shell.exceptions.BalancerException;
 import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
@@ -20,6 +24,7 @@ import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.shell.Shell;
+import shell.utils.RunListUtils;
 
 public class CutEngine {
 
@@ -44,10 +49,10 @@ public class CutEngine {
     public static int countSkipped = 0;
     public static int countCalculated = 0;
 
-    public CutMatchList findCutMatchList(Knot knot, VirtualPoint external1, VirtualPoint external2)
+    public ArrayList<CutMatchList> findCutMatchList(Knot knot, VirtualPoint external1, VirtualPoint external2)
             throws SegmentBalanceException, BalancerException {
         double minDelta = Double.MAX_VALUE;
-        CutMatchList result = null;
+        ArrayList<CutMatchList> result = new ArrayList<>();
         ArrayList<Pair<Segment, Segment>> segmentPairs = new ArrayList<>();
         for (int a = 0; a < knot.knotPoints.size(); a++) {
 
@@ -86,12 +91,9 @@ public class CutEngine {
             if (d1 < d2) {
                 delta = d1;
             }
+            result.add(cutMatch1);
+            result.add(cutMatch2);
             if (delta < minDelta) {
-                if (d1 < d2) {
-                    result = cutMatch1;
-                } else {
-                    result = cutMatch2;
-                }
                 minDelta = delta;
             }
         }
@@ -134,11 +136,12 @@ public class CutEngine {
                     Pair<CutMatchList, RouteMap<Integer, RouteInfo>> internalCuts12 = null;
                     if ((mind1 < minDelta || !ixdarSkip) && c1.overlapOrientationCorrect) {
                         Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(null,
-                                null, c1, false, false, true);
+                                null, c1, result, false, false, true);
                         internalCuts12 = temp.getSecond();
                         cutMatch1 = temp.getFirst();
                         d1 = cutMatch1.delta;
                         delta = d1 < delta ? d1 : delta;
+                        result.add(cutMatch1);
                         countCalculated++;
                     } else {
                         countSkipped++;
@@ -150,11 +153,12 @@ public class CutEngine {
                     double mind2 = c2.lowerMatchSegment.distance + c2.upperMatchSegment.distance + regDelta;
                     if ((mind2 < minDelta || !ixdarSkip) && c2.overlapOrientationCorrect) {
                         Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(null,
-                                internalCuts12, c2, false, false, true);
+                                internalCuts12, c2, result, false, false, true);
                         internalCuts12 = temp.getSecond();
                         cutMatch2 = temp.getFirst();
                         d2 = cutMatch2.delta;
                         delta = d2 < delta ? d2 : delta;
+                        result.add(cutMatch2);
                         countCalculated++;
                     } else {
                         countSkipped++;
@@ -168,11 +172,12 @@ public class CutEngine {
                     double mind3 = c3.lowerMatchSegment.distance + c3.upperMatchSegment.distance + regDelta;
                     if ((mind3 < minDelta || !ixdarSkip) && c3.overlapOrientationCorrect) {
                         Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(null,
-                                null, c3, false, false, true);
+                                null, c3, result, false, false, true);
                         internalCuts34 = temp.getSecond();
                         cutMatch3 = temp.getFirst();
                         d3 = cutMatch3.delta;
                         delta = d3 < delta ? d3 : delta;
+                        result.add(cutMatch3);
                         countCalculated++;
                     } else {
                         countSkipped++;
@@ -184,11 +189,12 @@ public class CutEngine {
                     double mind4 = c4.lowerMatchSegment.distance + c4.upperMatchSegment.distance + regDelta;
                     if ((mind4 < minDelta || !ixdarSkip) && c4.overlapOrientationCorrect) {
                         Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(null,
-                                internalCuts34, c4, false, false, true);
+                                internalCuts34, c4, result, false, false, true);
                         internalCuts34 = temp.getSecond();
                         cutMatch4 = temp.getFirst();
                         d4 = cutMatch4.delta;
                         delta = d4 < delta ? d4 : delta;
+                        result.add(cutMatch4);
                         countCalculated++;
                     } else {
                         countSkipped++;
@@ -202,9 +208,10 @@ public class CutEngine {
                     double mind5 = c5.lowerMatchSegment.distance + c5.upperMatchSegment.distance + regDelta;
                     if ((mind5 < minDelta || !ixdarSkip) && c5.overlapOrientationCorrect) {
                         Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
-                                internalCuts12, null, c5, answerSharing, checkAnswer, false);
+                                internalCuts12, null, c5, result, answerSharing, checkAnswer, false);
                         internalCuts56 = temp.getSecond();
                         cutMatch5 = temp.getFirst();
+                        result.add(cutMatch5);
                         d5 = cutMatch5.delta;
                         delta = d5 < delta ? d5 : delta;
                     }
@@ -212,9 +219,10 @@ public class CutEngine {
                     double mind6 = c6.lowerMatchSegment.distance + c6.upperMatchSegment.distance + regDelta;
                     if ((mind6 < minDelta || !ixdarSkip) && c6.overlapOrientationCorrect) {
                         Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
-                                internalCuts12, internalCuts56, c6, answerSharing, checkAnswer, false);
+                                internalCuts12, internalCuts56, c6, result, answerSharing, checkAnswer, false);
                         internalCuts56 = temp.getSecond();
                         cutMatch6 = temp.getFirst();
+                        result.add(cutMatch6);
                         d6 = cutMatch6.delta;
                         delta = d6 < delta ? d6 : delta;
                     }
@@ -226,9 +234,10 @@ public class CutEngine {
                     Pair<CutMatchList, RouteMap<Integer, RouteInfo>> internalCuts78 = null;
                     if ((mind7 < minDelta || !ixdarSkip) && c7.overlapOrientationCorrect) {
                         Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
-                                internalCuts34, null, c7, answerSharing, checkAnswer, false);
+                                internalCuts34, null, c7, result, answerSharing, checkAnswer, false);
                         internalCuts78 = temp.getSecond();
                         cutMatch7 = temp.getFirst();
+                        result.add(cutMatch7);
                         d7 = cutMatch7.delta;
                         delta = d7 < delta ? d7 : delta;
                     }
@@ -237,46 +246,31 @@ public class CutEngine {
                     double mind8 = c8.lowerMatchSegment.distance + c8.upperMatchSegment.distance + regDelta;
                     if ((mind8 < minDelta || !ixdarSkip) && c8.overlapOrientationCorrect) {
                         Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
-                                internalCuts34, internalCuts78, c8, answerSharing, checkAnswer, false);
+                                internalCuts34, internalCuts78, c8, result, answerSharing, checkAnswer, false);
                         internalCuts78 = temp.getSecond();
                         cutMatch8 = temp.getFirst();
+                        result.add(cutMatch8);
                         d8 = cutMatch8.delta;
                         delta = d8 < delta ? d8 : delta;
                     }
                     shell.buff.flush();
 
                     if (delta < minDelta) {
-                        if (delta == d1) {
-                            result = cutMatch1;
-                        } else if (delta == d2) {
-                            result = cutMatch2;
-                        } else if (delta == d3) {
-                            result = cutMatch3;
-                        } else if (delta == d4) {
-                            result = cutMatch4;
-                        } else if (delta == d5) {
-                            result = cutMatch5;
-                        } else if (delta == d6) {
-                            result = cutMatch6;
-                        } else if (delta == d7) {
-                            result = cutMatch7;
-                        } else if (delta == d8) {
-                            result = cutMatch8;
-                        }
-
                         minDelta = delta;
                     }
 
                 }
             }
         }
+        Collections.sort(result, new CutMatchList.CutMatchListComparator());
         return result;
 
     }
 
     public Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> answerSharing(
             Pair<CutMatchList, RouteMap<Integer, RouteInfo>> cutsOld,
-            Pair<CutMatchList, RouteMap<Integer, RouteInfo>> cutsNew, CutInfo c, boolean answerSharing,
+            Pair<CutMatchList, RouteMap<Integer, RouteInfo>> cutsNew, CutInfo c,
+            ArrayList<CutMatchList> result, boolean answerSharing,
             boolean checkAnswer, boolean knotPointsConnected) throws SegmentBalanceException {
         CutMatchList cutMatch = null;
         boolean isNull = true;
@@ -350,6 +344,7 @@ public class CutEngine {
                 }
             }
         }
+        result.add(cutMatch);
         return new Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>>(cutMatch, cutsNew);
 
     }
@@ -357,33 +352,31 @@ public class CutEngine {
     MultiKeyMap<Integer, CutMatchList> cutLookup = new MultiKeyMap<>();
     double resolved = 0;
     double totalCalls = 0;
+    public HashMap<Long, RouteMap<Integer, RouteInfo>> routesBySegment = new HashMap<>();
 
     public ArrayList<VirtualPoint> cutKnot(ArrayList<VirtualPoint> knotList, int layerNum)
             throws SegmentBalanceException, BalancerException {
         knotList = new ArrayList<>(knotList);
-        // move on to the cutting phase
-        VirtualPoint prevPoint = knotList.get(knotList.size() - 1);
+
+        // First we need to find all of the route maps for all of the knots, this way we
+        // can figure out how to cut each knot in light of its externals and how to cut
+        // them. This should take N^4 in order to find the route maps for each knot and
+        // (K*S)^2 (where K is the number of knots in the level and S is the maximum
+        // number of segments in any of the knots manifolds) to find the correct cut
+        // for each knot at the level. Each Knot only has to worry about its neighbors.
+        // unclear exactly how to decide the shortest given that how you enter a
+        // neighbor effects where you can exit it and therefore its delta seems like an
+        // np hard problem but I'm probably stupid.
+        HashMap<Integer, ArrayList<CutMatchList>> sortedCutMatchListsLookup = new HashMap<>();
         for (int i = 0; i < knotList.size(); i++) {
-
             VirtualPoint vp = knotList.get(i);
-            shell.buff.add("Checking Point: " + vp);
             if (vp.isKnot) {
-
                 Knot knot = (Knot) vp;
-                shell.buff.add("Found Knot!" + knot.fullString());
-
                 VirtualPoint external1 = knot.match1;
                 VirtualPoint external2 = knot.match2;
 
                 if ((knot.getHeight() > 1)) {
-                    shell.buff.add("Need to simplify knots internally before matching : knot: " + knot + " external1: "
-                            + external1 + " external2: " + external2);
-                    Knot knotNew = flattenKnots(knot, external1, external2, knotList, layerNum);
-                    int prevIdx = knotList.indexOf(knotNew) - 1;
-                    if (prevIdx < 0) {
-                        prevIdx = knotList.size() - 1;
-                    }
-                    prevPoint = knotList.get(prevIdx);
+                    flattenKnots(knot, external1, external2, knotList, layerNum);
                     i = i - 1;
                     continue;
                 } else {
@@ -393,18 +386,47 @@ public class CutEngine {
                         setFlatKnot(layerNum, knot, knot);
                     }
                 }
+            }
+        }
+        for (int i = 0; i < knotList.size(); i++) {
 
-                CutMatchList cutMatchList = findCutMatchList(knot, external1, external2);
+            VirtualPoint vp = knotList.get(i);
+            if (vp.isKnot) {
+                Knot knot = (Knot) vp;
+                VirtualPoint external1 = knot.match1;
+                VirtualPoint external2 = knot.match2;
+                ArrayList<CutMatchList> sortedCutMatchLists = findCutMatchList(knot, external1, external2);
+                sortedCutMatchListsLookup.put(knot.id, sortedCutMatchLists);
+            }
+        }
+        // move on to the cutting phase
+        VirtualPoint prevPoint = knotList.get(knotList.size() - 1);
+        if (RunListUtils.containsID(knotList, 74)) {
+            float z = 0;
+        }
+        for (int i = 0; i < knotList.size(); i++) {
+            VirtualPoint vp = knotList.get(i);
+            if (vp.isKnot) {
+                int prevIdx = knotList.indexOf(vp) - 1;
+                if (prevIdx < 0) {
+                    prevIdx = knotList.size() - 1;
+                }
+                prevPoint = knotList.get(prevIdx);
+                ArrayList<CutMatchList> sortedCutMatchLists = sortedCutMatchListsLookup.get(vp.id);
+                if (sortedCutMatchLists == null) {
+                    float z = 0;
+                }
+                CutMatchList cutMatchList = sortedCutMatchLists.get(0);
+                Knot knot = (Knot) vp;
+                VirtualPoint external1 = knot.match1;
+                VirtualPoint external2 = knot.match2;
                 external1.reset(knot);
                 external2.reset(knot);
-
-                shell.buff.add("===================================================");
-                shell.buff.add(knot);
-                shell.buff.add(knotList);
-                shell.buff.add(cutMatchList);
-
-                shell.buff.add("===================================================");
-                ArrayList<CutMatch> cutMatches = cutMatchList.cutMatches;
+                knot.reset();
+                ArrayList<CutMatch> cutMatches = cutMatchList.cutMatches;            
+                if(vp.id == 60){
+                    float z =0;
+                }
                 for (int j = 0; j < cutMatches.size(); j++) {
                     CutMatch cutMatch = cutMatches.get(j);
                     for (Segment cutSegment : cutMatch.cutSegments) {
@@ -422,6 +444,26 @@ public class CutEngine {
                             match1 = external1;
                         } else if (external2.contains(pMatch1)) {
                             match1 = external2;
+                        } else if (!vp.contains(pMatch1)) {
+                            if (cutMatch.c.external1.contains(pMatch1)) {
+                                if (cutMatch.c.external1.id == external1.id) {
+                                    match1 = external1;
+                                    pMatch1 = (Point) external1;
+                                } else {
+                                    match1 = external2;
+                                    pMatch1 = (Point) external2;
+                                }
+                            } else if (cutMatch.c.external2.contains(pMatch1)) {
+                                if (cutMatch.c.external2.id == external2.id) {
+                                    match1 = external1;
+                                    pMatch1 = (Point) external1;
+                                } else {
+                                    match1 = external2;
+                                    pMatch1 = (Point) external2;
+                                }
+                            } else {
+                                float z = 1 / 0;
+                            }
                         }
                         Point pMatch2 = (Point) matchSegment.last;
                         VirtualPoint match2 = pMatch2;
@@ -429,6 +471,26 @@ public class CutEngine {
                             match2 = external1;
                         } else if (external2.contains(pMatch2)) {
                             match2 = external2;
+                        } else if (!vp.contains(pMatch2)) {
+                            if (cutMatch.c.external1.contains(pMatch2)) {
+                                if (cutMatch.c.external1.id == external1.id) {
+                                    match2 = external1;
+                                    pMatch2 = (Point) external1;
+                                } else {
+                                    match2= external2;
+                                    pMatch2 = (Point) external2;
+                                }
+                            } else if (cutMatch.c.external2.contains(pMatch2)) {
+                                if (cutMatch.c.external2.id == external2.id) {
+                                    match2 = external1;
+                                    pMatch2 = (Point) external1;
+                                } else {
+                                    match2 = external2;
+                                    pMatch2 = (Point) external2;
+                                }
+                            } else {
+                                float z = 1 / 0;
+                            }
                         }
                         if (!match1.hasMatch(match2, pMatch2, pMatch1, matchSegment)) {
                             match1.setMatch2(match2, pMatch2, pMatch1, matchSegment);
@@ -450,9 +512,10 @@ public class CutEngine {
                 }
                 VirtualPoint prevPointTemp = prevPoint;
                 for (int j = 0; j < knot.knotPoints.size(); j++) {
-                    shell.buff.add("adding: " + addPoint.fullString());
-                    shell.buff.add(knotList);
 
+                    if (!vp.contains(addPoint)) {
+                        throw new MultipleCyclesFoundException(shell, cutMatchList, null, null, finalCut.c);
+                    }
                     if (knotList.contains(addPoint)) {
                         shell.buff.add(finalCut);
 
@@ -467,17 +530,12 @@ public class CutEngine {
                         addPoint = addPoint.match2;
                     }
                 }
-                shell.buff.add(flatKnots);
-                shell.buff.add(knotList);
-
-                i = i - 1;
-            }
-            if (!vp.isKnot) {
+            } else {
                 prevPoint = vp;
             }
-        }
 
-        shell.buff.add(" " + resolved / totalCalls * 100 + " %");
+            i = i + vp.size() - 1;
+        }
         return knotList;
     }
 
@@ -678,13 +736,6 @@ public class CutEngine {
         knotList.add(idx2, knotNew);
         knotList.remove(knot);
 
-        shell.buff.add(external1New);
-        shell.buff.add(external1);
-        shell.buff.add(external2New);
-        shell.buff.add(external2);
-        shell.buff.add(knotNew);
-        shell.buff.add(knotList);
-        shell.buff.add(knotNew.fullString());
         return knotNew;
     }
 

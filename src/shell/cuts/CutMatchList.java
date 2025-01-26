@@ -1,6 +1,7 @@
 package shell.cuts;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
@@ -19,9 +20,11 @@ public class CutMatchList implements FileStringable {
 
     public ArrayList<CutMatch> cutMatches;
     public double delta;
+    public double internalDelta;
     public Shell shell;
     SegmentBalanceException sbe;
     public Knot superKnot;
+    public static int cutMatchListComparisons = 0;
 
     public CutMatchList(Shell shell, SegmentBalanceException sbe, Knot superKnot) {
         cutMatches = new ArrayList<>();
@@ -31,12 +34,11 @@ public class CutMatchList implements FileStringable {
         this.superKnot = superKnot;
     }
 
-    public CutMatchList(Shell shell,Knot superKnot) {
+    public CutMatchList(Shell shell, Knot superKnot) {
         cutMatches = new ArrayList<>();
         this.shell = shell;
         this.superKnot = superKnot;
     }
-
 
     @Override
     public String toString() {
@@ -387,6 +389,7 @@ public class CutMatchList implements FileStringable {
 
     public void updateDelta() {
         delta = 0.0;
+        internalDelta = 0.0;
         ArrayList<Segment> seenCuts = new ArrayList<>();
         ArrayList<Segment> seenMatches = new ArrayList<>();
         for (CutMatch cm : cutMatches) {
@@ -394,12 +397,16 @@ public class CutMatchList implements FileStringable {
             for (Segment s : cm.cutSegments) {
                 if (!seenCuts.contains(s) && this.superKnot.hasSegment(s)) {
                     delta -= s.distance;
+                    internalDelta -= s.distance;
                     seenCuts.add(s);
                 }
             }
             for (Segment s : cm.matchSegments) {
                 if (!seenMatches.contains(s) && !this.superKnot.hasSegment(s)) {
                     delta += s.distance;
+                    if (this.superKnot.contains(s.first) && this.superKnot.contains(s.last)) {
+                        internalDelta += s.distance;
+                    }
                     seenMatches.add(s);
                 }
             }
@@ -687,6 +694,28 @@ public class CutMatchList implements FileStringable {
             fileString += s.first + " " + s.last + " ";
         }
         return fileString;
+    }
+
+    public static class CutMatchListComparator implements Comparator<CutMatchList> {
+
+        @Override
+        public int compare(CutMatchList o1, CutMatchList o2) {
+            double d1 = o1.delta;
+            double d2 = o2.delta;
+            cutMatchListComparisons++;
+            if (d1 < d2)
+                return -1; // Neither val is NaN, thisVal is smaller
+            if (d1 > d2)
+                return 1; // Neither val is NaN, thisVal is larger
+
+            // Cannot use doubleToRawLongBits because of possibility of NaNs.
+            long thisBits = (long) d1;
+            long anotherBits = (long) d2;
+
+            return (thisBits == anotherBits ? 0 : // Values are equal
+                    (thisBits < anotherBits ? -1 : // (-0.0, 0.0) or (!NaN, NaN)
+                            1)); // (0.0, -0.0) or (NaN, !NaN)
+        }
     }
 
 }
