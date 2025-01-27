@@ -2,9 +2,7 @@ package shell.cuts;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.PriorityQueue;
 
 import org.apache.commons.collections4.map.MultiKeyMap;
 import org.apache.commons.math3.util.Pair;
@@ -15,7 +13,6 @@ import shell.cuts.enums.RouteType;
 import shell.cuts.route.Route;
 import shell.cuts.route.RouteInfo;
 import shell.cuts.route.RouteMap;
-import shell.cuts.route.RoutePair;
 import shell.exceptions.BalancerException;
 import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
@@ -405,7 +402,7 @@ public class CutEngine {
         // neighbors. to achieve this it would be prudent to be able to look up cut
         // matches by what their ending cuts are this way we can get a list of all of
         // the ways we can change rotationally.
-        if (RunListUtils.containsID(knotList, 74)) {
+        if (RunListUtils.containsID(knotList, 80)) {
             float z = 0;
         }
         HashMap<Integer, Clockwork> clockw = new HashMap<>();
@@ -417,90 +414,128 @@ public class CutEngine {
             if (vp.isKnot) {
                 if (!clockw.containsKey(vp.id)) {
                     CutMatchList currCML = sortedCutMatchInfoLookup.get(vp.id).sortedCutMatchLists.get(0);
-                    Clockwork cw = new Clockwork(currCML);
+                    Clockwork cw = new Clockwork(currCML, next, prev);
                     clockw.put(vp.id, cw);
                 }
                 Clockwork cw = clockw.get(vp.id);
-                CutInfo c = cw.cm.c;
-                Segment prevCutSegment = null;
-                Segment nextCutSegment = null;
-                if (c.upperExternal.id == next.id) {
-                    prevCutSegment = c.lowerCutSegment;
-                    nextCutSegment = c.upperCutSegment;
-                } else {
-                    prevCutSegment = c.upperCutSegment;
-                    nextCutSegment = c.lowerCutSegment;
-                }
-                VirtualPoint prevMatchPoint = c.getExternalMatchPointFromCutSegment(prevCutSegment, null);
-                VirtualPoint nextMatchPoint = c.getExternalMatchPointFromCutSegment(nextCutSegment, prevMatchPoint);
-                VirtualPoint prevBasePoint = c.getKnotPointFromCutSegment(prevCutSegment, null);
-                VirtualPoint nextBasePoint = c.getKnotPointFromCutSegment(nextCutSegment, prevBasePoint);
-                if (prev.isKnot) {
-                    if (!clockw.containsKey(prev.id)) {
-                        Clockwork prevCw = new Clockwork(
-                                sortedCutMatchInfoLookup.get(prev.id).sortedCutMatchListsByKnotPoint
-                                        .get(prevMatchPoint.id).get(0));
-                        clockw.put(prev.id, prevCw);
-                    }
-                    Clockwork prevCw = clockw.get(prev.id);
-                    if (!cw.prevIsSet) {
-                        cw.setPrevCw(prevCw, prevBasePoint, prevMatchPoint, prevCutSegment);
-                    } else {
-                        // check if we can improve on it
-                    }
-                } else {
-                    cw.setPrevPoint(prev, prevBasePoint, prevCutSegment);
-                }
-                if (next.isKnot) {
-                    if (!clockw.containsKey(next.id)) {
-                        // should only trigger on first knot
-                        CutMatchList nextCML = sortedCutMatchInfoLookup
-                                .get(next.id).sortedCutMatchListsByKnotPoint
-                                        .get(nextMatchPoint.id).get(0);
-                        Clockwork nextCw = new Clockwork(nextCML);
-                        clockw.put(next.id, nextCw);
-                    }
-                    Clockwork nextCw = clockw.get(next.id);
-                    if (!cw.nextIsSet) {
-                        cw.setNextCw(nextCw, nextBasePoint, nextMatchPoint, nextCutSegment);
-                    } else {
-                        // check if we can improve on it
-                    }
-                } else {
-                    cw.setNextPoint(next, nextBasePoint, nextCutSegment);
-                }
-
             }
         }
-
-        // move on to the cutting phase
-        VirtualPoint prevPoint = knotList.get(knotList.size() - 1);
-        if (RunListUtils.containsID(knotList, 74)) {
+        if (RunListUtils.containsID(knotList, 32)) {
             float z = 0;
         }
-        for (int i = 0; i < knotList.size(); i++) {
+        for (int i = 0; i < size; i++) {
+            VirtualPoint prev = knotList.get(Math.floorMod(i - 1, size));
             VirtualPoint vp = knotList.get(i);
+            VirtualPoint next = knotList.get(Math.floorMod(i + 1, size));
             if (vp.isKnot) {
-                int prevIdx = knotList.indexOf(vp) - 1;
-                if (prevIdx < 0) {
-                    prevIdx = knotList.size() - 1;
+                Clockwork cw = clockw.get(vp.id);
+                Clockwork prevCw = null;
+                if (prev.isKnot) {
+                    prevCw = clockw.get(prev.id);
+                    cw.prevExternal = prevCw.nextKnotPoint;
+                    cw.prevClockwork = prevCw;
+                } else {
+                    cw.prevExternal = prev;
                 }
-                prevPoint = knotList.get(prevIdx);
-                ArrayList<CutMatchList> sortedCutMatchLists = sortedCutMatchInfoLookup.get(vp.id).sortedCutMatchLists;
-                if (sortedCutMatchLists == null) {
-                    float z = 0;
+                cw.prevExternalSegment = cw.prevKnotPoint.getClosestSegment(cw.prevExternal, null);
+                cw.prevExternalDelta = cw.prevExternalSegment.distance;
+                Clockwork nextCw = null;
+                if (next.isKnot) {
+                    nextCw = clockw.get(next.id);
+                    cw.nextExternal = nextCw.prevKnotPoint;
+                    cw.nextClockwork = nextCw;
+                } else {
+                    cw.nextExternal = next;
                 }
-                CutMatchList cutMatchList = sortedCutMatchLists.get(0);
+                cw.nextExternalSegment = cw.nextKnotPoint.getClosestSegment(cw.nextExternal, null);
+                cw.nextExternalDelta = cw.nextExternalSegment.distance;
+            }
+        }
+        if (RunListUtils.containsID(knotList, 32)) {
+            float z = 0;
+        }
+        for (int i = 0; i < size; i++) {
+
+            VirtualPoint prev = knotList.get(Math.floorMod(i - 1, size));
+            VirtualPoint vp = knotList.get(i);
+            VirtualPoint next = knotList.get(Math.floorMod(i + 1, size));
+            if (vp.isKnot && prev.isKnot && next.isKnot) {
+
+                Clockwork prevCw = clockw.get(prev.id);
+                Clockwork nextCw = clockw.get(next.id);
+                Clockwork cw = clockw.get(vp.id);
+                Segment scurrprev = cw.nextKnotPoint.getClosestSegment(cw.nextExternal, null);
+                Segment sotherprev = cw.nextKnotPoint.getClosestSegment(cw.prevExternal, null);
+                Segment scurrnext = cw.prevKnotPoint.getClosestSegment(cw.prevExternal, null);
+                Segment sothernext = cw.prevKnotPoint.getClosestSegment(cw.nextExternal, null);
+                if (scurrnext.distance + scurrprev.distance > sotherprev.distance + sothernext.distance) {
+                    cw.swapExternals();
+                    cw.flip();
+                    prevCw.swapExternals(nextCw);
+                }
+            } else if (vp.isKnot  && !prev.isKnot && !next.isKnot) {
+                Clockwork cw = clockw.get(vp.id);
+                Segment scurrprev = cw.nextKnotPoint.getClosestSegment(cw.nextExternal, null);
+                Segment sotherprev = cw.nextKnotPoint.getClosestSegment(cw.prevExternal, null);
+                Segment scurrnext = cw.prevKnotPoint.getClosestSegment(cw.prevExternal, null);
+                Segment sothernext = cw.prevKnotPoint.getClosestSegment(cw.nextExternal, null);
+                if (scurrnext.distance + scurrprev.distance > sotherprev.distance + sothernext.distance) {
+                    cw.swapExternals();
+                    cw.flip();
+                }
+            }
+        }
+        if (RunListUtils.containsID(knotList, 32)) {
+            float z = 0;
+        }
+
+        if (RunListUtils.containsID(knotList, 17)) {
+            float z = 0;
+        }
+        // cutting phase
+        int flattenedSize = 0;
+        for (int i = 0; i < size; i++) {
+            VirtualPoint vp = knotList.get(i);
+            flattenedSize += vp.size();
+            if (vp.isKnot) {
+
                 Knot knot = (Knot) vp;
-                VirtualPoint external1 = knot.match1;
-                VirtualPoint external2 = knot.match2;
-                external1.reset(knot);
-                external2.reset(knot);
-                knot.reset();
-                ArrayList<CutMatch> cutMatches = cutMatchList.cutMatches;
-                if (vp.id == 60) {
-                    float z = 0;
+                // External cutmatches
+                Clockwork cw = clockw.get(vp.id);
+                cw.nextKnotPoint.reset(cw.nextCut);
+                if (cw.nextKnotPoint.match2 == null) {
+                    cw.nextKnotPoint.setMatch2(cw.nextExternal, (Point) cw.nextExternal, (Point) cw.nextKnotPoint,
+                            cw.nextExternalSegment);
                 }
+                Clockwork nextCw = cw.nextClockwork;
+                if (nextCw != null) {
+                    nextCw.prevKnotPoint.reset(nextCw.prevCut);
+                    if (nextCw.prevKnotPoint.match2 == null) {
+                        nextCw.prevKnotPoint.setMatch2(nextCw.prevExternal, (Point) nextCw.prevExternal,
+                                (Point) nextCw.prevKnotPoint, nextCw.prevExternalSegment);
+                    }
+                } else {
+                    cw.nextExternal.reset(knot);
+                    cw.nextExternal.setMatch2(cw.nextKnotPoint);
+                }
+                cw.prevKnotPoint.reset(cw.prevCut);
+                if (cw.prevKnotPoint.match2 == null) {
+                    cw.prevKnotPoint.setMatch2(cw.prevExternal, (Point) cw.prevExternal, (Point) cw.prevKnotPoint,
+                            cw.prevExternalSegment);
+                }
+                Clockwork prevCw = cw.prevClockwork;
+                if (prevCw != null) {
+                    prevCw.nextKnotPoint.reset(prevCw.nextCut);
+                    if (prevCw.nextKnotPoint.match2 == null) {
+                        prevCw.nextKnotPoint.setMatch2(prevCw.nextExternal, (Point) prevCw.nextExternal,
+                                (Point) prevCw.nextKnotPoint, prevCw.nextExternalSegment);
+                    }
+                } else {
+                    cw.prevExternal.reset(knot);
+                    cw.prevExternal.setMatch2(cw.prevKnotPoint);
+                }
+                // Internal cutmatches
+                ArrayList<CutMatch> cutMatches = cw.cml.cutMatches;
                 for (int j = 0; j < cutMatches.size(); j++) {
                     CutMatch cutMatch = cutMatches.get(j);
                     for (Segment cutSegment : cutMatch.cutSegments) {
@@ -514,103 +549,49 @@ public class CutEngine {
 
                         Point pMatch1 = (Point) matchSegment.first;
                         VirtualPoint match1 = pMatch1;
-                        if (external1.contains(pMatch1)) {
-                            match1 = external1;
-                        } else if (external2.contains(pMatch1)) {
-                            match1 = external2;
-                        } else if (!vp.contains(pMatch1)) {
-                            if (cutMatch.c.external1.contains(pMatch1)) {
-                                if (cutMatch.c.external1.id == external1.id) {
-                                    match1 = external1;
-                                    pMatch1 = (Point) external1;
-                                } else {
-                                    match1 = external2;
-                                    pMatch1 = (Point) external2;
-                                }
-                            } else if (cutMatch.c.external2.contains(pMatch1)) {
-                                if (cutMatch.c.external2.id == external2.id) {
-                                    match1 = external1;
-                                    pMatch1 = (Point) external1;
-                                } else {
-                                    match1 = external2;
-                                    pMatch1 = (Point) external2;
-                                }
-                            } else {
-                                float z = 1 / 0;
-                            }
-                        }
+
                         Point pMatch2 = (Point) matchSegment.last;
                         VirtualPoint match2 = pMatch2;
-                        if (external1.contains(pMatch2)) {
-                            match2 = external1;
-                        } else if (external2.contains(pMatch2)) {
-                            match2 = external2;
-                        } else if (!vp.contains(pMatch2)) {
-                            if (cutMatch.c.external1.contains(pMatch2)) {
-                                if (cutMatch.c.external1.id == external1.id) {
-                                    match2 = external1;
-                                    pMatch2 = (Point) external1;
-                                } else {
-                                    match2 = external2;
-                                    pMatch2 = (Point) external2;
-                                }
-                            } else if (cutMatch.c.external2.contains(pMatch2)) {
-                                if (cutMatch.c.external2.id == external2.id) {
-                                    match2 = external1;
-                                    pMatch2 = (Point) external1;
-                                } else {
-                                    match2 = external2;
-                                    pMatch2 = (Point) external2;
-                                }
-                            } else {
-                                float z = 1 / 0;
+                        if (knot.contains(match1) && knot.contains(match2)) {
+                            if (!match1.hasMatch(match2, pMatch2, pMatch1, matchSegment)) {
+                                match1.setMatch2(match2, pMatch2, pMatch1, matchSegment);
+                            }
+                            if (!match2.hasMatch(match1, pMatch1, pMatch2, matchSegment)) {
+                                match2.setMatch2(match1, pMatch1, pMatch2, matchSegment);
                             }
                         }
-                        if (!match1.hasMatch(match2, pMatch2, pMatch1, matchSegment)) {
-                            match1.setMatch2(match2, pMatch2, pMatch1, matchSegment);
-                        }
-                        if (!match2.hasMatch(match1, pMatch1, pMatch2, matchSegment)) {
-                            match2.setMatch2(match1, pMatch1, pMatch2, matchSegment);
-                        }
-
                     }
                 }
-                knotList.remove(vp);
-                if (cutMatchList.cutMatches.size() == 0) {
-                    throw cutMatchList.sbe;
-                }
-                CutMatch finalCut = cutMatchList.cutMatches.get(0);
-                VirtualPoint addPoint = finalCut.kp2;
-                if (finalCut.kp1.match1.equals(prevPoint) || finalCut.kp1.match2.equals(prevPoint)) {
-                    addPoint = finalCut.kp1;
-                }
-                VirtualPoint prevPointTemp = prevPoint;
-                for (int j = 0; j < knot.knotPoints.size(); j++) {
-
-                    if (!vp.contains(addPoint)) {
-                        throw new MultipleCyclesFoundException(shell, cutMatchList, null, null, finalCut.c);
-                    }
-                    if (knotList.contains(addPoint)) {
-                        shell.buff.add(finalCut);
-
-                        throw new MultipleCyclesFoundException(shell, cutMatchList, null, null, finalCut.c);
-                    }
-                    knotList.add(i + j, addPoint);
-                    if (prevPointTemp.equals(addPoint.match2)) {
-                        prevPointTemp = addPoint;
-                        addPoint = addPoint.match1;
-                    } else {
-                        prevPointTemp = addPoint;
-                        addPoint = addPoint.match2;
-                    }
-                }
-            } else {
-                prevPoint = vp;
             }
-
-            i = i + vp.size() - 1;
         }
-        return knotList;
+        // remake the knotlist form the point level
+        if (RunListUtils.containsID(knotList, 74)) {
+            float z = 0;
+        }
+        ArrayList<VirtualPoint> result = new ArrayList<>();
+        VirtualPoint vp = knotList.get(0);
+        if (vp.isKnot) {
+            vp = vp.knotPointsFlattened.get(0);
+        }
+        VirtualPoint addPoint = vp;
+        VirtualPoint prevPoint = addPoint.match1;
+        for (int j = 0; j < flattenedSize; j++) {
+            if (addPoint == null) {
+                Clockwork cw = clockw.get(vp.topKnot.id);
+                throw new MultipleCyclesFoundException(cw.cml.sbe);
+            }
+            result.add(addPoint);
+            if (prevPoint.equals(addPoint.match2)) {
+                prevPoint = addPoint;
+                addPoint = addPoint.match1;
+            } else {
+                prevPoint = addPoint;
+                addPoint = addPoint.match2;
+            }
+        }
+
+        return result;
+
     }
 
     public void setFlatKnot(int layerNum, Knot flatKnot, Knot k) {
@@ -826,12 +807,12 @@ public class CutEngine {
 
         public void add(CutMatchList cutMatch, Segment cutSegment, VirtualPoint knotPoint) {
             sortedCutMatchLists.add(cutMatch);
-            ArrayList<CutMatchList> segmentList = sortedCutMatchListsBySegment.getOrDefault(cutSegment,
+            ArrayList<CutMatchList> segmentList = sortedCutMatchListsBySegment.getOrDefault(cutSegment.id,
                     new ArrayList<>());
             segmentList.add(cutMatch);
             sortedCutMatchListsBySegment.put(cutSegment.id, segmentList);
 
-            ArrayList<CutMatchList> knotPointList = sortedCutMatchListsByKnotPoint.getOrDefault(knotPoint,
+            ArrayList<CutMatchList> knotPointList = sortedCutMatchListsByKnotPoint.getOrDefault(knotPoint.id,
                     new ArrayList<>());
             knotPointList.add(cutMatch);
             sortedCutMatchListsByKnotPoint.put(knotPoint.id, knotPointList);
@@ -849,6 +830,7 @@ public class CutEngine {
     }
 
     class Clockwork {
+        CutInfo c;
         CutMatchList cml;
         CutMatch cm;
         Clockwork prevClockwork;
@@ -866,9 +848,126 @@ public class CutEngine {
         Double nextExternalDelta;
         Segment nextExternalSegment;
 
-        public Clockwork(CutMatchList cml) {
+        public Clockwork(CutMatchList cml, VirtualPoint next, VirtualPoint prev) {
             this.cml = cml;
             this.cm = cml.cutMatches.get(0);
+            this.c = cm.c;
+            if (next.contains(c.upperExternal)) {
+                prevCut = c.lowerCutSegment;
+                nextCut = c.upperCutSegment;
+            } else {
+                prevCut = c.upperCutSegment;
+                nextCut = c.lowerCutSegment;
+            }
+            if (c.cutID == 1875) {
+                float z = 0;
+            }
+            prevKnotPoint = c.getKnotPointFromCutSegment(prev, prevCut, null);
+            nextKnotPoint = c.getKnotPointFromCutSegment(next, nextCut, prevKnotPoint);
+            if (prevKnotPoint == null || nextKnotPoint == null) {
+                float z = 0;
+            }
+        }
+
+        public void flip() {
+            VirtualPoint temp = nextExternal;
+            nextExternal = prevExternal;
+            prevExternal = temp;
+            Segment tempS = nextExternalSegment;
+            nextExternalSegment = prevExternalSegment;
+            prevExternalSegment = tempS;
+            if (nextExternalSegment != null) {
+                nextExternalDelta = nextExternalSegment.distance;
+            }
+            if (prevExternalSegment != null) {
+                prevExternalDelta = prevExternalSegment.distance;
+            }
+            Segment tempC = prevCut;
+            prevCut = nextCut;
+            nextCut = tempC;
+            VirtualPoint tempKP = prevKnotPoint;
+            prevKnotPoint = nextKnotPoint;
+            nextKnotPoint = tempKP;
+            Clockwork tempCW = prevClockwork;
+            prevClockwork = nextClockwork;
+            nextClockwork = tempCW;
+        }
+
+        public void swapExternals() {
+            VirtualPoint temp = nextExternal;
+            nextExternal = prevExternal;
+            prevExternal = temp;
+            nextExternalSegment = nextKnotPoint.getClosestSegment(nextExternal, null);
+            prevExternalSegment = prevKnotPoint.getClosestSegment(prevExternal, null);
+            nextExternalDelta = nextExternalSegment.distance;
+            prevExternalDelta = prevExternalSegment.distance;
+            Clockwork tempClockwork = nextClockwork;
+            nextClockwork = prevClockwork;
+            prevClockwork = tempClockwork;
+        }
+
+        public void swapExternals(Clockwork nextCw) {
+            VirtualPoint temp = nextExternal;
+            this.nextExternal = nextCw.prevExternal;
+            nextCw.prevExternal = temp;
+            this.nextExternalSegment = nextKnotPoint.getClosestSegment(nextExternal, null);
+            nextCw.prevExternalSegment = nextCw.prevKnotPoint.getClosestSegment(nextCw.prevExternal, null);
+            ;
+            this.nextExternalDelta = nextExternalSegment.distance;
+            nextCw.prevExternalDelta = prevExternalSegment.distance;
+            if (this.nextExternalSegment.id == this.prevExternalSegment.id) {
+                float z = 0;
+            }
+        }
+
+        public void setPrevCwUpdateCML(Clockwork prevCw, CutMatchList cutMatchList, VirtualPoint prevKnotPoint,
+                VirtualPoint prevExternalPoint, Segment prevCutSegment) throws SegmentBalanceException {
+            if (prevIsSet && prevKnotPoint.id == nextKnotPoint.id) {
+                throw new SegmentBalanceException(shell, null, c);
+            }
+            prevClockwork = prevCw;
+            this.prevExternal = prevExternalPoint;
+            this.prevKnotPoint = prevKnotPoint;
+            prevCut = prevCutSegment;
+            prevIsSet = true;
+            prevExternalSegment = prevKnotPoint.getClosestSegment(prevExternal, null);
+            prevExternalDelta = prevExternalSegment.distance;
+            prevCw.cml = cutMatchList;
+            prevCw.cm = cutMatchList.cutMatches.get(0);
+            prevCw.c = prevCw.cm.c;
+            prevCw.prevCut = prevCw.c.getCutSegmentFromKnotPoint(prevCw.prevKnotPoint);
+            prevCw.nextClockwork = this;
+            prevCw.nextKnotPoint = prevExternal;
+            prevCw.nextExternal = prevKnotPoint;
+            prevCw.nextIsSet = true;
+            prevCw.nextCut = prevCw.cm.c.getCutSegmentFromKnotPoint(prevExternal);
+            prevCw.nextExternalSegment = prevExternalSegment;
+            prevCw.nextExternalDelta = prevExternalDelta;
+        }
+
+        public void setNextCwUpdateCML(Clockwork nextCw, CutMatchList cutMatchList, VirtualPoint nextKnotPoint,
+                VirtualPoint nextExternal, Segment nextCutSegment) throws SegmentBalanceException {
+            if (prevIsSet && prevKnotPoint.id == nextKnotPoint.id) {
+                throw new SegmentBalanceException(shell, null, c);
+            }
+            nextClockwork = nextCw;
+            this.nextExternal = nextExternal;
+            this.nextKnotPoint = nextKnotPoint;
+            nextCut = nextCutSegment;
+            nextIsSet = true;
+            nextExternalSegment = nextKnotPoint.getClosestSegment(nextExternal, null);
+            nextExternalDelta = nextExternalSegment.distance;
+            nextCw.cml = cutMatchList;
+            nextCw.cm = cutMatchList.cutMatches.get(0);
+            nextCw.c = nextCw.cm.c;
+            nextCw.nextCut = nextCw.c.getCutSegmentFromKnotPoint(nextCw.nextKnotPoint);
+            nextCw.prevClockwork = this;
+            nextCw.prevKnotPoint = nextExternal;
+            nextCw.prevExternal = nextKnotPoint;
+            nextCw.prevIsSet = true;
+            nextCw.prevCut = nextCw.cm.c.getCutSegmentFromKnotPoint(nextExternal);
+            nextCw.prevExternalSegment = nextExternalSegment;
+            nextCw.prevExternalDelta = nextExternalDelta;
         }
 
         public void setPrevPoint(VirtualPoint prev, VirtualPoint prevBasePoint, Segment prevCutSegment) {
@@ -883,40 +982,156 @@ public class CutEngine {
             nextCut = nextCutSegment;
         }
 
-        public void setNextCw(Clockwork nextCw, VirtualPoint nextBasePoint, VirtualPoint nextMatchPoint,
-                Segment nextCutSegment) {
+        public void setNextCw(Clockwork nextCw, VirtualPoint nextKnotPoint, VirtualPoint nextExternal,
+                Segment nextCutSegment) throws SegmentBalanceException {
+            if (prevIsSet && prevKnotPoint.id == nextKnotPoint.id) {
+                throw new SegmentBalanceException(shell, null, c);
+            }
             nextClockwork = nextCw;
-            nextExternal = nextMatchPoint;
-            nextKnotPoint = nextBasePoint;
+            this.nextExternal = nextExternal;
+            this.nextKnotPoint = nextKnotPoint;
             nextCut = nextCutSegment;
             nextIsSet = true;
-            nextExternalSegment = nextBasePoint.getClosestSegment(nextMatchPoint, null);
+            nextExternalSegment = nextKnotPoint.getClosestSegment(nextExternal, null);
             nextExternalDelta = nextExternalSegment.distance;
             nextCw.prevClockwork = this;
-            nextCw.prevKnotPoint = nextMatchPoint;
-            nextCw.prevExternal = nextBasePoint;
+            nextCw.prevKnotPoint = nextExternal;
+            nextCw.prevExternal = nextKnotPoint;
             nextCw.prevIsSet = true;
-            nextCw.prevCut = nextCw.cm.c.getCutSegmentFromKnotPoint(nextMatchPoint);
+            nextCw.prevCut = nextCw.cm.c.getCutSegmentFromKnotPoint(nextExternal);
             nextCw.prevExternalSegment = nextExternalSegment;
             nextCw.prevExternalDelta = nextExternalDelta;
         }
 
-        public void setPrevCw(Clockwork prevCw, VirtualPoint prevBasePoint, VirtualPoint prevMatchPoint,
-                Segment prevCutSegment) {
+        public void setPrevCw(Clockwork prevCw, VirtualPoint prevKnotPoint, VirtualPoint prevMatchPoint,
+                Segment prevCutSegment) throws SegmentBalanceException {
+            if (nextIsSet && prevKnotPoint.id == nextKnotPoint.id) {
+                throw new SegmentBalanceException(shell, null, c);
+            }
             prevClockwork = prevCw;
-            prevExternal = prevMatchPoint;
-            prevKnotPoint = prevBasePoint;
+            this.prevExternal = prevMatchPoint;
+            this.prevKnotPoint = prevKnotPoint;
             prevCut = prevCutSegment;
             prevIsSet = true;
-            prevExternalSegment = prevBasePoint.getClosestSegment(prevMatchPoint, null);
+            prevExternalSegment = prevKnotPoint.getClosestSegment(prevMatchPoint, null);
             prevExternalDelta = prevExternalSegment.distance;
             prevCw.nextClockwork = this;
             prevCw.nextKnotPoint = prevMatchPoint;
-            prevCw.nextExternal = prevBasePoint;
+            prevCw.nextExternal = prevKnotPoint;
             prevCw.nextIsSet = true;
             prevCw.nextCut = prevCw.cm.c.getCutSegmentFromKnotPoint(prevMatchPoint);
             prevCw.nextExternalSegment = prevExternalSegment;
             prevCw.nextExternalDelta = prevExternalDelta;
         }
+
+        @Override
+        public String toString() {
+            return prevExternal + "<-" + prevKnotPoint + prevCut.toStringNoLabel() + ":" + nextCut.toStringNoLabel()
+                    + nextKnotPoint + "->" + nextExternal;
+        }
     }
 }
+
+// for (int i = 0; i < size; i++) {
+// VirtualPoint prev = knotList.get(Math.floorMod(i - 1, size));
+// VirtualPoint vp = knotList.get(i);
+// VirtualPoint next = knotList.get(Math.floorMod(i + 1, size));
+// if (vp.isKnot) {
+// if (!clockw.containsKey(vp.id)) {
+// CutMatchList currCML =
+// sortedCutMatchInfoLookup.get(vp.id).sortedCutMatchLists.get(0);
+// Clockwork cw = new Clockwork(currCML);
+// clockw.put(vp.id, cw);
+// }
+// Clockwork cw = clockw.get(vp.id);
+// CutInfo c = cw.c;
+// Segment prevCutSegment = null;
+// Segment nextCutSegment = null;
+// if (c.upperExternal.id == next.id) {
+// prevCutSegment = c.lowerCutSegment;
+// nextCutSegment = c.upperCutSegment;
+// } else {
+// prevCutSegment = c.upperCutSegment;
+// nextCutSegment = c.lowerCutSegment;
+// }
+// VirtualPoint prevMatchPoint = c.getExternalMatchPointFromCutSegment(prev,
+// prevCutSegment, null);
+// VirtualPoint nextMatchPoint = c.getExternalMatchPointFromCutSegment(next,
+// nextCutSegment,
+// prevMatchPoint);
+// VirtualPoint prevBasePoint = c.getKnotPointFromCutSegment(prev,
+// prevCutSegment, null);
+// VirtualPoint nextBasePoint = c.getKnotPointFromCutSegment(next,
+// nextCutSegment, prevBasePoint);
+// if (prev.isKnot) {
+// if (!clockw.containsKey(prev.id)) {
+// if (sortedCutMatchInfoLookup.get(prev.id).sortedCutMatchListsByKnotPoint
+// .get(prevMatchPoint.id) == null) {
+// float z = 0;
+// }
+// Clockwork prevCw = new Clockwork(
+// sortedCutMatchInfoLookup.get(prev.id).sortedCutMatchListsByKnotPoint
+// .get(prevMatchPoint.id).get(0));
+// clockw.put(prev.id, prevCw);
+// }
+// Clockwork prevCw = clockw.get(prev.id);
+// if (!cw.prevIsSet) {
+
+// if (prevCw.prevIsSet) {
+// SortedCutMatchInfo scmi = sortedCutMatchInfoLookup.get(prevCw.c.knot.id);
+// ArrayList<CutMatchList> cmls = scmi.sortedCutMatchListsByKnotPoint
+// .get(prevCw.prevKnotPoint.id);
+// for (int j = 0; j < cmls.size(); j++) {
+// if (cmls.get(j).cutMatches.get(0).c.hasKnotPoint(prevMatchPoint)) {
+// cw.setPrevCwUpdateCML(prevCw, cmls.get(j), prevBasePoint, prevMatchPoint,
+// prevCutSegment);
+// float z = 0;
+// break;
+// }
+// }
+// } else {
+// cw.setPrevCw(prevCw, prevBasePoint, prevMatchPoint, prevCutSegment);
+// }
+// } else {
+// // check if we can improve on it
+
+// for(
+// }
+// } else {
+// cw.setPrevPoint(prev, prevBasePoint, prevCutSegment);
+// }
+// if (next.isKnot) {
+// if (!clockw.containsKey(next.id)) {
+// // should only trigger on first knot
+// CutMatchList nextCML = sortedCutMatchInfoLookup
+// .get(next.id).sortedCutMatchListsByKnotPoint
+// .get(nextMatchPoint.id).get(0);
+// Clockwork nextCw = new Clockwork(nextCML);
+// clockw.put(next.id, nextCw);
+// }
+// Clockwork nextCw = clockw.get(next.id);
+// if (!cw.nextIsSet) {
+// if (nextCw.nextIsSet) {
+// SortedCutMatchInfo scmi = sortedCutMatchInfoLookup.get(nextCw.c.knot.id);
+// ArrayList<CutMatchList> cmls = scmi.sortedCutMatchListsByKnotPoint
+// .get(nextCw.nextKnotPoint.id);
+// for (int j = 0; j < cmls.size(); j++) {
+// CutInfo nextC = cmls.get(j).cutMatches.get(0).c;
+// if (nextC.hasKnotPoint(nextMatchPoint)) {
+// cw.setNextCwUpdateCML(nextCw, cmls.get(j), nextBasePoint, nextMatchPoint,
+// nextCutSegment);
+// float z = 0;
+// break;
+// }
+// }
+// } else {
+// cw.setNextCw(nextCw, nextBasePoint, nextMatchPoint, nextCutSegment);
+// }
+// } else {
+// // check if we can improve on it
+// }
+// } else {
+// cw.setNextPoint(next, nextBasePoint, nextCutSegment);
+// }
+
+// }

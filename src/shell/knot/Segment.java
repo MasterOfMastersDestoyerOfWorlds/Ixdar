@@ -253,6 +253,10 @@ public class Segment implements Comparable<Segment> {
         return "Segment[" + first.id + ":" + last.id + "]";
     }
 
+    public String toStringNoLabel() {
+        return "[" + first.id + ":" + last.id + "]";
+    }
+
     public HyperString toHyperString(Color color, boolean labelAsSegment) {
         return toHyperString(color, labelAsSegment, false);
     }

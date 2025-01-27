@@ -587,10 +587,12 @@ public class Main {
 
     public static void segmentBalanceExceptionHandler(SegmentBalanceException sbe) {
         Shell result = new Shell();
-        for (VirtualPoint p : sbe.topKnot.knotPoints) {
-            result.add(((Point) p).p);
+        if (sbe.topKnot != null) {
+            for (VirtualPoint p : sbe.topKnot.knotPoints) {
+                result.add(((Point) p).p);
+            }
+            shell.buff.printLayer(0);
         }
-        shell.buff.printLayer(0);
         System.out.println();
         System.out.println(sbe);
         // StackTraceElement ste = sbe.getStackTrace()[0];

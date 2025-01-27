@@ -43,13 +43,19 @@ public class SegmentBalanceException extends Exception {
         this.c = sbe.c;
         this.shell = sbe.shell;
         cutName = sbe.cutName;
+    }
 
+    public SegmentBalanceException() {
     }
 
     @Override
     public String toString() {
+        if(c != null){
         return "SegmentBalanceException: " + "cutID: " + c.cutID + " " + topKnot + " cut1: " + cut1 + " ex1: " + ex1
-                + " cut2: " + cut2 + " ex2: " + ex2 + " cutName: " + cutName;
+                + " cut2: " + cut2 + " ex2: " + ex2 + " cutName: " + cutName + "\n\n" + this.getStackTrace()[0];
+        }else{
+            return "SegmentBalanceException: " + this.getStackTrace()[0];
+        }
     }
 
     public void generateUnitTestFromCut() {

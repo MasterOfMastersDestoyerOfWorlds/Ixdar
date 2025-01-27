@@ -4,6 +4,7 @@ package shell.knot;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import shell.exceptions.SegmentBalanceException;
 import shell.render.text.HyperString;
 import shell.shell.Shell;
 
@@ -412,6 +413,9 @@ public abstract class VirtualPoint {
         } else if (matchPoint.match2.equals(this)) {
             match2endpoint = matchPoint.basePoint2;
             basePoint2 = matchPoint.match2endpoint;
+            if (matchPoint.s2 == null) {
+                matchPoint.s2 = basePoint2.segmentLookup.get(Segment.idTransform(match2endpoint.id, basePoint2.id));
+            }
             s2 = matchPoint.s2;
         }
         if (s1 != null && s2 != null && s1.distance > s2.distance) {
@@ -479,7 +483,7 @@ public abstract class VirtualPoint {
                 || (match2 != null && !match2.contains(match2endpoint))) {
 
             shell.buff.add(this.fullString());
-            float zero = 1 / 0;
+            //float zero = 1 / 0;
         }
 
         if ((match1 == null && (match1endpoint != null || basePoint1 != null))
@@ -614,6 +618,50 @@ public abstract class VirtualPoint {
 
     }
 
+    public void resetFromEndpoint(VirtualPoint match) {
+        if (match1 != null && match1endpoint.contains(match)) {
+            numMatches--;
+            match1 = null;
+            match1endpoint = null;
+            basePoint1 = null;
+            s1 = null;
+        }
+
+        if (match2 != null && match2endpoint.contains(match)) {
+            numMatches--;
+            match2 = null;
+            match2endpoint = null;
+            basePoint2 = null;
+            s2 = null;
+        }
+        if (match1 == null && match2 != null) {
+            this.swap();
+        }
+
+    }
+
+    public void resetFromBasePoint(VirtualPoint match) {
+        if (match1 != null && basePoint1.contains(match)) {
+            numMatches--;
+            match1 = null;
+            match1endpoint = null;
+            basePoint1 = null;
+            s1 = null;
+        }
+
+        if (match2 != null && basePoint2.contains(match)) {
+            numMatches--;
+            match2 = null;
+            match2endpoint = null;
+            basePoint2 = null;
+            s2 = null;
+        }
+        if (match1 == null && match2 != null) {
+            this.swap();
+        }
+
+    }
+
     public void copyMatches(VirtualPoint vp) {
         match1 = vp.match1;
         match1endpoint = vp.match1endpoint;
@@ -648,6 +696,30 @@ public abstract class VirtualPoint {
         match2 = null;
         match2endpoint = null;
         basePoint2 = null;
+    }
+
+    public void reset(Segment nextCut) throws SegmentBalanceException {
+        if(nextCut == null){
+            throw new SegmentBalanceException();
+        }
+        if (match1 != null && nextCut.contains(match1endpoint)) {
+            numMatches--;
+            match1 = null;
+            match1endpoint = null;
+            basePoint1 = null;
+            s1 = null;
+        }
+
+        if (match2 != null && nextCut.contains(match2endpoint)) {
+            numMatches--;
+            match2 = null;
+            match2endpoint = null;
+            basePoint2 = null;
+            s2 = null;
+        }
+        if (match1 == null && match2 != null) {
+            this.swap();
+        }
     }
 
 }

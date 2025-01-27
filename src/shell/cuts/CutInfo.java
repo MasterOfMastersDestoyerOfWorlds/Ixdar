@@ -253,7 +253,7 @@ public class CutInfo {
         return new SegmentBalanceException(shell, null, this);
     }
 
-    public CutInfo copyAndSwapExternals() throws BalancerException {
+    public CutInfo copyAndSwapExternals() throws SegmentBalanceException {
         CutInfo c = new CutInfo(this);
         Segment s41 = this.upperKnotPoint.getClosestSegment(this.external1, null);
         Segment s42 = this.lowerKnotPoint.getClosestSegment(this.external2, s41);
@@ -263,8 +263,8 @@ public class CutInfo {
         c.upperMatchSegment = s42;
         c.external1 = this.external2;
         c.external2 = this.external1;
-        this.lowerExternal = externalPoint42;
-        this.upperExternal = externalPoint41;
+        c.lowerExternal = externalPoint41;
+        c.upperExternal = externalPoint42;
 
         c.sbe = new SegmentBalanceException(shell, null, c);
         if (this.overlapOrientationCorrect) {
@@ -274,23 +274,31 @@ public class CutInfo {
             c.balanceMap.addExternalMatch(lowerKnotPoint, externalPoint42, null);
             c.balanceMap.addExternalMatch(upperKnotPoint, externalPoint41, null);
         }
-
+        if (!c.lowerMatchSegment.contains(c.lowerExternal)) {
+            throw new SegmentBalanceException(shell, null, this);
+        }
         return c;
     }
 
-    public VirtualPoint getExternalMatchPointFromCutSegment(Segment cutSegment, VirtualPoint exclude) {
-        if (cutSegment.id == lowerCutSegment.id && (exclude == null || exclude.id != lowerExternal.id)) {
+    public VirtualPoint getExternalMatchPointFromCutSegment(VirtualPoint externalKnot, Segment cutSegment,
+            VirtualPoint exclude) {
+        if (cutSegment.id == lowerCutSegment.id && externalKnot.contains(lowerExternal)
+                && (exclude == null || exclude.id != lowerExternal.id)) {
             return lowerExternal;
-        } else if (cutSegment.id == upperCutSegment.id && (exclude == null || exclude.id != upperExternal.id)) {
+        } else if (cutSegment.id == upperCutSegment.id && externalKnot.contains(upperExternal)
+                && (exclude == null || exclude.id != upperExternal.id)) {
             return upperExternal;
         }
         return null;
     }
 
-    public VirtualPoint getKnotPointFromCutSegment(Segment cutSegment, VirtualPoint exclude) {
-        if (cutSegment.id == lowerCutSegment.id && (exclude == null || exclude.id != lowerKnotPoint.id)) {
+    public VirtualPoint getKnotPointFromCutSegment(VirtualPoint externalKnot, Segment cutSegment,
+            VirtualPoint exclude) {
+        if (cutSegment.id == lowerCutSegment.id && externalKnot.contains(lowerExternal)
+                && (exclude == null || exclude.id != lowerKnotPoint.id)) {
             return lowerKnotPoint;
-        } else if (cutSegment.id == upperCutSegment.id && (exclude == null || exclude.id != upperKnotPoint.id)) {
+        } else if (cutSegment.id == upperCutSegment.id && externalKnot.contains(upperExternal)
+                && (exclude == null || exclude.id != upperKnotPoint.id)) {
             return upperKnotPoint;
         }
         return null;
@@ -303,5 +311,12 @@ public class CutInfo {
             return upperCutSegment;
         }
         return null;
+    }
+
+    public boolean hasKnotPoint(VirtualPoint nextMatchPoint) {
+        if (lowerKnotPoint.id == nextMatchPoint.id || upperKnotPoint.id == nextMatchPoint.id) {
+            return true;
+        }
+        return false;
     }
 }
