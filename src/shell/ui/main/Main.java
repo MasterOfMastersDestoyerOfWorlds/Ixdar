@@ -193,6 +193,10 @@ public class Main {
         totalLayers = -1;
         shell = orgShell.copyShallow();
 
+        CutEngine.countCalculated = 0;
+        CutEngine.countSkipped = 0;
+        InternalPathEngine.comparisons = 0;
+        
         shell.knotName = fileName;
 
         Collections.shuffle(shell);

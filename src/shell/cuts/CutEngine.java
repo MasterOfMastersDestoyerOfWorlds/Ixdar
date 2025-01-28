@@ -473,7 +473,7 @@ public class CutEngine {
                     cw.flip();
                     prevCw.swapExternals(nextCw);
                 }
-            } else if (vp.isKnot  && !prev.isKnot && !next.isKnot) {
+            } else if (vp.isKnot && !prev.isKnot && !next.isKnot) {
                 Clockwork cw = clockw.get(vp.id);
                 Segment scurrprev = cw.nextKnotPoint.getClosestSegment(cw.nextExternal, null);
                 Segment sotherprev = cw.nextKnotPoint.getClosestSegment(cw.prevExternal, null);
@@ -485,6 +485,19 @@ public class CutEngine {
                 }
             }
         }
+        // Now that we have everything initialized we need to search each knot for its
+        // best set of cuts. First we find what the current cost of connecting the
+        // neighbor knot is with the current knot where C(k) = the cost of the
+        // segment connecting the k to its neighbor + the internal delta of the current
+        // knot + the internal delta of neighbor knot. This will be our minimum bar to
+        // change which cut we are using.
+
+        // The method searching is as follows, go find the knotpoint of the neighbors
+        // other match, then get all of the cut match lists that use that knot point in
+        // one of their cuts. lookup the same information for the current knot's
+        // knotpoint that goes to the other neighbor. search both of these lists in a
+        // double for loop and look if we can improve the cost function
+        
         if (RunListUtils.containsID(knotList, 32)) {
             float z = 0;
         }

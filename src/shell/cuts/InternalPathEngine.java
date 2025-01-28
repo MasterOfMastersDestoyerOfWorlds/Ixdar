@@ -25,7 +25,7 @@ import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.shell.Shell;
 
-public class InternalPathEngine {
+    public class InternalPathEngine {
     Shell shell;
     CutEngine cutEngine;
     public long totalTimeIxdar = 0;
