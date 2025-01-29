@@ -718,4 +718,14 @@ public class CutMatchList implements FileStringable {
         }
     }
 
+    public VirtualPoint getOtherKp(VirtualPoint knotPoint) {
+        CutMatch cm = cutMatches.get(0);
+        if (cm.kp1.id == knotPoint.id) {
+            return cm.kp2;
+        } else if (cm.kp2.id == knotPoint.id) {
+            return cm.kp1;
+        }
+        return null;
+    }
+
 }
