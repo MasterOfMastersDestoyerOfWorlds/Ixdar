@@ -511,23 +511,28 @@ public class CutEngine {
                 CutMatchList minCurrent = cw.cml;
                 CutMatchList minNeighbor = cw.cml;
                 VirtualPoint minCurrentVp = cw.nextKnotPoint;
+                VirtualPoint minCurrentOtherVp = cw.prevKnotPoint;
                 VirtualPoint minNeighborVp = nextCw.prevKnotPoint;
                 ArrayList<CutMatchList> neighborCmls = sortedCutMatchInfoLookup
                         .get(nextCw.c.knot.id).sortedCutMatchListsByKnotPoint.get(nextCw.nextKnotPoint.id);
                 ArrayList<CutMatchList> currentCmls = sortedCutMatchInfoLookup
-                        .get(cw.c.knot.id).sortedCutMatchListsByKnotPoint.get(cw.prevKnotPoint.id);
+                        .get(cw.c.knot.id).sortedCutMatchLists;
                 if (currentCmls == null) {
                     float z = 0;
                 }
                 for (CutMatchList current : currentCmls) {
                     for (CutMatchList neighbor : neighborCmls) {
-                        VirtualPoint currentVp = current.getOtherKp(cw.prevKnotPoint);
                         VirtualPoint neighborVp = neighbor.getOtherKp(nextCw.nextKnotPoint);
-                        double cost = Clockwork.cost(current, currentVp, neighbor, neighborVp);
+                        VirtualPoint currentVp = current.getClosestKnotPoint(neighborVp, cw.prevExternal);
+                        VirtualPoint currentOtherVp = current.getOtherKp(currentVp);
+
+                        Segment externalPrev = currentOtherVp.getSegment(cw.prevExternal);
+                        double cost = Clockwork.cost(current, currentVp, neighbor, neighborVp, externalPrev);
                         if (cost < minCost) {
                             minCost = cost;
                             minCurrent = current;
                             minNeighbor = neighbor;
+                            minCurrentOtherVp = currentOtherVp;
                             minCurrentVp = currentVp;
                             minNeighborVp = neighborVp;
                             found = true;
@@ -535,7 +540,48 @@ public class CutEngine {
                     }
                 }
                 if (found) {
-                    cw.setNextCwUpdateCML(nextCw, minCurrent, minNeighbor, minCurrentVp, minNeighborVp);
+                    cw.setNextCwUpdateCML(nextCw, minCurrent, minNeighbor, minCurrentVp, minCurrentOtherVp,
+                            minNeighborVp);
+                }
+            }
+            if (cw.prevClockwork != null) {
+                Clockwork prevCw = cw.prevClockwork;
+                boolean found = false;
+                double minCost = cw.prevExternalDelta;
+                CutMatchList minCurrent = cw.cml;
+                CutMatchList minNeighbor = cw.cml;
+                VirtualPoint minCurrentVp = cw.prevKnotPoint;
+                VirtualPoint minCurrentOtherVp = cw.nextKnotPoint;
+                VirtualPoint minNeighborVp = prevCw.nextKnotPoint;
+                ArrayList<CutMatchList> neighborCmls = sortedCutMatchInfoLookup
+                        .get(prevCw.c.knot.id).sortedCutMatchListsByKnotPoint.get(prevCw.prevKnotPoint.id);
+                ArrayList<CutMatchList> currentCmls = sortedCutMatchInfoLookup
+                        .get(cw.c.knot.id).sortedCutMatchLists;
+                if (currentCmls == null) {
+                    float z = 0;
+                }
+                for (CutMatchList current : currentCmls) {
+                    for (CutMatchList neighbor : neighborCmls) {
+                        VirtualPoint neighborVp = neighbor.getOtherKp(prevCw.prevKnotPoint);
+                        VirtualPoint currentVp = current.getClosestKnotPoint(neighborVp, cw.nextExternal);
+                        VirtualPoint currentOtherVp = current.getOtherKp(currentVp);
+
+                        Segment externalNext = currentOtherVp.getSegment(cw.nextExternal);
+                        double cost = Clockwork.cost(current, currentVp, neighbor, neighborVp, externalNext);
+                        if (cost < minCost) {
+                            minCost = cost;
+                            minCurrent = current;
+                            minNeighbor = neighbor;
+                            minCurrentOtherVp = currentOtherVp;
+                            minCurrentVp = currentVp;
+                            minNeighborVp = neighborVp;
+                            found = true;
+                        }
+                    }
+                }
+                if (found) {
+                    cw.setPrevCwUpdateCML(prevCw, minCurrent, minNeighbor, minCurrentVp, minCurrentOtherVp,
+                            minNeighborVp);
                 }
             }
         }

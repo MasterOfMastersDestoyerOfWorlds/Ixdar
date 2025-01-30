@@ -100,19 +100,35 @@ public class Clockwork {
         }
     }
 
-    public void setPrevCwUpdateCML(Clockwork prevCw, CutMatchList cutMatchList, VirtualPoint prevKnotPoint,
-            VirtualPoint prevExternalPoint, Segment prevCutSegment) throws SegmentBalanceException {
-        if (prevIsSet && prevKnotPoint.id == nextKnotPoint.id) {
+    public void setPrevCwUpdateCML(Clockwork prevCw, CutMatchList cutMatchList, CutMatchList prevCutMatchList,
+            VirtualPoint prevKnotPoint,
+            VirtualPoint nextKnotPoint,
+            VirtualPoint prevExternal) throws SegmentBalanceException {
+        if (nextIsSet && nextKnotPoint.id == prevKnotPoint.id) {
             throw new SegmentBalanceException(this.cutEngine.shell, null, c);
         }
-        prevClockwork = prevCw;
-        this.prevExternal = prevExternalPoint;
+        this.prevClockwork = prevCw;
+        this.prevExternal = prevExternal;
         this.prevKnotPoint = prevKnotPoint;
-        prevCut = prevCutSegment;
-        prevIsSet = true;
-        prevExternalSegment = prevKnotPoint.getSegment(prevExternal);
-        prevCw.cml = cutMatchList;
-        prevCw.cm = cutMatchList.cutMatches.get(0);
+        this.nextKnotPoint = nextKnotPoint;
+        Segment nextExternalSegment = nextKnotPoint.getSegment(this.nextExternal);
+        this.nextExternalSegment = nextExternalSegment;
+        if (nextClockwork != null) {
+            Clockwork nextCw = this.nextClockwork;
+            nextCw.prevExternal = nextKnotPoint;
+            nextCw.prevExternalSegment = nextExternalSegment;
+            this.nextExternalDelta = this.cost(nextCw, true);
+            nextCw.prevExternalDelta = nextCw.cost(this, false);
+        }
+        this.cml = cutMatchList;
+        this.cm = cutMatchList.cutMatches.get(0);
+        this.c = this.cm.c;
+        this.prevCut = this.cm.c.getCutSegmentFromKnotPoint(prevKnotPoint);
+        this.nextCut = this.cm.c.getCutSegmentFromKnotPoint(nextKnotPoint);
+        this.prevIsSet = true;
+        this.prevExternalSegment = prevKnotPoint.getSegment(prevExternal);
+        prevCw.cml = prevCutMatchList;
+        prevCw.cm = prevCutMatchList.cutMatches.get(0);
         prevCw.c = prevCw.cm.c;
         prevCw.prevCut = prevCw.c.getCutSegmentFromKnotPoint(prevCw.prevKnotPoint);
         prevCw.nextClockwork = this;
@@ -121,12 +137,13 @@ public class Clockwork {
         prevCw.nextIsSet = true;
         prevCw.nextCut = prevCw.cm.c.getCutSegmentFromKnotPoint(prevExternal);
         prevCw.nextExternalSegment = prevExternalSegment;
-        prevExternalDelta = prevCw.cost(this);
-        prevCw.nextExternalDelta = prevExternalDelta;
+        this.prevExternalDelta = this.cost(prevCw, false);
+        prevCw.nextExternalDelta = prevCw.cost(this, true);
     }
 
     public void setNextCwUpdateCML(Clockwork nextCw, CutMatchList cutMatchList, CutMatchList nextCutMatchList,
             VirtualPoint nextKnotPoint,
+            VirtualPoint prevKnotPoint,
             VirtualPoint nextExternal) throws SegmentBalanceException {
         if (prevIsSet && prevKnotPoint.id == nextKnotPoint.id) {
             throw new SegmentBalanceException(this.cutEngine.shell, null, c);
@@ -134,10 +151,21 @@ public class Clockwork {
         this.nextClockwork = nextCw;
         this.nextExternal = nextExternal;
         this.nextKnotPoint = nextKnotPoint;
+        this.prevKnotPoint = prevKnotPoint;
+        Segment prevExternalSegment = prevKnotPoint.getSegment(this.prevExternal);
+        this.prevExternalSegment = prevExternalSegment;
+        if (prevClockwork != null) {
+            Clockwork prevCw = this.prevClockwork;
+            prevCw.nextExternal = prevKnotPoint;
+            prevCw.nextExternalSegment = prevExternalSegment;
+            this.prevExternalDelta = this.cost(prevCw, true);
+            prevCw.nextExternalDelta = prevCw.cost(this, false);
+        }
         this.cml = cutMatchList;
         this.cm = cutMatchList.cutMatches.get(0);
         this.c = this.cm.c;
         this.nextCut = this.cm.c.getCutSegmentFromKnotPoint(nextKnotPoint);
+        this.prevCut = this.cm.c.getCutSegmentFromKnotPoint(prevKnotPoint);
         this.nextIsSet = true;
         this.nextExternalSegment = nextKnotPoint.getSegment(nextExternal);
         nextCw.cml = nextCutMatchList;
@@ -150,8 +178,8 @@ public class Clockwork {
         nextCw.prevIsSet = true;
         nextCw.prevCut = nextCw.cm.c.getCutSegmentFromKnotPoint(nextExternal);
         nextCw.prevExternalSegment = nextExternalSegment;
-        this.nextExternalDelta = nextCw.cost(this);
-        nextCw.prevExternalDelta = nextExternalDelta;
+        this.nextExternalDelta = this.cost(nextCw, false);
+        nextCw.prevExternalDelta = nextCw.cost(this, true);
     }
 
     public void setPrevPoint(VirtualPoint prev, VirtualPoint prevBasePoint, Segment prevCutSegment) {
@@ -183,8 +211,8 @@ public class Clockwork {
         nextCw.prevIsSet = true;
         nextCw.prevCut = nextCw.cm.c.getCutSegmentFromKnotPoint(nextExternal);
         nextCw.prevExternalSegment = nextExternalSegment;
-        nextExternalDelta = nextCw.cost(this);
-        nextCw.prevExternalDelta = nextExternalDelta;
+        this.nextExternalDelta = this.cost(nextCw, false);
+        nextCw.prevExternalDelta = nextCw.cost(this, true);
     }
 
     public void setPrevCw(Clockwork prevCw, VirtualPoint prevKnotPoint, VirtualPoint prevMatchPoint,
@@ -204,8 +232,8 @@ public class Clockwork {
         prevCw.nextIsSet = true;
         prevCw.nextCut = prevCw.cm.c.getCutSegmentFromKnotPoint(prevMatchPoint);
         prevCw.nextExternalSegment = prevExternalSegment;
-        prevExternalDelta = prevCw.cost(this);
-        prevCw.nextExternalDelta = prevExternalDelta;
+        this.prevExternalDelta = this.cost(prevCw, true);
+        prevCw.nextExternalDelta = prevCw.cost(this, false);
     }
 
     @Override
@@ -214,19 +242,16 @@ public class Clockwork {
                 + nextKnotPoint + "->" + nextExternal;
     }
 
-    public double cost(Clockwork neighbor) {
-        Segment externalSegment = this.prevExternalSegment;
-        if (neighbor.equals(this.nextClockwork)) {
-            externalSegment = this.nextExternalSegment;
-        }
-        double cost = this.cml.internalDelta + neighbor.cml.internalDelta + externalSegment.distance;
+    public double cost(Clockwork neighbor, boolean prev) {
+        double cost = this.cml.internalDelta + neighbor.cml.internalDelta + this.nextExternalSegment.distance
+                + this.prevExternalSegment.distance;
         return cost;
     }
 
     public static double cost(CutMatchList current, VirtualPoint currentVp, CutMatchList neighbor,
-            VirtualPoint neighborVp) {
+            VirtualPoint neighborVp, Segment externalPrev) {
         Segment externalSegment = currentVp.getSegment(neighborVp);
-        double cost = current.internalDelta + neighbor.internalDelta + externalSegment.distance;
+        double cost = current.internalDelta + neighbor.internalDelta + externalSegment.distance + externalPrev.distance;
         return cost;
     }
 }

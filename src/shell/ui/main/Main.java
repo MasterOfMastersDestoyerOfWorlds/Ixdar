@@ -69,8 +69,8 @@ public class Main {
     public static Main main;
     public static Camera2D camera;
 
-    public static Tool tool;
     public static FreeTool freeTool = new FreeTool();
+    public static Tool tool = freeTool;
 
     public static Shell shell;
     public static PointSetPath retTup;
