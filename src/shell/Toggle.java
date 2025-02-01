@@ -4,28 +4,30 @@ import shell.ui.main.PanelTypes;
 
 public enum Toggle {
 
-    CalculateKnot(true),
-    DrawMainPath(false),
-    DrawMetroDiagram(true),
-    DrawKnotGradient(true),
-    DrawCutMatch(true),
-    DrawGridLines(false),
-    DrawDisplayedKnots(true),
-    Manifold(false),
-    CanSwitchLayer(true),
-    IsMainFocused(true),
-    IsTerminalFocused(false),
-    IsInfoFocused(false),
-    IxdarSkip(true),
-    IxdarMirrorAnswerSharing(false),
-    IxdarRotationalAnswerSharing(true),
-    IxdarCheckMirroredAnswerSharing(false),
-    SnapToGrid(true);
+    CalculateKnot(true, "calcKnot"),
+    DrawMainPath(false, "mainPath"),
+    DrawMetroDiagram(true, "metro"),
+    DrawKnotGradient(true, "knotGrad"),
+    DrawCutMatch(true, "cutMatch"),
+    DrawGridLines(false, "grid"),
+    DrawDisplayedKnots(true, "dispKnots"),
+    Manifold(false, "manifold"),
+    CanSwitchLayer(true, "switchLayer"),
+    IsMainFocused(true, "focusMain"),
+    IsTerminalFocused(false, "focusTerm"),
+    IsInfoFocused(false, "focusInfo"),
+    IxdarSkip(true, "ixdarSkip"),
+    IxdarMirrorAnswerSharing(false, "ixdarFlip"),
+    IxdarRotationalAnswerSharing(true, "ixdarRot"),
+    IxdarCheckMirroredAnswerSharing(false, "checkAns"),
+    SnapToGrid(true, "gridSnap");
 
     public boolean value;
+    public String shortName;
 
-    private Toggle(boolean value) {
+    private Toggle(boolean value, String shortName) {
         this.value = value;
+        this.shortName = shortName;
     }
 
     public void toggle() {
@@ -36,5 +38,9 @@ public enum Toggle {
         IsMainFocused.value = focusedPanel == PanelTypes.KnotView;
         IsInfoFocused.value = focusedPanel == PanelTypes.Info;
         IsTerminalFocused.value = focusedPanel == PanelTypes.Terminal;
+    }
+
+    public String shortName() {
+        return shortName;
     }
 }

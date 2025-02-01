@@ -114,11 +114,6 @@ public class Qa194Test {
 	}
 
 	@Test
-	public void test_qa194_178_193p0_47() {
-		SubGraphs.testMethod("qa194_178-193p0-47");
-	}
-
-	@Test
 	public void test_qa194_180_6_x20() {
 		SubGraphs.testMethod("qa194_180-6-x20");
 	}

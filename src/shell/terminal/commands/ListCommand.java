@@ -2,6 +2,7 @@ package shell.terminal.commands;
 
 import java.io.File;
 
+import shell.Toggle;
 import shell.objects.PointCollection;
 import shell.render.color.Color;
 import shell.terminal.Terminal;
@@ -17,6 +18,10 @@ public class ListCommand extends TerminalCommand {
 
     public static OptionList commandOptionAliases = new OptionList("command", "cmds", "cmd", "commands",
             "commandlist");
+
+    public static OptionList toggleOptionAliases = new OptionList("toggle", "tgls", "tgl", "toggels", "toggles",
+            "toggel",
+            "togglelist");
 
     public static OptionList pointCollectionOptionAliases = new OptionList("pc", "pointcollection", "pointcollections",
             "object", "obj", "objects", "objs");
@@ -83,8 +88,13 @@ public class ListCommand extends TerminalCommand {
                     terminal.history.addWord(t.shortName(), Color.COMMAND);
                     terminal.history.addLine(" - " + t.desc(), Color.GREEN);
                 }
+            } else if (toggleOptionAliases.contains(target)) {
+                for (Toggle t : Toggle.values()) {
+                    terminal.history.addWord(t.shortName(), Color.COMMAND);
+                    terminal.history.addLine(" - " + t.name() + " : " + t.value, Color.GREEN);
+                }
             } else if (Terminal.commandMap.containsKey(target)) {
-                
+
             }
             return null;
         }

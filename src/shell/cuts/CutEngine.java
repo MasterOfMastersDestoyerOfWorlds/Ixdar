@@ -437,7 +437,6 @@ public class CutEngine {
                     cw.prevExternal = prev;
                 }
                 cw.prevExternalSegment = cw.prevKnotPoint.getClosestSegment(cw.prevExternal, null);
-                cw.prevExternalDelta = cw.prevExternalSegment.distance;
                 Clockwork nextCw = null;
                 if (next.isKnot) {
                     nextCw = clockwork.get(next.id);
@@ -447,7 +446,6 @@ public class CutEngine {
                     cw.nextExternal = next;
                 }
                 cw.nextExternalSegment = cw.nextKnotPoint.getClosestSegment(cw.nextExternal, null);
-                cw.nextExternalDelta = cw.nextExternalSegment.distance;
             }
         }
         if (RunListUtils.containsID(knotList, 32)) {
@@ -500,19 +498,19 @@ public class CutEngine {
         // this is a good start but rather do both neighbors at once so that we are not
         // trapped by the other neighbor
 
-        if (RunListUtils.containsID(knotList, 70)) {
+        if (RunListUtils.containsID(knotList, 40)) {
             float z = 0;
         }
         for (Clockwork cw : clockwork.values()) {
             if (cw.nextClockwork != null) {
                 Clockwork nextCw = cw.nextClockwork;
                 boolean found = false;
-                double minCost = cw.nextExternalDelta;
                 CutMatchList minCurrent = cw.cml;
-                CutMatchList minNeighbor = cw.cml;
+                CutMatchList minNeighbor = nextCw.cml;
                 VirtualPoint minCurrentVp = cw.nextKnotPoint;
                 VirtualPoint minCurrentOtherVp = cw.prevKnotPoint;
                 VirtualPoint minNeighborVp = nextCw.prevKnotPoint;
+                double minCost = Clockwork.cost(minCurrent, minCurrentVp, minNeighbor, minNeighborVp, cw.prevExternalSegment);
                 ArrayList<CutMatchList> neighborCmls = sortedCutMatchInfoLookup
                         .get(nextCw.c.knot.id).sortedCutMatchListsByKnotPoint.get(nextCw.nextKnotPoint.id);
                 ArrayList<CutMatchList> currentCmls = sortedCutMatchInfoLookup
@@ -547,12 +545,12 @@ public class CutEngine {
             if (cw.prevClockwork != null) {
                 Clockwork prevCw = cw.prevClockwork;
                 boolean found = false;
-                double minCost = cw.prevExternalDelta;
                 CutMatchList minCurrent = cw.cml;
-                CutMatchList minNeighbor = cw.cml;
+                CutMatchList minNeighbor = prevCw.cml;
                 VirtualPoint minCurrentVp = cw.prevKnotPoint;
                 VirtualPoint minCurrentOtherVp = cw.nextKnotPoint;
                 VirtualPoint minNeighborVp = prevCw.nextKnotPoint;
+                double minCost = Clockwork.cost(minCurrent, minCurrentVp, minNeighbor, minNeighborVp, cw.nextExternalSegment);
                 ArrayList<CutMatchList> neighborCmls = sortedCutMatchInfoLookup
                         .get(prevCw.c.knot.id).sortedCutMatchListsByKnotPoint.get(prevCw.prevKnotPoint.id);
                 ArrayList<CutMatchList> currentCmls = sortedCutMatchInfoLookup
