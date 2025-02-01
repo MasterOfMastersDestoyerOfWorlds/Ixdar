@@ -38,11 +38,12 @@ public class ColorCommand extends TerminalCommand {
         return 0;
     }
 
-    public static void run() {
+    @Override
+    public String[] run(String[] args, int startIdx, Terminal terminal) {
         Random colorSeed = new Random();
         Main.stickyColor = new ColorRGB(colorSeed.nextFloat(), colorSeed.nextFloat(),
                 colorSeed.nextFloat());
-        if (Main.tool.canUseToggle(Toggle.drawMetroDiagram)) {
+        if (Main.tool.canUseToggle(Toggle.DrawMetroDiagram)) {
             Main.metroColors = new ArrayList<>();
             int totalLayers = Main.shell.cutEngine.totalLayers;
             float startHue = colorSeed.nextFloat();
@@ -56,11 +57,6 @@ public class ColorCommand extends TerminalCommand {
         for (int i = 0; i < Main.knotGradientColors.size(); i++) {
             Main.knotGradientColors.set(i, Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
         }
-    }
-
-    @Override
-    public String[] run(String[] args, int startIdx, Terminal terminal) {
-        ColorCommand.run();
         return new String[] { cmd };
     }
 }

@@ -5,7 +5,7 @@ import java.util.HashMap;
 
 import org.apache.commons.math3.util.Pair;
 
-import shell.ToggleType;
+import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.cuts.route.Route;
 import shell.exceptions.SegmentBalanceException;
@@ -19,15 +19,23 @@ import shell.ui.Drawing;
 import shell.ui.main.Main;
 
 public class CompareManifoldTool extends Tool {
+
     public enum States {
         FindStart,
         StartSelected,
-        FirstEndSelected,
-        Compare
+        AlphaEndSelected,
+        Compare;
+
+        public boolean atOrAfter(States state) {
+            return this.ordinal() >= state.ordinal();
+        }
+
+        public boolean before(States state) {
+            return this.ordinal() < state.ordinal();
+        }
     }
 
     public enum RouteView {
-        All,
         Disconnected,
         Connected
     }
@@ -36,30 +44,37 @@ public class CompareManifoldTool extends Tool {
     private RouteView routeView;
 
     public Manifold displayManifold;
+    public Route displayRouteAlpha;
+    public Route displayRouteBeta;
 
     public Segment startSegment;
     public VirtualPoint startKP;
     public VirtualPoint startCP;
 
-    public Segment firstEndSegment;
-    public VirtualPoint firstEndKP;
-    public VirtualPoint firstEndCP;
-    public Manifold firstManifold;
+    public Segment alphaEndSegment;
+    public VirtualPoint alphaEndKP;
+    public VirtualPoint alphaEndCP;
+    public Manifold alphaManifold;
 
-    public Segment secondEndSegment;
-    public VirtualPoint secondEndKP;
-    public VirtualPoint secondEndCP;
-    public Manifold secondManifold;
+    public Segment betaEndSegment;
+    public VirtualPoint betaEndKP;
+    public VirtualPoint betaEndCP;
+    public Manifold betaManifold;
 
     public HashMap<Long, ArrayList<Segment>> negativeSegmentMap;
     HashMap<Long, Integer> colorLookup;
     public static ArrayList<Color> colors;
 
     Knot manifoldKnot;
+    final static Color alphaMatchColor = Color.PURPLE;
+    final static Color alphaCutColor = Color.GREEN;
+
+    final static Color betaMatchColor = Color.MAGENTA;
+    final static Color betaCutColor = Color.YELLOW;
 
     public CompareManifoldTool() {
-        disallowedToggles = new ToggleType[] { ToggleType.DrawCutMatch, ToggleType.CanSwitchLayer,
-                ToggleType.DrawKnotGradient, ToggleType.DrawMetroDiagram, ToggleType.DrawDisplayedKnots };
+        disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.CanSwitchLayer,
+                Toggle.DrawKnotGradient, Toggle.DrawMetroDiagram, Toggle.DrawDisplayedKnots };
 
         colors = new ArrayList<>();
         colors.add(Color.BLUE);
@@ -76,57 +91,67 @@ public class CompareManifoldTool extends Tool {
         startSegment = null;
         startKP = null;
         startCP = null;
-        firstEndSegment = null;
-        firstEndCP = null;
-        firstEndKP = null;
-        firstManifold = null;
-        secondEndSegment = null;
-        secondEndCP = null;
-        secondEndKP = null;
-        secondManifold = null;
+        alphaEndSegment = null;
+        alphaEndCP = null;
+        alphaEndKP = null;
+        alphaManifold = null;
+        betaEndSegment = null;
+        betaEndCP = null;
+        betaEndKP = null;
+        betaManifold = null;
         colorLookup = null;
-        Main.terminal.instruct("Select the starting cut");
+        displayRouteAlpha = null;
+        displayRouteBeta = null;
+        Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
+        Main.updateKnotsDisplayed();
+        instruct();
     }
 
     @Override
     public void hoverChanged() {
-        if (state == States.StartSelected || state == States.FirstEndSelected) {
+        if (state == States.StartSelected || state == States.AlphaEndSelected) {
             if (displaySegment != null) {
                 displayManifold = Manifold.findManifold(startCP, startKP, displayCP, displayKP, Main.manifolds)
                         .getFirst();
             }
+        } else if (state == States.Compare) {
+            displayRouteAlpha = alphaManifold.getNeighborRoute(displayKP, displayCP, routeView == RouteView.Connected);
+            displayRouteBeta = betaManifold.getNeighborRoute(displayKP, displayCP, routeView == RouteView.Connected);
         }
     }
 
     @Override
     public void draw(Camera2D camera, float minLineThickness) {
-        if (state == States.StartSelected || state == States.FirstEndSelected) {
+        if (state == States.StartSelected || state == States.AlphaEndSelected) {
             Manifold m = displayManifold;
             if (m != null) {
                 Drawing.drawCutMatch(m.cutMatchList, m.manifoldCutSegment1,
                         m.manifoldCutSegment2, m.manifoldExSegment1, m.manifoldExSegment2,
                         m.manifoldKnot, Drawing.MIN_THICKNESS * 2, Main.retTup.ps, camera);
             }
+        } else if (state == States.Compare) {
+            if (displayRouteAlpha != null) {
+                Drawing.drawRouteComparison(displayRouteAlpha, alphaMatchColor, alphaCutColor, displayRouteBeta,
+                        Color.MAGENTA, Color.YELLOW, Drawing.MIN_THICKNESS * 2,
+                        Main.retTup.ps, camera);
+            }
         }
         if (displaySegment != null
-                && !displaySegment.equals(startSegment) && state.ordinal() < States.Compare.ordinal()) {
+                && !displaySegment.equals(startSegment) && state.before(States.Compare)) {
             Drawing.drawManifoldCut(displayKP, displayCP, camera,
                     minLineThickness * 2);
         }
-        if (startSegment != null) {
+        if (startSegment != null && state.atOrAfter(States.StartSelected)) {
             Drawing.drawManifoldCut(startKP, startCP,
-                    camera,
-                    minLineThickness * 2);
+                    camera, minLineThickness * 2);
         }
-        if (firstEndSegment != null) {
-            Drawing.drawManifoldCut(firstEndKP, firstEndCP,
-                    camera,
-                    minLineThickness * 2);
+        if (alphaEndSegment != null && state.atOrAfter(States.AlphaEndSelected)) {
+            Drawing.drawManifoldCut(alphaEndKP, alphaEndCP, alphaMatchColor, alphaCutColor,
+                    camera, minLineThickness * 2);
         }
-        if (secondEndSegment != null) {
-            Drawing.drawManifoldCut(secondEndKP, secondEndCP,
-                    camera,
-                    minLineThickness * 2);
+        if (betaEndSegment != null && state.atOrAfter(States.Compare)) {
+            Drawing.drawManifoldCut(betaEndKP, betaEndCP, Color.MAGENTA, Color.YELLOW,
+                    camera, minLineThickness * 2);
         }
         if (colorLookup == null) {
             initSegmentMap();
@@ -149,7 +174,6 @@ public class CompareManifoldTool extends Tool {
                 startKP = displayKP;
                 startCP = displayCP;
                 state = CompareManifoldTool.States.StartSelected;
-                Main.terminal.instruct("Select the first end cut");
                 clearHover();
             } else if (state == CompareManifoldTool.States.StartSelected) {
                 if (!displaySegment.equals(startSegment)) {
@@ -157,31 +181,44 @@ public class CompareManifoldTool extends Tool {
                             Main.manifolds);
                     Manifold m = p.getFirst();
                     if (m != null) {
-                        firstEndSegment = displaySegment;
-                        firstEndCP = displayCP;
-                        firstEndKP = displayKP;
-                        firstManifold = m;
-                        state = CompareManifoldTool.States.FirstEndSelected;
-                        Main.terminal.instruct("Select the second end cut");
+                        alphaEndSegment = displaySegment;
+                        alphaEndCP = displayCP;
+                        alphaEndKP = displayKP;
+                        alphaManifold = m;
+                        state = CompareManifoldTool.States.AlphaEndSelected;
                     }
                 }
-            } else if (state == States.FirstEndSelected) {
+            } else if (state == States.AlphaEndSelected) {
                 if (!displaySegment.equals(startSegment)) {
                     Pair<Manifold, Integer> p = Manifold.findManifold(startCP, startKP, displayCP, displayKP,
                             Main.manifolds);
                     Manifold m = p.getFirst();
                     if (m != null) {
-                        secondEndSegment = displaySegment;
-                        secondEndCP = displayCP;
-                        secondEndKP = displayKP;
-                        secondManifold = m;
+                        betaEndSegment = displaySegment;
+                        betaEndCP = displayCP;
+                        betaEndKP = displayKP;
+                        betaManifold = m;
                         state = States.Compare;
-                        Main.terminal.clearInstruct();
                         initSegmentMap();
                     }
                 }
 
             }
+            instruct();
+        }
+    }
+
+    public void instruct() {
+        switch (state) {
+            case FindStart:
+                Main.terminal.instruct("Select the starting cut");
+            case StartSelected:
+                Main.terminal.instruct("Select the alpha path end cut");
+            case AlphaEndSelected:
+                Main.terminal.instruct("Select the beta path end cut");
+            default:
+                Main.terminal.clearInstruct();
+                break;
         }
     }
 
@@ -199,43 +236,136 @@ public class CompareManifoldTool extends Tool {
                 colorLookup.put(matchId2, 0);
             }
         } else {
-            if (firstManifold.cutMatchList == null) {
+            if (alphaManifold.cutMatchList == null) {
                 try {
-                    firstManifold.calculateManifoldCutMatch(Main.shell, k);
+                    alphaManifold.calculateManifoldCutMatch(Main.shell, k);
                 } catch (SegmentBalanceException e) {
                     e.printStackTrace();
                 }
             }
-            if (secondManifold.cutMatchList == null) {
+            if (betaManifold.cutMatchList == null) {
                 try {
-                    secondManifold.calculateManifoldCutMatch(Main.shell, k);
+                    betaManifold.calculateManifoldCutMatch(Main.shell, k);
                 } catch (SegmentBalanceException e) {
                     e.printStackTrace();
                 }
             }
-            for (Segment s : k.manifoldSegments) {
-                long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
-                VirtualPoint f = s.first;
-                VirtualPoint l = s.last;
-                Route fRouteC = firstManifold.getNeighborRouteC(f, l);
-                Route sRouteC = secondManifold.getNeighborRouteC(f, l);
-                if (fRouteC.sameRoute(sRouteC)) {
-                    colorLookup.put(matchId, 0);
-                } else {
-                    colorLookup.put(matchId, 1);
+            if (routeView == RouteView.Connected) {
+                for (Segment s : k.manifoldSegments) {
+                    long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
+                    VirtualPoint f = s.first;
+                    VirtualPoint l = s.last;
+                    Route aRouteC = alphaManifold.getNeighborRouteC(f, l);
+                    Route aRouteDC = alphaManifold.getNeighborRouteDC(f, l);
+                    Route bRouteC = betaManifold.getNeighborRouteC(f, l);
+                    Route bRouteDC = betaManifold.getNeighborRouteDC(f, l);
+                    if (aRouteC.sameRoute(bRouteC)) {
+                        colorLookup.put(matchId, 0);
+                    } else if (aRouteC.sameRoute(bRouteDC)) {
+                        colorLookup.put(matchId, 2);
+                    } else if (bRouteC.sameRoute(aRouteDC)) {
+                        colorLookup.put(matchId, 2);
+                    } else {
+                        colorLookup.put(matchId, 1);
+                    }
+
+                    long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
+
+                    Route aRouteC2 = alphaManifold.getNeighborRouteC(l, f);
+                    Route aRouteDC2 = alphaManifold.getNeighborRouteDC(l, f);
+                    Route bRouteC2 = betaManifold.getNeighborRouteC(l, f);
+                    Route bRouteDC2 = betaManifold.getNeighborRouteDC(l, f);
+                    if (aRouteC2.sameRoute(bRouteC2)) {
+                        colorLookup.put(matchId2, 0);
+                    } else if (aRouteC2.sameRoute(bRouteDC2)) {
+                        colorLookup.put(matchId2, 2);
+                    } else if (bRouteC2.sameRoute(aRouteDC2)) {
+                        colorLookup.put(matchId2, 2);
+                    } else {
+                        colorLookup.put(matchId2, 1);
+                    }
                 }
+            } else if (routeView == RouteView.Disconnected) {
+                for (Segment s : k.manifoldSegments) {
+                    long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
+                    VirtualPoint f = s.first;
+                    VirtualPoint l = s.last;
+                    Route aRouteDC = alphaManifold.getNeighborRouteDC(f, l);
+                    Route aRouteC = alphaManifold.getNeighborRouteC(f, l);
+                    Route bRouteDC = betaManifold.getNeighborRouteDC(f, l);
+                    Route bRouteC = betaManifold.getNeighborRouteC(f, l);
+                    if (aRouteDC.sameRoute(bRouteDC)) {
+                        colorLookup.put(matchId, 0);
+                    } else if (aRouteDC.sameRoute(bRouteC)) {
+                        colorLookup.put(matchId, 2);
+                    } else if (bRouteDC.sameRoute(aRouteC)) {
+                        colorLookup.put(matchId, 2);
+                    } else {
+                        colorLookup.put(matchId, 1);
+                    }
 
-                long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
+                    long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
 
-                Route fRouteC2 = firstManifold.getNeighborRouteC(l, f);
-                Route sRouteC2 = secondManifold.getNeighborRouteC(l, f);
-                if (fRouteC2.sameRoute(sRouteC2)) {
-                    colorLookup.put(matchId2, 0);
-                } else {
-                    colorLookup.put(matchId2, 1);
+                    Route aRouteDC2 = alphaManifold.getNeighborRouteDC(l, f);
+                    Route aRouteC2 = alphaManifold.getNeighborRouteC(l, f);
+                    Route bRouteDC2 = betaManifold.getNeighborRouteDC(l, f);
+                    Route bRouteC2 = betaManifold.getNeighborRouteC(l, f);
+                    if (aRouteDC2.sameRoute(bRouteDC2)) {
+                        colorLookup.put(matchId2, 0);
+                    } else if (aRouteDC2.sameRoute(bRouteC2)) {
+                        colorLookup.put(matchId2, 2);
+                    } else if (bRouteDC2.sameRoute(aRouteC2)) {
+                        colorLookup.put(matchId2, 2);
+                    } else {
+                        colorLookup.put(matchId2, 1);
+                    }
                 }
             }
         }
+    }
+
+    @Override
+    public void back() {
+        if (state == States.FindStart) {
+            super.back();
+        } else {
+            state = States.values()[state.ordinal() - 1];
+        }
+    }
+
+    @Override
+    public void increaseViewLayer() {
+        RouteView[] routeViews = RouteView.values();
+        routeView = routeView.ordinal() + 1 >= routeViews.length ? routeViews[0] : routeViews[routeView.ordinal() + 1];
+        initSegmentMap();
+    }
+
+    @Override
+    public void decreaseViewLayer() {
+        RouteView[] routeViews = RouteView.values();
+        routeView = routeView.ordinal() - 1 < 0 ? routeViews[routeViews.length - 1]
+                : routeViews[routeView.ordinal() - 1];
+        initSegmentMap();
+    }
+
+    @Override
+    public HyperString buildInfoText() {
+        HyperString h = new HyperString();
+        h.addLine("View Level: " + routeView.name());
+        if (state == States.Compare) {
+            if (displayRouteAlpha != null) {
+                h.addLine("Route Alpha: ", alphaMatchColor);
+                h.addLine(displayRouteAlpha.toString(), alphaCutColor);
+                h.addHyperString(
+                        displayRouteAlpha.compareHyperString(displayRouteBeta, alphaMatchColor, alphaCutColor));
+                h.addLine("Route Beta: ", Color.MAGENTA);
+                h.addLine(displayRouteBeta.toString(), Color.YELLOW);
+                h.addHyperString(
+                        displayRouteBeta.compareHyperString(displayRouteAlpha, betaMatchColor, betaCutColor));
+            }
+        }
+        h.wrap();
+        return h;
     }
 
     @Override
@@ -244,9 +374,17 @@ public class CompareManifoldTool extends Tool {
     }
 
     @Override
-    public HyperString buildInfoText() {
-        HyperString h = new HyperString();
-        h.addLine("View Level: " + routeView.name());
-        return h;
+    public String fullName() {
+        return "changemanifold";
+    }
+
+    @Override
+    public String shortName() {
+        return "cm";
+    }
+
+    @Override
+    public String desc() {
+        return "A tool that allows the user to compare two cut pairs and their shortest path graphs. Only available in manifold mode";
     }
 }

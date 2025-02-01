@@ -74,6 +74,32 @@
 
 3. - [x] Pressing Left/Right Arrow Key should move the hover/selected knotPoint(selected if isn't null) to the next clockwise knotPoint in the list of manifolds.
 
+## UI Compare Route Map Tool
+
+Idea behind tool is that we would like to compare two pairs of cut segment shortest path information where the pair have the same starting cut segment but differing end cut segments.
+
+1. - [x] A matching channel should have the same shortest route delta back to the start as its comparison peer
+
+2. - [x] Color all half-segments blue who match entirely on the currently selected route view (Disconnected, Connected)
+
+3. - [x] Color all non-matching half-segments red
+
+4. - [x] Color all flipped half-segments yellow (the connected and disconnected channels are flipped)
+
+5. - [x] Clicking on a half-segment/vp should display in the Info Tab the route information.
+
+6. - [x] When a half-segment is selected we should see its route of cutmatches leading back to the start.
+
+7. - [x] Increasing or decreasing level keys: '[' and ']' should change the route view.
+
+8. - [x] Tool should have two states Find and Compare
+
+9. - [x] Compare state is the novel pieces of this description and can only be started after the Find state.
+
+10. - [x] Find state is the starting state and is similar to the find manifold tool except we need to find 3 segments
+
+11. - [x] When in compare mode we should still show the the cutmatches on hover but in comparison, matching cuts and matches will still be in cyan and orange, non-matching cuts from the alpha manifold will be in purple and green and non-matching cuts from the beta manifold will be in magenta and yellow
+
 ## UI Message Panel
 
 ## UI Info Panel

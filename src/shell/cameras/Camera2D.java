@@ -3,6 +3,8 @@ package shell.cameras;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 
+import org.joml.Vector2f;
+
 import shell.PointSet;
 import shell.knot.Knot;
 import shell.knot.Point;
@@ -33,10 +35,10 @@ public class Camera2D implements Camera {
     public float rangeX;
     public float rangeY;
     public PointSet ps;
-    private float minX;
-    private float minY;
-    private float maxX;
-    private float maxY;
+    public float minX;
+    public float minY;
+    public float maxX;
+    public float maxY;
     private float height;
     public float zIndex;
     public float farZIndex;
@@ -92,6 +94,12 @@ public class Camera2D implements Camera {
         minY = java.lang.Float.MAX_VALUE;
         maxX = 0;
         maxY = 0;
+        if (ps.size() == 0) {
+            minX = -10;
+            minY = -10;
+            maxX = 10;
+            maxY = 10;
+        }
         for (PointND pn : ps) {
             if (!pn.isDummyNode()) {
                 Point2D p = pn.toPoint2D();
@@ -119,7 +127,6 @@ public class Camera2D implements Camera {
 
         if (rangeX > rangeY) {
             rangeY = rangeX;
-
         } else {
             rangeX = rangeY;
         }
@@ -130,6 +137,14 @@ public class Camera2D implements Camera {
         minY = java.lang.Float.MAX_VALUE;
         maxX = 0;
         maxY = 0;
+        boolean empty = ps.size() == 0;
+        if (empty) {
+            minX = -10;
+            minY = -10;
+            maxX = 10;
+            maxY = 10;
+        }
+
         for (PointND pn : ps) {
             if (!pn.isDummyNode()) {
                 Point2D p = pn.toPoint2D();
@@ -159,7 +174,6 @@ public class Camera2D implements Camera {
         } else {
             rangeX = rangeY;
         }
-
         offsetX += (Width - (Math.abs(pointTransformX(maxX) - pointTransformX(minX)))) / 2;
         offsetY += (Height - (Math.abs(pointTransformY(maxY) - pointTransformY(minY)))) / 2;
 
@@ -328,6 +342,7 @@ public class Camera2D implements Camera {
     }
 
     // transform from point space to screen space
+    @Override
     public float pointTransformX(float x) {
         return ((((x - minX) * width) / rangeX) + offsetX);
     }
@@ -348,6 +363,7 @@ public class Camera2D implements Camera {
     }
 
     // transform from point space to screen space
+    @Override
     public float pointTransformY(float y) {
         return ((((y - minY) * height) / rangeY) + offsetY);
     }
@@ -383,18 +399,18 @@ public class Camera2D implements Camera {
 
         double d = Clock.deltaTime();
         switch (direction) {
-            case FORWARD:
-                PanY += PAN_SPEED * SHIFT_MOD * d;
-                break;
-            case LEFT:
-                PanX -= PAN_SPEED * SHIFT_MOD * d;
-                break;
-            case BACKWARD:
-                PanY -= PAN_SPEED * SHIFT_MOD * d;
-                break;
-            case RIGHT:
-                PanX += PAN_SPEED * SHIFT_MOD * d;
-                break;
+        case FORWARD:
+            PanY += PAN_SPEED * SHIFT_MOD * d;
+            break;
+        case LEFT:
+            PanX -= PAN_SPEED * SHIFT_MOD * d;
+            break;
+        case BACKWARD:
+            PanY -= PAN_SPEED * SHIFT_MOD * d;
+            break;
+        case RIGHT:
+            PanX += PAN_SPEED * SHIFT_MOD * d;
+            break;
 
         }
     }
@@ -500,6 +516,20 @@ public class Camera2D implements Camera {
         updateSize(width, height);
         ScreenOffsetX = x;
         ScreenOffsetY = y;
+    }
+
+    @Override
+    public Bounds getBounds() {
+        return viewBounds;
+    }
+
+    @Override
+    public boolean contains(Vector2f pB) {
+        if ((pB.x <= ScreenWidth && pB.x >= 0) &&
+                (pB.y <= ScreenHeight && pB.y >= 0)) {
+            return true;
+        }
+        return false;
     }
 
 }

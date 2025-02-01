@@ -19,6 +19,7 @@ import shell.exceptions.FileParseException;
 import shell.exceptions.TerminalParseException;
 import shell.objects.Arc;
 import shell.objects.Circle;
+import shell.objects.Grid;
 import shell.objects.Ix;
 import shell.objects.Line;
 import shell.objects.PointND;
@@ -94,7 +95,9 @@ public class FileManagement {
     static int lineNumber;
     static ArrayList<Integer> duplicatePointIndexes;
     static boolean removeDuplicates;
+    static boolean showGrid;
     static ArrayList<PointND> lines;
+    static Grid grid;
 
     public static void initImport() {
         ps = new PointSet();
@@ -112,6 +115,7 @@ public class FileManagement {
         lineNumber = 1;
         duplicatePointIndexes = new ArrayList<>();
         removeDuplicates = false;
+        showGrid = false;
         lines = new ArrayList<PointND>();
     }
 
@@ -212,9 +216,15 @@ public class FileManagement {
                         if (retTup.d != null) {
                             d = new DistanceMatrix(ps);
                         }
+                    } else if (PointND.Hex.opts.contains(args[0])) {
+                        PointND pt = PointND.Hex.parse(args, 1);
+                        addPoint(pt);
                     } else if (args[0].equals("FLAG")) {
                         if (args[1].equals("REMOVE_DUPLICATES")) {
                             removeDuplicates = true;
+                        }
+                        if (args[1].equals("SHOW_GRID")) {
+                            showGrid = true;
                         }
 
                     } else if (args[0].contains("//")) {
@@ -223,25 +233,7 @@ public class FileManagement {
                         PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(args[1]),
                                 java.lang.Double.parseDouble(args[2]));
 
-                        if (ps.contains(pt)) {
-                            System.out.println("Duplicated found: " + index);
-                            duplicatePointIndexes.add(lineNumber);
-                        } else {
-                            pt2d = pt.toPoint2D();
-                            lookUp.put(index, pt);
-                            lines.add(pt);
-                            ps.add(pt);
-                            tsp.add(pt);
-
-                            if (first) {
-                                path.moveTo(pt2d.getX(), pt2d.getY());
-                                first = false;
-                            } else {
-                                path.lineTo(pt2d.getX(), pt2d.getY());
-                            }
-
-                            index++;
-                        }
+                        addPoint(pt);
                     }
                 }
 
@@ -266,28 +258,78 @@ public class FileManagement {
             if (removeDuplicates && duplicatePointIndexes.size() > 0) {
                 removeDuplicates(f, duplicatePointIndexes);
             }
-            return new PointSetPath(ps, path, tsp, d, manifolds, comments);
+            if (showGrid) {
+                grid.showGrid();
+            }
+            if (grid == null) {
+                grid = new Grid.HexGrid();
+                grid.showGrid();
+            }
+            return new PointSetPath(ps, path, tsp, d, manifolds, comments, grid);
         } catch (NumberFormatException | IOException | FileParseException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
         return null;
     }
 
-    public static void addPoints(ArrayList<PointND> points) {
+    private static void addPoint(PointND pt) throws TerminalParseException {
+        if (grid == null) {
+            if (pt instanceof PointND.Double || pt instanceof PointND.Float) {
+                grid = new Grid.CartesianGrid();
+            } else if (pt instanceof PointND.Hex) {
+                grid = new Grid.HexGrid();
+            }
+        } else {
+            if (!grid.allowsPoint(pt)) {
+                throw new TerminalParseException("Expected all points to be in: " + grid.allowableTypes()
+                        + " but found point of type: " + pt.getClass());
+            }
+        }
+        if (ps.contains(pt)) {
+            System.out.println("Duplicated found: " + index);
+            duplicatePointIndexes.add(lineNumber);
+        } else {
+            lookUp.put(index, pt);
+            lines.add(pt);
+            ps.add(pt);
+            tsp.add(pt);
+
+            if (first) {
+                path.moveTo(pt.getScreenX(), pt.getScreenY());
+                first = false;
+            } else {
+                path.lineTo(pt.getScreenX(), pt.getScreenY());
+            }
+
+            index++;
+        }
+    }
+
+    public static void addPoints(ArrayList<PointND> points) throws TerminalParseException {
         for (int i = 0; i < points.size(); i++) {
             PointND pt = points.get(i);
+            if (grid == null) {
+                if (pt instanceof PointND.Double || pt instanceof PointND.Float) {
+                    grid = new Grid.CartesianGrid();
+                } else if (pt instanceof PointND.Hex) {
+                    grid = new Grid.HexGrid();
+                }
+            } else {
+                if (!grid.allowsPoint(pt)) {
+                    throw new TerminalParseException("Expected all points to be in: " + grid.allowableTypes()
+                            + " but found point of type: " + pt.getClass());
+                }
+            }
             pt.setID(index);
-            Point2D pt2d = pt.toPoint2D();
             lookUp.put(index, pt);
             lines.add(pt);
             ps.add(pt);
             tsp.add(pt);
             if (first) {
-                path.moveTo(pt2d.getX(), pt2d.getY());
+                path.moveTo(pt.getScreenX(), pt.getScreenY());
                 first = false;
             } else {
-                path.lineTo(pt2d.getX(), pt2d.getY());
+                path.lineTo(pt.getScreenX(), pt.getScreenY());
             }
             index++;
         }

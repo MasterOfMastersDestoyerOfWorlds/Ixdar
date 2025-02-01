@@ -13,12 +13,14 @@ public interface Color {
     public static final Color BLUE_WHITE = new ColorRGB(98, 142, 166, "Blue White");
     public static final Color CYAN = new ColorRGB(0, 255, 255, "Cyan");
     public static final Color IXDAR = new ColorRGB(150, 0, 36, "Ixdar");
-    public static final Color IXDAR_DARK = new ColorRGB(51, 1, 13, "Ixdar Dark");
+    public static final Color DARK_IXDAR = new ColorRGB(51, 1, 13, "Dark Ixdar");
     public static final Color TRANSPARENT = new ColorRGB(0, 0, 0, 0, "Transparent");
     public static final Color TRANSPARENT25 = new ColorRGB(0, 0, 0, 0.25f, "Transparent 25");
     public static final Color TRANSPARENT50 = new ColorRGB(0, 0, 0, 0.5f, "Transparent 50");
     public static final Color TRANSPARENT75 = new ColorRGB(0, 0, 0, 0.75f, "Transparent 75");
-    public static final Color YELLOW = new ColorRGB(0, 255, 255, "Yellow");
+    public static final Color YELLOW = new ColorRGB(255, 255, 0, "Yellow");
+    public static final Color DARK_PURPLE = new ColorRGB(32, 35, 36, "Dark Purple");
+    public static final Color PURPLE = new ColorRGB(125, 49, 123, "Purple");
     public static final Color MAGENTA = new ColorRGB(1f, 0f, 1f, "Magenta");
     public static final Color LIGHT_GRAY = new ColorRGB(0.3f, 0.3f, 0.3f, "Light Gray");
     public static final Color DARK_GRAY = new ColorRGB(0.15f, 0.15f, 0.15f, "Dark Gray");

@@ -1,5 +1,7 @@
 package shell.cameras;
 
+import org.joml.Vector2f;
+
 public interface Camera {
 
     void reset();
@@ -31,8 +33,36 @@ public interface Camera {
 
     void calculateCameraTransform();
 
+    /**
+     * transform from point space to screen space
+     * 
+     * @param normalizedPosX
+     * @return pointSpaceX
+     */
+    float pointTransformX(float x);
+
+    /**
+     * transform from point space to screen space
+     * 
+     * @param normalizedPosY
+     * @return pointSpaceY
+     */
+    float pointTransformY(float y);
+
+    /**
+     * transform from screen space to point space
+     * 
+     * @param normalizedPosX
+     * @return pointSpaceX
+     */
     float screenTransformX(float normalizedPosX);
 
+    /**
+     * transform from screen space to point space
+     * 
+     * @param normalizedPosY
+     * @return pointSpaceY
+     */
     float screenTransformY(float normalizedPosY);
 
     float getWidth();
@@ -46,12 +76,18 @@ public interface Camera {
     float getScreenWidthRatio();
 
     float getScreenHeightRatio();
+
     float getScaleFactor();
 
     float getNormalizePosX(float xPos);
+
     float getNormalizePosY(float yPos);
 
     float getFarZIndex();
 
     void decFarZIndex();
+
+    Bounds getBounds();
+
+    boolean contains(Vector2f pB);
 }

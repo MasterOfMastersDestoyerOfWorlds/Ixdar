@@ -2,25 +2,32 @@ package shell;
 
 import shell.ui.main.PanelTypes;
 
-public class Toggle {
+public enum Toggle {
+
+    CalculateKnot(true, "calcKnot"),
+    DrawMainPath(false, "mainPath"),
+    DrawMetroDiagram(true, "metro"),
+    DrawKnotGradient(true, "knotGrad"),
+    DrawCutMatch(true, "cutMatch"),
+    DrawGridLines(false, "grid"),
+    DrawDisplayedKnots(true, "dispKnots"),
+    Manifold(false, "manifold"),
+    CanSwitchLayer(true, "switchLayer"),
+    IsMainFocused(true, "focusMain"),
+    IsTerminalFocused(false, "focusTerm"),
+    IsInfoFocused(false, "focusInfo"),
+    IxdarSkip(true, "ixdarSkip"),
+    IxdarMirrorAnswerSharing(false, "ixdarFlip"),
+    IxdarRotationalAnswerSharing(true, "ixdarRot"),
+    IxdarCheckMirroredAnswerSharing(false, "checkAns"),
+    SnapToGrid(true, "gridSnap");
+
     public boolean value;
-    public ToggleType type;
+    public String shortName;
 
-    public static Toggle calculateKnot = new Toggle(true, ToggleType.CalculateKnot);
-    public static Toggle drawMainPath = new Toggle(false, ToggleType.DrawMainPath);
-    public static Toggle drawMetroDiagram = new Toggle(true, ToggleType.DrawMetroDiagram);
-    public static Toggle drawKnotGradient = new Toggle(true, ToggleType.DrawKnotGradient);
-    public static Toggle drawCutMatch = new Toggle(true, ToggleType.DrawCutMatch);
-    public static Toggle manifold = new Toggle(false, ToggleType.Manifold);
-    public static Toggle canSwitchLayer = new Toggle(true, ToggleType.CanSwitchLayer);
-    public static Toggle drawDisplayedKnots = new Toggle(true, ToggleType.DrawDisplayedKnots);
-    public static Toggle isMainFocused = new Toggle(true, ToggleType.IsMainFocused);
-    public static Toggle isTerminalFocused = new Toggle(false, ToggleType.IsTerminalFocused);
-    public static Toggle isInfoFocused = new Toggle(false, ToggleType.IsInfoFocused);
-
-    public Toggle(boolean value, ToggleType type) {
-        this.type = type;
+    private Toggle(boolean value, String shortName) {
         this.value = value;
+        this.shortName = shortName;
     }
 
     public void toggle() {
@@ -28,8 +35,12 @@ public class Toggle {
     }
 
     public static void setPanelFocus(PanelTypes focusedPanel) {
-        isMainFocused.value = focusedPanel == PanelTypes.KnotView;
-        isInfoFocused.value = focusedPanel == PanelTypes.Info;
-        isTerminalFocused.value = focusedPanel == PanelTypes.Terminal;
+        IsMainFocused.value = focusedPanel == PanelTypes.KnotView;
+        IsInfoFocused.value = focusedPanel == PanelTypes.Info;
+        IsTerminalFocused.value = focusedPanel == PanelTypes.Terminal;
+    }
+
+    public String shortName() {
+        return shortName;
     }
 }

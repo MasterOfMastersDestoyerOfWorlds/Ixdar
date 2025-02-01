@@ -5,13 +5,13 @@ import java.util.ArrayList;
 import org.apache.commons.math3.util.Pair;
 
 import shell.Toggle;
-import shell.ToggleType;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.Clock;
 import shell.render.text.HyperString;
+import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
 
@@ -132,13 +132,13 @@ public abstract class Tool {
     public void hoverChanged() {
     }
 
-    ToggleType[] disallowedToggles = new ToggleType[] {};
+    Toggle[] disallowedToggles = new Toggle[] {};
     public float ScreenOffsetY;
     public float ScreenOffsetX;
 
     public boolean canUseToggle(Toggle toggle) {
         for (int i = 0; i < disallowedToggles.length; i++) {
-            if (disallowedToggles[i].equals(toggle.type)) {
+            if (disallowedToggles[i].equals(toggle)) {
                 return false;
             }
         }
@@ -239,10 +239,6 @@ public abstract class Tool {
         return idTransform;
     }
 
-    public String displayName() {
-        return "REEEEEEEE";
-    }
-
     public Type toolType() {
         return Type.None;
     }
@@ -266,9 +262,66 @@ public abstract class Tool {
         return h;
     };
 
+    public void back() {
+        if (Main.tool.toolType() == Tool.Type.Free) {
+            Canvas3D.activate(true);
+            Main.activate(false);
+        }
+        Main.tool.freeTool();
+    }
+
     public void setScreenOffset(Camera2D camera) {
         ScreenOffsetX = camera.ScreenOffsetX;
         ScreenOffsetY = camera.ScreenOffsetY;
     }
+
+    public void increaseViewLayer() {
+        if (canUseToggle(Toggle.CanSwitchLayer)) {
+            if (canUseToggle(Toggle.Manifold) && canUseToggle(Toggle.DrawCutMatch)) {
+                Main.manifoldIdx++;
+                if (Main.manifoldIdx >= Main.manifolds.size()) {
+                    Main.manifoldIdx = 0;
+                }
+            } else {
+                Main.knotDrawLayer++;
+                if (Main.knotDrawLayer > Main.totalLayers) {
+                    Main.knotDrawLayer = Main.totalLayers;
+                }
+                if (Main.knotDrawLayer < 1) {
+                    Main.knotDrawLayer = 1;
+                }
+                Main.updateKnotsDisplayed();
+            }
+        }
+    }
+
+    public void decreaseViewLayer() {
+        if (canUseToggle(Toggle.CanSwitchLayer)) {
+            if (canUseToggle(Toggle.Manifold) && canUseToggle(Toggle.DrawCutMatch)) {
+                Main.manifoldIdx--;
+                if (Main.manifoldIdx < 0) {
+                    Main.manifoldIdx = Main.manifolds.size() - 1;
+                }
+            } else {
+                if (Main.knotDrawLayer == -1) {
+                    Main.knotDrawLayer = Main.totalLayers;
+                } else {
+                    Main.knotDrawLayer--;
+                    if (Main.knotDrawLayer < 1) {
+                        Main.knotDrawLayer = 1;
+                    }
+                }
+                Main.updateKnotsDisplayed();
+            }
+        }
+    }
+
+    public abstract String displayName();
+
+    public abstract String fullName();
+
+    public abstract String shortName();
+
+    public abstract String desc();
 
 }

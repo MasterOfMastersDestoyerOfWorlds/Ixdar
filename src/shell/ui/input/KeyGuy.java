@@ -6,24 +6,23 @@ import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
 
 import java.awt.MouseInfo;
 import java.awt.Point;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
-import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 
 import shell.Toggle;
 import shell.cameras.Camera;
 import shell.file.FileManagement;
-import shell.shell.Shell;
+import shell.terminal.Terminal;
+import shell.terminal.commands.ChangeToolCommand;
 import shell.terminal.commands.ColorCommand;
 import shell.terminal.commands.ExitCommand;
 import shell.terminal.commands.ManifoldTestCommand;
 import shell.terminal.commands.ResetCommand;
 import shell.terminal.commands.ResetCommand.ResetOption;
+import shell.terminal.commands.ScreenShotCommand;
+import shell.terminal.commands.UpdateCommand;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
@@ -41,18 +40,11 @@ public class KeyGuy {
 
     boolean controlMask;
     boolean shiftMask;
-    private Canvas3D canvas;
     JFrame frame;
-    NegativeCutMatchViewTool negativeCutMatchViewTool = new NegativeCutMatchViewTool();
-    FindManifoldTool findManifoldTool = new FindManifoldTool();
-    EditManifoldTool editCutMatchTool;
     public boolean active = true;
-    CompareManifoldTool compareManifoldTool = new CompareManifoldTool();
 
     public KeyGuy(Camera camera, Canvas3D canvas) {
         this.camera = camera;
-        this.canvas = canvas;
-
     }
 
     public KeyGuy(Main main, String fileName, Camera camera) {
@@ -73,73 +65,82 @@ public class KeyGuy {
         if (KeyActions.ShiftMask.keyPressed(pressedKeys)) {
             shiftMask = true;
         }
-        if (controlMask && firstPress) {
-            if (KeyActions.PrintScreen.keyPressed(pressedKeys)) {
-                System.out.println("Printing Screenshot");
-                if (canvas != null) {
-                    int numInFolder = new File("./img").list().length;
-                    canvas.printScreen("./img/snap" + numInFolder + ".png");
-                    return;
-                } else {
-                    BufferedImage img = new BufferedImage((int) IxdarWindow.getWidth(), (int) IxdarWindow.getHeight(),
-                            BufferedImage.TYPE_INT_RGB);
-                    canvas.paintGL();
-                    int numInFolder = new File("./img").list().length;
-                    File outputfile = new File("./img/snap" + numInFolder + ".png");
-                    try {
-                        ImageIO.write(img, "png", outputfile);
-                    } catch (IOException ex) {
-                        System.out.println(ex.getMessage());
+        if (firstPress) {
+            if (controlMask) {
+                if (KeyActions.PrintScreen.keyPressed(pressedKeys)) {
+                    Terminal.runNoArgs(ScreenShotCommand.class);
+                }
+                if (KeyActions.Save.keyPressed(pressedKeys)) {
+                    if (Main.file == null && Main.tempFile != null) {
+
+                    } else if (Main.file != null) {
+
                     }
-                    return;
                 }
-            }
-            if (KeyActions.Save.keyPressed(pressedKeys)) {
-                if (Main.file == null && Main.tempFile != null) {
-
-                } else if (Main.file != null) {
+                if (KeyActions.SaveAs.keyPressed(pressedKeys)) {
 
                 }
-            }
-            if (KeyActions.SaveAs.keyPressed(pressedKeys)) {
-
-            }
-            if (KeyActions.GenerateManifoldTests.keyPressed(pressedKeys)) {
-                ManifoldTestCommand.run(Main.file.getName(),
-                        FileManagement.solutionsFolder + "/" + Main.file.getName().replace(".ix", ""));
-            }
-            if (KeyActions.Find.keyPressed(pressedKeys)) {
-                findManifoldTool.reset();
-                findManifoldTool.state = FindManifoldTool.States.FindStart;
-                Main.tool = findManifoldTool;
-                Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
-                Main.updateKnotsDisplayed();
-            }
-            if (KeyActions.Compare.keyPressed(pressedKeys)) {
-                compareManifoldTool.reset();
-                compareManifoldTool.state = CompareManifoldTool.States.FindStart;
-                Main.tool = compareManifoldTool;
-                Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
-                Main.updateKnotsDisplayed();
-            }
-            if (KeyActions.EditManifold.keyPressed(pressedKeys)) {
-                if (Toggle.manifold.value && Toggle.drawCutMatch.value) {
-                    editCutMatchTool.reset();
-                    Main.tool = editCutMatchTool;
+                if (KeyActions.GenerateManifoldTests.keyPressed(pressedKeys)) {
+                    ManifoldTestCommand.run(Main.file.getName(),
+                            FileManagement.solutionsFolder + "/" + Main.file.getName().replace(".ix", ""));
                 }
-
+                if (KeyActions.Find.keyPressed(pressedKeys)) {
+                    ChangeToolCommand.run(FindManifoldTool.class);
+                }
+                if (KeyActions.Compare.keyPressed(pressedKeys)) {
+                    ChangeToolCommand.run(CompareManifoldTool.class);
+                }
+                if (KeyActions.EditManifold.keyPressed(pressedKeys)) {
+                    if (Toggle.Manifold.value && Toggle.DrawCutMatch.value) {
+                        ChangeToolCommand.run(EditManifoldTool.class);
+                    }
+                }
+                if (KeyActions.NegativeCutMatchViewTool.keyPressed(pressedKeys)) {
+                    ChangeToolCommand.run(NegativeCutMatchViewTool.class);
+                }
+            } else {
+                Tool tool = Main.tool;
+                if (tool.canUseToggle(Toggle.IsMainFocused)) {
+                    if (KeyActions.ColorRandomization.keyPressed(pressedKeys)) {
+                        Terminal.runNoArgs(ColorCommand.class);
+                    }
+                    if (KeyActions.DrawCutMatch.keyPressed(pressedKeys)) {
+                        Toggle.DrawCutMatch.toggle();
+                    }
+                    if (KeyActions.DrawKnotGradient.keyPressed(pressedKeys)) {
+                        Toggle.DrawKnotGradient.toggle();
+                    }
+                    if (KeyActions.DrawMetroDiagram.keyPressed(pressedKeys)) {
+                        Main.setDrawLevelMetro();
+                    }
+                    if (KeyActions.IncreaseKnotLayer.keyPressed(pressedKeys)) {
+                        tool.increaseViewLayer();
+                    }
+                    if (KeyActions.DecreaseKnotLayer.keyPressed(pressedKeys)) {
+                        tool.decreaseViewLayer();
+                    }
+                    if (KeyActions.DrawOriginal.keyPressed(pressedKeys)) {
+                        Toggle.DrawMainPath.toggle();
+                    }
+                    if (KeyActions.DrawGridLines.keyPressed(pressedKeys)) {
+                        Toggle.DrawGridLines.toggle();
+                    }
+                    if (KeyActions.UpdateFile.keyPressed(pressedKeys)) {
+                        Terminal.runNoArgs(UpdateCommand.class);
+                    }
+                    if (KeyActions.Confirm.keyPressed(pressedKeys)) {
+                        Main.tool.confirm();
+                    }
+                    if (KeyActions.Reset.keyPressed(pressedKeys)) {
+                        ResetCommand.run(ResetOption.Camera);
+                    }
+                } else if (Toggle.IsTerminalFocused.value) {
+                    Main.terminal.keyPress(key, mods);
+                }
             }
-            if (KeyActions.NegativeCutMatchViewTool.keyPressed(pressedKeys) && negativeCutMatchViewTool != null) {
-                negativeCutMatchViewTool.reset();
-                negativeCutMatchViewTool.initSegmentMap();
-                Main.tool = negativeCutMatchViewTool;
-            }
-
-        } else if (Toggle.isTerminalFocused.value) {
-            Main.terminal.keyPress(key, mods);
         }
         if (KeyActions.Back.keyPressed(pressedKeys) && Main.active) {
-            ExitCommand.run();
+            Terminal.runNoArgs(ExitCommand.class);
         }
     }
 
@@ -148,81 +149,7 @@ public class KeyGuy {
             return;
         }
         if (main != null && Main.active) {
-            Tool tool = Main.tool;
-            if (tool.canUseToggle(Toggle.isMainFocused)) {
-                if (KeyActions.ColorRandomization.keyPressed(pressedKeys)) {
-                    ColorCommand.run();
-                }
-                if (KeyActions.DrawCutMatch.keyPressed(pressedKeys)) {
-                    Toggle.drawCutMatch.toggle();
-                }
-                if (KeyActions.DrawKnotGradient.keyPressed(pressedKeys)) {
-                    Toggle.drawKnotGradient.toggle();
-                }
-                if (KeyActions.DrawMetroDiagram.keyPressed(pressedKeys)) {
-                    Main.setDrawLevelMetro();
-                }
-                if (KeyActions.IncreaseKnotLayer.keyPressed(pressedKeys)) {
-                    if (tool.canUseToggle(Toggle.canSwitchLayer)) {
-                        if (tool.canUseToggle(Toggle.manifold) && tool.canUseToggle(Toggle.drawCutMatch)) {
-                            Main.manifoldIdx++;
-                            if (Main.manifoldIdx >= Main.manifolds.size()) {
-                                Main.manifoldIdx = 0;
-                            }
-                        } else {
-                            Main.knotDrawLayer++;
-                            if (Main.knotDrawLayer > Main.shell.cutEngine.totalLayers) {
-                                Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
-                            }
-                            if (Main.knotDrawLayer < 1) {
-                                Main.knotDrawLayer = 1;
-                            }
-                            Main.updateKnotsDisplayed();
-                        }
-                    }
-                }
-                if (KeyActions.DecreaseKnotLayer.keyPressed(pressedKeys)) {
-                    if (tool.canUseToggle(Toggle.canSwitchLayer)) {
-                        if (tool.canUseToggle(Toggle.manifold) && tool.canUseToggle(Toggle.drawCutMatch)) {
-                            Main.manifoldIdx--;
-                            if (Main.manifoldIdx < 0) {
-                                Main.manifoldIdx = Main.manifolds.size() - 1;
-                            }
-                        } else {
-                            if (Main.knotDrawLayer == -1) {
-                                Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
-                            } else {
-                                Main.knotDrawLayer--;
-                                if (Main.knotDrawLayer < 1) {
-                                    Main.knotDrawLayer = 1;
-                                }
-                            }
-                            Main.updateKnotsDisplayed();
-                        }
-                    }
-                }
-                if (KeyActions.DrawOriginal.keyPressed(pressedKeys)) {
-                    Toggle.drawMainPath.toggle();
-                }
-                if (KeyActions.UpdateFile.keyPressed(pressedKeys)) {
-                    if (Main.subPaths.size() == 1) {
-                        Shell ans = Main.subPaths.get(0);
-                        if (Main.orgShell.getLength() > ans.getLength()) {
-                            FileManagement.appendAns(Main.file, ans);
-                            Main.orgShell = ans;
-                        }
-                        if (tool.canUseToggle(Toggle.manifold)) {
-                            FileManagement.appendCutAns(Main.file, Main.manifolds);
-                        }
-                    }
-                }
-                if (KeyActions.Confirm.keyPressed(pressedKeys)) {
-                    Main.tool.confirm();
-                }
-                if (KeyActions.Reset.keyPressed(pressedKeys)) {
-                    ResetCommand.run(ResetOption.All);
-                }
-            }
+
         } else if (Canvas3D.active) {
             if (KeyActions.Back.keyPressed(pressedKeys)) {
                 Canvas3D.menu.back();
@@ -241,7 +168,7 @@ public class KeyGuy {
     long lastPressTime;
 
     public void paintUpdate(float SHIFT_MOD) {
-        if (!active || Toggle.isTerminalFocused.value) {
+        if (!active || Toggle.IsTerminalFocused.value) {
             return;
         }
         camera.setShiftMod(SHIFT_MOD);
@@ -281,8 +208,7 @@ public class KeyGuy {
         }
 
         if (main != null) {
-            long timeSinceLastPress = System.currentTimeMillis()
-                    - lastPressTime;
+            long timeSinceLastPress = System.currentTimeMillis() - lastPressTime;
             if (!pressedKeys.isEmpty() && timeSinceLastPress > REPRESS_TIME / SHIFT_MOD) {
                 lastPressTime = System.currentTimeMillis();
                 if (KeyActions.CycleToolLeft.keyPressed(pressedKeys)) {
@@ -297,20 +223,20 @@ public class KeyGuy {
 
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
         switch (action) {
-            case GLFW_PRESS:
-                keyPressed(key, mods);
-                break;
-            case GLFW_RELEASE:
-                keyReleased(key, mods);
-                break;
-            default:
-                break;
+        case GLFW_PRESS:
+            keyPressed(key, mods);
+            break;
+        case GLFW_RELEASE:
+            keyReleased(key, mods);
+            break;
+        default:
+            break;
         }
     }
 
     public void charCallback(long window, int codepoint) {
         String currentText = "" + (char) codepoint;
-        if (Toggle.isTerminalFocused.value) {
+        if (Toggle.IsTerminalFocused.value) {
             Main.terminal.type(currentText);
         }
     }

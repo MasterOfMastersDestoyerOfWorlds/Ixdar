@@ -21,6 +21,7 @@ public enum KeyActions {
     UpdateFile(GLFW_KEY_U),
     IncreaseKnotLayer(GLFW_KEY_RIGHT_BRACKET, GLFW_KEY_UP),
     DecreaseKnotLayer(GLFW_KEY_LEFT_BRACKET, GLFW_KEY_DOWN),
+    DrawGridLines(GLFW_KEY_G),
     DrawMetroDiagram(GLFW_KEY_M),
     DrawCutMatch(GLFW_KEY_B),
     DrawKnotGradient(GLFW_KEY_Y),

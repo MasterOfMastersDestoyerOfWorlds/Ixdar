@@ -9,7 +9,6 @@ import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.ui.main.Main;
 
 public class BalanceMap {
     public Knot knot;

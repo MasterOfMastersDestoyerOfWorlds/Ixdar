@@ -18,6 +18,7 @@ public class CutMatch {
     VirtualPoint kp2;
     CutMatch diff;
     double delta;
+    double deltaInternal;
     Knot superKnot;
     public Segment kpSegment;
     Shell shell;
@@ -25,7 +26,7 @@ public class CutMatch {
 
     Segment[] originalCutSegments;
     Segment[] originalMatchSegments;
-    CutInfo c;
+    public CutInfo c;
     String cutType;
 
     public CutMatch(String cutType, Shell shell, SegmentBalanceException sbe) {
@@ -37,6 +38,20 @@ public class CutMatch {
     }
 
     public void updateDelta() {
+        deltaInternal = 0;
+        if (superKnot != null) {
+            for (Segment s : cutSegments) {
+                if (superKnot.contains(s.first) && superKnot.contains(s.last)) {
+                    deltaInternal -= s.distance;
+                }
+            }
+            for (Segment s : matchSegments) {
+                if (superKnot.contains(s.first) && superKnot.contains(s.last)) {
+                    deltaInternal += s.distance;
+                }
+            }
+        }
+
         delta = 0;
         for (Segment s : cutSegments) {
             delta -= s.distance;
@@ -92,6 +107,7 @@ public class CutMatch {
         }
     }
 
+    @Override
     public String toString() {
         String id = "-1";
         if (c != null) {

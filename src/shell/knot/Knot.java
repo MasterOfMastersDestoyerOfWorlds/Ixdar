@@ -39,12 +39,62 @@ public class Knot extends VirtualPoint {
     }
 
     public void constructor(ArrayList<VirtualPoint> knotPointsToAdd, Shell shell, boolean setMatches) {
+        knotPointsToAdd = new ArrayList<>(knotPointsToAdd);
+        ArrayList<VirtualPoint> addList = new ArrayList<>();
+        int size = knotPointsToAdd.size();
+
+        for (int i = 0; i < knotPointsToAdd.size(); i++) {
+            VirtualPoint vp = knotPointsToAdd.get(i);
+            if (vp.isKnot && ((Knot) vp).knotPoints.size() == 2) {
+                VirtualPoint last = knotPointsToAdd.get(Math.floorMod(i - 1, size));
+                VirtualPoint next = knotPointsToAdd.get(Math.floorMod(i + 1, size));
+                VirtualPoint vp1 = ((Knot) vp).knotPoints.get(0);
+                VirtualPoint vp2 = ((Knot) vp).knotPoints.get(1);
+                if (vp1.isKnot && vp2.isKnot) {
+                    Segment lastSeg = last.getClosestSegment(vp, null);
+                    VirtualPoint lastKnotPoint = lastSeg.getOtherKnot(last);
+                    Segment nextSeg = next.getClosestSegment(vp, lastSeg);
+                    VirtualPoint nextKnotPoint = nextSeg.getOtherKnot(next);
+                    if ((vp1.contains(lastKnotPoint) && vp2.contains(nextKnotPoint))) {
+                        addList.add(vp1);
+                        addList.add(vp2);
+                        knotPointsToAdd.remove(i);
+                        knotPointsToAdd.add(i, vp2);
+                        knotPointsToAdd.add(i, vp1);
+                        size++;
+                        i++;
+                        vp1.resetMatch2();
+                        vp2.resetMatch2();
+                        next.reset(vp);
+                        last.reset(vp);
+                    } else if (vp1.contains(nextKnotPoint) && vp2.contains(lastKnotPoint)) {
+                        addList.add(vp2);
+                        addList.add(vp1);
+                        knotPointsToAdd.remove(i);
+                        knotPointsToAdd.add(i, vp1);
+                        knotPointsToAdd.add(i, vp2);
+                        size++;
+                        i++;
+                        vp1.resetMatch2();
+                        vp2.resetMatch2();
+                        next.reset(vp);
+                        last.reset(vp);
+                    } else {
+                        addList.add(vp);
+                    }
+                } else {
+                    addList.add(vp);
+                }
+            } else {
+                addList.add(vp);
+            }
+        }
         this.shell = shell;
         if (setMatches) {
-            if (knotPointsToAdd.get(0).match2 == null
-                    || knotPointsToAdd.get(knotPointsToAdd.size() - 1).match2 == null) {
-                VirtualPoint vp1 = knotPointsToAdd.get(0);
-                VirtualPoint vp2 = knotPointsToAdd.get(knotPointsToAdd.size() - 1);
+            if (addList.get(0).match2 == null
+                    || addList.get(addList.size() - 1).match2 == null) {
+                VirtualPoint vp1 = addList.get(0);
+                VirtualPoint vp2 = addList.get(addList.size() - 1);
                 Segment s = vp1.getClosestSegment(vp2, vp1.s1);
                 Point bp2 = (Point) s.getOtherKnot(vp1);
                 Point bp1 = (Point) s.getOther(bp2);
@@ -58,7 +108,7 @@ public class Knot extends VirtualPoint {
             }
         }
         sortedSegments = new ArrayList<>();
-        ArrayList<VirtualPoint> flattenRunPoints = RunListUtils.flattenRunPoints(knotPointsToAdd, true);
+        ArrayList<VirtualPoint> flattenRunPoints = RunListUtils.flattenRunPoints(addList, true);
         if (setMatches) {
             RunListUtils.fixRunList(flattenRunPoints, flattenRunPoints.size());
         }
@@ -66,6 +116,7 @@ public class Knot extends VirtualPoint {
         isKnot = true;
         isRun = false;
         this.topGroup = this;
+        this.topKnot = this;
         this.group = this;
         size = knotPoints.size();
         knotPointsFlattened = new ArrayList<VirtualPoint>();
@@ -120,6 +171,7 @@ public class Knot extends VirtualPoint {
             if (setMatches) {
                 vp.group = this;
                 vp.topGroup = this;
+                vp.topKnot = this;
                 for (VirtualPoint flat : vp.knotPointsFlattened) {
                     flat.topGroupVirtualPoint = vp;
                 }
@@ -129,6 +181,7 @@ public class Knot extends VirtualPoint {
         if (setMatches) {
             for (VirtualPoint p : knotPointsFlattened) {
                 p.topGroup = this;
+                p.topKnot = this;
             }
         }
         sortedSegments.sort(null);
@@ -259,13 +312,12 @@ public class Knot extends VirtualPoint {
 
     @Override
     public String fullString() {
-        return "" + this
-                + " match1: " + (match1 == null ? " none " : "" + match1)
-                + " match1endpoint: " + (match1endpoint == null ? " none " : "" + match1endpoint.id)
-                + " basepoint1: " + (basePoint1 == null ? " none " : "" + basePoint1.id)
-                + " match2: " + (match2 == null ? " none " : "" + match2)
-                + " match2endpoint: " + (match2endpoint == null ? " none " : "" + match2endpoint.id)
-                + " basepoint2: " + (basePoint2 == null ? " none " : "" + basePoint2.id);
+        return "" + this + " match1: " + (match1 == null ? " none " : "" + match1) + " match1endpoint: "
+                + (match1endpoint == null ? " none " : "" + match1endpoint.id) + " basepoint1: "
+                + (basePoint1 == null ? " none " : "" + basePoint1.id) + " match2: "
+                + (match2 == null ? " none " : "" + match2) + " match2endpoint: "
+                + (match2endpoint == null ? " none " : "" + match2endpoint.id) + " basepoint2: "
+                + (basePoint2 == null ? " none " : "" + basePoint2.id);
     }
 
     @Override
@@ -396,16 +448,12 @@ public class Knot extends VirtualPoint {
         // TBD: check for "==0", in which case is not defined?
         // Can that happen? Do we need to check other vertices / eliminate duplicate
         // vertices?
-        WindingOrder result = detOrient > 0
-                ? WindingOrder.Clockwise
-                : WindingOrder.CounterClockwise;
+        WindingOrder result = detOrient > 0 ? WindingOrder.Clockwise : WindingOrder.CounterClockwise;
         return result;
     }
 
     public enum WindingOrder {
-        None,
-        Clockwise,
-        CounterClockwise
+        None, Clockwise, CounterClockwise
     }
 
     // Find vertex along one edge of bounding box.
@@ -446,9 +494,9 @@ public class Knot extends VirtualPoint {
         HyperString h = new HyperString();
         Tool tool = Main.tool;
         Color c = Main.stickyColor;
-        if (tool.canUseToggle(Toggle.drawKnotGradient)) {
+        if (tool.canUseToggle(Toggle.DrawKnotGradient)) {
             c = Main.getKnotGradientColorFlatten((Knot) this);
-        } else if (tool.canUseToggle(Toggle.drawMetroDiagram)) {
+        } else if (tool.canUseToggle(Toggle.DrawMetroDiagram)) {
             c = Main.getMetroColorFlatten((Knot) this);
         }
         Action clickAction = () -> {

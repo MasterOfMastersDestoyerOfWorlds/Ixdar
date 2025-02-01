@@ -16,9 +16,7 @@ public class Segment implements Comparable<Segment> {
     public double distance;
     public long id;
 
-    public Segment(VirtualPoint first,
-            VirtualPoint last,
-            double distance) {
+    public Segment(VirtualPoint first, VirtualPoint last, double distance) {
         this.first = first;
         this.last = last;
         this.distance = distance;
@@ -101,8 +99,8 @@ public class Segment implements Comparable<Segment> {
     }
 
     public boolean partialOverlaps(Segment cutSegment2) {
-        if ((cutSegment2.contains(first) && !cutSegment2.contains(last)) ||
-                (cutSegment2.contains(last) && !cutSegment2.contains(first))) {
+        if ((cutSegment2.contains(first) && !cutSegment2.contains(last))
+                || (cutSegment2.contains(last) && !cutSegment2.contains(first))) {
             return true;
         }
         return false;
@@ -186,6 +184,12 @@ public class Segment implements Comparable<Segment> {
         return null;
     }
 
+    public static long idTransform(Segment s) {
+        long a = s.first.id;
+        long b = s.last.id;
+        return a >= b ? a * a + a + b : b + a + b * b;
+    }
+
     public static long idTransform(long a, long b) {
         return a >= b ? a * a + a + b : b + a + b * b;
     }
@@ -197,10 +201,10 @@ public class Segment implements Comparable<Segment> {
     public double boundContains(double x, double y) {
         PointND p1 = ((Point) first).p;
         PointND p2 = ((Point) last).p;
-        double x1 = p1.getCoord(0);
-        double y1 = p1.getCoord(1);
-        double x2 = p2.getCoord(0);
-        double y2 = p2.getCoord(1);
+        double x1 = p1.getScreenX();
+        double y1 = p1.getScreenY();
+        double x2 = p2.getScreenX();
+        double y2 = p2.getScreenY();
         double dx = x2 - x1;
         double dy = y2 - y1;
         double normalX = -dy;
@@ -215,10 +219,10 @@ public class Segment implements Comparable<Segment> {
         Vector2D bR = lastVec.subtract(normalUnitVector);
         Vector2D pointVector = new Vector2D(x, y);
 
-        if ((x - tL.getX()) * (tL.getY() - bL.getY()) + (y - tL.getY()) * (bL.getX() - tL.getX()) > 0 &&
-                (x - bL.getX()) * (bL.getY() - bR.getY()) + (y - bL.getY()) * (bR.getX() - bL.getX()) > 0 &&
-                (x - bR.getX()) * (bR.getY() - tR.getY()) + (y - bR.getY()) * (tR.getX() - bR.getX()) > 0 &&
-                (x - tR.getX()) * (tR.getY() - tL.getY()) + (y - tR.getY()) * (tL.getX() - tR.getX()) > 0) {
+        if ((x - tL.getX()) * (tL.getY() - bL.getY()) + (y - tL.getY()) * (bL.getX() - tL.getX()) > 0
+                && (x - bL.getX()) * (bL.getY() - bR.getY()) + (y - bL.getY()) * (bR.getX() - bL.getX()) > 0
+                && (x - bR.getX()) * (bR.getY() - tR.getY()) + (y - bR.getY()) * (tR.getX() - bR.getX()) > 0
+                && (x - tR.getX()) * (tR.getY() - tL.getY()) + (y - tR.getY()) * (tL.getX() - tR.getX()) > 0) {
             double result = Math.abs(
                     (y2 - y1) * pointVector.getX() - ((x2 - x1) * pointVector.getY()) + x2 * y1 - y2 * x1) / distance;
             return result;
@@ -230,10 +234,10 @@ public class Segment implements Comparable<Segment> {
     public VirtualPoint closestPoint(double x, double y) {
         PointND p1 = ((Point) first).p;
         PointND p2 = ((Point) last).p;
-        double x1 = p1.getCoord(0);
-        double y1 = p1.getCoord(1);
-        double x2 = p2.getCoord(0);
-        double y2 = p2.getCoord(1);
+        double x1 = p1.getScreenX();
+        double y1 = p1.getScreenY();
+        double x2 = p2.getScreenX();
+        double y2 = p2.getScreenY();
         double distFirst = Math.sqrt((x1 - x) * (x1 - x) + (y1 - y) * (y1 - y));
         double distLast = Math.sqrt((x2 - x) * (x2 - x) + (y2 - y) * (y2 - y));
         if (distFirst < distLast) {
@@ -249,7 +253,15 @@ public class Segment implements Comparable<Segment> {
         return "Segment[" + first.id + ":" + last.id + "]";
     }
 
+    public String toStringNoLabel() {
+        return "[" + first.id + ":" + last.id + "]";
+    }
+
     public HyperString toHyperString(Color color, boolean labelAsSegment) {
+        return toHyperString(color, labelAsSegment, false);
+    }
+
+    public HyperString toHyperString(Color color, boolean labelAsSegment, boolean labelDistance) {
         HyperString h = new HyperString();
         Action clickAction = () -> {
             Main.camera.zoomToSegment(this);
@@ -260,6 +272,9 @@ public class Segment implements Comparable<Segment> {
             str += "Segment";
         }
         str += "[" + first.id + ":" + last.id + "]";
+        if (labelDistance) {
+            str += ", " + this.distance;
+        }
         h.addHoverSegment(str, color, this, clickAction);
         return h;
     }

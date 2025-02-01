@@ -26,7 +26,7 @@ public class MultipleCyclesFoundException extends SegmentBalanceException {
     public String toString() {
         return "MultipleCyclesFoundException: \n matchSegments: " + matchSegments + "\n cutSegments: " + cutSegments
                 + "\n" + "cutID: " + c.cutID + " " + topKnot + " cut1: " + cut1 + " ex1: " + ex1 + " cut2: " + cut2
-                + " ex2: " + ex2 + " cutName: " + cutName;
+                + " ex2: " + ex2 + " cutName: " + cutName + "\n\n" +this.getStackTrace()[0] + "\n";
     }
 
 }

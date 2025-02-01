@@ -80,42 +80,35 @@ public class HyperString {
 
     public void addTooltip(String word, Color c, HyperString toolTipText, Action clickAction) {
         for (String w : word.split(" ")) {
-            words.add(new Word(w + " ", c,
-                    () -> Main.setTooltipText(toolTipText),
-                    () -> Main.clearTooltipText(),
+            words.add(new Word(w + " ", c, () -> Main.setTooltipText(toolTipText), () -> Main.clearTooltipText(),
                     clickAction));
         }
     }
 
     public void addHoverKnot(String word, Color c, Knot hoverKnot, Action clickAction) {
         HyperString knotText = new HyperString();
-        knotText.addWord(hoverKnot.toString() + " ID: " + hoverKnot.id, c);
+        knotText.addWord(hoverKnot.toString() + " FlatID: " + hoverKnot.id + " OrgID: "
+                + Main.shell.cutEngine.flatKnotToKnot.get(hoverKnot.id), c);
         knotText.setWrap(true, 30);
-        words.add(new Word(word, c,
-                () -> {
-                    Main.setHoverKnot(hoverKnot);
-                    Main.setTooltipText(knotText);
-                },
-                () -> {
-                    Main.clearHoverKnot();
-                    Main.clearTooltipText();
-                },
-                clickAction));
+        words.add(new Word(word, c, () -> {
+            Main.setHoverKnot(hoverKnot);
+            Main.setTooltipText(knotText);
+        }, () -> {
+            Main.clearHoverKnot();
+            Main.clearTooltipText();
+        }, clickAction));
     }
 
     public void addHoverSegment(String str, Color c, Segment segment, Action clickAction) {
         HyperString segmentInfo = new HyperString();
         segmentInfo.addDistance(segment.distance, c);
-        words.add(new Word(str, c,
-                () -> {
-                    Main.setHoverSegment(segment, c);
-                    Main.setTooltipText(segmentInfo);
-                },
-                () -> {
-                    Main.clearHoverSegment();
-                    Main.clearTooltipText();
-                },
-                clickAction));
+        words.add(new Word(str, c, () -> {
+            Main.setHoverSegment(segment, c);
+            Main.setTooltipText(segmentInfo);
+        }, () -> {
+            Main.clearHoverSegment();
+            Main.clearTooltipText();
+        }, clickAction));
     }
 
     public void addDistance(double distance, Color c) {
@@ -242,8 +235,8 @@ public class HyperString {
                 charLength = 0;
             }
             float wordY = camera.getHeight() - ((row + 1) * rowHeight) + scrollOffsetY;
-            w.setBounds(wordX, wordY, camera.getScreenOffsetX() + offset,
-                    camera.getScreenOffsetY() + wordY, rowHeight, camera.viewBounds);
+            w.setBounds(wordX, wordY, camera.getScreenOffsetX() + offset, camera.getScreenOffsetY() + wordY, rowHeight,
+                    camera.viewBounds);
             offset += wordWidth;
         }
         return row - startRow + 1;
@@ -275,8 +268,8 @@ public class HyperString {
                 charLength = 0;
             }
             float wordY = y - ((row + 1) * Drawing.font.fontHeight);
-            w.setBounds(wordX, wordY, camera.getScreenOffsetX() + wordX,
-                    camera.getScreenOffsetY() + wordY, font.getHeight(w.text), camera.viewBounds);
+            w.setBounds(wordX, wordY, camera.getScreenOffsetX() + wordX, camera.getScreenOffsetY() + wordY,
+                    font.getHeight(w.text), camera.viewBounds);
             offset += Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * w.width;
         }
     }
@@ -298,8 +291,8 @@ public class HyperString {
             }
             float wordX = x + offset - centerX;
             float wordY = y - centerY;
-            w.setBounds(wordX, wordY, camera.getScreenOffsetX() + wordX,
-                    camera.getScreenOffsetY() + wordY, font.getHeight(w.text), camera.viewBounds);
+            w.setBounds(wordX, wordY, camera.getScreenOffsetX() + wordX, camera.getScreenOffsetY() + wordY,
+                    font.getHeight(w.text), camera.viewBounds);
             offset += Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * w.width;
         }
     }

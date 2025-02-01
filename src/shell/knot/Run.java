@@ -3,6 +3,7 @@ package shell.knot;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import shell.render.color.Color;
 import shell.render.text.HyperString;
 import shell.shell.Shell;
 import shell.utils.RunListUtils;
@@ -135,21 +136,33 @@ public class Run extends VirtualPoint {
 
     @Override
     public String fullString() {
-        return "" + this
-                + " match1: " + (match1 == null ? " none " : "" + match1)
-                + " match1endpoint: " + (match1endpoint == null ? " none " : "" + match1endpoint.id)
-                + " basepoint1: " + (basePoint1 == null ? " none " : "" + basePoint1.id)
-                + " match2: " + (match2 == null ? " none " : "" + match2)
-                + " match2endpoint: " + (match2endpoint == null ? " none " : "" + match2endpoint.id)
-                + " basepoint2: " + (basePoint2 == null ? " none " : "" + basePoint2.id)
-                + " endPoint1: " + (endpoint1 == null ? " none " : "" + endpoint1.id)
-                + " endPoint2: " + (endpoint2 == null ? " none " : "" + endpoint2.id);
+        return "" + this + " match1: " + (match1 == null ? " none " : "" + match1) + " match1endpoint: "
+                + (match1endpoint == null ? " none " : "" + match1endpoint.id) + " basepoint1: "
+                + (basePoint1 == null ? " none " : "" + basePoint1.id) + " match2: "
+                + (match2 == null ? " none " : "" + match2) + " match2endpoint: "
+                + (match2endpoint == null ? " none " : "" + match2endpoint.id) + " basepoint2: "
+                + (basePoint2 == null ? " none " : "" + basePoint2.id) + " endPoint1: "
+                + (endpoint1 == null ? " none " : "" + endpoint1.id) + " endPoint2: "
+                + (endpoint2 == null ? " none " : "" + endpoint2.id);
     }
 
     @Override
     public HyperString toHyperString() {
         HyperString h = new HyperString();
-        h.addWord(this.toString());
+        HyperString minRunInfo = new HyperString();
+        minRunInfo.addLine("OrgID: " + this.id);
+        h.addTooltip("Run[ ", Color.IXDAR, minRunInfo, () -> {
+        });
+        for (VirtualPoint vp : knotPoints) {
+            if (vp.isKnot) {
+                h.addHyperString(((Knot) vp).toHyperString());
+            } else {
+                h.addTooltip(vp.id + " ", Color.IXDAR, minRunInfo, () -> {
+                });
+            }
+        }
+        h.addTooltip("]", Color.IXDAR, minRunInfo, () -> {
+        });
         return h;
     }
 

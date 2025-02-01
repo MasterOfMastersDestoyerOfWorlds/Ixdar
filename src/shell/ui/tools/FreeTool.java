@@ -6,6 +6,7 @@ import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Point;
+import shell.knot.Run;
 import shell.knot.VirtualPoint;
 import shell.objects.PointND;
 import shell.render.color.Color;
@@ -48,17 +49,6 @@ public class FreeTool extends Tool {
 
     @Override
     public void confirm() {
-        Main.calculateSubPaths();
-    }
-
-    @Override
-    public Type toolType() {
-        return Type.Free;
-    }
-
-    @Override
-    public String displayName() {
-        return "Free";
     }
 
     @Override
@@ -73,20 +63,14 @@ public class FreeTool extends Tool {
             coordPoint = ((Point) displayKP).p;
             final PointND coordPointF = ((Point) displayKP).p;
             pointInfo.addWord(coordPointF.toString());
-            h.addTooltip(displayKP.id + "", Color.BLUE_WHITE, pointInfo,
-                    () -> Main.camera.centerOnPoint(coordPointF));
+            h.addTooltip(displayKP.id + "", Color.BLUE_WHITE, pointInfo, () -> Main.camera.centerOnPoint(coordPointF));
         }
         h.newLine();
         h.addWord("Position:");
         if (displayKP == null) {
-            h.addWord("X:"
-                    + (int) Main.camera.screenTransformX(Main.mouse.normalizedPosX - Main.MAIN_VIEW_OFFSET_X)
-                    + " Y:"
-                    + (int) Main.camera.screenTransformY(Main.mouse.normalizedPosY - Main.MAIN_VIEW_OFFSET_Y));
+            h.addWord(Main.grid.toCoordString());
         } else {
-            h.addWord("X:" + (int) coordPoint.getCoord(0) + " Y:"
-                    + (int) coordPoint.getCoord(1));
-
+            h.addWord(coordPoint.toCoordString());
         }
 
         h.newLine();
@@ -119,9 +103,9 @@ public class FreeTool extends Tool {
             h.addWord("None");
         } else {
             Color c = Main.stickyColor;
-            if (canUseToggle(Toggle.drawKnotGradient)) {
+            if (canUseToggle(Toggle.DrawKnotGradient)) {
                 c = Main.getKnotGradientColor(displayKP);
-            } else if (canUseToggle(Toggle.drawMetroDiagram)) {
+            } else if (canUseToggle(Toggle.DrawMetroDiagram)) {
                 c = Main.getMetroColor(displayKP, containingKnot);
             }
             String pointStr = "" + displayKP.id + " ";
@@ -145,9 +129,17 @@ public class FreeTool extends Tool {
         h.newLine();
         if (Main.result.size() > 0) {
             h.addWord("TopKnot:");
-            VirtualPoint topStruct = Main.result.get(0);
-            if (topStruct.isKnot) {
-                h.addHyperString(((Knot) Main.result.get(0)).toHyperString());
+            for (VirtualPoint topStruct : Main.result) {
+                if (topStruct.isKnot) {
+                    h.newLine();
+                    h.newLine();
+                    h.addHyperString(((Knot) topStruct).toHyperString());
+                }
+                if (topStruct.isRun) {
+                    h.newLine();
+                    h.newLine();
+                    h.addHyperString(((Run) topStruct).toHyperString());
+                }
             }
         }
         h.wrap = true;
@@ -163,5 +155,30 @@ public class FreeTool extends Tool {
             }
         }
         return containingKnot;
+    }
+
+    @Override
+    public Type toolType() {
+        return Type.Free;
+    }
+
+    @Override
+    public String displayName() {
+        return "Free";
+    }
+
+    @Override
+    public String fullName() {
+        return "free";
+    }
+
+    @Override
+    public String shortName() {
+        return "fr";
+    }
+
+    @Override
+    public String desc() {
+        return "The default tool. Gives the most information about knot structure and connections";
     }
 }

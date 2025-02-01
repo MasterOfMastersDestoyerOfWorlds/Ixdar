@@ -2,7 +2,7 @@ package shell.ui.tools;
 
 import java.util.ArrayList;
 
-import shell.ToggleType;
+import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.file.Manifold;
 import shell.knot.Segment;
@@ -17,7 +17,7 @@ public class EditManifoldTool extends Tool {
     VirtualPoint lastPoint;
 
     public EditManifoldTool() {
-        disallowedToggles = new ToggleType[] { ToggleType.DrawCutMatch, ToggleType.CanSwitchLayer };
+        disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.CanSwitchLayer };
     }
 
     @Override
@@ -51,13 +51,28 @@ public class EditManifoldTool extends Tool {
     }
 
     @Override
-    public String displayName() {
-        return "Edit Cut Match";
-    }
-
-    @Override
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
         return h;
+    }
+
+    @Override
+    public String displayName() {
+        return "Edit Manifold";
+    }
+
+    @Override
+    public String fullName() {
+        return "editmanifold";
+    }
+
+    @Override
+    public String shortName() {
+        return "edm";
+    }
+
+    @Override
+    public String desc() {
+        return "A tool to edit the shortest hole moving path for a specified cut pair. Need to run find manifold before this tool";
     }
 }

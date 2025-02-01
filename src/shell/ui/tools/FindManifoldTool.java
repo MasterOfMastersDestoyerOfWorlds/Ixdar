@@ -2,7 +2,7 @@ package shell.ui.tools;
 
 import org.apache.commons.math3.util.Pair;
 
-import shell.ToggleType;
+import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.file.Manifold;
 import shell.knot.Segment;
@@ -25,7 +25,7 @@ public class FindManifoldTool extends Tool {
     public VirtualPoint firstSelectedCP;
 
     public FindManifoldTool() {
-        disallowedToggles = new ToggleType[] { ToggleType.DrawCutMatch, ToggleType.CanSwitchLayer };
+        disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.CanSwitchLayer };
     }
 
     @Override
@@ -35,6 +35,8 @@ public class FindManifoldTool extends Tool {
         firstSelectedSegment = null;
         firstSelectedKP = null;
         firstSelectedCP = null;
+        Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
+        Main.updateKnotsDisplayed();
         Main.terminal.instruct("Select the starting cut");
     }
 
@@ -87,13 +89,28 @@ public class FindManifoldTool extends Tool {
     }
 
     @Override
+    public HyperString buildInfoText() {
+        HyperString h = new HyperString();
+        return h;
+    }
+
+    @Override
     public String displayName() {
         return "Find Manifold";
     }
 
     @Override
-    public HyperString buildInfoText() {
-        HyperString h = new HyperString();
-        return h;
+    public String fullName() {
+        return "findmanifold";
+    }
+
+    @Override
+    public String shortName() {
+        return "fm";
+    }
+
+    @Override
+    public String desc() {
+        return "A tool to find a specific cut pair on the manifold and prep it for other manifold tools";
     }
 }

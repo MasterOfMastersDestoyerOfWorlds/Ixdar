@@ -28,6 +28,10 @@
 
 3. - [ ] Need some rule about joining single points to knots in runs since we are too greedily joining them in 2-knots
 
+4. - [ ] Need to replace "oneOutFlag" in VirtualPoint with a mapping so that we don't trigger over the same point twice. (Do we actually need to remove this?)
+
+5. - [ ] Need to have another method or re-write shouldKnotConsume so that if we see one of our matches instead of quitting we also check to see if that should be consumed, there is a three way check that needs to happen. rather if i am a point and I have am checking if i should be consumed by my neihgbor in the runlist and i run into the oneoutflag break down problems but I break on another knot in the runlist, have to think about what to do there should we form a knot wiht all three? Look at lu634_105-127.ix
+
 ## General Speedup
 
 1. - [ ] Add worker pool for every dijkstra's call we make (algorithm is somewhat embarrassingly parallel)
@@ -52,6 +56,8 @@
 
 2. - [ ] line segments have jagged edges.
 
+3. - [ ] bug on line culling where the colors flip directions when touching multiple sides of the screen
+
 ## Features
 
 1. - [ ] VK_O should swap between showing the calculated cutMatch and the one stored in the file and use opposite colors on the color wheel to represent the cutMatch?
@@ -60,11 +66,11 @@
 
 ## Tools
 
-1. - [ ] Tools should specify what type of bounding boxes that they should use? (Segment rectangle versus radius from point?)
-
-2. - [ ] Each Tool should tell the user some information about what to do when using it in the message pool.
-
 ### Free Tool
+
+![Complete](readme_img\complete.png)
+
+### Compare Route Map Tool
 
 ![Complete](readme_img\complete.png)
 
@@ -92,33 +98,7 @@
 
 2. - [x] Need to change the search to search for closest available to one the user inputted?
 
-### Compare Route Map Tool
-
-Idea behind tool is that we would like to compare two pairs of cut segment shortest path information where the pair have the same starting cut segment but differing end cut segments.
-
-1. - [ ] A matching channel should have the same shortest route delta back to the start as its comparison peer
-
-2. - [ ] Color all half-segments blue who match entirely on the currently selected route view (All, Disconnected, Connected)
-
-3. - [ ] Color all non-matching half-segments red
-
-4. - [ ] Color all half wrong half-segments cyan (only one of the channels is matching and the other is not)
-
-5. - [ ] Color all flipped and half wrong half-segments orange (the connected and disconnected channels are flipped but one of them does not match it's flipped peer)
-
-6. - [ ] Color all flipped half-segments yellow (the connected and disconnected channels are flipped)
-
-7. - [ ] Clicking on a half-segment/vp should display in the Info Tab the route information of the two routemaps similarly coloring matching beices orange or cyan.
-
-8. - [x] When a half-segment is selected we should see its route of cutmatches leading back to the start.
-
-9. - [ ] Increasing or decreasing level keys: '[' and ']' should change the route view.
-
-10. - [x] Tool should have two states Find and Compare
-
-11. - [ ] Compare state is the novel pieces of this description and can only be started after the Find state.
-
-12. - [x] Find state is the starting state and is similar to the find manifold tool except we need to find 3 segments
+3. - [ ] Need to change the manifold finding algo to always find the manifold with the first cut being the source in the routeMap.
 
 ### Knot Surface View Tool
 
@@ -134,13 +114,19 @@ Idea behind tool is that we would like to compare two pairs of cut segment short
 
 ## Terminal Panel
 
+### Keyboard Input
+
+1. - [ ] Should be able to hold down a key and see it repeatedly type
+
 ### Commands
 
-1. - [ ] Every command + key action should also be accessible from the terminal
+1. - [x] Every command + key action should also be accessible from the terminal
 
-2. - [ ] Should be like a terminal where you can ask questions about the knot you are looking at.
+2. - [x] Should be like a terminal where you can ask questions about the knot you are looking at.
 
 3. - [x] Make Unit Tests Command
+
+4. - [ ] Make a comment on file command
 
 ### Tab Completion
 
@@ -166,7 +152,7 @@ Idea behind tool is that we would like to compare two pairs of cut segment short
 
 2. - [ ] Pressing control and clicking a point, a knot, or a segment should bring its id into the terminal at the cursor
 
-3. - [ ] Bezier curve animation behind terminal as fast fluid sim?
+3. - [x] Bezier curve animation behind terminal as fast fluid sim?
 
 4. - [ ] Messages should use hyper text when possible.
 
@@ -184,7 +170,7 @@ Idea behind tool is that we would like to compare two pairs of cut segment short
 
 1. - [ ] Should be rounded rectangle
 
-2. - [ ] Should have some constant padding amount
+2. - [x] Should have some constant padding amount
 
 3. - [ ] Should fade text at bottom if too long
 
@@ -226,7 +212,7 @@ Idea behind tool is that we would like to compare two pairs of cut segment short
 
 # Map Editor
 
-1. - [ ] Should have a grid what shows both horizontal and vertical lines as well as diagonal lines that have a slope of 1 (with this setup the diagonals would have length of root 2), or create a hexagon grid tessellated with equilateral triangles (all grid lengths have length 1)
+1. - [x] Should have a hexagon grid tessellated with equilateral triangles (all grid lengths have length 1)
 
 2. - [ ] Should have a feature that snaps all created or moved points to the grid
 
@@ -245,6 +231,8 @@ Idea behind tool is that we would like to compare two pairs of cut segment short
 1. - [ ] Font Atlas from SDF Atlas.
 
 2. - [ ] Line rendering, need to prevent alpha adding on line endpoint intersections when using transparency
+
+3. - [x] Line rendering, need to divide large line boxes into segments so that wew don't get flickering when doing the sdf.
 
 ## 3D Graphics
 
@@ -269,6 +257,24 @@ Idea behind tool is that we would like to compare two pairs of cut segment short
 ## Filesystem
 
 1. - [ ] Hot reload glsl shaders on change for rapid development
+
+# Triangular Grid
+
+## Hex Points
+
+1. - [x] Write an extension to the PointND for points located on the intersections of the Triangle Grid
+
+2. - [x] Each Point should have three coordinates and distance should be found by taking the max of the differences in the coordinates of two points (this is similar to manhattan distance in the xy plane). see: <https://www.redblobgames.com/grids/hexagons/#distances>
+
+3. - [ ] Lines between hex points can only follow the grid-lines
+
+4. - [x] The grid of possible values should be tiled by equilateral triangles with side length 1
+
+## Show Grid-lines
+
+1. - [x] new Option in the ixdar file type to show grid-lines on startup. If not specified defaulting to the cartesian grid and hidden initially.
+
+2. - [ ] Grid-lines should disappear at multiples of three (so if we zoom out from being able to see a 10 by 10 area to a 100 by 100 area there should be hte same number of grid-lines shown once we have some illegible density)
 
 # City Info
 

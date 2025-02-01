@@ -146,9 +146,6 @@ public class IxdarWindow {
         int height = h.get(0);
         GLFWImage iconGI = GLFWImage.create().set(width, height, iconFlipped);
         gb.put(0, iconGI);
-        glfwSetWindowIcon(window, gb);
-        STBImage.stbi_image_free(icon);
-        MemoryUtil.memFree(iconFlipped);
 
         // Get the thread stack and push a new frame
         try (MemoryStack stack = stackPush()) {
@@ -178,9 +175,12 @@ public class IxdarWindow {
         glfwMakeContextCurrent(window);
         // Enable v-sync
         glfwSwapInterval(1);
+        
 
         System.out.println("Window Time: " + (Clock.time() - startTime));
         canvas.initGL();
+
+        glfwSetWindowIcon(window, gb);
     }
 
     private void loop() {

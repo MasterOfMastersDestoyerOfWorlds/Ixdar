@@ -34,7 +34,7 @@ public class SDFFluid {
         shader.setVec2("offset", new Vector2f(0f, 0f));
         shader.setVec4("colour_1", Color.IXDAR.toVector4f());
         shader.setVec4("colour_2", Color.IXDAR.toVector4f());
-        shader.setVec4("colour_3", Color.IXDAR_DARK.toVector4f());
+        shader.setVec4("colour_3", Color.DARK_IXDAR.toVector4f());
         shader.setFloat("contrast", 2f);
         shader.setFloat("spin_amount", 0.1f);
         shader.setFloat("pixel_filter", 40000f);

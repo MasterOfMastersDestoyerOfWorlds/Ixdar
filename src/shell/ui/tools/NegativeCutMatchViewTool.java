@@ -5,7 +5,7 @@ import shell.render.text.HyperString;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import shell.ToggleType;
+import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.file.Manifold;
 import shell.knot.Knot;
@@ -23,8 +23,8 @@ public class NegativeCutMatchViewTool extends Tool {
     public static ArrayList<Color> colors;
 
     public NegativeCutMatchViewTool() {
-        disallowedToggles = new ToggleType[] { ToggleType.DrawCutMatch, ToggleType.DrawKnotGradient,
-                ToggleType.DrawMetroDiagram, ToggleType.DrawDisplayedKnots };
+        disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.DrawKnotGradient,
+                Toggle.DrawMetroDiagram, Toggle.DrawDisplayedKnots };
         colors = new ArrayList<>();
         colors.add(Color.BLUE);
         colors.add(Color.RED);
@@ -33,6 +33,7 @@ public class NegativeCutMatchViewTool extends Tool {
     @Override
     public void reset() {
         super.reset();
+        initSegmentMap();
     }
 
     @Override
@@ -63,11 +64,6 @@ public class NegativeCutMatchViewTool extends Tool {
                     camera,
                     Drawing.MIN_THICKNESS);
         }
-    }
-
-    @Override
-    public String displayName() {
-        return "Negative Cut Match View";
     }
 
     public void initSegmentMap() {
@@ -143,5 +139,25 @@ public class NegativeCutMatchViewTool extends Tool {
         }
         h.wrap();
         return h;
+    }
+
+    @Override
+    public String displayName() {
+        return "Negative Cut Match View";
+    }
+
+    @Override
+    public String shortName() {
+        return "neg";
+    }
+
+    @Override
+    public String fullName() {
+        return "negativecutmatchview";
+    }
+
+    @Override
+    public String desc() {
+        return "A tool to view hole moves that have negative total length";
     }
 }

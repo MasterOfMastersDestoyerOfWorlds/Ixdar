@@ -14,8 +14,23 @@ public class Lu634Test {
 	}
 
 	@Test
+	public void test_lu634_166_180() {
+		SubGraphs.testMethod("lu634_166-180");
+	}
+
+	@Test
+	public void test_lu634_222_227() {
+		SubGraphs.testMethod("lu634_222-227");
+	}
+
+	@Test
 	public void test_lu634_256_276() {
 		SubGraphs.testMethod("lu634_256-276");
+	}
+
+	@Test
+	public void test_lu634_271_300() {
+		SubGraphs.testMethod("lu634_271-300");
 	}
 
 	@Test
@@ -24,8 +39,23 @@ public class Lu634Test {
 	}
 
 	@Test
+	public void test_lu634_397_418() {
+		SubGraphs.testMethod("lu634_397-418");
+	}
+
+	@Test
 	public void test_lu634_4_21() {
 		SubGraphs.testMethod("lu634_4-21");
+	}
+
+	@Test
+	public void test_lu634_491_501p16_48() {
+		SubGraphs.testMethod("lu634_491-501p16-48");
+	}
+
+	@Test
+	public void test_lu634_501_535p583_596p631_633p0_17() {
+		SubGraphs.testMethod("lu634_501-535p583-596p631-633p0-17");
 	}
 
 	@Test
@@ -41,6 +71,11 @@ public class Lu634Test {
 	@Test
 	public void test_lu634_581_606() {
 		SubGraphs.testMethod("lu634_581-606");
+	}
+
+	@Test
+	public void test_lu634_596_632() {
+		SubGraphs.testMethod("lu634_596-632");
 	}
 
 }
