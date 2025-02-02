@@ -255,10 +255,10 @@ public class CutEngine {
         return sortedCutMatchInfo;
 
     }
-    // Would like to 
+
     public Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> answerSharing(
             Pair<CutMatchList, RouteMap<Integer, RouteInfo>> cutsOld,
-            Pair<CutMatchList, RouteMap<Integer, RouteInfo>> cutsNew, 
+            Pair<CutMatchList, RouteMap<Integer, RouteInfo>> cutsNew,
             CutInfo c, SortedCutMatchInfo sortedCutMatchInfo,
             boolean answerSharing, boolean checkAnswer, boolean knotPointsConnected)
             throws SegmentBalanceException {
@@ -307,6 +307,45 @@ public class CutEngine {
                 countSkipped++;
             }
         }
+
+        /*
+         * Plan for answerSharing for rotationally similar cutSegments:
+         * 
+         * So our idea is that we see if there is a route starting from the
+         * lowerCutSegment and who has an uppercut Segment that is one over, in either
+         * direction (counter or clockwise) from the other routes ending cut segment. in
+         * order to do this we should store some way to easily look up the neighbor cut
+         * segments. Also we need to keep in mind that flip cutSegments will not work
+         * for this answer sharing scheme. so really we are looking for the same lower
+         * cutSegment in the same orientation (knotpoint id and cutpoint id are the
+         * same) as well as a 1 (upperCutSegment that has its upperKnotPoint as our
+         * upperCutPoint its upperCutPoint that is not in our cutSegment) or 2
+         * (upperCutSegment that has its upperCutPoint as our upperKnotpoint and its
+         * upperKnotPoint is not in our cutSegment). We then Copy this route and do a
+         * few things. First we reset all of the half segments that touch the two chosen
+         * upperCutSegments. Second we copy over all of the routing information except
+         * we change the groups such that the incorrect cut/knotpoint at the end of the
+         * group is moved over to the other group. Finally we need to determine which of
+         * the routeInfo Vertices in the RouteMap Graph are settled, the ones that we
+         * reset are surely not settled anymore but we may need to unsettle all points
+         * anyway in order to get inputs for the reset routes.
+         * 
+         * Data Storage:
+         * 
+         * We could store our data in a few ways, we know the size of the routeMap
+         * instantly so we could store them in an array. We could also store them in a
+         * Hashmap by lowerCutSegment id and then upper cutSegment id where the id is
+         * order dependent. We could also store only the last routeMap that was used,
+         * this would be fine for cuts where that are in order and all have the same
+         * lowerCutSegments, but if we want to transfer across cutSegments this maybe
+         * difficult. Could alternatively store the last routeMap and the routeMap that
+         * has the next lowerCutSegment as its upperCutSegment and invert that routeMap
+         * when the time comes. I think for now its probably better to not worry about
+         * the inversion and just store the last routeMap and recalculate the full
+         * routeMap on a new lowerCutSegment and then expand our needs when the time
+         * comes.
+         */
+
         if (isNull) {
             if (cutsNew == null) {
                 cutsNew = internalPathEngine.calculateInternalPathLength(c.lowerKnotPoint, c.lowerCutPoint,
