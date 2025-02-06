@@ -1,7 +1,6 @@
 package shell.cuts;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
@@ -14,6 +13,7 @@ import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
 import shell.cuts.enums.State;
 import shell.cuts.route.Route;
+import shell.cuts.route.RouteComparator;
 import shell.cuts.route.RouteInfo;
 import shell.cuts.route.RouteMap;
 import shell.cuts.route.RoutePair;
@@ -23,39 +23,40 @@ import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.shell.Shell;
 
-    public class InternalPathEngine {
-    Shell shell;
-    CutEngine cutEngine;
-    public long totalTimeIxdar = 0;
-    public int ixdarCalls = 0;
-    public long profileTimeIxdar = 0;
+public class InternalPathEngine {
+    public static long totalTimeIxdar = 0;
+    public static int ixdarCalls = 0;
+    public static long profileTimeIxdar = 0;
+    public static int comparisons;
 
-    public InternalPathEngine(Shell shell, CutEngine cutEngine) {
-        this.shell = shell;
-        this.cutEngine = cutEngine;
+    public static void resetMetrics() {
+        totalTimeIxdar = 0;
+        ixdarCalls = 0;
+        profileTimeIxdar = 0;
+        comparisons = 0;
     }
 
-    public Pair<CutMatchList, RouteMap<Integer, RouteInfo>> calculateInternalPathLength(
+    public static Pair<CutMatchList, RouteMap<Integer, RouteInfo>> calculateInternalPathLength(
             VirtualPoint knotPoint1, VirtualPoint cutPoint1, VirtualPoint external1,
             VirtualPoint knotPoint2, VirtualPoint cutPoint2, VirtualPoint external2,
             Knot knot, BalanceMap balanceMap, CutInfo c, boolean knotPointsConnected)
             throws SegmentBalanceException, BalancerException {
         Segment cutSegment1 = knotPoint1.getClosestSegment(cutPoint1, null);
         Segment cutSegment2 = knotPoint2.getClosestSegment(cutPoint2, null);
-        SegmentBalanceException sbe = new SegmentBalanceException(shell, null,
-                new CutInfo(shell, knotPoint1, cutPoint1, cutSegment1, external1,
+        SegmentBalanceException sbe = new SegmentBalanceException(c.shell, null,
+                new CutInfo(c.shell, knotPoint1, cutPoint1, cutSegment1, external1,
                         knotPoint2, cutPoint2, cutSegment2, external2, knot,
                         balanceMap));
         CutEngine ce = c.shell.cutEngine;
-        Knot smallestKnot1 = ce.flatKnots.get(c.shell.smallestKnotLookup[cutPoint1.id]);
-        int smallestKnot1Height = ce.flatKnotsHeight.get(smallestKnot1.id);
-        Knot smallestKnot2 = ce.flatKnots.get(c.shell.smallestKnotLookup[cutPoint2.id]);
-        int smallestKnot2Height = ce.flatKnotsHeight.get(smallestKnot2.id);
-        Knot smallestCommonKnot = ce.flatKnots
+        FlattenEngine fe = ce.flattenEngine;
+        Knot smallestKnot1 = fe.flatKnots.get(c.shell.smallestKnotLookup[cutPoint1.id]);
+        int smallestKnot1Height = fe.flatKnotsHeight.get(smallestKnot1.id);
+        Knot smallestKnot2 = fe.flatKnots.get(c.shell.smallestKnotLookup[cutPoint2.id]);
+        int smallestKnot2Height = fe.flatKnotsHeight.get(smallestKnot2.id);
+        Knot smallestCommonKnot = fe.flatKnots
                 .get(c.shell.smallestCommonKnotLookup[cutPoint2.id][cutPoint1.id]);
-        int smallestCommonKnotHeight = ce.flatKnotsHeight.get(smallestCommonKnot.id);
+        int smallestCommonKnotHeight = fe.flatKnotsHeight.get(smallestCommonKnot.id);
         int knotLayer = Math.max(1, smallestCommonKnotHeight - smallestKnot1Height + smallestCommonKnotHeight
                 - smallestKnot2Height)
                 + (knotPointsConnected ? 0 : 1);
@@ -79,7 +80,7 @@ import shell.shell.Shell;
             // }
         }
         long startTimeIxdar = System.currentTimeMillis();
-        knotLayer = shell.cutEngine.flatKnots.size();
+        knotLayer = c.shell.cutEngine.flattenEngine.flatKnots.size();
         RouteMap<Integer, RouteInfo> routeMap = ixdar(knotPoint1, cutPoint1, knotPoint2, cutPoint2,
                 knot, knotPointsConnected, cutSegment1, cutSegment2, -1, -1, RouteType.None, knotLayer,
                 smallestCommonKnot);
@@ -109,7 +110,7 @@ import shell.shell.Shell;
         cutSegments.remove(cutSegment1);
         cutSegments.remove(cutSegment2);
 
-        CutMatchList cutMatchList = new CutMatchList(shell, sbe, knot);
+        CutMatchList cutMatchList = new CutMatchList(c.shell, sbe, knot);
         try {
             cutMatchList.addLists(cutSegments, matchSegments, knot, "InternalPathEngine");
         } catch (SegmentBalanceException be) {
@@ -121,12 +122,12 @@ import shell.shell.Shell;
                 || unionSet.find(cutPoint2.id) != unionSet.find(knotPoint2.id)
                 || unionSet.find(knotPoint1.id) != unionSet.find(knotPoint2.id)) {
             System.out.println(knotLayer);
-            throw new MultipleCyclesFoundException(shell, cutMatchList, matchSegments, cutSegments, c);
+            throw new MultipleCyclesFoundException(c.shell, cutMatchList, matchSegments, cutSegments, c);
         }
         return new Pair<>(cutMatchList, routeMap);
     }
 
-    public RouteMap<Integer, RouteInfo> ixdar(VirtualPoint knotPoint1, VirtualPoint cutPoint1,
+    public static RouteMap<Integer, RouteInfo> ixdar(VirtualPoint knotPoint1, VirtualPoint cutPoint1,
             VirtualPoint knotPoint2, VirtualPoint cutPoint2,
             Knot knot, boolean knotPointsConnected, Segment cutSegment1, Segment cutSegment2, int steps,
             int sourcePoint, RouteType routeType, int knotNumber, Knot smallestCommonKnot) {
@@ -330,7 +331,7 @@ import shell.shell.Shell;
 
     }
 
-    public ArrayList<VirtualPoint> paintState(State state, Group group, Knot knot, VirtualPoint knotPoint,
+    public static ArrayList<VirtualPoint> paintState(State state, Group group, Knot knot, VirtualPoint knotPoint,
             VirtualPoint cutPoint, Segment cutSegment,
             HashMap<Integer, RouteInfo> routeInfo) {
         ArrayList<VirtualPoint> result = new ArrayList<VirtualPoint>();
@@ -382,100 +383,5 @@ import shell.shell.Shell;
             }
         }
         return result;
-    }
-
-    public static long comparisons = 0;
-
-    class RouteComparator implements Comparator<RoutePair> {
-
-        @Override
-        public int compare(RoutePair o1, RoutePair o2) {
-            double d1 = o1.delta;
-            double d2 = o2.delta;
-            comparisons++;
-            if (d1 < d2)
-                return -1; // Neither val is NaN, thisVal is smaller
-            if (d1 > d2)
-                return 1; // Neither val is NaN, thisVal is larger
-
-            // Cannot use doubleToRawLongBits because of possibility of NaNs.
-            long thisBits = (long) d1;
-            long anotherBits = (long) d2;
-
-            return (thisBits == anotherBits ? 0 : // Values are equal
-                    (thisBits < anotherBits ? -1 : // (-0.0, 0.0) or (!NaN, NaN)
-                            1)); // (0.0, -0.0) or (NaN, !NaN)
-        }
-    }
-
-    class DisjointUnionSets {
-        HashMap<Integer, Integer> rank, parent;
-
-        // Constructor
-        public DisjointUnionSets(ArrayList<VirtualPoint> knotPoints) {
-            rank = new HashMap<Integer, Integer>();
-            parent = new HashMap<Integer, Integer>();
-            for (int i = 0; i < knotPoints.size(); i++) {
-                // Initially, all elements are in
-                // their own set.
-                int id = knotPoints.get(i).id;
-                parent.put(id, id);
-            }
-        }
-
-        // Returns representative of x's set
-        int find(int x) {
-            // Finds the representative of the set
-            // that x is an element of
-            if (parent.get(x) != x) {
-                // if x is not the parent of itself
-                // Then x is not the representative of
-                // his set,
-                parent.put(x, find(parent.get(x)));
-
-                // so we recursively call Find on its parent
-                // and move i's node directly under the
-                // representative of this set
-            }
-
-            return parent.get(x);
-        }
-
-        // Unites the set that includes x and the set
-        // that includes x
-        void union(int x, int y) {
-            // Find representatives of two sets
-            int xRoot = find(x), yRoot = find(y);
-
-            // Elements are in the same set, no need
-            // to unite anything.
-            if (xRoot == yRoot)
-                return;
-
-            // If x's rank is less than y's rank
-            if (rank.getOrDefault(xRoot, 0) < rank.getOrDefault(yRoot, 0))
-
-                // Then move x under y so that depth
-                // of tree remains less
-                parent.put(xRoot, yRoot);
-
-            // Else if y's rank is less than x's rank
-            else if (rank.getOrDefault(yRoot, 0) < rank.getOrDefault(xRoot, 0))
-
-                // Then move y under x so that depth of
-                // tree remains less
-                parent.put(yRoot, xRoot);
-
-            else // if ranks are the same
-            {
-                // Then move y under x (doesn't matter
-                // which one goes where)
-                parent.put(yRoot, xRoot);
-
-                // And increment the result tree's
-                // rank by 1
-                rank.put(xRoot, rank.getOrDefault(xRoot, 0) + 1);
-            }
-        }
     }
 }

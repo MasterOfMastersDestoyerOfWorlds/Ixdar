@@ -540,10 +540,10 @@ public class Shell extends LinkedList<PointND> {
         cutEngine.totalLayers = mainKnot.getHeight();
         ArrayList<VirtualPoint> knotList = cutEngine.cutKnot(mainKnot.knotPoints, 1);
         Knot knot = new Knot(knotList, this);
-        if (!cutEngine.flatKnots.containsKey(knot.id)) {
+        if (!cutEngine.flattenEngine.flatKnots.containsKey(knot.id)) {
             this.updateSmallestKnot(knot);
             this.updateSmallestCommonKnot(knot);
-            cutEngine.setFlatKnot(0, knot, mainKnot);
+            cutEngine.flattenEngine.setFlatKnot(0, knot, mainKnot);
         }
         Shell result = new Shell();
         for (VirtualPoint p : knotList) {

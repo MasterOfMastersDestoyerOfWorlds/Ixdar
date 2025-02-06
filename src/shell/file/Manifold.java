@@ -7,6 +7,7 @@ import org.apache.commons.math3.util.Pair;
 import shell.BalanceMap;
 import shell.cuts.CutInfo;
 import shell.cuts.CutMatchList;
+import shell.cuts.InternalPathEngine;
 import shell.cuts.enums.RouteType;
 import shell.cuts.route.Route;
 import shell.cuts.route.RouteInfo;
@@ -92,7 +93,7 @@ public class Manifold implements FileStringable {
         } catch (BalancerException e) {
             throw e;
         }
-        Pair<CutMatchList, RouteMap<Integer, RouteInfo>> result = shell.cutEngine.internalPathEngine
+        Pair<CutMatchList, RouteMap<Integer, RouteInfo>> result = InternalPathEngine
                 .calculateInternalPathLength(
                         knotPoint1, cutPoint1, external1,
                         knotPoint2, cutPoint2, external2, manifoldKnot, manifoldBalanceMap, c1,

@@ -120,7 +120,7 @@ public class FreeTool extends Tool {
                 minKnotInfo.addDistance(containingKnot.s2.distance, c);
             }
             minKnotInfo.addLine("FlatID: " + containingKnot.id, c);
-            minKnotInfo.addLine("OrgID: " + Main.shell.cutEngine.flatKnotToKnot.get(containingKnot.id), c);
+            minKnotInfo.addLine("OrgID: " + Main.flattenEngine.flatKnotToKnot.get(containingKnot.id), c);
             h.addTooltip(containingKnot.beforeString(displayKP.id), c, minKnotInfo, () -> Main.camera.zoomToKnot(reeK));
             h.addTooltip(pointStr, Color.BLUE_WHITE, pointInfo, () -> Main.camera.centerOnPoint(coordPointF));
             h.addTooltip(containingKnot.afterString(displayKP.id), c, minKnotInfo, () -> Main.camera.zoomToKnot(reeK));

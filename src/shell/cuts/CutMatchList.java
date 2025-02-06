@@ -720,9 +720,6 @@ public class CutMatchList implements FileStringable {
 
     public VirtualPoint getClosestKnotPoint(VirtualPoint neighbor, VirtualPoint other) {
         CutMatch cm = cutMatches.get(0);
-        if(neighbor == null){
-            float z =0;
-        }
         Segment kp1n1 = neighbor.getSegment(cm.kp1);
         Segment kp2n2 = other.getSegment(cm.kp2);
         Segment kp2n1 = neighbor.getSegment(cm.kp2);

@@ -24,7 +24,9 @@ import shell.Toggle;
 import shell.cameras.Camera;
 import shell.cameras.Camera2D;
 import shell.cuts.CutEngine;
+import shell.cuts.FlattenEngine;
 import shell.cuts.InternalPathEngine;
+import shell.cuts.ManifoldEngine;
 import shell.cuts.route.RouteInfo;
 import shell.exceptions.SegmentBalanceException;
 import shell.exceptions.TerminalParseException;
@@ -118,6 +120,7 @@ public class Main {
     public static Info info;
     public static Grid grid;
     public static int totalLayers = -1;
+    public static FlattenEngine flattenEngine;
 
     public Main(String fileName) throws TerminalParseException {
         metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -193,10 +196,9 @@ public class Main {
         totalLayers = -1;
         shell = orgShell.copyShallow();
 
-        CutEngine.countCalculated = 0;
-        CutEngine.countSkipped = 0;
+        CutEngine.resetMetrics();
         InternalPathEngine.comparisons = 0;
-        
+
         shell.knotName = fileName;
 
         Collections.shuffle(shell);
@@ -209,7 +211,8 @@ public class Main {
 
         long startTimeKnotCutting = System.currentTimeMillis();
         calculateSubPaths();
-        Collection<Knot> flatKnots = shell.cutEngine.flatKnots.values();
+        flattenEngine = shell.cutEngine.flattenEngine;
+        Collection<Knot> flatKnots = flattenEngine.flatKnots.values();
         if (flatKnots.size() > 0) {
             manifoldKnot = flatKnots.iterator().next();
         }
@@ -261,10 +264,10 @@ public class Main {
             totalLayers = shell.cutEngine.totalLayers;
         }
         knotDrawLayer = totalLayers;
-        Set<Integer> knotIds = shell.cutEngine.flatKnots.keySet();
-        HashMap<Integer, Knot> flatKnotMap = shell.cutEngine.flatKnots;
-        HashMap<Integer, Integer> flatKnotsHeight = shell.cutEngine.flatKnotsHeight;
-        HashMap<Integer, Integer> flatKnotsLayer = shell.cutEngine.flatKnotsLayer;
+        Set<Integer> knotIds = flattenEngine.flatKnots.keySet();
+        HashMap<Integer, Knot> flatKnotMap = flattenEngine.flatKnots;
+        HashMap<Integer, Integer> flatKnotsHeight = flattenEngine.flatKnotsHeight;
+        HashMap<Integer, Integer> flatKnotsLayer = flattenEngine.flatKnotsLayer;
         for (Integer id : knotIds) {
             Knot k = flatKnotMap.get(id);
             int heightNum = flatKnotsHeight.get(id);
@@ -291,15 +294,15 @@ public class Main {
 
         long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
         double knotCuttingSeconds = ((double) endTimeKnotCutting) / 1000.0;
-        double ixdarSeconds = ((double) shell.cutEngine.internalPathEngine.totalTimeIxdar) / 1000.0;
-        double ixdarProfileSeconds = ((double) shell.cutEngine.internalPathEngine.profileTimeIxdar) / 1000.0;
+        double ixdarSeconds = ((double) InternalPathEngine.totalTimeIxdar) / 1000.0;
+        double ixdarProfileSeconds = ((double) InternalPathEngine.profileTimeIxdar) / 1000.0;
         System.out.println(result);
         System.out.println("Knot-finding time: " + knotFindingSeconds);
         System.out.println("Knot-cutting time: " + knotCuttingSeconds);
         System.out.println("Ixdar time: " + ixdarSeconds);
-        System.out.println("Ixdar counted: " + CutEngine.countCalculated);
-        System.out.println("Ixdar skip: " + CutEngine.countSkipped);
-        System.out.println("Ixdar Calls:" + shell.cutEngine.internalPathEngine.ixdarCalls);
+        System.out.println("Ixdar counted: " + ManifoldEngine.countCalculated);
+        System.out.println("Ixdar skip: " + ManifoldEngine.countSkipped);
+        System.out.println("Ixdar Calls:" + InternalPathEngine.ixdarCalls);
         System.out.println("maxSettledSize: " + RouteInfo.maxSettledSize);
 
         System.out.println("comparisons " + String.format("%,d", InternalPathEngine.comparisons));
@@ -315,7 +318,7 @@ public class Main {
         System.out.println("Calculated Length: " + shell.getLength());
         System.out.println("===============================================");
 
-        System.out.println(shell.cutEngine.flatKnots);
+        System.out.println(flattenEngine.flatKnots);
         stickyColor = new ColorRGB(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
         stickyColor = Color.CYAN;
 
@@ -420,7 +423,7 @@ public class Main {
             if (tool.canUseToggle(Toggle.DrawKnotGradient) && manifoldKnot != null) {
                 for (Integer id : knotLayerLookup.keySet()) {
                     if (knotLayerLookup.get(id) == totalLayers) {
-                        Knot drawKnot = shell.cutEngine.flatKnots.get(id);
+                        Knot drawKnot = flattenEngine.flatKnots.get(id);
                         ArrayList<Pair<Long, Long>> idTransform = lookupPairs(drawKnot);
                         Drawing.drawGradientPath(drawKnot, idTransform, colorLookup, knotGradientColors, camera,
                                 Drawing.MIN_THICKNESS);
@@ -502,7 +505,7 @@ public class Main {
     }
 
     public static Color getKnotGradientColor(VirtualPoint displayPoint) {
-        Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
+        Knot smallestKnot = flattenEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
         if (smallestKnot == null) {
             return Color.IXDAR;
         }
@@ -510,7 +513,7 @@ public class Main {
     }
 
     public static Color getKnotGradientColorFlatten(Knot k) {
-        Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.cutEngine.knotToFlatKnot.get(k.id));
+        Knot smallestKnot = flattenEngine.flatKnots.get(flattenEngine.knotToFlatKnot.get(k.id));
         if (smallestKnot == null) {
             return Color.IXDAR;
         }
@@ -519,7 +522,7 @@ public class Main {
 
     public static Color getMetroColor(VirtualPoint displayPoint, Knot k) {
         if (knotDrawLayer < 0) {
-            Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
+            Knot smallestKnot = flattenEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
             return metroColors.get(knotLayerLookup.get(smallestKnot.id));
         } else {
             return metroColors.get(knotLayerLookup.get(k.id));
@@ -527,7 +530,7 @@ public class Main {
     }
 
     public static Color getMetroColorFlatten(Knot thickKnot) {
-        Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.cutEngine.knotToFlatKnot.get(thickKnot.id));
+        Knot smallestKnot = flattenEngine.flatKnots.get(flattenEngine.knotToFlatKnot.get(thickKnot.id));
         if (smallestKnot == null) {
             return Color.IXDAR;
         }
@@ -546,9 +549,9 @@ public class Main {
             VirtualPoint vp1 = s.first;
             VirtualPoint vp2 = s.last;
 
-            Knot smallestKnot1 = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[vp1.id]);
+            Knot smallestKnot1 = flattenEngine.flatKnots.get(shell.smallestKnotLookup[vp1.id]);
 
-            Knot smallestKnot2 = shell.cutEngine.flatKnots.get(shell.smallestKnotLookup[vp2.id]);
+            Knot smallestKnot2 = flattenEngine.flatKnots.get(shell.smallestKnotLookup[vp2.id]);
             idTransform.add(new Pair<Long, Long>((long) smallestKnot1.id, (long) smallestKnot2.id));
         }
         return idTransform;
@@ -698,7 +701,7 @@ public class Main {
     }
 
     public static void setDrawLevelToKnot(Knot k) {
-        Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.cutEngine.knotToFlatKnot.get(k.id));
+        Knot smallestKnot = flattenEngine.flatKnots.get(flattenEngine.knotToFlatKnot.get(k.id));
         if (smallestKnot == null) {
             knotDrawLayer = totalLayers;
         } else {
@@ -717,7 +720,7 @@ public class Main {
     }
 
     public static Knot getKnotFlatten(Knot k) {
-        Knot smallestKnot = shell.cutEngine.flatKnots.get(shell.cutEngine.knotToFlatKnot.get(k.id));
+        Knot smallestKnot = flattenEngine.flatKnots.get(flattenEngine.knotToFlatKnot.get(k.id));
         if (smallestKnot == null) {
             return (Knot) result.get(0);
         }

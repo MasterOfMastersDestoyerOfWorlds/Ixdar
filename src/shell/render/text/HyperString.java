@@ -88,7 +88,7 @@ public class HyperString {
     public void addHoverKnot(String word, Color c, Knot hoverKnot, Action clickAction) {
         HyperString knotText = new HyperString();
         knotText.addWord(hoverKnot.toString() + " FlatID: " + hoverKnot.id + " OrgID: "
-                + Main.shell.cutEngine.flatKnotToKnot.get(hoverKnot.id), c);
+                + Main.flattenEngine.flatKnotToKnot.get(hoverKnot.id), c);
         knotText.setWrap(true, 30);
         words.add(new Word(word, c, () -> {
             Main.setHoverKnot(hoverKnot);

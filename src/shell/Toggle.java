@@ -16,7 +16,7 @@ public enum Toggle {
     IsMainFocused(true, "focusMain"),
     IsTerminalFocused(false, "focusTerm"),
     IsInfoFocused(false, "focusInfo"),
-    IxdarSkip(false, "ixdarSkip"),
+    IxdarSkip(true, "ixdarSkip"),
     IxdarMirrorAnswerSharing(false, "ixdarFlip"),
     IxdarRotationalAnswerSharing(true, "ixdarRot"),
     IxdarCheckMirroredAnswerSharing(false, "checkAns"),

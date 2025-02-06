@@ -39,14 +39,8 @@ public class Clockwork {
             prevCut = c.upperCutSegment;
             nextCut = c.lowerCutSegment;
         }
-        if (c.cutID == 1875) {
-            float z = 0;
-        }
         prevKnotPoint = c.getKnotPointFromCutSegment(prev, prevCut, null);
         nextKnotPoint = c.getKnotPointFromCutSegment(next, nextCut, prevKnotPoint);
-        if (prevKnotPoint == null || nextKnotPoint == null) {
-            float z = 0;
-        }
     }
 
     public void flip() {
@@ -95,9 +89,6 @@ public class Clockwork {
         ;
         this.nextExternalDelta = nextExternalSegment.distance;
         nextCw.prevExternalDelta = prevExternalSegment.distance;
-        if (this.nextExternalSegment.id == this.prevExternalSegment.id) {
-            float z = 0;
-        }
     }
 
     public void setPrevCwUpdateCML(Clockwork prevCw, CutMatchList cutMatchList, CutMatchList prevCutMatchList,
