@@ -53,15 +53,15 @@ public class RouteInfo {
     public RouteInfo(RouteInfo other, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint) {
         this.node = other.node;
         this.id = node.id;
+        this.knotPoint1 = other.knotPoint1;
+        this.knotPoint2 = upperKnotPoint;
+        this.cutPoint1 = other.cutPoint1;
+        this.cutPoint2 = upperCutPoint;
         this.prevC = new Route(other.prevC, upperCutPoint, upperKnotPoint, this);
         this.nextC = new Route(other.nextC, upperCutPoint, upperKnotPoint, this);
         this.prevDC = new Route(other.prevDC, upperCutPoint, upperKnotPoint, this);
         this.nextDC = new Route(other.nextDC, upperCutPoint, upperKnotPoint, this);
         routes = new Route[] { prevC, prevDC, nextC, nextDC };
-        this.knotPoint1 = other.knotPoint1;
-        this.knotPoint2 = upperKnotPoint;
-        this.cutPoint1 = other.cutPoint1;
-        this.cutPoint2 = upperCutPoint;
     }
 
     public void assignGroup(ArrayList<VirtualPoint> ourGroup, ArrayList<VirtualPoint> otherGroup) {

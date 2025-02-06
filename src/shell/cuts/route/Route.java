@@ -53,14 +53,17 @@ public class Route implements Comparable<Route> {
         this.matches = new ArrayList<>(routeToCopy.matches);
         this.routeId = routeToCopy.routeId;
         this.parent = parent;
-        if (routeId == upperCutPoint.id || neighbor.id == upperCutPoint.id ||
-                routeId == upperKnotPoint.id || neighbor.id == upperKnotPoint.id) {
-            this.reset();
-        }
+
         RouteInfo otherParent = routeToCopy.parent;
-        if (routeId == otherParent.knotPoint2.id || routeId == otherParent.cutPoint2.id ||
+        if (parent.id == upperCutPoint.id || neighbor.id == upperCutPoint.id ||
+                parent.id == upperKnotPoint.id || neighbor.id == upperKnotPoint.id) {
+            this.reset();
+        } else if (parent.id == otherParent.knotPoint2.id
+                || parent.id == otherParent.cutPoint2.id ||
                 neighbor.id == otherParent.knotPoint2.id || neighbor.id == otherParent.cutPoint2.id) {
             this.reset();
+        } else {
+            float z = 0;
         }
     }
 
