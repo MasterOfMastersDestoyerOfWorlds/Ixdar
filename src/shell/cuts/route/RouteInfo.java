@@ -7,7 +7,7 @@ import shell.cuts.enums.RouteType;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 
-public class RouteInfo{
+public class RouteInfo {
 
     // need to ad a concept of teh winding number to this model, which would flip
     // the state of the prev/ next depending on weather the winding number is even
@@ -43,11 +43,25 @@ public class RouteInfo{
         this.nextC = new Route(RouteType.nextC, Double.MAX_VALUE, nextNeighbor, node.id, this);
         this.prevDC = new Route(RouteType.prevDC, Double.MAX_VALUE, prevNeighbor, node.id, this);
         this.nextDC = new Route(RouteType.nextDC, Double.MAX_VALUE, nextNeighbor, node.id, this);
-        routes = new Route[]{prevC, prevDC, nextC, nextDC};
+        routes = new Route[] { prevC, prevDC, nextC, nextDC };
         this.knotPoint1 = knotPoint1;
         this.knotPoint2 = knotPoint2;
         this.cutPoint1 = cutPoint1;
         this.cutPoint2 = cutPoint2;
+    }
+
+    public RouteInfo(RouteInfo other, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint) {
+        this.node = other.node;
+        this.id = node.id;
+        this.prevC = new Route(other.prevC, upperCutPoint, upperKnotPoint, this);
+        this.nextC = new Route(other.nextC, upperCutPoint, upperKnotPoint, this);
+        this.prevDC = new Route(other.prevDC, upperCutPoint, upperKnotPoint, this);
+        this.nextDC = new Route(other.nextDC, upperCutPoint, upperKnotPoint, this);
+        routes = new Route[] { prevC, prevDC, nextC, nextDC };
+        this.knotPoint1 = other.knotPoint1;
+        this.knotPoint2 = upperKnotPoint;
+        this.cutPoint1 = other.cutPoint1;
+        this.cutPoint2 = upperCutPoint;
     }
 
     public void assignGroup(ArrayList<VirtualPoint> ourGroup, ArrayList<VirtualPoint> otherGroup) {
@@ -65,26 +79,29 @@ public class RouteInfo{
             Route ancestorRoute, int settledSize, int knotId) {
 
         Route route = getRoute(routeType);
-        
+
         if (delta < route.delta) {
-            
-            if(this.id == knotPoint2.id && route.neighbor.id == cutPoint2.id && knotId == 78){ //&& knotPoint1.id == 22 && cutPoint1.id == 21 && knotPoint2.id == 1 && cutPoint2.id == 5){
-                    maxSettledSize = settledSize;
-                    maxPathLength = ancestorRoute.matches.size() + 1;
+
+            if (this.id == knotPoint2.id && route.neighbor.id == cutPoint2.id && knotId == 78) { // && knotPoint1.id ==
+                                                                                                 // 22 && cutPoint1.id
+                                                                                                 // == 21 &&
+                                                                                                 // knotPoint2.id == 1
+                                                                                                 // && cutPoint2.id ==
+                                                                                                 // 5){
+                maxSettledSize = settledSize;
+                maxPathLength = ancestorRoute.matches.size() + 1;
             }
             route.delta = delta;
             route.ancestorRouteType = ancestorRouteType;
             route.ancestor = ancestor;
             VirtualPoint neighbor = route.neighbor;
             VirtualPoint node = this.node;
-            route.ancestors = new ArrayList<>(ancestorRoute.ancestors);
-            route.ancestors.add(ancestorRoute);
             route.cuts = new ArrayList<>(ancestorRoute.cuts);
             Segment newCut = node.getClosestSegment(neighbor, null);
             route.cuts.add(0, newCut);
             route.matches = new ArrayList<>(ancestorRoute.matches);
             Segment newMatch = ancestor.getClosestSegment(neighbor, null);
-            route.matches.add(0,newMatch);
+            route.matches.add(0, newMatch);
 
             if (ancestorRoute.ourGroup.contains(node)) {
                 ArrayList<VirtualPoint> grp = ancestorRoute.ourGroup;
@@ -144,22 +161,24 @@ public class RouteInfo{
 
     public Route getRoute(RouteType routeType) {
         switch (routeType) {
-            case prevC:
-                return prevC;
-            case nextC:
-                return nextC;
-            case prevDC:
-                return prevDC;
-            case nextDC:
-                return nextDC;
-            default:
-                return null;
+        case prevC:
+            return prevC;
+        case nextC:
+            return nextC;
+        case prevDC:
+            return prevDC;
+        case nextDC:
+            return nextDC;
+        default:
+            return null;
         }
     }
+
     @Override
     public String toString() {
-        return node.id + "," + prevC.toString() + "," + prevDC.toString() + "," + nextC.toString() + "," + nextDC.toString();
-        
+        return node.id + "," + prevC.toString() + "," + prevDC.toString() + "," + nextC.toString() + ","
+                + nextDC.toString();
+
     }
 
     public void getNeighborRoute(VirtualPoint cp) {

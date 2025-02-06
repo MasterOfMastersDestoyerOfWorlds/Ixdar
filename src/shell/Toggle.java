@@ -19,7 +19,7 @@ public enum Toggle {
     IxdarSkip(true, "ixdarSkip"),
     IxdarMirrorAnswerSharing(false, "ixdarFlip"),
     IxdarRotationalAnswerSharing(true, "ixdarRot"),
-    IxdarCheckMirroredAnswerSharing(false, "checkAns"),
+    IxdarCheckMirroredAnswerSharing(true, "checkAns"),
     SnapToGrid(true, "gridSnap");
 
     public boolean value;

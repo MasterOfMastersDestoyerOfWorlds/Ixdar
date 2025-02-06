@@ -3,7 +3,6 @@ package shell.cuts.route;
 import java.util.ArrayList;
 
 import shell.cuts.enums.RouteType;
-import shell.cuts.enums.State;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.color.Color;
@@ -12,11 +11,9 @@ import shell.render.text.HyperString;
 public class Route implements Comparable<Route> {
     public RouteType routeType;
     public RouteType ancestorRouteType = RouteType.None;
-    public State state = State.None;
     public VirtualPoint neighbor;
     public double delta;
     public VirtualPoint ancestor;
-    public ArrayList<Route> ancestors;
     public ArrayList<VirtualPoint> ourGroup;
     public ArrayList<VirtualPoint> otherGroup;
     public ArrayList<Segment> cuts;
@@ -29,18 +26,50 @@ public class Route implements Comparable<Route> {
         this.delta = delta;
         this.neighbor = neighbor;
         this.parent = parent;
-        ancestors = new ArrayList<>();
         cuts = new ArrayList<>();
         matches = new ArrayList<>();
         routeId = routeType.idTransform(pointId);
 
     }
 
+    /**
+     * Copy constructor
+     * 
+     * @param routeToCopy
+     * @param upperCutPoint
+     * @param upperKnotPoint
+     * @param parent
+     * 
+     */
+    public Route(Route routeToCopy, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, RouteInfo parent) {
+        this.routeType = routeToCopy.routeType;
+        this.ancestorRouteType = routeToCopy.ancestorRouteType;
+        this.neighbor = routeToCopy.neighbor;
+        this.delta = routeToCopy.delta;
+        this.ancestor = routeToCopy.ancestor;
+        this.ourGroup = new ArrayList<>(routeToCopy.ourGroup);
+        this.otherGroup = new ArrayList<>(routeToCopy.otherGroup);
+        this.cuts = new ArrayList<>(routeToCopy.cuts);
+        this.matches = new ArrayList<>(routeToCopy.matches);
+        this.routeId = routeToCopy.routeId;
+        this.parent = parent;
+        if (routeId == upperCutPoint.id || neighbor.id == upperCutPoint.id ||
+                routeId == upperKnotPoint.id || neighbor.id == upperKnotPoint.id) {
+            this.reset();
+        }
+        RouteInfo otherParent = routeToCopy.parent;
+        if (routeId == otherParent.knotPoint2.id || routeId == otherParent.cutPoint2.id ||
+                neighbor.id == otherParent.knotPoint2.id || neighbor.id == otherParent.cutPoint2.id) {
+            this.reset();
+        }
+    }
+
     public void reset() {
         delta = Double.MAX_VALUE;
-        ancestors = new ArrayList<>();
         cuts = new ArrayList<>();
         matches = new ArrayList<>();
+        ancestor = null;
+        ancestorRouteType = RouteType.None;
     }
 
     @Override

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 
+import shell.cuts.route.RouteMap;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 
@@ -11,11 +12,13 @@ class SortedCutMatchInfo {
     ArrayList<CutMatchList> sortedCutMatchLists;
     HashMap<Long, ArrayList<CutMatchList>> sortedCutMatchListsBySegment;
     HashMap<Integer, ArrayList<CutMatchList>> sortedCutMatchListsByKnotPoint;
+    public HashMap<Long, HashMap<Long, RouteMap>> routeMapBySegmentId;
 
     public SortedCutMatchInfo() {
         sortedCutMatchLists = new ArrayList<>();
         sortedCutMatchListsBySegment = new HashMap<>();
         sortedCutMatchListsByKnotPoint = new HashMap<>();
+        routeMapBySegmentId = new HashMap<>();
     }
 
     public void add(CutMatchList cutMatch, Segment cutSegment, VirtualPoint knotPoint) {

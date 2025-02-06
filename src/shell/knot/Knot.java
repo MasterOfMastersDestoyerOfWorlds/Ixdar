@@ -273,6 +273,15 @@ public class Knot extends VirtualPoint {
         return knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
     }
 
+    public VirtualPoint getOtherNeighbor(VirtualPoint vp, VirtualPoint neighbor) {
+        int idx = knotPointsFlattened.indexOf(vp);
+        VirtualPoint neighborNext = knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
+        if (neighborNext.id == neighbor.id) {
+            return knotPoints.get(idx - 1 < 0 ? knotPoints.size() - 1 : idx - 1);
+        }
+        return neighborNext;
+    }
+
     @Override
     public String toString() {
         String str = "Knot[ ";

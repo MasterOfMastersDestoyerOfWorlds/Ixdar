@@ -5,7 +5,6 @@ import java.util.HashMap;
 
 import org.apache.commons.collections4.map.MultiKeyMap;
 
-import shell.cuts.route.RouteInfo;
 import shell.cuts.route.RouteMap;
 import shell.exceptions.BalancerException;
 import shell.exceptions.MultipleCyclesFoundException;
@@ -20,6 +19,18 @@ public class CutEngine {
 
     int cutKnotNum = 0;
 
+    public static long clockworkStartTime, clockworkEndTime;
+    public static double clockworkTotalTimeSeconds;
+
+    public static void resetMetrics() {
+        InternalPathEngine.resetMetrics();
+        FlattenEngine.resetMetrics();
+        ManifoldEngine.resetMetrics();
+        clockworkStartTime = 0;
+        clockworkEndTime = 0;
+        clockworkTotalTimeSeconds = 0.0;
+    }
+
     Shell shell;
     public FlattenEngine flattenEngine;
     public int totalLayers = -1;
@@ -32,7 +43,7 @@ public class CutEngine {
     MultiKeyMap<Integer, CutMatchList> cutLookup = new MultiKeyMap<>();
     double resolved = 0;
     double totalCalls = 0;
-    public HashMap<Long, RouteMap<Integer, RouteInfo>> routesBySegment = new HashMap<>();
+    public HashMap<Long, RouteMap> routesBySegment = new HashMap<>();
 
     public ArrayList<VirtualPoint> cutKnot(ArrayList<VirtualPoint> knotList, int layerNum)
             throws SegmentBalanceException, BalancerException {
@@ -81,6 +92,8 @@ public class CutEngine {
                 sortedCutMatchInfoLookup.put(knot.id, sortedCutMatchLists);
             }
         }
+
+        clockworkStartTime = System.currentTimeMillis();
         // Planning phase now that we have all of the cut match lists for every knot we
         // need to align which cut match list is used for what knot. We do this in the
         // following way:
@@ -350,14 +363,10 @@ public class CutEngine {
             }
         }
 
+        clockworkEndTime = System.currentTimeMillis();
+        clockworkTotalTimeSeconds += ((double) (clockworkEndTime - clockworkStartTime)) / 1000.0;
         return result;
 
-    }
-
-    public static void resetMetrics() {
-        InternalPathEngine.resetMetrics();
-        FlattenEngine.resetMetrics();
-        ManifoldEngine.resetMetrics();
     }
 
 }

@@ -10,7 +10,6 @@ import shell.cuts.CutMatchList;
 import shell.cuts.InternalPathEngine;
 import shell.cuts.enums.RouteType;
 import shell.cuts.route.Route;
-import shell.cuts.route.RouteInfo;
 import shell.cuts.route.RouteMap;
 import shell.exceptions.BalancerException;
 import shell.exceptions.FileParseException;
@@ -34,7 +33,7 @@ public class Manifold implements FileStringable {
     public Segment manifoldExSegment2;
     public Knot manifoldKnot;
     public CutMatchList originalCutMatch;
-    public RouteMap<Integer, RouteInfo> routeMap;
+    public RouteMap routeMap;
 
     public Manifold(int kp1, int cp1, int kp2, int cp2, boolean connected) {
         cuts = new ArrayList<>();
@@ -93,7 +92,7 @@ public class Manifold implements FileStringable {
         } catch (BalancerException e) {
             throw e;
         }
-        Pair<CutMatchList, RouteMap<Integer, RouteInfo>> result = InternalPathEngine
+        Pair<CutMatchList, RouteMap> result = InternalPathEngine
                 .calculateInternalPathLength(
                         knotPoint1, cutPoint1, external1,
                         knotPoint2, cutPoint2, external2, manifoldKnot, manifoldBalanceMap, c1,

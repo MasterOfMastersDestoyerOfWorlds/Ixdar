@@ -194,6 +194,12 @@ public class Segment implements Comparable<Segment> {
         return a >= b ? a * a + a + b : b + a + b * b;
     }
 
+    public static long idTransformOrdered(Segment s) {
+        long a = s.first.id;
+        long b = s.last.id;
+        return a * a + a + b;
+    }
+
     public static long idTransformOrdered(long a, long b) {
         return a * a + a + b;
     }

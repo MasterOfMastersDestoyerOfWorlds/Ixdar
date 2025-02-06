@@ -246,6 +246,7 @@ public class Main {
             });
 
         }
+        long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
         shell.buff.flush();
         retTup.grid.init();
         Random colorSeed = new Random();
@@ -292,26 +293,30 @@ public class Main {
 
         Drawing.initDrawingSizes(shell, camera, d);
 
-        long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
         double knotCuttingSeconds = ((double) endTimeKnotCutting) / 1000.0;
         double ixdarSeconds = ((double) InternalPathEngine.totalTimeIxdar) / 1000.0;
         double ixdarProfileSeconds = ((double) InternalPathEngine.profileTimeIxdar) / 1000.0;
         System.out.println(result);
         System.out.println("Knot-finding time: " + knotFindingSeconds);
         System.out.println("Knot-cutting time: " + knotCuttingSeconds);
-        System.out.println("Ixdar time: " + ixdarSeconds);
         System.out.println("Ixdar counted: " + ManifoldEngine.countCalculated);
         System.out.println("Ixdar skip: " + ManifoldEngine.countSkipped);
         System.out.println("Ixdar Calls:" + InternalPathEngine.ixdarCalls);
+
+        System.out.println("routeMapCopy %: "
+                + 100 * ((double) ManifoldEngine.routeMapsCopied) / ((double) ManifoldEngine.totalRoutes));
         System.out.println("maxSettledSize: " + RouteInfo.maxSettledSize);
 
-        System.out.println("comparisons " + String.format("%,d", InternalPathEngine.comparisons));
+        System.out.println("Ixdar comparisons " + String.format("%,d", InternalPathEngine.comparisons));
         System.out.println("N " + shell.size());
 
+        System.out.println("Knot-finding time: " + knotFindingSeconds);
+        System.out.println("Knot-cutting time: " + knotCuttingSeconds);
         System.out.println("Knot-cutting %: " + 100 * (knotCuttingSeconds / (knotCuttingSeconds + knotFindingSeconds)));
-
-        System.out.println("Ixdar %: " + 100 * (ixdarSeconds / (knotCuttingSeconds + knotFindingSeconds)));
-
+        System.out.println("Clockwork Time: " + CutEngine.clockworkTotalTimeSeconds);
+        System.out.println("Clockwork %: " + 100 * (CutEngine.clockworkTotalTimeSeconds / (knotCuttingSeconds)));
+        System.out.println("Ixdar time: " + ixdarSeconds);
+        System.out.println("Ixdar %: " + 100 * (ixdarSeconds / (knotCuttingSeconds)));
         System.out.println("Ixdar profile time: " + ixdarProfileSeconds);
         System.out.println("Ixdar Profile %: " + 100 * (ixdarProfileSeconds / (ixdarSeconds)));
         System.out.println("Saved Answer Length: " + orgShell.getLength());

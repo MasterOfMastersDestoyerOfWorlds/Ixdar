@@ -11,7 +11,6 @@ import org.apache.commons.math3.util.Pair;
 import shell.BalanceMap;
 import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
-import shell.cuts.enums.State;
 import shell.cuts.route.Route;
 import shell.cuts.route.RouteComparator;
 import shell.cuts.route.RouteInfo;
@@ -37,7 +36,7 @@ public class InternalPathEngine {
         comparisons = 0;
     }
 
-    public static Pair<CutMatchList, RouteMap<Integer, RouteInfo>> calculateInternalPathLength(
+    public static Pair<CutMatchList, RouteMap> calculateInternalPathLength(
             VirtualPoint knotPoint1, VirtualPoint cutPoint1, VirtualPoint external1,
             VirtualPoint knotPoint2, VirtualPoint cutPoint2, VirtualPoint external2,
             Knot knot, BalanceMap balanceMap, CutInfo c, boolean knotPointsConnected)
@@ -81,7 +80,7 @@ public class InternalPathEngine {
         }
         long startTimeIxdar = System.currentTimeMillis();
         knotLayer = c.shell.cutEngine.flattenEngine.flatKnots.size();
-        RouteMap<Integer, RouteInfo> routeMap = ixdar(knotPoint1, cutPoint1, knotPoint2, cutPoint2,
+        RouteMap routeMap = ixdar(knotPoint1, cutPoint1, knotPoint2, cutPoint2,
                 knot, knotPointsConnected, cutSegment1, cutSegment2, -1, -1, RouteType.None, knotLayer,
                 smallestCommonKnot);
         ixdarCalls++;
@@ -127,13 +126,13 @@ public class InternalPathEngine {
         return new Pair<>(cutMatchList, routeMap);
     }
 
-    public static RouteMap<Integer, RouteInfo> ixdar(VirtualPoint knotPoint1, VirtualPoint cutPoint1,
+    public static RouteMap ixdar(VirtualPoint knotPoint1, VirtualPoint cutPoint1,
             VirtualPoint knotPoint2, VirtualPoint cutPoint2,
             Knot knot, boolean knotPointsConnected, Segment cutSegment1, Segment cutSegment2, int steps,
             int sourcePoint, RouteType routeType, int knotNumber, Knot smallestCommonKnot) {
 
         ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
-        RouteMap<Integer, RouteInfo> routeMap = new RouteMap<>();
+        RouteMap routeMap = new RouteMap();
         PriorityQueue<RoutePair> q = new PriorityQueue<RoutePair>(new RouteComparator());
         Set<Integer> settled = new HashSet<Integer>();
         int numPoints = knot.size();
@@ -165,20 +164,12 @@ public class InternalPathEngine {
             }
             routeMap.put(k1.id, r);
         }
-        ArrayList<VirtualPoint> leftGroup = paintState(State.toKP1, knotPointsConnected ? Group.Left : Group.Left, knot,
+        ArrayList<VirtualPoint> leftGroup = paintState(knotPointsConnected ? Group.Left : Group.Left, knot,
                 knotPoint1, cutPoint1, cutSegment2,
                 routeMap);
-        ArrayList<VirtualPoint> rightGroup = paintState(State.toCP1, knotPointsConnected ? Group.Right : Group.Right,
+        ArrayList<VirtualPoint> rightGroup = paintState(knotPointsConnected ? Group.Right : Group.Right,
                 knot, cutPoint1, knotPoint1,
                 cutSegment2, routeMap);
-        ArrayList<VirtualPoint> tmp = paintState(State.toKP2, knotPointsConnected ? Group.None : Group.None, knot,
-                knotPoint2, cutPoint2,
-                cutSegment1, routeMap);
-        if (rightGroup.size() == 0) {
-            rightGroup = tmp;
-        }
-        paintState(State.toCP2, knotPointsConnected ? Group.None : Group.None, knot, cutPoint2, knotPoint2, cutSegment1,
-                routeMap);
 
         for (RouteInfo r : routeMap.values()) {
             if (r.group == Group.Left) {
@@ -331,7 +322,7 @@ public class InternalPathEngine {
 
     }
 
-    public static ArrayList<VirtualPoint> paintState(State state, Group group, Knot knot, VirtualPoint knotPoint,
+    public static ArrayList<VirtualPoint> paintState(Group group, Knot knot, VirtualPoint knotPoint,
             VirtualPoint cutPoint, Segment cutSegment,
             HashMap<Integer, RouteInfo> routeInfo) {
         ArrayList<VirtualPoint> result = new ArrayList<VirtualPoint>();
@@ -358,16 +349,6 @@ public class InternalPathEngine {
             RouteInfo r = routeInfo.get(curr.id);
             if (group != Group.None) {
                 r.group = group;
-            }
-            if (marchDirection == 1) {
-                r.prevC.state = state;
-                r.prevDC.state = state;
-                r.distFromPrevSource = totalIter;
-
-            } else {
-                r.nextC.state = state;
-                r.nextDC.state = state;
-                r.distFromNextSource = totalIter;
             }
             prev2 = curr;
             int next = idx + marchDirection;

@@ -1,6 +1,7 @@
 package shell.cuts;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.apache.commons.math3.util.Pair;
 
@@ -22,9 +23,14 @@ public class ManifoldEngine {
     public static int countSkipped = 0;
     public static int countCalculated = 0;
 
+    public static int routeMapsCopied = 0;
+    public static int totalRoutes = 0;
+
     public static void resetMetrics() {
         countSkipped = 0;
         countCalculated = 0;
+        routeMapsCopied = 0;
+        totalRoutes = 0;
     }
 
     public static SortedCutMatchInfo findCutMatchList(Knot knot,
@@ -109,9 +115,9 @@ public class ManifoldEngine {
                     CutInfo c1 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, external1, knotPoint21,
                             knotPoint22, cutSegment2, external2, knot, null);
                     double mind1 = c1.lowerMatchSegment.distance + c1.upperMatchSegment.distance + regDelta;
-                    Pair<CutMatchList, RouteMap<Integer, RouteInfo>> internalCuts12 = null;
+                    Pair<CutMatchList, RouteMap> internalCuts12 = null;
                     if ((mind1 < minDelta || !ixdarSkip) && c1.overlapOrientationCorrect) {
-                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(null,
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap>> temp = answerSharing(null,
                                 null, c1, sortedCutMatchInfo, false, false, true);
                         internalCuts12 = temp.getSecond();
                         cutMatch1 = temp.getFirst();
@@ -127,7 +133,7 @@ public class ManifoldEngine {
                     CutInfo c2 = c1.copyAndSwapExternals();
                     double mind2 = c2.lowerMatchSegment.distance + c2.upperMatchSegment.distance + regDelta;
                     if ((mind2 < minDelta || !ixdarSkip) && c2.overlapOrientationCorrect) {
-                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(null,
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap>> temp = answerSharing(null,
                                 internalCuts12, c2, sortedCutMatchInfo, false, false, true);
                         internalCuts12 = temp.getSecond();
                         cutMatch2 = temp.getFirst();
@@ -140,12 +146,12 @@ public class ManifoldEngine {
 
                     CutInfo c3 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint22,
                             knotPoint21, cutSegment2, external2, knot, null);
-                    Pair<CutMatchList, RouteMap<Integer, RouteInfo>> internalCuts34 = null;
+                    Pair<CutMatchList, RouteMap> internalCuts34 = null;
                     CutMatchList cutMatch3 = null;
                     double d3 = Double.MAX_VALUE;
                     double mind3 = c3.lowerMatchSegment.distance + c3.upperMatchSegment.distance + regDelta;
                     if ((mind3 < minDelta || !ixdarSkip) && c3.overlapOrientationCorrect) {
-                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(null,
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap>> temp = answerSharing(null,
                                 null, c3, sortedCutMatchInfo, false, false, true);
                         internalCuts34 = temp.getSecond();
                         cutMatch3 = temp.getFirst();
@@ -161,7 +167,7 @@ public class ManifoldEngine {
                     double d4 = Double.MAX_VALUE;
                     double mind4 = c4.lowerMatchSegment.distance + c4.upperMatchSegment.distance + regDelta;
                     if ((mind4 < minDelta || !ixdarSkip) && c4.overlapOrientationCorrect) {
-                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(null,
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap>> temp = answerSharing(null,
                                 internalCuts34, c4, sortedCutMatchInfo, false, false, true);
                         internalCuts34 = temp.getSecond();
                         cutMatch4 = temp.getFirst();
@@ -176,10 +182,10 @@ public class ManifoldEngine {
                             knotPoint21, cutSegment2, external2, knot, null);
                     double d5 = Double.MAX_VALUE, d7 = Double.MAX_VALUE, d6 = Double.MAX_VALUE, d8 = Double.MAX_VALUE;
                     CutMatchList cutMatch7 = null, cutMatch8 = null, cutMatch5 = null, cutMatch6 = null;
-                    Pair<CutMatchList, RouteMap<Integer, RouteInfo>> internalCuts56 = null;
+                    Pair<CutMatchList, RouteMap> internalCuts56 = null;
                     double mind5 = c5.lowerMatchSegment.distance + c5.upperMatchSegment.distance + regDelta;
                     if ((mind5 < minDelta || !ixdarSkip) && c5.overlapOrientationCorrect) {
-                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap>> temp = answerSharing(
                                 internalCuts12, null, c5, sortedCutMatchInfo, answerSharing, checkAnswer, false);
                         internalCuts56 = temp.getSecond();
                         cutMatch5 = temp.getFirst();
@@ -189,7 +195,7 @@ public class ManifoldEngine {
                     CutInfo c6 = c5.copyAndSwapExternals();
                     double mind6 = c6.lowerMatchSegment.distance + c6.upperMatchSegment.distance + regDelta;
                     if ((mind6 < minDelta || !ixdarSkip) && c6.overlapOrientationCorrect) {
-                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap>> temp = answerSharing(
                                 internalCuts12, internalCuts56, c6, sortedCutMatchInfo, answerSharing,
                                 checkAnswer, false);
                         internalCuts56 = temp.getSecond();
@@ -202,9 +208,9 @@ public class ManifoldEngine {
                     CutInfo c7 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint21,
                             knotPoint22, cutSegment2, external2, knot, null);
                     double mind7 = c7.lowerMatchSegment.distance + c7.upperMatchSegment.distance + regDelta;
-                    Pair<CutMatchList, RouteMap<Integer, RouteInfo>> internalCuts78 = null;
+                    Pair<CutMatchList, RouteMap> internalCuts78 = null;
                     if ((mind7 < minDelta || !ixdarSkip) && c7.overlapOrientationCorrect) {
-                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap>> temp = answerSharing(
                                 internalCuts34, null, c7, sortedCutMatchInfo, answerSharing, checkAnswer, false);
                         internalCuts78 = temp.getSecond();
                         cutMatch7 = temp.getFirst();
@@ -215,7 +221,7 @@ public class ManifoldEngine {
 
                     double mind8 = c8.lowerMatchSegment.distance + c8.upperMatchSegment.distance + regDelta;
                     if ((mind8 < minDelta || !ixdarSkip) && c8.overlapOrientationCorrect) {
-                        Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> temp = answerSharing(
+                        Pair<CutMatchList, Pair<CutMatchList, RouteMap>> temp = answerSharing(
                                 internalCuts34, internalCuts78, c8, sortedCutMatchInfo, answerSharing,
                                 checkAnswer, false);
                         internalCuts78 = temp.getSecond();
@@ -237,9 +243,9 @@ public class ManifoldEngine {
 
     }
 
-    public static Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>> answerSharing(
-            Pair<CutMatchList, RouteMap<Integer, RouteInfo>> cutsOld,
-            Pair<CutMatchList, RouteMap<Integer, RouteInfo>> cutsNew,
+    public static Pair<CutMatchList, Pair<CutMatchList, RouteMap>> answerSharing(
+            Pair<CutMatchList, RouteMap> cutsOld,
+            Pair<CutMatchList, RouteMap> cutsNew,
             CutInfo c, SortedCutMatchInfo sortedCutMatchInfo,
             boolean answerSharing, boolean checkAnswer, boolean knotPointsConnected)
             throws SegmentBalanceException {
@@ -247,7 +253,7 @@ public class ManifoldEngine {
         CutMatchList cutMatch = null;
         boolean isNull = true;
         if (cutsOld != null && answerSharing) {
-            RouteMap<Integer, RouteInfo> routeMap12 = cutsOld.getSecond();
+            RouteMap routeMap12 = cutsOld.getSecond();
             RouteInfo curr = routeMap12.get(c.upperKnotPoint.id);
             RouteType prevCutSide = RouteType.None;
             if (curr.prevC.neighbor.id == c.upperCutPoint.id) {
@@ -328,6 +334,37 @@ public class ManifoldEngine {
          */
 
         if (isNull) {
+            Long lowerSegIdOrdered = Segment.idTransformOrdered(c.lowerCutPoint.id, c.lowerKnotPoint.id);
+            if (!sortedCutMatchInfo.routeMapBySegmentId.containsKey(lowerSegIdOrdered)) {
+                sortedCutMatchInfo.routeMapBySegmentId.put(lowerSegIdOrdered, new HashMap<>());
+            }
+            HashMap<Long, RouteMap> lowerSegmentMap = sortedCutMatchInfo.routeMapBySegmentId
+                    .get(lowerSegIdOrdered);
+
+            // (upperCutSegment that has its upperKnotPoint as our
+            // * upperCutPoint its upperCutPoint that is not in our cutSegment)
+            VirtualPoint upperCutPointNeighbor = c.knot.getOtherNeighbor(c.upperCutPoint, c.upperKnotPoint);
+            Long upperCutNeighborSegIdOrdered = Segment.idTransformOrdered(upperCutPointNeighbor.id,
+                    c.upperCutPoint.id);
+            // * (upperCutSegment that has its upperCutPoint as our upperKnotPoint and its
+            // * upperKnotPoint is not in our cutSegment)
+            VirtualPoint upperKnotPointNeighbor = c.knot.getOtherNeighbor(c.upperKnotPoint, c.upperCutPoint);
+            Long upperKnotNeighborSegIdOrdered = Segment.idTransformOrdered(c.upperKnotPoint.id,
+                    upperKnotPointNeighbor.id);
+            RouteMap neighborRouteMap = null;
+            if (lowerSegmentMap.containsKey(upperCutNeighborSegIdOrdered)) {
+                neighborRouteMap = lowerSegmentMap.get(upperCutNeighborSegIdOrdered);
+            } else if (lowerSegmentMap.containsKey(upperKnotNeighborSegIdOrdered)) {
+                neighborRouteMap = lowerSegmentMap.get(upperKnotNeighborSegIdOrdered);
+            }
+            if (neighborRouteMap != null) {
+                neighborRouteMap = new RouteMap(neighborRouteMap, c.upperCutPoint, c.upperKnotPoint);
+                routeMapsCopied++;
+            } else {
+                float z = 0;
+            }
+            totalRoutes++;
+
             if (cutsNew == null) {
                 cutsNew = InternalPathEngine.calculateInternalPathLength(c.lowerKnotPoint, c.lowerCutPoint,
                         c.lowerExternal, c.upperKnotPoint, c.upperCutPoint, c.upperExternal, c.knot, c.balanceMap, c,
@@ -336,7 +373,8 @@ public class ManifoldEngine {
             cutMatch = new CutMatchList(c.shell, c.sbe, c.superKnot);
             cutMatch.addCutMatch(new Segment[] { c.lowerCutSegment, c.upperCutSegment },
                     new Segment[] { c.lowerMatchSegment, c.upperMatchSegment }, cutsNew.getFirst(), c, "CutEngine5");
-
+            lowerSegmentMap.put(Segment.idTransformOrdered(c.upperCutPoint.id, c.upperKnotPoint.id),
+                    cutsNew.getSecond());
             countCalculated++;
         }
         if (answerSharing && checkAnswer) {
@@ -357,7 +395,7 @@ public class ManifoldEngine {
         }
         sortedCutMatchInfo.add(cutMatch, c.lowerCutSegment, c.lowerKnotPoint);
         sortedCutMatchInfo.add(cutMatch, c.upperCutSegment, c.upperKnotPoint);
-        return new Pair<CutMatchList, Pair<CutMatchList, RouteMap<Integer, RouteInfo>>>(cutMatch, cutsNew);
+        return new Pair<CutMatchList, Pair<CutMatchList, RouteMap>>(cutMatch, cutsNew);
 
     }
 
