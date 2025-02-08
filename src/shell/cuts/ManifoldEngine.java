@@ -358,17 +358,15 @@ public class ManifoldEngine {
                 neighborRouteMap = lowerSegmentMap.get(upperKnotNeighborSegIdOrdered);
             }
             if (neighborRouteMap != null) {
-                neighborRouteMap = new RouteMap(neighborRouteMap, c.upperCutPoint, c.upperKnotPoint);
+                neighborRouteMap = new RouteMap(neighborRouteMap, c.upperCutPoint, c.upperKnotPoint, c);
                 routeMapsCopied++;
-            } else {
-                float z = 0;
             }
             totalRoutes++;
 
             if (cutsNew == null) {
                 cutsNew = InternalPathEngine.calculateInternalPathLength(c.lowerKnotPoint, c.lowerCutPoint,
                         c.lowerExternal, c.upperKnotPoint, c.upperCutPoint, c.upperExternal, c.knot, c.balanceMap, c,
-                        knotPointsConnected);
+                        knotPointsConnected, neighborRouteMap);
             }
             cutMatch = new CutMatchList(c.shell, c.sbe, c.superKnot);
             cutMatch.addCutMatch(new Segment[] { c.lowerCutSegment, c.upperCutSegment },
@@ -382,7 +380,7 @@ public class ManifoldEngine {
 
                 cutsNew = InternalPathEngine.calculateInternalPathLength(c.lowerKnotPoint, c.lowerCutPoint,
                         c.lowerExternal, c.upperKnotPoint, c.upperCutPoint, c.upperExternal, c.knot, c.balanceMap, c,
-                        knotPointsConnected);
+                        knotPointsConnected, null);
                 CutMatchList cutMatchCheck = new CutMatchList(c.shell, c.sbe, c.superKnot);
                 cutMatchCheck.addCutMatch(new Segment[] { c.lowerCutSegment, c.upperCutSegment },
                         new Segment[] { c.lowerMatchSegment, c.upperMatchSegment }, cutsNew.getFirst(), c,

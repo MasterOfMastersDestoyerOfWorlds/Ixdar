@@ -53,6 +53,16 @@ public class Segment implements Comparable<Segment> {
         return first.equals(vp) || last.equals(vp);
     }
 
+    public boolean contains(VirtualPoint[] vp) {
+        boolean contains = false;
+        for (int i = 0; i < vp.length; i++) {
+            if (first.equals(vp[i]) || last.equals(vp[i])) {
+                contains = true;
+            }
+        }
+        return contains;
+    }
+
     public VirtualPoint getKnotPoint(ArrayList<VirtualPoint> knotPointsFlattened) {
         if (knotPointsFlattened.contains(first)) {
             return first;

@@ -96,7 +96,7 @@ public class Manifold implements FileStringable {
                 .calculateInternalPathLength(
                         knotPoint1, cutPoint1, external1,
                         knotPoint2, cutPoint2, external2, manifoldKnot, manifoldBalanceMap, c1,
-                        knotPointsConnected);
+                        knotPointsConnected, null);
         cutMatchList = result.getFirst();
         routeMap = result.getSecond();
         if (!hasCutMatch || (hasCutMatch && cutMatchList.delta < originalCutMatch.delta)) {

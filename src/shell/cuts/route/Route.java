@@ -2,6 +2,7 @@ package shell.cuts.route;
 
 import java.util.ArrayList;
 
+import shell.cuts.CutInfo;
 import shell.cuts.enums.RouteType;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
@@ -41,7 +42,8 @@ public class Route implements Comparable<Route> {
      * @param parent
      * 
      */
-    public Route(Route routeToCopy, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, RouteInfo parent) {
+    public Route(Route routeToCopy, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, RouteInfo parent,
+            CutInfo c) {
         this.routeType = routeToCopy.routeType;
         this.ancestorRouteType = routeToCopy.ancestorRouteType;
         this.neighbor = routeToCopy.neighbor;
@@ -55,15 +57,49 @@ public class Route implements Comparable<Route> {
         this.parent = parent;
 
         RouteInfo otherParent = routeToCopy.parent;
-        if (parent.id == upperCutPoint.id || neighbor.id == upperCutPoint.id ||
+        boolean matchContains = false;
+
+        for (Segment match : matches) {
+            if (match.contains(new VirtualPoint[] { upperKnotPoint, upperCutPoint, otherParent.knotPoint2,
+                    otherParent.cutPoint2 })) {
+                matchContains = true;
+                break;
+            }
+        }
+        boolean cutContains = false;
+        for (Segment cut : cuts) {
+            if (cut.contains(new VirtualPoint[] { upperKnotPoint, upperCutPoint, otherParent.knotPoint2,
+                    otherParent.cutPoint2 })) {
+                cutContains = true;
+                break;
+            }
+        }
+        if (matchContains) {
+            this.reset();
+        } else if (cutContains) {
+            this.reset();
+        } else if (parent.id == upperCutPoint.id || neighbor.id == upperCutPoint.id ||
                 parent.id == upperKnotPoint.id || neighbor.id == upperKnotPoint.id) {
             this.reset();
         } else if (parent.id == otherParent.knotPoint2.id
                 || parent.id == otherParent.cutPoint2.id ||
                 neighbor.id == otherParent.knotPoint2.id || neighbor.id == otherParent.cutPoint2.id) {
             this.reset();
+        } else if (delta == Double.MAX_VALUE || delta == 0) {
+            this.reset();
         } else {
-            float z = 0;
+            
+            if(c.cutID == 322){
+                float z = 0;
+            }
+            if (ourGroup.get(ourGroup.size() - 1).id == upperKnotPoint.id) {
+                if (otherGroup.get(otherGroup.size() - 1).id == otherParent.knotPoint2.id) {
+                    ourGroup.remove(upperKnotPoint);
+                    otherGroup.add(upperKnotPoint);
+                }
+            } else {
+                float z = 0;
+            }
         }
     }
 
@@ -73,6 +109,8 @@ public class Route implements Comparable<Route> {
         matches = new ArrayList<>();
         ancestor = null;
         ancestorRouteType = RouteType.None;
+        ourGroup = null;
+        otherGroup = null;
     }
 
     @Override

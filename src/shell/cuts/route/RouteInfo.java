@@ -2,6 +2,7 @@ package shell.cuts.route;
 
 import java.util.ArrayList;
 
+import shell.cuts.CutInfo;
 import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
 import shell.knot.Segment;
@@ -50,29 +51,37 @@ public class RouteInfo {
         this.cutPoint2 = cutPoint2;
     }
 
-    public RouteInfo(RouteInfo other, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint) {
+    public RouteInfo(RouteInfo other, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, CutInfo c) {
         this.node = other.node;
         this.id = node.id;
         this.knotPoint1 = other.knotPoint1;
         this.knotPoint2 = upperKnotPoint;
         this.cutPoint1 = other.cutPoint1;
         this.cutPoint2 = upperCutPoint;
-        this.prevC = new Route(other.prevC, upperCutPoint, upperKnotPoint, this);
-        this.nextC = new Route(other.nextC, upperCutPoint, upperKnotPoint, this);
-        this.prevDC = new Route(other.prevDC, upperCutPoint, upperKnotPoint, this);
-        this.nextDC = new Route(other.nextDC, upperCutPoint, upperKnotPoint, this);
+        this.prevC = new Route(other.prevC, upperCutPoint, upperKnotPoint, this, c);
+        this.nextC = new Route(other.nextC, upperCutPoint, upperKnotPoint, this, c);
+        this.prevDC = new Route(other.prevDC, upperCutPoint, upperKnotPoint, this, c);
+        this.nextDC = new Route(other.nextDC, upperCutPoint, upperKnotPoint, this, c);
         routes = new Route[] { prevC, prevDC, nextC, nextDC };
     }
 
     public void assignGroup(ArrayList<VirtualPoint> ourGroup, ArrayList<VirtualPoint> otherGroup) {
-        prevC.ourGroup = ourGroup;
-        prevC.otherGroup = otherGroup;
-        prevDC.ourGroup = ourGroup;
-        prevDC.otherGroup = otherGroup;
-        nextC.ourGroup = ourGroup;
-        nextC.otherGroup = otherGroup;
-        nextDC.ourGroup = ourGroup;
-        nextDC.otherGroup = otherGroup;
+        if (prevC.ourGroup == null) {
+            prevC.ourGroup = ourGroup;
+            prevC.otherGroup = otherGroup;
+        }
+        if (prevDC.ourGroup == null) {
+            prevDC.ourGroup = ourGroup;
+            prevDC.otherGroup = otherGroup;
+        }
+        if (nextC.ourGroup == null) {
+            nextC.ourGroup = ourGroup;
+            nextC.otherGroup = otherGroup;
+        }
+        if (nextDC.ourGroup == null) {
+            nextDC.ourGroup = ourGroup;
+            nextDC.otherGroup = otherGroup;
+        }
     }
 
     public void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType,
@@ -81,26 +90,16 @@ public class RouteInfo {
         Route route = getRoute(routeType);
 
         if (delta < route.delta) {
-
-            if (this.id == knotPoint2.id && route.neighbor.id == cutPoint2.id && knotId == 78) { // && knotPoint1.id ==
-                                                                                                 // 22 && cutPoint1.id
-                                                                                                 // == 21 &&
-                                                                                                 // knotPoint2.id == 1
-                                                                                                 // && cutPoint2.id ==
-                                                                                                 // 5){
-                maxSettledSize = settledSize;
-                maxPathLength = ancestorRoute.matches.size() + 1;
-            }
             route.delta = delta;
             route.ancestorRouteType = ancestorRouteType;
             route.ancestor = ancestor;
             VirtualPoint neighbor = route.neighbor;
             VirtualPoint node = this.node;
             route.cuts = new ArrayList<>(ancestorRoute.cuts);
-            Segment newCut = node.getClosestSegment(neighbor, null);
+            Segment newCut = node.getSegment(neighbor);
             route.cuts.add(0, newCut);
             route.matches = new ArrayList<>(ancestorRoute.matches);
-            Segment newMatch = ancestor.getClosestSegment(neighbor, null);
+            Segment newMatch = ancestor.getSegment(neighbor);
             route.matches.add(0, newMatch);
 
             if (ancestorRoute.ourGroup.contains(node)) {
