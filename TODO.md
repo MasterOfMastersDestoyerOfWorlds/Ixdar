@@ -258,7 +258,7 @@
 
 ## Filesystem
 
-1. - [ ] Hot reload glsl shaders on change for rapid development
+1. - [x] Hot reload glsl shaders on change for rapid development
 
 # Triangular Grid
 

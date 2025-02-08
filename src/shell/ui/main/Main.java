@@ -5,7 +5,6 @@ import static org.lwjgl.glfw.GLFW.glfwSetCursorPosCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetScrollCallback;
-import static org.lwjgl.opengl.GL11.glViewport;
 
 import java.awt.Canvas;
 import java.io.File;
@@ -337,7 +336,7 @@ public class Main {
             MAIN_VIEW_HEIGHT = wHeight - BOTTOM_PANEL_SIZE;
             MAIN_VIEW_OFFSET_X = 0;
             MAIN_VIEW_OFFSET_Y = BOTTOM_PANEL_SIZE;
-            updateView(MAIN_VIEW_OFFSET_X, MAIN_VIEW_OFFSET_Y, MAIN_VIEW_WIDTH, MAIN_VIEW_HEIGHT);
+            camera.updateView(MAIN_VIEW_OFFSET_X, MAIN_VIEW_OFFSET_Y, MAIN_VIEW_WIDTH, MAIN_VIEW_HEIGHT);
             float SHIFT_MOD = 1;
             if (keys != null && KeyActions.DoubleSpeed.keyPressed(keys.pressedKeys)) {
                 SHIFT_MOD = 2;
@@ -383,13 +382,13 @@ public class Main {
                 Drawing.drawPath(retTup.tsp, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false, true, false,
                         camera);
             }
-            updateView(wWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
+            camera.updateView(wWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
             logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 
-            updateView(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE);
+            camera.updateView(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE);
             info.draw(camera);
 
-            updateView(0, 0, MAIN_VIEW_WIDTH, BOTTOM_PANEL_SIZE);
+            camera.updateView(0, 0, MAIN_VIEW_WIDTH, BOTTOM_PANEL_SIZE);
             terminal.draw(camera);
 
             if (toolTip != null && showToolTip) {
@@ -401,7 +400,7 @@ public class Main {
 
                 float toolTipWidth = toolTip.getWidthPixels();
                 int toolTipHeight = toolTip.getHeightPixels();
-                updateView((int) (mouse.normalizedPosX - (isRight * toolTipWidth)),
+                camera.updateView((int) (mouse.normalizedPosX - (isRight * toolTipWidth)),
                         (int) mouse.normalizedPosY - (isTop * toolTipHeight), (int) Math.ceil(toolTipWidth),
                         (int) (toolTip.getLines() * rowHeight));
 
@@ -415,13 +414,6 @@ public class Main {
         }
     }
 
-    public static void updateView(int x, int y, int width, int height) {
-        camera.updateViewBounds(x, y, width, height);
-        glViewport(x, y, width, height);
-        for (ShaderProgram s : Canvas3D.shaders) {
-            s.updateProjectionMatrix(width, height, 1f);
-        }
-    }
 
     public static void drawDisplayedKnots(Camera2D camera) {
         if (knotDrawLayer == totalLayers) {

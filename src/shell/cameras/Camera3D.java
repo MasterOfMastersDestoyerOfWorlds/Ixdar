@@ -8,6 +8,7 @@ import shell.render.Clock;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
+import static org.lwjgl.opengl.GL11.glViewport;
 
 public class Camera3D implements Camera {
 
@@ -250,6 +251,7 @@ public class Camera3D implements Camera {
         return 1;
     }
 
+    @Override
     public Bounds getBounds() {
         return null;
     }
@@ -258,4 +260,18 @@ public class Camera3D implements Camera {
     public boolean contains(Vector2f pB) {
         return false;
     }
+
+    @Override
+    public void updateView(int x, int y, int width, int height) {
+        glViewport(x, y, width, height);
+        for (ShaderProgram s : Canvas3D.shaders) {
+            s.updateProjectionMatrix(width, height, 1f);
+        }
+    }
+
+    @Override
+    public void resetView() {
+        this.updateView(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+    }
+
 }

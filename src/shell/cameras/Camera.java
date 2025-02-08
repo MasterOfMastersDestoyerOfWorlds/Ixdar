@@ -90,4 +90,7 @@ public interface Camera {
     Bounds getBounds();
 
     boolean contains(Vector2f pB);
+    void updateView(int x, int y, int width, int height);
+
+    void resetView();
 }
