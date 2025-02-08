@@ -48,7 +48,7 @@ public class CutInfo {
     public Segment lowerMatchSegment;
     Shell shell;
     SegmentBalanceException sbe;
-    VirtualPoint lowerCutPoint;
+    public VirtualPoint lowerCutPoint;
     static int numCuts = 0;
     public int cutID;
     boolean bothKnotPointsOutside;

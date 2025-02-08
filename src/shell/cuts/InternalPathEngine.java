@@ -52,8 +52,8 @@ public class InternalPathEngine {
 
         ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
         boolean startingWeights = neighborRouteMap != null;
-        RouteMap routeMap1 = new RouteMap();
-        if(startingWeights){
+        RouteMap routeMap1 = new RouteMap(c);
+        if (startingWeights) {
             routeMap1 = neighborRouteMap;
         }
         PriorityQueue<RoutePair> q = new PriorityQueue<RoutePair>(new RouteComparator());
@@ -68,7 +68,8 @@ public class InternalPathEngine {
                 VirtualPoint nextNeighbor = knot.getNext(k1);
                 VirtualPoint prevNeighbor = knot.getPrev(k1);
                 r = new RouteInfo(k1, Double.MAX_VALUE, prevNeighbor, nextNeighbor, null, null, knotPoint1,
-                        knotPoint2, cutPoint1, cutPoint2);
+                        knotPoint2, cutPoint1, cutPoint2, routeMap1);
+                routeMap1.put(k1.id, r);
             }
             if (k1.equals(cutPoint1)) {
                 boolean knotPointIsPrev = knotPoint1.equals(knot.getPrev(cutPoint1));
@@ -89,7 +90,21 @@ public class InternalPathEngine {
 
                     q.add(new RoutePair(r.getRoute(knotPointIsPrev ? RouteType.prevDC : RouteType.nextDC)));
                 }
+
+                if (r.nextC.delta != Double.MAX_VALUE && r.nextC.delta != 0) {
+                    q.add(new RoutePair(r.nextC));
+                }
+                if (r.nextDC.delta != Double.MAX_VALUE && r.nextDC.delta != 0) {
+                    q.add(new RoutePair(r.nextDC));
+                }
+                if (r.prevC.delta != Double.MAX_VALUE && r.prevC.delta != 0) {
+                    q.add(new RoutePair(r.prevC));
+                }
+                if (r.prevDC.delta != Double.MAX_VALUE && r.prevDC.delta != 0) {
+                    q.add(new RoutePair(r.prevDC));
+                }
             } else if (startingWeights) {
+
                 if (r.nextC.delta != Double.MAX_VALUE) {
                     q.add(new RoutePair(r.nextC));
                 }
@@ -103,7 +118,6 @@ public class InternalPathEngine {
                     q.add(new RoutePair(r.prevDC));
                 }
             }
-            routeMap1.put(k1.id, r);
         }
         ArrayList<VirtualPoint> leftGroup = paintState(knotPointsConnected ? Group.Left : Group.Left, knot,
                 knotPoint1, cutPoint1, cutSegment2,
@@ -112,6 +126,13 @@ public class InternalPathEngine {
                 knot, cutPoint1, knotPoint1,
                 cutSegment2, routeMap1);
 
+        RouteInfo start = routeMap1.get(cutPoint1.id);
+        if (start.group == Group.Left) {
+            start.assignGroup(leftGroup, rightGroup);
+        } else {
+            start.assignGroup(rightGroup, leftGroup);
+        }
+
         for (RouteInfo r : routeMap1.values()) {
             if (r.group == Group.Left) {
                 r.assignGroup(leftGroup, rightGroup);
@@ -119,7 +140,8 @@ public class InternalPathEngine {
                 r.assignGroup(rightGroup, leftGroup);
             }
         }
-
+        // calculateInternalPathLength(knotPoint1, cutPoint1, external1, knotPoint2,
+        // cutPoint2, external2, knot, balanceMap, c, knotPointsConnected,null)
         RouteInfo uParent = null;
         Route u = null;
 

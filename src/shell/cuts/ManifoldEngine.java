@@ -352,21 +352,31 @@ public class ManifoldEngine {
             Long upperKnotNeighborSegIdOrdered = Segment.idTransformOrdered(c.upperKnotPoint.id,
                     upperKnotPointNeighbor.id);
             RouteMap neighborRouteMap = null;
+            RouteMap copyRouteMap = null;
             if (lowerSegmentMap.containsKey(upperCutNeighborSegIdOrdered)) {
                 neighborRouteMap = lowerSegmentMap.get(upperCutNeighborSegIdOrdered);
             } else if (lowerSegmentMap.containsKey(upperKnotNeighborSegIdOrdered)) {
                 neighborRouteMap = lowerSegmentMap.get(upperKnotNeighborSegIdOrdered);
             }
             if (neighborRouteMap != null) {
-                neighborRouteMap = new RouteMap(neighborRouteMap, c.upperCutPoint, c.upperKnotPoint, c);
+                if (c.lowerKnotPoint.id != neighborRouteMap.c.lowerKnotPoint.id) {
+                    float z = 1 / 0;
+                }
+                if (c.lowerCutPoint.id != neighborRouteMap.c.lowerCutPoint.id) {
+                    float z = 1 / 0;
+                }
+                copyRouteMap = new RouteMap(neighborRouteMap, c.upperCutPoint, c.upperKnotPoint, c);
                 routeMapsCopied++;
             }
             totalRoutes++;
-
+            // problem is that we have the exact same route twice in a row? WRONG
+            if (c.cutID == 896) {
+                float z = 0;
+            }
             if (cutsNew == null) {
                 cutsNew = InternalPathEngine.calculateInternalPathLength(c.lowerKnotPoint, c.lowerCutPoint,
                         c.lowerExternal, c.upperKnotPoint, c.upperCutPoint, c.upperExternal, c.knot, c.balanceMap, c,
-                        knotPointsConnected, neighborRouteMap);
+                        knotPointsConnected, copyRouteMap);
             }
             cutMatch = new CutMatchList(c.shell, c.sbe, c.superKnot);
             cutMatch.addCutMatch(new Segment[] { c.lowerCutSegment, c.upperCutSegment },

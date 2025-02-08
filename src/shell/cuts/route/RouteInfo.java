@@ -14,7 +14,8 @@ public class RouteInfo {
     // the state of the prev/ next depending on weather the winding number is even
     // or odd
     //
-
+    public CutInfo c;
+    public RouteMap parent;
     public Group group;
     public Route prevC;
     public Route prevDC;
@@ -37,7 +38,9 @@ public class RouteInfo {
 
     public RouteInfo(VirtualPoint node, double delta, VirtualPoint prevNeighbor, VirtualPoint nextNeighbor,
             VirtualPoint ancestor, VirtualPoint matchedNeighbor, VirtualPoint knotPoint1, VirtualPoint knotPoint2,
-            VirtualPoint cutPoint1, VirtualPoint cutPoint2) {
+            VirtualPoint cutPoint1, VirtualPoint cutPoint2, RouteMap routeMap) {
+        this.c = routeMap.c;
+        this.parent = routeMap;
         this.node = node;
         this.id = node.id;
         this.prevC = new Route(RouteType.prevC, Double.MAX_VALUE, prevNeighbor, node.id, this);
@@ -51,36 +54,61 @@ public class RouteInfo {
         this.cutPoint2 = cutPoint2;
     }
 
-    public RouteInfo(RouteInfo other, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, CutInfo c) {
-        this.node = other.node;
+    public RouteInfo(RouteInfo routeInfoToCopy, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, CutInfo c,
+            RouteMap routeMap) {
+        this.c = c;
+        this.parent = routeMap;
+        this.node = routeInfoToCopy.node;
         this.id = node.id;
-        this.knotPoint1 = other.knotPoint1;
+        this.knotPoint1 = routeInfoToCopy.knotPoint1;
         this.knotPoint2 = upperKnotPoint;
-        this.cutPoint1 = other.cutPoint1;
+        this.cutPoint1 = routeInfoToCopy.cutPoint1;
         this.cutPoint2 = upperCutPoint;
-        this.prevC = new Route(other.prevC, upperCutPoint, upperKnotPoint, this, c);
-        this.nextC = new Route(other.nextC, upperCutPoint, upperKnotPoint, this, c);
-        this.prevDC = new Route(other.prevDC, upperCutPoint, upperKnotPoint, this, c);
-        this.nextDC = new Route(other.nextDC, upperCutPoint, upperKnotPoint, this, c);
+        this.prevC = new Route(routeInfoToCopy.prevC, upperCutPoint, upperKnotPoint, this, c);
+        this.nextC = new Route(routeInfoToCopy.nextC, upperCutPoint, upperKnotPoint, this, c);
+        this.prevDC = new Route(routeInfoToCopy.prevDC, upperCutPoint, upperKnotPoint, this, c);
+        this.nextDC = new Route(routeInfoToCopy.nextDC, upperCutPoint, upperKnotPoint, this, c);
         routes = new Route[] { prevC, prevDC, nextC, nextDC };
     }
 
     public void assignGroup(ArrayList<VirtualPoint> ourGroup, ArrayList<VirtualPoint> otherGroup) {
-        if (prevC.ourGroup == null) {
-            prevC.ourGroup = ourGroup;
-            prevC.otherGroup = otherGroup;
+
+        if (c.cutID == 1881) {
+            float z = 0;
         }
-        if (prevDC.ourGroup == null) {
-            prevDC.ourGroup = ourGroup;
-            prevDC.otherGroup = otherGroup;
-        }
-        if (nextC.ourGroup == null) {
-            nextC.ourGroup = ourGroup;
-            nextC.otherGroup = otherGroup;
-        }
-        if (nextDC.ourGroup == null) {
-            nextDC.ourGroup = ourGroup;
-            nextDC.otherGroup = otherGroup;
+        for (int i = 0; i < routes.length; i++) {
+            Route route = routes[i];
+            if (!route.needToCalculateGroups && route.ancestor == null) {
+                route.ourGroup = ourGroup;
+                route.otherGroup = otherGroup;
+                if (!ourGroup.contains(node)) {
+                    float z = 1 / 0;
+                }
+            } else {
+                Route r = route;
+                ArrayList<Route> routesToCalculateGroups = new ArrayList<>();
+                int max = c.knot.size();
+                int k = 0;
+                while (r.ancestor != null && r.needToCalculateGroups) {
+                    if (r.needToCalculateGroups) {
+                        routesToCalculateGroups.add(0, r);
+                    }
+                    r = this.parent.get(r.ancestor.id).getRoute(r.ancestorRouteType);
+                    if(k > max){
+                        float z =0;
+                    }
+                    k++;
+                }
+                for (int j = 0; j < routesToCalculateGroups.size(); j++) {
+                    r = routesToCalculateGroups.get(j);
+                    Route ancestorRoute = this.parent.get(r.ancestor.id).getRoute(r.ancestorRouteType);
+                    if (ancestorRoute.ourGroup == null) {
+                        ancestorRoute.ourGroup = ourGroup;
+                        ancestorRoute.otherGroup = otherGroup;
+                    }
+                    r.calculateGroups(ancestorRoute);
+                }
+            }
         }
     }
 
@@ -101,59 +129,7 @@ public class RouteInfo {
             route.matches = new ArrayList<>(ancestorRoute.matches);
             Segment newMatch = ancestor.getSegment(neighbor);
             route.matches.add(0, newMatch);
-
-            if (ancestorRoute.ourGroup.contains(node)) {
-                ArrayList<VirtualPoint> grp = ancestorRoute.ourGroup;
-                int idxNeighbor = grp.indexOf(neighbor);
-                int rotateIdx = grp.indexOf(node);
-
-                route.otherGroup = ancestorRoute.otherGroup;
-
-                ArrayList<VirtualPoint> reverseList = new ArrayList<VirtualPoint>();
-                if (idxNeighbor > rotateIdx || idxNeighbor == -1) {
-                    for (int i = rotateIdx + 1; i < grp.size(); i++) {
-                        reverseList.add(grp.get(i));
-                    }
-                    for (int i = 0; i < rotateIdx + 1; i++) {
-                        reverseList.add(0, grp.get(i));
-                    }
-                    route.ourGroup = reverseList;
-                } else {
-                    for (int i = 0; i < rotateIdx; i++) {
-                        reverseList.add(grp.get(i));
-                    }
-                    for (int i = rotateIdx; i < grp.size(); i++) {
-                        reverseList.add(0, grp.get(i));
-                    }
-                    route.ourGroup = reverseList;
-                }
-            } else {
-
-                ArrayList<VirtualPoint> grp = ancestorRoute.otherGroup;
-                ArrayList<VirtualPoint> otherGrp = ancestorRoute.ourGroup;
-                int idxNeighbor = grp.indexOf(neighbor);
-                int rotateIdx = grp.indexOf(node);
-                route.otherGroup = ancestorRoute.otherGroup;
-                ArrayList<VirtualPoint> remainList = new ArrayList<VirtualPoint>();
-                ArrayList<VirtualPoint> reverseList = new ArrayList<VirtualPoint>(otherGrp);
-                if (idxNeighbor > rotateIdx || idxNeighbor == -1) {
-                    for (int i = 0; i < rotateIdx + 1; i++) {
-                        remainList.add(0, grp.get(i));
-                    }
-                    for (int i = rotateIdx + 1; i < grp.size(); i++) {
-                        reverseList.add(0, grp.get(i));
-                    }
-                } else {
-                    for (int i = rotateIdx; i < grp.size(); i++) {
-                        remainList.add(grp.get(i));
-                    }
-                    for (int i = rotateIdx - 1; i >= 0; i--) {
-                        reverseList.add(0, grp.get(i));
-                    }
-                }
-                route.ourGroup = remainList;
-                route.otherGroup = reverseList;
-            }
+            route.calculateGroups(ancestorRoute);
         }
 
     }

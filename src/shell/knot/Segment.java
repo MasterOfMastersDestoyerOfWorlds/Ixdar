@@ -207,11 +207,11 @@ public class Segment implements Comparable<Segment> {
     public static long idTransformOrdered(Segment s) {
         long a = s.first.id;
         long b = s.last.id;
-        return a * a + a + b;
+        return (a + b) * (a + b + 1) / 2 + b;
     }
 
     public static long idTransformOrdered(long a, long b) {
-        return a * a + a + b;
+        return (a + b) * (a + b + 1) / 2 + b;
     }
 
     public double boundContains(double x, double y) {
