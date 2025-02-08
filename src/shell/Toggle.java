@@ -18,7 +18,7 @@ public enum Toggle {
     IsInfoFocused(false, "focusInfo"),
     IxdarSkip(false, "ixdarSkip"),
     IxdarMirrorAnswerSharing(false, "ixdarFlip"),
-    IxdarRotationalAnswerSharing(true, "ixdarRot"),
+    IxdarRotationalAnswerSharing(false, "ixdarRot"),
     IxdarCheckMirroredAnswerSharing(true, "checkAns"),
     SnapToGrid(true, "gridSnap");
 

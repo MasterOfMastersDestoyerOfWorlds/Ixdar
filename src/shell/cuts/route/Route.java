@@ -19,6 +19,7 @@ public class Route implements Comparable<Route> {
     public ArrayList<VirtualPoint> otherGroup;
     public ArrayList<Segment> cuts;
     public ArrayList<Segment> matches;
+    public ArrayList<Integer> ancestorRoutes;
     public int routeId;
     public RouteInfo parent;
     public boolean needToCalculateGroups = false;
@@ -30,6 +31,7 @@ public class Route implements Comparable<Route> {
         this.parent = parent;
         cuts = new ArrayList<>();
         matches = new ArrayList<>();
+        ancestorRoutes = new ArrayList<>();
         routeId = routeType.idTransform(pointId);
 
     }
@@ -52,6 +54,7 @@ public class Route implements Comparable<Route> {
         this.ancestor = routeToCopy.ancestor;
         this.cuts = new ArrayList<>(routeToCopy.cuts);
         this.matches = new ArrayList<>(routeToCopy.matches);
+        this.ancestorRoutes = new ArrayList<>(routeToCopy.ancestorRoutes);
         this.routeId = routeToCopy.routeId;
         this.parent = parent;
         this.needToCalculateGroups = true;
@@ -96,6 +99,7 @@ public class Route implements Comparable<Route> {
         delta = Double.MAX_VALUE;
         cuts = new ArrayList<>();
         matches = new ArrayList<>();
+        ancestorRoutes = new ArrayList<>();
         ancestor = null;
         ancestorRouteType = RouteType.None;
         ourGroup = null;
@@ -210,7 +214,7 @@ public class Route implements Comparable<Route> {
     @Override
     public String toString() {
         return routeType.name() + ", " + (ancestor == null ? "NULL"
-                : ancestor.id) + ", " + (delta == Double.MAX_VALUE ? "INF" : delta);
+                : ancestor.id) + ", " + (delta == Double.MAX_VALUE ? "INF" : String.format("%.2f", delta));
     }
 
     public HyperString compareHyperString(Route otherRoute, Color matchColor, Color cutColor) {

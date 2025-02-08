@@ -55,10 +55,7 @@ public class MenuBox {
         int min = Math.min(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
         int logoWidth = (int) min / 2;
         int halfWidth = logoWidth / 2;
-        camera.updateView((int) (centerX - halfWidth), (int) (centerY + centerY / 2 - halfWidth), logoWidth,
-                logoWidth);
-        logo.drawCentered(halfWidth, halfWidth, logoWidth, logoWidth, Color.IXDAR, camera);
-        camera.resetView();
+        logo.draw((centerX - halfWidth), (centerY + centerY / 2 - halfWidth), logoWidth, logoWidth, Color.IXDAR, camera);
         if (!menuVisible) {
             return;
         }

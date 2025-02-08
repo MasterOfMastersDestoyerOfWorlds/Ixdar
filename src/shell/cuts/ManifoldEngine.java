@@ -334,45 +334,43 @@ public class ManifoldEngine {
          */
 
         if (isNull) {
-            Long lowerSegIdOrdered = Segment.idTransformOrdered(c.lowerCutPoint.id, c.lowerKnotPoint.id);
-            if (!sortedCutMatchInfo.routeMapBySegmentId.containsKey(lowerSegIdOrdered)) {
-                sortedCutMatchInfo.routeMapBySegmentId.put(lowerSegIdOrdered, new HashMap<>());
-            }
-            HashMap<Long, RouteMap> lowerSegmentMap = sortedCutMatchInfo.routeMapBySegmentId
-                    .get(lowerSegIdOrdered);
-
-            // (upperCutSegment that has its upperKnotPoint as our
-            // * upperCutPoint its upperCutPoint that is not in our cutSegment)
-            VirtualPoint upperCutPointNeighbor = c.knot.getOtherNeighbor(c.upperCutPoint, c.upperKnotPoint);
-            Long upperCutNeighborSegIdOrdered = Segment.idTransformOrdered(upperCutPointNeighbor.id,
-                    c.upperCutPoint.id);
-            // * (upperCutSegment that has its upperCutPoint as our upperKnotPoint and its
-            // * upperKnotPoint is not in our cutSegment)
-            VirtualPoint upperKnotPointNeighbor = c.knot.getOtherNeighbor(c.upperKnotPoint, c.upperCutPoint);
-            Long upperKnotNeighborSegIdOrdered = Segment.idTransformOrdered(c.upperKnotPoint.id,
-                    upperKnotPointNeighbor.id);
-            RouteMap neighborRouteMap = null;
             RouteMap copyRouteMap = null;
-            if (lowerSegmentMap.containsKey(upperCutNeighborSegIdOrdered)) {
-                neighborRouteMap = lowerSegmentMap.get(upperCutNeighborSegIdOrdered);
-            } else if (lowerSegmentMap.containsKey(upperKnotNeighborSegIdOrdered)) {
-                neighborRouteMap = lowerSegmentMap.get(upperKnotNeighborSegIdOrdered);
-            }
-            if (neighborRouteMap != null) {
-                if (c.lowerKnotPoint.id != neighborRouteMap.c.lowerKnotPoint.id) {
-                    float z = 1 / 0;
+            HashMap<Long, RouteMap> lowerSegmentMap = null;
+            if (Toggle.IxdarRotationalAnswerSharing.value) {
+                Long lowerSegIdOrdered = Segment.idTransformOrdered(c.lowerCutPoint.id, c.lowerKnotPoint.id);
+                if (!sortedCutMatchInfo.routeMapBySegmentId.containsKey(lowerSegIdOrdered)) {
+                    sortedCutMatchInfo.routeMapBySegmentId.put(lowerSegIdOrdered, new HashMap<>());
                 }
-                if (c.lowerCutPoint.id != neighborRouteMap.c.lowerCutPoint.id) {
-                    float z = 1 / 0;
+                lowerSegmentMap = sortedCutMatchInfo.routeMapBySegmentId
+                        .get(lowerSegIdOrdered);
+
+                // (upperCutSegment that has its upperKnotPoint as our
+                // * upperCutPoint its upperCutPoint that is not in our cutSegment)
+                VirtualPoint upperCutPointNeighbor = c.knot.getOtherNeighbor(c.upperCutPoint, c.upperKnotPoint);
+                Long upperCutNeighborSegIdOrdered = Segment.idTransformOrdered(upperCutPointNeighbor.id,
+                        c.upperCutPoint.id);
+                // * (upperCutSegment that has its upperCutPoint as our upperKnotPoint and its
+                // * upperKnotPoint is not in our cutSegment)
+                VirtualPoint upperKnotPointNeighbor = c.knot.getOtherNeighbor(c.upperKnotPoint, c.upperCutPoint);
+                Long upperKnotNeighborSegIdOrdered = Segment.idTransformOrdered(c.upperKnotPoint.id,
+                        upperKnotPointNeighbor.id);
+                RouteMap neighborRouteMap = null;
+                if (lowerSegmentMap.containsKey(upperCutNeighborSegIdOrdered)) {
+                    neighborRouteMap = lowerSegmentMap.get(upperCutNeighborSegIdOrdered);
+                } else if (lowerSegmentMap.containsKey(upperKnotNeighborSegIdOrdered)) {
+                    neighborRouteMap = lowerSegmentMap.get(upperKnotNeighborSegIdOrdered);
                 }
-                copyRouteMap = new RouteMap(neighborRouteMap, c.upperCutPoint, c.upperKnotPoint, c);
-                routeMapsCopied++;
+                if (neighborRouteMap != null) {
+                    if (c.lowerKnotPoint.id != neighborRouteMap.c.lowerKnotPoint.id
+                            || c.lowerCutPoint.id != neighborRouteMap.c.lowerCutPoint.id) {
+                        throw new SegmentBalanceException(c);
+                    }
+                    copyRouteMap = new RouteMap(neighborRouteMap, c.upperCutPoint, c.upperKnotPoint, c);
+                    routeMapsCopied++;
+                }
+                totalRoutes++;
             }
-            totalRoutes++;
             // problem is that we have the exact same route twice in a row? WRONG
-            if (c.cutID == 896) {
-                float z = 0;
-            }
             if (cutsNew == null) {
                 cutsNew = InternalPathEngine.calculateInternalPathLength(c.lowerKnotPoint, c.lowerCutPoint,
                         c.lowerExternal, c.upperKnotPoint, c.upperCutPoint, c.upperExternal, c.knot, c.balanceMap, c,
@@ -381,8 +379,10 @@ public class ManifoldEngine {
             cutMatch = new CutMatchList(c.shell, c.sbe, c.superKnot);
             cutMatch.addCutMatch(new Segment[] { c.lowerCutSegment, c.upperCutSegment },
                     new Segment[] { c.lowerMatchSegment, c.upperMatchSegment }, cutsNew.getFirst(), c, "CutEngine5");
-            lowerSegmentMap.put(Segment.idTransformOrdered(c.upperCutPoint.id, c.upperKnotPoint.id),
-                    cutsNew.getSecond());
+            if (Toggle.IxdarRotationalAnswerSharing.value) {
+                lowerSegmentMap.put(Segment.idTransformOrdered(c.upperCutPoint.id, c.upperKnotPoint.id),
+                        cutsNew.getSecond());
+            }
             countCalculated++;
         }
         if (answerSharing && checkAnswer) {

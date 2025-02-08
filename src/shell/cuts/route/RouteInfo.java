@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import shell.cuts.CutInfo;
 import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
+import shell.exceptions.SegmentBalanceException;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 
@@ -71,7 +72,8 @@ public class RouteInfo {
         routes = new Route[] { prevC, prevDC, nextC, nextDC };
     }
 
-    public void assignGroup(ArrayList<VirtualPoint> ourGroup, ArrayList<VirtualPoint> otherGroup) {
+    public void assignGroup(ArrayList<VirtualPoint> ourGroup, ArrayList<VirtualPoint> otherGroup)
+            throws SegmentBalanceException {
 
         if (c.cutID == 1881) {
             float z = 0;
@@ -82,20 +84,26 @@ public class RouteInfo {
                 route.ourGroup = ourGroup;
                 route.otherGroup = otherGroup;
                 if (!ourGroup.contains(node)) {
-                    float z = 1 / 0;
+                    throw new SegmentBalanceException(parent.c);
                 }
             } else {
                 Route r = route;
                 ArrayList<Route> routesToCalculateGroups = new ArrayList<>();
                 int max = c.knot.size();
                 int k = 0;
+                ArrayList<Integer> seenIds = new ArrayList<>();
                 while (r.ancestor != null && r.needToCalculateGroups) {
+                    if(seenIds.contains(r.routeId)){
+                        break;
+                    }
+                    seenIds.add(r.routeId);
                     if (r.needToCalculateGroups) {
                         routesToCalculateGroups.add(0, r);
                     }
                     r = this.parent.get(r.ancestor.id).getRoute(r.ancestorRouteType);
-                    if(k > max){
-                        float z =0;
+                    if (k > max) {
+                        float ix = 0;
+                        // throw new SegmentBalanceException(parent.c);
                     }
                     k++;
                 }
@@ -113,7 +121,7 @@ public class RouteInfo {
     }
 
     public void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType,
-            Route ancestorRoute, int settledSize, int knotId) {
+            Route ancestorRoute, int settledSize, int knotId) throws SegmentBalanceException {
 
         Route route = getRoute(routeType);
 
@@ -129,6 +137,11 @@ public class RouteInfo {
             route.matches = new ArrayList<>(ancestorRoute.matches);
             Segment newMatch = ancestor.getSegment(neighbor);
             route.matches.add(0, newMatch);
+            route.ancestorRoutes = new ArrayList<>(ancestorRoute.ancestorRoutes);
+            if (route.ancestorRoutes.contains(ancestorRoute.routeId)) {
+                throw new SegmentBalanceException(c);
+            }
+            route.ancestorRoutes.add(ancestorRoute.routeId);
             route.calculateGroups(ancestorRoute);
         }
 
