@@ -115,8 +115,12 @@ public class CompareManifoldTool extends Tool {
                         .getFirst();
             }
         } else if (state == States.Compare) {
-            displayRouteAlpha = alphaManifold.getNeighborRoute(displayKP, displayCP, routeView == RouteView.Connected);
-            displayRouteBeta = betaManifold.getNeighborRoute(displayKP, displayCP, routeView == RouteView.Connected);
+            if (displayKP != null) {
+                displayRouteAlpha = alphaManifold.getNeighborRoute(displayKP, displayCP,
+                        routeView == RouteView.Connected);
+                displayRouteBeta = betaManifold.getNeighborRoute(displayKP, displayCP,
+                        routeView == RouteView.Connected);
+            }
         }
     }
 
@@ -210,15 +214,15 @@ public class CompareManifoldTool extends Tool {
 
     public void instruct() {
         switch (state) {
-            case FindStart:
-                Main.terminal.instruct("Select the starting cut");
-            case StartSelected:
-                Main.terminal.instruct("Select the alpha path end cut");
-            case AlphaEndSelected:
-                Main.terminal.instruct("Select the beta path end cut");
-            default:
-                Main.terminal.clearInstruct();
-                break;
+        case FindStart:
+            Main.terminal.instruct("Select the starting cut");
+        case StartSelected:
+            Main.terminal.instruct("Select the alpha path end cut");
+        case AlphaEndSelected:
+            Main.terminal.instruct("Select the beta path end cut");
+        default:
+            Main.terminal.clearInstruct();
+            break;
         }
     }
 
@@ -338,6 +342,7 @@ public class CompareManifoldTool extends Tool {
         RouteView[] routeViews = RouteView.values();
         routeView = routeView.ordinal() + 1 >= routeViews.length ? routeViews[0] : routeViews[routeView.ordinal() + 1];
         initSegmentMap();
+        hoverChanged();
     }
 
     @Override
@@ -346,6 +351,7 @@ public class CompareManifoldTool extends Tool {
         routeView = routeView.ordinal() - 1 < 0 ? routeViews[routeViews.length - 1]
                 : routeViews[routeView.ordinal() - 1];
         initSegmentMap();
+        hoverChanged();
     }
 
     @Override
