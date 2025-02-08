@@ -9,7 +9,11 @@ public class DiffuseShader extends ShaderProgram {
     public DiffuseShader(VertexArrayObject vao,
             VertexBufferObject vbo) {
         super("shader.vs", "shader.fs", vao, vbo, false);
+    }
 
+    @Override
+    public void init() {
+        super.init();
         vao.bind();
         vbo.bind(GL_ARRAY_BUFFER);
 

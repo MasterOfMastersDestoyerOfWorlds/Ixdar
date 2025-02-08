@@ -13,7 +13,9 @@ import static org.lwjgl.opengl.GL20.glAttachShader;
 import static org.lwjgl.opengl.GL20.glCompileShader;
 import static org.lwjgl.opengl.GL20.glCreateProgram;
 import static org.lwjgl.opengl.GL20.glCreateShader;
+import static org.lwjgl.opengl.GL20.glDeleteProgram;
 import static org.lwjgl.opengl.GL20.glDeleteShader;
+import static org.lwjgl.opengl.GL20.glDetachShader;
 import static org.lwjgl.opengl.GL20.glGetAttribLocation;
 import static org.lwjgl.opengl.GL20.glGetProgramiv;
 import static org.lwjgl.opengl.GL20.glGetShaderiv;
@@ -50,6 +52,7 @@ import org.lwjgl.system.MemoryUtil;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.ui.Canvas3D;
+import shell.ui.main.Main;
 
 public abstract class ShaderProgram {
 
@@ -99,8 +102,8 @@ public abstract class ShaderProgram {
     public VertexBufferObject vbo;
     public HashMap<String, Integer> uniformLocations;
 
-    protected int ID;
-
+    protected int ID = -1;
+    int vertexShader, fragmentShader;
     private FloatBuffer verteciesBuff;
     private int numVertices;
     private boolean drawing;
@@ -110,6 +113,12 @@ public abstract class ShaderProgram {
 
     @SuppressWarnings("unused")
     private String vertexShaderLocation, fragmentShaderLocation;
+    private File fragmentShaderFile;
+    private long fragmentLastModified;
+    private File vertexShaderFile;
+    private long vertexLastModified;
+    private boolean useBuffer;
+    private boolean reloadShader;
 
     public ShaderProgram(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
             VertexBufferObject vbo, boolean useBuffer) {
@@ -118,48 +127,23 @@ public abstract class ShaderProgram {
         this.uniformLocations = new HashMap<>();
         this.vao = vao;
         this.vbo = vbo;
+        this.useBuffer = useBuffer;
         try {
             // open files
+            fragmentShaderFile = new File("./src/shell/render/shaders/glsl/" + fragmentShaderLocation);
+            vertexShaderFile = new File("./src/shell/render/shaders/glsl/" + vertexShaderLocation);
+            fragmentLastModified = fragmentShaderFile.lastModified();
+            vertexLastModified = vertexShaderFile.lastModified();
+            vertexShaderSource = readFile(vertexShaderFile);
+            fragmentShaderSource = readFile(fragmentShaderFile);
+        } catch (
 
-            vertexShaderSource = readFile(vertexShaderLocation);
-            fragmentShaderSource = readFile(fragmentShaderLocation);
-        } catch (IOException e) {
+        IOException e) {
             System.out.println(e.getLocalizedMessage());
         }
 
-        int vertexShader, fragmentShader;
-
-        vertexShader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertexShader, vertexShaderSource);
-        glCompileShader(vertexShader);
-        checkCompileErrors(vertexShader, ShaderOperationType.Vertex, vertexShaderLocation);
-
-        fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragmentShader, fragmentShaderSource);
-        glCompileShader(fragmentShader);
-        checkCompileErrors(fragmentShader, ShaderOperationType.Fragment, fragmentShaderLocation);
-
-        ID = glCreateProgram();
-        glAttachShader(ID, vertexShader);
-        glAttachShader(ID, fragmentShader);
-        glLinkProgram(ID);
-        checkCompileErrors(ID, ShaderOperationType.Program, "both");
-
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-        if (useBuffer) {
-            vao.bind();
-
-            vbo.bind(GL_ARRAY_BUFFER);
-
-            verteciesBuff = MemoryUtil.memAllocFloat(4096);
-
-            long size = verteciesBuff.capacity() * Float.BYTES;
-            vbo.uploadData(GL_ARRAY_BUFFER, size, GL_DYNAMIC_DRAW);
-
-            numVertices = 0;
-            drawing = false;
-        }
+        recompileShaders(vertexShaderLocation, fragmentShaderLocation);
+        init();
     }
 
     public int getAttributeLocation(CharSequence name) {
@@ -269,9 +253,8 @@ public abstract class ShaderProgram {
         }
     }
 
-    protected CharSequence[] readFile(String shaderName) throws IOException {
-        File vShaderFile = new File("./src/shell/render/shaders/glsl/" + shaderName);
-        BufferedReader br = new BufferedReader(new FileReader(vShaderFile));
+    protected CharSequence[] readFile(File shaderFile) throws IOException {
+        BufferedReader br = new BufferedReader(new FileReader(shaderFile));
         ArrayList<String> lines = new ArrayList<>();
         String line;
         while ((line = br.readLine()) != null) {
@@ -286,6 +269,64 @@ public abstract class ShaderProgram {
         }
         br.close();
         return vertexShaderSource;
+    }
+
+    public void hotReload() {
+        try {
+            if (reloadShader) {
+                this.vao = new VertexArrayObject();
+                this.vbo = new VertexBufferObject();
+                this.uniformLocations = new HashMap<>();
+                recompileShaders(vertexShaderLocation, fragmentShaderLocation);
+                init();
+                reloadShader = false;
+            }
+            boolean vertexModified = vertexShaderFile.lastModified() != vertexLastModified;
+            boolean fragmentModified = fragmentShaderFile.lastModified() != fragmentLastModified;
+            if (vertexModified) {
+                vertexShaderSource = readFile(vertexShaderFile);
+                vertexLastModified = vertexShaderFile.lastModified();
+            }
+            if (fragmentModified) {
+                fragmentShaderSource = readFile(fragmentShaderFile);
+                fragmentLastModified = fragmentShaderFile.lastModified();
+            }
+            if (vertexModified || fragmentModified) {
+                deleteShader();
+                reloadShader = true;
+            }
+        } catch (IOException e) {
+            Main.terminal.error("Could not Hot Reload: " + e.getMessage());
+        }
+    }
+
+    private void deleteShader() {
+        glDetachShader(ID, vertexShader);
+        glDeleteShader(vertexShader);
+        glDetachShader(ID, fragmentShader);
+        glDeleteShader(fragmentShader);
+        glDeleteProgram(ID);
+    }
+
+    private void recompileShaders(String vertexShaderLocation, String fragmentShaderLocation) {
+        vertexShader = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(vertexShader, vertexShaderSource);
+        glCompileShader(vertexShader);
+        checkCompileErrors(vertexShader, ShaderOperationType.Vertex, vertexShaderLocation);
+
+        fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fragmentShader, fragmentShaderSource);
+        glCompileShader(fragmentShader);
+        checkCompileErrors(fragmentShader, ShaderOperationType.Fragment, fragmentShaderLocation);
+
+        ID = glCreateProgram();
+        glAttachShader(ID, vertexShader);
+        glAttachShader(ID, fragmentShader);
+        glLinkProgram(ID);
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+        checkCompileErrors(ID, ShaderOperationType.Program, "both");
+
     }
 
     public void setTexture(String glslName, Texture tex, int i, int j) {
@@ -356,17 +397,13 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Draws the currently bound texture on specified coordinates and with
-     * specified color.
+     * Draws the currently bound texture on specified coordinates and with specified
+     * color.
      *
-     * @param texture
-     *                Used for getting width and height of the texture
-     * @param x
-     *                X position of the texture
-     * @param y
-     *                Y position of the texture
-     * @param c
-     *                The color to use
+     * @param texture Used for getting width and height of the texture
+     * @param x       X position of the texture
+     * @param y       Y position of the texture
+     * @param c       The color to use
      */
     public void drawTexture(Texture texture, float x, float y, float zIndex, Color c) {
         /* Vertex positions */
@@ -388,20 +425,13 @@ public abstract class ShaderProgram {
      * Draws a texture region with the currently bound texture on specified
      * coordinates.
      *
-     * @param texture
-     *                  Used for getting width and height of the texture
-     * @param x
-     *                  X position of the texture
-     * @param y
-     *                  Y position of the texture
-     * @param regX
-     *                  X position of the texture region
-     * @param regY
-     *                  Y position of the texture region
-     * @param regWidth
-     *                  Width of the texture region
-     * @param regHeight
-     *                  Height of the texture region
+     * @param texture   Used for getting width and height of the texture
+     * @param x         X position of the texture
+     * @param y         Y position of the texture
+     * @param regX      X position of the texture region
+     * @param regY      Y position of the texture region
+     * @param regWidth  Width of the texture region
+     * @param regHeight Height of the texture region
      */
     public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY,
             float regWidth,
@@ -413,22 +443,14 @@ public abstract class ShaderProgram {
      * Draws a texture region with the currently bound texture on specified
      * coordinates.
      *
-     * @param texture
-     *                  Used for getting width and height of the texture
-     * @param x
-     *                  X position of the texture
-     * @param y
-     *                  Y position of the texture
-     * @param regX
-     *                  X position of the texture region
-     * @param regY
-     *                  Y position of the texture region
-     * @param regWidth
-     *                  Width of the texture region
-     * @param regHeight
-     *                  Height of the texture region
-     * @param c
-     *                  The color to use
+     * @param texture   Used for getting width and height of the texture
+     * @param x         X position of the texture
+     * @param y         Y position of the texture
+     * @param regX      X position of the texture region
+     * @param regY      Y position of the texture region
+     * @param regWidth  Width of the texture region
+     * @param regHeight Height of the texture region
+     * @param c         The color to use
      */
     public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY,
             float regWidth,
@@ -484,22 +506,14 @@ public abstract class ShaderProgram {
      * Draws a texture region with the currently bound texture on specified
      * coordinates.
      *
-     * @param x1
-     *           Bottom left x position
-     * @param y1
-     *           Bottom left y position
-     * @param x2
-     *           Top right x position
-     * @param y2
-     *           Top right y position
-     * @param s1
-     *           Bottom left s coordinate
-     * @param t1
-     *           Bottom left t coordinate
-     * @param s2
-     *           Top right s coordinate
-     * @param t2
-     *           Top right t coordinate
+     * @param x1 Bottom left x position
+     * @param y1 Bottom left y position
+     * @param x2 Top right x position
+     * @param y2 Top right y position
+     * @param s1 Bottom left s coordinate
+     * @param t1 Bottom left t coordinate
+     * @param s2 Top right s coordinate
+     * @param t2 Top right t coordinate
      */
     public void drawTextureRegion(float x1, float y1, float x2, float y2, float zIndex, float s1, float t1, float s2,
             float t2) {
@@ -510,24 +524,15 @@ public abstract class ShaderProgram {
      * Draws a texture region with the currently bound texture on specified
      * coordinates.
      *
-     * @param x1
-     *           Bottom left x position
-     * @param y1
-     *           Bottom left y position
-     * @param x2
-     *           Top right x position
-     * @param y2
-     *           Top right y position
-     * @param s1
-     *           Bottom left s coordinate
-     * @param t1
-     *           Bottom left t coordinate
-     * @param s2
-     *           Top right s coordinate
-     * @param t2
-     *           Top right t coordinate
-     * @param c
-     *           The color to use
+     * @param x1 Bottom left x position
+     * @param y1 Bottom left y position
+     * @param x2 Top right x position
+     * @param y2 Top right y position
+     * @param s1 Bottom left s coordinate
+     * @param t1 Bottom left t coordinate
+     * @param s2 Top right s coordinate
+     * @param t2 Top right t coordinate
+     * @param c  The color to use
      */
     public void drawTextureRegion(float x1, float y1, float x2, float y2, float zIndex, float s1, float t1, float s2,
             float t2,
@@ -631,5 +636,21 @@ public abstract class ShaderProgram {
     }
 
     public abstract void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float f);
+
+    public void init() {
+        if (useBuffer) {
+            vao.bind();
+
+            vbo.bind(GL_ARRAY_BUFFER);
+
+            verteciesBuff = MemoryUtil.memAllocFloat(4096);
+
+            long size = verteciesBuff.capacity() * Float.BYTES;
+            vbo.uploadData(GL_ARRAY_BUFFER, size, GL_DYNAMIC_DRAW);
+
+            numVertices = 0;
+            drawing = false;
+        }
+    }
 
 }

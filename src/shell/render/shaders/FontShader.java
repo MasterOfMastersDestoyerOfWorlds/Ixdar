@@ -11,7 +11,11 @@ public class FontShader extends ShaderProgram {
 
     public FontShader(int framebufferWidth, int framebufferHeight) {
         super("font.vs", "font.fs", new VertexArrayObject(), new VertexBufferObject(), true);
+    }
 
+    @Override
+    public void init() {
+        super.init();
         /* Specify Vertex Pointer */
         int posAttrib = getAttributeLocation("position");
         glEnableVertexAttribArray(posAttrib);

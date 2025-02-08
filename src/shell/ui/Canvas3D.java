@@ -308,6 +308,7 @@ public class Canvas3D {
         glViewport(0, 0, (int) IxdarWindow.getWidth(), (int) IxdarWindow.getHeight());
         for (ShaderProgram s : shaders) {
             s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
+            s.hotReload();
         }
         if (MenuBox.menuVisible) {
             menu.draw(camera);

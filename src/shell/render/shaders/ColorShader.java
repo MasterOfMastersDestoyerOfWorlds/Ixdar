@@ -13,6 +13,11 @@ public class ColorShader extends ShaderProgram {
     public ColorShader(String vertexShaderLocation, String fragmentShaderLocation) {
         super(vertexShaderLocation, fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
                 true);
+    }
+
+    @Override
+    public void init() {
+        super.init();
         /* Specify Vertex Pointer */
         int posAttrib = getAttributeLocation("position");
         glEnableVertexAttribArray(posAttrib);

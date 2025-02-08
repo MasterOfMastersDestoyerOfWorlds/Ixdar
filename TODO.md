@@ -54,6 +54,8 @@
 
 1. - [ ] number labels no longer are aligned with the segment bisector.
 
+2. - [ ] number labels have drawn duplicates see threecircle_in_5
+
 2. - [ ] line segments have jagged edges.
 
 3. - [ ] bug on line culling where the colors flip directions when touching multiple sides of the screen
