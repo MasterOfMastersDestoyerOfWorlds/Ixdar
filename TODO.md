@@ -118,7 +118,11 @@
 
 ### Keyboard Input
 
-1. - [ ] Should be able to hold down a key and see it repeatedly type
+1. - [x] Should be able to hold down a key and see it repeatedly type
+
+2. - [ ] Need to have key bindings menu in settings.
+
+3. - [ ] Should save to a Key bindings file on change and load from the same file on startup
 
 ### Commands
 
@@ -130,13 +134,15 @@
 
 4. - [ ] Make a comment on file command
 
+5. - [x] Make a clear terminal command
+
 ### Tab Completion
 
 1. - [x] Pressing tab on an empty line after running another command should type the next likely command
 
 2. - [ ] Pressing tab on a line with a typed command but missing arguments should cycle through the available options for that command (no cycle on integer inputs).
 
-3. - [ ] Pressing the up arrow should replace the current command line with the previous one in hte history all the way back to the beginning. cache?
+3. - [x] Pressing the up arrow should replace the current command line with the previous one in hte history all the way back to the beginning. cache?
 
 ### Cursor
 
@@ -249,12 +255,6 @@
 1. - [ ] pressing some hotkey (Ctrl, Shift, G) should look at the item that the mouse is currently hovering over and bring up it's glsl shader in vscode with the relevant shader? or should the texture on the right side of the screen and a text editor be on the left internal to the program?
 
 # System I/O
-
-## Key Input
-
-1. - [ ] Need to have key bindings menu in settings.
-
-2. - [ ] Should save to a Key bindings file on change and load from the same file on startup
 
 ## Filesystem
 
