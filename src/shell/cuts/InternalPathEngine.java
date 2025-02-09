@@ -140,6 +140,11 @@ public class InternalPathEngine {
                 r.assignGroup(rightGroup, leftGroup);
             }
         }
+        RouteInfo end = routeMap1.get(knotPoint2.id);
+        Route endRoute = end.nextC;
+        if (endRoute.neighbor.id != cutPoint2.id) {
+            endRoute = end.prevC;
+        }
         // calculateInternalPathLength(knotPoint1, cutPoint1, external1, knotPoint2,
         // cutPoint2, external2, knot, balanceMap, c, knotPointsConnected,null)
         RouteInfo uParent = null;
@@ -154,6 +159,10 @@ public class InternalPathEngine {
 
             if (settled.contains(u.routeId)) {
                 continue;
+            }
+
+            if (settled.contains(endRoute.routeId)) { // && u.neighbor.id == cutPoint2.id) {
+                //break;
             }
 
             settled.add(u.routeId);
@@ -258,8 +267,8 @@ public class InternalPathEngine {
                                 knot.id);
                         if (isSettled && !cutSeg.equals(cutSegment2)) {
 
-                            // settled.remove(vRoute.routeId);
-                            // isSettled = false;
+                            settled.remove(vRoute.routeId);
+                            isSettled = false;
                         }
 
                     }

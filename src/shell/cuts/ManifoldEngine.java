@@ -232,7 +232,7 @@ public class ManifoldEngine {
                     shell.buff.flush();
 
                     if (delta < minDelta) {
-                        minDelta = delta;
+                        //minDelta = delta;
                     }
 
                 }

@@ -5,6 +5,7 @@ import org.joml.Vector2f;
 import shell.cameras.Camera;
 import shell.render.Clock;
 import shell.render.color.Color;
+import shell.render.color.ColorLerp;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 
@@ -32,9 +33,9 @@ public class SDFFluid {
         shader.setFloat("spin_rotation", 1);
         shader.setFloat("spin_speed", 3);
         shader.setVec2("offset", new Vector2f(0f, 0f));
-        shader.setVec4("colour_1", Color.IXDAR.toVector4f());
-        shader.setVec4("colour_2", Color.IXDAR.toVector4f());
-        shader.setVec4("colour_3", Color.DARK_IXDAR.toVector4f());
+        shader.setVec4("colour_1", new ColorLerp(Color.PURPLE, Color.NAVY, 0.33f).toVector4f());
+        shader.setVec4("colour_2", new ColorLerp(Color.IXDAR, Color.LIGHT_NAVY, 0.27f).toVector4f());
+        shader.setVec4("colour_3", new ColorLerp(Color.DARK_IXDAR, Color.DARK_PURPLE, 0.12f).toVector4f());
         shader.setFloat("contrast", 2f);
         shader.setFloat("spin_amount", 0.1f);
         shader.setFloat("pixel_filter", 40000f);

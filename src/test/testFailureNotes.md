@@ -1,3 +1,5 @@
+# Test Failure Notes
+
 1. test_djibouti_8_20 - ixdarSkip
 
 2. test_lines - unknown
@@ -6,7 +8,7 @@
 
 4. test_lu634_491_501p16_48 - ixdarSkip
 
-5. test_lu634_571_581p603_625 - unknown likely clockwork rotation error
+5. test_lu634_571_581p603_625 - is both a clockwork rotation error and an ixdarSkip error in combination Knot 65 has the correct cutMatchList but does not rotate to it Knot 73 does not have the correct cutMatchList because of ixdar skip
 
 6. test_qa194 - recursion limit
 
@@ -25,4 +27,3 @@
 13. test_qa194_67_151 - did not finish knot construction
 
 14. test_qa194_48_0p193_154 - did not finish knot construction
-

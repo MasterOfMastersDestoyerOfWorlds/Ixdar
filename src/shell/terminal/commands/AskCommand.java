@@ -5,6 +5,7 @@ import org.apache.commons.math3.util.Pair;
 import shell.knot.VirtualPoint;
 import shell.objects.PointND;
 import shell.render.color.Color;
+import shell.render.text.HyperString;
 import shell.terminal.Terminal;
 import shell.ui.main.Main;
 
@@ -71,8 +72,11 @@ public class AskCommand extends TerminalCommand {
                 terminal.error("Point with id: " + vp + " does not exist.");
             }
             for (int i = 0; i < numPrint; i++) {
-                terminal.history.addHyperString(vp.sortedSegments.get(i).toHyperString(Color.BLUE_WHITE, false, true));
+                HyperString seg = vp.sortedSegments.get(i).toHyperString(Color.BLUE_WHITE, false, true);
+                seg.addWord(" || ");
+                terminal.history.addHyperString(seg);
             }
+            terminal.history.newLine();
         }
         return null;
     }

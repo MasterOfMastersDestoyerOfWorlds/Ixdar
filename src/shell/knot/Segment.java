@@ -289,7 +289,7 @@ public class Segment implements Comparable<Segment> {
         }
         str += "[" + first.id + ":" + last.id + "]";
         if (labelDistance) {
-            str += ", " + this.distance;
+            str += ", " + String.format("%.2f", this.distance) ;
         }
         h.addHoverSegment(str, color, this, clickAction);
         return h;
