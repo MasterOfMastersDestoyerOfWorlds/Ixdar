@@ -258,8 +258,8 @@ public class InternalPathEngine {
                                 knot.id);
                         if (isSettled && !cutSeg.equals(cutSegment2)) {
 
-                            // settled.remove(vRoute.routeId);
-                            // isSettled = false;
+                            settled.remove(vRoute.routeId);
+                            isSettled = false;
                         }
 
                     }
