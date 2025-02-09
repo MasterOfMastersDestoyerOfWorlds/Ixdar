@@ -19,16 +19,18 @@ public class ColorLerp implements Color {
 
     private String name;
 
-    public ColorLerp(Color startColor, Color endColor) {
+    public ColorLerp(Color startColor, Color endColor, float radsPerSecond) {
         this.startColor = startColor;
         this.endColor = endColor;
+        this.radsPerSecond = radsPerSecond;
         this.name = startColor.getName() + "-" + endColor.getName() + "-Lerp";
     }
 
-    public ColorLerp(Color startColor, Color endColor, float alpha) {
+    public ColorLerp(Color startColor, Color endColor, float radsPerSecond, float alpha) {
         this.startColor = new ColorRGB(startColor, alpha);
         this.endColor = new ColorRGB(endColor, alpha);
         this.name = startColor.getName() + "-" + endColor.getName() + "-Lerp";
+        this.radsPerSecond = radsPerSecond;
     }
 
     public ColorLerp(Color startColor, Color endColor, byte[] channelLerp) {
