@@ -34,7 +34,7 @@ public class FileManagement {
 
     public static final String cacheFolder = "./src/test/cache/";
 
-    public static final String subGraphUnitTestFolder = "./src/test/unit/subgraphs/";
+    public static final String subGraphUnitTestFolder = "./test/unit/subgraphs/";
 
     public static File getTestFile(String fileName) {
         String[] parts = fileName.split("_");

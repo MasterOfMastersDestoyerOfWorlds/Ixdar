@@ -7,7 +7,7 @@
   <version>0.0.1</version>
   <build>
     <sourceDirectory>src</sourceDirectory>
-    <testSourceDirectory>src/test</testSourceDirectory>
+    <testSourceDirectory>test</testSourceDirectory>
 
     <resources>
       <resource>

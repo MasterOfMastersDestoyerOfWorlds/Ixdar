@@ -100,7 +100,7 @@ public class Run extends VirtualPoint {
         shell.buff.add(sortedSegments);
         this.id = shell.pointMap.keySet().size();
         shell.pointMap.put(id, this);
-        shell.unvisited.add(this);
+        shell.knotEngine.unvisited.add(this);
     }
 
     @Override

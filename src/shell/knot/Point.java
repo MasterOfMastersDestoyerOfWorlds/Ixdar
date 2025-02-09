@@ -14,7 +14,7 @@ public class Point extends VirtualPoint {
         this.shell = shell;
         this.p = p;
         this.id = p.getID();
-        shell.unvisited.add(this);
+        shell.knotEngine.unvisited.add(this);
         isKnot = false;
         isRun = false;
         group = this;
