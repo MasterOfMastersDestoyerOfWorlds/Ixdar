@@ -81,47 +81,6 @@ public class FileManagement {
         }
     }
 
-    class FileInfo {
-        PointSet ps;
-        Path2D path;
-        Shell tsp;
-        ArrayList<String> comments;
-        ArrayList<Manifold> manifolds;
-        Manifold m;
-        boolean flag, first;
-        int index;
-        DistanceMatrix d;
-        HashMap<Integer, PointND> lookUp;
-        ArrayList<Integer> answerOrder;
-        int lineNumber;
-        ArrayList<Integer> duplicatePointIndexes;
-        boolean removeDuplicates;
-        boolean showGrid;
-        ArrayList<PointND> lines;
-        Grid grid;
-
-        FileInfo() {
-
-            ps = new PointSet();
-            path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
-            tsp = new Shell();
-            comments = new ArrayList<>();
-            manifolds = new ArrayList<>();
-            m = null;
-            flag = true;
-            first = true;
-            index = 0;
-            d = null;
-            lookUp = new HashMap<>();
-            answerOrder = new ArrayList<>();
-            lineNumber = 1;
-            duplicatePointIndexes = new ArrayList<>();
-            removeDuplicates = false;
-            showGrid = false;
-            lines = new ArrayList<PointND>();
-        }
-    }
-
     /**
      * Imports the point set and optimal tsp path from a file
      * 
@@ -133,29 +92,29 @@ public class FileManagement {
 
         try (BufferedReader br = new BufferedReader(new FileReader(f))) {
             String line = br.readLine();
-            FileInfo fi = new FileManagement().new FileInfo();
+            FileInfo fi = new FileInfo();
             while (line != null) {
                 if (fi.flag == true) {
                     String[] args = line.split(" ");
                     Point2D pt2d = null;
                     if (Circle.opts.contains(args[0])) {
-                        System.out.println("CIRCLE FOUND!");
+                        // CIRCLE
                         ArrayList<PointND> points = Circle.parse(args, 1);
                         addPoints(points, fi);
                     } else if (Line.opts.contains(args[0])) {
-                        System.out.println("LINE FOUND!");
+                        // LINE
                         ArrayList<PointND> points = Line.parse(args, 1);
                         addPoints(points, fi);
                     } else if (Triangle.opts.contains(args[0])) {
-                        System.out.println("TRIANGLE FOUND!");
+                        // TRIANGLE
                         ArrayList<PointND> points = Triangle.parse(args, 1);
                         addPoints(points, fi);
                     } else if (Arc.opts.contains(args[0])) {
-                        System.out.println("ARC FOUND!");
+                        // ARC
                         ArrayList<PointND> points = Arc.parse(args, 1);
                         addPoints(points, fi);
                     } else if (args[0].equals("WH")) {
-                        System.out.println("WORMHOLEFOUND!");
+                        // WORMHOLE
                         if (fi.d == null) {
                             fi.d = new DistanceMatrix(fi.ps);
                         }
@@ -177,12 +136,12 @@ public class FileManagement {
                             fi.path.moveTo(pt2d.getX(), pt2d.getY());
                             fi.first = false;
                         } else {
-                           fi.path.lineTo(pt2d.getX(), pt2d.getY());
+                            fi.path.lineTo(pt2d.getX(), pt2d.getY());
                         }
 
                         fi.index++;
                     } else if (args[0].equals("MANIFOLD")) {
-                        System.out.println("MANIFOLD FOUND!");
+                        // MANIFOLD
                         fi.m = new Manifold(java.lang.Integer.parseInt(args[1]), java.lang.Integer.parseInt(args[2]),
                                 java.lang.Integer.parseInt(args[3]), java.lang.Integer.parseInt(args[4]),
                                 args[5].equals("C"));
@@ -194,10 +153,12 @@ public class FileManagement {
                         fi.manifolds.add(fi.m);
 
                     } else if (args[0].equals("ANS")) {
+                        // ANS
                         for (int i = 1; i < args.length; i++) {
                             fi.answerOrder.add(java.lang.Integer.parseInt(args[i]));
                         }
                     } else if (Ix.opts.contains(args[0])) {
+                        // LOAD
                         PointSetPath retTup = Ix.parseFull(args, 1);
                         fi.manifolds.addAll(retTup.manifolds);
                         for (PointND pt : retTup.ps) {
@@ -219,10 +180,15 @@ public class FileManagement {
                         if (retTup.d != null) {
                             fi.d = new DistanceMatrix(fi.ps);
                         }
+                        if (retTup.grid != null) {
+                            fi.grid = retTup.grid;
+                        }
                     } else if (PointND.Hex.opts.contains(args[0])) {
+                        // HEX
                         PointND pt = PointND.Hex.parse(args, 1);
                         addPoint(pt, fi);
                     } else if (args[0].equals("FLAG")) {
+                        // FLAG
                         if (args[1].equals("REMOVE_DUPLICATES")) {
                             fi.removeDuplicates = true;
                         }
@@ -231,6 +197,7 @@ public class FileManagement {
                         }
 
                     } else if (args[0].contains("//")) {
+                        // COMMENT
                         fi.comments.add(line);
                     } else {
                         PointND pt = new PointND.Double(fi.index, java.lang.Double.parseDouble(args[1]),
@@ -524,4 +491,45 @@ public class FileManagement {
         }
     }
 
+}
+
+class FileInfo {
+    PointSet ps;
+    Path2D path;
+    Shell tsp;
+    ArrayList<String> comments;
+    ArrayList<Manifold> manifolds;
+    Manifold m;
+    boolean flag, first;
+    int index;
+    DistanceMatrix d;
+    HashMap<Integer, PointND> lookUp;
+    ArrayList<Integer> answerOrder;
+    int lineNumber;
+    ArrayList<Integer> duplicatePointIndexes;
+    boolean removeDuplicates;
+    boolean showGrid;
+    ArrayList<PointND> lines;
+    Grid grid;
+
+    FileInfo() {
+
+        ps = new PointSet();
+        path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
+        tsp = new Shell();
+        comments = new ArrayList<>();
+        manifolds = new ArrayList<>();
+        m = null;
+        flag = true;
+        first = true;
+        index = 0;
+        d = null;
+        lookUp = new HashMap<>();
+        answerOrder = new ArrayList<>();
+        lineNumber = 1;
+        duplicatePointIndexes = new ArrayList<>();
+        removeDuplicates = false;
+        showGrid = false;
+        lines = new ArrayList<PointND>();
+    }
 }
