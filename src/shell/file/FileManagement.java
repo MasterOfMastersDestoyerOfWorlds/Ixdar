@@ -393,6 +393,20 @@ public class FileManagement {
         }
     }
 
+    public static void appendComment(File f, String comment) {
+        try {
+            String ansLine = "// " + comment;
+            FileWriter fw = new FileWriter(f,true);
+            BufferedWriter out = new BufferedWriter(fw);
+            out.newLine();
+            out.append(ansLine);
+            out.flush();
+            out.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
     public static void appendLine(File f, String appLine) {
 
         try (FileWriter fw = new FileWriter(f, true)) {
@@ -460,7 +474,6 @@ public class FileManagement {
             out.flush();
             out.close();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
@@ -485,7 +498,6 @@ public class FileManagement {
             out.flush();
             out.close();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
             return;
         }
