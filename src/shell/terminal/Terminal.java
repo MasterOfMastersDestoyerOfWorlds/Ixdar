@@ -1,9 +1,6 @@
 package shell.terminal;
 
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
+import static org.lwjgl.glfw.GLFW.*;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -30,6 +27,9 @@ import shell.ui.tools.Tool;
 
 public class Terminal {
     public HyperString history;
+    ArrayList<String> commandHistory;
+    String storedCommandLine;
+    int commandHistoryIdx;
     String commandLine;
     String commandLineInstruct;
     ColorLerp instructColor = ColorLerp.flashColor(Color.BLUE_WHITE, 3);
@@ -53,6 +53,7 @@ public class Terminal {
     public static HashMap<Class<PointCollection>, PointCollection> pointCollectionClassMap = new HashMap<>();
 
     public Terminal(File loadedFile) {
+        storedCommandLine = "";
         commandLine = "";
         commandLineInstruct = "";
         nextLogicalCommand = new String[] {};
@@ -61,6 +62,8 @@ public class Terminal {
         this.directory = loadedFile.getParent();
         this.loadedFile = loadedFile;
         history = new HyperString();
+        commandHistory = new ArrayList<>();
+        commandHistoryIdx = -1;
         if (commandList == null) {
             commandList = new ArrayList<>();
             loadClassType("shell.terminal.commands", commandList, commandClassMap, TerminalCommand.class);
@@ -130,18 +133,56 @@ public class Terminal {
 
     }
 
-    public void keyPress(int key, int mods) {
+    public void keyPress(int key, int mods, boolean controlMask) {
         if (key == GLFW_KEY_BACKSPACE) {
-            int back = commandLine.length() - 1;
-            if (back < 0) {
+            if (controlMask) {
+                commandLine = commandLine.stripTrailing();
+                int lastSpace = commandLine.lastIndexOf(" ");
+                if (lastSpace == -1) {
+                    commandLine = "";
+                } else {
+                    commandLine = commandLine.substring(0, lastSpace).stripTrailing();
+                }
+            } else {
+                int back = commandLine.length() - 1;
+                if (back < 0) {
+                    return;
+                }
+                commandLine = commandLine.substring(0, back);
+            }
+            return;
+        }
+        if (key == GLFW_KEY_UP) {
+            int nextCommand = commandHistoryIdx + 1;
+            if (nextCommand >= commandHistory.size()) {
                 return;
             }
-            commandLine = commandLine.substring(0, back);
+            if (commandHistoryIdx == -1) {
+                storedCommandLine = commandLine;
+            }
+            commandHistoryIdx = nextCommand;
+            commandLine = commandHistory.get(nextCommand);
+            return;
+        } else if (key == GLFW_KEY_DOWN) {
+            int prevCommand = commandHistoryIdx - 1;
+            if (prevCommand < -1) {
+                return;
+            }
+            if (prevCommand == -1) {
+                commandLine = storedCommandLine;
+            } else {
+                commandLine = commandHistory.get(prevCommand);
+            }
+            commandHistoryIdx = prevCommand;
             return;
         }
         if (key == GLFW_KEY_ENTER) {
             history.addLine(commandLine);
-            run(commandLine);
+            if (!commandLine.isBlank()) {
+                commandHistory.add(0, commandLine);
+                commandHistoryIdx = -1;
+                run(commandLine);
+            }
             scrollToCommandLine = true;
             commandLine = "";
             return;
@@ -172,6 +213,7 @@ public class Terminal {
         if (typedCharacter.isBlank()) {
             return;
         }
+        commandHistoryIdx = -1;
         commandLine += typedCharacter;
     }
 

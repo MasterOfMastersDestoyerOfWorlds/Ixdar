@@ -2,6 +2,7 @@ package shell.cuts.route;
 
 import java.util.ArrayList;
 
+import shell.cuts.CutInfo;
 import shell.cuts.enums.RouteType;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
@@ -18,8 +19,10 @@ public class Route implements Comparable<Route> {
     public ArrayList<VirtualPoint> otherGroup;
     public ArrayList<Segment> cuts;
     public ArrayList<Segment> matches;
+    public ArrayList<Integer> ancestorRoutes;
     public int routeId;
     public RouteInfo parent;
+    public boolean needToCalculateGroups = false;
 
     public Route(RouteType routeType, double delta, VirtualPoint neighbor, int pointId, RouteInfo parent) {
         this.routeType = routeType;
@@ -28,6 +31,7 @@ public class Route implements Comparable<Route> {
         this.parent = parent;
         cuts = new ArrayList<>();
         matches = new ArrayList<>();
+        ancestorRoutes = new ArrayList<>();
         routeId = routeType.idTransform(pointId);
 
     }
@@ -41,29 +45,53 @@ public class Route implements Comparable<Route> {
      * @param parent
      * 
      */
-    public Route(Route routeToCopy, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, RouteInfo parent) {
+    public Route(Route routeToCopy, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, RouteInfo parent,
+            CutInfo c) {
         this.routeType = routeToCopy.routeType;
         this.ancestorRouteType = routeToCopy.ancestorRouteType;
         this.neighbor = routeToCopy.neighbor;
         this.delta = routeToCopy.delta;
         this.ancestor = routeToCopy.ancestor;
-        this.ourGroup = new ArrayList<>(routeToCopy.ourGroup);
-        this.otherGroup = new ArrayList<>(routeToCopy.otherGroup);
         this.cuts = new ArrayList<>(routeToCopy.cuts);
         this.matches = new ArrayList<>(routeToCopy.matches);
+        this.ancestorRoutes = new ArrayList<>(routeToCopy.ancestorRoutes);
         this.routeId = routeToCopy.routeId;
         this.parent = parent;
+        this.needToCalculateGroups = true;
 
         RouteInfo otherParent = routeToCopy.parent;
-        if (parent.id == upperCutPoint.id || neighbor.id == upperCutPoint.id ||
+        boolean matchContains = false;
+
+        for (Segment match : matches) {
+            if (match.contains(new VirtualPoint[] { upperKnotPoint, upperCutPoint, otherParent.knotPoint2,
+                    otherParent.cutPoint2 })) {
+                matchContains = true;
+                break;
+            }
+        }
+        boolean cutContains = false;
+        for (Segment cut : cuts) {
+            if (cut.contains(new VirtualPoint[] { upperKnotPoint, upperCutPoint, otherParent.knotPoint2,
+                    otherParent.cutPoint2 })) {
+                cutContains = true;
+                break;
+            }
+        }
+        if (matchContains) {
+            this.reset();
+        } else if (cutContains) {
+            this.reset();
+        } else if (parent.id == upperCutPoint.id || neighbor.id == upperCutPoint.id ||
                 parent.id == upperKnotPoint.id || neighbor.id == upperKnotPoint.id) {
             this.reset();
         } else if (parent.id == otherParent.knotPoint2.id
                 || parent.id == otherParent.cutPoint2.id ||
                 neighbor.id == otherParent.knotPoint2.id || neighbor.id == otherParent.cutPoint2.id) {
             this.reset();
+        } else if (delta == Double.MAX_VALUE || delta == 0) {
+            this.reset();
         } else {
-            float z = 0;
+
         }
     }
 
@@ -71,8 +99,69 @@ public class Route implements Comparable<Route> {
         delta = Double.MAX_VALUE;
         cuts = new ArrayList<>();
         matches = new ArrayList<>();
+        ancestorRoutes = new ArrayList<>();
         ancestor = null;
         ancestorRouteType = RouteType.None;
+        ourGroup = null;
+        otherGroup = null;
+        needToCalculateGroups = false;
+    }
+
+    public void calculateGroups(Route ancestorRoute) {
+        this.needToCalculateGroups = false;
+        VirtualPoint node = parent.node;
+        if (ancestorRoute.ourGroup.contains(node)) {
+            ArrayList<VirtualPoint> grp = ancestorRoute.ourGroup;
+            int idxNeighbor = grp.indexOf(neighbor);
+            int rotateIdx = grp.indexOf(node);
+
+            this.otherGroup = ancestorRoute.otherGroup;
+
+            ArrayList<VirtualPoint> reverseList = new ArrayList<VirtualPoint>();
+            if (idxNeighbor > rotateIdx || idxNeighbor == -1) {
+                for (int i = rotateIdx + 1; i < grp.size(); i++) {
+                    reverseList.add(grp.get(i));
+                }
+                for (int i = 0; i < rotateIdx + 1; i++) {
+                    reverseList.add(0, grp.get(i));
+                }
+                this.ourGroup = reverseList;
+            } else {
+                for (int i = 0; i < rotateIdx; i++) {
+                    reverseList.add(grp.get(i));
+                }
+                for (int i = rotateIdx; i < grp.size(); i++) {
+                    reverseList.add(0, grp.get(i));
+                }
+                this.ourGroup = reverseList;
+            }
+        } else {
+
+            ArrayList<VirtualPoint> grp = ancestorRoute.otherGroup;
+            ArrayList<VirtualPoint> otherGrp = ancestorRoute.ourGroup;
+            int idxNeighbor = grp.indexOf(neighbor);
+            int rotateIdx = grp.indexOf(node);
+            this.otherGroup = ancestorRoute.otherGroup;
+            ArrayList<VirtualPoint> remainList = new ArrayList<VirtualPoint>();
+            ArrayList<VirtualPoint> reverseList = new ArrayList<VirtualPoint>(otherGrp);
+            if (idxNeighbor > rotateIdx || idxNeighbor == -1) {
+                for (int i = 0; i < rotateIdx + 1; i++) {
+                    remainList.add(0, grp.get(i));
+                }
+                for (int i = rotateIdx + 1; i < grp.size(); i++) {
+                    reverseList.add(0, grp.get(i));
+                }
+            } else {
+                for (int i = rotateIdx; i < grp.size(); i++) {
+                    remainList.add(grp.get(i));
+                }
+                for (int i = rotateIdx - 1; i >= 0; i--) {
+                    reverseList.add(0, grp.get(i));
+                }
+            }
+            this.ourGroup = remainList;
+            this.otherGroup = reverseList;
+        }
     }
 
     @Override
@@ -125,7 +214,7 @@ public class Route implements Comparable<Route> {
     @Override
     public String toString() {
         return routeType.name() + ", " + (ancestor == null ? "NULL"
-                : ancestor.id) + ", " + (delta == Double.MAX_VALUE ? "INF" : delta);
+                : ancestor.id) + ", " + (delta == Double.MAX_VALUE ? "INF" : String.format("%.2f", delta));
     }
 
     public HyperString compareHyperString(Route otherRoute, Color matchColor, Color cutColor) {

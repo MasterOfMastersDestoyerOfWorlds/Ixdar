@@ -44,14 +44,12 @@ import shell.render.color.ColorBox;
 import shell.render.color.ColorLerp;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFTexture;
-import shell.render.shaders.ShaderProgram;
 import shell.render.text.Font;
 import shell.render.text.HyperString;
 import shell.shell.Shell;
 import shell.shell.ShellComparator;
 import shell.shell.ShellPair;
 import shell.terminal.Terminal;
-import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 import shell.ui.IxdarWindow;
 import shell.ui.input.KeyActions;
@@ -226,11 +224,12 @@ public class Main {
             try {
                 m.loadCutMatch(shell);
             } catch (SegmentBalanceException e) {
-                e.printStackTrace();
+                sbe = e;
             }
         }
 
-        if (tool.canUseToggle(Toggle.Manifold)) {
+        if (tool.canUseToggle(Toggle.Manifold) && sbe == null) {
+
             if (result.size() > 1) {
                 Toggle.Manifold.value = false;
                 Toggle.CalculateKnot.value = true;
@@ -358,7 +357,9 @@ public class Main {
             tool.draw(camera, Drawing.MIN_THICKNESS);
             if (sbe != null) {
                 Drawing.drawShell(resultShell, true, Drawing.MIN_THICKNESS, Color.MAGENTA, retTup.ps, camera);
-                Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS, retTup.ps, camera);
+                if (sbe.cutMatchList != null) {
+                    Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS, retTup.ps, camera);
+                }
             }
             if (tool.canUseToggle(Toggle.DrawCutMatch) && tool.canUseToggle(Toggle.Manifold) && manifolds != null
                     && manifolds.get(manifoldIdx).cutMatchList != null) {
@@ -385,7 +386,8 @@ public class Main {
             camera.updateView(wWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
             logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 
-            camera.updateView(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE);
+            camera.updateView(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
+                    wHeight - BOTTOM_PANEL_SIZE);
             info.draw(camera);
 
             camera.updateView(0, 0, MAIN_VIEW_WIDTH, BOTTOM_PANEL_SIZE);
@@ -413,7 +415,6 @@ public class Main {
             e.printStackTrace();
         }
     }
-
 
     public static void drawDisplayedKnots(Camera2D camera) {
         if (knotDrawLayer == totalLayers) {

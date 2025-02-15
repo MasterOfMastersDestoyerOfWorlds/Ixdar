@@ -188,7 +188,7 @@ public class Knot extends VirtualPoint {
         this.id = shell.pointMap.keySet().size();
         shell.pointMap.put(id, this);
         if (setMatches) {
-            shell.unvisited.add(this);
+            shell.knotEngine.unvisited.add(this);
         }
         manifoldSegments = new ArrayList<>();
         manifoldSegmentIds = new ArrayList<>();

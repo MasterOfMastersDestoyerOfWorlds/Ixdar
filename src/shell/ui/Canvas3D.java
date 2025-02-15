@@ -5,7 +5,6 @@ import static org.lwjgl.glfw.GLFW.glfwSetCursorPosCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetScrollCallback;
-import static org.lwjgl.opengl.GL.createCapabilities;
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
@@ -22,6 +21,7 @@ import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
 import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
+import static org.lwjgl.opengl.GL.createCapabilities;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -176,10 +176,10 @@ public class Canvas3D {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public void initGL() {
 
+        createCapabilities(false, (IntFunction) null);
         float start = Clock.time();
         coldStartStack();
 
-        createCapabilities(false, (IntFunction) null);
         System.out.println("capabilities: " + (Clock.time() - start));
         VertexArrayObject vao = new VertexArrayObject();
         VertexBufferObject vbo = new VertexBufferObject();

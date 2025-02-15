@@ -13,6 +13,7 @@ import org.joml.Vector2f;
 
 import shell.DistanceMatrix;
 import shell.PointSet;
+import shell.cameras.Camera;
 import shell.cameras.Camera2D;
 import shell.cuts.CutMatch;
 import shell.cuts.CutMatchList;
@@ -427,6 +428,11 @@ public class Drawing {
             float lineThickness) {
         sdfLine.setStroke(lineThickness, false);
         circle.draw(new Vector2f(cameraPoint.x, cameraPoint.y), CIRCLE_RADIUS * camera.ScaleFactor, color, camera);
+    }
+    public static void drawCircle(Vector2f cameraPoint, Color color, Camera camera,
+            float lineThickness) {
+        sdfLine.setStroke(lineThickness, false);
+        circle.draw(new Vector2f(cameraPoint.x, cameraPoint.y), CIRCLE_RADIUS, color, camera);
     }
 
     public static void drawKnot(Knot k, Color c, float lineThickness, Camera2D camera) {

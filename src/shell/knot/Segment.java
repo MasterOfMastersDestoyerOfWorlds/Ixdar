@@ -53,6 +53,16 @@ public class Segment implements Comparable<Segment> {
         return first.equals(vp) || last.equals(vp);
     }
 
+    public boolean contains(VirtualPoint[] vp) {
+        boolean contains = false;
+        for (int i = 0; i < vp.length; i++) {
+            if (first.equals(vp[i]) || last.equals(vp[i])) {
+                contains = true;
+            }
+        }
+        return contains;
+    }
+
     public VirtualPoint getKnotPoint(ArrayList<VirtualPoint> knotPointsFlattened) {
         if (knotPointsFlattened.contains(first)) {
             return first;
@@ -197,11 +207,11 @@ public class Segment implements Comparable<Segment> {
     public static long idTransformOrdered(Segment s) {
         long a = s.first.id;
         long b = s.last.id;
-        return a * a + a + b;
+        return (a + b) * (a + b + 1) / 2 + b;
     }
 
     public static long idTransformOrdered(long a, long b) {
-        return a * a + a + b;
+        return (a + b) * (a + b + 1) / 2 + b;
     }
 
     public double boundContains(double x, double y) {
@@ -279,7 +289,7 @@ public class Segment implements Comparable<Segment> {
         }
         str += "[" + first.id + ":" + last.id + "]";
         if (labelDistance) {
-            str += ", " + this.distance;
+            str += ", " + String.format("%.2f", this.distance) ;
         }
         h.addHoverSegment(str, color, this, clickAction);
         return h;

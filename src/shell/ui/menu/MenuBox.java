@@ -30,7 +30,6 @@ public class MenuBox {
     public static Menu activeMenu;
     public static float scrollOffsetY;
     public float SCROLL_SPEED = 20f;
-    private boolean titleVisible;
     public static boolean menuVisible = true;
     public SDFTexture logo;
 
@@ -42,7 +41,7 @@ public class MenuBox {
         outerFlash = new ColorLerp(Color.BLUE_WHITE, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 });
         menuOuterBorder = new SDFUnion("menu_inner.png", Color.NAVY, 0.95f, 0, -0.02f, "menu_outer.png",
                 Color.BLUE_WHITE, alpha, 5, 2);
-        logo = new SDFTexture("decal_sdf.png", Color.DARK_IXDAR, 1f, 0f, true);
+        logo = new SDFTexture("decal_sdf.png", Color.DARK_IXDAR, 0.9f, 0f, true);
         boundingBox = new ColorBox();
         String cachedFileName = FileManagement.getTestFileCache();
         activeMenu = new Menu.MainMenu(cachedFileName);
@@ -50,17 +49,13 @@ public class MenuBox {
     }
 
     public void draw(Camera camera) {
-        titleVisible = true;
 
         float centerX = Canvas3D.frameBufferWidth / 2;
         float centerY = Canvas3D.frameBufferHeight / 2;
         int min = Math.min(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
-        int halfMin = (int) min / 2;
-        int qMin = halfMin / 2;
-        int logoWidth = halfMin;
-        camera.updateView((int) (centerX - logoWidth/2), (int) (centerY + centerY / 2 - logoWidth/2), logoWidth, logoWidth);
-        logo.drawCentered(logoWidth/2, logoWidth/2, logoWidth, logoWidth, Color.IXDAR, camera);
-        camera.resetView();
+        int logoWidth = (int) min / 2;
+        int halfWidth = logoWidth / 2;
+        logo.draw((centerX - halfWidth), (centerY + centerY / 2 - halfWidth), logoWidth, logoWidth, Color.IXDAR, camera);
         if (!menuVisible) {
             return;
         }

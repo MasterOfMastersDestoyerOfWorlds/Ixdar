@@ -7,7 +7,7 @@
   <version>0.0.1</version>
   <build>
     <sourceDirectory>src</sourceDirectory>
-    <testSourceDirectory>src/test</testSourceDirectory>
+    <testSourceDirectory>test</testSourceDirectory>
 
     <resources>
       <resource>
@@ -78,7 +78,7 @@
 
   <properties>
     <native.maven.plugin.version>0.9.19</native.maven.plugin.version>
-    <lwjgl.version>3.3.3</lwjgl.version>
+    <lwjgl.version>3.3.6</lwjgl.version>
     <lwjgl.natives>natives-windows</lwjgl.natives>
   </properties>
   <pluginRepositories>
@@ -179,12 +179,6 @@
       <artifactId>junit-platform-launcher</artifactId>
       <version>1.4.0</version>
       <scope>test</scope>
-    </dependency>
-    <!-- https://mvnrepository.com/artifact/org.lwjglx/lwjgl3-awt -->
-    <dependency>
-      <groupId>org.lwjglx</groupId>
-      <artifactId>lwjgl3-awt</artifactId>
-      <version>0.1.8</version>
     </dependency>
 
     <dependency>

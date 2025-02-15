@@ -1,4 +1,4 @@
-package unit;
+package unit.subgraphs;
 
 import java.util.Collections;
 import java.util.Random;

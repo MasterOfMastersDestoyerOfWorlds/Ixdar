@@ -360,10 +360,16 @@ public class CompareManifoldTool extends Tool {
         h.addLine("View Level: " + routeView.name());
         if (state == States.Compare) {
             if (displayRouteAlpha != null) {
-                h.addLine("Route Alpha: ", alphaMatchColor);
+                HyperString alphaCutInfo = new HyperString();
+                alphaCutInfo.addLine("end kp: " + alphaEndKP.id + " end cp: " + alphaEndCP.id, Color.BLUE_WHITE);
+                h.addTooltip("Route Alpha: ", alphaMatchColor, alphaCutInfo, null);
                 h.addLine(displayRouteAlpha.toString(), alphaCutColor);
                 h.addHyperString(
                         displayRouteAlpha.compareHyperString(displayRouteBeta, alphaMatchColor, alphaCutColor));
+                HyperString betaCutInfo = new HyperString();
+                betaCutInfo.addLine("end kp: " + betaEndKP.id + " end cp: " + betaEndCP.id, Color.BLUE_WHITE);
+                h.addTooltip("Route Alpha: ", betaMatchColor, betaCutInfo, null);
+                
                 h.addLine("Route Beta: ", Color.MAGENTA);
                 h.addLine(displayRouteBeta.toString(), Color.YELLOW);
                 h.addHyperString(

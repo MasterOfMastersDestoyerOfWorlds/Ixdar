@@ -5,8 +5,9 @@ import shell.cuts.CutMatchList;
 import shell.shell.Shell;
 
 public class InvalidCutException extends SegmentBalanceException {
-    
+
     String errMsg = "";
+
     public InvalidCutException(SegmentBalanceException sbe) {
         super(sbe);
     }
@@ -16,13 +17,14 @@ public class InvalidCutException extends SegmentBalanceException {
     }
 
     public InvalidCutException(String string, SegmentBalanceException sbe) {
-        super(sbe);
+        super(new SegmentBalanceException());
         this.errMsg = string;
     }
 
     @Override
     public String toString() {
-        return "InvalidCutException: FailReason: " + errMsg + " |  topKnot: " + topKnot + " cut1: " + cut1 + " ex1: " + ex1 + " cut2: " + cut2 + " ex2: " + ex2 + " cutName: " + cutName + " cut: \n" +cutMatchList;
+        return "InvalidCutException: FailReason: " + errMsg + " |  topKnot: " + topKnot + " cut1: " + cut1 + " ex1: "
+                + ex1 + " cut2: " + cut2 + " ex2: " + ex2 + " cutName: " + cutName + " cut: \n" + cutMatchList;
     }
 
 }

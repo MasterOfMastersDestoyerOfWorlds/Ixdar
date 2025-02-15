@@ -18,7 +18,11 @@
 
 8. - [ ] Need to figure out how to reuse the shortest path info already calculated, f.e. if we move the terminal cut segment counter clockwise we should only invalidate the three effected points and their connections, the rest of the connections should still be valid although we will have to recalculate which of the available cuts are allowed by rules of the hole-moving game.
 
-9. - [x] Figure out how to share shortest path info from a cut to it's flipped version where the ending cutsegment is in the disconnected orientation.
+//As far as I know the above is not feasible since we have not figure out how to make the hole moving game into a positive weight graph. Few other things to try: There may be some sense in which the hole-moving game forms a Directed Acyclic Graph in which we could find the linear time shortest path once we formed the dag, but enumerating all of the branches that don't form cycles would take lot of space and time. Alternatively, if we could re-weight the graph into a positive weight graph or have the starting point marked as -Inf weight in the priority queue we might still be able to reuse other djikstra calls. I think we need some way to compare route maps in code and break on their difference (see route comparison tool to start)
+
+9. - [x] Figure out how to share shortest path info from a cut to it's flipped version where the ending cutsegment is in the disconnected orientation .
+
+//this only works some fraction of the time, depending on wether the answer touches the ending cut segment, at this point it is hard to tell when this occurs
 
 ## Knot Finding
 
@@ -56,15 +60,19 @@
 
 2. - [ ] number labels have drawn duplicates see threecircle_in_5
 
-2. - [ ] line segments have jagged edges.
+3. - [ ] line segments have jagged edges.
 
-3. - [ ] bug on line culling where the colors flip directions when touching multiple sides of the screen
+4. - [ ] bug on line culling where the colors flip directions when touching multiple sides of the screen
 
 ## Features
 
 1. - [ ] VK_O should swap between showing the calculated cutMatch and the one stored in the file and use opposite colors on the color wheel to represent the cutMatch?
 
 2. - [ ] With fixed size lines there is sometimes a problem of overlap where you can't distinguish between lines once the points get close enough to each other, so we should calculate the minimum width to ensure that this does not happen on startup.
+
+3. - [ ] Need to separate the UI thread from the Knot Engine thread so that the graphics don't freeze and we can show progress towards the solution with a loading bar and other info
+
+4. - [ ] Animation -  have a building a knot animation on file open that goes from the bottom knots to the top knots by replaying the chosen cut matches at each layer. should be relatively quick, no longer than a second, and disabled by a toggle.
 
 ## Tools
 
@@ -118,9 +126,15 @@
 
 ### Keyboard Input
 
-1. - [ ] Should be able to hold down a key and see it repeatedly type
+1. - [x] Should be able to hold down a key and see it repeatedly type
+
+2. - [ ] Need to have key bindings menu in settings.
+
+3. - [ ] Should save to a Key bindings file on change and load from the same file on startup
 
 ### Commands
+
+![Complete](readme_img\complete.png)
 
 1. - [x] Every command + key action should also be accessible from the terminal
 
@@ -128,7 +142,9 @@
 
 3. - [x] Make Unit Tests Command
 
-4. - [ ] Make a comment on file command
+4. - [x] Make a comment on file command
+
+5. - [x] Make a clear terminal command
 
 ### Tab Completion
 
@@ -136,7 +152,7 @@
 
 2. - [ ] Pressing tab on a line with a typed command but missing arguments should cycle through the available options for that command (no cycle on integer inputs).
 
-3. - [ ] Pressing the up arrow should replace the current command line with the previous one in hte history all the way back to the beginning. cache?
+3. - [x] Pressing the up arrow should replace the current command line with the previous one in hte history all the way back to the beginning. cache?
 
 ### Cursor
 
@@ -155,8 +171,6 @@
 2. - [ ] Pressing control and clicking a point, a knot, or a segment should bring its id into the terminal at the cursor
 
 3. - [x] Bezier curve animation behind terminal as fast fluid sim?
-
-4. - [ ] Messages should use hyper text when possible.
 
 5. - [ ] Typing should bring up a tooltip about the the terminal with the commands that have the right letters
 
@@ -250,12 +264,6 @@
 
 # System I/O
 
-## Key Input
-
-1. - [ ] Need to have key bindings menu in settings.
-
-2. - [ ] Should save to a Key bindings file on change and load from the same file on startup
-
 ## Filesystem
 
 1. - [x] Hot reload glsl shaders on change for rapid development
@@ -287,18 +295,21 @@
 ## Natural Resources
 
 1. - [ ] Natural Resources should have an
-  - icon
-  - quantity in units/hectares/month produces
-  - replenish rate in units/hectares/month
-  - discovery chance in percent chance to find/hectare
-  - discovered resource amount range following a prato distribution
-  - cost to explore a hectare
-  - percent of explored land for that resource
-  - which hectares have been explored
-  - consumption rate of the resource by the city
-  - price of the resource in the city and all other cities even where you cannot find the resource related to the consumption rate and production cost of the good
-  - wether the demand for the resource is elastic or inelastic
-  - wether the resource can be exploited on land used for other purposes (e.g. drilling doesn't interfere with farming).
+
+2. icon
+
+3. quantity in units/hectares/month produces
+
+4. replenish rate in units/hectares/month
+5. discovery chance in percent chance to find/hectare
+6. discovered resource amount range following a prato distribution
+7. cost to explore a hectare
+8. percent of explored land for that resource
+9. which hectares have been explored
+10. consumption rate of the resource by the city
+11. price of the resource in the city and all other cities even where you cannot find the resource related to the consumption rate and production cost of the good
+12. wether the demand for the resource is elastic or inelastic
+13. wether the resource can be exploited on land used for other purposes (e.g. drilling doesn't interfere with farming).
 
 <style>
 :root {

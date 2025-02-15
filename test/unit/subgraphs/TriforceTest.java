@@ -2,7 +2,9 @@ package unit.subgraphs;
 
 import org.junit.jupiter.api.Test;
 
-import unit.SubGraphs;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+@Execution(ExecutionMode.CONCURRENT)
 
 /**
  * Tests to verify that our tsp solver works as expected
