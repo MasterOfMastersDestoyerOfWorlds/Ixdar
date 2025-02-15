@@ -34,8 +34,9 @@ public class KnotSurfaceViewTool extends Tool {
     }
 
     public enum Metric {
+        PathLength,
+        IxdarSkipView,
         PathCutMatchCount,
-        PathLength
     }
 
     public States state = States.FindStart;

@@ -112,21 +112,27 @@
 
 ### Knot Surface View Tool
 
-1. - [ ] Make a tool that shows the user which of the half segment pairs have low enough external travel cost to check their internal cost, when compared to the lowest simple cut.
+1. - [x] Make a tool that shows the user which of the half segment pairs have low enough external travel cost to check their internal cost, when compared to the lowest simple cut.
 
-2. - [ ] Should have a gradient of colors depending on its distance to the lowest(Green) and highest (Red), (Ixdar Dark for uncalculated) length cutmatches on the manifold
+2. - [x] Should have a gradient of colors depending on its distance to the lowest(Green) and highest (Red) length cutmatches on the manifold
 
-3. - [ ] Should also be able to display the number of cuts and matches with the same gradient? Should at least display this info in the Info Panel
+3. - [ ] Should have a view mode that distinguishes between half Segments that were skipped versus calculated (color calculated ones blue and uncalculated dark ixdar)
 
-4. - [ ] Selecting a specific starting half segment should change the gradient to all of the cutmatches that start at the starting half segment and end at their half segment
+4. - [ ] Should Color the half segments that were actually chosen in Blue.
 
-5. - [ ] hovering with one already selected should display the shortest route to the second cut.
+5. - [ ] Should also be able to display the number of cuts and matches with the same gradient? Should at least display this info in the Info Pan
 
-6. - [ ] The inc and dec keys should behave normally so we need to support looking at subknots.
+6. - [x] hovering with none already selected should display the shortest cutmatch list on that starting half segment.
 
-7. - [ ] Should display the lowest simple cut when not hovering.
+7. - [ ] Selecting a specific starting half segment should change the gradient to all of the cutmatches that start at the starting half segment and end at their half segment
 
-8. - [ ] Should display all the pairs that could be possible as well as the dashed line to it's external value.
+8. - [ ] Selecting a second segment should lock that cut match list as the display one
+
+9. - [ ] hovering with one already selected should display the shortest route to the second cut.
+
+10. - [x] The inc and dec keys should behave normally so we need to support looking at subknots.
+
+11. - [x] The tool cycle key should switch between path length, ixdar skip and cutmatch count length.
 
 ### Negative CutMatch View Tool
 
@@ -317,11 +323,17 @@
 6. discovered resource amount range following a prato distribution
 
 7. cost to explore a hectare
+
 8. percent of explored land for that resource
+
 9. which hectares have been explored
+
 10. consumption rate of the resource by the city
+
 11. price of the resource in the city and all other cities even where you cannot find the resource related to the consumption rate and production cost of the good
+
 12. wether the demand for the resource is elastic or inelastic
+
 13. wether the resource can be exploited on land used for other purposes (e.g. drilling doesn't interfere with farming).
 
 <style>
