@@ -15,15 +15,16 @@ import java.util.List;
 
 import shell.DistanceMatrix;
 import shell.PointSet;
+import shell.cuts.Manifold;
 import shell.exceptions.FileParseException;
 import shell.exceptions.TerminalParseException;
-import shell.objects.Arc;
-import shell.objects.Circle;
-import shell.objects.Grid;
-import shell.objects.Ix;
-import shell.objects.Line;
-import shell.objects.PointND;
-import shell.objects.Triangle;
+import shell.point.Arc;
+import shell.point.Circle;
+import shell.point.Grid;
+import shell.point.Ix;
+import shell.point.Line;
+import shell.point.PointND;
+import shell.point.Triangle;
 import shell.shell.Shell;
 
 public class FileManagement {

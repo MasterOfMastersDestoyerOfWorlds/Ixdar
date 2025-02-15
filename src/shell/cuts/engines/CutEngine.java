@@ -1,10 +1,14 @@
-package shell.cuts;
+package shell.cuts.engines;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.apache.commons.collections4.map.MultiKeyMap;
 
+import shell.cuts.Clockwork;
+import shell.cuts.CutMatch;
+import shell.cuts.CutMatchList;
+import shell.cuts.SortedCutMatchInfo;
 import shell.cuts.route.RouteMap;
 import shell.exceptions.BalancerException;
 import shell.exceptions.MultipleCyclesFoundException;
@@ -32,13 +36,15 @@ public class CutEngine {
         clockworkTotalTimeSeconds = 0.0;
     }
 
-    Shell shell;
+    public Shell shell;
     public FlattenEngine flattenEngine;
     public int totalLayers = -1;
+    public HashMap<Integer, HashMap<Integer, SortedCutMatchInfo>> cutMatchInfoByLayer;
 
     public CutEngine(Shell shell) {
         this.shell = shell;
         this.flattenEngine = new FlattenEngine(shell, this);
+        cutMatchInfoByLayer = new HashMap<>();
     }
 
     MultiKeyMap<Integer, CutMatchList> cutLookup = new MultiKeyMap<>();
@@ -60,6 +66,7 @@ public class CutEngine {
         // neighbor effects where you can exit it and therefore its delta seems like an
         // np hard problem but I'm probably stupid.
         HashMap<Integer, SortedCutMatchInfo> sortedCutMatchInfoLookup = new HashMap<>();
+        cutMatchInfoByLayer.put(layerNum, sortedCutMatchInfoLookup);
         for (int i = 0; i < knotList.size(); i++) {
             VirtualPoint vp = knotList.get(i);
             if (vp.isKnot) {
@@ -94,9 +101,8 @@ public class CutEngine {
             }
         }
 
-
-        if(RunListUtils.containsID(knotList, 65)){
-            float z =0;
+        if (RunListUtils.containsID(knotList, 65)) {
+            float z = 0;
         }
         clockworkStartTime = System.currentTimeMillis();
         // Planning phase now that we have all of the cut match lists for every knot we
@@ -109,7 +115,7 @@ public class CutEngine {
         // neighbors. to achieve this it would be prudent to be able to look up cut
         // matches by what their ending cuts are this way we can get a list of all of
         // the ways we can change rotationally.
-        ///TODO 726
+        /// TODO 726
         HashMap<Integer, Clockwork> clockwork = new HashMap<>();
         int size = knotList.size();
         for (int i = 0; i < size; i++) {

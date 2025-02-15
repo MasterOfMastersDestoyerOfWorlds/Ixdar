@@ -10,7 +10,7 @@ import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.objects.PointND;
+import shell.point.PointND;
 import shell.render.Clock;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.Canvas3D;

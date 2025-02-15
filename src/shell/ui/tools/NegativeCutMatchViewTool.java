@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import shell.Toggle;
 import shell.cameras.Camera2D;
-import shell.file.Manifold;
+import shell.cuts.Manifold;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;

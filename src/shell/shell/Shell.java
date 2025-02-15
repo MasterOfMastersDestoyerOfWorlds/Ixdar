@@ -11,8 +11,8 @@ import org.apache.commons.math3.util.Pair;
 
 import shell.DistanceMatrix;
 import shell.PointSet;
-import shell.cuts.CutEngine;
-import shell.cuts.KnotEngine;
+import shell.cuts.engines.CutEngine;
+import shell.cuts.engines.KnotEngine;
 import shell.exceptions.BalancerException;
 import shell.exceptions.IdDoesNotExistException;
 import shell.exceptions.IdsNotConcurrentException;
@@ -21,7 +21,7 @@ import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.objects.PointND;
+import shell.point.PointND;
 import shell.utils.StringBuff;
 
 /**

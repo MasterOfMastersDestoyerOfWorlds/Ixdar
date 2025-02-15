@@ -1,4 +1,4 @@
-package shell.objects;
+package shell.point;
 
 import org.joml.Vector2f;
 

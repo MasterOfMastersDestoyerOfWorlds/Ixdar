@@ -22,7 +22,7 @@ public class CutMatchList implements FileStringable {
     public double delta;
     public double internalDelta;
     public Shell shell;
-    SegmentBalanceException sbe;
+    public SegmentBalanceException sbe;
     public Knot superKnot;
     public static int cutMatchListComparisons = 0;
 

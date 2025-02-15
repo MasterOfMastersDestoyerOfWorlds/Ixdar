@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 import shell.Toggle;
 import shell.cameras.Camera2D;
-import shell.file.Manifold;
+import shell.cuts.Manifold;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.text.HyperString;

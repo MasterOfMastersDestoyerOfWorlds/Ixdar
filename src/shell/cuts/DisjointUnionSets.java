@@ -5,7 +5,7 @@ import java.util.HashMap;
 
 import shell.knot.VirtualPoint;
 
-class DisjointUnionSets {
+public class DisjointUnionSets {
     HashMap<Integer, Integer> rank, parent;
 
     // Constructor
@@ -21,7 +21,7 @@ class DisjointUnionSets {
     }
 
     // Returns representative of x's set
-    int find(int x) {
+    public int find(int x) {
         // Finds the representative of the set
         // that x is an element of
         if (parent.get(x) != x) {
@@ -40,7 +40,7 @@ class DisjointUnionSets {
 
     // Unites the set that includes x and the set
     // that includes x
-    void union(int x, int y) {
+    public void union(int x, int y) {
         // Find representatives of two sets
         int xRoot = find(x), yRoot = find(y);
 

@@ -23,7 +23,7 @@ import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.objects.PointND;
+import shell.point.PointND;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFCircle;

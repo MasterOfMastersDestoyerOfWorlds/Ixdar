@@ -3,7 +3,7 @@ package shell.terminal.commands;
 import org.apache.commons.math3.util.Pair;
 
 import shell.knot.VirtualPoint;
-import shell.objects.PointND;
+import shell.point.PointND;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
 import shell.terminal.Terminal;

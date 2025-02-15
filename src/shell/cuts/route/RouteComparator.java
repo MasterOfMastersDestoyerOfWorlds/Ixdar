@@ -2,7 +2,7 @@ package shell.cuts.route;
 
 import java.util.Comparator;
 
-import shell.cuts.InternalPathEngine;
+import shell.cuts.engines.InternalPathEngine;
 
 public class RouteComparator implements Comparator<RoutePair> {
 

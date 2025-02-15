@@ -31,11 +31,11 @@ public class CutInfo {
 
     public ArrayList<Pair<Segment, VirtualPoint>> neighborCutSegments;
 
-    VirtualPoint upperCutPoint;
+    public VirtualPoint upperCutPoint;
 
-    boolean needTwoNeighborMatches;
-    boolean bothKnotPointsInside;
-    boolean bothCutPointsOutside;
+    public boolean needTwoNeighborMatches;
+    public boolean bothKnotPointsInside;
+    public boolean bothCutPointsOutside;
 
     public VirtualPoint upperKnotPoint;
     public VirtualPoint upperExternal;
@@ -43,15 +43,15 @@ public class CutInfo {
     public Segment upperMatchSegment;
 
     public VirtualPoint lowerKnotPoint;
-    VirtualPoint lowerExternal;
+    public VirtualPoint lowerExternal;
     public Segment lowerCutSegment;
     public Segment lowerMatchSegment;
     public Shell shell;
-    SegmentBalanceException sbe;
+    public SegmentBalanceException sbe;
     public VirtualPoint lowerCutPoint;
     static int numCuts = 0;
     public int cutID;
-    boolean bothKnotPointsOutside;
+    public boolean bothKnotPointsOutside;
     public BalanceMap balanceMap;
 
     public boolean partialOverlaps;

@@ -1,4 +1,4 @@
-package shell.cuts;
+package shell.cuts.engines;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -8,6 +8,9 @@ import java.util.Set;
 import org.apache.commons.math3.util.Pair;
 
 import shell.BalanceMap;
+import shell.cuts.*;
+import shell.cuts.CutInfo;
+import shell.cuts.CutMatchList;
 import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
 import shell.cuts.route.Route;

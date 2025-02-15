@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import shell.cameras.Camera2D;
-import shell.objects.PointCollection;
+import shell.point.PointCollection;
 import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.color.ColorLerp;

@@ -1,19 +1,18 @@
-package shell.file;
+package shell.cuts;
 
 import java.util.ArrayList;
 
 import org.apache.commons.math3.util.Pair;
 
 import shell.BalanceMap;
-import shell.cuts.CutInfo;
-import shell.cuts.CutMatchList;
-import shell.cuts.InternalPathEngine;
+import shell.cuts.engines.InternalPathEngine;
 import shell.cuts.enums.RouteType;
 import shell.cuts.route.Route;
 import shell.cuts.route.RouteMap;
 import shell.exceptions.BalancerException;
 import shell.exceptions.FileParseException;
 import shell.exceptions.SegmentBalanceException;
+import shell.file.FileStringable;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;

@@ -1,5 +1,6 @@
 package shell.cuts;
 
+import shell.cuts.engines.CutEngine;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
@@ -8,24 +9,24 @@ public class Clockwork {
     /**
      *
      */
-    private final CutEngine cutEngine;
-    CutInfo c;
-    CutMatchList cml;
-    CutMatch cm;
-    Clockwork prevClockwork;
-    boolean prevIsSet = false;
-    Segment prevCut;
-    VirtualPoint prevExternal;
-    VirtualPoint prevKnotPoint;
-    Double prevExternalDelta;
-    Segment prevExternalSegment;
-    Clockwork nextClockwork;
-    boolean nextIsSet = false;
-    Segment nextCut;
-    VirtualPoint nextExternal;
-    VirtualPoint nextKnotPoint;
-    Double nextExternalDelta;
-    Segment nextExternalSegment;
+    public final CutEngine cutEngine;
+    public CutInfo c;
+    public CutMatchList cml;
+    public CutMatch cm;
+    public Clockwork prevClockwork;
+    public boolean prevIsSet = false;
+    public Segment prevCut;
+    public VirtualPoint prevExternal;
+    public VirtualPoint prevKnotPoint;
+    public Double prevExternalDelta;
+    public Segment prevExternalSegment;
+    public Clockwork nextClockwork;
+    public boolean nextIsSet = false;
+    public Segment nextCut;
+    public VirtualPoint nextExternal;
+    public VirtualPoint nextKnotPoint;
+    public Double nextExternalDelta;
+    public Segment nextExternalSegment;
 
     public Clockwork(CutEngine cutEngine, CutMatchList cml, VirtualPoint next, VirtualPoint prev) {
         this.cutEngine = cutEngine;

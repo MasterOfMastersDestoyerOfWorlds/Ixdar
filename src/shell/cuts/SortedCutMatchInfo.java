@@ -8,10 +8,10 @@ import shell.cuts.route.RouteMap;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 
-class SortedCutMatchInfo {
-    ArrayList<CutMatchList> sortedCutMatchLists;
+public class SortedCutMatchInfo {
+    public ArrayList<CutMatchList> sortedCutMatchLists;
     HashMap<Long, ArrayList<CutMatchList>> sortedCutMatchListsBySegment;
-    HashMap<Integer, ArrayList<CutMatchList>> sortedCutMatchListsByKnotPoint;
+    public HashMap<Integer, ArrayList<CutMatchList>> sortedCutMatchListsByKnotPoint;
     public HashMap<Long, HashMap<Long, RouteMap>> routeMapBySegmentId;
 
     public SortedCutMatchInfo() {

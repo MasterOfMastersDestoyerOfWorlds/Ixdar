@@ -8,7 +8,7 @@ import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.VirtualPoint;
-import shell.objects.PointND;
+import shell.point.PointND;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
 import shell.ui.Drawing;

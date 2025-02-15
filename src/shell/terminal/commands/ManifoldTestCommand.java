@@ -5,10 +5,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 import shell.Toggle;
+import shell.cuts.Manifold;
 import shell.exceptions.SegmentBalanceException;
 import shell.file.FileManagement;
-import shell.file.Manifold;
-import shell.objects.PointND;
+import shell.point.PointND;
 import shell.shell.Shell;
 import shell.terminal.Terminal;
 import shell.ui.main.Main;

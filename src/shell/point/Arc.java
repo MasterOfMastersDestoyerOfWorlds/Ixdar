@@ -1,4 +1,4 @@
-package shell.objects;
+package shell.point;
 
 import java.util.ArrayList;
 

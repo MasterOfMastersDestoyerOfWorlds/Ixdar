@@ -20,7 +20,7 @@
 
 //As far as I know the above is not feasible since we have not figure out how to make the hole moving game into a positive weight graph. Few other things to try: There may be some sense in which the hole-moving game forms a Directed Acyclic Graph in which we could find the linear time shortest path once we formed the dag, but enumerating all of the branches that don't form cycles would take lot of space and time. Alternatively, if we could re-weight the graph into a positive weight graph or have the starting point marked as -Inf weight in the priority queue we might still be able to reuse other djikstra calls. I think we need some way to compare route maps in code and break on their difference (see route comparison tool to start)
 
-9. - [x] Figure out how to share shortest path info from a cut to it's flipped version where the ending cutsegment is in the disconnected orientation .
+1. - [x] Figure out how to share shortest path info from a cut to it's flipped version where the ending cutsegment is in the disconnected orientation .
 
 //this only works some fraction of the time, depending on wether the answer touches the ending cut segment, at this point it is hard to tell when this occurs
 
@@ -72,7 +72,7 @@
 
 3. - [ ] Need to separate the UI thread from the Knot Engine thread so that the graphics don't freeze and we can show progress towards the solution with a loading bar and other info
 
-4. - [ ] Animation -  have a building a knot animation on file open that goes from the bottom knots to the top knots by replaying the chosen cut matches at each layer. should be relatively quick, no longer than a second, and disabled by a toggle.
+4. - [ ] Animation - have a building a knot animation on file open that goes from the bottom knots to the top knots by replaying the chosen cut matches at each layer. should be relatively quick, no longer than a second, and disabled by a toggle.
 
 ## Tools
 
@@ -172,7 +172,7 @@
 
 3. - [x] Bezier curve animation behind terminal as fast fluid sim?
 
-5. - [ ] Typing should bring up a tooltip about the the terminal with the commands that have the right letters
+4. - [ ] Typing should bring up a tooltip about the the terminal with the commands that have the right letters
 
 ## Info Panel
 
@@ -301,6 +301,7 @@
 3. quantity in units/hectares/month produces
 
 4. replenish rate in units/hectares/month
+
 5. discovery chance in percent chance to find/hectare
 6. discovered resource amount range following a prato distribution
 7. cost to explore a hectare

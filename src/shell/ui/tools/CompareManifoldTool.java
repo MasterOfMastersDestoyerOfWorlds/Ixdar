@@ -7,9 +7,9 @@ import org.apache.commons.math3.util.Pair;
 
 import shell.Toggle;
 import shell.cameras.Camera2D;
+import shell.cuts.Manifold;
 import shell.cuts.route.Route;
 import shell.exceptions.SegmentBalanceException;
-import shell.file.Manifold;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
