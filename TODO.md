@@ -114,9 +114,19 @@
 
 1. - [ ] Make a tool that shows the user which of the half segment pairs have low enough external travel cost to check their internal cost, when compared to the lowest simple cut.
 
-2. - [ ] Should display the lowest simple cut when not hovering.
+2. - [ ] Should have a gradient of colors depending on its distance to the lowest(Green) and highest (Red), (Ixdar Dark for uncalculated) length cutmatches on the manifold
 
-3. - [ ] Should display all the pairs that could be possible as well as the dashed line to it's external value.
+3. - [ ] Should also be able to display the number of cuts and matches with the same gradient? Should at least display this info in the Info Panel
+
+4. - [ ] Selecting a specific starting half segment should change the gradient to all of the cutmatches that start at the starting half segment and end at their half segment
+
+5. - [ ] hovering with one already selected should display the shortest route to the second cut.
+
+6. - [ ] The inc and dec keys should behave normally so we need to support looking at subknots.
+
+7. - [ ] Should display the lowest simple cut when not hovering.
+
+8. - [ ] Should display all the pairs that could be possible as well as the dashed line to it's external value.
 
 ### Negative CutMatch View Tool
 
@@ -303,7 +313,9 @@
 4. replenish rate in units/hectares/month
 
 5. discovery chance in percent chance to find/hectare
+
 6. discovered resource amount range following a prato distribution
+
 7. cost to explore a hectare
 8. percent of explored land for that resource
 9. which hectares have been explored
