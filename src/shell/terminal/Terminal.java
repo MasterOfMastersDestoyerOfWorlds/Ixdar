@@ -82,7 +82,7 @@ public class Terminal {
         }
         if (pointCollectionList == null) {
             pointCollectionList = new ArrayList<>();
-            loadClassType("shell.objects", pointCollectionList, pointCollectionClassMap, PointCollection.class);
+            loadClassType("shell.point", pointCollectionList, pointCollectionClassMap, PointCollection.class);
         }
 
     }

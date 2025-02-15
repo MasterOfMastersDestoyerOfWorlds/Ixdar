@@ -40,11 +40,13 @@ public class CutEngine {
     public FlattenEngine flattenEngine;
     public int totalLayers = -1;
     public HashMap<Integer, HashMap<Integer, SortedCutMatchInfo>> cutMatchInfoByLayer;
+    public HashMap<Integer, SortedCutMatchInfo> sortedCutMatchInfoLookup;
 
     public CutEngine(Shell shell) {
         this.shell = shell;
         this.flattenEngine = new FlattenEngine(shell, this);
         cutMatchInfoByLayer = new HashMap<>();
+        sortedCutMatchInfoLookup = new HashMap<>();
     }
 
     MultiKeyMap<Integer, CutMatchList> cutLookup = new MultiKeyMap<>();
@@ -62,10 +64,6 @@ public class CutEngine {
         // (K*S)^2 (where K is the number of knots in the level and S is the maximum
         // number of segments in any of the knots manifolds) to find the correct cut
         // for each knot at the level. Each Knot only has to worry about its neighbors.
-        // unclear exactly how to decide the shortest given that how you enter a
-        // neighbor effects where you can exit it and therefore its delta seems like an
-        // np hard problem but I'm probably stupid.
-        HashMap<Integer, SortedCutMatchInfo> sortedCutMatchInfoLookup = new HashMap<>();
         cutMatchInfoByLayer.put(layerNum, sortedCutMatchInfoLookup);
         for (int i = 0; i < knotList.size(); i++) {
             VirtualPoint vp = knotList.get(i);
@@ -115,7 +113,6 @@ public class CutEngine {
         // neighbors. to achieve this it would be prudent to be able to look up cut
         // matches by what their ending cuts are this way we can get a list of all of
         // the ways we can change rotationally.
-        /// TODO 726
         HashMap<Integer, Clockwork> clockwork = new HashMap<>();
         int size = knotList.size();
         for (int i = 0; i < size; i++) {

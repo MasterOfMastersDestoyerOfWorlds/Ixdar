@@ -5,12 +5,16 @@ import java.util.Collections;
 import java.util.HashMap;
 
 import shell.cuts.route.RouteMap;
+import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.ui.main.Main;
 
 public class SortedCutMatchInfo {
     public ArrayList<CutMatchList> sortedCutMatchLists;
-    HashMap<Long, ArrayList<CutMatchList>> sortedCutMatchListsBySegment;
+    double minShortestDeltaBySegment;
+    double maxShortestDeltaBySegment;
+    public HashMap<Long, ArrayList<CutMatchList>> sortedCutMatchListsBySegment;
     public HashMap<Integer, ArrayList<CutMatchList>> sortedCutMatchListsByKnotPoint;
     public HashMap<Long, HashMap<Long, RouteMap>> routeMapBySegmentId;
 
@@ -19,14 +23,17 @@ public class SortedCutMatchInfo {
         sortedCutMatchListsBySegment = new HashMap<>();
         sortedCutMatchListsByKnotPoint = new HashMap<>();
         routeMapBySegmentId = new HashMap<>();
+        minShortestDeltaBySegment = Double.MAX_VALUE;
+        maxShortestDeltaBySegment = Double.MIN_VALUE;
     }
 
     public void add(CutMatchList cutMatch, Segment cutSegment, VirtualPoint knotPoint) {
         sortedCutMatchLists.add(cutMatch);
-        ArrayList<CutMatchList> segmentList = sortedCutMatchListsBySegment.getOrDefault(cutSegment.id,
+        long orderedSegmentId = Segment.idTransformOrdered(cutSegment, knotPoint);
+        ArrayList<CutMatchList> segmentList = sortedCutMatchListsBySegment.getOrDefault(orderedSegmentId,
                 new ArrayList<>());
         segmentList.add(cutMatch);
-        sortedCutMatchListsBySegment.put(cutSegment.id, segmentList);
+        sortedCutMatchListsBySegment.put(orderedSegmentId, segmentList);
 
         ArrayList<CutMatchList> knotPointList = sortedCutMatchListsByKnotPoint.getOrDefault(knotPoint.id,
                 new ArrayList<>());
@@ -38,9 +45,57 @@ public class SortedCutMatchInfo {
         Collections.sort(sortedCutMatchLists, new CutMatchList.CutMatchListComparator());
         for (ArrayList<CutMatchList> lst : sortedCutMatchListsBySegment.values()) {
             Collections.sort(lst, new CutMatchList.CutMatchListComparator());
+            CutMatchList shortest = lst.get(0);
+            if (shortest.delta < minShortestDeltaBySegment) {
+                minShortestDeltaBySegment = shortest.delta;
+            }
+            if (shortest.delta > maxShortestDeltaBySegment) {
+                maxShortestDeltaBySegment = shortest.delta;
+            }
         }
         for (ArrayList<CutMatchList> lst : sortedCutMatchListsByKnotPoint.values()) {
             Collections.sort(lst, new CutMatchList.CutMatchListComparator());
         }
+    }
+
+    public static CutMatchList findCutMatchList(VirtualPoint startCP, VirtualPoint startKP, VirtualPoint displayCP,
+            VirtualPoint displayKP, Knot displayKnot) {
+        HashMap<Integer, SortedCutMatchInfo> cutMatchLookup = Main.shell.cutEngine.sortedCutMatchInfoLookup;
+        SortedCutMatchInfo cutMatchInfo = cutMatchLookup.get(displayKnot.id);
+        Long segmentId = Segment.idTransformOrdered(startCP.id, startKP.id);
+        ArrayList<CutMatchList> cmls = cutMatchInfo.sortedCutMatchListsBySegment.get(segmentId);
+        for (CutMatchList cml : cmls) {
+            CutMatch cm = cml.cutMatches.get(0);
+            if (cm.c.upperCutPoint.id == displayCP.id && cm.c.upperKnotPoint.id == displayKP.id) {
+                return cml;
+            }
+        }
+        return null;
+    }
+
+    public static CutMatchList findCutMatchList(VirtualPoint displayCP, VirtualPoint displayKP) {
+        HashMap<Integer, SortedCutMatchInfo> cutMatchLookup = Main.shell.cutEngine.sortedCutMatchInfoLookup;
+        Knot displayKnot = null;
+        for (Knot k : Main.knotsDisplayed) {
+            if (k.contains(displayCP)) {
+                displayKnot = k;
+                break;
+            }
+        }
+        if (displayKnot == null) {
+            return null;
+        }
+        SortedCutMatchInfo cutMatchInfo = cutMatchLookup.get(displayKnot.id);
+        Long segmentId = Segment.idTransformOrdered(displayCP.id, displayKP.id);
+        ArrayList<CutMatchList> cmls = cutMatchInfo.sortedCutMatchListsBySegment.get(segmentId);
+        return cmls.get(0);
+    }
+
+    public double getMinShortestBySegment() {
+        return minShortestDeltaBySegment;
+    }
+
+    public double getMaxShortestBySegment() {
+        return maxShortestDeltaBySegment;
     }
 }

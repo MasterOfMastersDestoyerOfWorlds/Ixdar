@@ -61,7 +61,6 @@ public class CompareManifoldTool extends Tool {
     public VirtualPoint betaEndCP;
     public Manifold betaManifold;
 
-    public HashMap<Long, ArrayList<Segment>> negativeSegmentMap;
     HashMap<Long, Integer> colorLookup;
     public static ArrayList<Color> colors;
 
@@ -228,7 +227,6 @@ public class CompareManifoldTool extends Tool {
 
     public void initSegmentMap() {
         manifoldKnot = Main.manifoldKnot;
-        negativeSegmentMap = new HashMap<>();
         colorLookup = new HashMap<>();
         Knot k = manifoldKnot;
         if (state != States.Compare) {
@@ -338,7 +336,17 @@ public class CompareManifoldTool extends Tool {
     }
 
     @Override
-    public void increaseViewLayer() {
+    public void increaseViewLayer(){
+        cycleToolLayerNext();
+    }
+
+    @Override
+    public void decreaseViewLayer(){
+        cycleToolLayerPrev();
+    }
+
+    @Override
+    public void cycleToolLayerNext() {
         RouteView[] routeViews = RouteView.values();
         routeView = routeView.ordinal() + 1 >= routeViews.length ? routeViews[0] : routeViews[routeView.ordinal() + 1];
         initSegmentMap();
@@ -346,7 +354,7 @@ public class CompareManifoldTool extends Tool {
     }
 
     @Override
-    public void decreaseViewLayer() {
+    public void cycleToolLayerPrev() {
         RouteView[] routeViews = RouteView.values();
         routeView = routeView.ordinal() - 1 < 0 ? routeViews[routeViews.length - 1]
                 : routeViews[routeView.ordinal() - 1];

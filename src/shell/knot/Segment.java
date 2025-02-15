@@ -210,6 +210,13 @@ public class Segment implements Comparable<Segment> {
         return (a + b) * (a + b + 1) / 2 + b;
     }
 
+    public static long idTransformOrdered(Segment cutSegment, VirtualPoint knotPoint) {
+        VirtualPoint cutPoint = cutSegment.getOther(knotPoint);
+        long a = cutPoint.id;
+        long b = knotPoint.id;
+        return (a + b) * (a + b + 1) / 2 + b;
+    }
+
     public static long idTransformOrdered(long a, long b) {
         return (a + b) * (a + b + 1) / 2 + b;
     }
@@ -289,7 +296,7 @@ public class Segment implements Comparable<Segment> {
         }
         str += "[" + first.id + ":" + last.id + "]";
         if (labelDistance) {
-            str += ", " + String.format("%.2f", this.distance) ;
+            str += ", " + String.format("%.2f", this.distance);
         }
         h.addHoverSegment(str, color, this, clickAction);
         return h;

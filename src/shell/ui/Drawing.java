@@ -15,6 +15,7 @@ import shell.DistanceMatrix;
 import shell.PointSet;
 import shell.cameras.Camera;
 import shell.cameras.Camera2D;
+import shell.cuts.CutInfo;
 import shell.cuts.CutMatch;
 import shell.cuts.CutMatchList;
 import shell.cuts.route.Route;
@@ -149,6 +150,15 @@ public class Drawing {
 
             }
         }
+
+    }
+
+    public static void drawCutMatch(CutMatchList cml, float lineThickness,
+            PointSet ps, Camera2D camera) {
+        CutInfo c = cml.cutMatches.get(0).c;
+        drawCutMatch(cml, c.lowerCutSegment, c.upperCutSegment, c.lowerMatchSegment, c.upperMatchSegment, c.knot,
+                lineThickness,
+                ps, camera);
 
     }
 
@@ -404,6 +414,30 @@ public class Drawing {
 
     }
 
+    public static void drawGradientPath(Knot k, ArrayList<Pair<Long, Long>> lookupPairs,
+            HashMap<Long, Color> colorLookup, Camera2D camera, float minLineThickness) {
+
+        sdfLine.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false);
+        for (int i = 0; i < k.manifoldSegments.size(); i++) {
+            Segment s = k.manifoldSegments.get(i);
+            if (lookupPairs != null) {
+                Pair<Long, Long> lookUpPair = lookupPairs.get(i);
+
+                if (colorLookup.containsKey(lookUpPair.getFirst())) {
+                    Drawing.drawGradientSegment(s, colorLookup.get(lookUpPair.getFirst()),
+                            colorLookup.get(lookUpPair.getSecond()),
+                            camera);
+                }
+            } else {
+                if (colorLookup.containsKey((long) s.first.id)) {
+                    Drawing.drawGradientSegment(s, colorLookup.get((long) s.first.id),
+                            colorLookup.get((long) s.last.id),
+                            camera);
+                }
+            }
+        }
+    }
+
     public static void drawSingleCutMatch(Main main, Segment matchSegment,
             Segment cutSegment, float lineThickness,
             PointSet ps, Camera2D camera) {
@@ -429,6 +463,7 @@ public class Drawing {
         sdfLine.setStroke(lineThickness, false);
         circle.draw(new Vector2f(cameraPoint.x, cameraPoint.y), CIRCLE_RADIUS * camera.ScaleFactor, color, camera);
     }
+
     public static void drawCircle(Vector2f cameraPoint, Color color, Camera camera,
             float lineThickness) {
         sdfLine.setStroke(lineThickness, false);

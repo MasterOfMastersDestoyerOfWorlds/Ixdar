@@ -20,7 +20,8 @@ public enum Toggle {
     IxdarMirrorAnswerSharing(false, "ixdarFlip"),
     IxdarRotationalAnswerSharing(false, "ixdarRot"),
     IxdarCheckMirroredAnswerSharing(true, "checkAns"),
-    SnapToGrid(true, "gridSnap");
+    SnapToGrid(true, "gridSnap"),
+    CanSwitchTopLayer(true, "topLayer");
 
     public boolean value;
     public String shortName;

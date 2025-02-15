@@ -32,6 +32,7 @@ public enum KeyActions {
     SaveAs(true, GLFW_KEY_Q),
     Find(true, GLFW_KEY_F),
     Compare(true, GLFW_KEY_C),
+    KnotSurfaceView(true, GLFW_KEY_V),
     EditManifold(true, GLFW_KEY_E),
     NegativeCutMatchViewTool(true, GLFW_KEY_N),
     ControlMask(GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL),

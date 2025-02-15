@@ -283,6 +283,9 @@ public abstract class Tool {
                     Main.manifoldIdx = 0;
                 }
             } else {
+                if (!canUseToggle(Toggle.CanSwitchTopLayer) && Main.knotDrawLayer == Main.totalLayers - 1) {
+                    return;
+                }
                 Main.knotDrawLayer++;
                 if (Main.knotDrawLayer > Main.totalLayers) {
                     Main.knotDrawLayer = Main.totalLayers;
@@ -314,6 +317,14 @@ public abstract class Tool {
                 Main.updateKnotsDisplayed();
             }
         }
+    }
+
+    public void cycleToolLayerPrev() {
+        decreaseViewLayer();
+    }
+
+    public void cycleToolLayerNext() {
+        increaseViewLayer();
     }
 
     public abstract String displayName();
