@@ -18,7 +18,6 @@ import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.shell.Shell;
-import shell.utils.RunListUtils;
 
 public class CutEngine {
 
@@ -99,9 +98,6 @@ public class CutEngine {
             }
         }
 
-        if (RunListUtils.containsID(knotList, 65)) {
-            float z = 0;
-        }
         clockworkStartTime = System.currentTimeMillis();
         // Planning phase now that we have all of the cut match lists for every knot we
         // need to align which cut match list is used for what knot. We do this in the

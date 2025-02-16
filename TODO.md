@@ -116,23 +116,25 @@
 
 2. - [x] Should have a gradient of colors depending on its distance to the lowest(Green) and highest (Red) length cutmatches on the manifold
 
-3. - [ ] Should have a view mode that distinguishes between half Segments that were skipped versus calculated (color calculated ones blue and uncalculated dark ixdar)
+3. - [x] Should have a view mode that distinguishes between half Segments that were skipped versus calculated (color calculated ones blue and uncalculated dark ixdar)
 
-4. - [ ] Should Color the half segments that were actually chosen in Blue.
+4. - [x] Should make a toggle that ignores simple cuts (cut has two knot points)
 
-5. - [ ] Should also be able to display the number of cuts and matches with the same gradient? Should at least display this info in the Info Pan
+5. - [ ] Should Color the half segments that were actually chosen in Blue.
 
-6. - [x] hovering with none already selected should display the shortest cutmatch list on that starting half segment.
+6. - [ ] Should also be able to display the number of cuts and matches with the same gradient? Should at least display this info in the Info Pan
 
-7. - [ ] Selecting a specific starting half segment should change the gradient to all of the cutmatches that start at the starting half segment and end at their half segment
+7. - [x] hovering with none already selected should display the shortest cutmatch list on that starting half segment.
 
-8. - [ ] Selecting a second segment should lock that cut match list as the display one
+8. - [ ] Selecting a specific starting half segment should change the gradient to all of the cutmatches that start at the starting half segment and end at their half segment
 
-9. - [ ] hovering with one already selected should display the shortest route to the second cut.
+9. - [ ] Selecting a second segment should lock that cut match list as the display one
 
-10. - [x] The inc and dec keys should behave normally so we need to support looking at subknots.
+10. - [ ] hovering with one already selected should display the shortest route to the second cut.
 
-11. - [x] The tool cycle key should switch between path length, ixdar skip and cutmatch count length.
+11. - [x] The inc and dec keys should behave normally so we need to support looking at subknots.
+
+12. - [x] The tool cycle key should switch between path length, ixdar skip and cutmatch count length.
 
 ### Negative CutMatch View Tool
 

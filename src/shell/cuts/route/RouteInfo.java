@@ -74,10 +74,6 @@ public class RouteInfo {
 
     public void assignGroup(ArrayList<VirtualPoint> ourGroup, ArrayList<VirtualPoint> otherGroup)
             throws SegmentBalanceException {
-
-        if (c.cutID == 1881) {
-            float z = 0;
-        }
         for (int i = 0; i < routes.length; i++) {
             Route route = routes[i];
             if (!route.needToCalculateGroups && route.ancestor == null) {
@@ -102,8 +98,7 @@ public class RouteInfo {
                     }
                     r = this.parent.get(r.ancestor.id).getRoute(r.ancestorRouteType);
                     if (k > max) {
-                        float ix = 0;
-                        // throw new SegmentBalanceException(parent.c);
+                        throw new AssertionError();
                     }
                     k++;
                 }

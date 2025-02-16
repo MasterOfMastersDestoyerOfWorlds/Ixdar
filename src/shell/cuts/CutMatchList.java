@@ -686,11 +686,11 @@ public class CutMatchList implements FileStringable {
     @Override
     public String toFileString() {
         String fileString = "CUTMATCH CUTS ";
-        for (Segment s : this.cutMatches.get(0).cutSegments) {
+        for (Segment s : this.getCutMatch().cutSegments) {
             fileString += s.first + " " + s.last + " ";
         }
         fileString += "MATCHES ";
-        for (Segment s : this.cutMatches.get(0).matchSegments) {
+        for (Segment s : this.getCutMatch().matchSegments) {
             fileString += s.first + " " + s.last + " ";
         }
         return fileString;
@@ -724,9 +724,9 @@ public class CutMatchList implements FileStringable {
         Segment kp2n2 = other.getSegment(cm.kp2);
         Segment kp2n1 = neighbor.getSegment(cm.kp2);
         Segment kp1n2 = other.getSegment(cm.kp1);
-        if(kp1n1.distance + kp2n2.distance < kp2n1.distance + kp1n2.distance){
+        if (kp1n1.distance + kp2n2.distance < kp2n1.distance + kp1n2.distance) {
             return cm.kp1;
-        }else{
+        } else {
             return cm.kp2;
         }
     }
@@ -739,6 +739,10 @@ public class CutMatchList implements FileStringable {
             return cm.kp1;
         }
         return null;
+    }
+
+    public CutMatch getCutMatch() {
+        return this.cutMatches.get(0);
     }
 
 }

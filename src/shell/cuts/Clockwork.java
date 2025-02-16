@@ -31,7 +31,7 @@ public class Clockwork {
     public Clockwork(CutEngine cutEngine, CutMatchList cml, VirtualPoint next, VirtualPoint prev) {
         this.cutEngine = cutEngine;
         this.cml = cml;
-        this.cm = cml.cutMatches.get(0);
+        this.cm = cml.getCutMatch();
         this.c = cm.c;
         if (next.contains(c.upperExternal)) {
             prevCut = c.lowerCutSegment;
@@ -113,14 +113,14 @@ public class Clockwork {
             nextCw.prevExternalDelta = nextCw.cost(this, false);
         }
         this.cml = cutMatchList;
-        this.cm = cutMatchList.cutMatches.get(0);
+        this.cm = cutMatchList.getCutMatch();
         this.c = this.cm.c;
         this.prevCut = this.cm.c.getCutSegmentFromKnotPoint(prevKnotPoint);
         this.nextCut = this.cm.c.getCutSegmentFromKnotPoint(nextKnotPoint);
         this.prevIsSet = true;
         this.prevExternalSegment = prevKnotPoint.getSegment(prevExternal);
         prevCw.cml = prevCutMatchList;
-        prevCw.cm = prevCutMatchList.cutMatches.get(0);
+        prevCw.cm = prevCutMatchList.getCutMatch();
         prevCw.c = prevCw.cm.c;
         prevCw.prevCut = prevCw.c.getCutSegmentFromKnotPoint(prevCw.prevKnotPoint);
         prevCw.nextClockwork = this;
@@ -154,14 +154,14 @@ public class Clockwork {
             prevCw.nextExternalDelta = prevCw.cost(this, false);
         }
         this.cml = cutMatchList;
-        this.cm = cutMatchList.cutMatches.get(0);
+        this.cm = cutMatchList.getCutMatch();
         this.c = this.cm.c;
         this.nextCut = this.cm.c.getCutSegmentFromKnotPoint(nextKnotPoint);
         this.prevCut = this.cm.c.getCutSegmentFromKnotPoint(prevKnotPoint);
         this.nextIsSet = true;
         this.nextExternalSegment = nextKnotPoint.getSegment(nextExternal);
         nextCw.cml = nextCutMatchList;
-        nextCw.cm = nextCutMatchList.cutMatches.get(0);
+        nextCw.cm = nextCutMatchList.getCutMatch();
         nextCw.c = nextCw.cm.c;
         nextCw.nextCut = nextCw.c.getCutSegmentFromKnotPoint(nextCw.nextKnotPoint);
         nextCw.prevClockwork = this;

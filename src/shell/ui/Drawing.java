@@ -155,7 +155,7 @@ public class Drawing {
 
     public static void drawCutMatch(CutMatchList cml, float lineThickness,
             PointSet ps, Camera2D camera) {
-        CutInfo c = cml.cutMatches.get(0).c;
+        CutInfo c = cml.getCutMatch().c;
         drawCutMatch(cml, c.lowerCutSegment, c.upperCutSegment, c.lowerMatchSegment, c.upperMatchSegment, c.knot,
                 lineThickness,
                 ps, camera);

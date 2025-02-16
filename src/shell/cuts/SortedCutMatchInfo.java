@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 
+import shell.Toggle;
 import shell.cuts.route.RouteMap;
 import shell.knot.Knot;
 import shell.knot.Segment;
@@ -65,7 +66,7 @@ public class SortedCutMatchInfo {
         Long segmentId = Segment.idTransformOrdered(startCP.id, startKP.id);
         ArrayList<CutMatchList> cmls = cutMatchInfo.sortedCutMatchListsBySegment.get(segmentId);
         for (CutMatchList cml : cmls) {
-            CutMatch cm = cml.cutMatches.get(0);
+            CutMatch cm = cml.getCutMatch();
             if (cm.c.upperCutPoint.id == displayCP.id && cm.c.upperKnotPoint.id == displayKP.id) {
                 return cml;
             }
@@ -87,8 +88,25 @@ public class SortedCutMatchInfo {
         }
         SortedCutMatchInfo cutMatchInfo = cutMatchLookup.get(displayKnot.id);
         Long segmentId = Segment.idTransformOrdered(displayCP.id, displayKP.id);
+        return findCutMatchList(segmentId, cutMatchInfo);
+    }
+
+    public static CutMatchList findCutMatchList(Long segmentId, SortedCutMatchInfo cutMatchInfo) {
         ArrayList<CutMatchList> cmls = cutMatchInfo.sortedCutMatchListsBySegment.get(segmentId);
-        return cmls.get(0);
+        if (Toggle.KnotSurfaceViewSimpleCut.value) {
+            return cmls.get(0);
+        } else {
+            CutMatchList retVal = null;
+            for (CutMatchList cml : cmls) {
+                CutMatch cm = cml.getCutMatch();
+                if (cm.cutSegments.size() == 1) {
+                    continue;
+                }
+                retVal = cml;
+                break;
+            }
+            return retVal;
+        }
     }
 
     public double getMinShortestBySegment() {

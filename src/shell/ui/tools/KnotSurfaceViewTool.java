@@ -1,6 +1,5 @@
 package shell.ui.tools;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 
 import shell.Toggle;
@@ -200,18 +199,21 @@ public class KnotSurfaceViewTool extends Tool {
                 for (Segment s : k.manifoldSegments) {
                     long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
                     long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
-                    ArrayList<CutMatchList> lists = cutMatchInfo.sortedCutMatchListsBySegment.get(matchId);
-                    if (lists == null) {
+                    CutMatchList shortest = SortedCutMatchInfo.findCutMatchList(matchId, cutMatchInfo);
+                    if (shortest == null) {
                         colorLookup.put(matchId2, notCalculated);
                     } else {
-                        CutMatchList shortest = lists.get(0);
                         double colorOffset = (shortest.delta - min) / range;
                         colorLookup.put(matchId2, new ColorFixedLerp(lowestColor, highestColor, (float) colorOffset));
                     }
 
-                    CutMatchList shortest2 = cutMatchInfo.sortedCutMatchListsBySegment.get(matchId2).get(0);
-                    double colorOffset2 = (shortest2.delta - min) / range;
-                    colorLookup.put(matchId, new ColorFixedLerp(lowestColor, highestColor, (float) colorOffset2));
+                    CutMatchList shortest2 = SortedCutMatchInfo.findCutMatchList(matchId2, cutMatchInfo);
+                    if (shortest2 == null) {
+                        colorLookup.put(matchId, notCalculated);
+                    } else {
+                        double colorOffset2 = (shortest2.delta - min) / range;
+                        colorLookup.put(matchId, new ColorFixedLerp(lowestColor, highestColor, (float) colorOffset2));
+                    }
                 }
             }
         } else if (state == States.StartSelected) {

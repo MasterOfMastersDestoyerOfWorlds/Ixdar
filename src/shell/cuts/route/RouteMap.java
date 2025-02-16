@@ -12,10 +12,10 @@ public class RouteMap extends HashMap<Integer, RouteInfo> {
             VirtualPoint upperKnotPoint, CutInfo c) {
         this.c = c;
         if (c.lowerKnotPoint.id != routeMapToCopy.c.lowerKnotPoint.id) {
-            float z = 1/0;
+            throw new AssertionError();
         }
         if (c.lowerCutPoint.id != routeMapToCopy.c.lowerCutPoint.id) {
-            float z = 1/0;
+            throw new AssertionError();
         }
         for (Integer key : routeMapToCopy.keySet()) {
             RouteInfo r = routeMapToCopy.get(key);

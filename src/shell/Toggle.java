@@ -21,7 +21,8 @@ public enum Toggle {
     IxdarRotationalAnswerSharing(false, "ixdarRot"),
     IxdarCheckMirroredAnswerSharing(true, "checkAns"),
     SnapToGrid(true, "gridSnap"),
-    CanSwitchTopLayer(true, "topLayer");
+    CanSwitchTopLayer(true, "topLayer"),
+    KnotSurfaceViewSimpleCut(false, "ksvSimpleCut");
 
     public boolean value;
     public String shortName;
