@@ -18,6 +18,7 @@ public class SortedCutMatchInfo {
     public HashMap<Long, ArrayList<CutMatchList>> sortedCutMatchListsBySegment;
     public HashMap<Integer, ArrayList<CutMatchList>> sortedCutMatchListsByKnotPoint;
     public HashMap<Long, HashMap<Long, RouteMap>> routeMapBySegmentId;
+    public Clockwork cw;
 
     public SortedCutMatchInfo() {
         sortedCutMatchLists = new ArrayList<>();
@@ -26,6 +27,7 @@ public class SortedCutMatchInfo {
         routeMapBySegmentId = new HashMap<>();
         minShortestDeltaBySegment = Double.MAX_VALUE;
         maxShortestDeltaBySegment = Double.MIN_VALUE;
+        cw = null;
     }
 
     public void add(CutMatchList cutMatch, Segment cutSegment, VirtualPoint knotPoint) {
@@ -92,7 +94,13 @@ public class SortedCutMatchInfo {
     }
 
     public static CutMatchList findCutMatchList(Long segmentId, SortedCutMatchInfo cutMatchInfo) {
+        if (cutMatchInfo == null) {
+            return null;
+        }
         ArrayList<CutMatchList> cmls = cutMatchInfo.sortedCutMatchListsBySegment.get(segmentId);
+        if (cmls == null) {
+            return null;
+        }
         if (Toggle.KnotSurfaceViewSimpleCut.value) {
             return cmls.get(0);
         } else {

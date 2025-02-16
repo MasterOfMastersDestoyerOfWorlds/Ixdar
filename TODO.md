@@ -120,17 +120,17 @@
 
 4. - [x] Should make a toggle that ignores simple cuts (cut has two knot points)
 
-5. - [ ] Should Color the half segments that were actually chosen in Blue.
+5. - [x] Should Color the half segments that were actually chosen in Blue.
 
-6. - [ ] Should also be able to display the number of cuts and matches with the same gradient? Should at least display this info in the Info Pan
+6. - [x] Should also be able to display the number of cuts and matches with the same gradient? Should at least display this info in the Info Pan
 
 7. - [x] hovering with none already selected should display the shortest cutmatch list on that starting half segment.
 
 8. - [x] Selecting a specific starting half segment should change the gradient to all of the cutmatches that start at the starting half segment and end at their half segment
 
-9. - [ ] Selecting a second segment should lock that cut match list as the display one
+9. - [ ] Need to display the actual knot distance
 
-10. - [ ] hovering with one already selected should display the shortest route to the second cut.
+10. - [x] hovering with one already selected should display the shortest route to the second cut.
 
 11. - [x] The inc and dec keys should behave normally so we need to support looking at subknots.
 

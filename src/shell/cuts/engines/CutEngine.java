@@ -117,8 +117,10 @@ public class CutEngine {
             VirtualPoint next = knotList.get(Math.floorMod(i + 1, size));
             if (vp.isKnot) {
                 if (!clockwork.containsKey(vp.id)) {
-                    CutMatchList currCML = sortedCutMatchInfoLookup.get(vp.id).sortedCutMatchLists.get(0);
+                    SortedCutMatchInfo scmi = sortedCutMatchInfoLookup.get(vp.id);
+                    CutMatchList currCML = scmi.sortedCutMatchLists.get(0);
                     Clockwork cw = new Clockwork(this, currCML, next, prev);
+                    scmi.cw = cw;
                     clockwork.put(vp.id, cw);
                 }
             }

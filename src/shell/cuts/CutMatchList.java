@@ -619,16 +619,6 @@ public class CutMatchList implements FileStringable {
             }
         }
 
-        // TODO: NEED TO CHECK THAT IF WE TRAVERSE FROM KNOT POINT TO KNOT POINT TAT WE
-        // HIT ALL OF THE INTERNAL POINTS,
-        // BASICALLY CAN'tHAVE MUTLIPLE CYCLES< UNSURE HOW TO CHECK WITH OUT FORMING A
-        // NEW KNOT
-        if (flag)
-
-        {
-
-        }
-
         if (!flag) {
             shell.buff.add(printBalance, this);
             shell.buff.add(printBalance, balance);
@@ -777,8 +767,14 @@ public class CutMatchList implements FileStringable {
 
         int internalCount = Math.max(internalCutCount, internalMatchCount);
         h.newLine();
-        h.addLine("CutMatch Count: " + internalCount, Color.BLUE_WHITE);
-        h.addLine("KnotDistance: " + cm.c.knotDistance(), Color.BLUE_WHITE);
+        h.addWord("MatchCount: ", matchColor);
+        h.addLine(internalCount + "", Color.COMMAND);
+        h.addWord("KnotDistance: ", matchColor);
+        h.addLine(cm.c.knotDistance() + "", Color.COMMAND);
+        h.addWord("Delta: ", matchColor);
+        h.addLine(String.format("%.2f", delta), Color.COMMAND);
+        h.addWord("IntDelta: ", matchColor);
+        h.addLine(String.format("%.2f", internalDelta) + "", Color.COMMAND);
         return h;
     }
 

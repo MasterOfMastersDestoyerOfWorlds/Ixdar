@@ -58,7 +58,8 @@ public class KnotSurfaceViewTool extends Tool {
 
     final static Color lowestColor = Color.GREEN;
     final static Color highestColor = Color.RED;
-    final static Color notCalculated = Color.DARK_IXDAR;
+    final static Color chosenColor = Color.BLUE;
+    final static Color notCalculatedColor = Color.DARK_IXDAR;
 
     final static Color externalMatchColor = Color.GREEN;
     final static Color externalCutColor = Color.MAGENTA;
@@ -199,12 +200,16 @@ public class KnotSurfaceViewTool extends Tool {
                 double min = cutMatchInfo.getMinShortestBySegment();
                 double max = cutMatchInfo.getMaxShortestBySegment();
                 double range = max - min;
+                long chosenCMLId = cutMatchInfo.cw.c.cutID;
                 for (Segment s : k.manifoldSegments) {
                     long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
                     long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
                     CutMatchList shortest = SortedCutMatchInfo.findCutMatchList(matchId, cutMatchInfo);
+
                     if (shortest == null) {
-                        colorLookup.put(matchId2, notCalculated);
+                        colorLookup.put(matchId2, notCalculatedColor);
+                    } else if (shortest.getCutMatch().c.cutID == chosenCMLId) {
+                        colorLookup.put(matchId2, chosenColor);
                     } else {
                         double colorOffset = (shortest.delta - min) / range;
                         colorLookup.put(matchId2, new ColorFixedLerp(lowestColor, highestColor, (float) colorOffset));
@@ -212,7 +217,9 @@ public class KnotSurfaceViewTool extends Tool {
 
                     CutMatchList shortest2 = SortedCutMatchInfo.findCutMatchList(matchId2, cutMatchInfo);
                     if (shortest2 == null) {
-                        colorLookup.put(matchId, notCalculated);
+                        colorLookup.put(matchId, notCalculatedColor);
+                    } else if (shortest2.getCutMatch().c.cutID == chosenCMLId) {
+                        colorLookup.put(matchId, chosenColor);
                     } else {
                         double colorOffset2 = (shortest2.delta - min) / range;
                         colorLookup.put(matchId, new ColorFixedLerp(lowestColor, highestColor, (float) colorOffset2));
@@ -220,17 +227,16 @@ public class KnotSurfaceViewTool extends Tool {
                 }
             }
         } else if (state == States.StartSelected || state == States.EndSelected) {
-            Knot k = selectedKnot;
-            SortedCutMatchInfo cutMatchInfo = Main.shell.cutEngine.sortedCutMatchInfoLookup.get(k.id);
+            SortedCutMatchInfo cutMatchInfo = Main.shell.cutEngine.sortedCutMatchInfoLookup.get(selectedKnot.id);
             double min = cutMatchInfo.getMinShortestBySegment();
             double max = cutMatchInfo.getMaxShortestBySegment();
             double range = max - min;
-            for (Segment s : k.manifoldSegments) {
+            for (Segment s : selectedKnot.manifoldSegments) {
                 long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
                 long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
                 CutMatchList shortest = SortedCutMatchInfo.findCutMatchList(startSegmentId, matchId, cutMatchInfo);
                 if (shortest == null) {
-                    colorLookup.put(matchId2, notCalculated);
+                    colorLookup.put(matchId2, notCalculatedColor);
                 } else {
                     double colorOffset = (shortest.delta - min) / range;
                     colorLookup.put(matchId2, new ColorFixedLerp(lowestColor, highestColor, (float) colorOffset));
@@ -238,13 +244,22 @@ public class KnotSurfaceViewTool extends Tool {
 
                 CutMatchList shortest2 = SortedCutMatchInfo.findCutMatchList(startSegmentId, matchId2, cutMatchInfo);
                 if (shortest2 == null) {
-                    colorLookup.put(matchId, notCalculated);
+                    colorLookup.put(matchId, notCalculatedColor);
                 } else {
                     double colorOffset2 = (shortest2.delta - min) / range;
                     colorLookup.put(matchId, new ColorFixedLerp(lowestColor, highestColor, (float) colorOffset2));
                 }
             }
-
+            for (Knot k : Main.knotsDisplayed) {
+                if (k.id != selectedKnot.id) {
+                    for (Segment s : k.manifoldSegments) {
+                        long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
+                        long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
+                        colorLookup.put(matchId, notCalculatedColor);
+                        colorLookup.put(matchId2, notCalculatedColor);
+                    }
+                }
+            }
         }
     }
 
