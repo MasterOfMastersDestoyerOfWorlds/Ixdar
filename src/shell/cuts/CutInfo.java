@@ -319,4 +319,8 @@ public class CutInfo {
         }
         return false;
     }
+
+    public int knotDistance() {
+        return 0;
+    }
 }

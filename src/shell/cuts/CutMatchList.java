@@ -14,6 +14,8 @@ import shell.file.FileStringable;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.render.color.Color;
+import shell.render.text.HyperString;
 import shell.shell.Shell;
 
 public class CutMatchList implements FileStringable {
@@ -743,6 +745,41 @@ public class CutMatchList implements FileStringable {
 
     public CutMatch getCutMatch() {
         return this.cutMatches.get(0);
+    }
+
+    public HyperString toHyperString(Color matchColor, Color cutColor, Color externalColor, Color externalCutColor) {
+        HyperString h = new HyperString();
+        CutMatch cm = this.cutMatches.get(0);
+        int maxSize = Math.max(cm.matchSegments.size(), cm.cutSegments.size());
+        int internalCutCount = 0;
+        int internalMatchCount = 0;
+        for (int i = 0; i < maxSize; i++) {
+            Segment match = i < cm.matchSegments.size() ? cm.matchSegments.get(i) : null;
+            Segment cut = i < cm.cutSegments.size() ? cm.cutSegments.get(i) : null;
+            if (match != null) {
+                if (match.id == cm.c.lowerMatchSegment.id || match.id == cm.c.upperMatchSegment.id) {
+                    h.addHyperString(match.toHyperString(externalColor, false));
+                } else {
+                    h.addHyperString(match.toHyperString(matchColor, false));
+                    internalMatchCount++;
+                }
+            }
+            if (cut != null) {
+                if (cut.id == cm.c.lowerCutSegment.id || cut.id == cm.c.upperCutSegment.id) {
+                    h.addHyperString(match.toHyperString(externalCutColor, false));
+                } else {
+                    h.addHyperString(cut.toHyperString(cutColor, false));
+                    internalCutCount++;
+                }
+                h.newLine();
+            }
+        }
+
+        int internalCount = Math.max(internalCutCount, internalMatchCount);
+        h.newLine();
+        h.addLine("CutMatch Count: " + internalCount, Color.BLUE_WHITE);
+        h.addLine("KnotDistance: " + cm.c.knotDistance(), Color.BLUE_WHITE);
+        return h;
     }
 
 }

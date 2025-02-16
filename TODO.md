@@ -126,7 +126,7 @@
 
 7. - [x] hovering with none already selected should display the shortest cutmatch list on that starting half segment.
 
-8. - [ ] Selecting a specific starting half segment should change the gradient to all of the cutmatches that start at the starting half segment and end at their half segment
+8. - [x] Selecting a specific starting half segment should change the gradient to all of the cutmatches that start at the starting half segment and end at their half segment
 
 9. - [ ] Selecting a second segment should lock that cut match list as the display one
 

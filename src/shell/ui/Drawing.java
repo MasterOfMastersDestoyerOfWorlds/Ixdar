@@ -134,13 +134,21 @@ public class Drawing {
             for (CutMatch cutMatch : cml.cutMatches) {
 
                 for (Segment s : cutMatch.matchSegments) {
-                    drawSegment(s, Color.CYAN, camera);
+                    if (s.id == cutMatch.c.lowerMatchSegment.id || s.id == cutMatch.c.upperMatchSegment.id) {
+                        drawSegment(s, Color.GREEN, camera);
+                    } else {
+                        drawSegment(s, Color.CYAN, camera);
+                    }
                 }
 
                 // Draw Cuts
                 sdfLine.setStroke(2 * lineThickness, false);
                 for (Segment s : cutMatch.cutSegments) {
-                    drawSegment(s, Color.ORANGE, camera);
+                    if (s.id == cutMatch.c.lowerCutSegment.id || s.id == cutMatch.c.upperCutSegment.id) {
+                        drawSegment(s, Color.MAGENTA, camera);
+                    } else {
+                        drawSegment(s, Color.ORANGE, camera);
+                    }
                 }
                 // Draw SubKnot
                 Shell result = new Shell();

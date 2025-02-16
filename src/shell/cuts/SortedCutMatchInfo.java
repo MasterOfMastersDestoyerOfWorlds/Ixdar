@@ -109,6 +109,21 @@ public class SortedCutMatchInfo {
         }
     }
 
+    public static CutMatchList findCutMatchList(Long startSegmentId, Long endSegmentId,
+            SortedCutMatchInfo cutMatchInfo) {
+        ArrayList<CutMatchList> cmls = cutMatchInfo.sortedCutMatchListsBySegment.get(startSegmentId);
+        CutMatchList retVal = null;
+        for (CutMatchList cml : cmls) {
+            CutMatch cm = cml.getCutMatch();
+            long id = Segment.idTransformOrdered(cm.c.upperCutSegment, cm.c.upperKnotPoint);
+            if (endSegmentId == id) {
+                retVal = cml;
+                break;
+            }
+        }
+        return retVal;
+    }
+
     public double getMinShortestBySegment() {
         return minShortestDeltaBySegment;
     }

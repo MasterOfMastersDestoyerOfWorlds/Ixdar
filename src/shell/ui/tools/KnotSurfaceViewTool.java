@@ -6,7 +6,6 @@ import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.cuts.CutMatchList;
 import shell.cuts.SortedCutMatchInfo;
-import shell.cuts.route.Route;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
@@ -41,9 +40,8 @@ public class KnotSurfaceViewTool extends Tool {
     public States state = States.FindStart;
     private Metric viewMetric;
 
-    public Route displayRoute;
-
     public Segment startSegment;
+    public long startSegmentId;
     public VirtualPoint startKP;
     public VirtualPoint startCP;
 
@@ -62,6 +60,9 @@ public class KnotSurfaceViewTool extends Tool {
     final static Color highestColor = Color.RED;
     final static Color notCalculated = Color.DARK_IXDAR;
 
+    final static Color externalMatchColor = Color.GREEN;
+    final static Color externalCutColor = Color.MAGENTA;
+
     public KnotSurfaceViewTool() {
         disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.CanSwitchTopLayer,
                 Toggle.DrawKnotGradient, Toggle.DrawMetroDiagram, Toggle.DrawDisplayedKnots };
@@ -75,11 +76,11 @@ public class KnotSurfaceViewTool extends Tool {
         startSegment = null;
         startKP = null;
         startCP = null;
+        startSegmentId = -1;
         endSegment = null;
         endCP = null;
         endKP = null;
         displayCML = null;
-        displayRoute = null;
         selectedKnot = null;
         colorLookup = null;
         Main.knotDrawLayer = Main.shell.cutEngine.totalLayers - 1;
@@ -146,6 +147,7 @@ public class KnotSurfaceViewTool extends Tool {
                 startSegment = displaySegment;
                 startKP = displayKP;
                 startCP = displayCP;
+                startSegmentId = Segment.idTransformOrdered(startSegment, startKP);
                 state = KnotSurfaceViewTool.States.StartSelected;
                 for (Knot k : Main.knotsDisplayed) {
                     if (k.contains(startKP)) {
@@ -154,6 +156,7 @@ public class KnotSurfaceViewTool extends Tool {
                     }
                 }
                 clearHover();
+                initSegmentMap();
             } else if (state == KnotSurfaceViewTool.States.StartSelected) {
                 for (Knot k : Main.knotsDisplayed) {
                     if (k.contains(displayKP)) {
@@ -216,85 +219,32 @@ public class KnotSurfaceViewTool extends Tool {
                     }
                 }
             }
-        } else if (state == States.StartSelected) {
+        } else if (state == States.StartSelected || state == States.EndSelected) {
+            Knot k = selectedKnot;
+            SortedCutMatchInfo cutMatchInfo = Main.shell.cutEngine.sortedCutMatchInfoLookup.get(k.id);
+            double min = cutMatchInfo.getMinShortestBySegment();
+            double max = cutMatchInfo.getMaxShortestBySegment();
+            double range = max - min;
+            for (Segment s : k.manifoldSegments) {
+                long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
+                long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
+                CutMatchList shortest = SortedCutMatchInfo.findCutMatchList(startSegmentId, matchId, cutMatchInfo);
+                if (shortest == null) {
+                    colorLookup.put(matchId2, notCalculated);
+                } else {
+                    double colorOffset = (shortest.delta - min) / range;
+                    colorLookup.put(matchId2, new ColorFixedLerp(lowestColor, highestColor, (float) colorOffset));
+                }
 
-        } else {
-            // if (manifold.cutMatchList == null) {
-            // try {
-            // manifold.calculateManifoldCutMatch(Main.shell, k);
-            // } catch (SegmentBalanceException e) {
-            // e.printStackTrace();
-            // }
-            // }
-            // if (viewMetric == Metric.PathLength) {
-            // for (Segment s : k.manifoldSegments) {
-            // long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
-            // VirtualPoint f = s.first;
-            // VirtualPoint l = s.last;
-            // Route aRouteC = manifold.getNeighborRouteC(f, l);
-            // Route aRouteDC = manifold.getNeighborRouteDC(f, l);
-            // if (aRouteC.sameRoute(bRouteC)) {
-            // colorLookup.put(matchId, 0);
-            // } else if (aRouteC.sameRoute(bRouteDC)) {
-            // colorLookup.put(matchId, 2);
-            // } else if (bRouteC.sameRoute(aRouteDC)) {
-            // colorLookup.put(matchId, 2);
-            // } else {
-            // colorLookup.put(matchId, 1);
-            // }
+                CutMatchList shortest2 = SortedCutMatchInfo.findCutMatchList(startSegmentId, matchId2, cutMatchInfo);
+                if (shortest2 == null) {
+                    colorLookup.put(matchId, notCalculated);
+                } else {
+                    double colorOffset2 = (shortest2.delta - min) / range;
+                    colorLookup.put(matchId, new ColorFixedLerp(lowestColor, highestColor, (float) colorOffset2));
+                }
+            }
 
-            // long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
-
-            // Route aRouteC2 = manifold.getNeighborRouteC(l, f);
-            // Route aRouteDC2 = manifold.getNeighborRouteDC(l, f);
-            // Route bRouteC2 = betaManifold.getNeighborRouteC(l, f);
-            // Route bRouteDC2 = betaManifold.getNeighborRouteDC(l, f);
-            // if (aRouteC2.sameRoute(bRouteC2)) {
-            // colorLookup.put(matchId2, 0);
-            // } else if (aRouteC2.sameRoute(bRouteDC2)) {
-            // colorLookup.put(matchId2, 2);
-            // } else if (bRouteC2.sameRoute(aRouteDC2)) {
-            // colorLookup.put(matchId2, 2);
-            // } else {
-            // colorLookup.put(matchId2, 1);
-            // }
-            // }
-            // } else if (viewMetric == Metric.PathCutMatchCount) {
-            // for (Segment s : k.manifoldSegments) {
-            // long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
-            // VirtualPoint f = s.first;
-            // VirtualPoint l = s.last;
-            // Route aRouteDC = manifold.getNeighborRouteDC(f, l);
-            // Route aRouteC = manifold.getNeighborRouteC(f, l);
-            // Route bRouteDC = betaManifold.getNeighborRouteDC(f, l);
-            // Route bRouteC = betaManifold.getNeighborRouteC(f, l);
-            // if (aRouteDC.sameRoute(bRouteDC)) {
-            // colorLookup.put(matchId, 0);
-            // } else if (aRouteDC.sameRoute(bRouteC)) {
-            // colorLookup.put(matchId, 2);
-            // } else if (bRouteDC.sameRoute(aRouteC)) {
-            // colorLookup.put(matchId, 2);
-            // } else {
-            // colorLookup.put(matchId, 1);
-            // }
-
-            // long matchId2 = Segment.idTransformOrdered(s.last.id, s.first.id);
-
-            // Route aRouteDC2 = manifold.getNeighborRouteDC(l, f);
-            // Route aRouteC2 = manifold.getNeighborRouteC(l, f);
-            // Route bRouteDC2 = betaManifold.getNeighborRouteDC(l, f);
-            // Route bRouteC2 = betaManifold.getNeighborRouteC(l, f);
-            // if (aRouteDC2.sameRoute(bRouteDC2)) {
-            // colorLookup.put(matchId2, 0);
-            // } else if (aRouteDC2.sameRoute(bRouteC2)) {
-            // colorLookup.put(matchId2, 2);
-            // } else if (bRouteDC2.sameRoute(aRouteC2)) {
-            // colorLookup.put(matchId2, 2);
-            // } else {
-            // colorLookup.put(matchId2, 1);
-            // }
-            // }
-            // }
         }
     }
 
@@ -304,6 +254,7 @@ public class KnotSurfaceViewTool extends Tool {
             super.back();
         } else {
             state = States.values()[state.ordinal() - 1];
+            initSegmentMap();
         }
     }
 
@@ -342,15 +293,8 @@ public class KnotSurfaceViewTool extends Tool {
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
         h.addLine("View Level: " + viewMetric.name());
-        if (state == States.StartSelected) {
-            if (displayRoute != null) {
-                HyperString alphaCutInfo = new HyperString();
-                alphaCutInfo.addLine("end kp: " + endKP.id + " end cp: " + endCP.id, Color.BLUE_WHITE);
-                h.addTooltip("Route Alpha: ", matchColor, alphaCutInfo, null);
-                h.addLine(displayRoute.toString(), cutColor);
-            }
-        } else if (state == States.EndSelected) {
-
+        if (displayCML != null) {
+            h.addHyperString(displayCML.toHyperString(matchColor, cutColor, externalMatchColor, externalCutColor));
         }
         h.wrap();
         return h;
