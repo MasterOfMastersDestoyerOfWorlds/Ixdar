@@ -26,6 +26,7 @@ import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.point.PointND;
 import shell.render.color.Color;
+import shell.render.color.ColorFixedLerp;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFCircle;
 import shell.render.sdf.SDFLine;
@@ -314,6 +315,41 @@ public class Drawing {
     }
 
     /**
+     * Draws gradient segment from the first in the segment to the last in the
+     * segment with length being a value from zero to one indicating the distance
+     * along that segment to draw. Calling this method with a length of 1 draws the
+     * segment normally.
+     * 
+     * @param s
+     * @param color1
+     * @param color2
+     * @param length
+     * @param camera
+     */
+    public static void drawGradientSegmentPartial(Segment s, Color color1, Color color2, float length,
+            Camera2D camera) {
+        Point2D first;
+        Point2D last;
+        if (s.first.isKnot) {
+            first = ((Point) ((Knot) s.first).knotPoints.get(0)).p.toPoint2D();
+        } else {
+            first = ((Point) s.first).p.toPoint2D();
+        }
+        if (s.last.isKnot) {
+            last = ((Point) ((Knot) s.last).knotPoints.get(0)).p.toPoint2D();
+        } else {
+            last = ((Point) s.last).p.toPoint2D();
+        }
+
+        Vector2f firstCoords = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
+        Vector2f lastCoords = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
+
+        Vector2f newLast = new Vector2f(lastCoords).sub(firstCoords).mul(length).add(firstCoords);
+
+        sdfLine.draw(firstCoords, newLast, color1, new ColorFixedLerp(color1, color2, length), camera);
+    }
+
+    /**
      * Draws the Shell and its children if drawChildren is true
      * 
      * @param frame        where to draw the shell
@@ -484,6 +520,10 @@ public class Drawing {
             Segment s = k.manifoldSegments.get(i);
             Drawing.drawSegment(s, c, camera);
         }
+    }
+
+    public static void setScaledStroke(Camera2D camera) {
+        sdfLine.setStroke(MIN_THICKNESS * camera.ScaleFactor, false, 1f, 0f, true, false);
     }
 
 }

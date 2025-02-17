@@ -30,6 +30,7 @@ import shell.ui.main.Main;
 import shell.ui.tools.CompareManifoldTool;
 import shell.ui.tools.EditManifoldTool;
 import shell.ui.tools.FindManifoldTool;
+import shell.ui.tools.KnotAnimationTool;
 import shell.ui.tools.KnotSurfaceViewTool;
 import shell.ui.tools.NegativeCutMatchViewTool;
 import shell.ui.tools.Tool;
@@ -91,6 +92,9 @@ public class KeyGuy {
                 }
                 if (KeyActions.KnotSurfaceView.keyPressed(pressedKeys)) {
                     ChangeToolCommand.run(KnotSurfaceViewTool.class);
+                }
+                if (KeyActions.KnotAnimTool.keyPressed(pressedKeys)) {
+                    ChangeToolCommand.run(KnotAnimationTool.class);
                 }
                 if (KeyActions.Compare.keyPressed(pressedKeys)) {
                     ChangeToolCommand.run(CompareManifoldTool.class);

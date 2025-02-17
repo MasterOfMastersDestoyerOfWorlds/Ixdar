@@ -72,7 +72,11 @@
 
 3. - [ ] Need to separate the UI thread from the Knot Engine thread so that the graphics don't freeze and we can show progress towards the solution with a loading bar and other info
 
-4. - [ ] Animation - have a building a knot animation on file open that goes from the bottom knots to the top knots by replaying the chosen cut matches at each layer. should be relatively quick, no longer than a second, and disabled by a toggle.
+## Load Screen
+
+1. - [ ] Animation - have a building a knot animation on file open that goes from the bottom knots to the top knots by replaying the chosen cut matches at each layer. should be relatively quick, no longer than a second, and disabled by a toggle.
+
+2. - [ ] want it so that when you mouse over the load prompt for any ixdar file it should play the relevant anim for that file and strach and scew the view plane.
 
 ## Tools
 
@@ -112,29 +116,7 @@
 
 ### Knot Surface View Tool
 
-1. - [x] Make a tool that shows the user which of the half segment pairs have low enough external travel cost to check their internal cost, when compared to the lowest simple cut.
-
-2. - [x] Should have a gradient of colors depending on its distance to the lowest(Green) and highest (Red) length cutmatches on the manifold
-
-3. - [x] Should have a view mode that distinguishes between half Segments that were skipped versus calculated (color calculated ones blue and uncalculated dark ixdar)
-
-4. - [x] Should make a toggle that ignores simple cuts (cut has two knot points)
-
-5. - [x] Should Color the half segments that were actually chosen in Blue.
-
-6. - [x] Should also be able to display the number of cuts and matches with the same gradient? Should at least display this info in the Info Pan
-
-7. - [x] hovering with none already selected should display the shortest cutmatch list on that starting half segment.
-
-8. - [x] Selecting a specific starting half segment should change the gradient to all of the cutmatches that start at the starting half segment and end at their half segment
-
-9. - [ ] Need to display the actual knot distance
-
-10. - [x] hovering with one already selected should display the shortest route to the second cut.
-
-11. - [x] The inc and dec keys should behave normally so we need to support looking at subknots.
-
-12. - [x] The tool cycle key should switch between path length, ixdar skip and cutmatch count length.
+![Complete](readme_img\complete.png)
 
 ### Negative CutMatch View Tool
 

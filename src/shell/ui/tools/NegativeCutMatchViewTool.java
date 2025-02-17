@@ -60,7 +60,7 @@ public class NegativeCutMatchViewTool extends Tool {
             }
         }
         for (Knot k : Main.knotsDisplayed) {
-            Drawing.drawGradientPath(k, lookupPairs(k), colorLookup, colors,
+            Drawing.drawGradientPath(k, lookupSegmentPairs(k), colorLookup, colors,
                     camera,
                     Drawing.MIN_THICKNESS);
         }

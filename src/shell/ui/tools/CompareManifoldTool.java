@@ -159,7 +159,7 @@ public class CompareManifoldTool extends Tool {
         if (colorLookup == null) {
             initSegmentMap();
         }
-        Drawing.drawGradientPath(manifoldKnot, lookupPairs(manifoldKnot), colorLookup, colors,
+        Drawing.drawGradientPath(manifoldKnot, lookupSegmentPairs(manifoldKnot), colorLookup, colors,
                 camera,
                 Drawing.MIN_THICKNESS);
     }
@@ -336,12 +336,12 @@ public class CompareManifoldTool extends Tool {
     }
 
     @Override
-    public void increaseViewLayer(){
+    public void increaseViewLayer() {
         cycleToolLayerNext();
     }
 
     @Override
-    public void decreaseViewLayer(){
+    public void decreaseViewLayer() {
         cycleToolLayerPrev();
     }
 
@@ -377,7 +377,7 @@ public class CompareManifoldTool extends Tool {
                 HyperString betaCutInfo = new HyperString();
                 betaCutInfo.addLine("end kp: " + betaEndKP.id + " end cp: " + betaEndCP.id, Color.BLUE_WHITE);
                 h.addTooltip("Route Alpha: ", betaMatchColor, betaCutInfo, null);
-                
+
                 h.addLine("Route Beta: ", Color.MAGENTA);
                 h.addLine(displayRouteBeta.toString(), Color.YELLOW);
                 h.addHyperString(

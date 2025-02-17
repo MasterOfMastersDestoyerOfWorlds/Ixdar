@@ -33,8 +33,7 @@ public class KnotSurfaceViewTool extends Tool {
 
     public enum Metric {
         PathLength,
-        IxdarSkipView,
-        PathCutMatchCount,
+        IxdarSkipView
     }
 
     public States state = States.FindStart;
@@ -131,7 +130,7 @@ public class KnotSurfaceViewTool extends Tool {
             initSegmentMap();
         }
         for (Knot k : Main.knotsDisplayed) {
-            Drawing.drawGradientPath(k, lookupPairs(k), colorLookup,
+            Drawing.drawGradientPath(k, lookupSegmentPairs(k), colorLookup,
                     camera, Drawing.MIN_THICKNESS);
         }
     }

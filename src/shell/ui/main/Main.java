@@ -118,6 +118,7 @@ public class Main {
     public static Grid grid;
     public static int totalLayers = -1;
     public static FlattenEngine flattenEngine;
+    public static double tourLength;
 
     public Main(String fileName) throws TerminalParseException {
         metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -256,6 +257,12 @@ public class Main {
         for (Knot k : flatKnots) {
             knotGradientColors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
             colorLookup.put((long) k.id, i);
+            Knot orgKnot = (Knot) shell.pointMap.get(flattenEngine.flatKnotToKnot.get(k.id));
+            for (VirtualPoint vp : orgKnot.knotPoints) {
+                if (!vp.isKnot) {
+                    colorLookup.put((long) vp.id, i);
+                }
+            }
             i++;
         }
 
@@ -290,7 +297,7 @@ public class Main {
         }
 
         Drawing.initDrawingSizes(shell, camera, d);
-
+        tourLength = shell.getLength();
         double knotCuttingSeconds = ((double) endTimeKnotCutting) / 1000.0;
         double ixdarSeconds = ((double) InternalPathEngine.totalTimeIxdar) / 1000.0;
         double ixdarProfileSeconds = ((double) InternalPathEngine.profileTimeIxdar) / 1000.0;
@@ -318,7 +325,7 @@ public class Main {
         System.out.println("Ixdar profile time: " + ixdarProfileSeconds);
         System.out.println("Ixdar Profile %: " + 100 * (ixdarProfileSeconds / (ixdarSeconds)));
         System.out.println("Saved Answer Length: " + orgShell.getLength());
-        System.out.println("Calculated Length: " + shell.getLength());
+        System.out.println("Calculated Length: " + tourLength);
         System.out.println("===============================================");
 
         System.out.println(flattenEngine.flatKnots);

@@ -18,6 +18,7 @@ import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.shell.Shell;
+import shell.utils.RunListUtils;
 
 public class CutEngine {
 
@@ -52,6 +53,7 @@ public class CutEngine {
     double resolved = 0;
     double totalCalls = 0;
     public HashMap<Long, RouteMap> routesBySegment = new HashMap<>();
+    public HashMap<Integer, Clockwork> clockwork = new HashMap<>();
 
     public ArrayList<VirtualPoint> cutKnot(ArrayList<VirtualPoint> knotList, int layerNum)
             throws SegmentBalanceException, BalancerException {
@@ -109,7 +111,6 @@ public class CutEngine {
         // neighbors. to achieve this it would be prudent to be able to look up cut
         // matches by what their ending cuts are this way we can get a list of all of
         // the ways we can change rotationally.
-        HashMap<Integer, Clockwork> clockwork = new HashMap<>();
         int size = knotList.size();
         for (int i = 0; i < size; i++) {
             VirtualPoint prev = knotList.get(Math.floorMod(i - 1, size));

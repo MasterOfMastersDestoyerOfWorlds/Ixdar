@@ -227,7 +227,7 @@ public abstract class Tool {
 
     }
 
-    public static ArrayList<Pair<Long, Long>> lookupPairs(Knot k) {
+    public static ArrayList<Pair<Long, Long>> lookupSegmentPairs(Knot k) {
 
         ArrayList<Pair<Long, Long>> idTransform = new ArrayList<>();
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
@@ -237,6 +237,7 @@ public abstract class Tool {
             idTransform.add(new Pair<Long, Long>(matchId, matchId2));
         }
         return idTransform;
+
     }
 
     public Type toolType() {
