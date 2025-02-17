@@ -82,7 +82,7 @@ public class Manifold implements FileStringable {
             c1 = new CutInfo(shell, knotPoint1, cutPoint1, manifoldCutSegment1, external1,
                     knotPoint2,
                     cutPoint2, manifoldCutSegment2,
-                    external2, manifoldKnot, manifoldBalanceMap);
+                    external2, manifoldKnot, manifoldBalanceMap, true);
 
             manifoldBalanceMap.addCut(knotPoint1, cutPoint1);
             manifoldBalanceMap.addCut(knotPoint2, cutPoint2);
