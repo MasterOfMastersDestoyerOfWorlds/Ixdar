@@ -347,6 +347,12 @@ public class CutInfo {
             knotLayer = Math.max(1, smallestKnot1Height - smallestKnot2Height + 1
                     + (knotPointsConnected ? 0 : 1));
         }
-        return knotLayer;
+
+        int lowerIdx = knot.knotPointsFlattened.indexOf(this.lowerCutPoint);
+        int upperIdx = knot.knotPointsFlattened.indexOf(this.upperCutPoint);
+        int rightDist = lowerIdx + Math.abs(knot.size() - upperIdx);
+        int leftDist = Math.abs(upperIdx - lowerIdx);
+        int dist = Math.min(leftDist, rightDist);
+        return dist + 1;
     }
 }
