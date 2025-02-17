@@ -50,7 +50,7 @@ public class ManifoldEngine {
             Segment s12 = knotPoint12.getClosestSegment(external2, s11);
 
             CutInfo c1 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, external1, knotPoint12, knotPoint11,
-                    cutSegment1, external2, knot, null);
+                    cutSegment1, external2, knot, null, true);
             SegmentBalanceException sbe = new SegmentBalanceException(shell, null, c1);
             BalanceMap balanceMap1 = new BalanceMap(knot, sbe);
             balanceMap1.addCut(knotPoint11, knotPoint12);
@@ -67,7 +67,7 @@ public class ManifoldEngine {
             Segment s22 = knotPoint11.getClosestSegment(external2, s21);
 
             CutInfo c2 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint11, knotPoint12,
-                    cutSegment1, external2, knot, balanceMap1);
+                    cutSegment1, external2, knot, balanceMap1, true);
 
             CutMatchList cutMatch2 = new CutMatchList(shell, sbe, c2.superKnot);
             cutMatch2.addCutMatch(new Segment[] { cutSegment1 }, new Segment[] { s21, s22 }, c2,
@@ -116,7 +116,7 @@ public class ManifoldEngine {
                     CutMatchList cutMatch1 = null;
 
                     CutInfo c1 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, external1, knotPoint21,
-                            knotPoint22, cutSegment2, external2, knot, null);
+                            knotPoint22, cutSegment2, external2, knot, null, true);
                     double mind1 = ixdarCutoff(c1, minInternalDistance);
                     Pair<CutMatchList, RouteMap> internalCuts12 = null;
                     if ((mind1 < minDelta || !ixdarSkip) && c1.overlapOrientationCorrect) {
@@ -152,7 +152,7 @@ public class ManifoldEngine {
                     }
 
                     CutInfo c3 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint22,
-                            knotPoint21, cutSegment2, external2, knot, null);
+                            knotPoint21, cutSegment2, external2, knot, null, true);
                     Pair<CutMatchList, RouteMap> internalCuts34 = null;
                     CutMatchList cutMatch3 = null;
                     double d3 = Double.MAX_VALUE;
@@ -190,7 +190,7 @@ public class ManifoldEngine {
                     }
 
                     CutInfo c5 = new CutInfo(shell, knotPoint11, knotPoint12, cutSegment1, external1, knotPoint22,
-                            knotPoint21, cutSegment2, external2, knot, null);
+                            knotPoint21, cutSegment2, external2, knot, null, false);
                     double d5 = Double.MAX_VALUE, d7 = Double.MAX_VALUE, d6 = Double.MAX_VALUE, d8 = Double.MAX_VALUE;
                     CutMatchList cutMatch7 = null, cutMatch8 = null, cutMatch5 = null, cutMatch6 = null;
                     Pair<CutMatchList, RouteMap> internalCuts56 = null;
@@ -221,7 +221,7 @@ public class ManifoldEngine {
                     shell.buff.flush();
 
                     CutInfo c7 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint21,
-                            knotPoint22, cutSegment2, external2, knot, null);
+                            knotPoint22, cutSegment2, external2, knot, null, false);
                     double mind7 = ixdarCutoff(c7, minInternalDistance);
                     Pair<CutMatchList, RouteMap> internalCuts78 = null;
                     if ((mind7 < minDelta || !ixdarSkip) && c7.overlapOrientationCorrect) {
@@ -251,7 +251,7 @@ public class ManifoldEngine {
                     shell.buff.flush();
 
                     if (delta < minDelta) {
-                        //minDelta = delta;
+                        // minDelta = delta;
                     }
 
                 }

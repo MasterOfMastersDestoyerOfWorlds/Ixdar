@@ -20,6 +20,7 @@ public enum Toggle {
     IxdarMirrorAnswerSharing(false, "ixdarFlip"),
     IxdarRotationalAnswerSharing(false, "ixdarRot"),
     IxdarCheckMirroredAnswerSharing(true, "checkAns"),
+    IxdarKnotDistance(true, "knotDist"),
     SnapToGrid(true, "gridSnap"),
     CanSwitchTopLayer(true, "topLayer"),
     KnotSurfaceViewSimpleCut(false, "ksvSimpleCut");

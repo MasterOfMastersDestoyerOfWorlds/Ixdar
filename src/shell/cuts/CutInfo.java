@@ -6,6 +6,7 @@ import org.apache.commons.collections4.map.MultiKeyMap;
 import org.apache.commons.math3.util.Pair;
 
 import shell.BalanceMap;
+import shell.cuts.engines.FlattenEngine;
 import shell.exceptions.BalancerException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
@@ -56,6 +57,7 @@ public class CutInfo {
 
     public boolean partialOverlaps;
     public boolean overlapOrientationCorrect;
+    public boolean knotPointsConnected;
 
     public CutInfo(Shell shell, Knot knot, VirtualPoint external1, VirtualPoint external2, Segment cutSegment1,
             VirtualPoint kp1, VirtualPoint cp1, Knot superKnot, Segment kpSegment,
@@ -108,7 +110,7 @@ public class CutInfo {
             VirtualPoint lowerExternal,
             VirtualPoint upperKnotPoint, VirtualPoint upperCutPoint, Segment upperCutSegment,
             VirtualPoint upperExternal,
-            Knot superKnot, BalanceMap balanceMap) throws BalancerException {
+            Knot superKnot, BalanceMap balanceMap, boolean knotPointsConnected) throws BalancerException {
 
         this.external1 = lowerExternal;
         this.external2 = upperExternal;
@@ -164,6 +166,8 @@ public class CutInfo {
             this.balanceMap = balanceMap;
             balanceMap.sbe = this.sbe;
         }
+
+        this.knotPointsConnected = knotPointsConnected;
 
     }
 
@@ -223,6 +227,8 @@ public class CutInfo {
 
         this.sbe = c.sbe;
 
+        this.knotPointsConnected = c.knotPointsConnected;
+
     }
 
     @Override
@@ -265,6 +271,7 @@ public class CutInfo {
         c.external2 = this.external1;
         c.lowerExternal = externalPoint41;
         c.upperExternal = externalPoint42;
+        c.knotPointsConnected = knotPointsConnected;
 
         c.sbe = new SegmentBalanceException(shell, null, c);
         if (this.overlapOrientationCorrect) {
@@ -321,6 +328,25 @@ public class CutInfo {
     }
 
     public int knotDistance() {
-        return 0;
+        FlattenEngine flatten = shell.cutEngine.flattenEngine;
+        Knot smallestKnot1 = flatten.flatKnots.get(shell.smallestKnotLookup[lowerCutPoint.id]);
+        int smallestKnot1Height = flatten.flatKnotsHeight.get(smallestKnot1.id);
+        Knot smallestKnot2 = flatten.flatKnots.get(shell.smallestKnotLookup[upperCutPoint.id]);
+        int smallestKnot2Height = flatten.flatKnotsHeight.get(smallestKnot2.id);
+        Knot smallestCommonKnot = flatten.flatKnots
+                .get(shell.smallestCommonKnotLookup[upperCutPoint.id][lowerCutPoint.id]);
+        int smallestCommonKnotHeight = flatten.flatKnotsHeight.get(smallestCommonKnot.id);
+        int knotLayer = Math.max(1, smallestCommonKnotHeight - smallestKnot1Height + smallestCommonKnotHeight
+                - smallestKnot2Height)
+                + (knotPointsConnected ? 0 : 1);
+        if (smallestKnot2.contains(lowerCutPoint)) {
+            knotLayer = Math.max(1, smallestKnot2Height - smallestKnot1Height + 1
+                    + (knotPointsConnected ? 0 : 1));
+        }
+        if (smallestKnot1.contains(upperCutPoint)) {
+            knotLayer = Math.max(1, smallestKnot1Height - smallestKnot2Height + 1
+                    + (knotPointsConnected ? 0 : 1));
+        }
+        return knotLayer;
     }
 }

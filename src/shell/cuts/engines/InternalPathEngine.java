@@ -8,9 +8,10 @@ import java.util.Set;
 import org.apache.commons.math3.util.Pair;
 
 import shell.BalanceMap;
-import shell.cuts.*;
+import shell.Toggle;
 import shell.cuts.CutInfo;
 import shell.cuts.CutMatchList;
+import shell.cuts.DisjointUnionSets;
 import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
 import shell.cuts.route.Route;
@@ -49,7 +50,7 @@ public class InternalPathEngine {
         SegmentBalanceException sbe = new SegmentBalanceException(c.shell, null,
                 new CutInfo(c.shell, knotPoint1, cutPoint1, cutSegment1, external1,
                         knotPoint2, cutPoint2, cutSegment2, external2, knot,
-                        balanceMap));
+                        balanceMap, knotPointsConnected));
 
         long startTimeIxdar = System.currentTimeMillis();
 
@@ -152,20 +153,21 @@ public class InternalPathEngine {
         // cutPoint2, external2, knot, balanceMap, c, knotPointsConnected,null)
         RouteInfo uParent = null;
         Route u = null;
-
+        int knotNumber = Integer.MAX_VALUE;
+        if (Toggle.IxdarKnotDistance.value) {
+            knotNumber = c.knotDistance();
+        }
         while (settled.size() < numPoints * 4) {
             if (q.size() == 0) {
                 break;
             }
             u = q.poll().route;
             uParent = u.parent;
-
             if (settled.contains(u.routeId)) {
                 continue;
             }
-
             if (settled.contains(endRoute.routeId)) { // && u.neighbor.id == cutPoint2.id) {
-                //break;
+                // break;
             }
 
             settled.add(u.routeId);
@@ -175,7 +177,9 @@ public class InternalPathEngine {
                 if (uParent.id == v.id) {
                     continue;
                 }
-
+                if (v.id != end.id && u.matches.size() == knotNumber) {
+                    continue;
+                }
                 RouteType[] routes = new RouteType[] { RouteType.prevC, RouteType.prevDC, RouteType.nextC,
                         RouteType.nextDC };
                 for (RouteType vRouteType : routes) {
