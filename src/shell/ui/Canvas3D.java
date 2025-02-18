@@ -5,26 +5,21 @@ import static org.lwjgl.glfw.GLFW.glfwSetCursorPosCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetScrollCallback;
+import static org.lwjgl.opengl.GL.createCapabilities;
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
-import static org.lwjgl.opengl.GL11.GL_RGBA;
 import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
-import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
 import static org.lwjgl.opengl.GL11.glClear;
 import static org.lwjgl.opengl.GL11.glClearColor;
 import static org.lwjgl.opengl.GL11.glDrawArrays;
 import static org.lwjgl.opengl.GL11.glEnable;
-import static org.lwjgl.opengl.GL11.glReadPixels;
 import static org.lwjgl.opengl.GL11.glViewport;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
 import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
-import static org.lwjgl.opengl.GL.createCapabilities;
 
-import java.io.File;
-import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
@@ -33,7 +28,6 @@ import java.util.function.IntFunction;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
 
 import shell.cameras.Camera3D;
 import shell.render.Clock;
@@ -55,7 +49,6 @@ import shell.ui.input.KeyGuy;
 import shell.ui.input.MouseTrap;
 import shell.ui.main.Main;
 import shell.ui.menu.MenuBox;
-import shell.utils.Utils;
 
 public class Canvas3D {
 
@@ -137,8 +130,6 @@ public class Canvas3D {
     static Texture diffuseMap;
     static Texture specularMap;
     public static int SIZE_FLOAT = 4;
-    public boolean printScreen = false;
-    public File screenShotFile;
     public static int frameBufferWidth;
     public static int frameBufferHeight;
     public static Font font;
@@ -321,27 +312,6 @@ public class Canvas3D {
         // frameBufferWidth / 2,
         // frameBufferHeight / 2, -1f, 1, Color.CYAN);
         // c.setAlpha(0.6f);
-
-        if (printScreen) {
-            printScreen = false;
-            printScreen(screenShotFile);
-        }
-    }
-
-    public void printScreen(String fileName) {
-        printScreen = true;
-        screenShotFile = new File(fileName);
-    }
-
-    public void printScreen(File outputfile) {
-        // allocate space for RBG pixels
-
-        ByteBuffer fb = MemoryUtil.memAlloc(frameBufferWidth * frameBufferHeight * 4);
-        // grab a copy of the current frame contents as RGBA
-        glReadPixels(0, 0, frameBufferWidth, frameBufferHeight, GL_RGBA, GL_UNSIGNED_BYTE, fb);
-        Utils.snapByteBuffer(frameBufferWidth, frameBufferHeight, fb, 4);
-        MemoryUtil.memFree(fb);
-
     }
 
     public static void activate(boolean state) {

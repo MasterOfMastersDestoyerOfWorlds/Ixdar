@@ -51,19 +51,7 @@ public class Terminal {
     public static HashMap<Class<Tool>, Tool> toolClassMap = new HashMap<>();
     public static ArrayList<PointCollection> pointCollectionList;
     public static HashMap<Class<PointCollection>, PointCollection> pointCollectionClassMap = new HashMap<>();
-
-    public Terminal(File loadedFile) {
-        storedCommandLine = "";
-        commandLine = "";
-        commandLineInstruct = "";
-        nextLogicalCommand = new String[] {};
-        nextLogicalCommandIdx = 0;
-        scrollToCommandLine = false;
-        this.directory = loadedFile.getParent();
-        this.loadedFile = loadedFile;
-        history = new HyperString();
-        commandHistory = new ArrayList<>();
-        commandHistoryIdx = -1;
+    static {
         if (commandList == null) {
             commandList = new ArrayList<>();
             loadClassType("shell.terminal.commands", commandList, commandClassMap, TerminalCommand.class);
@@ -84,11 +72,26 @@ public class Terminal {
             pointCollectionList = new ArrayList<>();
             loadClassType("shell.point", pointCollectionList, pointCollectionClassMap, PointCollection.class);
         }
+    }
+
+    public Terminal(File loadedFile) {
+        storedCommandLine = "";
+        commandLine = "";
+        commandLineInstruct = "";
+        nextLogicalCommand = new String[] {};
+        nextLogicalCommandIdx = 0;
+        scrollToCommandLine = false;
+        this.directory = loadedFile.getParent();
+        this.loadedFile = loadedFile;
+        history = new HyperString();
+        commandHistory = new ArrayList<>();
+        commandHistoryIdx = -1;
 
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private <E> void loadClassType(String packageName, ArrayList<E> list, Map<Class<E>, E> classMap, Class<E> type) {
+    private static <E> void loadClassType(String packageName, ArrayList<E> list, Map<Class<E>, E> classMap,
+            Class<E> type) {
         InputStream stream = ClassLoader.getSystemClassLoader().getResourceAsStream(packageName.replaceAll("[.]", "/"));
         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
         List<Class> commandClasses = reader.lines().filter(line -> line.endsWith(".class"))
@@ -108,7 +111,7 @@ public class Terminal {
     }
 
     @SuppressWarnings("rawtypes")
-    private <E> boolean hasSuperClass(Class c, Class<E> type) {
+    private static <E> boolean hasSuperClass(Class c, Class<E> type) {
         Class superClass = c.getSuperclass();
         while (superClass != null) {
             if (superClass == type) {
@@ -120,7 +123,7 @@ public class Terminal {
     }
 
     @SuppressWarnings("rawtypes")
-    private Class getClass(String className, String packageName) {
+    private static Class getClass(String className, String packageName) {
         try {
             return Class.forName(packageName + "." + className.substring(0, className.lastIndexOf('.')));
         } catch (ClassNotFoundException e) {
