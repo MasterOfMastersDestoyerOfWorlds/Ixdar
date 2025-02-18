@@ -197,7 +197,7 @@ public class KnotAnimationTool extends Tool {
     }
 
     public void startRecording() throws InterruptedException, IOException {
-        final Rational framerate = Rational.make(1, 60);
+        final Rational framerate = Rational.make(1, 30);
 
         muxer = Muxer.make("./ree.mp4", null, "mp4");
 
