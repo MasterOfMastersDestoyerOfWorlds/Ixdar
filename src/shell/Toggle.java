@@ -23,7 +23,8 @@ public enum Toggle {
     IxdarKnotDistance(true, "knotDist"),
     SnapToGrid(true, "gridSnap"),
     CanSwitchTopLayer(true, "topLayer"),
-    KnotSurfaceViewSimpleCut(false, "ksvSimpleCut");
+    KnotSurfaceViewSimpleCut(false, "ksvSimpleCut"),
+    RecordKnotAnimation(false, "recordKnotAnim");
 
     public boolean value;
     public String shortName;

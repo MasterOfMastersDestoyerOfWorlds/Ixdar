@@ -16,7 +16,9 @@
 
 7. - [ ] Need to figure out the maximum number of moves within a knot so we can relax the constraints of where we can move and not have as much calculation.
 
-8. - [ ] Need to figure out how to reuse the shortest path info already calculated, f.e. if we move the terminal cut segment counter clockwise we should only invalidate the three effected points and their connections, the rest of the connections should still be valid although we will have to recalculate which of the available cuts are allowed by rules of the hole-moving game.
+// IDEA: if there is a maximum number of cut matches that can happen in a knot, and we sort all of the possible cut matches in the knot by their length, we could exclude any where the cut segments plus the minimum cut match to the exit is too long ( no this doesn't work, still have to run djikstras)
+
+1. - [ ] Need to figure out how to reuse the shortest path info already calculated, f.e. if we move the terminal cut segment counter clockwise we should only invalidate the three effected points and their connections, the rest of the connections should still be valid although we will have to recalculate which of the available cuts are allowed by rules of the hole-moving game.
 
 //As far as I know the above is not feasible since we have not figure out how to make the hole moving game into a positive weight graph. Few other things to try: There may be some sense in which the hole-moving game forms a Directed Acyclic Graph in which we could find the linear time shortest path once we formed the dag, but enumerating all of the branches that don't form cycles would take lot of space and time. Alternatively, if we could re-weight the graph into a positive weight graph or have the starting point marked as -Inf weight in the priority queue we might still be able to reuse other djikstra calls. I think we need some way to compare route maps in code and break on their difference (see route comparison tool to start)
 
@@ -74,9 +76,15 @@
 
 ## Load Screen
 
-1. - [ ] Animation - have a building a knot animation on file open that goes from the bottom knots to the top knots by replaying the chosen cut matches at each layer. should be relatively quick, no longer than a second, and disabled by a toggle.
+1. - [x] Animation - have a building a knot animation on file open that goes from the bottom knots to the top knots by replaying the chosen cut matches at each layer. should be relatively quick, no longer than a second, and disabled by a toggle.
 
-2. - [ ] want it so that when you mouse over the load prompt for any ixdar file it should play the relevant anim for that file and strach and scew the view plane.
+2. - [x] need to think of a way to be able to animate segments that are in the next layer but not in the cut match list of the current layer
+
+3. - [x] also some of the clockworks are displaying the wrong cutmatch externals. rather i think their cut match lists display the wrong external segment, we need to use the clockworks version
+
+4. - [ ] need a way to record the frame data and pack into a mp4
+
+5. - [ ] want it so that when you mouse over the load prompt for any ixdar file it should play the relevant anim for that file and strach and scew the view plane.
 
 ## Tools
 
