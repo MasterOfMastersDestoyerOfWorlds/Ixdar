@@ -247,55 +247,55 @@ public class Canvas3D {
             if (mouse != null) {
                 mouse.paintUpdate(SHIFT_MOD);
             }
-            shader.use();
+            // shader.use();
 
-            camera.updateViewFirstPerson();
+            // camera.updateViewFirstPerson();
 
-            Vector3f lightPos = new Vector3f(1.2f, 1.0f, 2.0f);
+            // Vector3f lightPos = new Vector3f(1.2f, 1.0f, 2.0f);
 
-            // be sure to activate shader when setting uniforms/drawing objects
-            shader.use();
-            shader.setTexture("material.diffuse", diffuseMap, GL_TEXTURE0, 0);
-            shader.setTexture("material.specular", specularMap, GL_TEXTURE1, 1);
-            shader.setFloat("material.shininess", 32.0f);
+            // // be sure to activate shader when setting uniforms/drawing objects
+            // shader.use();
+            // shader.setTexture("material.diffuse", diffuseMap, GL_TEXTURE0, 0);
+            // shader.setTexture("material.specular", specularMap, GL_TEXTURE1, 1);
+            // shader.setFloat("material.shininess", 32.0f);
 
-            shader.setVec3("lightColor", lightColor);
-            shader.setVec3("", lightPos);
-            shader.setVec3("viewPos", camera.position);
+            // shader.setVec3("lightColor", lightColor);
+            // shader.setVec3("", lightPos);
+            // shader.setVec3("viewPos", camera.position);
 
-            for (int i = 0; i < 4; i++) {
-                pointLights[i].setShaderInfo(shader, i);
-            }
-            dirLight.setShaderInfo(shader, 0);
-            // view/projection transformations
-            Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(camera.fov),
-                    ((float) frameBufferWidth) / ((float) frameBufferHeight), 0.1f, 100.0f);
-            shader.setMat4("projection", projection);
-            shader.setMat4("view", camera.view);
-            shader.vao.bind();
-            for (int i = 0; i < 10; i++) {
-                Matrix4f model = new Matrix4f();
-                model.translate(cubePositions[i]);
-                float angle = 20.0f * i;
-                model.rotate((float) Math.toRadians(angle), new Vector3f(1.0f, 0.3f, 0.5f));
-                shader.setMat4("model", model);
+            // for (int i = 0; i < 4; i++) {
+            //     pointLights[i].setShaderInfo(shader, i);
+            // }
+            // dirLight.setShaderInfo(shader, 0);
+            // // view/projection transformations
+            // Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(camera.fov),
+            //         ((float) frameBufferWidth) / ((float) frameBufferHeight), 0.1f, 100.0f);
+            // shader.setMat4("projection", projection);
+            // shader.setMat4("view", camera.view);
+            // shader.vao.bind();
+            // for (int i = 0; i < 10; i++) {
+            //     Matrix4f model = new Matrix4f();
+            //     model.translate(cubePositions[i]);
+            //     float angle = 20.0f * i;
+            //     model.rotate((float) Math.toRadians(angle), new Vector3f(1.0f, 0.3f, 0.5f));
+            //     shader.setMat4("model", model);
 
-                glDrawArrays(GL_TRIANGLES, 0, 36);
-            }
+            //     glDrawArrays(GL_TRIANGLES, 0, 36);
+            // }
 
-            // also draw the lamp object
-            lightingShader.use();
-            lightingShader.setMat4("projection", projection);
-            lightingShader.setMat4("view", camera.view);
-            lightingShader.vao.bind();
-            for (int i = 0; i < pointLights.length; i++) {
-                Matrix4f model = new Matrix4f().translate(pointLights[i].position).scale(0.2f);
-                lightingShader.setVec3("lightColor", pointLights[i].diffuse);
-                lightingShader.setMat4("model", model);
+            // // also draw the lamp object
+            // lightingShader.use();
+            // lightingShader.setMat4("projection", projection);
+            // lightingShader.setMat4("view", camera.view);
+            // lightingShader.vao.bind();
+            // for (int i = 0; i < pointLights.length; i++) {
+            //     Matrix4f model = new Matrix4f().translate(pointLights[i].position).scale(0.2f);
+            //     lightingShader.setVec3("lightColor", pointLights[i].diffuse);
+            //     lightingShader.setMat4("model", model);
 
-                glDrawArrays(GL_TRIANGLES, 0, 36);
+            //     glDrawArrays(GL_TRIANGLES, 0, 36);
 
-            }
+            // }
             // Color c = new ColorRGB(Color.CYAN);
             // logo.drawRightBound(Canvas3D.frameBufferWidth, 0, 800f, 800f, Color.IXDAR,
             // camera);
