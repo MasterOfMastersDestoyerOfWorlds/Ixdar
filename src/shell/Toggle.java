@@ -27,11 +27,13 @@ public enum Toggle {
     KnotSurfaceViewSimpleCut(false, "ksvSimpleCut"),
     RecordKnotAnimation(false, "recordKnotAnim");
 
+    private boolean initialValue;
     public boolean value;
     public String shortName;
 
     private Toggle(boolean value, String shortName) {
         this.value = value;
+        this.initialValue = value;
         this.shortName = shortName;
     }
 
@@ -47,5 +49,11 @@ public enum Toggle {
 
     public String shortName() {
         return shortName;
+    }
+
+    public static void resetAll() {
+        for (Toggle toggle : Toggle.values()) {
+            toggle.value = toggle.initialValue;
+        }
     }
 }

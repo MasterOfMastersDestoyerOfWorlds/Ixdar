@@ -18,7 +18,10 @@
 
 9. test_qa194_0_47p193_173 - few things wrong, likely need to improve how we are separating 2-knots so that they do not combine with each other when they would later be part of a knot and their knot neighbors want to connect to two separate parts of the 2-knot
 
-10. test_qa194_180-6 - ixdarSkip
+10. test_qa194_180-6 - ixdarSkip is too stringent. also if we enable the knotDistance cheat it is obvious that the knot containing point 20 is incorrectly constructed. It should be part of the 2-knot: 
+    knot(flat:38,org:31)[
+        knot(flat:36,org:30)[3 2 1 0 6 5 4], 
+        knot(flat:37,org:29)[18,16,17,19]].
 
 11. test_qa194_23_0p193_179 - similar to 0-47p193-173 in that there are a few places where the knot construction is suboptimal, also turning off ixdar skip gets the correct answer
 
