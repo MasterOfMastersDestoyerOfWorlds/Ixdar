@@ -353,6 +353,6 @@ public class CutInfo {
         int rightDist = lowerIdx + Math.abs(knot.size() - upperIdx);
         int leftDist = Math.abs(upperIdx - lowerIdx);
         int dist = Math.min(leftDist, rightDist);
-        return dist + 1;
+        return knotLayer;
     }
 }

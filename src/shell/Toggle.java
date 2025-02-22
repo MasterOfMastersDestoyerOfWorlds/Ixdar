@@ -6,6 +6,7 @@ public enum Toggle {
 
     CalculateKnot(true, "calcKnot"),
     DrawMainPath(false, "mainPath"),
+    DrawNumberLabels(true, "numberLabels"),
     DrawMetroDiagram(true, "metro"),
     DrawKnotGradient(true, "knotGrad"),
     DrawCutMatch(true, "cutMatch"),

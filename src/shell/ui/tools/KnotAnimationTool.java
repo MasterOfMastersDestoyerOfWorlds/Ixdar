@@ -86,7 +86,9 @@ public class KnotAnimationTool extends Tool {
         timeElapsed = 0;
         Main.updateKnotsDisplayed();
         try {
-            this.startRecording();
+            if (Toggle.RecordKnotAnimation.value) {
+                this.startRecording();
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (IOException e) {

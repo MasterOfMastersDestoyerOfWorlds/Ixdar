@@ -202,7 +202,7 @@ public class Main {
         Collections.shuffle(shell);
         long startTimeKnotFinding = System.currentTimeMillis();
 
-        result = new ArrayList<>(shell.slowSolve(shell, d, 10));
+        result = new ArrayList<>(shell.slowSolve(shell, d, 40));
 
         long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
         double knotFindingSeconds = ((double) endTimeKnotFinding) / 1000.0;
@@ -386,7 +386,7 @@ public class Main {
                 Drawing.drawScaledSegment(hoverSegment, hoverSegmentColor, Drawing.MIN_THICKNESS, camera);
             }
 
-            if (!(retTup == null)) {
+            if (!(retTup == null) && tool.canUseToggle(Toggle.DrawNumberLabels)) {
                 Drawing.drawPath(retTup.tsp, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false, true, false,
                         camera);
             }
