@@ -42,7 +42,7 @@ public class Knot extends VirtualPoint {
         knotPointsToAdd = new ArrayList<>(knotPointsToAdd);
         ArrayList<VirtualPoint> addList = new ArrayList<>();
         int size = knotPointsToAdd.size();
-        if (RunListUtils.containsID(knotPointsToAdd, 31)) {
+        if (RunListUtils.containsID(knotPointsToAdd, 25)) {
             float z = 0;
         }
         for (int i = 0; i < knotPointsToAdd.size(); i++) {

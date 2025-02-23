@@ -152,7 +152,7 @@ public abstract class VirtualPoint {
                 if (oneOutFlag < 0) {
                     oneOutFlag = other.topKnot.id;
                 } else if (other.topKnot.id != oneOutFlag) {
-                    return false;
+                    return hasK1 && hasK2;
                 }
             }
             if (!hasK1 && k1.contains(other)) {
