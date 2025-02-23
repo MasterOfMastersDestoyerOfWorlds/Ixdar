@@ -6,9 +6,43 @@ import shell.knot.Point;
 import shell.knot.Run;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
+import shell.shell.Shell;
 
 public final class RunListUtils {
-    public static ArrayList<VirtualPoint> flattenRunPoints(ArrayList<VirtualPoint> knotPoints, boolean knot) {
+    public static ArrayList<VirtualPoint> flattenRunPoints(ArrayList<VirtualPoint> knotPoints, Shell shell,
+            boolean knot) {
+        for (VirtualPoint vp : knotPoints) {
+            if (vp.isRun) {
+                float z = 0;
+                if (vp.basePoint1 == null) {
+                }
+                VirtualPoint bp1 = vp.basePoint1.topKnot;
+                Run r = (Run) vp;
+                ArrayList<VirtualPoint> runList = r.knotPoints;
+                int idxBp1 = runList.indexOf(bp1);
+                VirtualPoint bp2;
+                if (vp.basePoint2 != null) {
+                    bp2 = vp.basePoint2.topKnot;
+                } else {
+                    continue;
+                }
+                int idxBp2 = runList.indexOf(bp2);
+                z = 0;
+                ArrayList<VirtualPoint> subList = RunListUtils.subList(runList, idxBp1, idxBp2);
+                ArrayList<VirtualPoint> excludeList = RunListUtils.excludeList(runList, idxBp1, idxBp2);
+                r.endpoint1 = subList.get(0);
+                r.endpoint2 = subList.get(subList.size() - 1);
+                runList.removeAll(excludeList);
+                for (VirtualPoint runVp : excludeList) {
+                    runVp.reset();
+                    for (VirtualPoint flatPoint : runVp.knotPointsFlattened) {
+                        flatPoint.topGroup = runVp;
+                    }
+                }
+                shell.knotEngine.knots.addAll(excludeList);
+            }
+        }
+
         ArrayList<VirtualPoint> flattenRunPoints = new ArrayList<>();
         boolean twoKnot = knotPoints.size() == 2 && knot;
         if (twoKnot) {
@@ -184,5 +218,28 @@ public final class RunListUtils {
             }
         }
         return false;
+    }
+
+    public static ArrayList<VirtualPoint> subList(ArrayList<VirtualPoint> runList, int idxBp1, int idxBp2) {
+        ArrayList<VirtualPoint> result = new ArrayList<>();
+        int start = Math.min(idxBp1, idxBp2);
+        int end = Math.max(idxBp1, idxBp2);
+        for (int i = start; i <= end; i++) {
+            result.add(runList.get(i));
+        }
+        return result;
+    }
+
+    public static ArrayList<VirtualPoint> excludeList(ArrayList<VirtualPoint> runList, int idxBp1, int idxBp2) {
+        ArrayList<VirtualPoint> result = new ArrayList<>();
+        int start = Math.min(idxBp1, idxBp2);
+        int end = Math.max(idxBp1, idxBp2);
+        for (int i = 0; i < start; i++) {
+            result.add(runList.get(i));
+        }
+        for (int i = end + 1; i < runList.size(); i++) {
+            result.add(runList.get(i));
+        }
+        return result;
     }
 }

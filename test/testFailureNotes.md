@@ -30,3 +30,5 @@
 13. test_qa194_67_151 - did not finish knot construction
 
 14. test_qa194_48_0p193_154 - did not finish knot construction
+
+15. test_djbouti_2-7 - 3 and 2 are more closely linked to 5 and 4 than 1 and 2. need to think about how to combine two run objects. the old endpoint method was too restrictive and the new method just treating them as knots that cannot stay as knots also does not work. We'll need to update run-knots to make it work: when making a knot with run objects in it we need to look at the matchpoints of the run and only include in the new knot the points in-between the two matchpoints in the run object, the rest of the points must return to the unvisited list.

@@ -22,7 +22,6 @@ public class FlattenEngine {
     public HashMap<Integer, Integer> flatKnotsNumKnots = new HashMap<>();
     public ArrayList<Integer> flattenedKnots = new ArrayList<>();
 
-    
     public static void resetMetrics() {
     }
 

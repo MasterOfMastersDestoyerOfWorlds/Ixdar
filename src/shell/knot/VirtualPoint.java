@@ -137,7 +137,7 @@ public abstract class VirtualPoint {
         int otherSize = Math.min(Math.max(2, k1.size()), Math.max(2, k2.size()));
         int lowerSize = this.size();
         lowerSize = Math.max(2, lowerSize);
-        int desiredCount = lowerSize * lowerSize;
+        int desiredCount = 4;
         int oneOutFlag = -1;
         boolean hasK1 = false;
         boolean hasK2 = false;

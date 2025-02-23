@@ -18,6 +18,7 @@ public class KnotEngine {
     int halfKnotCount = 0;
     int sameKnotPointCount = 0;
     private ArrayList<VirtualPoint> visited;
+    public ArrayList<VirtualPoint> knots;
 
     public KnotEngine(Shell shell) {
         this.shell = shell;
@@ -39,7 +40,7 @@ public class KnotEngine {
     }
 
     public ArrayList<VirtualPoint> findKnots() {
-        ArrayList<VirtualPoint> knots = new ArrayList<>();
+        knots = new ArrayList<>();
         @SuppressWarnings("unchecked")
         ArrayList<VirtualPoint> toVisit = (ArrayList<VirtualPoint>) unvisited.clone();
         ArrayList<VirtualPoint> runList = new ArrayList<>();
@@ -48,9 +49,12 @@ public class KnotEngine {
         boolean endpointReached = false;
         VirtualPoint endPoint1 = null;
         VirtualPoint endPoint2 = null;
+        if(toVisit.size() == 2){
+            float z =0 ;
+        }
         while (toVisit.size() > 0 || runList.size() > 0) {
             toVisit.remove(mainPoint);
-            if (mainPoint.id == 40) {
+            if (mainPoint.id == 47) {
                 float z = 0;
             }
             Segment potentialSegment1 = mainPoint.getPointer(1);
@@ -171,7 +175,6 @@ public class KnotEngine {
             } else {
                 if (endpointReached) {
                     if (runList.size() == 2 && toVisit.size() == 0 && runList.get(0).isKnot && runList.get(1).isKnot) {
-
                         Knot k = new Knot(runList, shell);
                         knots.add(k);
                         return knots;
@@ -179,7 +182,7 @@ public class KnotEngine {
                     endPoint2 = mainPoint;
 
                     boolean knotFlag = false;
-                    runList = RunListUtils.flattenRunPoints(runList, false);
+                    runList = RunListUtils.flattenRunPoints(runList, shell, false);
                     RunListUtils.fixRunList(runList, runList.size() - 1);
                     int runListSize = 0;
                     for (VirtualPoint vp : runList) {
