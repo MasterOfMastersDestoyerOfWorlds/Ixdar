@@ -152,9 +152,6 @@ public final class RunListUtils {
             } else {
                 vp2 = flattenRunPoints.get(0);
             }
-            // buff.add("BEfore: ");
-            // buff.add(vp.fullString());
-            // buff.add(vp2.fullString());
             Segment s = vp.getClosestSegment(vp2, vp.s1);
             VirtualPoint bp1 = s.getKnotPoint(vp.externalVirtualPoints);
             VirtualPoint bp2 = s.getOther(bp1);
@@ -167,12 +164,6 @@ public final class RunListUtils {
             vp2.setMatch(vp2.match1 == null, vp, (Point) bp1, (Point) bp2, s);
             vp.numMatches = 2;
             vp2.numMatches = 2;
-
-            // buff.add("After:");
-            // buff.add(vp.fullString());
-            // buff.add(vp2.fullString());
-            // buff.add();
-
         }
     }
 

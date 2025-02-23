@@ -50,6 +50,9 @@ public class KnotEngine {
         VirtualPoint endPoint2 = null;
         while (toVisit.size() > 0 || runList.size() > 0) {
             toVisit.remove(mainPoint);
+            if (mainPoint.id == 40) {
+                float z = 0;
+            }
             Segment potentialSegment1 = mainPoint.getPointer(1);
             Point pointer1 = (Point) potentialSegment1.getOtherKnot(mainPoint.topGroup);
 
@@ -178,15 +181,19 @@ public class KnotEngine {
                     boolean knotFlag = false;
                     runList = RunListUtils.flattenRunPoints(runList, false);
                     RunListUtils.fixRunList(runList, runList.size() - 1);
+                    int runListSize = 0;
                     for (VirtualPoint vp : runList) {
                         vp.topGroup = vp;
                         vp.group = vp;
+                        runListSize += vp.size();
                         for (VirtualPoint kp : vp.knotPointsFlattened) {
                             kp.topGroup = vp;
                         }
                     }
-                    if (runList.size() > 2) {
-
+                    if (runListSize > 2) {
+                        if (RunListUtils.containsID(runList, 30)) {
+                            float z = 0;
+                        }
                         for (int i = 0; i < runList.size() && runList.size() > 1; i++) {
 
                             VirtualPoint vp = runList.get(i);
@@ -221,7 +228,19 @@ public class KnotEngine {
                                     knotFlag = true;
                                     makeHalfKnot(runList, vp, vp.match1);
                                     i = -1;
-                                } else {
+                                } else if (!vp.isKnot && !other.isKnot) {
+                                    knotFlag = true;
+                                    makeHalfKnot(runList, vp, other);
+                                    i = -1;
+                                } else if (vp.isKnot && other.shouldJoinKnot((Knot) vp)) {
+                                    knotFlag = true;
+                                    makeHalfKnot(runList, vp, other);
+                                    i = -1;
+                                } else if (other.isKnot && vp.shouldJoinKnot((Knot) other)) {
+                                    knotFlag = true;
+                                    makeHalfKnot(runList, vp, other);
+                                    i = -1;
+                                } else if (vp.isConnector(vp.match1, other)) {
                                     knotFlag = true;
                                     makeHalfKnot(runList, vp, other);
                                     i = -1;
@@ -234,56 +253,13 @@ public class KnotEngine {
                             } else if (vp.isKnot && !runList.contains(other)) {
                                 // TODO: Need to figure out what to do here, if the other's next best point is
                                 // also in the runlist, form a knot!
+                            } else if (runList.contains(other) && other.isKnot && vp.isConnector(vp.match1, other)) {
+                                knotFlag = true;
+                                makeHalfKnot(runList, vp, other);
+                                i = -1;
                             }
                         }
 
-                    }
-                    if (true) {
-                        double minDistLeft = Double.MAX_VALUE;
-                        VirtualPoint leftEndMinPoint = null;
-                        VirtualPoint leftEnd = runList.get(0);
-                        boolean changed = false;
-                        if (!leftEnd.isKnot) {
-                            for (VirtualPoint runPoint : runList) {
-                                if (!leftEnd.hasMatch(runPoint) && leftEnd.id != runPoint.id) {
-                                    Segment s = runPoint.getClosestSegment(leftEnd, null);
-                                    if (s.distance < minDistLeft) {
-                                        leftEndMinPoint = runPoint;
-                                        minDistLeft = s.distance;
-                                        if (!runPoint.isKnot) {
-                                            changed = true;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (changed && leftEnd.shouldJoinEndsExclude(leftEndMinPoint, runList)) {
-                            knotFlag = true;
-                            makeHalfKnot(runList, leftEnd, leftEndMinPoint);
-                        }
-                        VirtualPoint rightEnd = runList.get(runList.size() - 1);
-                        double minDistRight = Double.MAX_VALUE;
-                        changed = false;
-                        VirtualPoint rightEndMinPoint = null;
-                        if (!rightEnd.isKnot) {
-                            for (VirtualPoint runPoint : runList) {
-                                if (!rightEnd.hasMatch(runPoint)
-                                        && rightEnd.id != runPoint.id) {
-                                    Segment s = runPoint.getClosestSegment(rightEnd, null);
-                                    if (s.distance < minDistRight) {
-                                        rightEndMinPoint = runPoint;
-                                        minDistRight = s.distance;
-                                        if (!runPoint.isKnot) {
-                                            changed = true;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (changed && rightEnd.shouldJoinEndsExclude(rightEndMinPoint, runList)) {
-                            knotFlag = true;
-                            makeHalfKnot(runList, rightEnd, rightEndMinPoint);
-                        }
                     }
                     if (knotFlag) {
                         for (VirtualPoint vp : runList) {
@@ -335,6 +311,7 @@ public class KnotEngine {
             }
         }
         return knots;
+
     }
 
     public void makeHalfKnot(ArrayList<VirtualPoint> runList, VirtualPoint vp, VirtualPoint other) {

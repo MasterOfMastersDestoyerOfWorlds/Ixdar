@@ -7,7 +7,8 @@ public class Qa194Test {
 
 	@Test
 	public void test_qa194() {
-		SubGraphs.testMethod("qa194");
+        throw new AssertionError();
+		//SubGraphs.testMethod("qa194");
 	}
 
 	@Test

@@ -14,9 +14,9 @@ public enum Toggle {
     DrawDisplayedKnots(true, "dispKnots"),
     Manifold(false, "manifold"),
     CanSwitchLayer(true, "switchLayer"),
-    IsMainFocused(true, "focusMain"),
-    IsTerminalFocused(false, "focusTerm"),
-    IsInfoFocused(false, "focusInfo"),
+    IsMainFocused(true, false, "focusMain"),
+    IsTerminalFocused(false, false, "focusTerm"),
+    IsInfoFocused(false, false, "focusInfo"),
     IxdarSkip(true, "ixdarSkip"),
     IxdarMirrorAnswerSharing(false, "ixdarFlip"),
     IxdarRotationalAnswerSharing(false, "ixdarRot"),
@@ -30,9 +30,18 @@ public enum Toggle {
     private boolean initialValue;
     public boolean value;
     public String shortName;
+    private boolean shouldReset;
 
     private Toggle(boolean value, String shortName) {
         this.value = value;
+        this.shouldReset = true;
+        this.initialValue = value;
+        this.shortName = shortName;
+    }
+
+    private Toggle(boolean value, boolean shouldReset, String shortName) {
+        this.value = value;
+        this.shouldReset = shouldReset;
         this.initialValue = value;
         this.shortName = shortName;
     }
@@ -53,7 +62,9 @@ public enum Toggle {
 
     public static void resetAll() {
         for (Toggle toggle : Toggle.values()) {
-            toggle.value = toggle.initialValue;
+            if (toggle.shouldReset) {
+                toggle.value = toggle.initialValue;
+            }
         }
     }
 }
