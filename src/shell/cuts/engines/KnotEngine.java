@@ -49,8 +49,8 @@ public class KnotEngine {
         boolean endpointReached = false;
         VirtualPoint endPoint1 = null;
         VirtualPoint endPoint2 = null;
-        if(toVisit.size() == 2){
-            float z =0 ;
+        if (toVisit.size() == 2) {
+            float z = 0;
         }
         while (toVisit.size() > 0 || runList.size() > 0) {
             toVisit.remove(mainPoint);
@@ -261,6 +261,13 @@ public class KnotEngine {
                                 makeHalfKnot(runList, vp, other);
                                 i = -1;
                             }
+
+                            /*
+                             * New idea to make a half-knot: Lets say that we have points 1-5 in a Run, if
+                             * there is a point 6 such that WLOG its two closest matches are points 2 and 4
+                             * on the Run, this outside point should be labeled a connector point and form a
+                             * knot [6, 2, 3, 4]
+                             */
                         }
 
                     }
