@@ -201,8 +201,11 @@ public class Main {
 
         Collections.shuffle(shell);
         long startTimeKnotFinding = System.currentTimeMillis();
-
-        result = new ArrayList<>(shell.slowSolve(shell, d, 40));
+        if (Toggle.CalculateKnot.value) {
+            result = new ArrayList<>(shell.slowSolve(shell, d, 40));
+        }else{
+            result = new ArrayList<>();
+        }
 
         long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
         double knotFindingSeconds = ((double) endTimeKnotFinding) / 1000.0;

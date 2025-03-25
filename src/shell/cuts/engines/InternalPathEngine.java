@@ -166,9 +166,9 @@ public class InternalPathEngine {
             if (settled.contains(u.routeId)) {
                 continue;
             }
-            if (settled.contains(endRoute.routeId)) { // && u.neighbor.id == cutPoint2.id) {
-                // break;
-            }
+            // if (settled.contains(endRoute.routeId)) { // && u.neighbor.id == cutPoint2.id) {
+            //     break;
+            // }
 
             settled.add(u.routeId);
 
@@ -267,6 +267,9 @@ public class InternalPathEngine {
                     double cutDistance = cutSeg.distance;
 
                     double newDistancePrevNeighbor = u.delta + edgeDistance - cutDistance;
+                    // if (cutSeg.equals(cutSegment2)) {
+                    //     newDistancePrevNeighbor = u.delta + edgeDistance;
+                    // }
 
                     long startTimeIxdar1 = System.currentTimeMillis();
                     if (newDistancePrevNeighbor < vRoute.delta) {
