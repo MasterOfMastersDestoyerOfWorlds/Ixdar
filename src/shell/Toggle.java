@@ -25,7 +25,8 @@ public enum Toggle {
     SnapToGrid(true, "gridSnap"),
     CanSwitchTopLayer(true, "topLayer"),
     KnotSurfaceViewSimpleCut(false, "ksvSimpleCut"),
-    RecordKnotAnimation(false, "recordKnotAnim");
+    RecordKnotAnimation(false, "recordKnotAnim"), 
+    ScalePath(true, "scalePath");
 
     private boolean initialValue;
     public boolean value;

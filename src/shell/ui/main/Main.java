@@ -201,17 +201,15 @@ public class Main {
 
         Collections.shuffle(shell);
         long startTimeKnotFinding = System.currentTimeMillis();
-        if (Toggle.CalculateKnot.value) {
-            result = new ArrayList<>(shell.slowSolve(shell, d, 40));
-        }else{
-            result = new ArrayList<>();
-        }
+        result = new ArrayList<>(shell.slowSolve(shell, d, 40));
 
         long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
         double knotFindingSeconds = ((double) endTimeKnotFinding) / 1000.0;
 
         long startTimeKnotCutting = System.currentTimeMillis();
-        calculateSubPaths();
+        if(Toggle.CalculateKnot.value){
+            calculateSubPaths();
+        }
         flattenEngine = shell.cutEngine.flattenEngine;
         Collection<Knot> flatKnots = flattenEngine.flatKnots.values();
         if (flatKnots.size() > 0) {

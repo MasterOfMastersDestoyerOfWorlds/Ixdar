@@ -13,6 +13,7 @@ import org.joml.Vector2f;
 
 import shell.DistanceMatrix;
 import shell.PointSet;
+import shell.Toggle;
 import shell.cameras.Camera;
 import shell.cameras.Camera2D;
 import shell.cuts.CutInfo;
@@ -384,13 +385,17 @@ public class Drawing {
     public static void drawPath(Shell shell, float lineThickness, Color color,
             PointSet ps,
             boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed, Camera2D camera) {
+        float scale = camera.ScaleFactor; 
+        if(!Toggle.ScalePath.value){
+            scale = 3;
+        }
         if (shell.size() == 0) {
             return;
         }
         if (dashed) {
-            sdfLine.setStroke(lineThickness * camera.ScaleFactor, true, 60f, 1f, true, true);
+            sdfLine.setStroke(lineThickness * scale, true, 60f, 1f, true, true);
         } else {
-            sdfLine.setStroke(lineThickness * camera.ScaleFactor, false);
+            sdfLine.setStroke(lineThickness * scale, false);
         }
         PointND last = shell.getLast();
         PointND next;
@@ -400,11 +405,11 @@ public class Drawing {
             float x = camera.pointTransformX(p.getScreenX());
             float y = camera.pointTransformY(p.getScreenY());
             if (drawCircles) {
-                circle.draw(new Vector2f(x, y), CIRCLE_RADIUS * camera.ScaleFactor, color, camera);
+                circle.draw(new Vector2f(x, y), CIRCLE_RADIUS *scale, color, camera);
             }
 
             if (drawNumbers) {
-                float numberPixelDistance = camera.ScaleFactor * FONT_HEIGHT_LABELS_PIXELS / 4;
+                float numberPixelDistance =scale * FONT_HEIGHT_LABELS_PIXELS / 4;
                 Vector2f point = new Vector2f(x, y);
                 Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getScreenX()),
                         camera.pointTransformY(last.getScreenY())).sub(point);
@@ -420,7 +425,7 @@ public class Drawing {
                 });
                 number.debug = true;
                 Drawing.font.drawHyperString(number, textCenter.x, textCenter.y,
-                        camera.ScaleFactor * FONT_HEIGHT_LABELS_PIXELS, camera);
+                       scale * FONT_HEIGHT_LABELS_PIXELS, camera);
             }
             if (drawLines) {
                 float lx = camera.pointTransformX(last.getScreenX());
