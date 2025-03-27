@@ -62,6 +62,8 @@
 
 2. - [ ] number labels have drawn duplicates see threecircle_in_5
 
+3. - [ ] number labels disappear and jitter on lines that approach 180 degrees due to floating point error
+
 3. - [ ] line segments have jagged edges.
 
 4. - [ ] bug on line culling where the colors flip directions when touching multiple sides of the screen
@@ -131,6 +133,10 @@
 ![Complete](readme_img\complete.png)
 
 ## Terminal Panel
+
+### Command Bugs
+
+1. - [ ] mb, ma, etc. all commands that rewrite the test file do not preserve flags and toggles
 
 ### Keyboard Input
 
