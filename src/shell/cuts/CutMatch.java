@@ -74,7 +74,7 @@ public class CutMatch {
             }
         }
 
-        if (superKnot == null) {
+        if (superKnot == null && knot != null) {
             ArrayList<Segment> knotSegments = new ArrayList<>();
             for (int a = 0; a < knot.knotPoints.size(); a++) {
                 VirtualPoint knotPoint11 = knot.knotPoints.get(a);
@@ -89,7 +89,7 @@ public class CutMatch {
                     throw new InvalidCutException("Matching Segment already in Knot", sbe);
                 }
             }
-        } else {
+        } else if(superKnot != null){
             ArrayList<Segment> superKnotSegments = new ArrayList<>();
             for (int a = 0; a < superKnot.knotPoints.size(); a++) {
                 VirtualPoint knotPoint11 = superKnot.knotPoints.get(a);

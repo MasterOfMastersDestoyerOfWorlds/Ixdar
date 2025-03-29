@@ -22,7 +22,12 @@
 
 //As far as I know the above is not feasible since we have not figure out how to make the hole moving game into a positive weight graph. Few other things to try: There may be some sense in which the hole-moving game forms a Directed Acyclic Graph in which we could find the linear time shortest path once we formed the dag, but enumerating all of the branches that don't form cycles would take lot of space and time. Alternatively, if we could re-weight the graph into a positive weight graph or have the starting point marked as -Inf weight in the priority queue we might still be able to reuse other djikstra calls. I think we need some way to compare route maps in code and break on their difference (see route comparison tool to start)
 
-1. - [x] Figure out how to share shortest path info from a cut to it's flipped version where the ending cutsegment is in the disconnected orientation .
+[Negative Weight BF + Djikstras](https://youtu.be/uqM9WjO7D6A?si=Sct1La4zsbqpSAdE&t=2252)
+
+1. [] convert my existing code to use a heap instead of a priority queue and do bubble up/ pop operations instead of adding the nodes multiple times
+2. [] convert existing code to do the BFD algorithm as described in the video, this will likely make us able to reuse partial results remove paths that go through not existant edges.
+
+3. - [x] Figure out how to share shortest path info from a cut to it's flipped version where the ending cutsegment is in the disconnected orientation .
 
 //this only works some fraction of the time, depending on wether the answer touches the ending cut segment, at this point it is hard to tell when this occurs
 

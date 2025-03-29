@@ -5,6 +5,7 @@ import shell.ui.main.PanelTypes;
 public enum Toggle {
 
     CalculateKnot(true, "calcKnot"),
+    CutKnot(true, "cutKnot"),
     DrawMainPath(false, "mainPath"),
     DrawNumberLabels(true, "numberLabels"),
     DrawMetroDiagram(true, "metro"),
@@ -21,7 +22,7 @@ public enum Toggle {
     IxdarMirrorAnswerSharing(false, "ixdarFlip"),
     IxdarRotationalAnswerSharing(false, "ixdarRot"),
     IxdarCheckMirroredAnswerSharing(true, "checkAns"),
-    IxdarKnotDistance(true, "knotDist"),
+    IxdarKnotDistance(false, "knotDist"),
     SnapToGrid(true, "gridSnap"),
     CanSwitchTopLayer(true, "topLayer"),
     KnotSurfaceViewSimpleCut(false, "ksvSimpleCut"),

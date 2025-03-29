@@ -101,7 +101,7 @@ public class Shell extends LinkedList<PointND> {
         return result;
     }
 
-    public ArrayList<VirtualPoint> slowSolve(Shell A, DistanceMatrix distanceMatrix, int layers) {
+    public void initShell( DistanceMatrix distanceMatrix){
         this.distanceMatrix = distanceMatrix;
         pointMap = new HashMap<>();
 
@@ -122,6 +122,10 @@ public class Shell extends LinkedList<PointND> {
             }
             p1.sortedSegments.sort(null);
         }
+    }
+
+    public ArrayList<VirtualPoint> slowSolve(Shell A, DistanceMatrix distanceMatrix, int layers) {
+        initShell(distanceMatrix);
         ArrayList<VirtualPoint> knots = knotEngine.createKnots(layers);
         return knots;
     }

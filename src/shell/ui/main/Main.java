@@ -195,7 +195,6 @@ public class Main {
         shell = orgShell.copyShallow();
 
         CutEngine.resetMetrics();
-        InternalPathEngine.comparisons = 0;
 
         shell.knotName = fileName;
 
@@ -206,6 +205,7 @@ public class Main {
         }else{
             result = new ArrayList<>();
         }
+        
 
         long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
         double knotFindingSeconds = ((double) endTimeKnotFinding) / 1000.0;

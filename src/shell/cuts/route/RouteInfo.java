@@ -116,7 +116,7 @@ public class RouteInfo {
     }
 
     public void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType,
-            Route ancestorRoute, int settledSize, int knotId) throws SegmentBalanceException {
+            Route ancestorRoute) throws SegmentBalanceException {
 
         Route route = getRoute(routeType);
 

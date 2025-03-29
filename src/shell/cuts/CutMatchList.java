@@ -396,20 +396,23 @@ public class CutMatchList implements FileStringable {
         ArrayList<Segment> seenMatches = new ArrayList<>();
         for (CutMatch cm : cutMatches) {
             cm.updateDelta();
-            for (Segment s : cm.cutSegments) {
-                if (!seenCuts.contains(s) && this.superKnot.hasSegment(s)) {
-                    delta -= s.distance;
-                    internalDelta -= s.distance;
-                    seenCuts.add(s);
-                }
-            }
-            for (Segment s : cm.matchSegments) {
-                if (!seenMatches.contains(s) && !this.superKnot.hasSegment(s)) {
-                    delta += s.distance;
-                    if (this.superKnot.contains(s.first) && this.superKnot.contains(s.last)) {
-                        internalDelta += s.distance;
+            if (superKnot != null) {
+                for (Segment s : cm.cutSegments) {
+
+                    if (!seenCuts.contains(s) && this.superKnot.hasSegment(s)) {
+                        delta -= s.distance;
+                        internalDelta -= s.distance;
+                        seenCuts.add(s);
                     }
-                    seenMatches.add(s);
+                }
+                for (Segment s : cm.matchSegments) {
+                    if (!seenMatches.contains(s) && !this.superKnot.hasSegment(s)) {
+                        delta += s.distance;
+                        if (this.superKnot.contains(s.first) && this.superKnot.contains(s.last)) {
+                            internalDelta += s.distance;
+                        }
+                        seenMatches.add(s);
+                    }
                 }
             }
         }
