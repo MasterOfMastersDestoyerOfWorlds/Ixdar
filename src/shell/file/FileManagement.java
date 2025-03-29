@@ -15,6 +15,7 @@ import java.util.List;
 
 import shell.DistanceMatrix;
 import shell.PointSet;
+import shell.Toggle;
 import shell.cuts.Manifold;
 import shell.exceptions.FileParseException;
 import shell.exceptions.TerminalParseException;
@@ -196,7 +197,12 @@ public class FileManagement {
                         if (args[1].equals("SHOW_GRID")) {
                             fi.showGrid = true;
                         }
-
+                    } else if (args[0].equals("TOGGLE") || args[0].equals("TGL")) {
+                        for (Toggle t : Toggle.values()) {
+                            if (args[1].equals(t.name()) || args[1].equals(t.shortName())) {
+                                t.value = Boolean.parseBoolean(args[2]);
+                            }
+                        }
                     } else if (args[0].contains("//")) {
                         // COMMENT
                         fi.comments.add(line);
@@ -397,7 +403,7 @@ public class FileManagement {
     public static void appendComment(File f, String comment) {
         try {
             String ansLine = "// " + comment;
-            FileWriter fw = new FileWriter(f,true);
+            FileWriter fw = new FileWriter(f, true);
             BufferedWriter out = new BufferedWriter(fw);
             out.newLine();
             out.append(ansLine);

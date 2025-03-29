@@ -211,7 +211,9 @@ public class Main {
         double knotFindingSeconds = ((double) endTimeKnotFinding) / 1000.0;
 
         long startTimeKnotCutting = System.currentTimeMillis();
-        calculateSubPaths();
+        if(Toggle.CalculateKnot.value){
+            calculateSubPaths();
+        }
         flattenEngine = shell.cutEngine.flattenEngine;
         Collection<Knot> flatKnots = flattenEngine.flatKnots.values();
         if (flatKnots.size() > 0) {
