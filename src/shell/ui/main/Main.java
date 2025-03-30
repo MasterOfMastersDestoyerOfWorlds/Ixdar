@@ -188,7 +188,6 @@ public class Main {
         retTup.tsp.removeAll(toRemove);
         if (tool.canUseToggle(Toggle.Manifold)) {
             Toggle.Manifold.value = true;
-            Toggle.CalculateKnot.value = false;
         }
         orgShell = retTup.tsp;
         totalLayers = -1;
@@ -211,7 +210,7 @@ public class Main {
         double knotFindingSeconds = ((double) endTimeKnotFinding) / 1000.0;
 
         long startTimeKnotCutting = System.currentTimeMillis();
-        if(Toggle.CalculateKnot.value){
+        if(Toggle.CutKnot.value){
             calculateSubPaths();
         }
         flattenEngine = shell.cutEngine.flattenEngine;

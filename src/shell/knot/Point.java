@@ -27,6 +27,7 @@ public class Point extends VirtualPoint {
         knotPointsFlattened.add(this);
         sortedSegments = new ArrayList<Segment>();
         segmentLookup = new HashMap<>();
+        pointSegmentLookup = new Segment[shell.size()];
     }
 
     @Override

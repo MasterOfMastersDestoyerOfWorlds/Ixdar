@@ -15,19 +15,21 @@ public class Route implements Comparable<Route> {
     public VirtualPoint neighbor;
     public double delta;
     public VirtualPoint ancestor;
-    public ArrayList<VirtualPoint> ourGroup;
-    public ArrayList<VirtualPoint> otherGroup;
+    public ArrayList<Integer> ourGroup;
+    public ArrayList<Integer> otherGroup;
     public ArrayList<Segment> cuts;
     public ArrayList<Segment> matches;
     public ArrayList<Integer> ancestorRoutes;
     public int routeId;
     public RouteInfo parent;
     public boolean needToCalculateGroups = false;
+    public Segment neighborSegment;
 
     public Route(RouteType routeType, double delta, VirtualPoint neighbor, int pointId, RouteInfo parent) {
         this.routeType = routeType;
         this.delta = delta;
         this.neighbor = neighbor;
+        neighborSegment = parent.node.getSegment(neighbor);
         this.parent = parent;
         cuts = new ArrayList<>();
         matches = new ArrayList<>();
@@ -110,14 +112,14 @@ public class Route implements Comparable<Route> {
     public void calculateGroups(Route ancestorRoute) {
         this.needToCalculateGroups = false;
         VirtualPoint node = parent.node;
-        if (ancestorRoute.ourGroup.contains(node)) {
-            ArrayList<VirtualPoint> grp = ancestorRoute.ourGroup;
-            int idxNeighbor = grp.indexOf(neighbor);
-            int rotateIdx = grp.indexOf(node);
+        if (ancestorRoute.ourGroup.contains(node.id)) {
+            ArrayList<Integer> grp = ancestorRoute.ourGroup;
+            int idxNeighbor = grp.indexOf(neighbor.id);
+            int rotateIdx = grp.indexOf(node.id);
 
             this.otherGroup = ancestorRoute.otherGroup;
 
-            ArrayList<VirtualPoint> reverseList = new ArrayList<VirtualPoint>();
+            ArrayList<Integer> reverseList = new ArrayList<Integer>();
             if (idxNeighbor > rotateIdx || idxNeighbor == -1) {
                 for (int i = rotateIdx + 1; i < grp.size(); i++) {
                     reverseList.add(grp.get(i));
@@ -137,13 +139,13 @@ public class Route implements Comparable<Route> {
             }
         } else {
 
-            ArrayList<VirtualPoint> grp = ancestorRoute.otherGroup;
-            ArrayList<VirtualPoint> otherGrp = ancestorRoute.ourGroup;
-            int idxNeighbor = grp.indexOf(neighbor);
-            int rotateIdx = grp.indexOf(node);
+            ArrayList<Integer> grp = ancestorRoute.otherGroup;
+            ArrayList<Integer> otherGrp = ancestorRoute.ourGroup;
+            int idxNeighbor = grp.indexOf(neighbor.id);
+            int rotateIdx = grp.indexOf(node.id);
             this.otherGroup = ancestorRoute.otherGroup;
-            ArrayList<VirtualPoint> remainList = new ArrayList<VirtualPoint>();
-            ArrayList<VirtualPoint> reverseList = new ArrayList<VirtualPoint>(otherGrp);
+            ArrayList<Integer> remainList = new ArrayList<Integer>();
+            ArrayList<Integer> reverseList = new ArrayList<Integer>(otherGrp);
             if (idxNeighbor > rotateIdx || idxNeighbor == -1) {
                 for (int i = 0; i < rotateIdx + 1; i++) {
                     remainList.add(0, grp.get(i));

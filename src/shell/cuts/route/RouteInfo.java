@@ -48,11 +48,15 @@ public class RouteInfo {
         this.nextC = new Route(RouteType.nextC, Double.MAX_VALUE, nextNeighbor, node.id, this);
         this.prevDC = new Route(RouteType.prevDC, Double.MAX_VALUE, prevNeighbor, node.id, this);
         this.nextDC = new Route(RouteType.nextDC, Double.MAX_VALUE, nextNeighbor, node.id, this);
-        routes = new Route[] { prevC, prevDC, nextC, nextDC };
         this.knotPoint1 = knotPoint1;
         this.knotPoint2 = knotPoint2;
         this.cutPoint1 = cutPoint1;
         this.cutPoint2 = cutPoint2;
+        routes = new Route[4];
+        routes[RouteType.prevC.idx] = prevC;
+        routes[RouteType.prevDC.idx] = prevDC;
+        routes[RouteType.nextC.idx] = nextC;
+        routes[RouteType.nextDC.idx] = nextDC;
     }
 
     public RouteInfo(RouteInfo routeInfoToCopy, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, CutInfo c,
@@ -69,17 +73,21 @@ public class RouteInfo {
         this.nextC = new Route(routeInfoToCopy.nextC, upperCutPoint, upperKnotPoint, this, c);
         this.prevDC = new Route(routeInfoToCopy.prevDC, upperCutPoint, upperKnotPoint, this, c);
         this.nextDC = new Route(routeInfoToCopy.nextDC, upperCutPoint, upperKnotPoint, this, c);
-        routes = new Route[] { prevC, prevDC, nextC, nextDC };
+        routes = new Route[4];
+        routes[RouteType.prevC.idx] = prevC;
+        routes[RouteType.prevDC.idx] = prevDC;
+        routes[RouteType.nextC.idx] = nextC;
+        routes[RouteType.nextDC.idx] = nextDC;
     }
 
-    public void assignGroup(ArrayList<VirtualPoint> ourGroup, ArrayList<VirtualPoint> otherGroup)
+    public void assignGroup(ArrayList<Integer> ourGroup, ArrayList<Integer> otherGroup)
             throws SegmentBalanceException {
         for (int i = 0; i < routes.length; i++) {
             Route route = routes[i];
             if (!route.needToCalculateGroups && route.ancestor == null) {
                 route.ourGroup = ourGroup;
                 route.otherGroup = otherGroup;
-                if (!ourGroup.contains(node)) {
+                if (!ourGroup.contains(node.id)) {
                     throw new SegmentBalanceException(parent.c);
                 }
             } else {
@@ -89,7 +97,7 @@ public class RouteInfo {
                 int k = 0;
                 ArrayList<Integer> seenIds = new ArrayList<>();
                 while (r.ancestor != null && r.needToCalculateGroups) {
-                    if(seenIds.contains(r.routeId)){
+                    if (seenIds.contains(r.routeId)) {
                         break;
                     }
                     seenIds.add(r.routeId);
@@ -143,18 +151,7 @@ public class RouteInfo {
     }
 
     public Route getRoute(RouteType routeType) {
-        switch (routeType) {
-        case prevC:
-            return prevC;
-        case nextC:
-            return nextC;
-        case prevDC:
-            return prevDC;
-        case nextDC:
-            return nextDC;
-        default:
-            return null;
-        }
+        return routes[routeType.idx];
     }
 
     @Override

@@ -135,21 +135,23 @@ public class Drawing {
         if (cml != null) {
             for (CutMatch cutMatch : cml.cutMatches) {
 
-                for (Segment s : cutMatch.matchSegments) {
-                    if (s.id == cutMatch.c.lowerMatchSegment.id || s.id == cutMatch.c.upperMatchSegment.id) {
-                        drawSegment(s, Color.GREEN, camera);
-                    } else {
-                        drawSegment(s, Color.CYAN, camera);
+                if (cutMatch.c != null) {
+                    for (Segment s : cutMatch.matchSegments) {
+                        if (s.id == cutMatch.c.lowerMatchSegment.id || s.id == cutMatch.c.upperMatchSegment.id) {
+                            drawSegment(s, Color.GREEN, camera);
+                        } else {
+                            drawSegment(s, Color.CYAN, camera);
+                        }
                     }
-                }
 
-                // Draw Cuts
-                sdfLine.setStroke(2 * lineThickness, false);
-                for (Segment s : cutMatch.cutSegments) {
-                    if (s.id == cutMatch.c.lowerCutSegment.id || s.id == cutMatch.c.upperCutSegment.id) {
-                        drawSegment(s, Color.MAGENTA, camera);
-                    } else {
-                        drawSegment(s, Color.ORANGE, camera);
+                    // Draw Cuts
+                    sdfLine.setStroke(2 * lineThickness, false);
+                    for (Segment s : cutMatch.cutSegments) {
+                        if (s.id == cutMatch.c.lowerCutSegment.id || s.id == cutMatch.c.upperCutSegment.id) {
+                            drawSegment(s, Color.MAGENTA, camera);
+                        } else {
+                            drawSegment(s, Color.ORANGE, camera);
+                        }
                     }
                 }
                 // Draw SubKnot
@@ -385,8 +387,8 @@ public class Drawing {
     public static void drawPath(Shell shell, float lineThickness, Color color,
             PointSet ps,
             boolean drawLines, boolean drawCircles, boolean drawNumbers, boolean dashed, Camera2D camera) {
-        float scale = camera.ScaleFactor; 
-        if(!Toggle.ScalePath.value){
+        float scale = camera.ScaleFactor;
+        if (!Toggle.ScalePath.value) {
             scale = 3;
         }
         if (shell.size() == 0) {
@@ -405,11 +407,11 @@ public class Drawing {
             float x = camera.pointTransformX(p.getScreenX());
             float y = camera.pointTransformY(p.getScreenY());
             if (drawCircles) {
-                circle.draw(new Vector2f(x, y), CIRCLE_RADIUS *scale, color, camera);
+                circle.draw(new Vector2f(x, y), CIRCLE_RADIUS * scale, color, camera);
             }
 
             if (drawNumbers) {
-                float numberPixelDistance =scale * FONT_HEIGHT_LABELS_PIXELS / 4;
+                float numberPixelDistance = scale * FONT_HEIGHT_LABELS_PIXELS / 4;
                 Vector2f point = new Vector2f(x, y);
                 Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getScreenX()),
                         camera.pointTransformY(last.getScreenY())).sub(point);
@@ -425,7 +427,7 @@ public class Drawing {
                 });
                 number.debug = true;
                 Drawing.font.drawHyperString(number, textCenter.x, textCenter.y,
-                       scale * FONT_HEIGHT_LABELS_PIXELS, camera);
+                        scale * FONT_HEIGHT_LABELS_PIXELS, camera);
             }
             if (drawLines) {
                 float lx = camera.pointTransformX(last.getScreenX());

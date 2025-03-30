@@ -21,6 +21,7 @@ public abstract class VirtualPoint {
     public ArrayList<VirtualPoint> knotPointsFlattened;
     public ArrayList<Segment> sortedSegments;
     public HashMap<Long, Segment> segmentLookup;
+    public Segment[] pointSegmentLookup;
     public Segment s2;
     public int id;
     public boolean isKnot;
