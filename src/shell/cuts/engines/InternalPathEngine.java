@@ -130,7 +130,9 @@ public class InternalPathEngine {
         ArrayList<Integer> rightGroup = paintState(knotPointsConnected ? Group.Right : Group.Right,
                 knot, cutPoint1, knotPoint1,
                 cutSegment2, routeMap1);
-
+        if (startingWeights) {
+            float z = 0;
+        }
         RouteInfo start = routeMap1.get(cutPoint1.id);
         if (start.group == Group.Left) {
             start.assignGroup(leftGroup, rightGroup);
@@ -191,14 +193,14 @@ public class InternalPathEngine {
                 Route u = heap.poll().route;
                 // add u to settled
                 settled.add(u);
-                ree(u, knotPoints, routeMap1, heap, false, knot, c);
+                relaxShortestPath(u, knotPoints, routeMap1, heap, false, knot, c);
                 // for each edge (u,v) with w(u,v) > 0:
 
             }
 
             // for every edge (u,v) with u in settled
             for (Route u : settled) {
-                ree(u, knotPoints, routeMap1, heap, true, knot, c);
+                relaxShortestPath(u, knotPoints, routeMap1, heap, true, knot, c);
             }
         }
         RouteMap routeMap = routeMap1;
@@ -234,6 +236,19 @@ public class InternalPathEngine {
         } catch (SegmentBalanceException be) {
             throw be;
         }
+        if (neighborRouteMap != null && Toggle.IxdarCheckRotationalAnswerSharing.value) {
+            RouteMap checkRouteMap = calculateInternalPathLength(knotPoint1, cutPoint1, external1, knotPoint2,
+                    cutPoint2, external2, knot, balanceMap, c, knotPointsConnected, null).getSecond();
+            for (RouteInfo correctRI : checkRouteMap.values()) {
+                RouteInfo compareRi = neighborRouteMap.get(correctRI.id);
+                for (Route correctRoute : correctRI.routes) {
+                    Route compareRoute = compareRi.getRoute(correctRoute.routeType);
+                    if (compareRoute.delta != correctRoute.delta) {
+                        float z = 0;
+                    }
+                }
+            }
+        }
 
         if (unionSet.find(cutPoint1.id) != unionSet.find(cutPoint2.id)
                 || unionSet.find(cutPoint1.id) != unionSet.find(knotPoint1.id)
@@ -244,7 +259,7 @@ public class InternalPathEngine {
         return new Pair<>(cutMatchList, routeMap);
     }
 
-    private static void ree(Route u, ArrayList<VirtualPoint> knotPoints, RouteMap routeMap1,
+    private static void relaxShortestPath(Route u, ArrayList<VirtualPoint> knotPoints, RouteMap routeMap1,
             PriorityQueue<RoutePair> heap, boolean negativeWeights, Knot knot, CutInfo c)
             throws SegmentBalanceException {
         for (int i = 0; i < knotPoints.size(); i++) {
@@ -271,12 +286,10 @@ public class InternalPathEngine {
                 double cutDistance = cutSeg.distance;
                 double distance = edgeDistance - cutDistance;
                 boolean negative = distance < 0;
-                if (negativeWeights && !negative) {
-                    continue;
-                } else if (!negativeWeights && negative) {
+                if (negativeWeights ^ negative) {
                     continue;
                 }
-                //11%
+                // 11%
                 // with w(u,v) >= 0:
                 // if(d(v) > d(u) + w(u,v))
                 double newDistancePrevNeighbor = u.delta + distance;
@@ -293,8 +306,10 @@ public class InternalPathEngine {
                 // update d(v) = d(u) + w(u,v)
                 v.updateRoute(newDistancePrevNeighbor, uParent.node, vRouteType, u.routeType, u);
                 // add v to heap
-                RoutePair routePair = new RoutePair(vRoute);
-                heap.add(routePair);
+                if (!cutSeg.equals(c.upperCutSegment)) {
+                    RoutePair routePair = new RoutePair(vRoute);
+                    heap.add(routePair);
+                }
             }
         }
     }
@@ -303,9 +318,8 @@ public class InternalPathEngine {
             Segment acrossSeg,
             Segment cutSeg, RouteInfo uParent, Knot knot, CutInfo c) {
 
-
         boolean retValue = true;
-        //2%
+        // 2%
         if (u.delta == Double.MAX_VALUE) {
             return false;
         }
@@ -320,10 +334,13 @@ public class InternalPathEngine {
         if (v.id == uParent.knotPoint1.id && neighbor.id == uParent.cutPoint1.id) {
             return false;
         }
-                
-        //4%
-        //can replace this by checking if across seg containes either neighbor 
-        if(acrossSeg.contains(uParent.prevC.neighbor) || acrossSeg.contains(uParent.nextC.neighbor)){
+
+        if (cutSeg.equals(c.upperCutSegment) && acrossSeg.contains(c.upperKnotPoint)) {
+            return false;
+        }
+
+        // 4%
+        if (acrossSeg.contains(uParent.prevC.neighbor) || acrossSeg.contains(uParent.nextC.neighbor)) {
             return false;
         }
         if (u.cuts.contains(cutSeg)) {
@@ -339,8 +356,8 @@ public class InternalPathEngine {
                 return false;
             }
         }
-        
-        //8%
+
+        // 8%
         boolean vIsConnected = vRouteType.isConnected;
         boolean uIsConnected = u.routeType.isConnected;
         if (neighbor.id == uParent.cutPoint2.id && v.id == uParent.knotPoint2.id) {
@@ -348,10 +365,7 @@ public class InternalPathEngine {
                 return false;
             }
         } else if (neighborInGroup) {
-            if (uIsConnected && !vIsConnected) {
-                return false;
-            }
-            if (!uIsConnected && vIsConnected) {
+            if (uIsConnected ^ vIsConnected) {
                 return false;
             }
         } else {

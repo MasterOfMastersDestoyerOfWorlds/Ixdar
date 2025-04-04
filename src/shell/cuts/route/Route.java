@@ -24,6 +24,7 @@ public class Route implements Comparable<Route> {
     public RouteInfo parent;
     public boolean needToCalculateGroups = false;
     public Segment neighborSegment;
+    public Route ancestorRoute;
 
     public Route(RouteType routeType, double delta, VirtualPoint neighbor, int pointId, RouteInfo parent) {
         this.routeType = routeType;
@@ -48,12 +49,14 @@ public class Route implements Comparable<Route> {
      * 
      */
     public Route(Route routeToCopy, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, RouteInfo parent,
-            CutInfo c) {
+            CutInfo c, ArrayList<Route> routesToCheck) {
         this.routeType = routeToCopy.routeType;
         this.ancestorRouteType = routeToCopy.ancestorRouteType;
         this.neighbor = routeToCopy.neighbor;
+        this.neighborSegment = routeToCopy.neighborSegment;
         this.delta = routeToCopy.delta;
         this.ancestor = routeToCopy.ancestor;
+        this.ancestorRoute = routeToCopy.ancestorRoute;
         this.cuts = new ArrayList<>(routeToCopy.cuts);
         this.matches = new ArrayList<>(routeToCopy.matches);
         this.ancestorRoutes = new ArrayList<>(routeToCopy.ancestorRoutes);
@@ -80,28 +83,33 @@ public class Route implements Comparable<Route> {
             }
         }
         if (matchContains) {
-            this.reset();
+            this.reset(routesToCheck);
         } else if (cutContains) {
-            this.reset();
+            this.reset(routesToCheck);
         } else if (parent.id == upperCutPoint.id || neighbor.id == upperCutPoint.id ||
                 parent.id == upperKnotPoint.id || neighbor.id == upperKnotPoint.id) {
-            this.reset();
+            this.reset(routesToCheck);
         } else if (parent.id == otherParent.knotPoint2.id
                 || parent.id == otherParent.cutPoint2.id ||
                 neighbor.id == otherParent.knotPoint2.id || neighbor.id == otherParent.cutPoint2.id) {
-            this.reset();
+            this.reset(routesToCheck);
         } else if (delta == Double.MAX_VALUE || delta == 0) {
-            this.reset();
+            this.reset(routesToCheck);
         } else {
 
         }
     }
 
-    public void reset() {
+    public void reset(ArrayList<Route> routesToCheck) {
+        routesToCheck.remove(this);
+        if (ancestorRoute != null) {
+            routesToCheck.add(ancestorRoute);
+        }
         delta = Double.MAX_VALUE;
         cuts = new ArrayList<>();
         matches = new ArrayList<>();
         ancestorRoutes = new ArrayList<>();
+        ancestorRoute = null;
         ancestor = null;
         ancestorRouteType = RouteType.None;
         ourGroup = null;
@@ -110,6 +118,7 @@ public class Route implements Comparable<Route> {
     }
 
     public void calculateGroups(Route ancestorRoute) {
+        // 9%
         this.needToCalculateGroups = false;
         VirtualPoint node = parent.node;
         if (ancestorRoute.ourGroup.contains(node.id)) {

@@ -60,7 +60,7 @@ public class RouteInfo {
     }
 
     public RouteInfo(RouteInfo routeInfoToCopy, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, CutInfo c,
-            RouteMap routeMap) {
+            RouteMap routeMap, ArrayList<Route> routesToCheck) {
         this.c = c;
         this.parent = routeMap;
         this.node = routeInfoToCopy.node;
@@ -69,10 +69,10 @@ public class RouteInfo {
         this.knotPoint2 = upperKnotPoint;
         this.cutPoint1 = routeInfoToCopy.cutPoint1;
         this.cutPoint2 = upperCutPoint;
-        this.prevC = new Route(routeInfoToCopy.prevC, upperCutPoint, upperKnotPoint, this, c);
-        this.nextC = new Route(routeInfoToCopy.nextC, upperCutPoint, upperKnotPoint, this, c);
-        this.prevDC = new Route(routeInfoToCopy.prevDC, upperCutPoint, upperKnotPoint, this, c);
-        this.nextDC = new Route(routeInfoToCopy.nextDC, upperCutPoint, upperKnotPoint, this, c);
+        this.prevC = new Route(routeInfoToCopy.prevC, upperCutPoint, upperKnotPoint, this, c, routesToCheck);
+        this.nextC = new Route(routeInfoToCopy.nextC, upperCutPoint, upperKnotPoint, this, c, routesToCheck);
+        this.prevDC = new Route(routeInfoToCopy.prevDC, upperCutPoint, upperKnotPoint, this, c, routesToCheck);
+        this.nextDC = new Route(routeInfoToCopy.nextDC, upperCutPoint, upperKnotPoint, this, c, routesToCheck);
         routes = new Route[4];
         routes[RouteType.prevC.idx] = prevC;
         routes[RouteType.prevDC.idx] = prevDC;
@@ -128,23 +128,29 @@ public class RouteInfo {
 
         Route route = getRoute(routeType);
 
+        // 20%
         if (delta < route.delta) {
+            // 3%
             route.delta = delta;
             route.ancestorRouteType = ancestorRouteType;
             route.ancestor = ancestor;
+            route.ancestorRoute = ancestorRoute;
             VirtualPoint neighbor = route.neighbor;
             VirtualPoint node = this.node;
             route.cuts = new ArrayList<>(ancestorRoute.cuts);
             Segment newCut = node.getSegment(neighbor);
             route.cuts.add(0, newCut);
             route.matches = new ArrayList<>(ancestorRoute.matches);
+            // 3%
             Segment newMatch = ancestor.getSegment(neighbor);
             route.matches.add(0, newMatch);
             route.ancestorRoutes = new ArrayList<>(ancestorRoute.ancestorRoutes);
             if (route.ancestorRoutes.contains(ancestorRoute.routeId)) {
                 throw new SegmentBalanceException(c);
             }
+            // 2%
             route.ancestorRoutes.add(ancestorRoute.routeId);
+            // 9%
             route.calculateGroups(ancestorRoute);
         }
 
