@@ -45,7 +45,7 @@ public class InternalPathEngine {
             VirtualPoint knotPoint1, VirtualPoint cutPoint1, VirtualPoint external1,
             VirtualPoint knotPoint2, VirtualPoint cutPoint2, VirtualPoint external2,
             Knot knot, BalanceMap balanceMap, CutInfo c, boolean knotPointsConnected,
-            RouteMap neighborRouteMap)
+            RouteMap neighborRouteMap, RouteMap neighborRouteMapActual)
             throws SegmentBalanceException, BalancerException {
         Segment cutSegment1 = knotPoint1.getClosestSegment(cutPoint1, null);
         Segment cutSegment2 = knotPoint2.getClosestSegment(cutPoint2, null);
@@ -59,8 +59,11 @@ public class InternalPathEngine {
         ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
         boolean startingWeights = neighborRouteMap != null;
         RouteMap routeMap1 = new RouteMap(c);
+        RouteMap copy = null;
         if (startingWeights) {
             routeMap1 = neighborRouteMap;
+            copy = neighborRouteMap.copy();
+
         }
         PriorityQueue<RoutePair> heap = new PriorityQueue<RoutePair>(new RouteComparator());
         int numPoints = knot.size();
@@ -109,17 +112,16 @@ public class InternalPathEngine {
                     heap.add(new RoutePair(r.prevDC));
                 }
             } else if (startingWeights) {
-
-                if (r.nextC.delta != Double.MAX_VALUE) {
+                if (neighborRouteMap.routesToCheck.contains(r.nextC) && r.nextC.delta != Double.MAX_VALUE) {
                     heap.add(new RoutePair(r.nextC));
                 }
-                if (r.nextDC.delta != Double.MAX_VALUE) {
+                if (neighborRouteMap.routesToCheck.contains(r.nextDC) && r.nextDC.delta != Double.MAX_VALUE) {
                     heap.add(new RoutePair(r.nextDC));
                 }
-                if (r.prevC.delta != Double.MAX_VALUE) {
+                if (neighborRouteMap.routesToCheck.contains(r.prevC) && r.prevC.delta != Double.MAX_VALUE) {
                     heap.add(new RoutePair(r.prevC));
                 }
-                if (r.prevDC.delta != Double.MAX_VALUE) {
+                if (neighborRouteMap.routesToCheck.contains(r.prevDC) && r.prevDC.delta != Double.MAX_VALUE) {
                     heap.add(new RoutePair(r.prevDC));
                 }
             }
@@ -135,22 +137,25 @@ public class InternalPathEngine {
         }
         RouteInfo start = routeMap1.get(cutPoint1.id);
         if (start.group == Group.Left) {
-            start.assignGroup(leftGroup, rightGroup);
+            start.assignGroup(leftGroup, rightGroup, c);
         } else {
-            start.assignGroup(rightGroup, leftGroup);
+            start.assignGroup(rightGroup, leftGroup, c);
         }
 
         for (RouteInfo r : routeMap1.values()) {
             if (r.group == Group.Left) {
-                r.assignGroup(leftGroup, rightGroup);
+                r.assignGroup(leftGroup, rightGroup, c);
             } else {
-                r.assignGroup(rightGroup, leftGroup);
+                r.assignGroup(rightGroup, leftGroup, c);
             }
         }
         RouteInfo end = routeMap1.get(knotPoint2.id);
         Route endRoute = end.nextC;
         if (endRoute.neighbor.id != cutPoint2.id) {
             endRoute = end.prevC;
+        }
+        if (c.cutID == 856) {
+            float z = 0;
         }
         // calculateInternalPathLength(knotPoint1, cutPoint1, external1, knotPoint2,
         // cutPoint2, external2, knot, balanceMap, c, knotPointsConnected,null)
@@ -238,14 +243,26 @@ public class InternalPathEngine {
         }
         if (neighborRouteMap != null && Toggle.IxdarCheckRotationalAnswerSharing.value) {
             RouteMap checkRouteMap = calculateInternalPathLength(knotPoint1, cutPoint1, external1, knotPoint2,
-                    cutPoint2, external2, knot, balanceMap, c, knotPointsConnected, null).getSecond();
+                    cutPoint2, external2, knot, balanceMap, c, knotPointsConnected, null, null).getSecond();
+            ArrayList<Route> correctList = new ArrayList<>();
+            ArrayList<Route> compareList = new ArrayList<>();
             for (RouteInfo correctRI : checkRouteMap.values()) {
                 RouteInfo compareRi = neighborRouteMap.get(correctRI.id);
                 for (Route correctRoute : correctRI.routes) {
                     Route compareRoute = compareRi.getRoute(correctRoute.routeType);
                     if (compareRoute.delta != correctRoute.delta) {
-                        float z = 0;
+                        correctList.add(correctRoute);
+                        compareList.add(compareRoute);
                     }
+                }
+            }
+            if (compareList.size() != 0) {
+                float z = 0;
+                if (unionSet.find(cutPoint1.id) != unionSet.find(cutPoint2.id)
+                        || unionSet.find(cutPoint1.id) != unionSet.find(knotPoint1.id)
+                        || unionSet.find(cutPoint2.id) != unionSet.find(knotPoint2.id)
+                        || unionSet.find(knotPoint1.id) != unionSet.find(knotPoint2.id)) {
+                    throw new MultipleCyclesFoundException(c.shell, cutMatchList, matchSegments, cutSegments, c);
                 }
             }
         }

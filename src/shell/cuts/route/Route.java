@@ -4,6 +4,9 @@ import java.util.ArrayList;
 
 import shell.cuts.CutInfo;
 import shell.cuts.enums.RouteType;
+import shell.exceptions.SegmentBalanceException;
+import shell.knot.Knot;
+import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.color.Color;
@@ -100,6 +103,9 @@ public class Route implements Comparable<Route> {
         }
     }
 
+    private Route() {
+    }
+
     public void reset(ArrayList<Route> routesToCheck) {
         routesToCheck.remove(this);
         if (ancestorRoute != null) {
@@ -117,16 +123,57 @@ public class Route implements Comparable<Route> {
         needToCalculateGroups = false;
     }
 
-    public void calculateGroups(Route ancestorRoute) {
+    public Route copy(RouteInfo parent) {
+        Route r = new Route();
+        r.routeType = routeType;
+        r.ancestorRouteType = ancestorRouteType;
+        r.neighbor = neighbor;
+        r.delta = delta;
+        r.ancestor = ancestor;
+        if(delta< 100){
+            float z  =0;
+        }
+        if (ourGroup != null) {
+            r.ourGroup = new ArrayList<>(ourGroup);
+            r.otherGroup = new ArrayList<>(otherGroup);
+        }
+        if(cuts != null){
+            r.cuts = new ArrayList<>(cuts);
+            r.matches = new ArrayList<>(matches);
+            r.ancestorRoutes = new ArrayList<>(ancestorRoutes);
+        }
+        r.routeId = routeId;
+        r.parent = parent;
+        r.needToCalculateGroups = needToCalculateGroups;
+        r.neighborSegment = neighborSegment;
+        r.ancestorRoute = ancestorRoute;
+        return r;
+    }
+
+    
+
+    public void calculateGroupsFromCutMatches(ArrayList<Segment> cuts, ArrayList<Segment> matches) {
+        this.needToCalculateGroups = false;
+        for(int i = cuts.size() -1 ; i >= 0; i --){
+            Segment cut = cuts.get(i);
+            Segment match = matches.get(i);
+            VirtualPoint neighbor = match.getOverlap(cut);
+            VirtualPoint node = cut.getOther(neighbor);
+            calculateGroups(ourGroup, otherGroup, node.id, neighbor.id);
+        }
+    }
+    public void calculateGroupsFromAncestor(Route ancestorRoute){
+        calculateGroups(ancestorRoute.ourGroup, ancestorRoute.otherGroup, parent.node.id, neighbor.id);
+    }
+    public void calculateGroups(ArrayList<Integer> ourGroup, ArrayList<Integer> otherGroup, Integer node, Integer neighbor) {
         // 9%
         this.needToCalculateGroups = false;
-        VirtualPoint node = parent.node;
-        if (ancestorRoute.ourGroup.contains(node.id)) {
-            ArrayList<Integer> grp = ancestorRoute.ourGroup;
-            int idxNeighbor = grp.indexOf(neighbor.id);
-            int rotateIdx = grp.indexOf(node.id);
+        if (ourGroup.contains(node)) {
+            ArrayList<Integer> grp = ourGroup;
+            int idxNeighbor = grp.indexOf(neighbor);
+            int rotateIdx = grp.indexOf(node);
 
-            this.otherGroup = ancestorRoute.otherGroup;
+            this.otherGroup = otherGroup;
 
             ArrayList<Integer> reverseList = new ArrayList<Integer>();
             if (idxNeighbor > rotateIdx || idxNeighbor == -1) {
@@ -148,11 +195,11 @@ public class Route implements Comparable<Route> {
             }
         } else {
 
-            ArrayList<Integer> grp = ancestorRoute.otherGroup;
-            ArrayList<Integer> otherGrp = ancestorRoute.ourGroup;
-            int idxNeighbor = grp.indexOf(neighbor.id);
-            int rotateIdx = grp.indexOf(node.id);
-            this.otherGroup = ancestorRoute.otherGroup;
+            ArrayList<Integer> grp = otherGroup;
+            ArrayList<Integer> otherGrp = ourGroup;
+            int idxNeighbor = grp.indexOf(neighbor);
+            int rotateIdx = grp.indexOf(node);
+            this.otherGroup = otherGroup;
             ArrayList<Integer> remainList = new ArrayList<Integer>();
             ArrayList<Integer> reverseList = new ArrayList<Integer>(otherGrp);
             if (idxNeighbor > rotateIdx || idxNeighbor == -1) {

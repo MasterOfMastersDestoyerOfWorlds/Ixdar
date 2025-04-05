@@ -363,6 +363,7 @@ public class ManifoldEngine {
         if (isNull) {
             RouteMap copyRouteMap = null;
             HashMap<Long, RouteMap> lowerSegmentMap = null;
+                RouteMap neighborRouteMap = null;
             if (Toggle.IxdarRotationalAnswerSharing.value) {
                 Long lowerSegIdOrdered = Segment.idTransformOrdered(c.lowerCutPoint.id, c.lowerKnotPoint.id);
                 if (!sortedCutMatchInfo.routeMapBySegmentId.containsKey(lowerSegIdOrdered)) {
@@ -381,7 +382,6 @@ public class ManifoldEngine {
                 VirtualPoint upperKnotPointNeighbor = c.knot.getOtherNeighbor(c.upperKnotPoint, c.upperCutPoint);
                 Long upperKnotNeighborSegIdOrdered = Segment.idTransformOrdered(c.upperKnotPoint.id,
                         upperKnotPointNeighbor.id);
-                RouteMap neighborRouteMap = null;
                 if (lowerSegmentMap.containsKey(upperCutNeighborSegIdOrdered)) {
                     neighborRouteMap = lowerSegmentMap.get(upperCutNeighborSegIdOrdered);
                 } else if (lowerSegmentMap.containsKey(upperKnotNeighborSegIdOrdered)) {
@@ -401,7 +401,7 @@ public class ManifoldEngine {
             if (cutsNew == null) {
                 cutsNew = InternalPathEngine.calculateInternalPathLength(c.lowerKnotPoint, c.lowerCutPoint,
                         c.lowerExternal, c.upperKnotPoint, c.upperCutPoint, c.upperExternal, c.knot, c.balanceMap, c,
-                        knotPointsConnected, copyRouteMap);
+                        knotPointsConnected, copyRouteMap, neighborRouteMap);
             }
             cutMatch = new CutMatchList(c.shell, c.sbe, c.superKnot);
             cutMatch.addCutMatch(new Segment[] { c.lowerCutSegment, c.upperCutSegment },
@@ -417,7 +417,7 @@ public class ManifoldEngine {
 
                 cutsNew = InternalPathEngine.calculateInternalPathLength(c.lowerKnotPoint, c.lowerCutPoint,
                         c.lowerExternal, c.upperKnotPoint, c.upperCutPoint, c.upperExternal, c.knot, c.balanceMap, c,
-                        knotPointsConnected, null);
+                        knotPointsConnected, null, null);
                 CutMatchList cutMatchCheck = new CutMatchList(c.shell, c.sbe, c.superKnot);
                 cutMatchCheck.addCutMatch(new Segment[] { c.lowerCutSegment, c.upperCutSegment },
                         new Segment[] { c.lowerMatchSegment, c.upperMatchSegment }, cutsNew.getFirst(), c,

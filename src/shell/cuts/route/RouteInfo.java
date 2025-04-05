@@ -80,7 +80,31 @@ public class RouteInfo {
         routes[RouteType.nextDC.idx] = nextDC;
     }
 
-    public void assignGroup(ArrayList<Integer> ourGroup, ArrayList<Integer> otherGroup)
+    private RouteInfo() {
+    }
+
+    public RouteInfo copy(RouteMap parent) {
+        RouteInfo ri = new RouteInfo();
+        ri.c = parent.c;
+        ri.parent = parent;
+        ri.group = group;
+        ri.prevC = prevC.copy(this);
+        ri.prevDC = prevDC.copy(this);
+        ri.nextC = nextC.copy(this);
+        ri.nextDC = nextDC.copy(this);
+        ri.routes = new Route[] { ri.prevC, ri.prevDC, ri.nextC, ri.nextDC };
+        ri.distFromPrevSource = distFromPrevSource;
+        ri.distFromNextSource = distFromNextSource;
+        ri.knotPoint1 = knotPoint1;
+        ri.knotPoint2 = knotPoint2;
+        ri.cutPoint1 = cutPoint1;
+        ri.cutPoint2 = cutPoint2;
+        ri.node = node;
+        ri.id = id;
+        return ri;
+    }
+
+    public void assignGroup(ArrayList<Integer> ourGroup, ArrayList<Integer> otherGroup, CutInfo c)
             throws SegmentBalanceException {
         for (int i = 0; i < routes.length; i++) {
             Route route = routes[i];
@@ -112,12 +136,19 @@ public class RouteInfo {
                 }
                 for (int j = 0; j < routesToCalculateGroups.size(); j++) {
                     r = routesToCalculateGroups.get(j);
-                    Route ancestorRoute = this.parent.get(r.ancestor.id).getRoute(r.ancestorRouteType);
-                    if (ancestorRoute.ourGroup == null) {
-                        ancestorRoute.ourGroup = ourGroup;
-                        ancestorRoute.otherGroup = otherGroup;
+                    if (ourGroup.contains(c.lowerCutPoint.id)) {
+                        r.ourGroup = ourGroup;
+                        r.otherGroup = otherGroup;
+                    } else {
+                        r.ourGroup = otherGroup;
+                        r.otherGroup = ourGroup;
                     }
-                    r.calculateGroups(ancestorRoute);
+                    if (c.cutID == 856 && r.routeId == 96) {
+                        float z = 0;
+                    }
+                    // TODO: this is the wrong way to do this cause the ancestor route might not be
+                    // the one that made this route
+                    r.calculateGroupsFromCutMatches(r.cuts, r.matches);
                 }
             }
         }
@@ -151,7 +182,7 @@ public class RouteInfo {
             // 2%
             route.ancestorRoutes.add(ancestorRoute.routeId);
             // 9%
-            route.calculateGroups(ancestorRoute);
+            route.calculateGroupsFromAncestor(ancestorRoute);
         }
 
     }

@@ -8,11 +8,13 @@ import shell.knot.VirtualPoint;
 
 public class RouteMap extends HashMap<Integer, RouteInfo> {
     public CutInfo c;
+    public CutInfo oldc;
     public ArrayList<Route> routesToCheck;
 
     public RouteMap(RouteMap routeMapToCopy, VirtualPoint upperCutPoint,
             VirtualPoint upperKnotPoint, CutInfo c) {
         this.c = c;
+        this.oldc = routeMapToCopy.c;
         if (c.lowerKnotPoint.id != routeMapToCopy.c.lowerKnotPoint.id) {
             throw new AssertionError();
         }
@@ -45,5 +47,13 @@ public class RouteMap extends HashMap<Integer, RouteInfo> {
             str += r.toString() + "\n";
         }
         return str;
+    }
+    public RouteMap copy(){
+        RouteMap copy = new RouteMap(c);
+        for(Entry<Integer, RouteInfo> entry: this.entrySet()){
+            RouteInfo copyRouteInfo = entry.getValue().copy(this);
+            copy.put(entry.getKey(), copyRouteInfo);
+        }
+        return copy;
     }
 }
