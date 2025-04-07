@@ -24,16 +24,15 @@ public class CutEngine {
 
     int cutKnotNum = 0;
 
-    public static long clockworkStartTime, clockworkEndTime;
     public static double clockworkTotalTimeSeconds;
+    public static double reeTotalTimeSeconds;
 
     public static void resetMetrics() {
         InternalPathEngine.resetMetrics();
         FlattenEngine.resetMetrics();
         ManifoldEngine.resetMetrics();
-        clockworkStartTime = 0;
-        clockworkEndTime = 0;
         clockworkTotalTimeSeconds = 0.0;
+        reeTotalTimeSeconds = 0.0;
     }
 
     public Shell shell;
@@ -65,6 +64,7 @@ public class CutEngine {
         // (K*S)^2 (where K is the number of knots in the level and S is the maximum
         // number of segments in any of the knots manifolds) to find the correct cut
         // for each knot at the level. Each Knot only has to worry about its neighbors.
+        long reeStartTime = System.currentTimeMillis();
         cutMatchInfoByLayer.put(layerNum, sortedCutMatchInfoLookup);
         for (int i = 0; i < knotList.size(); i++) {
             VirtualPoint vp = knotList.get(i);
@@ -99,8 +99,9 @@ public class CutEngine {
                 sortedCutMatchInfoLookup.put(knot.id, sortedCutMatchLists);
             }
         }
-
-        clockworkStartTime = System.currentTimeMillis();
+        long reeEndTime = System.currentTimeMillis();
+        reeTotalTimeSeconds = ((double) (reeEndTime - reeStartTime)) / 1000.0;
+        long clockworkStartTime = System.currentTimeMillis();
         // Planning phase now that we have all of the cut match lists for every knot we
         // need to align which cut match list is used for what knot. We do this in the
         // following way:
@@ -371,7 +372,7 @@ public class CutEngine {
             }
         }
 
-        clockworkEndTime = System.currentTimeMillis();
+        long clockworkEndTime = System.currentTimeMillis();
         clockworkTotalTimeSeconds += ((double) (clockworkEndTime - clockworkStartTime)) / 1000.0;
         return result;
 

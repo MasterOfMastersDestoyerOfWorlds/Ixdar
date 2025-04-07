@@ -104,7 +104,7 @@ public class RouteInfo {
         return ri;
     }
 
-    public void assignGroup(ArrayList<Integer> ourGroup, ArrayList<Integer> otherGroup, CutInfo c)
+    public void assignGroup(ArrayList<Integer> ourGroup, ArrayList<Integer> otherGroup, CutInfo c, RouteMap routeMap)
             throws SegmentBalanceException {
         for (int i = 0; i < routes.length; i++) {
             Route route = routes[i];
@@ -134,21 +134,103 @@ public class RouteInfo {
                     }
                     k++;
                 }
+
+                int kp2 = c.upperKnotPoint.id;
+                int cp2 = c.upperCutPoint.id;
+                int kp2Neighbor;
+
                 for (int j = 0; j < routesToCalculateGroups.size(); j++) {
                     r = routesToCalculateGroups.get(j);
-                    if (ourGroup.contains(c.lowerCutPoint.id)) {
-                        r.ourGroup = ourGroup;
-                        r.otherGroup = otherGroup;
-                    } else {
-                        r.ourGroup = otherGroup;
-                        r.otherGroup = ourGroup;
-                    }
-                    if (c.cutID == 856 && r.routeId == 96) {
+                    r.needToCalculateGroups = false;
+                    if (r.ourGroup != null && r.delta != 0.0) {
                         float z = 0;
                     }
-                    // TODO: this is the wrong way to do this cause the ancestor route might not be
-                    // the one that made this route
-                    r.calculateGroupsFromCutMatches(r.cuts, r.matches);
+                    if (r.ourGroup.size() == 0) {
+                        float z = 0;
+                    }
+                    if (c.cutID == 1111 && j == 2) {
+                        float z = 0;
+                    }
+                    int ourLast = r.ourGroup.get(r.ourGroup.size() - 1);
+                    int ourFirst = r.ourGroup.get(0);
+                    int otherLast = r.otherGroup.get(r.otherGroup.size() - 1);
+                    int otherFirst = r.otherGroup.get(0);
+
+                    ArrayList<Integer> mainGroup = null;
+                    ArrayList<Integer> moveGroup = null;
+                    int kpIdx = -1;
+                    boolean first = false;
+                    int moveVp = -1;
+                    int dontMoveVp = -1;
+                    boolean set = true;
+                    if (ourLast == kp2) {
+                        mainGroup = r.ourGroup;
+                        kpIdx = r.ourGroup.size() - 1;
+                    } else if (ourFirst == kp2) {
+                        mainGroup = r.ourGroup;
+                        kpIdx = 0;
+                    } else if (otherLast == kp2) {
+                        mainGroup = r.otherGroup;
+                        kpIdx = r.otherGroup.size() - 1;
+                    } else if (otherFirst == kp2) {
+                        mainGroup = r.otherGroup;
+                        kpIdx = 0;
+                    } else {
+                        set = false;
+                        if (ourLast == cp2) {
+                            mainGroup = r.ourGroup;
+                            kpIdx = r.ourGroup.size() - 1;
+                        } else if (ourFirst == cp2) {
+                            mainGroup = r.ourGroup;
+                            kpIdx = 0;
+                        } else if (otherLast == cp2) {
+                            mainGroup = r.otherGroup;
+                            kpIdx = r.otherGroup.size() - 1;
+                        } else if (otherFirst == cp2) {
+                            mainGroup = r.otherGroup;
+                            kpIdx = 0;
+                        }
+                    }
+
+                    if (set) {
+                        moveVp = kp2;
+                        dontMoveVp = cp2;
+                    } else {
+                        moveVp = cp2;
+                        dontMoveVp = kp2;
+                    }
+
+                    Route prev = routeMap.get(moveVp).getRoute(RouteType.prevC);
+                    Route next = routeMap.get(moveVp).getRoute(RouteType.nextC);
+                    if (prev.neighbor.id == dontMoveVp) {
+                        kp2Neighbor = next.neighbor.id;
+                    } else {
+                        kp2Neighbor = prev.neighbor.id;
+                    }
+
+                    if (ourLast == kp2Neighbor) {
+                        moveGroup = r.ourGroup;
+                        first = false;
+                    } else if (ourFirst == kp2Neighbor) {
+                        moveGroup = r.ourGroup;
+                        first = true;
+
+                    } else if (otherLast == kp2Neighbor) {
+                        moveGroup = r.otherGroup;
+                        first = false;
+                    } else if (otherFirst == kp2Neighbor) {
+                        moveGroup = r.otherGroup;
+                        first = true;
+                    }
+                    if (moveGroup == null) {
+                        continue;
+                    }
+                    mainGroup.remove((int) kpIdx);
+                    if (first) {
+                        moveGroup.add(0, moveVp);
+                    } else {
+                        moveGroup.add(moveVp);
+                    }
                 }
             }
         }
@@ -158,7 +240,9 @@ public class RouteInfo {
             Route ancestorRoute) throws SegmentBalanceException {
 
         Route route = getRoute(routeType);
-
+        if (route.ourGroup.size() + route.otherGroup.size() != c.knot.size()) {
+            float z = 0;
+        }
         // 20%
         if (delta < route.delta) {
             // 3%
@@ -183,6 +267,10 @@ public class RouteInfo {
             route.ancestorRoutes.add(ancestorRoute.routeId);
             // 9%
             route.calculateGroupsFromAncestor(ancestorRoute);
+        }
+
+        if (route.ourGroup.size() + route.otherGroup.size() != c.knot.size()) {
+            float z = 0;
         }
 
     }

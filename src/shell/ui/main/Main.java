@@ -201,18 +201,18 @@ public class Main {
         long startTimeKnotFinding = System.currentTimeMillis();
         if (Toggle.CalculateKnot.value) {
             result = new ArrayList<>(shell.slowSolve(shell, d, 40));
-        }else{
+        } else {
             result = new ArrayList<>();
         }
-        
 
         long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
         double knotFindingSeconds = ((double) endTimeKnotFinding) / 1000.0;
 
         long startTimeKnotCutting = System.currentTimeMillis();
-        if(Toggle.CutKnot.value){
+        if (Toggle.CutKnot.value) {
             calculateSubPaths();
         }
+        long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
         flattenEngine = shell.cutEngine.flattenEngine;
         Collection<Knot> flatKnots = flattenEngine.flatKnots.values();
         if (flatKnots.size() > 0) {
@@ -249,7 +249,6 @@ public class Main {
             });
 
         }
-        long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
         shell.buff.flush();
         retTup.grid.init();
         Random colorSeed = new Random();
@@ -322,8 +321,16 @@ public class Main {
         System.out.println("Knot-finding time: " + knotFindingSeconds);
         System.out.println("Knot-cutting time: " + knotCuttingSeconds);
         System.out.println("Knot-cutting %: " + 100 * (knotCuttingSeconds / (knotCuttingSeconds + knotFindingSeconds)));
+        System.out.println("ree Time: " + CutEngine.reeTotalTimeSeconds);
+        System.out.println("ree %: " + 100 * (CutEngine.reeTotalTimeSeconds / (knotCuttingSeconds)));
         System.out.println("Clockwork Time: " + CutEngine.clockworkTotalTimeSeconds);
         System.out.println("Clockwork %: " + 100 * (CutEngine.clockworkTotalTimeSeconds / (knotCuttingSeconds)));
+        System.out.println("Flatten Time: " + FlattenEngine.flattenTotalTimeSeconds);
+        System.out.println("Flatten %: " + 100 * (FlattenEngine.flattenTotalTimeSeconds / (knotCuttingSeconds)));
+        System.out.println("Manifold Time: " + ManifoldEngine.cutMatchListTime);
+        System.out.println("Manifold %: " + 100 * (ManifoldEngine.cutMatchListTime / (knotCuttingSeconds)));
+        System.out.println("Route Map Copy Time: " + ManifoldEngine.routeMapCopyTime);
+        System.out.println("Route Map Copy %: " + 100 * (ManifoldEngine.routeMapCopyTime / (knotCuttingSeconds)));
         System.out.println("Ixdar time: " + ixdarSeconds);
         System.out.println("Ixdar %: " + 100 * (ixdarSeconds / (knotCuttingSeconds)));
         System.out.println("Ixdar profile time: " + ixdarProfileSeconds);

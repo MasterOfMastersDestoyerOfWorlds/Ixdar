@@ -28,6 +28,7 @@ public class Route implements Comparable<Route> {
     public boolean needToCalculateGroups = false;
     public Segment neighborSegment;
     public Route ancestorRoute;
+    public double copyTime = 0.0;
 
     public Route(RouteType routeType, double delta, VirtualPoint neighbor, int pointId, RouteInfo parent) {
         this.routeType = routeType;
@@ -53,6 +54,7 @@ public class Route implements Comparable<Route> {
      */
     public Route(Route routeToCopy, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, RouteInfo parent,
             CutInfo c, ArrayList<Route> routesToCheck) {
+        
         this.routeType = routeToCopy.routeType;
         this.ancestorRouteType = routeToCopy.ancestorRouteType;
         this.neighbor = routeToCopy.neighbor;
@@ -66,40 +68,23 @@ public class Route implements Comparable<Route> {
         this.routeId = routeToCopy.routeId;
         this.parent = parent;
         this.needToCalculateGroups = true;
+        this.ourGroup = new ArrayList<>(routeToCopy.ourGroup);
+        this.otherGroup = new ArrayList<>(routeToCopy.otherGroup);
 
         RouteInfo otherParent = routeToCopy.parent;
-        boolean matchContains = false;
-
-        for (Segment match : matches) {
-            if (match.contains(new VirtualPoint[] { upperKnotPoint, upperCutPoint, otherParent.knotPoint2,
-                    otherParent.cutPoint2 })) {
-                matchContains = true;
-                break;
-            }
-        }
         boolean cutContains = false;
         for (Segment cut : cuts) {
-            if (cut.contains(new VirtualPoint[] { upperKnotPoint, upperCutPoint, otherParent.knotPoint2,
-                    otherParent.cutPoint2 })) {
+            if (cut.equals(c.upperCutSegment) || cut.equals(otherParent.c.upperCutSegment)) {
                 cutContains = true;
                 break;
             }
         }
-        if (matchContains) {
-            this.reset(routesToCheck);
-        } else if (cutContains) {
-            this.reset(routesToCheck);
-        } else if (parent.id == upperCutPoint.id || neighbor.id == upperCutPoint.id ||
-                parent.id == upperKnotPoint.id || neighbor.id == upperKnotPoint.id) {
-            this.reset(routesToCheck);
-        } else if (parent.id == otherParent.knotPoint2.id
-                || parent.id == otherParent.cutPoint2.id ||
-                neighbor.id == otherParent.knotPoint2.id || neighbor.id == otherParent.cutPoint2.id) {
-            this.reset(routesToCheck);
-        } else if (delta == Double.MAX_VALUE || delta == 0) {
-            this.reset(routesToCheck);
-        } else {
 
+        if (cutContains || this.neighborSegment.equals(otherParent.c.upperCutSegment) || delta == Double.MAX_VALUE || delta == 0) {
+            this.reset(routesToCheck);
+        }
+        if(this.cuts.size() != this.matches.size()){
+            float z = 0;
         }
     }
 
@@ -152,7 +137,7 @@ public class Route implements Comparable<Route> {
 
     
 
-    public void calculateGroupsFromCutMatches(ArrayList<Segment> cuts, ArrayList<Segment> matches) {
+    public void calculateGroupsFromCutMatches(ArrayList<Segment> cuts, ArrayList<Segment> matches) throws SegmentBalanceException {
         this.needToCalculateGroups = false;
         for(int i = cuts.size() -1 ; i >= 0; i --){
             Segment cut = cuts.get(i);
@@ -162,10 +147,10 @@ public class Route implements Comparable<Route> {
             calculateGroups(ourGroup, otherGroup, node.id, neighbor.id);
         }
     }
-    public void calculateGroupsFromAncestor(Route ancestorRoute){
+    public void calculateGroupsFromAncestor(Route ancestorRoute) throws SegmentBalanceException{
         calculateGroups(ancestorRoute.ourGroup, ancestorRoute.otherGroup, parent.node.id, neighbor.id);
     }
-    public void calculateGroups(ArrayList<Integer> ourGroup, ArrayList<Integer> otherGroup, Integer node, Integer neighbor) {
+    public void calculateGroups(ArrayList<Integer> ourGroup, ArrayList<Integer> otherGroup, Integer node, Integer neighbor) throws SegmentBalanceException {
         // 9%
         this.needToCalculateGroups = false;
         if (ourGroup.contains(node)) {
@@ -219,6 +204,9 @@ public class Route implements Comparable<Route> {
             }
             this.ourGroup = remainList;
             this.otherGroup = reverseList;
+        }
+        if(this.cuts.size() != this.matches.size()){
+            throw new SegmentBalanceException();
         }
     }
 

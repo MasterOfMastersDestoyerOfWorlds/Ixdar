@@ -21,8 +21,10 @@ public class FlattenEngine {
     public HashMap<Integer, Integer> flatKnotsLayer = new HashMap<>();
     public HashMap<Integer, Integer> flatKnotsNumKnots = new HashMap<>();
     public ArrayList<Integer> flattenedKnots = new ArrayList<>();
+    public static double flattenTotalTimeSeconds;
 
     public static void resetMetrics() {
+        flattenTotalTimeSeconds = 0;
     }
 
     public FlattenEngine(Shell shell, CutEngine ce) {
@@ -43,6 +45,7 @@ public class FlattenEngine {
     public Knot flattenKnots(Knot knot, VirtualPoint external1, VirtualPoint external2,
             ArrayList<VirtualPoint> knotList, int layerNum) throws SegmentBalanceException, BalancerException {
 
+        long reeStartTime = System.currentTimeMillis();
         ArrayList<VirtualPoint> flattenKnots = ce.cutKnot(knot.knotPoints, layerNum + 1);
         Knot knotNew = new Knot(flattenKnots, shell);
         knotNew.copyMatches(knot);
@@ -224,6 +227,9 @@ public class FlattenEngine {
         knotList.add(idx2, knotNew);
         knotList.remove(knot);
 
+        long reeEndTime = System.currentTimeMillis();
+        flattenTotalTimeSeconds = ((double) (reeEndTime - reeStartTime)) / 1000.0;
+        long clockworkStartTime = System.currentTimeMillis();
         return knotNew;
     }
 

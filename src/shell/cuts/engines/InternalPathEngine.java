@@ -7,6 +7,7 @@ import java.util.Set;
 
 import org.apache.commons.math3.util.Pair;
 
+
 import shell.BalanceMap;
 import shell.Toggle;
 import shell.cuts.CutInfo;
@@ -112,16 +113,16 @@ public class InternalPathEngine {
                     heap.add(new RoutePair(r.prevDC));
                 }
             } else if (startingWeights) {
-                if (neighborRouteMap.routesToCheck.contains(r.nextC) && r.nextC.delta != Double.MAX_VALUE) {
+                if (r.nextC.delta != Double.MAX_VALUE) {
                     heap.add(new RoutePair(r.nextC));
                 }
-                if (neighborRouteMap.routesToCheck.contains(r.nextDC) && r.nextDC.delta != Double.MAX_VALUE) {
+                if (r.nextDC.delta != Double.MAX_VALUE) {
                     heap.add(new RoutePair(r.nextDC));
                 }
-                if (neighborRouteMap.routesToCheck.contains(r.prevC) && r.prevC.delta != Double.MAX_VALUE) {
+                if (r.prevC.delta != Double.MAX_VALUE) {
                     heap.add(new RoutePair(r.prevC));
                 }
-                if (neighborRouteMap.routesToCheck.contains(r.prevDC) && r.prevDC.delta != Double.MAX_VALUE) {
+                if (r.prevDC.delta != Double.MAX_VALUE) {
                     heap.add(new RoutePair(r.prevDC));
                 }
             }
@@ -135,28 +136,33 @@ public class InternalPathEngine {
         if (startingWeights) {
             float z = 0;
         }
+        //18%
+        long startTimeProfileIxdar = System.currentTimeMillis();
         RouteInfo start = routeMap1.get(cutPoint1.id);
         if (start.group == Group.Left) {
-            start.assignGroup(leftGroup, rightGroup, c);
+            start.assignGroup(leftGroup, rightGroup, c, routeMap1);
         } else {
-            start.assignGroup(rightGroup, leftGroup, c);
+            start.assignGroup(rightGroup, leftGroup, c, routeMap1);
         }
+
 
         for (RouteInfo r : routeMap1.values()) {
             if (r.group == Group.Left) {
-                r.assignGroup(leftGroup, rightGroup, c);
+                r.assignGroup(leftGroup, rightGroup, c, routeMap1);
             } else {
-                r.assignGroup(rightGroup, leftGroup, c);
+                r.assignGroup(rightGroup, leftGroup, c, routeMap1);
             }
         }
+
+        
+        long endTimeProfileIxdar = System.currentTimeMillis();
+        profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
         RouteInfo end = routeMap1.get(knotPoint2.id);
         Route endRoute = end.nextC;
         if (endRoute.neighbor.id != cutPoint2.id) {
             endRoute = end.prevC;
         }
-        if (c.cutID == 856) {
-            float z = 0;
-        }
+
         // calculateInternalPathLength(knotPoint1, cutPoint1, external1, knotPoint2,
         // cutPoint2, external2, knot, balanceMap, c, knotPointsConnected,null)
         int knotNumber = Integer.MAX_VALUE;
@@ -349,10 +355,6 @@ public class InternalPathEngine {
             return false;
         }
         if (v.id == uParent.knotPoint1.id && neighbor.id == uParent.cutPoint1.id) {
-            return false;
-        }
-
-        if (cutSeg.equals(c.upperCutSegment) && acrossSeg.contains(c.upperKnotPoint)) {
             return false;
         }
 

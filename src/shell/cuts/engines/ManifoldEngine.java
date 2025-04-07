@@ -28,17 +28,22 @@ public class ManifoldEngine {
 
     public static int routeMapsCopied = 0;
     public static int totalRoutes = 0;
+    public static double cutMatchListTime = 0;
+    public static double routeMapCopyTime = 0;
 
     public static void resetMetrics() {
         countSkipped = 0;
         countCalculated = 0;
         routeMapsCopied = 0;
         totalRoutes = 0;
+        cutMatchListTime = 0;
+        routeMapCopyTime = 0;
     }
 
     public static SortedCutMatchInfo findCutMatchList(Knot knot,
             VirtualPoint external1, VirtualPoint external2, Shell shell)
             throws SegmentBalanceException, BalancerException {
+        long startTimeCutMatchList = System.currentTimeMillis();
         double minDelta = Double.MAX_VALUE;
         SortedCutMatchInfo sortedCutMatchInfo = new SortedCutMatchInfo();
         for (int a = 0; a < knot.knotPoints.size(); a++) {
@@ -258,6 +263,9 @@ public class ManifoldEngine {
             }
         }
         sortedCutMatchInfo.sort();
+
+        long endTimeCutMatchList = System.currentTimeMillis() - startTimeCutMatchList;
+        ManifoldEngine.cutMatchListTime += ((double) endTimeCutMatchList) / 1000.0;
         return sortedCutMatchInfo;
 
     }
@@ -363,8 +371,9 @@ public class ManifoldEngine {
         if (isNull) {
             RouteMap copyRouteMap = null;
             HashMap<Long, RouteMap> lowerSegmentMap = null;
-                RouteMap neighborRouteMap = null;
+            RouteMap neighborRouteMap = null;
             if (Toggle.IxdarRotationalAnswerSharing.value) {
+                long routeMapCopyTimeStart = System.currentTimeMillis();
                 Long lowerSegIdOrdered = Segment.idTransformOrdered(c.lowerCutPoint.id, c.lowerKnotPoint.id);
                 if (!sortedCutMatchInfo.routeMapBySegmentId.containsKey(lowerSegIdOrdered)) {
                     sortedCutMatchInfo.routeMapBySegmentId.put(lowerSegIdOrdered, new HashMap<>());
@@ -396,6 +405,13 @@ public class ManifoldEngine {
                     routeMapsCopied++;
                 }
                 totalRoutes++;
+                
+                long routeMapCopyTimeEnd = System.currentTimeMillis() -routeMapCopyTimeStart;
+                routeMapCopyTime += ((double)routeMapCopyTimeEnd) /1000.0;
+
+            }
+            if(c.cutID == 1117){
+                float z = 0;
             }
             // problem is that we have the exact same route twice in a row? WRONG
             if (cutsNew == null) {
