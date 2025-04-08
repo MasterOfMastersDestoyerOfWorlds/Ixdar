@@ -7,7 +7,6 @@ import java.util.Set;
 
 import org.apache.commons.math3.util.Pair;
 
-
 import shell.BalanceMap;
 import shell.Toggle;
 import shell.cuts.CutInfo;
@@ -136,15 +135,13 @@ public class InternalPathEngine {
         if (startingWeights) {
             float z = 0;
         }
-        //18%
-        long startTimeProfileIxdar = System.currentTimeMillis();
+        // 18%
         RouteInfo start = routeMap1.get(cutPoint1.id);
         if (start.group == Group.Left) {
             start.assignGroup(leftGroup, rightGroup, c, routeMap1);
         } else {
             start.assignGroup(rightGroup, leftGroup, c, routeMap1);
         }
-
 
         for (RouteInfo r : routeMap1.values()) {
             if (r.group == Group.Left) {
@@ -154,9 +151,6 @@ public class InternalPathEngine {
             }
         }
 
-        
-        long endTimeProfileIxdar = System.currentTimeMillis();
-        profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
         RouteInfo end = routeMap1.get(knotPoint2.id);
         Route endRoute = end.nextC;
         if (endRoute.neighbor.id != cutPoint2.id) {
@@ -285,50 +279,61 @@ public class InternalPathEngine {
     private static void relaxShortestPath(Route u, ArrayList<VirtualPoint> knotPoints, RouteMap routeMap1,
             PriorityQueue<RoutePair> heap, boolean negativeWeights, Knot knot, CutInfo c)
             throws SegmentBalanceException {
+        double uDelta = u.delta;
         for (int i = 0; i < knotPoints.size(); i++) {
-            // 2-3.71%
+            // 0.33%
             RouteInfo uParent = u.parent;
             RouteInfo v = routeMap1.get(knotPoints.get(i).id);
             if (uParent.id == v.id) {
                 continue;
             }
-            for (RouteType vRouteType : routes) {
-                // 1.18%
-                Route vRoute = v.getRoute(vRouteType);
+            for (int j = 0; j < 4; j++) {
+                // 1.6%
+                Route vRoute = v.routes[j];
+                RouteType vRouteType = vRoute.routeType;
                 VirtualPoint neighbor = vRoute.neighbor;
-                // 1.4%
+                // 0.82
                 Segment acrossSeg = uParent.node.pointSegmentLookup[neighbor.id];
                 Segment cutSeg = vRoute.neighborSegment;
 
                 if (acrossSeg == null || cutSeg == null) {
                     continue;
                 }
-                // 5%
+                // 1.8%
 
                 double edgeDistance = acrossSeg.distance;
                 double cutDistance = cutSeg.distance;
                 double distance = edgeDistance - cutDistance;
                 boolean negative = distance < 0;
                 if (negativeWeights ^ negative) {
+
                     continue;
                 }
-                // 11%
+                // 4.69-5.72%
                 // with w(u,v) >= 0:
                 // if(d(v) > d(u) + w(u,v))
-                double newDistancePrevNeighbor = u.delta + distance;
+                double newDistancePrevNeighbor = uDelta + distance;
+                long startTimeProfileIxdar = System.currentTimeMillis();
+                // this single if statement is 7% of the ixdar time, likely due to cache misses?
+                // caan't seem to get it lower
                 if (newDistancePrevNeighbor >= vRoute.delta) {
+                    long endTimeProfileIxdar = System.currentTimeMillis();
+                    profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
                     continue;
                 }
                 // each edge (u,v)
-                // 23%
+                // 11-12%
                 boolean canConnet = canConnect(u, v, vRouteType, neighbor, acrossSeg, cutSeg, uParent, knot, c);
                 if (!canConnet) {
+
                     continue;
                 }
-                // 19%
+                // 33-34%
                 // update d(v) = d(u) + w(u,v)
                 v.updateRoute(newDistancePrevNeighbor, uParent.node, vRouteType, u.routeType, u);
                 // add v to heap
+
+                // 0.68%
                 if (!cutSeg.equals(c.upperCutSegment)) {
                     RoutePair routePair = new RoutePair(vRoute);
                     heap.add(routePair);

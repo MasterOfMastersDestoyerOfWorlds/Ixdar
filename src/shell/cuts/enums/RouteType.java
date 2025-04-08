@@ -33,7 +33,7 @@ public enum RouteType {
         prevDC.oppositeConnectionRoute = prevC;
     }
 
-    public int idTransform(int id) {
+        public int idTransform(int id) {
         nextDC.oppositeRoute = prevDC;
         if (this.equals(RouteType.None)) {
             return -1;
@@ -41,7 +41,7 @@ public enum RouteType {
         return (id * 4) + this.ordinal();
     }
 
-    public RouteType idTransformToType(int id) {
+    public static RouteType idTransformToType(int id) {
         if (id < 0) {
             return RouteType.None;
         }
