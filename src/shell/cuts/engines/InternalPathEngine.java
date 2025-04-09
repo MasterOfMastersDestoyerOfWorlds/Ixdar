@@ -313,24 +313,22 @@ public class InternalPathEngine {
                 // with w(u,v) >= 0:
                 // if(d(v) > d(u) + w(u,v))
                 double newDistancePrevNeighbor = uDelta + distance;
-                long startTimeProfileIxdar = System.currentTimeMillis();
                 // this single if statement is 7% of the ixdar time, likely due to cache misses?
                 // caan't seem to get it lower
                 if (newDistancePrevNeighbor >= vRoute.delta) {
-                    long endTimeProfileIxdar = System.currentTimeMillis();
-                    profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
                     continue;
                 }
                 // each edge (u,v)
-                // 11-12%
-                boolean canConnet = canConnect(u, v, vRouteType, neighbor, acrossSeg, cutSeg, uParent, knot, c);
+                // 25%
+                Boolean canConnet = canConnect(u, v, vRoute, vRouteType, neighbor, acrossSeg, cutSeg, uParent, knot, c);
+
                 if (!canConnet) {
 
                     continue;
                 }
-                // 33-34%
+                // 15.66%
                 // update d(v) = d(u) + w(u,v)
-                v.updateRoute(newDistancePrevNeighbor, uParent.node, vRouteType, u.routeType, u);
+                v.updateRoute(newDistancePrevNeighbor, uParent.node, vRouteType, u.routeType, u, acrossSeg);
                 // add v to heap
 
                 // 0.68%
@@ -342,20 +340,21 @@ public class InternalPathEngine {
         }
     }
 
-    private static boolean canConnect(Route u, RouteInfo v, RouteType vRouteType, VirtualPoint neighbor,
+    private static boolean canConnect(Route u, RouteInfo v, Route vRoute, RouteType vRouteType, VirtualPoint neighbor,
             Segment acrossSeg,
             Segment cutSeg, RouteInfo uParent, Knot knot, CutInfo c) {
 
         boolean retValue = true;
         // 2%
+        // if you are Inf do not do checks
         if (u.delta == Double.MAX_VALUE) {
             return false;
         }
-
+        // if you are trying ot connect to yourself
         if (uParent.node.id == neighbor.id) {
             return false;
         }
-
+        // you cannot connect to cut segment 1
         if (v.id == uParent.cutPoint1.id && neighbor.id == uParent.knotPoint1.id) {
             return false;
         }
@@ -364,14 +363,20 @@ public class InternalPathEngine {
         }
 
         // 4%
+        // you cannot connect to your neighbor
         if (acrossSeg.contains(uParent.prevC.neighbor) || acrossSeg.contains(uParent.nextC.neighbor)) {
             return false;
         }
+        // you cannot form a cycle by going backwards in your history of cuts
         if (u.cuts.contains(cutSeg)) {
             return false;
         }
 
         // 7%
+        // you cannot make a connection where you form a cycle with your own tail:
+        // e.g. if our group is 1 2 3 4 and u is 4 and the cut is [1 2]
+        // you cannot match 2 to 4 and can only match 1 to 4 otherwise you'd form a
+        // cycle 2 3 4
         boolean neighborInGroup = u.ourGroup.contains(neighbor.id);
         if (neighborInGroup) {
             int nIdx = u.ourGroup.indexOf(neighbor.id);
@@ -384,16 +389,21 @@ public class InternalPathEngine {
         // 8%
         boolean vIsConnected = vRouteType.isConnected;
         boolean uIsConnected = u.routeType.isConnected;
+        // we can only finish if we are in the connected state
         if (neighbor.id == uParent.cutPoint2.id && v.id == uParent.knotPoint2.id) {
             if (!uIsConnected || !vIsConnected) {
                 return false;
             }
         } else if (neighborInGroup) {
+            // if we are connecting to our own group we must maintain our connectedness
+            // state, i.e. you can only go from connected to disconnected or visa versa by
+            // connecting to the other group
             if (uIsConnected ^ vIsConnected) {
                 return false;
             }
         } else {
 
+            // get any knotpoint in the other group
             ArrayList<Integer> grp = u.otherGroup;
             int knotPoint = grp.get(0);
             int knotPointIdx = 0;
@@ -401,6 +411,16 @@ public class InternalPathEngine {
                 knotPointIdx = grp.size() - 1;
                 knotPoint = grp.get(knotPointIdx);
             }
+            // checks wether the cut is facing away from or toward the knotpoint
+            // e.g. #1
+            // if we have knotpoints 1 and 4 and the other group is 1 2 3 4 then no
+            // matter what orientation our cut is we will enter the connected state
+            // e.g. #2
+            // if we have knotpoint 1 and 99 and the other group is 1 2 3 4 then if we cut
+            // [2 3] and match to 3 we will remain in the connected state
+            // e.g. #3
+            // if we have knotpoint 1 and 99 and the other group is 1 2 3 4 then if we cut
+            // [2 3] and match to 2 we will enter the disconnected state
             int neighborIdx = grp.indexOf(neighbor.id);
             int vIdx = grp.indexOf(v.node.id);
             boolean between = false;
@@ -408,12 +428,21 @@ public class InternalPathEngine {
                     (neighborIdx <= knotPointIdx && neighborIdx > vIdx)) {
                 between = true;
             }
+            // see example #1 we cannot connect to the other group from the disconnected
+            // state and remain disconnected since if u is disconnected then both ends of
+            // the other group are knotpoints
             if (!uIsConnected && !vIsConnected) {
                 return false;
             }
+            // see example #2 if our cut is facing so that the neighbor is farther away than
+            // the node from the knotpoint then we must enter the connected state
             if (!between && !vIsConnected) {
                 return false;
             }
+            // see example #3 if the cut is facing so that the neighbor is closer than the
+            // node to the knotpoint then we must enter the disconnected state. again if we
+            // are coming from disconnected state then this does not matter and we can
+            // always go to the connected state.
             if (between && vIsConnected && uIsConnected) {
                 return false;
             }

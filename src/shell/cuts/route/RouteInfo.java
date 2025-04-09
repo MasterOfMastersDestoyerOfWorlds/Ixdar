@@ -1,8 +1,10 @@
 package shell.cuts.route;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import shell.cuts.CutInfo;
+import shell.cuts.engines.InternalPathEngine;
 import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
 import shell.exceptions.SegmentBalanceException;
@@ -237,42 +239,24 @@ public class RouteInfo {
     }
 
     public void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType,
-            Route ancestorRoute) throws SegmentBalanceException {
+            Route ancestorRoute, Segment acrossSeg) throws SegmentBalanceException {
 
-        Route route = getRoute(routeType);
-        if (route.ourGroup.size() + route.otherGroup.size() != c.knot.size()) {
-            float z = 0;
-        }
-        // 20%
-        if (delta < route.delta) {
-            // 3%
-            route.delta = delta;
-            route.ancestorRouteType = ancestorRouteType;
-            route.ancestor = ancestor;
-            route.ancestorRoute = ancestorRoute;
-            VirtualPoint neighbor = route.neighbor;
-            VirtualPoint node = this.node;
-            route.cuts = new ArrayList<>(ancestorRoute.cuts);
-            Segment newCut = node.getSegment(neighbor);
-            route.cuts.add(0, newCut);
-            route.matches = new ArrayList<>(ancestorRoute.matches);
-            // 3%
-            Segment newMatch = ancestor.getSegment(neighbor);
-            route.matches.add(0, newMatch);
-            route.ancestorRoutes = new ArrayList<>(ancestorRoute.ancestorRoutes);
-            if (route.ancestorRoutes.contains(ancestorRoute.routeId)) {
-                throw new SegmentBalanceException(c);
-            }
-            // 2%
-            route.ancestorRoutes.add(ancestorRoute.routeId);
-            // 9%
-            route.calculateGroupsFromAncestor(ancestorRoute);
-        }
-
-        if (route.ourGroup.size() + route.otherGroup.size() != c.knot.size()) {
-            float z = 0;
-        }
-
+        long startTimeProfileIxdar = System.currentTimeMillis();
+        Route route = routes[routeType.idx];
+        // 0.15%
+        route.delta = delta;
+        route.ancestorRouteType = ancestorRouteType;
+        route.ancestor = ancestor;
+        route.ancestorRoute = ancestorRoute;
+        //2.18-2.8%
+        route.cuts = new ArrayList<>(ancestorRoute.cuts);
+        route.cuts.add(route.neighborSegment);
+        route.matches = new ArrayList<>(ancestorRoute.matches);
+        route.matches.add(acrossSeg);
+        // 12%
+        route.calculateGroupsFromAncestor(ancestorRoute);
+        long endTimeProfileIxdar = System.currentTimeMillis();
+        InternalPathEngine.profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
     }
 
     public Route getRoute(RouteType routeType) {

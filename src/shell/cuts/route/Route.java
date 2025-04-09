@@ -1,6 +1,7 @@
 package shell.cuts.route;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import shell.cuts.CutInfo;
 import shell.cuts.enums.RouteType;
@@ -22,7 +23,6 @@ public class Route implements Comparable<Route> {
     public ArrayList<Integer> otherGroup;
     public ArrayList<Segment> cuts;
     public ArrayList<Segment> matches;
-    public ArrayList<Integer> ancestorRoutes;
     public int routeId;
     public RouteInfo parent;
     public boolean needToCalculateGroups = false;
@@ -38,7 +38,6 @@ public class Route implements Comparable<Route> {
         this.parent = parent;
         cuts = new ArrayList<>();
         matches = new ArrayList<>();
-        ancestorRoutes = new ArrayList<>();
         routeId = routeType.idTransform(pointId);
 
     }
@@ -64,7 +63,6 @@ public class Route implements Comparable<Route> {
         this.ancestorRoute = routeToCopy.ancestorRoute;
         this.cuts = new ArrayList<>(routeToCopy.cuts);
         this.matches = new ArrayList<>(routeToCopy.matches);
-        this.ancestorRoutes = new ArrayList<>(routeToCopy.ancestorRoutes);
         this.routeId = routeToCopy.routeId;
         this.parent = parent;
         this.needToCalculateGroups = true;
@@ -93,13 +91,12 @@ public class Route implements Comparable<Route> {
 
     public void reset(ArrayList<Route> routesToCheck) {
         routesToCheck.remove(this);
-        if (ancestorRoute != null) {
+        if (ancestorRouteType != RouteType.None) {
             routesToCheck.add(ancestorRoute);
         }
         delta = Double.MAX_VALUE;
         cuts = new ArrayList<>();
         matches = new ArrayList<>();
-        ancestorRoutes = new ArrayList<>();
         ancestorRoute = null;
         ancestor = null;
         ancestorRouteType = RouteType.None;
@@ -125,7 +122,6 @@ public class Route implements Comparable<Route> {
         if(cuts != null){
             r.cuts = new ArrayList<>(cuts);
             r.matches = new ArrayList<>(matches);
-            r.ancestorRoutes = new ArrayList<>(ancestorRoutes);
         }
         r.routeId = routeId;
         r.parent = parent;
