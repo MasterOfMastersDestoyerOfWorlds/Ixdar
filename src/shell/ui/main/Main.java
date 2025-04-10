@@ -335,6 +335,9 @@ public class Main {
         System.out.println("Ixdar %: " + 100 * (ixdarSeconds / (knotCuttingSeconds)));
         System.out.println("Ixdar profile time: " + ixdarProfileSeconds);
         System.out.println("Ixdar Profile %: " + 100 * (ixdarProfileSeconds / (ixdarSeconds)));
+        System.out.println("Ixdar profile continue count: " + String.format("%,d", InternalPathEngine.continueCount));
+        System.out.println("Ixdar Profile continue %: " + 100 * (((double) InternalPathEngine.continueCount)
+                / ((double) (InternalPathEngine.continueCount + InternalPathEngine.noncontinueCount))));
         System.out.println("Saved Answer Length: " + orgShell.getLength());
         System.out.println("Calculated Length: " + tourLength);
         System.out.println("===============================================");
@@ -738,7 +741,11 @@ public class Main {
     public static Knot getKnotFlatten(Knot k) {
         Knot smallestKnot = flattenEngine.flatKnots.get(flattenEngine.knotToFlatKnot.get(k.id));
         if (smallestKnot == null) {
-            return (Knot) result.get(0);
+            VirtualPoint first = result.get(0);
+            if (first.isRun) {
+                return k;
+            }
+            return (Knot) first;
         }
         return smallestKnot;
     }

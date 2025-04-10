@@ -35,6 +35,7 @@ public class RouteInfo {
 
     public VirtualPoint node;
     public int id;
+    public int rotDist;
 
     public static int maxSettledSize;
     public static int maxPathLength;
@@ -241,22 +242,24 @@ public class RouteInfo {
     public void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType,
             Route ancestorRoute, Segment acrossSeg) throws SegmentBalanceException {
 
-        long startTimeProfileIxdar = System.currentTimeMillis();
         Route route = routes[routeType.idx];
+        if (ancestorRoute.parent.group != group) {
+            route.greatestRotDistAncestorOtherGroup = ancestorRoute.parent.rotDist;
+        } else {
+            route.greatestRotDistAncestorOtherGroup = ancestorRoute.greatestRotDistAncestorOtherGroup;
+        }
         // 0.15%
         route.delta = delta;
         route.ancestorRouteType = ancestorRouteType;
         route.ancestor = ancestor;
         route.ancestorRoute = ancestorRoute;
-        //2.18-2.8%
+        // 2.18-2.8%
         route.cuts = new ArrayList<>(ancestorRoute.cuts);
         route.cuts.add(route.neighborSegment);
         route.matches = new ArrayList<>(ancestorRoute.matches);
         route.matches.add(acrossSeg);
         // 12%
         route.calculateGroupsFromAncestor(ancestorRoute);
-        long endTimeProfileIxdar = System.currentTimeMillis();
-        InternalPathEngine.profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
     }
 
     public Route getRoute(RouteType routeType) {

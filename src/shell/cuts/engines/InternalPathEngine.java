@@ -30,6 +30,8 @@ public class InternalPathEngine {
     public static long totalTimeIxdar = 0;
     public static int ixdarCalls = 0;
     public static long profileTimeIxdar = 0;
+    public static long continueCount = 0;
+    public static long noncontinueCount = 0;
     public static int comparisons;
     public static final RouteType[] routes = new RouteType[] { RouteType.prevC, RouteType.prevDC, RouteType.nextC,
             RouteType.nextDC };
@@ -39,6 +41,8 @@ public class InternalPathEngine {
         ixdarCalls = 0;
         profileTimeIxdar = 0;
         comparisons = 0;
+        continueCount = 0;
+        noncontinueCount = 0;
     }
 
     public static Pair<CutMatchList, RouteMap> calculateInternalPathLength(
@@ -135,7 +139,7 @@ public class InternalPathEngine {
         if (startingWeights) {
             float z = 0;
         }
-        // 18%
+        // 5%
         RouteInfo start = routeMap1.get(cutPoint1.id);
         if (start.group == Group.Left) {
             start.assignGroup(leftGroup, rightGroup, c, routeMap1);
@@ -150,18 +154,10 @@ public class InternalPathEngine {
                 r.assignGroup(rightGroup, leftGroup, c, routeMap1);
             }
         }
-
         RouteInfo end = routeMap1.get(knotPoint2.id);
         Route endRoute = end.nextC;
         if (endRoute.neighbor.id != cutPoint2.id) {
             endRoute = end.prevC;
-        }
-
-        // calculateInternalPathLength(knotPoint1, cutPoint1, external1, knotPoint2,
-        // cutPoint2, external2, knot, balanceMap, c, knotPointsConnected,null)
-        int knotNumber = Integer.MAX_VALUE;
-        if (Toggle.IxdarKnotDistance.value) {
-            knotNumber = c.knotDistance();
         }
 
         /**
@@ -280,14 +276,22 @@ public class InternalPathEngine {
             PriorityQueue<RoutePair> heap, boolean negativeWeights, Knot knot, CutInfo c)
             throws SegmentBalanceException {
         double uDelta = u.delta;
+        RouteInfo uParent = u.parent;
+        // 2%
+        // if you are Inf do not do checks
+        if (u.delta == Double.MAX_VALUE) {
+            return;
+        }
+        // need to change how I am going through the edges likely need to define the
+        // edges that are acceptable before hand instead of checking
         for (int i = 0; i < knotPoints.size(); i++) {
             // 0.33%
-            RouteInfo uParent = u.parent;
             RouteInfo v = routeMap1.get(knotPoints.get(i).id);
             if (uParent.id == v.id) {
                 continue;
             }
             for (int j = 0; j < 4; j++) {
+                noncontinueCount++;
                 // 1.6%
                 Route vRoute = v.routes[j];
                 RouteType vRouteType = vRoute.routeType;
@@ -306,7 +310,6 @@ public class InternalPathEngine {
                 double distance = edgeDistance - cutDistance;
                 boolean negative = distance < 0;
                 if (negativeWeights ^ negative) {
-
                     continue;
                 }
                 // 4.69-5.72%
@@ -318,20 +321,35 @@ public class InternalPathEngine {
                 if (newDistancePrevNeighbor >= vRoute.delta) {
                     continue;
                 }
+                // 3%
+                // must be moving toward the exit
+                // gives incorrect answers with minor speedup
+                // if (!negative) {
+                // if (uParent.group == v.group) {
+                // if (uParent.rotDist > v.rotDist) {
+                // continue;
+                // }
+                // } else {
+                // if (u.greatestRotDistAncestorOtherGroup > v.rotDist) {
+                // continue;
+                // }
+                // }
+                // }
                 // each edge (u,v)
-                // 25%
-                Boolean canConnet = canConnect(u, v, vRoute, vRouteType, neighbor, acrossSeg, cutSeg, uParent, knot, c);
+                // 44%
+                Boolean canConnet = canConnect(u, v, vRoute, vRouteType, neighbor, acrossSeg, cutSeg, uParent, knot, c,
+                        negative);
 
                 if (!canConnet) {
 
                     continue;
                 }
-                // 15.66%
+
+                // 12%
                 // update d(v) = d(u) + w(u,v)
                 v.updateRoute(newDistancePrevNeighbor, uParent.node, vRouteType, u.routeType, u, acrossSeg);
                 // add v to heap
-
-                // 0.68%
+                // 0.5%
                 if (!cutSeg.equals(c.upperCutSegment)) {
                     RoutePair routePair = new RoutePair(vRoute);
                     heap.add(routePair);
@@ -342,14 +360,8 @@ public class InternalPathEngine {
 
     private static boolean canConnect(Route u, RouteInfo v, Route vRoute, RouteType vRouteType, VirtualPoint neighbor,
             Segment acrossSeg,
-            Segment cutSeg, RouteInfo uParent, Knot knot, CutInfo c) {
+            Segment cutSeg, RouteInfo uParent, Knot knot, CutInfo c, boolean negative) {
 
-        boolean retValue = true;
-        // 2%
-        // if you are Inf do not do checks
-        if (u.delta == Double.MAX_VALUE) {
-            return false;
-        }
         // if you are trying ot connect to yourself
         if (uParent.node.id == neighbor.id) {
             return false;
@@ -372,20 +384,23 @@ public class InternalPathEngine {
             return false;
         }
 
-        // 7%
+        // 20%
         // you cannot make a connection where you form a cycle with your own tail:
         // e.g. if our group is 1 2 3 4 and u is 4 and the cut is [1 2]
         // you cannot match 2 to 4 and can only match 1 to 4 otherwise you'd form a
-        // cycle 2 3 4
-        boolean neighborInGroup = u.ourGroup.contains(neighbor.id);
+        // cycle 2 3 4 2 3 4 ...
+        long startTimeProfileIxdar = System.currentTimeMillis();
+        int nIdx = u.ourGroup.indexOf(neighbor.id);
+        long endTimeProfileIxdar = System.currentTimeMillis();
+        InternalPathEngine.profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
+        continueCount++;
+        boolean neighborInGroup = nIdx > 0;
         if (neighborInGroup) {
-            int nIdx = u.ourGroup.indexOf(neighbor.id);
             int vIdx = u.ourGroup.indexOf(v.node.id);
             if (nIdx < vIdx) {
                 return false;
             }
         }
-
         // 8%
         boolean vIsConnected = vRouteType.isConnected;
         boolean uIsConnected = u.routeType.isConnected;
@@ -448,7 +463,7 @@ public class InternalPathEngine {
             }
         }
 
-        return retValue;
+        return true;
 
     }
 
@@ -479,6 +494,7 @@ public class InternalPathEngine {
             RouteInfo r = routeInfo.get(curr.id);
             if (group != Group.None) {
                 r.group = group;
+                r.rotDist = totalIter;
             }
             prev2 = curr;
             int next = idx + marchDirection;

@@ -29,6 +29,7 @@ public class Route implements Comparable<Route> {
     public Segment neighborSegment;
     public Route ancestorRoute;
     public double copyTime = 0.0;
+    public int greatestRotDistAncestorOtherGroup = -1;
 
     public Route(RouteType routeType, double delta, VirtualPoint neighbor, int pointId, RouteInfo parent) {
         this.routeType = routeType;
@@ -68,6 +69,7 @@ public class Route implements Comparable<Route> {
         this.needToCalculateGroups = true;
         this.ourGroup = new ArrayList<>(routeToCopy.ourGroup);
         this.otherGroup = new ArrayList<>(routeToCopy.otherGroup);
+        this.greatestRotDistAncestorOtherGroup = routeToCopy.greatestRotDistAncestorOtherGroup;
 
         RouteInfo otherParent = routeToCopy.parent;
         boolean cutContains = false;
