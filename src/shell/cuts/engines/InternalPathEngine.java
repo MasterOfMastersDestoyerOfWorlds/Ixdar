@@ -291,7 +291,6 @@ public class InternalPathEngine {
                 continue;
             }
             for (int j = 0; j < 4; j++) {
-                noncontinueCount++;
                 // 1.6%
                 Route vRoute = v.routes[j];
                 RouteType vRouteType = vRoute.routeType;
@@ -338,7 +337,7 @@ public class InternalPathEngine {
                 // each edge (u,v)
                 // 44%
                 Boolean canConnet = canConnect(u, v, vRoute, vRouteType, neighbor, acrossSeg, cutSeg, uParent, knot, c,
-                        negative);
+                        negative, routeMap1);
 
                 if (!canConnet) {
 
@@ -360,7 +359,7 @@ public class InternalPathEngine {
 
     private static boolean canConnect(Route u, RouteInfo v, Route vRoute, RouteType vRouteType, VirtualPoint neighbor,
             Segment acrossSeg,
-            Segment cutSeg, RouteInfo uParent, Knot knot, CutInfo c, boolean negative) {
+            Segment cutSeg, RouteInfo uParent, Knot knot, CutInfo c, boolean negative, RouteMap map) {
 
         // if you are trying ot connect to yourself
         if (uParent.node.id == neighbor.id) {
@@ -389,18 +388,57 @@ public class InternalPathEngine {
         // e.g. if our group is 1 2 3 4 and u is 4 and the cut is [1 2]
         // you cannot match 2 to 4 and can only match 1 to 4 otherwise you'd form a
         // cycle 2 3 4 2 3 4 ...
+
+        boolean parity = u.routeType.isNext == vRouteType.isNext;
+        boolean connectionParity = u.routeType.isConnected == vRouteType.isConnected;
+        boolean startclockwise = (uParent.rotDist - map.get(u.neighbor.id).rotDist) < 0;
+        boolean forward = (uParent.rotDist - v.rotDist) < 0;
+        boolean endclockwise = (v.rotDist - map.get(neighbor.id).rotDist) > 0;
+        boolean shouldKill = false;
+        if (u.neighborSegment.id == c.cutSegment1.id) {
+            startclockwise = true;
+        }
+        if (uParent.group == v.group) {
+            if (parity) {
+                // shouldKill = ;
+                if (!forward) {
+                    shouldKill = startclockwise && endclockwise;
+                } else {
+                    // shouldKill = !startclockwise && endclockwise;
+                }
+            } else {
+                if (forward) {
+                    continueCount++;
+                    // shouldKill = startclockwise && endclockwise;
+                }
+            }
+        }
         long startTimeProfileIxdar = System.currentTimeMillis();
         int nIdx = u.ourGroup.indexOf(neighbor.id);
         long endTimeProfileIxdar = System.currentTimeMillis();
         InternalPathEngine.profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
-        continueCount++;
+
         boolean neighborInGroup = nIdx > 0;
         if (neighborInGroup) {
             int vIdx = u.ourGroup.indexOf(v.node.id);
             if (nIdx < vIdx) {
+                if (uParent.group == v.group && !shouldKill) {
+                    Group g = uParent.group;
+                    int rotu = uParent.rotDist;
+                    int rotv = v.rotDist;
+                    float z = 0;
+                    // ,aybe instead of storing the entire list we store the flips and where they
+                    // happen in the original list so we can figure out the orientation on the fly
+                    // based on the rot disstance
+                    noncontinueCount++;
+                }
                 return false;
             }
         }
+        if (shouldKill) {
+            float z = 0;
+        }
+
         // 8%
         boolean vIsConnected = vRouteType.isConnected;
         boolean uIsConnected = u.routeType.isConnected;
@@ -462,7 +500,6 @@ public class InternalPathEngine {
                 return false;
             }
         }
-
         return true;
 
     }
