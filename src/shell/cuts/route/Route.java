@@ -4,10 +4,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import shell.cuts.CutInfo;
+import shell.cuts.engines.InternalPathEngine;
 import shell.cuts.enums.RouteType;
 import shell.exceptions.SegmentBalanceException;
-import shell.knot.Knot;
-import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.render.color.Color;
@@ -30,6 +29,8 @@ public class Route implements Comparable<Route> {
     public Route ancestorRoute;
     public double copyTime = 0.0;
     public int greatestRotDistAncestorOtherGroup = -1;
+    public int numPoints = -1;
+    public GroupInfo[] groupInfo;
 
     public Route(RouteType routeType, double delta, VirtualPoint neighbor, int pointId, RouteInfo parent) {
         this.routeType = routeType;
@@ -54,7 +55,7 @@ public class Route implements Comparable<Route> {
      */
     public Route(Route routeToCopy, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, RouteInfo parent,
             CutInfo c, ArrayList<Route> routesToCheck) {
-        
+
         this.routeType = routeToCopy.routeType;
         this.ancestorRouteType = routeToCopy.ancestorRouteType;
         this.neighbor = routeToCopy.neighbor;
@@ -69,6 +70,8 @@ public class Route implements Comparable<Route> {
         this.needToCalculateGroups = true;
         this.ourGroup = new ArrayList<>(routeToCopy.ourGroup);
         this.otherGroup = new ArrayList<>(routeToCopy.otherGroup);
+        this.numPoints = c.shell.pointMap.size();
+        this.groupInfo = new GroupInfo[numPoints];
         this.greatestRotDistAncestorOtherGroup = routeToCopy.greatestRotDistAncestorOtherGroup;
 
         RouteInfo otherParent = routeToCopy.parent;
@@ -80,11 +83,9 @@ public class Route implements Comparable<Route> {
             }
         }
 
-        if (cutContains || this.neighborSegment.equals(otherParent.c.upperCutSegment) || delta == Double.MAX_VALUE || delta == 0) {
+        if (cutContains || this.neighborSegment.equals(otherParent.c.upperCutSegment) || delta == Double.MAX_VALUE
+                || delta == 0) {
             this.reset(routesToCheck);
-        }
-        if(this.cuts.size() != this.matches.size()){
-            float z = 0;
         }
     }
 
@@ -104,6 +105,7 @@ public class Route implements Comparable<Route> {
         ancestorRouteType = RouteType.None;
         ourGroup = null;
         otherGroup = null;
+        groupInfo = null;
         needToCalculateGroups = false;
     }
 
@@ -114,14 +116,12 @@ public class Route implements Comparable<Route> {
         r.neighbor = neighbor;
         r.delta = delta;
         r.ancestor = ancestor;
-        if(delta< 100){
-            float z  =0;
-        }
         if (ourGroup != null) {
             r.ourGroup = new ArrayList<>(ourGroup);
             r.otherGroup = new ArrayList<>(otherGroup);
+            r.groupInfo = groupInfo;
         }
-        if(cuts != null){
+        if (cuts != null) {
             r.cuts = new ArrayList<>(cuts);
             r.matches = new ArrayList<>(matches);
         }
@@ -133,56 +133,68 @@ public class Route implements Comparable<Route> {
         return r;
     }
 
-    
-
-    public void calculateGroupsFromCutMatches(ArrayList<Segment> cuts, ArrayList<Segment> matches) throws SegmentBalanceException {
+    public void calculateGroupsFromCutMatches(ArrayList<Segment> cuts, ArrayList<Segment> matches)
+            throws SegmentBalanceException {
         this.needToCalculateGroups = false;
-        for(int i = cuts.size() -1 ; i >= 0; i --){
+        for (int i = cuts.size() - 1; i >= 0; i--) {
             Segment cut = cuts.get(i);
             Segment match = matches.get(i);
             VirtualPoint neighbor = match.getOverlap(cut);
             VirtualPoint node = cut.getOther(neighbor);
-            calculateGroups(ourGroup, otherGroup, node.id, neighbor.id);
+            calculateGroups(ourGroup, otherGroup, groupInfo, node.id, neighbor.id);
         }
     }
-    public void calculateGroupsFromAncestor(Route ancestorRoute) throws SegmentBalanceException{
-        calculateGroups(ancestorRoute.ourGroup, ancestorRoute.otherGroup, parent.node.id, neighbor.id);
+
+    public void calculateGroupsFromAncestor(Route ancestorRoute) throws SegmentBalanceException {
+        calculateGroups(ancestorRoute.ourGroup, ancestorRoute.otherGroup, ancestorRoute.groupInfo, parent.node.id,
+                neighbor.id);
     }
-    public void calculateGroups(ArrayList<Integer> ourGroup, ArrayList<Integer> otherGroup, Integer node, Integer neighbor) throws SegmentBalanceException {
+
+    public void calculateGroups(ArrayList<Integer> ancestorOurGroup, ArrayList<Integer> ancestorOtherGroup,
+            GroupInfo[] ancestorGroupInfo, Integer node, Integer neighbor)
+            throws SegmentBalanceException {
         // 9%
+        long startTimeProfileIxdar = System.currentTimeMillis();
         this.needToCalculateGroups = false;
-        if (ourGroup.contains(node)) {
-            ArrayList<Integer> grp = ourGroup;
-            int idxNeighbor = grp.indexOf(neighbor);
-            int rotateIdx = grp.indexOf(node);
+        GroupInfo nodeGroupInfo = ancestorGroupInfo[node];
+        GroupInfo neighborGroupInfo = ancestorGroupInfo[neighbor];
+        if (nodeGroupInfo.isOurGroup) {
+            ArrayList<Integer> grp = ancestorOurGroup;
+            int idxNeighbor = neighborGroupInfo.isOurGroup ? neighborGroupInfo.index : -1;
+            int rotateIdx = nodeGroupInfo.index;
+            this.otherGroup = ancestorOtherGroup;
 
-            this.otherGroup = otherGroup;
+            if (rotateIdx >= grp.size()) {
+                float z = 0;
+            }
 
-            ArrayList<Integer> reverseList = new ArrayList<Integer>();
+            ArrayList<Integer> reverseList = new ArrayList<Integer>(grp.size());
             if (idxNeighbor > rotateIdx || idxNeighbor == -1) {
-                for (int i = rotateIdx + 1; i < grp.size(); i++) {
-                    reverseList.add(grp.get(i));
-                }
                 for (int i = 0; i < rotateIdx + 1; i++) {
                     reverseList.add(0, grp.get(i));
                 }
-                this.ourGroup = reverseList;
-            } else {
-                for (int i = 0; i < rotateIdx; i++) {
+                for (int i = rotateIdx + 1; i < grp.size(); i++) {
                     reverseList.add(grp.get(i));
                 }
+                this.ourGroup = reverseList;
+            } else {
                 for (int i = rotateIdx; i < grp.size(); i++) {
                     reverseList.add(0, grp.get(i));
                 }
+                for (int i = 0; i < rotateIdx; i++) {
+                    reverseList.add(grp.get(i));
+                }
                 this.ourGroup = reverseList;
+
             }
+
         } else {
 
-            ArrayList<Integer> grp = otherGroup;
-            ArrayList<Integer> otherGrp = ourGroup;
-            int idxNeighbor = grp.indexOf(neighbor);
-            int rotateIdx = grp.indexOf(node);
-            this.otherGroup = otherGroup;
+            ArrayList<Integer> grp = ancestorOtherGroup;
+            ArrayList<Integer> otherGrp = ancestorOurGroup;
+            int idxNeighbor = neighborGroupInfo.isOurGroup ? -1 : neighborGroupInfo.index;
+            int rotateIdx = nodeGroupInfo.index;
+            this.otherGroup = ancestorOtherGroup;
             ArrayList<Integer> remainList = new ArrayList<Integer>();
             ArrayList<Integer> reverseList = new ArrayList<Integer>(otherGrp);
             if (idxNeighbor > rotateIdx || idxNeighbor == -1) {
@@ -203,7 +215,22 @@ public class Route implements Comparable<Route> {
             this.ourGroup = remainList;
             this.otherGroup = reverseList;
         }
-        if(this.cuts.size() != this.matches.size()){
+        //2%
+        for (int i = 0; i < ourGroup.size(); i++) {
+            int vp = ourGroup.get(i);
+            GroupInfo g = groupInfo[vp];
+            g.index = i;
+            g.isOurGroup = true;
+        }
+        for (int i = 0; i < otherGroup.size(); i++) {
+            int vp = otherGroup.get(i);
+            GroupInfo g = groupInfo[vp];
+            g.index = i;
+            g.isOurGroup = false;
+        }
+        long endTimeProfileIxdar = System.currentTimeMillis();
+        InternalPathEngine.profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
+        if (this.cuts.size() != this.matches.size()) {
             throw new SegmentBalanceException();
         }
     }

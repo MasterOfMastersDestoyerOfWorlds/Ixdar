@@ -410,9 +410,6 @@ public class ManifoldEngine {
                 routeMapCopyTime += ((double)routeMapCopyTimeEnd) /1000.0;
 
             }
-            if(c.cutID == 1117){
-                float z = 0;
-            }
             // problem is that we have the exact same route twice in a row? WRONG
             if (cutsNew == null) {
                 cutsNew = InternalPathEngine.calculateInternalPathLength(c.lowerKnotPoint, c.lowerCutPoint,

@@ -1,10 +1,8 @@
 package shell.cuts.route;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 
 import shell.cuts.CutInfo;
-import shell.cuts.engines.InternalPathEngine;
 import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
 import shell.exceptions.SegmentBalanceException;
@@ -114,6 +112,15 @@ public class RouteInfo {
             if (!route.needToCalculateGroups && route.ancestor == null) {
                 route.ourGroup = ourGroup;
                 route.otherGroup = otherGroup;
+                route.numPoints = c.shell.pointMap.size();
+                GroupInfo[] groupInfo = new GroupInfo[route.numPoints];
+                for (int j = 0; j < ourGroup.size(); j++) {
+                    groupInfo[j] = new GroupInfo(true, false, j);
+                }
+                for (int j = 0; j < otherGroup.size(); j++) {
+                    groupInfo[j] = new GroupInfo(false, false, j);
+                }
+                route.groupInfo = groupInfo;
                 if (!ourGroup.contains(node.id)) {
                     throw new SegmentBalanceException(parent.c);
                 }
@@ -145,15 +152,6 @@ public class RouteInfo {
                 for (int j = 0; j < routesToCalculateGroups.size(); j++) {
                     r = routesToCalculateGroups.get(j);
                     r.needToCalculateGroups = false;
-                    if (r.ourGroup != null && r.delta != 0.0) {
-                        float z = 0;
-                    }
-                    if (r.ourGroup.size() == 0) {
-                        float z = 0;
-                    }
-                    if (c.cutID == 1111 && j == 2) {
-                        float z = 0;
-                    }
                     int ourLast = r.ourGroup.get(r.ourGroup.size() - 1);
                     int ourFirst = r.ourGroup.get(0);
                     int otherLast = r.otherGroup.get(r.otherGroup.size() - 1);

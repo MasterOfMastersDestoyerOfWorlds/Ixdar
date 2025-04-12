@@ -348,11 +348,11 @@ public class CutInfo {
                     + (knotPointsConnected ? 0 : 1));
         }
 
-        int lowerIdx = knot.knotPointsFlattened.indexOf(this.lowerCutPoint);
-        int upperIdx = knot.knotPointsFlattened.indexOf(this.upperCutPoint);
-        int rightDist = lowerIdx + Math.abs(knot.size() - upperIdx);
-        int leftDist = Math.abs(upperIdx - lowerIdx);
-        int dist = Math.min(leftDist, rightDist);
+        // int lowerIdx = knot.knotPointsFlattened.indexOf(this.lowerCutPoint);
+        // int upperIdx = knot.knotPointsFlattened.indexOf(this.upperCutPoint);
+        // int rightDist = lowerIdx + Math.abs(knot.size() - upperIdx);
+        // int leftDist = Math.abs(upperIdx - lowerIdx);
+        // int dist = Math.min(leftDist, rightDist);
         return knotLayer;
     }
 }

@@ -49,14 +49,8 @@ public class KnotEngine {
         boolean endpointReached = false;
         VirtualPoint endPoint1 = null;
         VirtualPoint endPoint2 = null;
-        if (toVisit.size() == 2) {
-            float z = 0;
-        }
         while (toVisit.size() > 0 || runList.size() > 0) {
             toVisit.remove(mainPoint);
-            if (mainPoint.id == 47) {
-                float z = 0;
-            }
             Segment potentialSegment1 = mainPoint.getPointer(1);
             Point pointer1 = (Point) potentialSegment1.getOtherKnot(mainPoint.topGroup);
 
@@ -194,9 +188,6 @@ public class KnotEngine {
                         }
                     }
                     if (runListSize > 2) {
-                        if (RunListUtils.containsID(runList, 30)) {
-                            float z = 0;
-                        }
                         for (int i = 0; i < runList.size() && runList.size() > 1; i++) {
 
                             VirtualPoint vp = runList.get(i);

@@ -18,7 +18,6 @@ import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.shell.Shell;
-import shell.utils.RunListUtils;
 
 public class CutEngine {
 

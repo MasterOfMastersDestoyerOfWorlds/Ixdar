@@ -14,6 +14,7 @@ import shell.cuts.CutMatchList;
 import shell.cuts.DisjointUnionSets;
 import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
+import shell.cuts.route.GroupInfo;
 import shell.cuts.route.Route;
 import shell.cuts.route.RouteComparator;
 import shell.cuts.route.RouteInfo;
@@ -63,6 +64,7 @@ public class InternalPathEngine {
         ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
         boolean startingWeights = neighborRouteMap != null;
         RouteMap routeMap1 = new RouteMap(c);
+        @SuppressWarnings("unused")
         RouteMap copy = null;
         if (startingWeights) {
             routeMap1 = neighborRouteMap;
@@ -136,9 +138,7 @@ public class InternalPathEngine {
         ArrayList<Integer> rightGroup = paintState(knotPointsConnected ? Group.Right : Group.Right,
                 knot, cutPoint1, knotPoint1,
                 cutSegment2, routeMap1);
-        if (startingWeights) {
-            float z = 0;
-        }
+
         // 5%
         RouteInfo start = routeMap1.get(cutPoint1.id);
         if (start.group == Group.Left) {
@@ -152,6 +152,29 @@ public class InternalPathEngine {
                 r.assignGroup(leftGroup, rightGroup, c, routeMap1);
             } else {
                 r.assignGroup(rightGroup, leftGroup, c, routeMap1);
+            }
+            for (int i = 0; i < 4; i++) {
+                Route route = r.routes[i];
+                for (int j = 0; j < route.ourGroup.size(); j++) {
+                    int vp = route.ourGroup.get(j);
+                    GroupInfo g = route.groupInfo[vp];
+                    if (g == null) {
+                        g = new GroupInfo(true, false, j);
+                        route.groupInfo[vp] = g;
+                    }
+                    g.index = j;
+                    g.isOurGroup = true;
+                }
+                for (int j = 0; j < route.otherGroup.size(); j++) {
+                    int vp = route.otherGroup.get(j);
+                    GroupInfo g = route.groupInfo[vp];
+                    if (g == null) {
+                        g = new GroupInfo(false, false, j);
+                        route.groupInfo[vp] = g;
+                    }
+                    g.index = j;
+                    g.isOurGroup = false;
+                }
             }
         }
         RouteInfo end = routeMap1.get(knotPoint2.id);
@@ -253,7 +276,6 @@ public class InternalPathEngine {
                 }
             }
             if (compareList.size() != 0) {
-                float z = 0;
                 if (unionSet.find(cutPoint1.id) != unionSet.find(cutPoint2.id)
                         || unionSet.find(cutPoint1.id) != unionSet.find(knotPoint1.id)
                         || unionSet.find(cutPoint2.id) != unionSet.find(knotPoint2.id)
@@ -383,60 +405,20 @@ public class InternalPathEngine {
             return false;
         }
 
-        // 20%
+        // 4-6%
         // you cannot make a connection where you form a cycle with your own tail:
         // e.g. if our group is 1 2 3 4 and u is 4 and the cut is [1 2]
         // you cannot match 2 to 4 and can only match 1 to 4 otherwise you'd form a
         // cycle 2 3 4 2 3 4 ...
 
-        boolean parity = u.routeType.isNext == vRouteType.isNext;
-        boolean connectionParity = u.routeType.isConnected == vRouteType.isConnected;
-        boolean startclockwise = (uParent.rotDist - map.get(u.neighbor.id).rotDist) < 0;
-        boolean forward = (uParent.rotDist - v.rotDist) < 0;
-        boolean endclockwise = (v.rotDist - map.get(neighbor.id).rotDist) > 0;
-        boolean shouldKill = false;
-        if (u.neighborSegment.id == c.cutSegment1.id) {
-            startclockwise = true;
-        }
-        if (uParent.group == v.group) {
-            if (parity) {
-                // shouldKill = ;
-                if (!forward) {
-                    shouldKill = startclockwise && endclockwise;
-                } else {
-                    // shouldKill = !startclockwise && endclockwise;
-                }
-            } else {
-                if (forward) {
-                    continueCount++;
-                    // shouldKill = startclockwise && endclockwise;
-                }
-            }
-        }
-        long startTimeProfileIxdar = System.currentTimeMillis();
-        int nIdx = u.ourGroup.indexOf(neighbor.id);
-        long endTimeProfileIxdar = System.currentTimeMillis();
-        InternalPathEngine.profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
+        int neighborIdx = u.groupInfo[neighbor.id].index;
+        int vIdx = u.groupInfo[v.node.id].index;
 
-        boolean neighborInGroup = nIdx > 0;
+        boolean neighborInGroup = u.groupInfo[neighbor.id].isOurGroup;
         if (neighborInGroup) {
-            int vIdx = u.ourGroup.indexOf(v.node.id);
-            if (nIdx < vIdx) {
-                if (uParent.group == v.group && !shouldKill) {
-                    Group g = uParent.group;
-                    int rotu = uParent.rotDist;
-                    int rotv = v.rotDist;
-                    float z = 0;
-                    // ,aybe instead of storing the entire list we store the flips and where they
-                    // happen in the original list so we can figure out the orientation on the fly
-                    // based on the rot disstance
-                    noncontinueCount++;
-                }
+            if (neighborIdx < vIdx) {
                 return false;
             }
-        }
-        if (shouldKill) {
-            float z = 0;
         }
 
         // 8%
@@ -462,7 +444,6 @@ public class InternalPathEngine {
             int knotPointIdx = 0;
             if (!(uParent.knotPoint1.id == knotPoint || uParent.knotPoint2.id == knotPoint)) {
                 knotPointIdx = grp.size() - 1;
-                knotPoint = grp.get(knotPointIdx);
             }
             // checks wether the cut is facing away from or toward the knotpoint
             // e.g. #1
@@ -474,8 +455,6 @@ public class InternalPathEngine {
             // e.g. #3
             // if we have knotpoint 1 and 99 and the other group is 1 2 3 4 then if we cut
             // [2 3] and match to 2 we will enter the disconnected state
-            int neighborIdx = grp.indexOf(neighbor.id);
-            int vIdx = grp.indexOf(v.node.id);
             boolean between = false;
             if ((neighborIdx >= knotPointIdx && neighborIdx < vIdx) ||
                     (neighborIdx <= knotPointIdx && neighborIdx > vIdx)) {

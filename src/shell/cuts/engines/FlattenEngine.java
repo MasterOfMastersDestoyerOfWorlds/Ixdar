@@ -229,7 +229,6 @@ public class FlattenEngine {
 
         long reeEndTime = System.currentTimeMillis();
         flattenTotalTimeSeconds = ((double) (reeEndTime - reeStartTime)) / 1000.0;
-        long clockworkStartTime = System.currentTimeMillis();
         return knotNew;
     }
 
