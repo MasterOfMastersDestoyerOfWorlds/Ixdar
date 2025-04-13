@@ -1,22 +1,26 @@
 package shell.cuts.enums;
 
 public enum RouteType {
-    prevDC(false, false, true, 0),
-    prevC(true, false, true, 1),
-    nextDC(false, true, false, 2),
-    nextC(true, true, false, 3),
-    None(false, false, false, -1);
+    prevDC(false, false, true, 0, 0, 0),
+    prevC(true, false, true, 1, 0, 0),
+    nextDC(false, true, false, 2, 2, 1),
+    nextC(true, true, false, 3, 2, 1),
+    None(false, false, false, -1, -1, -1);
 
     public boolean isConnected, isNext, isPrev;
     public RouteType oppositeRoute;
     public RouteType oppositeConnectionRoute;
     public int idx;
+    public int routeOffset;
+    public int matOffset;
 
-    RouteType(boolean isConnected, boolean isNext, boolean isPrev, int idx) {
+    RouteType(boolean isConnected, boolean isNext, boolean isPrev, int idx, int routeOffset, int matOffset) {
         this.isConnected = isConnected;
         this.isNext = isNext;
         this.isPrev = isPrev;
         this.idx = idx;
+        this.routeOffset = routeOffset;
+        this.matOffset = matOffset;
     }
 
     static {
@@ -33,7 +37,7 @@ public enum RouteType {
         prevDC.oppositeConnectionRoute = prevC;
     }
 
-        public int idTransform(int id) {
+    public int idTransform(int id) {
         nextDC.oppositeRoute = prevDC;
         if (this.equals(RouteType.None)) {
             return -1;

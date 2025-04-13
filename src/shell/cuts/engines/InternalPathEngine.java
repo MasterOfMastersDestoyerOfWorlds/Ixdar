@@ -7,11 +7,12 @@ import java.util.Set;
 
 import org.apache.commons.math3.util.Pair;
 
-import shell.BalanceMap;
 import shell.Toggle;
 import shell.cuts.CutInfo;
+import shell.cuts.CutMatchDistanceMatrix;
 import shell.cuts.CutMatchList;
 import shell.cuts.DisjointUnionSets;
+import shell.cuts.Edge;
 import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
 import shell.cuts.route.GroupInfo;
@@ -46,18 +47,17 @@ public class InternalPathEngine {
         noncontinueCount = 0;
     }
 
-    public static Pair<CutMatchList, RouteMap> calculateInternalPathLength(
-            VirtualPoint knotPoint1, VirtualPoint cutPoint1, VirtualPoint external1,
-            VirtualPoint knotPoint2, VirtualPoint cutPoint2, VirtualPoint external2,
-            Knot knot, BalanceMap balanceMap, CutInfo c, boolean knotPointsConnected,
-            RouteMap neighborRouteMap, RouteMap neighborRouteMapActual)
-            throws SegmentBalanceException, BalancerException {
-        Segment cutSegment1 = knotPoint1.getClosestSegment(cutPoint1, null);
-        Segment cutSegment2 = knotPoint2.getClosestSegment(cutPoint2, null);
-        SegmentBalanceException sbe = new SegmentBalanceException(c.shell, null,
-                new CutInfo(c.shell, knotPoint1, cutPoint1, cutSegment1, external1,
-                        knotPoint2, cutPoint2, cutSegment2, external2, knot,
-                        balanceMap, knotPointsConnected));
+    public static Pair<CutMatchList, RouteMap> calculateInternalPathLength(CutInfo c, RouteMap neighborRouteMap,
+            CutMatchDistanceMatrix d) throws SegmentBalanceException, BalancerException {
+        Segment cutSegment1 = c.lowerCutSegment;
+        VirtualPoint cutPoint1 = c.lowerCutPoint;
+        VirtualPoint knotPoint1 = c.lowerKnotPoint;
+        VirtualPoint cutPoint2 = c.upperCutPoint;
+        VirtualPoint knotPoint2 = c.upperKnotPoint;
+        Segment cutSegment2 = c.upperCutSegment;
+        Knot knot = c.knot;
+
+        SegmentBalanceException sbe = new SegmentBalanceException(c.shell, null, c);
 
         long startTimeIxdar = System.currentTimeMillis();
 
@@ -81,12 +81,12 @@ public class InternalPathEngine {
                 VirtualPoint nextNeighbor = knot.getNext(k1);
                 VirtualPoint prevNeighbor = knot.getPrev(k1);
                 r = new RouteInfo(k1, Double.MAX_VALUE, prevNeighbor, nextNeighbor, null, null, knotPoint1,
-                        knotPoint2, cutPoint1, cutPoint2, routeMap1);
-                routeMap1.put(k1.id, r);
+                        knotPoint2, cutPoint1, cutPoint2, routeMap1, i);
+                routeMap1.put(k1.id, i, r);
             }
             if (k1.equals(cutPoint1)) {
                 boolean knotPointIsPrev = knotPoint1.equals(knot.getPrev(cutPoint1));
-                if (knotPointsConnected) {
+                if (c.knotPointsConnected) {
                     if (knotPointIsPrev) {
                         r.prevC.delta = 0;
                     } else {
@@ -131,10 +131,10 @@ public class InternalPathEngine {
                 }
             }
         }
-        ArrayList<Integer> leftGroup = paintState(knotPointsConnected ? Group.Left : Group.Left, knot,
+        ArrayList<Integer> leftGroup = paintState(c.knotPointsConnected ? Group.Left : Group.Left, knot,
                 knotPoint1, cutPoint1, cutSegment2,
                 routeMap1);
-        ArrayList<Integer> rightGroup = paintState(knotPointsConnected ? Group.Right : Group.Right,
+        ArrayList<Integer> rightGroup = paintState(c.knotPointsConnected ? Group.Right : Group.Right,
                 knot, cutPoint1, knotPoint1,
                 cutSegment2, routeMap1);
 
@@ -181,10 +181,7 @@ public class InternalPathEngine {
         if (endRoute.neighbor.id != cutPoint2.id) {
             endRoute = end.prevC;
         }
-        long startTimeProfileIxdar = System.currentTimeMillis();
-        bellmanFordDjikstras(knot, c, knotPoints, routeMap1, heap);
-        long endTimeProfileIxdar = System.currentTimeMillis();
-        InternalPathEngine.profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
+        bellmanFordDjikstras(knot, c, knotPoints, routeMap1, heap, d);
         RouteMap routeMap = routeMap1;
         ixdarCalls++;
         long endTimeIxdar = System.currentTimeMillis() - startTimeIxdar;
@@ -212,15 +209,14 @@ public class InternalPathEngine {
         cutSegments.remove(cutSegment1);
         cutSegments.remove(cutSegment2);
 
-        CutMatchList cutMatchList = new CutMatchList(c.shell, sbe, knot);
+        CutMatchList cutMatchList = new CutMatchList(c.shell, c, knot);
         try {
             cutMatchList.addLists(cutSegments, matchSegments, knot, "InternalPathEngine");
         } catch (SegmentBalanceException be) {
             throw be;
         }
         if (neighborRouteMap != null && Toggle.IxdarCheckRotationalAnswerSharing.value) {
-            RouteMap checkRouteMap = calculateInternalPathLength(knotPoint1, cutPoint1, external1, knotPoint2,
-                    cutPoint2, external2, knot, balanceMap, c, knotPointsConnected, null, null).getSecond();
+            RouteMap checkRouteMap = calculateInternalPathLength(c, null, d).getSecond();
             ArrayList<Route> correctList = new ArrayList<>();
             ArrayList<Route> compareList = new ArrayList<>();
             for (RouteInfo correctRI : checkRouteMap.values()) {
@@ -275,94 +271,83 @@ public class InternalPathEngine {
      *       go to 1
      * </pre>
      */
-    private static void bellmanFordDjikstras(Knot knot, CutInfo c, ArrayList<VirtualPoint> knotPoints,
+    private final static void bellmanFordDjikstras(Knot knot, CutInfo c, ArrayList<VirtualPoint> knotPoints,
             RouteMap routeMap1,
-            PriorityQueue<RoutePair> heap) throws SegmentBalanceException {
+            PriorityQueue<RoutePair> heap, CutMatchDistanceMatrix d) throws SegmentBalanceException {
 
         // 4. if heap not empty got to one
         while (heap.size() != 0) {
             // 1. let settled = empty set
+            // 85%
             Set<Route> settled = new HashSet<Route>();
             // Positive Values: while heap H is not empty
             while (heap.size() != 0) {
                 // delete u with minimum d(u) value from heap H
                 Route u = heap.poll().route;
-                // add u to settled
                 settled.add(u);
-                relaxShortestPath(u, knotPoints, routeMap1, heap, false, knot, c);
+                relaxShortestPath(u, routeMap1, heap, false, knot, c, d);
                 // for each edge (u,v) with w(u,v) > 0:
 
             }
 
+            // 4%
             // for every edge (u,v) with u in settled
             for (Route u : settled) {
-                relaxShortestPath(u, knotPoints, routeMap1, heap, true, knot, c);
+                relaxShortestPath(u, routeMap1, heap, true, knot, c, d);
             }
         }
     }
 
-    private static void relaxShortestPath(Route u, ArrayList<VirtualPoint> knotPoints, RouteMap routeMap1,
-            PriorityQueue<RoutePair> heap, boolean negativeWeights, Knot knot, CutInfo c)
+    private final static void relaxShortestPath(Route u, RouteMap routeMap1,
+            PriorityQueue<RoutePair> heap, boolean negativeWeights, Knot knot, CutInfo c, CutMatchDistanceMatrix d)
             throws SegmentBalanceException {
+        ArrayList<Edge> edges = null;
+
+        // 0.08%
         double uDelta = u.delta;
         RouteInfo uParent = u.parent;
-        // 2%
-        // if you are Inf do not do checks
-        if (uDelta == Double.MAX_VALUE) {
-            return;
+        int uIdx = uParent.index;
+        if (negativeWeights) {
+            edges = d.negativeEdges.get(uIdx);
+        } else {
+            edges = d.positiveEdges.get(uIdx);
         }
-        // need to change how I am going through the edges likely need to define the
-        // edges that are acceptable before hand instead of checking
-        for (int i = 0; i < knotPoints.size(); i++) {
-            // 0.17%
-            RouteInfo v = routeMap1.get(knotPoints.get(i).id);
-            if (uParent.id == v.id) {
-                continue;
-            }
-            for (int j = 0; j < 4; j++) {
-                // 3%
-                // 1.6%
-                // 0.82
-                Route vRoute = v.routes[j];
-                VirtualPoint neighbor = vRoute.neighbor;
-                Segment acrossSeg = uParent.node.pointSegmentLookup[neighbor.id];
 
-                if (acrossSeg == null) {
-                    continue;
-                }
-                // 4%
-                RouteType vRouteType = vRoute.routeType;
-                Segment cutSeg = vRoute.neighborSegment;
-                double distance = acrossSeg.distance - cutSeg.distance;
-                boolean negative = distance < 0;
-                if (negativeWeights ^ negative) {
-                    continue;
-                }
-                // 4.69-5.72%
+        // 79%
+        for (Edge e : edges) {
+            // 0.17%
+            RouteInfo v = routeMap1.routeInfos[e.idx];
+            // 41-51%
+            for (int j = 0; j < 2; j++) {
+                // 2.3%
+
+                Route vRoute = v.routes[e.routeOffset + j];
+
+                // 3.89-3.94%
                 // with w(u,v) >= 0:
                 // if(d(v) > d(u) + w(u,v))
+                double distance = d.matrix[uIdx][e.matIdx];
                 double newDistancePrevNeighbor = uDelta + distance;
-                // this single if statement is 7% of the ixdar time, likely due to cache misses?
-                // caan't seem to get it lower
                 if (newDistancePrevNeighbor >= vRoute.delta) {
                     continue;
                 }
-                // 3%
                 // each edge (u,v)
-                // 9-10%
-                Boolean canConnet = canConnect(u, v, vRoute, vRouteType, neighbor, acrossSeg, cutSeg, uParent, knot, c,
-                        negative, routeMap1);
+                // 14%
+                RouteType vRouteType = vRoute.routeType;
+                Segment cutSeg = e.cutSegment;
+                Segment acrossSeg = e.acrossSegment;
+                Boolean canConnet = canConnect(u, v, vRoute, vRouteType, acrossSeg, cutSeg, uParent, knot, c,
+                        routeMap1);
 
                 if (!canConnet) {
-
                     continue;
                 }
 
-                // 17%
+                // 24%
                 // update d(v) = d(u) + w(u,v)
                 v.updateRoute(newDistancePrevNeighbor, uParent.node, vRouteType, u.routeType, u, acrossSeg);
                 // add v to heap
-                // 1%
+                // 1.75%
                 if (!cutSeg.equals(c.upperCutSegment)) {
                     RoutePair routePair = new RoutePair(vRoute);
                     heap.add(routePair);
@@ -371,15 +356,14 @@ public class InternalPathEngine {
         }
     }
 
-    private static boolean canConnect(Route u, RouteInfo v, Route vRoute, RouteType vRouteType, VirtualPoint neighbor,
-            Segment acrossSeg,
-            Segment cutSeg, RouteInfo uParent, Knot knot, CutInfo c, boolean negative, RouteMap map) {
-
+    private static boolean canConnect(Route u, RouteInfo v, Route vRoute, RouteType vRouteType, Segment acrossSeg,
+            Segment cutSeg, RouteInfo uParent, Knot knot, CutInfo c, RouteMap map) {
+        VirtualPoint neighbor = vRoute.neighbor;
         // you cannot connect to cut segment 1
-        if (v.id == uParent.cutPoint1.id && neighbor.id == uParent.knotPoint1.id) {
+        if (v.id == c.lowerCutPoint.id && neighbor.id == c.lowerKnotPoint.id) {
             return false;
         }
-        if (v.id == uParent.knotPoint1.id && neighbor.id == uParent.cutPoint1.id) {
+        if (v.id == c.lowerKnotPoint.id && neighbor.id == c.lowerCutPoint.id) {
             return false;
         }
 
@@ -412,7 +396,7 @@ public class InternalPathEngine {
         boolean vIsConnected = vRouteType.isConnected;
         boolean uIsConnected = u.routeType.isConnected;
         // we can only finish if we are in the connected state
-        if (neighbor.id == uParent.cutPoint2.id && v.id == uParent.knotPoint2.id) {
+        if (neighbor.id == c.upperCutPoint.id && v.id == c.upperKnotPoint.id) {
             if (!uIsConnected || !vIsConnected) {
                 return false;
             }
@@ -429,7 +413,7 @@ public class InternalPathEngine {
             ArrayList<Integer> grp = u.otherGroup;
             int knotPoint = grp.get(0);
             int knotPointIdx = 0;
-            if (!(uParent.knotPoint1.id == knotPoint || uParent.knotPoint2.id == knotPoint)) {
+            if (!(c.lowerKnotPoint.id == knotPoint || c.upperKnotPoint.id == knotPoint)) {
                 knotPointIdx = grp.size() - 1;
             }
             // checks wether the cut is facing away from or toward the knotpoint

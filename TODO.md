@@ -18,18 +18,19 @@
 
 // IDEA: if there is a maximum number of cut matches that can happen in a knot, and we sort all of the possible cut matches in the knot by their length, we could exclude any where the cut segments plus the minimum cut match to the exit is too long ( no this doesn't work, still have to run djikstras)
 
-1. - [ ] Need to figure out how to reuse the shortest path info already calculated, f.e. if we move the terminal cut segment counter clockwise we should only invalidate the three effected points and their connections, the rest of the connections should still be valid although we will have to recalculate which of the available cuts are allowed by rules of the hole-moving game.
+8. - [ ] Need to figure out how to reuse the shortest path info already calculated, f.e. if we move the terminal cut segment counter clockwise we should only invalidate the three effected points and their connections, the rest of the connections should still be valid although we will have to recalculate which of the available cuts are allowed by rules of the hole-moving game.
 
 //As far as I know the above is not feasible since we have not figure out how to make the hole moving game into a positive weight graph. Few other things to try: There may be some sense in which the hole-moving game forms a Directed Acyclic Graph in which we could find the linear time shortest path once we formed the dag, but enumerating all of the branches that don't form cycles would take lot of space and time. Alternatively, if we could re-weight the graph into a positive weight graph or have the starting point marked as -Inf weight in the priority queue we might still be able to reuse other djikstra calls. I think we need some way to compare route maps in code and break on their difference (see route comparison tool to start)
 
 [Negative Weight BF + Djikstras](https://youtu.be/uqM9WjO7D6A?si=Sct1La4zsbqpSAdE&t=2252)
 
-1. [] convert my existing code to use a heap instead of a priority queue and do bubble up/ pop operations instead of adding the nodes multiple times
-2. [] convert existing code to do the BFD algorithm as described in the video, this will likely make us able to reuse partial results remove paths that go through not existant edges.
+9. [x] convert existing code to do the BFD algorithm as described in the video, this will likely make us able to reuse partial results remove paths that go through not existant edges.
 
-3. - [x] Figure out how to share shortest path info from a cut to it's flipped version where the ending cutsegment is in the disconnected orientation .
+10. - [x] Figure out how to share shortest path info from a cut to it's flipped version where the ending cutsegment is in the disconnected orientation .
 
 //this only works some fraction of the time, depending on wether the answer touches the ending cut segment, at this point it is hard to tell when this occurs
+
+
 
 ## Knot Finding
 

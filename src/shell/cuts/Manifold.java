@@ -82,7 +82,7 @@ public class Manifold implements FileStringable {
             c1 = new CutInfo(shell, knotPoint1, cutPoint1, manifoldCutSegment1, external1,
                     knotPoint2,
                     cutPoint2, manifoldCutSegment2,
-                    external2, manifoldKnot, manifoldBalanceMap, true);
+                    external2, manifoldKnot, manifoldBalanceMap, knotPointsConnected);
 
             manifoldBalanceMap.addCut(knotPoint1, cutPoint1);
             manifoldBalanceMap.addCut(knotPoint2, cutPoint2);
@@ -91,11 +91,9 @@ public class Manifold implements FileStringable {
         } catch (BalancerException e) {
             throw e;
         }
+        CutMatchDistanceMatrix d = new CutMatchDistanceMatrix(c1.knot);
         Pair<CutMatchList, RouteMap> result = InternalPathEngine
-                .calculateInternalPathLength(
-                        knotPoint1, cutPoint1, external1,
-                        knotPoint2, cutPoint2, external2, manifoldKnot, manifoldBalanceMap, c1,
-                        knotPointsConnected, null, null);
+                .calculateInternalPathLength(c1, null, d);
         cutMatchList = result.getFirst();
         routeMap = result.getSecond();
         if (!hasCutMatch || (hasCutMatch && cutMatchList.delta < originalCutMatch.delta)) {

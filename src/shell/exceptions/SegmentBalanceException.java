@@ -26,10 +26,6 @@ public class SegmentBalanceException extends Exception {
         this.ex2 = c.upperMatchSegment;
         this.c = c;
         this.shell = c.shell;
-        VirtualPoint kp1 = c.lowerKnotPoint;
-        VirtualPoint kp2 = c.upperKnotPoint;
-        cutName = shell.knotName + "_cut" + kp1 + "-" + cut1.getOther(kp1) + "and" + kp2
-                + "-" + cut2.getOther(kp2) + "\n" + cutMatchList;
     }
 
     public SegmentBalanceException(Shell shell, CutMatchList internalCut, CutInfo c) {
@@ -41,10 +37,6 @@ public class SegmentBalanceException extends Exception {
         this.ex2 = c.upperMatchSegment;
         this.shell = shell;
         this.c = c;
-        VirtualPoint kp1 = c.lowerKnotPoint;
-        VirtualPoint kp2 = c.upperKnotPoint;
-        cutName = shell.knotName + "_cut" + kp1 + "-" + cut1.getOther(kp1) + "and" + kp2
-                + "-" + cut2.getOther(kp2) + "\n" + cutMatchList;
     }
 
     public SegmentBalanceException(SegmentBalanceException sbe) {
@@ -64,6 +56,10 @@ public class SegmentBalanceException extends Exception {
 
     @Override
     public String toString() {
+        VirtualPoint kp1 = c.lowerKnotPoint;
+        VirtualPoint kp2 = c.upperKnotPoint;
+        cutName = shell.knotName + "_cut" + kp1 + "-" + cut1.getOther(kp1) + "and" + kp2
+                + "-" + cut2.getOther(kp2) + "\n" + cutMatchList;
         if (c != null) {
             return "SegmentBalanceException: " + "cutID: " + c.cutID + " " + topKnot + " cut1: " + cut1 + " ex1: " + ex1
                     + " cut2: " + cut2 + " ex2: " + ex2 + " cutName: " + cutName + "\n\n" + this.getStackTrace()[0];

@@ -23,36 +23,24 @@ public class RouteInfo {
     public Route nextC;
     public Route nextDC;
     public Route[] routes;
-    public int distFromPrevSource;
-    public int distFromNextSource;
-
-    public VirtualPoint knotPoint1;
-    public VirtualPoint knotPoint2;
-    public VirtualPoint cutPoint1;
-    public VirtualPoint cutPoint2;
 
     public VirtualPoint node;
     public int id;
     public int rotDist;
-
-    public static int maxSettledSize;
-    public static int maxPathLength;
+    public int index;
 
     public RouteInfo(VirtualPoint node, double delta, VirtualPoint prevNeighbor, VirtualPoint nextNeighbor,
             VirtualPoint ancestor, VirtualPoint matchedNeighbor, VirtualPoint knotPoint1, VirtualPoint knotPoint2,
-            VirtualPoint cutPoint1, VirtualPoint cutPoint2, RouteMap routeMap) {
+            VirtualPoint cutPoint1, VirtualPoint cutPoint2, RouteMap routeMap, int index) {
         this.c = routeMap.c;
         this.parent = routeMap;
         this.node = node;
         this.id = node.id;
+        this.index = index;
         this.prevC = new Route(RouteType.prevC, Double.MAX_VALUE, prevNeighbor, node.id, this);
         this.nextC = new Route(RouteType.nextC, Double.MAX_VALUE, nextNeighbor, node.id, this);
         this.prevDC = new Route(RouteType.prevDC, Double.MAX_VALUE, prevNeighbor, node.id, this);
         this.nextDC = new Route(RouteType.nextDC, Double.MAX_VALUE, nextNeighbor, node.id, this);
-        this.knotPoint1 = knotPoint1;
-        this.knotPoint2 = knotPoint2;
-        this.cutPoint1 = cutPoint1;
-        this.cutPoint2 = cutPoint2;
         routes = new Route[4];
         routes[RouteType.prevC.idx] = prevC;
         routes[RouteType.prevDC.idx] = prevDC;
@@ -66,10 +54,7 @@ public class RouteInfo {
         this.parent = routeMap;
         this.node = routeInfoToCopy.node;
         this.id = node.id;
-        this.knotPoint1 = routeInfoToCopy.knotPoint1;
-        this.knotPoint2 = upperKnotPoint;
-        this.cutPoint1 = routeInfoToCopy.cutPoint1;
-        this.cutPoint2 = upperCutPoint;
+        this.index = routeInfoToCopy.index;
         this.prevC = new Route(routeInfoToCopy.prevC, upperCutPoint, upperKnotPoint, this, c, routesToCheck);
         this.nextC = new Route(routeInfoToCopy.nextC, upperCutPoint, upperKnotPoint, this, c, routesToCheck);
         this.prevDC = new Route(routeInfoToCopy.prevDC, upperCutPoint, upperKnotPoint, this, c, routesToCheck);
@@ -82,6 +67,7 @@ public class RouteInfo {
     }
 
     private RouteInfo() {
+
     }
 
     public RouteInfo copy(RouteMap parent) {
@@ -94,14 +80,9 @@ public class RouteInfo {
         ri.nextC = nextC.copy(this);
         ri.nextDC = nextDC.copy(this);
         ri.routes = new Route[] { ri.prevC, ri.prevDC, ri.nextC, ri.nextDC };
-        ri.distFromPrevSource = distFromPrevSource;
-        ri.distFromNextSource = distFromNextSource;
-        ri.knotPoint1 = knotPoint1;
-        ri.knotPoint2 = knotPoint2;
-        ri.cutPoint1 = cutPoint1;
-        ri.cutPoint2 = cutPoint2;
         ri.node = node;
         ri.id = id;
+        ri.index = index;
         return ri;
     }
 

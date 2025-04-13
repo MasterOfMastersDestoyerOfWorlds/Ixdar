@@ -27,7 +27,6 @@ import shell.cuts.engines.CutEngine;
 import shell.cuts.engines.FlattenEngine;
 import shell.cuts.engines.InternalPathEngine;
 import shell.cuts.engines.ManifoldEngine;
-import shell.cuts.route.RouteInfo;
 import shell.exceptions.SegmentBalanceException;
 import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
@@ -313,7 +312,6 @@ public class Main {
 
         System.out.println("routeMapCopy %: "
                 + 100 * ((double) ManifoldEngine.routeMapsCopied) / ((double) ManifoldEngine.totalRoutes));
-        System.out.println("maxSettledSize: " + RouteInfo.maxSettledSize);
 
         System.out.println("Ixdar comparisons " + String.format("%,d", InternalPathEngine.comparisons));
         System.out.println("N " + shell.size());
