@@ -153,8 +153,7 @@ public class Route implements Comparable<Route> {
     public void calculateGroups(ArrayList<Integer> ancestorOurGroup, ArrayList<Integer> ancestorOtherGroup,
             GroupInfo[] ancestorGroupInfo, Integer node, Integer neighbor)
             throws SegmentBalanceException {
-        // 9%
-        long startTimeProfileIxdar = System.currentTimeMillis();
+        // 14%
         this.needToCalculateGroups = false;
         GroupInfo nodeGroupInfo = ancestorGroupInfo[node];
         GroupInfo neighborGroupInfo = ancestorGroupInfo[neighbor];
@@ -228,8 +227,6 @@ public class Route implements Comparable<Route> {
             g.index = i;
             g.isOurGroup = false;
         }
-        long endTimeProfileIxdar = System.currentTimeMillis();
-        InternalPathEngine.profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
         if (this.cuts.size() != this.matches.size()) {
             throw new SegmentBalanceException();
         }

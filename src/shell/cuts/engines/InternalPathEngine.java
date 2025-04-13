@@ -208,6 +208,7 @@ public class InternalPathEngine {
          */
 
         // 4. if heap not empty got to one
+        long startTimeProfileIxdar = System.currentTimeMillis();
         while (heap.size() != 0) {
             // 1. let settled = empty set
             Set<Route> settled = new HashSet<Route>();
@@ -227,6 +228,8 @@ public class InternalPathEngine {
                 relaxShortestPath(u, knotPoints, routeMap1, heap, true, knot, c);
             }
         }
+        long endTimeProfileIxdar = System.currentTimeMillis();
+        InternalPathEngine.profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
         RouteMap routeMap = routeMap1;
         ixdarCalls++;
         long endTimeIxdar = System.currentTimeMillis() - startTimeIxdar;
@@ -301,34 +304,32 @@ public class InternalPathEngine {
         RouteInfo uParent = u.parent;
         // 2%
         // if you are Inf do not do checks
-        if (u.delta == Double.MAX_VALUE) {
+        if (uDelta == Double.MAX_VALUE) {
             return;
         }
         // need to change how I am going through the edges likely need to define the
         // edges that are acceptable before hand instead of checking
         for (int i = 0; i < knotPoints.size(); i++) {
-            // 0.33%
+            // 0.17%
             RouteInfo v = routeMap1.get(knotPoints.get(i).id);
             if (uParent.id == v.id) {
                 continue;
             }
             for (int j = 0; j < 4; j++) {
+                // 3%
                 // 1.6%
-                Route vRoute = v.routes[j];
-                RouteType vRouteType = vRoute.routeType;
-                VirtualPoint neighbor = vRoute.neighbor;
                 // 0.82
+                Route vRoute = v.routes[j];
+                VirtualPoint neighbor = vRoute.neighbor;
                 Segment acrossSeg = uParent.node.pointSegmentLookup[neighbor.id];
-                Segment cutSeg = vRoute.neighborSegment;
 
-                if (acrossSeg == null || cutSeg == null) {
+                if (acrossSeg == null) {
                     continue;
                 }
-                // 1.8%
-
-                double edgeDistance = acrossSeg.distance;
-                double cutDistance = cutSeg.distance;
-                double distance = edgeDistance - cutDistance;
+                // 4%
+                RouteType vRouteType = vRoute.routeType;
+                Segment cutSeg = vRoute.neighborSegment;
+                double distance = acrossSeg.distance - cutSeg.distance;
                 boolean negative = distance < 0;
                 if (negativeWeights ^ negative) {
                     continue;
@@ -343,21 +344,8 @@ public class InternalPathEngine {
                     continue;
                 }
                 // 3%
-                // must be moving toward the exit
-                // gives incorrect answers with minor speedup
-                // if (!negative) {
-                // if (uParent.group == v.group) {
-                // if (uParent.rotDist > v.rotDist) {
-                // continue;
-                // }
-                // } else {
-                // if (u.greatestRotDistAncestorOtherGroup > v.rotDist) {
-                // continue;
-                // }
-                // }
-                // }
                 // each edge (u,v)
-                // 44%
+                // 9-10%
                 Boolean canConnet = canConnect(u, v, vRoute, vRouteType, neighbor, acrossSeg, cutSeg, uParent, knot, c,
                         negative, routeMap1);
 
@@ -366,11 +354,11 @@ public class InternalPathEngine {
                     continue;
                 }
 
-                // 12%
+                // 17%
                 // update d(v) = d(u) + w(u,v)
                 v.updateRoute(newDistancePrevNeighbor, uParent.node, vRouteType, u.routeType, u, acrossSeg);
                 // add v to heap
-                // 0.5%
+                // 1%
                 if (!cutSeg.equals(c.upperCutSegment)) {
                     RoutePair routePair = new RoutePair(vRoute);
                     heap.add(routePair);
@@ -383,10 +371,6 @@ public class InternalPathEngine {
             Segment acrossSeg,
             Segment cutSeg, RouteInfo uParent, Knot knot, CutInfo c, boolean negative, RouteMap map) {
 
-        // if you are trying ot connect to yourself
-        if (uParent.node.id == neighbor.id) {
-            return false;
-        }
         // you cannot connect to cut segment 1
         if (v.id == uParent.cutPoint1.id && neighbor.id == uParent.knotPoint1.id) {
             return false;
@@ -413,7 +397,6 @@ public class InternalPathEngine {
 
         int neighborIdx = u.groupInfo[neighbor.id].index;
         int vIdx = u.groupInfo[v.node.id].index;
-
         boolean neighborInGroup = u.groupInfo[neighbor.id].isOurGroup;
         if (neighborInGroup) {
             if (neighborIdx < vIdx) {
