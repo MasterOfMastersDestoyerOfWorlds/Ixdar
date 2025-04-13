@@ -69,7 +69,6 @@ public class InternalPathEngine {
         if (startingWeights) {
             routeMap1 = neighborRouteMap;
             copy = neighborRouteMap.copy();
-
         }
         PriorityQueue<RoutePair> heap = new PriorityQueue<RoutePair>(new RouteComparator());
         int numPoints = knot.size();
@@ -182,52 +181,8 @@ public class InternalPathEngine {
         if (endRoute.neighbor.id != cutPoint2.id) {
             endRoute = end.prevC;
         }
-
-        /**
-         * Bellman Ford + Djikstras Algorithm
-         * 
-         * <pre>
-         * Set all verticies v undiscovered, d(v) = inf
-         * set d(s) = 0, mark s discovered.
-         * Make heap H.
-         * 1. Let settled = empty set
-         * 2. while heap H is not empty,
-         *      delete u with minimum d(u) value from heap H
-         *      add u to settled
-         *      for each edge (u,v) with w(u,v) >= 0:
-         *          if(d(v) > d(u) + w(u,v))
-         *              update d(v) = d(u) + w(u,v)
-         *              add v to heap
-         * 3. for every edge (u,v) with u in settled and w(u,v) < 0
-         *      if(d(v) > d(u) + w(u,v))
-         *          update(d(v)) = d(u) + w(u,v)
-         *          add v to heap
-         * 4. if(heap not empty)
-         *       go to 1
-         * </pre>
-         */
-
-        // 4. if heap not empty got to one
         long startTimeProfileIxdar = System.currentTimeMillis();
-        while (heap.size() != 0) {
-            // 1. let settled = empty set
-            Set<Route> settled = new HashSet<Route>();
-            // Positive Values: while heap H is not empty
-            while (heap.size() != 0) {
-                // delete u with minimum d(u) value from heap H
-                Route u = heap.poll().route;
-                // add u to settled
-                settled.add(u);
-                relaxShortestPath(u, knotPoints, routeMap1, heap, false, knot, c);
-                // for each edge (u,v) with w(u,v) > 0:
-
-            }
-
-            // for every edge (u,v) with u in settled
-            for (Route u : settled) {
-                relaxShortestPath(u, knotPoints, routeMap1, heap, true, knot, c);
-            }
-        }
+        bellmanFordDjikstras(knot, c, knotPoints, routeMap1, heap);
         long endTimeProfileIxdar = System.currentTimeMillis();
         InternalPathEngine.profileTimeIxdar += endTimeProfileIxdar - startTimeProfileIxdar;
         RouteMap routeMap = routeMap1;
@@ -295,6 +250,55 @@ public class InternalPathEngine {
             throw new MultipleCyclesFoundException(c.shell, cutMatchList, matchSegments, cutSegments, c);
         }
         return new Pair<>(cutMatchList, routeMap);
+    }
+
+    /**
+     * Bellman Ford + Djikstras Algorithm
+     * 
+     * <pre>
+     * Set all verticies v undiscovered, d(v) = inf
+     * set d(s) = 0, mark s discovered.
+     * Make heap H.
+     * 1. Let settled = empty set
+     * 2. while heap H is not empty,
+     *      delete u with minimum d(u) value from heap H
+     *      add u to settled
+     *      for each edge (u,v) with w(u,v) >= 0:
+     *          if(d(v) > d(u) + w(u,v))
+     *              update d(v) = d(u) + w(u,v)
+     *              add v to heap
+     * 3. for every edge (u,v) with u in settled and w(u,v) < 0
+     *      if(d(v) > d(u) + w(u,v))
+     *          update(d(v)) = d(u) + w(u,v)
+     *          add v to heap
+     * 4. if(heap not empty)
+     *       go to 1
+     * </pre>
+     */
+    private static void bellmanFordDjikstras(Knot knot, CutInfo c, ArrayList<VirtualPoint> knotPoints,
+            RouteMap routeMap1,
+            PriorityQueue<RoutePair> heap) throws SegmentBalanceException {
+
+        // 4. if heap not empty got to one
+        while (heap.size() != 0) {
+            // 1. let settled = empty set
+            Set<Route> settled = new HashSet<Route>();
+            // Positive Values: while heap H is not empty
+            while (heap.size() != 0) {
+                // delete u with minimum d(u) value from heap H
+                Route u = heap.poll().route;
+                // add u to settled
+                settled.add(u);
+                relaxShortestPath(u, knotPoints, routeMap1, heap, false, knot, c);
+                // for each edge (u,v) with w(u,v) > 0:
+
+            }
+
+            // for every edge (u,v) with u in settled
+            for (Route u : settled) {
+                relaxShortestPath(u, knotPoints, routeMap1, heap, true, knot, c);
+            }
+        }
     }
 
     private static void relaxShortestPath(Route u, ArrayList<VirtualPoint> knotPoints, RouteMap routeMap1,

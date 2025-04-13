@@ -21,7 +21,7 @@ public enum Toggle {
     IxdarSkip(true, "ixdarSkip"),
     IxdarMirrorAnswerSharing(false, "ixdarFlip"),
     IxdarCheckMirroredAnswerSharing(false, "checkFlip"),
-    IxdarRotationalAnswerSharing(false, "ixdarRot"),
+    IxdarRotationalAnswerSharing(true, "ixdarRot"),
     IxdarCheckRotationalAnswerSharing(false, "checkRot"),
     IxdarKnotDistance(false, "knotDist"),
     SnapToGrid(true, "gridSnap"),
