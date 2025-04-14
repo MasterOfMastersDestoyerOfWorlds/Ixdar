@@ -97,6 +97,8 @@ public class ManifoldEngine {
         double minInternalDistance = Double.MAX_VALUE;
         for (int a = 0; a < knot.knotPoints.size(); a++) {
             for (int b = a; b < knot.knotPoints.size(); b++) {
+
+                // 0.28%
                 VirtualPoint knotPoint11 = knot.knotPoints.get(a);
                 VirtualPoint knotPoint12 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
                 Segment cutSegment1 = knotPoint11.getClosestSegment(knotPoint12, null);
@@ -225,7 +227,6 @@ public class ManifoldEngine {
                                 : minInternalDistance;
                         delta = d6 < delta ? d6 : delta;
                     }
-                    shell.buff.flush();
 
                     CutInfo c7 = new CutInfo(shell, knotPoint12, knotPoint11, cutSegment1, external1, knotPoint21,
                             knotPoint22, cutSegment2, external2, knot, null, false);
@@ -255,7 +256,6 @@ public class ManifoldEngine {
                                 : minInternalDistance;
                         delta = d8 < delta ? d8 : delta;
                     }
-                    shell.buff.flush();
 
                     if (delta < minDelta) {
                         // minDelta = delta;
@@ -280,7 +280,7 @@ public class ManifoldEngine {
                 - c.upperCutSegment.distance;
     }
 
-    public static Pair<CutMatchList, Pair<CutMatchList, RouteMap>> answerSharing(
+    public final static Pair<CutMatchList, Pair<CutMatchList, RouteMap>> answerSharing(
             Pair<CutMatchList, RouteMap> cutsOld,
             Pair<CutMatchList, RouteMap> cutsNew,
             CutInfo c, SortedCutMatchInfo sortedCutMatchInfo,
@@ -415,8 +415,10 @@ public class ManifoldEngine {
             // problem is that we have the exact same route twice in a row? WRONG
             if (cutsNew == null) {
                 if (neighborRouteMap == null) {
+                    // 75%
                     cutsNew = InternalPathEngine.calculateInternalPathLength(c, copyRouteMap, d);
                 } else {
+                    // 39% copy becomes 24% run time
                     cutsNew = InternalPathEngine.calculateInternalPathLength(c, copyRouteMap, d);
                 }
             }
