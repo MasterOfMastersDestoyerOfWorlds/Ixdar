@@ -9,22 +9,17 @@ import static org.lwjgl.opengl.GL.createCapabilities;
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
-import static org.lwjgl.opengl.GL11.GL_RGBA;
 import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
-import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
 import static org.lwjgl.opengl.GL11.glClear;
 import static org.lwjgl.opengl.GL11.glClearColor;
 import static org.lwjgl.opengl.GL11.glDrawArrays;
 import static org.lwjgl.opengl.GL11.glEnable;
-import static org.lwjgl.opengl.GL11.glReadPixels;
 import static org.lwjgl.opengl.GL11.glViewport;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
 import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
 
-import java.io.File;
-import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
@@ -33,7 +28,6 @@ import java.util.function.IntFunction;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
 
 import shell.cameras.Camera3D;
 import shell.render.Clock;
@@ -55,7 +49,6 @@ import shell.ui.input.KeyGuy;
 import shell.ui.input.MouseTrap;
 import shell.ui.main.Main;
 import shell.ui.menu.MenuBox;
-import shell.utils.Utils;
 
 public class Canvas3D {
 
@@ -137,8 +130,6 @@ public class Canvas3D {
     static Texture diffuseMap;
     static Texture specularMap;
     public static int SIZE_FLOAT = 4;
-    public boolean printScreen = false;
-    public File screenShotFile;
     public static int frameBufferWidth;
     public static int frameBufferHeight;
     public static Font font;
@@ -176,10 +167,10 @@ public class Canvas3D {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public void initGL() {
 
+        createCapabilities(false, (IntFunction) null);
         float start = Clock.time();
         coldStartStack();
 
-        createCapabilities(false, (IntFunction) null);
         System.out.println("capabilities: " + (Clock.time() - start));
         VertexArrayObject vao = new VertexArrayObject();
         VertexBufferObject vbo = new VertexBufferObject();
@@ -247,55 +238,55 @@ public class Canvas3D {
             if (mouse != null) {
                 mouse.paintUpdate(SHIFT_MOD);
             }
-            shader.use();
+            // shader.use();
 
-            camera.updateViewFirstPerson();
+            // camera.updateViewFirstPerson();
 
-            Vector3f lightPos = new Vector3f(1.2f, 1.0f, 2.0f);
+            // Vector3f lightPos = new Vector3f(1.2f, 1.0f, 2.0f);
 
-            // be sure to activate shader when setting uniforms/drawing objects
-            shader.use();
-            shader.setTexture("material.diffuse", diffuseMap, GL_TEXTURE0, 0);
-            shader.setTexture("material.specular", specularMap, GL_TEXTURE1, 1);
-            shader.setFloat("material.shininess", 32.0f);
+            // // be sure to activate shader when setting uniforms/drawing objects
+            // shader.use();
+            // shader.setTexture("material.diffuse", diffuseMap, GL_TEXTURE0, 0);
+            // shader.setTexture("material.specular", specularMap, GL_TEXTURE1, 1);
+            // shader.setFloat("material.shininess", 32.0f);
 
-            shader.setVec3("lightColor", lightColor);
-            shader.setVec3("", lightPos);
-            shader.setVec3("viewPos", camera.position);
+            // shader.setVec3("lightColor", lightColor);
+            // shader.setVec3("", lightPos);
+            // shader.setVec3("viewPos", camera.position);
 
-            for (int i = 0; i < 4; i++) {
-                pointLights[i].setShaderInfo(shader, i);
-            }
-            dirLight.setShaderInfo(shader, 0);
-            // view/projection transformations
-            Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(camera.fov),
-                    ((float) frameBufferWidth) / ((float) frameBufferHeight), 0.1f, 100.0f);
-            shader.setMat4("projection", projection);
-            shader.setMat4("view", camera.view);
-            shader.vao.bind();
-            for (int i = 0; i < 10; i++) {
-                Matrix4f model = new Matrix4f();
-                model.translate(cubePositions[i]);
-                float angle = 20.0f * i;
-                model.rotate((float) Math.toRadians(angle), new Vector3f(1.0f, 0.3f, 0.5f));
-                shader.setMat4("model", model);
+            // for (int i = 0; i < 4; i++) {
+            //     pointLights[i].setShaderInfo(shader, i);
+            // }
+            // dirLight.setShaderInfo(shader, 0);
+            // // view/projection transformations
+            // Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(camera.fov),
+            //         ((float) frameBufferWidth) / ((float) frameBufferHeight), 0.1f, 100.0f);
+            // shader.setMat4("projection", projection);
+            // shader.setMat4("view", camera.view);
+            // shader.vao.bind();
+            // for (int i = 0; i < 10; i++) {
+            //     Matrix4f model = new Matrix4f();
+            //     model.translate(cubePositions[i]);
+            //     float angle = 20.0f * i;
+            //     model.rotate((float) Math.toRadians(angle), new Vector3f(1.0f, 0.3f, 0.5f));
+            //     shader.setMat4("model", model);
 
-                glDrawArrays(GL_TRIANGLES, 0, 36);
-            }
+            //     glDrawArrays(GL_TRIANGLES, 0, 36);
+            // }
 
-            // also draw the lamp object
-            lightingShader.use();
-            lightingShader.setMat4("projection", projection);
-            lightingShader.setMat4("view", camera.view);
-            lightingShader.vao.bind();
-            for (int i = 0; i < pointLights.length; i++) {
-                Matrix4f model = new Matrix4f().translate(pointLights[i].position).scale(0.2f);
-                lightingShader.setVec3("lightColor", pointLights[i].diffuse);
-                lightingShader.setMat4("model", model);
+            // // also draw the lamp object
+            // lightingShader.use();
+            // lightingShader.setMat4("projection", projection);
+            // lightingShader.setMat4("view", camera.view);
+            // lightingShader.vao.bind();
+            // for (int i = 0; i < pointLights.length; i++) {
+            //     Matrix4f model = new Matrix4f().translate(pointLights[i].position).scale(0.2f);
+            //     lightingShader.setVec3("lightColor", pointLights[i].diffuse);
+            //     lightingShader.setMat4("model", model);
 
-                glDrawArrays(GL_TRIANGLES, 0, 36);
+            //     glDrawArrays(GL_TRIANGLES, 0, 36);
 
-            }
+            // }
             // Color c = new ColorRGB(Color.CYAN);
             // logo.drawRightBound(Canvas3D.frameBufferWidth, 0, 800f, 800f, Color.IXDAR,
             // camera);
@@ -308,6 +299,7 @@ public class Canvas3D {
         glViewport(0, 0, (int) IxdarWindow.getWidth(), (int) IxdarWindow.getHeight());
         for (ShaderProgram s : shaders) {
             s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
+            s.hotReload();
         }
         if (MenuBox.menuVisible) {
             menu.draw(camera);
@@ -320,27 +312,6 @@ public class Canvas3D {
         // frameBufferWidth / 2,
         // frameBufferHeight / 2, -1f, 1, Color.CYAN);
         // c.setAlpha(0.6f);
-
-        if (printScreen) {
-            printScreen = false;
-            printScreen(screenShotFile);
-        }
-    }
-
-    public void printScreen(String fileName) {
-        printScreen = true;
-        screenShotFile = new File(fileName);
-    }
-
-    public void printScreen(File outputfile) {
-        // allocate space for RBG pixels
-
-        ByteBuffer fb = MemoryUtil.memAlloc(frameBufferWidth * frameBufferHeight * 4);
-        // grab a copy of the current frame contents as RGBA
-        glReadPixels(0, 0, frameBufferWidth, frameBufferHeight, GL_RGBA, GL_UNSIGNED_BYTE, fb);
-        Utils.snapByteBuffer(frameBufferWidth, frameBufferHeight, fb, 4);
-        MemoryUtil.memFree(fb);
-
     }
 
     public static void activate(boolean state) {

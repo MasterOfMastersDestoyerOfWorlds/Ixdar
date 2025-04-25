@@ -53,7 +53,7 @@ public class ColorCommand extends TerminalCommand {
             }
         }
         float startHue = colorSeed.nextFloat();
-        float step = 1.0f / ((float) Main.shell.cutEngine.flatKnots.size());
+        float step = 1.0f / ((float) Main.shell.cutEngine.flattenEngine.flatKnots.size());
         for (int i = 0; i < Main.knotGradientColors.size(); i++) {
             Main.knotGradientColors.set(i, Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
         }

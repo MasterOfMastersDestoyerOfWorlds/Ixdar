@@ -10,13 +10,14 @@ import shell.knot.Knot;
 import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.objects.PointND;
+import shell.point.PointND;
 import shell.render.Clock;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
 import shell.ui.tools.Tool;
+import static org.lwjgl.opengl.GL11.glViewport;
 
 public class Camera2D implements Camera {
 
@@ -511,7 +512,21 @@ public class Camera2D implements Camera {
         return IxdarWindow.getHeight() - (yPos);
     }
 
-    public void updateViewBounds(int x, int y, int width, int height) {
+    @Override
+    public void updateView(int x, int y, int width, int height) {
+        this.updateViewBounds(x, y, width, height);
+        glViewport(x, y, width, height);
+        for (ShaderProgram s : Canvas3D.shaders) {
+            s.updateProjectionMatrix(width, height, 1f);
+        }
+    }
+
+    @Override
+    public void resetView() {
+        this.updateView(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+    }
+
+    private void updateViewBounds(int x, int y, int width, int height) {
         viewBounds.update(x, y, width, height);
         updateSize(width, height);
         ScreenOffsetX = x;

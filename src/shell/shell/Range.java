@@ -1,7 +1,7 @@
 package shell.shell;
 
 import shell.exceptions.TerminalParseException;
-import shell.objects.PointND;
+import shell.point.PointND;
 
 public class Range {
     public int startIdx;

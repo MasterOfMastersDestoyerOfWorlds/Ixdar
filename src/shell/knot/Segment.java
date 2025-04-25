@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
 
-import shell.objects.PointND;
+import shell.point.PointND;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
 import shell.ui.actions.Action;
@@ -51,6 +51,16 @@ public class Segment implements Comparable<Segment> {
 
     public boolean contains(VirtualPoint vp) {
         return first.equals(vp) || last.equals(vp);
+    }
+
+    public boolean contains(VirtualPoint[] vp) {
+        boolean contains = false;
+        for (int i = 0; i < vp.length; i++) {
+            if (first.equals(vp[i]) || last.equals(vp[i])) {
+                contains = true;
+            }
+        }
+        return contains;
     }
 
     public VirtualPoint getKnotPoint(ArrayList<VirtualPoint> knotPointsFlattened) {
@@ -194,8 +204,21 @@ public class Segment implements Comparable<Segment> {
         return a >= b ? a * a + a + b : b + a + b * b;
     }
 
+    public static long idTransformOrdered(Segment s) {
+        long a = s.first.id;
+        long b = s.last.id;
+        return (a + b) * (a + b + 1) / 2 + b;
+    }
+
+    public static long idTransformOrdered(Segment cutSegment, VirtualPoint knotPoint) {
+        VirtualPoint cutPoint = cutSegment.getOther(knotPoint);
+        long a = cutPoint.id;
+        long b = knotPoint.id;
+        return (a + b) * (a + b + 1) / 2 + b;
+    }
+
     public static long idTransformOrdered(long a, long b) {
-        return a * a + a + b;
+        return (a + b) * (a + b + 1) / 2 + b;
     }
 
     public double boundContains(double x, double y) {
@@ -273,7 +296,7 @@ public class Segment implements Comparable<Segment> {
         }
         str += "[" + first.id + ":" + last.id + "]";
         if (labelDistance) {
-            str += ", " + this.distance;
+            str += ", " + String.format("%.2f", this.distance);
         }
         h.addHoverSegment(str, color, this, clickAction);
         return h;

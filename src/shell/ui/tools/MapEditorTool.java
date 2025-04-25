@@ -7,14 +7,14 @@ import org.joml.Vector2f;
 
 import shell.Toggle;
 import shell.cameras.Camera2D;
+import shell.cuts.Manifold;
 import shell.cuts.route.Route;
-import shell.file.Manifold;
 import shell.knot.Point;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
-import shell.objects.Grid;
-import shell.objects.PointCollection;
-import shell.objects.PointND;
+import shell.point.Grid;
+import shell.point.PointCollection;
+import shell.point.PointND;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
 import shell.render.text.HyperString;

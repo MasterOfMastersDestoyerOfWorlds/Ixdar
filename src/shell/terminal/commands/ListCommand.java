@@ -3,7 +3,7 @@ package shell.terminal.commands;
 import java.io.File;
 
 import shell.Toggle;
-import shell.objects.PointCollection;
+import shell.point.PointCollection;
 import shell.render.color.Color;
 import shell.terminal.Terminal;
 import shell.ui.input.KeyActions;

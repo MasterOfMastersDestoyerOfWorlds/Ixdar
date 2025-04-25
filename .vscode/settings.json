@@ -13,6 +13,7 @@
     "java.debug.settings.showQualifiedNames": true,
     "editor.links": true,
     "debug.autoExpandLazyVariables": "on",
+    "window.zoomLevel": -1,
     "editor.formatOnSave": true,
     "java.format.settings.url": ".vscode/java-formatter.xml",
     "java.saveActions.organizeImports": false,
@@ -21,7 +22,9 @@
         "cutmatches",
         "cutpoint",
         "cutsegments",
-        "Ixdar"
+        "Ixdar",
+        "knotpoint",
+        "knotpoints"
     ],
     "[java]": {
         "editor.detectIndentation": false

@@ -277,8 +277,7 @@ public class MouseTrap {
     public void moveCallback(long window, double x, double y) {
         int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
         Vector2f mouseReleasePos = new Vector2f((float) x, (float) y);
-        // System.out.println("mouseMove: " + x + " " + normalizedPosX);
-        if (state == GLFW_PRESS && mouseReleasePos.distance(leftMouseDownPos) > 3) {
+        if (state == GLFW_PRESS && leftMouseDownPos != null && mouseReleasePos.distance(leftMouseDownPos) > 3) {
             mouseDragged((float) x, (float) y);
         } else {
             mouseMoved((float) x, (float) y);

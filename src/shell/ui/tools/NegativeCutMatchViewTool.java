@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import shell.Toggle;
 import shell.cameras.Camera2D;
-import shell.file.Manifold;
+import shell.cuts.Manifold;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
@@ -60,7 +60,7 @@ public class NegativeCutMatchViewTool extends Tool {
             }
         }
         for (Knot k : Main.knotsDisplayed) {
-            Drawing.drawGradientPath(k, lookupPairs(k), colorLookup, colors,
+            Drawing.drawGradientPath(k, lookupSegmentPairs(k), colorLookup, colors,
                     camera,
                     Drawing.MIN_THICKNESS);
         }

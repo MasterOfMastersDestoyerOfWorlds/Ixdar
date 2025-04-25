@@ -1,9 +1,6 @@
 package shell.terminal;
 
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
+import static org.lwjgl.glfw.GLFW.*;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -18,7 +15,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import shell.cameras.Camera2D;
-import shell.objects.PointCollection;
+import shell.point.PointCollection;
 import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.color.ColorLerp;
@@ -30,6 +27,9 @@ import shell.ui.tools.Tool;
 
 public class Terminal {
     public HyperString history;
+    ArrayList<String> commandHistory;
+    String storedCommandLine;
+    int commandHistoryIdx;
     String commandLine;
     String commandLineInstruct;
     ColorLerp instructColor = ColorLerp.flashColor(Color.BLUE_WHITE, 3);
@@ -51,16 +51,7 @@ public class Terminal {
     public static HashMap<Class<Tool>, Tool> toolClassMap = new HashMap<>();
     public static ArrayList<PointCollection> pointCollectionList;
     public static HashMap<Class<PointCollection>, PointCollection> pointCollectionClassMap = new HashMap<>();
-
-    public Terminal(File loadedFile) {
-        commandLine = "";
-        commandLineInstruct = "";
-        nextLogicalCommand = new String[] {};
-        nextLogicalCommandIdx = 0;
-        scrollToCommandLine = false;
-        this.directory = loadedFile.getParent();
-        this.loadedFile = loadedFile;
-        history = new HyperString();
+    static {
         if (commandList == null) {
             commandList = new ArrayList<>();
             loadClassType("shell.terminal.commands", commandList, commandClassMap, TerminalCommand.class);
@@ -79,13 +70,28 @@ public class Terminal {
         }
         if (pointCollectionList == null) {
             pointCollectionList = new ArrayList<>();
-            loadClassType("shell.objects", pointCollectionList, pointCollectionClassMap, PointCollection.class);
+            loadClassType("shell.point", pointCollectionList, pointCollectionClassMap, PointCollection.class);
         }
+    }
+
+    public Terminal(File loadedFile) {
+        storedCommandLine = "";
+        commandLine = "";
+        commandLineInstruct = "";
+        nextLogicalCommand = new String[] {};
+        nextLogicalCommandIdx = 0;
+        scrollToCommandLine = false;
+        this.directory = loadedFile.getParent();
+        this.loadedFile = loadedFile;
+        history = new HyperString();
+        commandHistory = new ArrayList<>();
+        commandHistoryIdx = -1;
 
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private <E> void loadClassType(String packageName, ArrayList<E> list, Map<Class<E>, E> classMap, Class<E> type) {
+    private static <E> void loadClassType(String packageName, ArrayList<E> list, Map<Class<E>, E> classMap,
+            Class<E> type) {
         InputStream stream = ClassLoader.getSystemClassLoader().getResourceAsStream(packageName.replaceAll("[.]", "/"));
         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
         List<Class> commandClasses = reader.lines().filter(line -> line.endsWith(".class"))
@@ -105,7 +111,7 @@ public class Terminal {
     }
 
     @SuppressWarnings("rawtypes")
-    private <E> boolean hasSuperClass(Class c, Class<E> type) {
+    private static <E> boolean hasSuperClass(Class c, Class<E> type) {
         Class superClass = c.getSuperclass();
         while (superClass != null) {
             if (superClass == type) {
@@ -117,7 +123,7 @@ public class Terminal {
     }
 
     @SuppressWarnings("rawtypes")
-    private Class getClass(String className, String packageName) {
+    private static Class getClass(String className, String packageName) {
         try {
             return Class.forName(packageName + "." + className.substring(0, className.lastIndexOf('.')));
         } catch (ClassNotFoundException e) {
@@ -130,18 +136,56 @@ public class Terminal {
 
     }
 
-    public void keyPress(int key, int mods) {
+    public void keyPress(int key, int mods, boolean controlMask) {
         if (key == GLFW_KEY_BACKSPACE) {
-            int back = commandLine.length() - 1;
-            if (back < 0) {
+            if (controlMask) {
+                commandLine = commandLine.stripTrailing();
+                int lastSpace = commandLine.lastIndexOf(" ");
+                if (lastSpace == -1) {
+                    commandLine = "";
+                } else {
+                    commandLine = commandLine.substring(0, lastSpace).stripTrailing();
+                }
+            } else {
+                int back = commandLine.length() - 1;
+                if (back < 0) {
+                    return;
+                }
+                commandLine = commandLine.substring(0, back);
+            }
+            return;
+        }
+        if (key == GLFW_KEY_UP) {
+            int nextCommand = commandHistoryIdx + 1;
+            if (nextCommand >= commandHistory.size()) {
                 return;
             }
-            commandLine = commandLine.substring(0, back);
+            if (commandHistoryIdx == -1) {
+                storedCommandLine = commandLine;
+            }
+            commandHistoryIdx = nextCommand;
+            commandLine = commandHistory.get(nextCommand);
+            return;
+        } else if (key == GLFW_KEY_DOWN) {
+            int prevCommand = commandHistoryIdx - 1;
+            if (prevCommand < -1) {
+                return;
+            }
+            if (prevCommand == -1) {
+                commandLine = storedCommandLine;
+            } else {
+                commandLine = commandHistory.get(prevCommand);
+            }
+            commandHistoryIdx = prevCommand;
             return;
         }
         if (key == GLFW_KEY_ENTER) {
             history.addLine(commandLine);
-            run(commandLine);
+            if (!commandLine.isBlank()) {
+                commandHistory.add(0, commandLine);
+                commandHistoryIdx = -1;
+                run(commandLine);
+            }
             scrollToCommandLine = true;
             commandLine = "";
             return;
@@ -172,6 +216,7 @@ public class Terminal {
         if (typedCharacter.isBlank()) {
             return;
         }
+        commandHistoryIdx = -1;
         commandLine += typedCharacter;
     }
 

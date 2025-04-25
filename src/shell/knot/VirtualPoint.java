@@ -21,6 +21,7 @@ public abstract class VirtualPoint {
     public ArrayList<VirtualPoint> knotPointsFlattened;
     public ArrayList<Segment> sortedSegments;
     public HashMap<Long, Segment> segmentLookup;
+    public Segment[] pointSegmentLookup;
     public Segment s2;
     public int id;
     public boolean isKnot;
@@ -38,26 +39,14 @@ public abstract class VirtualPoint {
         for (int i = 0; i < sortedSegments.size(); i++) {
             Segment s = sortedSegments.get(i);
             VirtualPoint knotPoint = s.getKnotPoint(knotPointsFlattened);
-            boolean ep1 = false;
-            if (this.isRun) {
-                if (((Run) this).endpoint1.contains(knotPoint)) {
-                    ep1 = true;
-                } else {
-                    ep1 = false;
-                }
-            }
             VirtualPoint basePoint = s.getOther(knotPoint);
             VirtualPoint vp = basePoint.group;
             if (vp.group != null) {
                 vp = vp.group;
             }
             Segment potentialSegment = new Segment(basePoint, knotPoint, 0);
-            if ((!vp.isRun || ((Run) vp).endpoint1.contains(basePoint) || ((Run) vp).endpoint2.contains(basePoint))
-                    && (!seenGroups.contains(potentialSegment)) && (!seenPoints.contains(knotPoint))
+            if ((!seenGroups.contains(potentialSegment)) && (!seenPoints.contains(knotPoint))
                     && (!seenPoints.contains(basePoint))
-
-                    && (!this.isRun || (ep1 && !seenPoints.contains(((Run) this).endpoint1))
-                            || (!ep1 && !seenPoints.contains(((Run) this).endpoint2)))
                     || potentialSegment.equals(s1) || potentialSegment.equals(s2)) {
                 count--;
                 if (count == 0) {
@@ -66,14 +55,6 @@ public abstract class VirtualPoint {
                 seenGroups.add(potentialSegment);
                 if (this.isKnot || this.isRun) {
                     seenPoints.add(knotPoint);
-                    if (this.isRun) {
-                        Run r = (Run) this;
-                        if (r.endpoint1.contains(knotPoint)) {
-                            seenPoints.add(r.endpoint1);
-                        } else {
-                            seenPoints.add(r.endpoint2);
-                        }
-                    }
                 }
                 if (vp.isKnot || vp.isRun) {
                     seenPoints.add(basePoint);
@@ -151,6 +132,43 @@ public abstract class VirtualPoint {
             }
         }
         return true;
+    }
+
+    public boolean isConnector(VirtualPoint k1, VirtualPoint k2) {
+        int otherSize = Math.min(Math.max(2, k1.size()), Math.max(2, k2.size()));
+        int lowerSize = this.size();
+        lowerSize = Math.max(2, lowerSize);
+        int desiredCount = 4;
+        int oneOutFlag = -1;
+        boolean hasK1 = false;
+        boolean hasK2 = false;
+        HashMap<Integer, Integer> countById = new HashMap<>();
+        for (Segment s : this.sortedSegments) {
+            VirtualPoint other = s.getOtherKnot(this);
+            VirtualPoint vp = s.getOther(other);
+            if (countById.getOrDefault(vp.id, 0) >= otherSize) {
+                continue;
+            }
+            if (!k1.contains(other) && !k2.contains(other)) {
+                if (oneOutFlag < 0) {
+                    oneOutFlag = other.topKnot.id;
+                } else if (other.topKnot.id != oneOutFlag) {
+                    return hasK1 && hasK2;
+                }
+            }
+            if (!hasK1 && k1.contains(other)) {
+                hasK1 = true;
+            }
+            if (!hasK2 && k2.contains(other)) {
+                hasK2 = true;
+            }
+            countById.put(vp.id, countById.getOrDefault(vp.id, 0) + 1);
+            desiredCount--;
+            if (desiredCount == 0) {
+                return hasK1 && hasK2;
+            }
+        }
+        return hasK1 && hasK2;
     }
 
     public boolean shouldKnotConsumeExclude(Knot k, ArrayList<VirtualPoint> runList) {
@@ -483,7 +501,7 @@ public abstract class VirtualPoint {
                 || (match2 != null && !match2.contains(match2endpoint))) {
 
             shell.buff.add(this.fullString());
-            //float zero = 1 / 0;
+            // float zero = 1 / 0;
         }
 
         if ((match1 == null && (match1endpoint != null || basePoint1 != null))
@@ -699,7 +717,7 @@ public abstract class VirtualPoint {
     }
 
     public void reset(Segment nextCut) throws SegmentBalanceException {
-        if(nextCut == null){
+        if (nextCut == null) {
             throw new SegmentBalanceException();
         }
         if (match1 != null && nextCut.contains(match1endpoint)) {

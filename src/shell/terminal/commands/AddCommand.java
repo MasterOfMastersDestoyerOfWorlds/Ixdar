@@ -2,7 +2,7 @@ package shell.terminal.commands;
 
 import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
-import shell.objects.PointCollection;
+import shell.point.PointCollection;
 import shell.terminal.Terminal;
 import shell.ui.main.Main;
 

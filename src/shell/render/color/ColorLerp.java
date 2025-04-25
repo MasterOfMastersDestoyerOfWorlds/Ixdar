@@ -19,23 +19,25 @@ public class ColorLerp implements Color {
 
     private String name;
 
-    public ColorLerp(Color startColor, Color endColor) {
+    public ColorLerp(Color startColor, Color endColor, float radsPerSecond) {
         this.startColor = startColor;
         this.endColor = endColor;
-        this.name = startColor.getName() + "-" + endColor.getName() + "-Lerp";
+        this.radsPerSecond = radsPerSecond;
+        lerpName(startColor, endColor);
     }
 
-    public ColorLerp(Color startColor, Color endColor, float alpha) {
+    public ColorLerp(Color startColor, Color endColor, float radsPerSecond, float alpha) {
         this.startColor = new ColorRGB(startColor, alpha);
         this.endColor = new ColorRGB(endColor, alpha);
-        this.name = startColor.getName() + "-" + endColor.getName() + "-Lerp";
+        this.radsPerSecond = radsPerSecond;
+        lerpName(startColor, endColor);
     }
 
     public ColorLerp(Color startColor, Color endColor, byte[] channelLerp) {
         this.startColor = startColor;
         this.endColor = endColor;
         this.channelLerp = channelLerp;
-        this.name = startColor.getName() + "-" + endColor.getName() + "-Lerp";
+        lerpName(startColor, endColor);
     }
 
     public ColorLerp(Color startColor, Color endColor, byte[] channelLerp, float radsPerSecond) {
@@ -43,6 +45,10 @@ public class ColorLerp implements Color {
         this.endColor = endColor;
         this.channelLerp = channelLerp;
         this.radsPerSecond = radsPerSecond;
+        lerpName(startColor, endColor);
+    }
+
+    private void lerpName(Color startColor, Color endColor) {
         this.name = startColor.getName() + "-" + endColor.getName() + "-Lerp";
     }
 

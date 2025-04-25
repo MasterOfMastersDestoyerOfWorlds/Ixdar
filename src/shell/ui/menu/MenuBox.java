@@ -8,6 +8,7 @@ import shell.render.color.Color;
 import shell.render.color.ColorBox;
 import shell.render.color.ColorLerp;
 import shell.render.color.ColorRGB;
+import shell.render.sdf.SDFTexture;
 import shell.render.sdf.SDFUnion;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
@@ -15,7 +16,7 @@ import shell.ui.Drawing;
 public class MenuBox {
     SDFUnion menuOuterBorder;
     int hoverItem = -1;
-    float scale = 3f;
+    float scale = 2f;
     float hoverX;
     float hoverY;
     float alpha;
@@ -30,6 +31,7 @@ public class MenuBox {
     public static float scrollOffsetY;
     public float SCROLL_SPEED = 20f;
     public static boolean menuVisible = true;
+    public SDFTexture logo;
 
     public MenuBox() {
         alpha = 0.95f;
@@ -39,6 +41,7 @@ public class MenuBox {
         outerFlash = new ColorLerp(Color.BLUE_WHITE, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 });
         menuOuterBorder = new SDFUnion("menu_inner.png", Color.NAVY, 0.95f, 0, -0.02f, "menu_outer.png",
                 Color.BLUE_WHITE, alpha, 5, 2);
+        logo = new SDFTexture("decal_sdf.png", Color.DARK_IXDAR, 0.9f, 0f, true);
         boundingBox = new ColorBox();
         String cachedFileName = FileManagement.getTestFileCache();
         activeMenu = new Menu.MainMenu(cachedFileName);
@@ -47,29 +50,34 @@ public class MenuBox {
 
     public void draw(Camera camera) {
 
+        float centerX = Canvas3D.frameBufferWidth / 2;
+        float centerY = Canvas3D.frameBufferHeight / 2;
+        int min = Math.min(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+        int logoWidth = (int) min / 2;
+        int halfWidth = logoWidth / 2;
+        logo.draw((centerX - halfWidth), (centerY + centerY / 2 - halfWidth), logoWidth, logoWidth, Color.IXDAR, camera);
         if (!menuVisible) {
             return;
         }
         itemHeight = menuOuterBorder.outerTexture.height * scale / 2;
         itemWidth = menuOuterBorder.outerTexture.width * scale * 0.91f;
         for (int i = 0; i < menuItems.size(); i++) {
-            float centerX = Canvas3D.frameBufferWidth / 2;
-            float centerY = Canvas3D.frameBufferHeight / 2 - (itemHeight * i * 1.5f) - scrollOffsetY;
+            float itemCenterY = centerY - itemHeight - (itemHeight * i * 1.5f) - scrollOffsetY;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
-            float upBoundX = centerY + itemHeight / 2;
-            float downBoundX = centerY - itemHeight / 2;
+            float upBoundX = itemCenterY + itemHeight / 2;
+            float downBoundX = itemCenterY - itemHeight / 2;
             if (hoverX > leftBoundX && hoverX < rightBoundX && hoverY > downBoundX && hoverY < upBoundX) {
 
-                menuOuterBorder.drawCentered(centerX, centerY, scale, innerColor, outerFlash, camera);
+                menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, outerFlash, camera);
                 // boundingBox.drawCoords(leftBoundX, downBoundX, rightBoundX, upBoundX, zIndex
                 // + 0.1f,
                 // new Color(Color.YELLOW, 0.5f));
             } else {
-                menuOuterBorder.drawCentered(centerX, centerY, scale, camera);
+                menuOuterBorder.drawCentered(centerX, itemCenterY, scale, camera);
 
             }
-            Drawing.font.drawTextCentered(menuItems.get(i).itemString(), centerX, centerY + itemHeight * 0.045f,
+            Drawing.font.drawTextCentered(menuItems.get(i).itemString(), centerX, itemCenterY + itemHeight * 0.045f,
                     itemHeight / 2,
                     Color.BLUE_WHITE, camera);
         }
@@ -87,7 +95,7 @@ public class MenuBox {
         MenuItem clickedItem = null;
         for (int i = 0; i < menuItems.size(); i++) {
             float centerX = Canvas3D.frameBufferWidth / 2;
-            float centerY = Canvas3D.frameBufferHeight / 2 - (itemHeight * i * 1.5f) - scrollOffsetY;
+            float centerY = Canvas3D.frameBufferHeight / 2 - itemHeight - (itemHeight * i * 1.5f) - scrollOffsetY;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
             float upBoundX = centerY + itemHeight / 2;

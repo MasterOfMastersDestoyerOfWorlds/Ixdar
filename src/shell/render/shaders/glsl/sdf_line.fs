@@ -14,7 +14,7 @@ uniform float lineLengthSq;
 uniform float width;
 uniform float height;
 
-uniform bool dashed;
+uniform bool dashed = false;
 uniform bool endCaps;
 uniform bool roundCaps;
 uniform float dashPhase;
@@ -110,8 +110,8 @@ void main() {
     } else {
         fragColor = vec4(fragColor.rgb, fragColor.a * opacity);
     }
-    //float var = opacA;
-    //fragColor = vec4(var, var, var, 1);
+
+    //fragColor = vec4(1, 0, 0, 1);
 
 /*
     if(le2 <= 0.15) {

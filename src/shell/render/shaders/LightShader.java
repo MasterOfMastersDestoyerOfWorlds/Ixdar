@@ -9,6 +9,11 @@ public class LightShader extends ShaderProgram {
     public LightShader(VertexArrayObject vao,
             VertexBufferObject vbo) {
         super("light_shader.vs", "light_shader.fs", vao, vbo, false);
+    }
+
+    @Override
+    public void init() {
+        super.init();
         vao.bind();
         vbo.bind(GL_ARRAY_BUFFER);
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 8 * Float.BYTES, 0);

@@ -36,8 +36,11 @@ public class UnitTestCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        String template = "package unit.subgraphs;\n"
-                + "import org.junit.jupiter.api.Test;\n" + "import unit.SubGraphs;\n" +
+        String template = "package unit.subgraphs;\n" +
+                "import org.junit.jupiter.api.Test;\n" +
+                "import org.junit.jupiter.api.parallel.Execution;\n" +
+                "import org.junit.jupiter.api.parallel.ExecutionMode;\n" +
+                "@Execution(ExecutionMode.CONCURRENT)\n" +
                 "public class %s {\n\n";
         String testItem = "\t@Test\n" + "\tpublic void test_%s() {\n"
                 + "\t\tSubGraphs.testMethod(\"%s\");\n" + "\t}\n\n";

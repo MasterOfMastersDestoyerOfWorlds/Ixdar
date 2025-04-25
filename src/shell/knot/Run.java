@@ -20,9 +20,12 @@ public class Run extends VirtualPoint {
     public Run(ArrayList<VirtualPoint> knotPoints, Shell shell) {
         this.shell = shell;
         // TODO: need to flatten all runs in the constructor
+        if (RunListUtils.containsID(knotPoints, 63)) {
+            float z = 0;
+        }
         sortedSegments = new ArrayList<>();
 
-        ArrayList<VirtualPoint> flattenRunPoints = RunListUtils.flattenRunPoints(knotPoints, false);
+        ArrayList<VirtualPoint> flattenRunPoints = RunListUtils.flattenRunPoints(knotPoints, shell, false);
         RunListUtils.fixRunList(flattenRunPoints, flattenRunPoints.size() - 1);
         if (flattenRunPoints.size() != knotPoints.size()) {
         }
@@ -62,7 +65,7 @@ public class Run extends VirtualPoint {
         ArrayList<VirtualPoint> endpoints = new ArrayList<>();
         endpoints.add(endpoint2);
         endpoints.add(endpoint1);
-        for (VirtualPoint vp : endpoints) {
+        for (VirtualPoint vp : knotPoints) {
             if (vp.isKnot) {
                 ArrayList<Segment> vpExternal = vp.sortedSegments;
                 for (Segment s : vpExternal) {
@@ -100,7 +103,7 @@ public class Run extends VirtualPoint {
         shell.buff.add(sortedSegments);
         this.id = shell.pointMap.keySet().size();
         shell.pointMap.put(id, this);
-        shell.unvisited.add(this);
+        shell.knotEngine.unvisited.add(this);
     }
 
     @Override

@@ -3,6 +3,7 @@ package shell.ui.input;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_CONTROL;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
+import static org.lwjgl.glfw.GLFW.GLFW_REPEAT;
 
 import java.awt.MouseInfo;
 import java.awt.Point;
@@ -29,6 +30,8 @@ import shell.ui.main.Main;
 import shell.ui.tools.CompareManifoldTool;
 import shell.ui.tools.EditManifoldTool;
 import shell.ui.tools.FindManifoldTool;
+import shell.ui.tools.KnotAnimationTool;
+import shell.ui.tools.KnotSurfaceViewTool;
 import shell.ui.tools.NegativeCutMatchViewTool;
 import shell.ui.tools.Tool;
 
@@ -52,7 +55,7 @@ public class KeyGuy {
         this.camera = camera;
     }
 
-    private void keyPressed(int key, int mods) {
+    private void keyPressed(int key, int mods, boolean repeated) {
         if (!active) {
             return;
         }
@@ -86,6 +89,12 @@ public class KeyGuy {
                 }
                 if (KeyActions.Find.keyPressed(pressedKeys)) {
                     ChangeToolCommand.run(FindManifoldTool.class);
+                }
+                if (KeyActions.KnotSurfaceView.keyPressed(pressedKeys)) {
+                    ChangeToolCommand.run(KnotSurfaceViewTool.class);
+                }
+                if (KeyActions.KnotAnimTool.keyPressed(pressedKeys)) {
+                    ChangeToolCommand.run(KnotAnimationTool.class);
                 }
                 if (KeyActions.Compare.keyPressed(pressedKeys)) {
                     ChangeToolCommand.run(CompareManifoldTool.class);
@@ -134,10 +143,11 @@ public class KeyGuy {
                     if (KeyActions.Reset.keyPressed(pressedKeys)) {
                         ResetCommand.run(ResetOption.Camera);
                     }
-                } else if (Toggle.IsTerminalFocused.value) {
-                    Main.terminal.keyPress(key, mods);
                 }
             }
+        }
+        if (Toggle.IsTerminalFocused.value) {
+            Main.terminal.keyPress(key, mods, controlMask);
         }
         if (KeyActions.Back.keyPressed(pressedKeys) && Main.active) {
             Terminal.runNoArgs(ExitCommand.class);
@@ -224,7 +234,10 @@ public class KeyGuy {
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
         switch (action) {
         case GLFW_PRESS:
-            keyPressed(key, mods);
+            keyPressed(key, mods, false);
+            break;
+        case GLFW_REPEAT:
+            keyPressed(key, mods, true);
             break;
         case GLFW_RELEASE:
             keyReleased(key, mods);

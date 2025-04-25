@@ -7,9 +7,9 @@ import org.apache.commons.math3.util.Pair;
 
 import shell.Toggle;
 import shell.cameras.Camera2D;
+import shell.cuts.Manifold;
 import shell.cuts.route.Route;
 import shell.exceptions.SegmentBalanceException;
-import shell.file.Manifold;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
@@ -61,7 +61,6 @@ public class CompareManifoldTool extends Tool {
     public VirtualPoint betaEndCP;
     public Manifold betaManifold;
 
-    public HashMap<Long, ArrayList<Segment>> negativeSegmentMap;
     HashMap<Long, Integer> colorLookup;
     public static ArrayList<Color> colors;
 
@@ -115,8 +114,12 @@ public class CompareManifoldTool extends Tool {
                         .getFirst();
             }
         } else if (state == States.Compare) {
-            displayRouteAlpha = alphaManifold.getNeighborRoute(displayKP, displayCP, routeView == RouteView.Connected);
-            displayRouteBeta = betaManifold.getNeighborRoute(displayKP, displayCP, routeView == RouteView.Connected);
+            if (displayKP != null) {
+                displayRouteAlpha = alphaManifold.getNeighborRoute(displayKP, displayCP,
+                        routeView == RouteView.Connected);
+                displayRouteBeta = betaManifold.getNeighborRoute(displayKP, displayCP,
+                        routeView == RouteView.Connected);
+            }
         }
     }
 
@@ -156,7 +159,7 @@ public class CompareManifoldTool extends Tool {
         if (colorLookup == null) {
             initSegmentMap();
         }
-        Drawing.drawGradientPath(manifoldKnot, lookupPairs(manifoldKnot), colorLookup, colors,
+        Drawing.drawGradientPath(manifoldKnot, lookupSegmentPairs(manifoldKnot), colorLookup, colors,
                 camera,
                 Drawing.MIN_THICKNESS);
     }
@@ -210,21 +213,20 @@ public class CompareManifoldTool extends Tool {
 
     public void instruct() {
         switch (state) {
-            case FindStart:
-                Main.terminal.instruct("Select the starting cut");
-            case StartSelected:
-                Main.terminal.instruct("Select the alpha path end cut");
-            case AlphaEndSelected:
-                Main.terminal.instruct("Select the beta path end cut");
-            default:
-                Main.terminal.clearInstruct();
-                break;
+        case FindStart:
+            Main.terminal.instruct("Select the starting cut");
+        case StartSelected:
+            Main.terminal.instruct("Select the alpha path end cut");
+        case AlphaEndSelected:
+            Main.terminal.instruct("Select the beta path end cut");
+        default:
+            Main.terminal.clearInstruct();
+            break;
         }
     }
 
     public void initSegmentMap() {
         manifoldKnot = Main.manifoldKnot;
-        negativeSegmentMap = new HashMap<>();
         colorLookup = new HashMap<>();
         Knot k = manifoldKnot;
         if (state != States.Compare) {
@@ -335,17 +337,29 @@ public class CompareManifoldTool extends Tool {
 
     @Override
     public void increaseViewLayer() {
-        RouteView[] routeViews = RouteView.values();
-        routeView = routeView.ordinal() + 1 >= routeViews.length ? routeViews[0] : routeViews[routeView.ordinal() + 1];
-        initSegmentMap();
+        cycleToolLayerNext();
     }
 
     @Override
     public void decreaseViewLayer() {
+        cycleToolLayerPrev();
+    }
+
+    @Override
+    public void cycleToolLayerNext() {
+        RouteView[] routeViews = RouteView.values();
+        routeView = routeView.ordinal() + 1 >= routeViews.length ? routeViews[0] : routeViews[routeView.ordinal() + 1];
+        initSegmentMap();
+        hoverChanged();
+    }
+
+    @Override
+    public void cycleToolLayerPrev() {
         RouteView[] routeViews = RouteView.values();
         routeView = routeView.ordinal() - 1 < 0 ? routeViews[routeViews.length - 1]
                 : routeViews[routeView.ordinal() - 1];
         initSegmentMap();
+        hoverChanged();
     }
 
     @Override
@@ -354,10 +368,16 @@ public class CompareManifoldTool extends Tool {
         h.addLine("View Level: " + routeView.name());
         if (state == States.Compare) {
             if (displayRouteAlpha != null) {
-                h.addLine("Route Alpha: ", alphaMatchColor);
+                HyperString alphaCutInfo = new HyperString();
+                alphaCutInfo.addLine("end kp: " + alphaEndKP.id + " end cp: " + alphaEndCP.id, Color.BLUE_WHITE);
+                h.addTooltip("Route Alpha: ", alphaMatchColor, alphaCutInfo, null);
                 h.addLine(displayRouteAlpha.toString(), alphaCutColor);
                 h.addHyperString(
                         displayRouteAlpha.compareHyperString(displayRouteBeta, alphaMatchColor, alphaCutColor));
+                HyperString betaCutInfo = new HyperString();
+                betaCutInfo.addLine("end kp: " + betaEndKP.id + " end cp: " + betaEndCP.id, Color.BLUE_WHITE);
+                h.addTooltip("Route Alpha: ", betaMatchColor, betaCutInfo, null);
+
                 h.addLine("Route Beta: ", Color.MAGENTA);
                 h.addLine(displayRouteBeta.toString(), Color.YELLOW);
                 h.addHyperString(

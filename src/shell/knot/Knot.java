@@ -42,7 +42,9 @@ public class Knot extends VirtualPoint {
         knotPointsToAdd = new ArrayList<>(knotPointsToAdd);
         ArrayList<VirtualPoint> addList = new ArrayList<>();
         int size = knotPointsToAdd.size();
-
+        if (RunListUtils.containsID(knotPointsToAdd, 21)) {
+            float z = 0;
+        }
         for (int i = 0; i < knotPointsToAdd.size(); i++) {
             VirtualPoint vp = knotPointsToAdd.get(i);
             if (vp.isKnot && ((Knot) vp).knotPoints.size() == 2) {
@@ -55,7 +57,19 @@ public class Knot extends VirtualPoint {
                     VirtualPoint lastKnotPoint = lastSeg.getOtherKnot(last);
                     Segment nextSeg = next.getClosestSegment(vp, lastSeg);
                     VirtualPoint nextKnotPoint = nextSeg.getOtherKnot(next);
-                    if ((vp1.contains(lastKnotPoint) && vp2.contains(nextKnotPoint))) {
+                    if (last.id == next.id && last.isConnector(vp1, vp2)) {
+                        addList.add(vp2);
+                        addList.add(vp1);
+                        knotPointsToAdd.remove(i);
+                        knotPointsToAdd.add(i, vp1);
+                        knotPointsToAdd.add(i, vp2);
+                        size++;
+                        i++;
+                        vp1.resetMatch2();
+                        vp2.resetMatch2();
+                        next.reset(vp);
+                        last.reset(vp);
+                    } else if ((vp1.contains(lastKnotPoint) && vp2.contains(nextKnotPoint))) {
                         addList.add(vp1);
                         addList.add(vp2);
                         knotPointsToAdd.remove(i);
@@ -107,8 +121,11 @@ public class Knot extends VirtualPoint {
                 vp2.setMatch2(vp1, bp1, bp2, s);
             }
         }
+        if (shell.pointMap.keySet().size() == 72) {
+            float z = 0;
+        }
         sortedSegments = new ArrayList<>();
-        ArrayList<VirtualPoint> flattenRunPoints = RunListUtils.flattenRunPoints(addList, true);
+        ArrayList<VirtualPoint> flattenRunPoints = RunListUtils.flattenRunPoints(addList, shell, true);
         if (setMatches) {
             RunListUtils.fixRunList(flattenRunPoints, flattenRunPoints.size());
         }
@@ -188,7 +205,7 @@ public class Knot extends VirtualPoint {
         this.id = shell.pointMap.keySet().size();
         shell.pointMap.put(id, this);
         if (setMatches) {
-            shell.unvisited.add(this);
+            shell.knotEngine.unvisited.add(this);
         }
         manifoldSegments = new ArrayList<>();
         manifoldSegmentIds = new ArrayList<>();
@@ -217,6 +234,9 @@ public class Knot extends VirtualPoint {
             }
         }
         numKnots++;
+        if (this.size() <= 2) {
+            throw new AssertionError();
+        }
     }
 
     public Segment getSegment(VirtualPoint a, VirtualPoint b) {
@@ -271,6 +291,15 @@ public class Knot extends VirtualPoint {
     public VirtualPoint getNext(VirtualPoint next) {
         int idx = knotPointsFlattened.indexOf(next);
         return knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
+    }
+
+    public VirtualPoint getOtherNeighbor(VirtualPoint vp, VirtualPoint neighbor) {
+        int idx = knotPointsFlattened.indexOf(vp);
+        VirtualPoint neighborNext = knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
+        if (neighborNext.id == neighbor.id) {
+            return knotPoints.get(idx - 1 < 0 ? knotPoints.size() - 1 : idx - 1);
+        }
+        return neighborNext;
     }
 
     @Override

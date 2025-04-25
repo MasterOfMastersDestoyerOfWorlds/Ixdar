@@ -26,7 +26,12 @@ public class Word {
         color = c;
         this.hoverAction = hoverAction;
         this.clearHover = clearHover;
-        this.clickAction = clickAction;
+        if (clickAction != null) {
+            this.clickAction = clickAction;
+        } else {
+            this.clickAction = () -> {
+            };
+        }
         viewBounds = new Bounds(0, 0, 0, 0);
     }
 

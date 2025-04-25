@@ -16,9 +16,59 @@
 
 7. - [ ] Need to figure out the maximum number of moves within a knot so we can relax the constraints of where we can move and not have as much calculation.
 
+// IDEA: if there is a maximum number of cut matches that can happen in a knot, and we sort all of the possible cut matches in the knot by their length, we could exclude any where the cut segments plus the minimum cut match to the exit is too long ( no this doesn't work, still have to run djikstras)
+
 8. - [ ] Need to figure out how to reuse the shortest path info already calculated, f.e. if we move the terminal cut segment counter clockwise we should only invalidate the three effected points and their connections, the rest of the connections should still be valid although we will have to recalculate which of the available cuts are allowed by rules of the hole-moving game.
 
-9. - [x] Figure out how to share shortest path info from a cut to it's flipped version where the ending cutsegment is in the disconnected orientation.
+//As far as I know the above is not feasible since we have not figure out how to make the hole moving game into a positive weight graph. Few other things to try: There may be some sense in which the hole-moving game forms a Directed Acyclic Graph in which we could find the linear time shortest path once we formed the dag, but enumerating all of the branches that don't form cycles would take lot of space and time. Alternatively, if we could re-weight the graph into a positive weight graph or have the starting point marked as -Inf weight in the priority queue we might still be able to reuse other djikstra calls. I think we need some way to compare route maps in code and break on their difference (see route comparison tool to start)
+
+[Negative Weight BF + Djikstras](https://youtu.be/uqM9WjO7D6A?si=Sct1La4zsbqpSAdE&t=2252)
+
+9. [x] convert existing code to do the BFD algorithm as described in the video, this will likely make us able to reuse partial results remove paths that go through not existant edges.
+
+10. - [x] Figure out how to share shortest path info from a cut to it's flipped version where the ending cutsegment is in the disconnected orientation .
+
+//this only works some fraction of the time, depending on wether the answer touches the ending cut segment, at this point it is hard to tell when this occurs
+
+## Reverse Knot Cutting
+
+instead of cutting from the bottom up we should cut from the top down in the knot space instead of the point space. This would be harder to visualize but would lead to lower cutting time. 
+
+way that the current algorithm works:
+
+1. recurse to the bottom level
+2. if there are any Knots do ixdar cut with each of their neighbors as external points
+3. do clockwork algorithm to choose best cut-match list in relation to neighbors and flatten to one loop
+4. go to the next level
+
+reversed algorithm:
+1. for each point at the current level that is a Knot, cut with each of their neighbors as external points, treat sub Knots of the Knot we are unpacking as regular Points with the distance to any other point in the graph being the lowest segment length of any of their member points
+2. do clockwork algorithm to choose best cut-match list in relation to neighbors and flatten to one loop
+3. if there are still Knots in the loop go to 1
+
+why do I think this will be advantageous? mainly because once a Point is processed it is removed from the search space where as in the bottom-up algorithm points have to be part of the ixdar cutting search space. this means that our search space is likely to remain around root n + 1for each knot that we need to cut.
+
+so if we have the worst case n/3 knots at the bottom layer in the old algorithm we'd need to do the following:
+
+l = number of layers - 1
+
+n/3 knots * 3^2 points per knot + n/9 knots * 9^2 points per knot + ... + n/3^l * (3^l)^2
+= 3n + 9n + ... +  +n^2 -> n^3
+all of the points and knots cancel leaving us with n*3^l where log base 3 of n 3^log_3(n) = n so n^2 assuming that ixdar cut takes size(k)^2 time
+
+in new algorithm we add in the opposite order with less points at each knot cut
+
+n/3^l knots * (3)^2 + n/3^(l-1) * (3)^2 + ... + n/3 knots 3^2
+
+= n/3^(l-1) + ... + n/3 +  + n + 3n
+= 9/2 * (n + ... +n) = 9/2 * n^2
+
+
+
+
+if we instead thought that cutting algorithm takes n^3 time this is not as big a deal for the top-down algorithm but is quite problematic for the bottom up one
+
+27/2 * n^2 vs ~n^4
 
 ## Knot Finding
 
@@ -54,15 +104,33 @@
 
 1. - [ ] number labels no longer are aligned with the segment bisector.
 
-2. - [ ] line segments have jagged edges.
+2. - [ ] number labels have drawn duplicates see threecircle_in_5
 
-3. - [ ] bug on line culling where the colors flip directions when touching multiple sides of the screen
+3. - [ ] number labels disappear and jitter on lines that approach 180 degrees due to floating point error
+
+3. - [ ] line segments have jagged edges.
+
+4. - [ ] bug on line culling where the colors flip directions when touching multiple sides of the screen
 
 ## Features
 
 1. - [ ] VK_O should swap between showing the calculated cutMatch and the one stored in the file and use opposite colors on the color wheel to represent the cutMatch?
 
 2. - [ ] With fixed size lines there is sometimes a problem of overlap where you can't distinguish between lines once the points get close enough to each other, so we should calculate the minimum width to ensure that this does not happen on startup.
+
+3. - [ ] Need to separate the UI thread from the Knot Engine thread so that the graphics don't freeze and we can show progress towards the solution with a loading bar and other info
+
+## Load Screen
+
+1. - [x] Animation - have a building a knot animation on file open that goes from the bottom knots to the top knots by replaying the chosen cut matches at each layer. should be relatively quick, no longer than a second, and disabled by a toggle.
+
+2. - [x] need to think of a way to be able to animate segments that are in the next layer but not in the cut match list of the current layer
+
+3. - [x] also some of the clockworks are displaying the wrong cutmatch externals. rather i think their cut match lists display the wrong external segment, we need to use the clockworks version
+
+4. - [ ] need a way to record the frame data and pack into a mp4
+
+5. - [ ] want it so that when you mouse over the load prompt for any ixdar file it should play the relevant anim for that file and strach and scew the view plane.
 
 ## Tools
 
@@ -102,11 +170,7 @@
 
 ### Knot Surface View Tool
 
-1. - [ ] Make a tool that shows the user which of the half segment pairs have low enough external travel cost to check their internal cost, when compared to the lowest simple cut.
-
-2. - [ ] Should display the lowest simple cut when not hovering.
-
-3. - [ ] Should display all the pairs that could be possible as well as the dashed line to it's external value.
+![Complete](readme_img\complete.png)
 
 ### Negative CutMatch View Tool
 
@@ -114,11 +178,21 @@
 
 ## Terminal Panel
 
+### Command Bugs
+
+1. - [ ] mb, ma, etc. all commands that rewrite the test file do not preserve flags and toggles
+
 ### Keyboard Input
 
-1. - [ ] Should be able to hold down a key and see it repeatedly type
+1. - [x] Should be able to hold down a key and see it repeatedly type
+
+2. - [ ] Need to have key bindings menu in settings.
+
+3. - [ ] Should save to a Key bindings file on change and load from the same file on startup
 
 ### Commands
+
+![Complete](readme_img\complete.png)
 
 1. - [x] Every command + key action should also be accessible from the terminal
 
@@ -126,7 +200,9 @@
 
 3. - [x] Make Unit Tests Command
 
-4. - [ ] Make a comment on file command
+4. - [x] Make a comment on file command
+
+5. - [x] Make a clear terminal command
 
 ### Tab Completion
 
@@ -134,7 +210,7 @@
 
 2. - [ ] Pressing tab on a line with a typed command but missing arguments should cycle through the available options for that command (no cycle on integer inputs).
 
-3. - [ ] Pressing the up arrow should replace the current command line with the previous one in hte history all the way back to the beginning. cache?
+3. - [x] Pressing the up arrow should replace the current command line with the previous one in hte history all the way back to the beginning. cache?
 
 ### Cursor
 
@@ -154,9 +230,7 @@
 
 3. - [x] Bezier curve animation behind terminal as fast fluid sim?
 
-4. - [ ] Messages should use hyper text when possible.
-
-5. - [ ] Typing should bring up a tooltip about the the terminal with the commands that have the right letters
+4. - [ ] Typing should bring up a tooltip about the the terminal with the commands that have the right letters
 
 ## Info Panel
 
@@ -248,15 +322,9 @@
 
 # System I/O
 
-## Key Input
-
-1. - [ ] Need to have key bindings menu in settings.
-
-2. - [ ] Should save to a Key bindings file on change and load from the same file on startup
-
 ## Filesystem
 
-1. - [ ] Hot reload glsl shaders on change for rapid development
+1. - [x] Hot reload glsl shaders on change for rapid development
 
 # Triangular Grid
 
@@ -285,18 +353,30 @@
 ## Natural Resources
 
 1. - [ ] Natural Resources should have an
-  - icon
-  - quantity in units/hectares/month produces
-  - replenish rate in units/hectares/month
-  - discovery chance in percent chance to find/hectare
-  - discovered resource amount range following a prato distribution
-  - cost to explore a hectare
-  - percent of explored land for that resource
-  - which hectares have been explored
-  - consumption rate of the resource by the city
-  - price of the resource in the city and all other cities even where you cannot find the resource related to the consumption rate and production cost of the good
-  - wether the demand for the resource is elastic or inelastic
-  - wether the resource can be exploited on land used for other purposes (e.g. drilling doesn't interfere with farming).
+
+2. icon
+
+3. quantity in units/hectares/month produces
+
+4. replenish rate in units/hectares/month
+
+5. discovery chance in percent chance to find/hectare
+
+6. discovered resource amount range following a prato distribution
+
+7. cost to explore a hectare
+
+8. percent of explored land for that resource
+
+9. which hectares have been explored
+
+10. consumption rate of the resource by the city
+
+11. price of the resource in the city and all other cities even where you cannot find the resource related to the consumption rate and production cost of the good
+
+12. wether the demand for the resource is elastic or inelastic
+
+13. wether the resource can be exploited on land used for other purposes (e.g. drilling doesn't interfere with farming).
 
 <style>
 :root {

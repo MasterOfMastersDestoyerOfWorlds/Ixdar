@@ -3,7 +3,7 @@ package shell.knot;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import shell.objects.PointND;
+import shell.point.PointND;
 import shell.render.text.HyperString;
 import shell.shell.Shell;
 
@@ -14,7 +14,7 @@ public class Point extends VirtualPoint {
         this.shell = shell;
         this.p = p;
         this.id = p.getID();
-        shell.unvisited.add(this);
+        shell.knotEngine.unvisited.add(this);
         isKnot = false;
         isRun = false;
         group = this;
@@ -27,6 +27,7 @@ public class Point extends VirtualPoint {
         knotPointsFlattened.add(this);
         sortedSegments = new ArrayList<Segment>();
         segmentLookup = new HashMap<>();
+        pointSegmentLookup = new Segment[shell.size()];
     }
 
     @Override

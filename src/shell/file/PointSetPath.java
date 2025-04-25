@@ -5,7 +5,8 @@ import java.util.ArrayList;
 
 import shell.DistanceMatrix;
 import shell.PointSet;
-import shell.objects.Grid;
+import shell.cuts.Manifold;
+import shell.point.Grid;
 import shell.shell.Shell;
 
 /**

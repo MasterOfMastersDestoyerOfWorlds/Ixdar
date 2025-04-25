@@ -15,15 +15,17 @@ import java.util.List;
 
 import shell.DistanceMatrix;
 import shell.PointSet;
+import shell.Toggle;
+import shell.cuts.Manifold;
 import shell.exceptions.FileParseException;
 import shell.exceptions.TerminalParseException;
-import shell.objects.Arc;
-import shell.objects.Circle;
-import shell.objects.Grid;
-import shell.objects.Ix;
-import shell.objects.Line;
-import shell.objects.PointND;
-import shell.objects.Triangle;
+import shell.point.Arc;
+import shell.point.Circle;
+import shell.point.Grid;
+import shell.point.Ix;
+import shell.point.Line;
+import shell.point.PointND;
+import shell.point.Triangle;
 import shell.shell.Shell;
 
 public class FileManagement {
@@ -34,7 +36,7 @@ public class FileManagement {
 
     public static final String cacheFolder = "./src/test/cache/";
 
-    public static final String subGraphUnitTestFolder = "./src/test/unit/subgraphs/";
+    public static final String subGraphUnitTestFolder = "./test/unit/subgraphs/";
 
     public static File getTestFile(String fileName) {
         String[] parts = fileName.split("_");
@@ -81,44 +83,6 @@ public class FileManagement {
         }
     }
 
-    static PointSet ps;
-    static Path2D path;
-    static Shell tsp;
-    static ArrayList<String> comments;
-    static ArrayList<Manifold> manifolds;
-    static Manifold m;
-    static boolean flag, first;
-    static int index;
-    static DistanceMatrix d;
-    static HashMap<Integer, PointND> lookUp;
-    static ArrayList<Integer> answerOrder;
-    static int lineNumber;
-    static ArrayList<Integer> duplicatePointIndexes;
-    static boolean removeDuplicates;
-    static boolean showGrid;
-    static ArrayList<PointND> lines;
-    static Grid grid;
-
-    public static void initImport() {
-        ps = new PointSet();
-        path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
-        tsp = new Shell();
-        comments = new ArrayList<>();
-        manifolds = new ArrayList<>();
-        m = null;
-        flag = true;
-        first = true;
-        index = 0;
-        d = null;
-        lookUp = new HashMap<>();
-        answerOrder = new ArrayList<>();
-        lineNumber = 1;
-        duplicatePointIndexes = new ArrayList<>();
-        removeDuplicates = false;
-        showGrid = false;
-        lines = new ArrayList<PointND>();
-    }
-
     /**
      * Imports the point set and optimal tsp path from a file
      * 
@@ -130,208 +94,221 @@ public class FileManagement {
 
         try (BufferedReader br = new BufferedReader(new FileReader(f))) {
             String line = br.readLine();
-            initImport();
+            FileInfo fi = new FileInfo();
             while (line != null) {
-                if (flag == true) {
+                if (fi.flag == true) {
                     String[] args = line.split(" ");
                     Point2D pt2d = null;
                     if (Circle.opts.contains(args[0])) {
-                        System.out.println("CIRCLE FOUND!");
+                        // CIRCLE
                         ArrayList<PointND> points = Circle.parse(args, 1);
-                        addPoints(points);
+                        addPoints(points, fi);
                     } else if (Line.opts.contains(args[0])) {
-                        System.out.println("LINE FOUND!");
+                        // LINE
                         ArrayList<PointND> points = Line.parse(args, 1);
-                        addPoints(points);
+                        addPoints(points, fi);
                     } else if (Triangle.opts.contains(args[0])) {
-                        System.out.println("TRIANGLE FOUND!");
+                        // TRIANGLE
                         ArrayList<PointND> points = Triangle.parse(args, 1);
-                        addPoints(points);
+                        addPoints(points, fi);
                     } else if (Arc.opts.contains(args[0])) {
-                        System.out.println("ARC FOUND!");
+                        // ARC
                         ArrayList<PointND> points = Arc.parse(args, 1);
-                        addPoints(points);
+                        addPoints(points, fi);
                     } else if (args[0].equals("WH")) {
-                        System.out.println("WORMHOLEFOUND!");
-                        if (d == null) {
-                            d = new DistanceMatrix(ps);
+                        // WORMHOLE
+                        if (fi.d == null) {
+                            fi.d = new DistanceMatrix(fi.ps);
                         }
                         int firstPointId = java.lang.Integer.parseInt(args[1]);
                         int secondPointId = java.lang.Integer.parseInt(args[2]);
-                        PointND wormHole = d.addDummyNode(index, lookUp.get(firstPointId),
-                                lookUp.get(secondPointId));
+                        PointND wormHole = fi.d.addDummyNode(fi.index, fi.lookUp.get(firstPointId),
+                                fi.lookUp.get(secondPointId));
                         int insertIdx = firstPointId;
                         if (firstPointId > secondPointId) {
                             insertIdx = secondPointId;
                         }
                         pt2d = wormHole.toPoint2D();
-                        lines.add(insertIdx + 1, wormHole);
-                        ps.add(insertIdx + 1, wormHole);
-                        tsp.add(insertIdx + 1, wormHole);
-                        lookUp.put(wormHole.getID(), wormHole);
+                        fi.lines.add(insertIdx + 1, wormHole);
+                        fi.ps.add(insertIdx + 1, wormHole);
+                        fi.tsp.add(insertIdx + 1, wormHole);
+                        fi.lookUp.put(wormHole.getID(), wormHole);
 
-                        if (first) {
-                            path.moveTo(pt2d.getX(), pt2d.getY());
-                            first = false;
+                        if (fi.first) {
+                            fi.path.moveTo(pt2d.getX(), pt2d.getY());
+                            fi.first = false;
                         } else {
-                            path.lineTo(pt2d.getX(), pt2d.getY());
+                            fi.path.lineTo(pt2d.getX(), pt2d.getY());
                         }
 
-                        index++;
+                        fi.index++;
                     } else if (args[0].equals("MANIFOLD")) {
-                        System.out.println("MANIFOLD FOUND!");
-                        m = new Manifold(java.lang.Integer.parseInt(args[1]), java.lang.Integer.parseInt(args[2]),
+                        // MANIFOLD
+                        fi.m = new Manifold(java.lang.Integer.parseInt(args[1]), java.lang.Integer.parseInt(args[2]),
                                 java.lang.Integer.parseInt(args[3]), java.lang.Integer.parseInt(args[4]),
                                 args[5].equals("C"));
                         try {
-                            m.parse(args);
+                            fi.m.parse(args);
                         } catch (FileParseException fpe) {
-                            throw new FileParseException(f.toPath(), f.getName(), lineNumber);
+                            throw new FileParseException(f.toPath(), f.getName(), fi.lineNumber);
                         }
-                        manifolds.add(m);
+                        fi.manifolds.add(fi.m);
 
                     } else if (args[0].equals("ANS")) {
+                        // ANS
                         for (int i = 1; i < args.length; i++) {
-                            answerOrder.add(java.lang.Integer.parseInt(args[i]));
+                            fi.answerOrder.add(java.lang.Integer.parseInt(args[i]));
                         }
                     } else if (Ix.opts.contains(args[0])) {
+                        // LOAD
                         PointSetPath retTup = Ix.parseFull(args, 1);
-                        manifolds.addAll(retTup.manifolds);
+                        fi.manifolds.addAll(retTup.manifolds);
                         for (PointND pt : retTup.ps) {
                             pt2d = pt.toPoint2D();
-                            lookUp.put(index, pt);
-                            lines.add(pt);
-                            ps.add(pt);
-                            tsp.add(pt);
+                            fi.lookUp.put(fi.index, pt);
+                            fi.lines.add(pt);
+                            fi.ps.add(pt);
+                            fi.tsp.add(pt);
 
-                            if (first) {
-                                path.moveTo(pt2d.getX(), pt2d.getY());
-                                first = false;
+                            if (fi.first) {
+                                fi.path.moveTo(pt2d.getX(), pt2d.getY());
+                                fi.first = false;
                             } else {
-                                path.lineTo(pt2d.getX(), pt2d.getY());
+                                fi.path.lineTo(pt2d.getX(), pt2d.getY());
                             }
 
-                            index++;
+                            fi.index++;
                         }
                         if (retTup.d != null) {
-                            d = new DistanceMatrix(ps);
+                            fi.d = new DistanceMatrix(fi.ps);
+                        }
+                        if (retTup.grid != null) {
+                            fi.grid = retTup.grid;
                         }
                     } else if (PointND.Hex.opts.contains(args[0])) {
+                        // HEX
                         PointND pt = PointND.Hex.parse(args, 1);
-                        addPoint(pt);
+                        addPoint(pt, fi);
                     } else if (args[0].equals("FLAG")) {
+                        // FLAG
                         if (args[1].equals("REMOVE_DUPLICATES")) {
-                            removeDuplicates = true;
+                            fi.removeDuplicates = true;
                         }
                         if (args[1].equals("SHOW_GRID")) {
-                            showGrid = true;
+                            fi.showGrid = true;
                         }
-
+                    } else if (args[0].equals("TOGGLE") || args[0].equals("TGL")) {
+                        for (Toggle t : Toggle.values()) {
+                            if (args[1].equals(t.name()) || args[1].equals(t.shortName())) {
+                                t.value = Boolean.parseBoolean(args[2]);
+                            }
+                        }
                     } else if (args[0].contains("//")) {
-                        comments.add(line);
+                        // COMMENT
+                        fi.comments.add(line);
                     } else {
-                        PointND pt = new PointND.Double(index, java.lang.Double.parseDouble(args[1]),
+                        PointND pt = new PointND.Double(fi.index, java.lang.Double.parseDouble(args[1]),
                                 java.lang.Double.parseDouble(args[2]));
 
-                        addPoint(pt);
+                        addPoint(pt, fi);
                     }
                 }
 
                 if (line.contains("NODE_COORD_SECTION")) {
-                    flag = true;
+                    fi.flag = true;
                 }
                 line = br.readLine();
-                lineNumber++;
+                fi.lineNumber++;
 
             }
             br.close();
-            if (answerOrder.size() > 0) {
+            if (fi.answerOrder.size() > 0) {
                 Shell newAns = new Shell();
                 int insertLoc = 0;
-                for (Integer i : answerOrder) {
-                    PointND vp = lookUp.get(i);
+                for (Integer i : fi.answerOrder) {
+                    PointND vp = fi.lookUp.get(i);
                     newAns.add(insertLoc, vp);
                     insertLoc++;
                 }
-                tsp = newAns;
+                fi.tsp = newAns;
             }
-            if (removeDuplicates && duplicatePointIndexes.size() > 0) {
-                removeDuplicates(f, duplicatePointIndexes);
+            if (fi.removeDuplicates && fi.duplicatePointIndexes.size() > 0) {
+                removeDuplicates(f, fi.duplicatePointIndexes);
             }
-            if (showGrid) {
-                grid.showGrid();
+            if (fi.showGrid) {
+                fi.grid.showGrid();
             }
-            if (grid == null) {
-                grid = new Grid.HexGrid();
-                grid.showGrid();
+            if (fi.grid == null) {
+                fi.grid = new Grid.HexGrid();
+                fi.grid.showGrid();
             }
-            return new PointSetPath(ps, path, tsp, d, manifolds, comments, grid);
+            return new PointSetPath(fi.ps, fi.path, fi.tsp, fi.d, fi.manifolds, fi.comments, fi.grid);
         } catch (NumberFormatException | IOException | FileParseException e) {
             e.printStackTrace();
         }
         return null;
     }
 
-    private static void addPoint(PointND pt) throws TerminalParseException {
-        if (grid == null) {
+    private static void addPoint(PointND pt, FileInfo fi) throws TerminalParseException {
+        if (fi.grid == null) {
             if (pt instanceof PointND.Double || pt instanceof PointND.Float) {
-                grid = new Grid.CartesianGrid();
+                fi.grid = new Grid.CartesianGrid();
             } else if (pt instanceof PointND.Hex) {
-                grid = new Grid.HexGrid();
+                fi.grid = new Grid.HexGrid();
             }
         } else {
-            if (!grid.allowsPoint(pt)) {
-                throw new TerminalParseException("Expected all points to be in: " + grid.allowableTypes()
+            if (!fi.grid.allowsPoint(pt)) {
+                throw new TerminalParseException("Expected all points to be in: " + fi.grid.allowableTypes()
                         + " but found point of type: " + pt.getClass());
             }
         }
-        if (ps.contains(pt)) {
-            System.out.println("Duplicated found: " + index);
-            duplicatePointIndexes.add(lineNumber);
+        if (fi.ps.contains(pt)) {
+            System.out.println("Duplicated found: " + fi.index);
+            fi.duplicatePointIndexes.add(fi.lineNumber);
         } else {
-            lookUp.put(index, pt);
-            lines.add(pt);
-            ps.add(pt);
-            tsp.add(pt);
+            fi.lookUp.put(fi.index, pt);
+            fi.lines.add(pt);
+            fi.ps.add(pt);
+            fi.tsp.add(pt);
 
-            if (first) {
-                path.moveTo(pt.getScreenX(), pt.getScreenY());
-                first = false;
+            if (fi.first) {
+                fi.path.moveTo(pt.getScreenX(), pt.getScreenY());
+                fi.first = false;
             } else {
-                path.lineTo(pt.getScreenX(), pt.getScreenY());
+                fi.path.lineTo(pt.getScreenX(), pt.getScreenY());
             }
 
-            index++;
+            fi.index++;
         }
     }
 
-    public static void addPoints(ArrayList<PointND> points) throws TerminalParseException {
+    public static void addPoints(ArrayList<PointND> points, FileInfo fi) throws TerminalParseException {
         for (int i = 0; i < points.size(); i++) {
             PointND pt = points.get(i);
-            if (grid == null) {
+            if (fi.grid == null) {
                 if (pt instanceof PointND.Double || pt instanceof PointND.Float) {
-                    grid = new Grid.CartesianGrid();
+                    fi.grid = new Grid.CartesianGrid();
                 } else if (pt instanceof PointND.Hex) {
-                    grid = new Grid.HexGrid();
+                    fi.grid = new Grid.HexGrid();
                 }
             } else {
-                if (!grid.allowsPoint(pt)) {
-                    throw new TerminalParseException("Expected all points to be in: " + grid.allowableTypes()
+                if (!fi.grid.allowsPoint(pt)) {
+                    throw new TerminalParseException("Expected all points to be in: " + fi.grid.allowableTypes()
                             + " but found point of type: " + pt.getClass());
                 }
             }
-            pt.setID(index);
-            lookUp.put(index, pt);
-            lines.add(pt);
-            ps.add(pt);
-            tsp.add(pt);
-            if (first) {
-                path.moveTo(pt.getScreenX(), pt.getScreenY());
-                first = false;
+            pt.setID(fi.index);
+            fi.lookUp.put(fi.index, pt);
+            fi.lines.add(pt);
+            fi.ps.add(pt);
+            fi.tsp.add(pt);
+            if (fi.first) {
+                fi.path.moveTo(pt.getScreenX(), pt.getScreenY());
+                fi.first = false;
             } else {
-                path.lineTo(pt.getScreenX(), pt.getScreenY());
+                fi.path.lineTo(pt.getScreenX(), pt.getScreenY());
             }
-            index++;
+            fi.index++;
         }
     }
 
@@ -423,6 +400,20 @@ public class FileManagement {
         }
     }
 
+    public static void appendComment(File f, String comment) {
+        try {
+            String ansLine = "// " + comment;
+            FileWriter fw = new FileWriter(f, true);
+            BufferedWriter out = new BufferedWriter(fw);
+            out.newLine();
+            out.append(ansLine);
+            out.flush();
+            out.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
     public static void appendLine(File f, String appLine) {
 
         try (FileWriter fw = new FileWriter(f, true)) {
@@ -490,7 +481,6 @@ public class FileManagement {
             out.flush();
             out.close();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
@@ -515,10 +505,50 @@ public class FileManagement {
             out.flush();
             out.close();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
             return;
         }
     }
 
+}
+
+class FileInfo {
+    PointSet ps;
+    Path2D path;
+    Shell tsp;
+    ArrayList<String> comments;
+    ArrayList<Manifold> manifolds;
+    Manifold m;
+    boolean flag, first;
+    int index;
+    DistanceMatrix d;
+    HashMap<Integer, PointND> lookUp;
+    ArrayList<Integer> answerOrder;
+    int lineNumber;
+    ArrayList<Integer> duplicatePointIndexes;
+    boolean removeDuplicates;
+    boolean showGrid;
+    ArrayList<PointND> lines;
+    Grid grid;
+
+    FileInfo() {
+
+        ps = new PointSet();
+        path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
+        tsp = new Shell();
+        comments = new ArrayList<>();
+        manifolds = new ArrayList<>();
+        m = null;
+        flag = true;
+        first = true;
+        index = 0;
+        d = null;
+        lookUp = new HashMap<>();
+        answerOrder = new ArrayList<>();
+        lineNumber = 1;
+        duplicatePointIndexes = new ArrayList<>();
+        removeDuplicates = false;
+        showGrid = false;
+        lines = new ArrayList<PointND>();
+    }
 }

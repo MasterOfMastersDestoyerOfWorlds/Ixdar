@@ -5,7 +5,6 @@ import static org.lwjgl.glfw.GLFW.GLFW_RESIZABLE;
 import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
 import static org.lwjgl.glfw.GLFW.GLFW_VISIBLE;
 import static org.lwjgl.glfw.GLFW.glfwCreateWindow;
-import static org.lwjgl.glfw.GLFW.glfwDefaultWindowHints;
 import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
 import static org.lwjgl.glfw.GLFW.glfwGetPrimaryMonitor;
 import static org.lwjgl.glfw.GLFW.glfwGetVideoMode;
@@ -26,7 +25,6 @@ import static org.lwjgl.glfw.GLFW.glfwTerminate;
 import static org.lwjgl.glfw.GLFW.glfwWindowHint;
 import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
 import static org.lwjgl.system.MemoryStack.stackPush;
-
 import java.awt.Point;
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -77,7 +75,6 @@ public class IxdarWindow {
         glfwTerminate();
         glfwSetErrorCallback(null).free();
     }
-
     private void init() {
         // Setup an error callback. The default implementation
         // will print the error message in System.err.
@@ -87,12 +84,9 @@ public class IxdarWindow {
         if (!glfwInit())
             throw new IllegalStateException("Unable to initialize GLFW");
         // Configure GLFW
-        glfwDefaultWindowHints(); // optional, the current window hints are already the default
         glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE); // the window will stay hidden after creation
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // the window will be resizable
-
         System.out.println("glfw init Time: " + (Clock.time() - startTime));
-
         // Create the window
         window = glfwCreateWindow(750, 750, "Ixdar", 0, 0);
         if (window == 0)

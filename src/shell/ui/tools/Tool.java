@@ -227,7 +227,7 @@ public abstract class Tool {
 
     }
 
-    public static ArrayList<Pair<Long, Long>> lookupPairs(Knot k) {
+    public static ArrayList<Pair<Long, Long>> lookupSegmentPairs(Knot k) {
 
         ArrayList<Pair<Long, Long>> idTransform = new ArrayList<>();
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
@@ -237,6 +237,7 @@ public abstract class Tool {
             idTransform.add(new Pair<Long, Long>(matchId, matchId2));
         }
         return idTransform;
+
     }
 
     public Type toolType() {
@@ -283,6 +284,9 @@ public abstract class Tool {
                     Main.manifoldIdx = 0;
                 }
             } else {
+                if (!canUseToggle(Toggle.CanSwitchTopLayer) && Main.knotDrawLayer == Main.totalLayers - 1) {
+                    return;
+                }
                 Main.knotDrawLayer++;
                 if (Main.knotDrawLayer > Main.totalLayers) {
                     Main.knotDrawLayer = Main.totalLayers;
@@ -314,6 +318,14 @@ public abstract class Tool {
                 Main.updateKnotsDisplayed();
             }
         }
+    }
+
+    public void cycleToolLayerPrev() {
+        decreaseViewLayer();
+    }
+
+    public void cycleToolLayerNext() {
+        increaseViewLayer();
     }
 
     public abstract String displayName();
