@@ -133,28 +133,15 @@ public class Route implements Comparable<Route> {
         return r;
     }
 
-    public void calculateGroupsFromCutMatches(ArrayList<Segment> cuts, ArrayList<Segment> matches)
-            throws SegmentBalanceException {
+    public final void calculateGroupsFromAncestor(Route ancestorRoute) throws SegmentBalanceException {
+        GroupInfo[] ancestorGroupInfo = ancestorRoute.groupInfo;
+        Integer node = parent.node.id;
+        Integer neighbor = this.neighbor.id;
+        ArrayList<Integer> ancestorOurGroup = ancestorRoute.ourGroup;
+        ArrayList<Integer> ancestorOtherGroup = ancestorRoute.otherGroup;
+        // 20-22%
         this.needToCalculateGroups = false;
-        for (int i = cuts.size() - 1; i >= 0; i--) {
-            Segment cut = cuts.get(i);
-            Segment match = matches.get(i);
-            VirtualPoint neighbor = match.getOverlap(cut);
-            VirtualPoint node = cut.getOther(neighbor);
-            calculateGroups(ourGroup, otherGroup, groupInfo, node.id, neighbor.id);
-        }
-    }
-
-    public void calculateGroupsFromAncestor(Route ancestorRoute) throws SegmentBalanceException {
-        calculateGroups(ancestorRoute.ourGroup, ancestorRoute.otherGroup, ancestorRoute.groupInfo, parent.node.id,
-                neighbor.id);
-    }
-
-    public void calculateGroups(ArrayList<Integer> ancestorOurGroup, ArrayList<Integer> ancestorOtherGroup,
-            GroupInfo[] ancestorGroupInfo, Integer node, Integer neighbor)
-            throws SegmentBalanceException {
-        // 14%
-        this.needToCalculateGroups = false;
+        long ixdarProfileStart = System.currentTimeMillis();
         GroupInfo nodeGroupInfo = ancestorGroupInfo[node];
         GroupInfo neighborGroupInfo = ancestorGroupInfo[neighbor];
         if (nodeGroupInfo.isOurGroup) {
@@ -214,7 +201,9 @@ public class Route implements Comparable<Route> {
             this.ourGroup = remainList;
             this.otherGroup = reverseList;
         }
-        //2%
+        long ixdarProfileEnd = System.currentTimeMillis();
+        InternalPathEngine.profileTimeIxdar += ixdarProfileEnd - ixdarProfileStart;
+        // 3-5%
         for (int i = 0; i < ourGroup.size(); i++) {
             int vp = ourGroup.get(i);
             GroupInfo g = groupInfo[vp];
@@ -227,9 +216,7 @@ public class Route implements Comparable<Route> {
             g.index = i;
             g.isOurGroup = false;
         }
-        if (this.cuts.size() != this.matches.size()) {
-            throw new SegmentBalanceException();
-        }
+
     }
 
     @Override

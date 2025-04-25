@@ -3,6 +3,7 @@ package shell.cuts.route;
 import java.util.ArrayList;
 
 import shell.cuts.CutInfo;
+import shell.cuts.engines.InternalPathEngine;
 import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
 import shell.exceptions.SegmentBalanceException;
@@ -218,7 +219,7 @@ public class RouteInfo {
         }
     }
 
-    public void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType,
+    public final void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType,
             Route ancestorRoute, Segment acrossSeg) throws SegmentBalanceException {
 
         Route route = routes[routeType.idx];
@@ -237,7 +238,7 @@ public class RouteInfo {
         route.cuts.add(route.neighborSegment);
         route.matches = new ArrayList<>(ancestorRoute.matches);
         route.matches.add(acrossSeg);
-        // 12%
+        // 22%
         route.calculateGroupsFromAncestor(ancestorRoute);
     }
 

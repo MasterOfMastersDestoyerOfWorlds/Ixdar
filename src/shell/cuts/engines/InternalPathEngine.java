@@ -343,8 +343,9 @@ public class InternalPathEngine {
                     continue;
                 }
 
-                // 24%
+                // 24=26%
                 // update d(v) = d(u) + w(u,v)
+
                 v.updateRoute(newDistancePrevNeighbor, uParent.node, vRouteType, u.routeType, u, acrossSeg);
                 // add v to heap
                 // 1.75%
