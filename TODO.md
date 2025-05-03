@@ -32,7 +32,7 @@
 
 ## Reverse Knot Cutting
 
-instead of cutting from the bottom up we should cut from the top down in the knot space instead of the point space. This would be harder to visualize but would lead to lower cutting time. 
+instead of cutting from the bottom up we should cut from the top down in the knot space instead of the point space. This would be harder to visualize but would lead to lower cutting time.
 
 way that the current algorithm works:
 
@@ -42,6 +42,7 @@ way that the current algorithm works:
 4. go to the next level
 
 reversed algorithm:
+
 1. for each point at the current level that is a Knot, cut with each of their neighbors as external points, treat sub Knots of the Knot we are unpacking as regular Points with the distance to any other point in the graph being the lowest segment length of any of their member points
 2. do clockwork algorithm to choose best cut-match list in relation to neighbors and flatten to one loop
 3. if there are still Knots in the loop go to 1
@@ -52,23 +53,24 @@ so if we have the worst case n/3 knots at the bottom layer in the old algorithm 
 
 l = number of layers - 1
 
-n/3 knots * 3^2 points per knot + n/9 knots * 9^2 points per knot + ... + n/3^l * (3^l)^2
+n/3 knots \* 3^2 points per knot + n/9 knots \* 9^2 points per knot + ... + n/3^l \* (3^l)^2
 = 3n + 9n + ... +  +n^2 -> n^3
 all of the points and knots cancel leaving us with n*3^l where log base 3 of n 3^log_3(n) = n so n^2 assuming that ixdar cut takes size(k)^2 time
 
 in new algorithm we add in the opposite order with less points at each knot cut
 
-n/3^l knots * (3)^2 + n/3^(l-1) * (3)^2 + ... + n/3 knots 3^2
+n/3^l knots \* (3)^2 + n/3^(l-1) \* (3)^2 + ... + n/3 knots 3^2
 
 = n/3^(l-1) + ... + n/3 +  + n + 3n
-= 9/2 * (n + ... +n) = 9/2 * n^2
-
-
-
+= 9/2 \* (n + ... +n) = 9/2 \* n^2
 
 if we instead thought that cutting algorithm takes n^3 time this is not as big a deal for the top-down algorithm but is quite problematic for the bottom up one
 
 27/2 * n^2 vs ~n^4
+
+## Simple Knot Finding
+
+There is also a question of how we are doing knot finding, right now we are finding knots with partial knowledge that they are knots
 
 ## Knot Finding
 
