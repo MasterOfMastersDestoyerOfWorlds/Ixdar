@@ -1,7 +1,10 @@
 package shell.terminal.commands;
 
+import java.util.ArrayList;
+
 import org.apache.commons.math3.util.Pair;
 
+import shell.knot.Segment;
 import shell.knot.VirtualPoint;
 import shell.point.PointND;
 import shell.render.color.Color;
@@ -70,11 +73,77 @@ public class AskCommand extends TerminalCommand {
             VirtualPoint vp = Main.shell.pointMap.get(id1);
             if (vp == null) {
                 terminal.error("Point with id: " + vp + " does not exist.");
+            } else if (numPrint > vp.sortedSegments.size()) {
+                terminal.error("Point does not have " + numPrint + " segments to display");
+            } else {
+                for (int i = 0; i < numPrint; i++) {
+                    HyperString seg = vp.sortedSegments.get(i).toHyperString(Color.BLUE_WHITE, false, true);
+                    seg.addWord(" || ");
+                    terminal.history.addHyperString(seg);
+                }
+                terminal.history.newLine();
             }
-            for (int i = 0; i < numPrint; i++) {
-                HyperString seg = vp.sortedSegments.get(i).toHyperString(Color.BLUE_WHITE, false, true);
-                seg.addWord(" || ");
-                terminal.history.addHyperString(seg);
+        } else if (questionName.equals("sorted")) {
+            int numPrint = Main.shell.pointMap.size();
+            if (args.length - startIdx > 1) {
+                numPrint = Integer.parseInt(args[startIdx + 1]);
+            }
+            if (numPrint > Main.shell.pointMap.size()) {
+                terminal.error("There are not " + numPrint + " Points");
+            } else {
+                ArrayList<Segment> segements = new ArrayList<>();
+                for (int i = 0; i < numPrint; i++) {
+                    VirtualPoint vp = Main.shell.pointMap.get(i);
+                    if (vp.sortedSegments.size() > 1) {
+                        if (!vp.isKnot) {
+                            segements.add(vp.sortedSegments.get(0));
+                            segements.add(vp.sortedSegments.get(1));
+                        }
+                    }
+                }
+                segements.sort(null);
+                for (Segment s : segements) {
+                    HyperString seg = s.toHyperString(Color.BLUE_WHITE, false, true);
+                    terminal.history.addHyperString(seg);
+                    terminal.history.newLine();
+                }
+                terminal.history.newLine();
+            }
+        } else if (questionName.equals("innerC")) {
+            int id1 = Integer.parseInt(args[startIdx + 1]);
+            int numPrint = 2;
+            if (args.length - startIdx > 2) {
+                numPrint = Integer.parseInt(args[startIdx + 2]);
+            }
+            VirtualPoint vp = Main.shell.pointMap.get(id1);
+            if (vp == null) {
+                terminal.error("Point with id: " + vp + " does not exist.");
+            }
+            ArrayList<Long> seen = new ArrayList<>();
+            ArrayList<Long> green = new ArrayList();
+
+            for (VirtualPoint innerVp : vp.knotPointsFlattened) {
+                for (int i = 0; i < numPrint; i++) {
+                    Segment seg = innerVp.sortedSegments.get(i);
+                    if (seen.contains(seg.id)) {
+                        green.add(seg.id);
+                    }
+                    seen.add(seg.id);
+                }
+            }
+            for (VirtualPoint innerVp : vp.knotPointsFlattened) {
+                for (int i = 0; i < numPrint; i++) {
+                    Segment segment = innerVp.sortedSegments.get(i);
+                    HyperString str = null;
+                    if (green.contains(segment.id)) {
+                        str = segment.toHyperString(Color.GREEN, false, true);
+                    } else {
+                        str = segment.toHyperString(Color.BLUE_WHITE, false, true);
+                    }
+                    str.addWord(" || ");
+                    terminal.history.addHyperString(str);
+                }
+                terminal.history.newLine();
             }
             terminal.history.newLine();
         }

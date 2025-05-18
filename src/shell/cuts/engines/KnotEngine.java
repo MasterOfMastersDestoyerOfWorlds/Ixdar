@@ -26,7 +26,7 @@ public class KnotEngine {
         visited = new ArrayList<VirtualPoint>();
     }
 
-        public ArrayList<VirtualPoint> createKnots(int layers) {
+    public ArrayList<VirtualPoint> createKnots(int layers) {
 
         visited = new ArrayList<VirtualPoint>();
         unvisited = new ArrayList<VirtualPoint>();

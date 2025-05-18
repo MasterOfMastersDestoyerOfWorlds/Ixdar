@@ -70,7 +70,31 @@ if we instead thought that cutting algorithm takes n^3 time this is not as big a
 
 ## Simple Knot Finding
 
-There is also a question of how we are doing knot finding, right now we are finding knots with partial knowledge that they are knots
+There is also a question of how we are doing knot finding, right now we are finding knots with partial knowledge that they are knots. Rather we should be finding knots and then throwing away most of the distance information in the knot.
+
+If we think about a point, we have a minimum connection requirement of 2 and a maximum connection allotment of 2. For a Knot we also have a minimum connection requirement of 2 (excluding the top knot) and a maximum connection allotment of k where k is the number of virtual points in the knot.
+
+I think the construction algorithm looks something like this. we still are going through the old method of sorting the segment lists for each point and looking where they agree, but now instead of forming runs and then knots we are simply looking to fulfill the following criteria: all virtual points should have at least 2 matches, assign the matches in acending distance order, a match must include a virtual point that has less than 2 matches.
+
+how will we know that we have a knot if we are not using runs? I think like this we maintain a union find of all points and update their groups as we make matches, merging the groups. with our group information we need to store the number of virtual points that do not have at least 2 matches.
+
+importantly we never actually remove any of our virtual points from consideration unless they have reached their maximum connection allotment.
+
+if that is true then how do we resolve which virtual point we want to connect to? via the connection cost.
+
+the connection cost for a point is simple to calculate and is given to use by the euclidean distance between the points. 
+
+the connection cost between any two virtual points is harder to calculate, if we have k sub virtual points in the top-level virtual point then connection cost from the virtual point to any other virtual point is the minimum connection to one of its k sub-points minus the connection cost of the sub-point to its lowest cost neighbor. unfortunately we also have to consider the pass through cost as well (see threecircle in tests) such that if we already have on match to the knot connecting to the other side of the cut segment is no longer the distance to the subpoint minus the neighbor distance but the distance to the sub-point and connection to some other segment beside the one already cut is the cost of connecting to both sub-points minus their neighbor costs plus teh connection cost of connecting their neighbors.
+
+lets just start with lowest connection cost as we program
+
+Alternatively we could, when we add a virtual point to the set store its pairwise lowest cost connection to every other virtual point not contained within the virtual point.
+
+the fundemental problem we have to solve is that we need to be able to handle the hub and spoke case as well as the circle case. Circle is much easier to handle, in the hub and spoke case we have to effectively merge cuts and matches while keeping track of which ones we've cut. so when we cut a knot that is contained in multiple virtual points we need tofind all of the virtual points that contain it before cutting.
+
+I also dont understand the following: with a point it is impossible to match to the same point twice but this is not true with knots
+
+I think when matching knots to each other we need ot assume that we are doing the lowest cost double match until we are at the other side of the circle so to speak and can remove the top half of each double match. So with points matching to other points the cost would just be double the base cost until we are at the other side then we halve the cost.
 
 ## Knot Finding
 
