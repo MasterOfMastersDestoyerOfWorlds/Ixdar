@@ -1,7 +1,6 @@
 package shell.cuts.route;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 
 import shell.cuts.CutInfo;
 import shell.cuts.engines.InternalPathEngine;
@@ -149,10 +148,6 @@ public class Route implements Comparable<Route> {
             int idxNeighbor = neighborGroupInfo.isOurGroup ? neighborGroupInfo.index : -1;
             int rotateIdx = nodeGroupInfo.index;
             this.otherGroup = ancestorOtherGroup;
-
-            if (rotateIdx >= grp.size()) {
-                float z = 0;
-            }
 
             ArrayList<Integer> reverseList = new ArrayList<Integer>(grp.size());
             if (idxNeighbor > rotateIdx || idxNeighbor == -1) {

@@ -3,7 +3,6 @@ package shell.cuts.route;
 import java.util.ArrayList;
 
 import shell.cuts.CutInfo;
-import shell.cuts.engines.InternalPathEngine;
 import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
 import shell.exceptions.SegmentBalanceException;

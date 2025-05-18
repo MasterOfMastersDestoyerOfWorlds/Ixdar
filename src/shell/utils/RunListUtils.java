@@ -13,7 +13,6 @@ public final class RunListUtils {
             boolean knot) {
         for (VirtualPoint vp : knotPoints) {
             if (vp.isRun) {
-                float z = 0;
                 if (vp.basePoint1 == null) {
                 }
                 VirtualPoint bp1 = vp.basePoint1.topKnot;
@@ -27,7 +26,6 @@ public final class RunListUtils {
                     continue;
                 }
                 int idxBp2 = runList.indexOf(bp2);
-                z = 0;
                 ArrayList<VirtualPoint> subList = RunListUtils.subList(runList, idxBp1, idxBp2);
                 ArrayList<VirtualPoint> excludeList = RunListUtils.excludeList(runList, idxBp1, idxBp2);
                 r.endpoint1 = subList.get(0);

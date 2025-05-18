@@ -7,7 +7,6 @@ import org.apache.commons.math3.util.Pair;
 
 import shell.BalanceMap;
 import shell.cuts.engines.FlattenEngine;
-import shell.cuts.engines.InternalPathEngine;
 import shell.exceptions.BalancerException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;

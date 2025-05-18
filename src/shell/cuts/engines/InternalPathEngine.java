@@ -57,7 +57,7 @@ public class InternalPathEngine {
         Segment cutSegment2 = c.upperCutSegment;
         Knot knot = c.knot;
 
-        SegmentBalanceException sbe = new SegmentBalanceException(c.shell, null, c);
+        new SegmentBalanceException(c.shell, null, c);
 
         long startTimeIxdar = System.currentTimeMillis();
 

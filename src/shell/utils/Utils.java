@@ -13,7 +13,6 @@ import javax.imageio.ImageIO;
 
 import org.apache.commons.math3.util.Pair;
 
-import shell.cuts.CutInfo;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.knot.VirtualPoint;
@@ -277,11 +276,6 @@ public final class Utils {
         }
         return null;
 
-    }
-
-    public static boolean hasNeighbor(CutInfo c, Segment checkSegment21) {
-        return c.innerNeighborSegmentLookup.containsKey(Segment.getFirstOrderId(checkSegment21),
-                Segment.getLastOrderId(checkSegment21));
     }
 
     public static void snapShot(BufferedImage img) {

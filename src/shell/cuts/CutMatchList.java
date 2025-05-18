@@ -2,12 +2,6 @@ package shell.cuts;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
-
-import org.apache.commons.collections4.map.MultiKeyMap;
-import org.apache.commons.math3.util.Pair;
 
 import shell.exceptions.SegmentBalanceException;
 import shell.file.FileStringable;

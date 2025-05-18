@@ -120,7 +120,7 @@ public class AskCommand extends TerminalCommand {
                 terminal.error("Point with id: " + vp + " does not exist.");
             }
             ArrayList<Long> seen = new ArrayList<>();
-            ArrayList<Long> green = new ArrayList();
+            ArrayList<Long> green = new ArrayList<>();
 
             for (VirtualPoint innerVp : vp.knotPointsFlattened) {
                 for (int i = 0; i < numPrint; i++) {
