@@ -83,6 +83,26 @@ public class AskCommand extends TerminalCommand {
                 }
                 terminal.history.newLine();
             }
+        } else if (questionName.equals("sortedAll")) {
+            int numPrint = Main.shell.sortedSegments.size();
+            if (args.length - startIdx > 1) {
+                numPrint = Integer.parseInt(args[startIdx + 1]);
+            }
+            if (numPrint > Main.shell.sortedSegments.size()) {
+                terminal.error("There are not " + numPrint + " Points");
+            } else {
+                int i = 0;
+                for (Segment s : Main.shell.sortedSegments) {
+                    HyperString seg = s.toHyperString(Color.BLUE_WHITE, false, true);
+                    terminal.history.addHyperString(seg);
+                    terminal.history.newLine();
+                    i++;
+                    if(i > numPrint){
+                        break;
+                    }
+                }
+                terminal.history.newLine();
+            }
         } else if (questionName.equals("sorted")) {
             int numPrint = Main.shell.pointMap.size();
             if (args.length - startIdx > 1) {

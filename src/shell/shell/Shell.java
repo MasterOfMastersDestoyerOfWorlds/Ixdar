@@ -46,6 +46,7 @@ public class Shell extends LinkedList<PointND> {
     int runCount = 0;
 
     boolean skipHalfKnotFlag = true;
+    public ArrayList<Segment> sortedSegments;
 
     public Shell() {
         pointMap = new HashMap<>();
@@ -105,7 +106,7 @@ public class Shell extends LinkedList<PointND> {
     public void initShell(DistanceMatrix distanceMatrix) {
         this.distanceMatrix = distanceMatrix;
         pointMap = new HashMap<>();
-
+        this.sortedSegments = new ArrayList<Segment>();
         int numPoints = distanceMatrix.size();
         for (int i = 0; i < numPoints; i++) {
             Point p = new Point(distanceMatrix.getPoints().get(i), this);
@@ -114,16 +115,20 @@ public class Shell extends LinkedList<PointND> {
         for (int i = 0; i < numPoints; i++) {
             Point p1 = (Point) pointMap.get(i);
             for (int j = 0; j < numPoints; j++) {
+                Point p2 = (Point) pointMap.get(j);
+                Segment s = new Segment(p1, p2, distanceMatrix.getDistance(p1.p, p2.p));
                 if (i != j) {
-                    Point p2 = (Point) pointMap.get(j);
-                    Segment s = new Segment(p1, p2, distanceMatrix.getDistance(p1.p, p2.p));
                     p1.sortedSegments.add(s);
                     p1.segmentLookup.put(s.id, s);
                     p1.pointSegmentLookup[p2.id] = s;
                 }
+                if (i < j) {
+                    this.sortedSegments.add(s);
+                }
             }
             p1.sortedSegments.sort(null);
         }
+        sortedSegments.sort(null);
     }
 
     public ArrayList<VirtualPoint> slowSolve(Shell A, DistanceMatrix distanceMatrix, int layers) {
