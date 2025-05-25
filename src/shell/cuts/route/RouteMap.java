@@ -4,15 +4,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import shell.cuts.CutInfo;
-import shell.knot.VirtualPoint;
+import shell.knot.Knot;
 
 public class RouteMap extends HashMap<Integer, RouteInfo> {
     public CutInfo c;
     public ArrayList<Route> routesToCheck;
     public RouteInfo[] routeInfos;
 
-    public RouteMap(RouteMap routeMapToCopy, VirtualPoint upperCutPoint,
-            VirtualPoint upperKnotPoint, CutInfo c) {
+    public RouteMap(RouteMap routeMapToCopy, Knot upperCutPoint,
+            Knot upperKnotPoint, CutInfo c) {
         this.c = c;
         if (c.lowerKnotPoint.id != routeMapToCopy.c.lowerKnotPoint.id) {
             throw new AssertionError();

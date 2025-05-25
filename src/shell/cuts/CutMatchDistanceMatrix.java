@@ -4,7 +4,6 @@ import java.util.ArrayList;
 
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 
 /**
  * A class that represents the distances between all points in the pointset
@@ -27,7 +26,7 @@ public class CutMatchDistanceMatrix {
         negativeEdges = new ArrayList<ArrayList<Edge>>(size);
         positiveEdges = new ArrayList<ArrayList<Edge>>(size);
         for (int i = 0; i < size; i++) {
-            VirtualPoint vp = k.knotPointsFlattened.get(i);
+            Knot vp = k.knotPointsFlattened.get(i);
             ArrayList<Edge> negativeEdgesI = new ArrayList<>();
             ArrayList<Edge> positiveEdgesI = new ArrayList<>();
             negativeEdges.add(i, negativeEdgesI);
@@ -35,9 +34,9 @@ public class CutMatchDistanceMatrix {
             for (int j = 0; j < size; j++) {
                 int prevJ = j == 0 ? size - 1 : j - 1;
                 int nextJ = j == size - 1 ? 0 : j + 1;
-                VirtualPoint vp2 = k.knotPointsFlattened.get(j);
-                VirtualPoint prevNeighbor = k.knotPointsFlattened.get(prevJ);
-                VirtualPoint nextNeighbor = k.knotPointsFlattened.get(nextJ);
+                Knot vp2 = k.knotPointsFlattened.get(j);
+                Knot prevNeighbor = k.knotPointsFlattened.get(prevJ);
+                Knot nextNeighbor = k.knotPointsFlattened.get(nextJ);
                 if (i != j) {
                     if (i != prevJ) {
                         Segment acrossSegment = vp.getSegment(prevNeighbor);

@@ -6,7 +6,6 @@ import shell.exceptions.InvalidCutException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.shell.Shell;
 import shell.utils.Utils;
 
@@ -14,8 +13,8 @@ public class CutMatch {
     public ArrayList<Segment> cutSegments;
     public ArrayList<Segment> matchSegments;
     public Knot knot;
-    VirtualPoint kp1;
-    VirtualPoint kp2;
+    Knot kp1;
+    Knot kp2;
     CutMatch diff;
     double delta;
     double deltaInternal;
@@ -77,8 +76,8 @@ public class CutMatch {
         if (superKnot == null && knot != null) {
             ArrayList<Segment> knotSegments = new ArrayList<>();
             for (int a = 0; a < knot.knotPoints.size(); a++) {
-                VirtualPoint knotPoint11 = knot.knotPoints.get(a);
-                VirtualPoint knotPoint12 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
+                Knot knotPoint11 = knot.knotPoints.get(a);
+                Knot knotPoint12 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
                 Segment s = knot.getSegment(knotPoint11, knotPoint12);
                 knotSegments.add(s);
             }
@@ -89,11 +88,11 @@ public class CutMatch {
                     throw new InvalidCutException("Matching Segment already in Knot", sbe);
                 }
             }
-        } else if(superKnot != null){
+        } else if (superKnot != null) {
             ArrayList<Segment> superKnotSegments = new ArrayList<>();
             for (int a = 0; a < superKnot.knotPoints.size(); a++) {
-                VirtualPoint knotPoint11 = superKnot.knotPoints.get(a);
-                VirtualPoint knotPoint12 = superKnot.knotPoints.get(a + 1 >= superKnot.knotPoints.size() ? 0 : a + 1);
+                Knot knotPoint11 = superKnot.knotPoints.get(a);
+                Knot knotPoint12 = superKnot.knotPoints.get(a + 1 >= superKnot.knotPoints.size() ? 0 : a + 1);
                 Segment s = superKnot.getSegment(knotPoint11, knotPoint12);
                 superKnotSegments.add(s);
             }

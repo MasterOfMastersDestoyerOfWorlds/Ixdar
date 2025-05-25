@@ -7,7 +7,6 @@ import shell.exceptions.SegmentBalanceException;
 import shell.file.FileStringable;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
 import shell.shell.Shell;
@@ -74,7 +73,7 @@ public class CutMatchList implements FileStringable {
     }
 
     public void addTwoCut(Segment cutSegment, Segment[] segments, Segment matchSegment1, Segment matchSegment2,
-            VirtualPoint kp1, VirtualPoint kp2, CutMatchList cml, CutInfo c, boolean match1, String cutType)
+            Knot kp1, Knot kp2, CutMatchList cml, CutInfo c, boolean match1, String cutType)
             throws SegmentBalanceException {
         CutMatch cm = new CutMatch(cutType, shell, sbe);
         for (Segment s : segments) {
@@ -244,7 +243,7 @@ public class CutMatchList implements FileStringable {
         return false;
     }
 
-    public boolean hasMatchWith(VirtualPoint vp) {
+    public boolean hasMatchWith(Knot vp) {
         for (CutMatch cm : cutMatches) {
             for (Segment s : cm.matchSegments) {
                 if (s.contains(vp)) {
@@ -255,7 +254,7 @@ public class CutMatchList implements FileStringable {
         return false;
     }
 
-    public Segment getMatchWith(VirtualPoint vp) {
+    public Segment getMatchWith(Knot vp) {
         for (CutMatch cm : cutMatches) {
             for (Segment s : cm.matchSegments) {
                 if (s.contains(vp)) {
@@ -368,7 +367,7 @@ public class CutMatchList implements FileStringable {
         }
     }
 
-    public VirtualPoint getClosestKnotPoint(VirtualPoint neighbor, VirtualPoint other) {
+    public Knot getClosestKnotPoint(Knot neighbor, Knot other) {
         CutMatch cm = cutMatches.get(0);
         Segment kp1n1 = neighbor.getSegment(cm.kp1);
         Segment kp2n2 = other.getSegment(cm.kp2);
@@ -381,7 +380,7 @@ public class CutMatchList implements FileStringable {
         }
     }
 
-    public VirtualPoint getOtherKp(VirtualPoint knotPoint) {
+    public Knot getOtherKp(Knot knotPoint) {
         CutMatch cm = cutMatches.get(0);
         if (cm.kp1.id == knotPoint.id) {
             return cm.kp2;

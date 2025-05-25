@@ -22,9 +22,7 @@ import shell.cuts.CutMatchList;
 import shell.cuts.route.Route;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
-import shell.knot.Point;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.point.PointND;
 import shell.render.color.Color;
 import shell.render.color.ColorFixedLerp;
@@ -83,8 +81,8 @@ public class Drawing {
         float[] lastCoords = new float[2];
         float[] midCoords = new float[2];
 
-        Point2D first = ((Point) cut1.first).p.toPoint2D();
-        Point2D last = ((Point) cut1.last).p.toPoint2D();
+        Point2D first = (cut1.first).p.toPoint2D();
+        Point2D last = (cut1.last).p.toPoint2D();
 
         firstCoords[0] = camera.pointTransformX((float) first.getX());
         firstCoords[1] = camera.pointTransformY((float) first.getY());
@@ -95,8 +93,8 @@ public class Drawing {
         midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0f;
         font.drawTextCentered("X", midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, Color.RED, camera);
         // Draw x 2
-        first = ((Point) cut2.first).p.toPoint2D();
-        last = ((Point) cut2.last).p.toPoint2D();
+        first = (cut2.first).p.toPoint2D();
+        last = (cut2.last).p.toPoint2D();
 
         firstCoords[0] = camera.pointTransformX((float) first.getX());
         firstCoords[1] = camera.pointTransformY((float) first.getY());
@@ -109,7 +107,7 @@ public class Drawing {
         font.drawTextCentered("X", midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, Color.ORANGE, camera);
         // Draw external segment 1
 
-        Point2D knotPoint1 = ((Point) ex1.getKnotPoint(topKnot.knotPointsFlattened)).p.toPoint2D();
+        Point2D knotPoint1 = (ex1.getKnotPoint(topKnot.knotPointsFlattened)).p.toPoint2D();
 
         firstCoords[0] = camera.pointTransformX(knotPoint1.getX());
         firstCoords[1] = camera.pointTransformY(knotPoint1.getY());
@@ -122,7 +120,7 @@ public class Drawing {
 
         // Draw external segment 2
 
-        Point2D knotPoint2 = ((Point) ex2.getKnotPoint(topKnot.knotPointsFlattened)).p.toPoint2D();
+        Point2D knotPoint2 = (ex2.getKnotPoint(topKnot.knotPointsFlattened)).p.toPoint2D();
 
         firstCoords[0] = camera.pointTransformX(knotPoint2.getX());
         firstCoords[1] = camera.pointTransformY(knotPoint2.getY());
@@ -156,8 +154,8 @@ public class Drawing {
                 }
                 // Draw SubKnot
                 Shell result = new Shell();
-                for (VirtualPoint p : cutMatch.knot.knotPoints) {
-                    result.add(((Point) p).p);
+                for (Knot p : cutMatch.knot.knotPoints) {
+                    result.add((p).p);
                 }
 
             }
@@ -211,20 +209,20 @@ public class Drawing {
         }
     }
 
-    public static void drawManifoldCut(VirtualPoint hoverKP, VirtualPoint hoverCP, Camera2D camera,
+    public static void drawManifoldCut(Knot hoverKP, Knot hoverCP, Camera2D camera,
             float lineThickness) {
         Drawing.drawManifoldCut(hoverKP, hoverCP, Color.GREEN, Color.ORANGE, camera, lineThickness);
     }
 
-    public static void drawManifoldCut(VirtualPoint hoverKP, VirtualPoint hoverCP, Color circleColor, Color xColor,
+    public static void drawManifoldCut(Knot hoverKP, Knot hoverCP, Color circleColor, Color xColor,
             Camera2D camera, float lineThickness) {
 
         float[] kpCoords = new float[2];
         float[] cpCoords = new float[2];
         float[] midCoords = new float[2];
 
-        Point2D kp = ((Point) hoverKP).p.toPoint2D();
-        Point2D cp = ((Point) hoverCP).p.toPoint2D();
+        Point2D kp = (hoverKP).p.toPoint2D();
+        Point2D cp = (hoverCP).p.toPoint2D();
 
         kpCoords[0] = camera.pointTransformX(kp.getX());
         kpCoords[1] = camera.pointTransformY(kp.getY());
@@ -256,15 +254,15 @@ public class Drawing {
     private static void drawSegment(Segment ex1, Color c, Camera2D camera) {
         Point2D first;
         Point2D last;
-        if (ex1.first.isKnot) {
-            first = ((Point) ((Knot) ex1.first).knotPoints.get(0)).p.toPoint2D();
+        if (!ex1.first.isSingleton()) {
+            first = ( ((Knot) ex1.first).knotPoints.get(0)).p.toPoint2D();
         } else {
-            first = ((Point) ex1.first).p.toPoint2D();
+            first = ( ex1.first).p.toPoint2D();
         }
-        if (ex1.last.isKnot) {
-            last = ((Point) ((Knot) ex1.last).knotPoints.get(0)).p.toPoint2D();
+        if (!ex1.last.isSingleton()) {
+            last = ( ((Knot) ex1.last).knotPoints.get(0)).p.toPoint2D();
         } else {
-            last = ((Point) ex1.last).p.toPoint2D();
+            last = ( ex1.last).p.toPoint2D();
         }
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
@@ -276,15 +274,15 @@ public class Drawing {
     public static void drawDashedSegment(Segment ex1, Color c, Camera2D camera) {
         Point2D first;
         Point2D last;
-        if (ex1.first.isKnot) {
-            first = ((Point) ((Knot) ex1.first).knotPoints.get(0)).p.toPoint2D();
+        if (!ex1.first.isSingleton()) {
+            first = ( ((Knot) ex1.first).knotPoints.get(0)).p.toPoint2D();
         } else {
-            first = ((Point) ex1.first).p.toPoint2D();
+            first = ( ex1.first).p.toPoint2D();
         }
-        if (ex1.last.isKnot) {
-            last = ((Point) ((Knot) ex1.last).knotPoints.get(0)).p.toPoint2D();
+        if (!ex1.last.isSingleton()) {
+            last = ( ((Knot) ex1.last).knotPoints.get(0)).p.toPoint2D();
         } else {
-            last = ((Point) ex1.last).p.toPoint2D();
+            last = ( ex1.last).p.toPoint2D();
         }
 
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
@@ -297,15 +295,15 @@ public class Drawing {
     public static void drawGradientSegment(Segment s, Color color1, Color color2, Camera2D camera) {
         Point2D first;
         Point2D last;
-        if (s.first.isKnot) {
-            first = ((Point) ((Knot) s.first).knotPoints.get(0)).p.toPoint2D();
+        if (!s.first.isSingleton()) {
+            first = ( ((Knot) s.first).knotPoints.get(0)).p.toPoint2D();
         } else {
-            first = ((Point) s.first).p.toPoint2D();
+            first = ( s.first).p.toPoint2D();
         }
-        if (s.last.isKnot) {
-            last = ((Point) ((Knot) s.last).knotPoints.get(0)).p.toPoint2D();
+        if (!s.last.isSingleton()) {
+            last = ( ((Knot) s.last).knotPoints.get(0)).p.toPoint2D();
         } else {
-            last = ((Point) s.last).p.toPoint2D();
+            last = ( s.last).p.toPoint2D();
         }
         float[] firstCoords = new float[2];
         float[] lastCoords = new float[2];
@@ -333,15 +331,15 @@ public class Drawing {
             Camera2D camera) {
         Point2D first;
         Point2D last;
-        if (s.first.isKnot) {
-            first = ((Point) ((Knot) s.first).knotPoints.get(0)).p.toPoint2D();
+        if (!s.first.isSingleton()) {
+            first = ( ((Knot) s.first).knotPoints.get(0)).p.toPoint2D();
         } else {
-            first = ((Point) s.first).p.toPoint2D();
+            first = ( s.first).p.toPoint2D();
         }
-        if (s.last.isKnot) {
-            last = ((Point) ((Knot) s.last).knotPoints.get(0)).p.toPoint2D();
+        if (!s.last.isSingleton()) {
+            last = ( ((Knot) s.last).knotPoints.get(0)).p.toPoint2D();
         } else {
-            last = ((Point) s.last).p.toPoint2D();
+            last = ( s.last).p.toPoint2D();
         }
 
         Vector2f firstCoords = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
@@ -500,10 +498,10 @@ public class Drawing {
         Drawing.drawSegment(cutSegment, Color.ORANGE, camera);
     }
 
-    public static void drawCircle(VirtualPoint displayPoint, Color color, Camera2D camera,
+    public static void drawCircle(Knot displayPoint, Color color, Camera2D camera,
             float lineThickness) {
         sdfLine.setStroke(lineThickness, false);
-        Point p = (Point) displayPoint;
+        Knot p = displayPoint;
         double xCoord = camera.pointTransformX(p.p.getScreenX());
         double yCoord = camera.pointTransformY(p.p.getScreenY());
         circle.draw(new Vector2f((float) xCoord, (float) yCoord), CIRCLE_RADIUS * camera.ScaleFactor, color, camera);

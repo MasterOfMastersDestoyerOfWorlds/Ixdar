@@ -62,6 +62,7 @@ public class SubGraphs {
 						result + " \n Shell was length: " + result.getLength() + "\n answer: " +
 						answer + "\n Supposed to be length: " + answer.getLength();
 		System.out.println("reee");
+        assert(result.size() == answer.size()) : "CardinalityError result: " + result + " had " + result.size() + " points, expected: " + answer + " " + answer.size() + " points "; 
 	}
 
 }

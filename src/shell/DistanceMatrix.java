@@ -229,7 +229,7 @@ public class DistanceMatrix {
      * least 2n dimensions to account for imaginary numbers where n is the number of
      * points in the matrix
      * 
-     * @return A Point Set triangulated from the distance matrix that follows the
+     * @return A Knot Set triangulated from the distance matrix that follows the
      *         triangle property
      */
     public PointSet toPointSet() {

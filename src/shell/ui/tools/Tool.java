@@ -8,7 +8,6 @@ import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.render.Clock;
 import shell.render.text.HyperString;
 import shell.ui.Canvas3D;
@@ -18,12 +17,12 @@ import shell.ui.main.Main;
 public abstract class Tool {
 
     public Segment displaySegment;
-    public VirtualPoint displayKP;
-    public VirtualPoint displayCP;
+    public Knot displayKP;
+    public Knot displayCP;
 
     public Segment selectedSegment;
-    public VirtualPoint selectedKP;
-    public VirtualPoint selectedCP;
+    public Knot selectedKP;
+    public Knot selectedCP;
 
     public void draw(Camera2D camera, float lineThickness) {
         throw new UnsupportedOperationException("Unimplemented method 'draw'");
@@ -38,7 +37,7 @@ public abstract class Tool {
         } else {
             for (Knot k : knotsDisplayed) {
                 if (k.contains(displayKP)) {
-                    VirtualPoint clockWise = k.getNextClockWise(displayKP);
+                    Knot clockWise = k.getNextClockWise(displayKP);
                     if (clockWise.equals(displayCP)) {
                         clockWise = displayKP;
                         displayKP = displayCP;
@@ -64,7 +63,7 @@ public abstract class Tool {
             ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
             for (Knot k : knotsDisplayed) {
                 if (k.contains(displayKP)) {
-                    VirtualPoint clockWise = k.getNextCounterClockWise(displayKP);
+                    Knot clockWise = k.getNextCounterClockWise(displayKP);
                     if (clockWise.equals(displayCP)) {
                         clockWise = displayKP;
                         displayKP = displayCP;
@@ -89,7 +88,7 @@ public abstract class Tool {
         throw new UnsupportedOperationException("Unimplemented method 'confirm'");
     };
 
-    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
+    public void click(Segment s, Knot kp, Knot cp) {
         selectedSegment = s;
         selectedKP = kp;
         selectedCP = cp;
@@ -119,7 +118,7 @@ public abstract class Tool {
         displayCP = selectedCP;
     }
 
-    public void setHover(Segment s, VirtualPoint kp, VirtualPoint cp) {
+    public void setHover(Segment s, Knot kp, Knot cp) {
         boolean changed = (kp != null && !kp.equals(displayKP)) || (cp != null && !cp.equals(displayCP));
         displaySegment = s;
         displayKP = kp;
@@ -172,7 +171,7 @@ public abstract class Tool {
                     }
                 }
                 if (hoverSegment != null) {
-                    VirtualPoint closestPoint = hoverSegment.closestPoint(x, y);
+                    Knot closestPoint = hoverSegment.closestPoint(x, y);
                     if (closestPoint.equals(hoverSegment.first)) {
                         tool.setHover(hoverSegment, hoverSegment.first, hoverSegment.last);
                     } else {
@@ -211,9 +210,9 @@ public abstract class Tool {
                     }
                 }
             }
-            VirtualPoint kp = null, cp = null;
+            Knot kp = null, cp = null;
             if (hoverSegment != null) {
-                VirtualPoint closestPoint = hoverSegment.closestPoint(x, y);
+                Knot closestPoint = hoverSegment.closestPoint(x, y);
                 if (closestPoint.equals(hoverSegment.first)) {
                     kp = hoverSegment.first;
                     cp = hoverSegment.last;

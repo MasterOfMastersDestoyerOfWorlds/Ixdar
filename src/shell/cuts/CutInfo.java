@@ -11,36 +11,35 @@ import shell.exceptions.BalancerException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.shell.Shell;
 
 public class CutInfo {
     public Knot knot;
     public Segment cutSegment1;
-    public VirtualPoint kp1;
-    public VirtualPoint cp1;
+    public Knot kp1;
+    public Knot cp1;
     public Knot superKnot;
 
     public Segment kpSegment;
 
-    public VirtualPoint upperCutPoint;
+    public Knot upperCutPoint;
 
     public boolean needTwoNeighborMatches;
     public boolean bothKnotPointsInside;
     public boolean bothCutPointsOutside;
 
-    public VirtualPoint upperKnotPoint;
-    public VirtualPoint upperExternal;
+    public Knot upperKnotPoint;
+    public Knot upperExternal;
     public Segment upperCutSegment;
     public Segment upperMatchSegment;
 
-    public VirtualPoint lowerKnotPoint;
-    public VirtualPoint lowerExternal;
+    public Knot lowerKnotPoint;
+    public Knot lowerExternal;
     public Segment lowerCutSegment;
     public Segment lowerMatchSegment;
     public Shell shell;
     private SegmentBalanceException sbe;
-    public VirtualPoint lowerCutPoint;
+    public Knot lowerCutPoint;
     static int numCuts = 0;
     public int cutID;
     public boolean bothKnotPointsOutside;
@@ -50,14 +49,14 @@ public class CutInfo {
     public boolean overlapOrientationCorrect;
     public boolean knotPointsConnected;
 
-    public CutInfo(Shell shell, Knot knot, VirtualPoint external1, VirtualPoint external2, Segment cutSegment1,
-            VirtualPoint kp1, VirtualPoint cp1, Knot superKnot, Segment kpSegment,
+    public CutInfo(Shell shell, Knot knot, Knot external1, Knot external2, Segment cutSegment1,
+            Knot kp1, Knot cp1, Knot superKnot, Segment kpSegment,
             ArrayList<Segment> innerNeighborSegments, MultiKeyMap<Integer, Segment> innerNeighborSegmentLookup,
-            ArrayList<Segment> neighborSegments, ArrayList<Pair<Segment, VirtualPoint>> neighborCutSegments,
-            VirtualPoint topCutPoint, boolean needTwoNeighborMatches,
+            ArrayList<Segment> neighborSegments, ArrayList<Pair<Segment, Knot>> neighborCutSegments,
+            Knot topCutPoint, boolean needTwoNeighborMatches,
             boolean bothKnotPointsInside, boolean bothKnotPointsOutside, boolean bothCutPointsOutside,
-            VirtualPoint upperKnotPoint, Segment upperMatchSegment, Segment upperCutSegment,
-            VirtualPoint lowerKnotPoint, Segment lowerMatchSegment, Segment lowerCutSegment, BalanceMap balanceMap) {
+            Knot upperKnotPoint, Segment upperMatchSegment, Segment upperCutSegment,
+            Knot lowerKnotPoint, Segment lowerMatchSegment, Segment lowerCutSegment, BalanceMap balanceMap) {
         this.shell = shell;
         this.knot = knot;
         this.superKnot = superKnot;
@@ -91,16 +90,16 @@ public class CutInfo {
     }
 
     // 12%
-    public CutInfo(Shell shell, VirtualPoint lowerKnotPoint, VirtualPoint lowerCutPoint, Segment lowerCutSegment,
-            VirtualPoint lowerExternal,
-            VirtualPoint upperKnotPoint, VirtualPoint upperCutPoint, Segment upperCutSegment,
-            VirtualPoint upperExternal,
+    public CutInfo(Shell shell, Knot lowerKnotPoint, Knot lowerCutPoint, Segment lowerCutSegment,
+            Knot lowerExternal,
+            Knot upperKnotPoint, Knot upperCutPoint, Segment upperCutSegment,
+            Knot upperExternal,
             Knot superKnot, BalanceMap balanceMap, boolean knotPointsConnected) throws BalancerException {
         // 2.38%
         Segment s51 = lowerKnotPoint.getClosestSegment(lowerExternal, null);
         Segment s52 = upperKnotPoint.getClosestSegment(upperExternal, s51);
-        VirtualPoint externalPoint51 = s51.getOther(lowerKnotPoint);
-        VirtualPoint externalPoint52 = s52.getOther(upperKnotPoint);
+        Knot externalPoint51 = s51.getOther(lowerKnotPoint);
+        Knot externalPoint52 = s52.getOther(upperKnotPoint);
         // 0%
         cutID = ++numCuts;
         this.shell = shell;
@@ -219,8 +218,8 @@ public class CutInfo {
         CutInfo c = new CutInfo(this);
         Segment s41 = this.upperKnotPoint.getClosestSegment(this.lowerExternal, null);
         Segment s42 = this.lowerKnotPoint.getClosestSegment(this.upperExternal, s41);
-        VirtualPoint externalPoint41 = s41.getOther(this.upperKnotPoint);
-        VirtualPoint externalPoint42 = s42.getOther(this.lowerKnotPoint);
+        Knot externalPoint41 = s41.getOther(this.upperKnotPoint);
+        Knot externalPoint42 = s42.getOther(this.lowerKnotPoint);
         c.lowerMatchSegment = s41;
         c.upperMatchSegment = s42;
         c.lowerExternal = externalPoint41;
@@ -241,8 +240,8 @@ public class CutInfo {
         return c;
     }
 
-    public VirtualPoint getExternalMatchPointFromCutSegment(VirtualPoint externalKnot, Segment cutSegment,
-            VirtualPoint exclude) {
+    public Knot getExternalMatchPointFromCutSegment(Knot externalKnot, Segment cutSegment,
+            Knot exclude) {
         if (cutSegment.id == lowerCutSegment.id && externalKnot.contains(lowerExternal)
                 && (exclude == null || exclude.id != lowerExternal.id)) {
             return lowerExternal;
@@ -253,8 +252,8 @@ public class CutInfo {
         return null;
     }
 
-    public VirtualPoint getKnotPointFromCutSegment(VirtualPoint externalKnot, Segment cutSegment,
-            VirtualPoint exclude) {
+    public Knot getKnotPointFromCutSegment(Knot externalKnot, Segment cutSegment,
+            Knot exclude) {
         if (cutSegment.id == lowerCutSegment.id && externalKnot.contains(lowerExternal)
                 && (exclude == null || exclude.id != lowerKnotPoint.id)) {
             return lowerKnotPoint;
@@ -265,7 +264,7 @@ public class CutInfo {
         return null;
     }
 
-    public Segment getCutSegmentFromKnotPoint(VirtualPoint prevMatchPoint) {
+    public Segment getCutSegmentFromKnotPoint(Knot prevMatchPoint) {
         if (prevMatchPoint.id == lowerKnotPoint.id) {
             return lowerCutSegment;
         } else if (prevMatchPoint.id == upperKnotPoint.id) {
@@ -274,7 +273,7 @@ public class CutInfo {
         return null;
     }
 
-    public boolean hasKnotPoint(VirtualPoint nextMatchPoint) {
+    public boolean hasKnotPoint(Knot nextMatchPoint) {
         if (lowerKnotPoint.id == nextMatchPoint.id || upperKnotPoint.id == nextMatchPoint.id) {
             return true;
         }

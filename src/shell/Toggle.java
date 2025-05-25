@@ -5,7 +5,7 @@ import shell.ui.main.PanelTypes;
 public enum Toggle {
 
     CalculateKnot(true, "calcKnot"),
-    CutKnot(true, "cutKnot"),
+    CutKnot(false, "cutKnot"),
     DrawMainPath(false, "mainPath"),
     DrawNumberLabels(true, "numberLabels"),
     DrawMetroDiagram(true, "metro"),

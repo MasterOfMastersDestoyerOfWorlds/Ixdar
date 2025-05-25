@@ -26,7 +26,6 @@ import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 
 public class InternalPathEngine {
     public static long totalTimeIxdar = 0;
@@ -50,10 +49,10 @@ public class InternalPathEngine {
     public static Pair<CutMatchList, RouteMap> calculateInternalPathLength(CutInfo c, RouteMap neighborRouteMap,
             CutMatchDistanceMatrix d) throws SegmentBalanceException, BalancerException {
         Segment cutSegment1 = c.lowerCutSegment;
-        VirtualPoint cutPoint1 = c.lowerCutPoint;
-        VirtualPoint knotPoint1 = c.lowerKnotPoint;
-        VirtualPoint cutPoint2 = c.upperCutPoint;
-        VirtualPoint knotPoint2 = c.upperKnotPoint;
+        Knot cutPoint1 = c.lowerCutPoint;
+        Knot knotPoint1 = c.lowerKnotPoint;
+        Knot cutPoint2 = c.upperCutPoint;
+        Knot knotPoint2 = c.upperKnotPoint;
         Segment cutSegment2 = c.upperCutSegment;
         Knot knot = c.knot;
 
@@ -61,7 +60,7 @@ public class InternalPathEngine {
 
         long startTimeIxdar = System.currentTimeMillis();
 
-        ArrayList<VirtualPoint> knotPoints = knot.knotPointsFlattened;
+        ArrayList<Knot> knotPoints = knot.knotPointsFlattened;
         boolean startingWeights = neighborRouteMap != null;
         RouteMap routeMap1 = new RouteMap(c);
         @SuppressWarnings("unused")
@@ -73,13 +72,13 @@ public class InternalPathEngine {
         PriorityQueue<RoutePair> heap = new PriorityQueue<RoutePair>(new RouteComparator());
         int numPoints = knot.size();
         for (int i = 0; i < numPoints; i++) {
-            VirtualPoint k1 = knotPoints.get(i);
+            Knot k1 = knotPoints.get(i);
             RouteInfo r = null;
             if (routeMap1.containsKey(k1.id)) {
                 r = routeMap1.get(k1.id);
             } else {
-                VirtualPoint nextNeighbor = knot.getNext(k1);
-                VirtualPoint prevNeighbor = knot.getPrev(k1);
+                Knot nextNeighbor = knot.getNext(k1);
+                Knot prevNeighbor = knot.getPrev(k1);
                 r = new RouteInfo(k1, Double.MAX_VALUE, prevNeighbor, nextNeighbor, null, null, knotPoint1,
                         knotPoint2, cutPoint1, cutPoint2, routeMap1, i);
                 routeMap1.put(k1.id, i, r);
@@ -271,7 +270,7 @@ public class InternalPathEngine {
      *       go to 1
      * </pre>
      */
-    private final static void bellmanFordDjikstras(Knot knot, CutInfo c, ArrayList<VirtualPoint> knotPoints,
+    private final static void bellmanFordDjikstras(Knot knot, CutInfo c, ArrayList<Knot> knotPoints,
             RouteMap routeMap1,
             PriorityQueue<RoutePair> heap, CutMatchDistanceMatrix d) throws SegmentBalanceException {
 
@@ -359,7 +358,7 @@ public class InternalPathEngine {
 
     private static boolean canConnect(Route u, RouteInfo v, Route vRoute, RouteType vRouteType, Segment acrossSeg,
             Segment cutSeg, RouteInfo uParent, Knot knot, CutInfo c, RouteMap map) {
-        VirtualPoint neighbor = vRoute.neighbor;
+        Knot neighbor = vRoute.neighbor;
         // you cannot connect to cut segment 1
         if (v.id == c.lowerCutPoint.id && neighbor.id == c.lowerKnotPoint.id) {
             return false;
@@ -455,8 +454,8 @@ public class InternalPathEngine {
 
     }
 
-    public static ArrayList<Integer> paintState(Group group, Knot knot, VirtualPoint knotPoint,
-            VirtualPoint cutPoint, Segment cutSegment,
+    public static ArrayList<Integer> paintState(Group group, Knot knot, Knot knotPoint,
+            Knot cutPoint, Segment cutSegment,
             RouteMap routeInfo) {
         ArrayList<Integer> result = new ArrayList<>();
         int idx = knot.knotPoints.indexOf(knotPoint);
@@ -470,9 +469,9 @@ public class InternalPathEngine {
         }
         marchDirection = -marchDirection;
         int totalIter = 0;
-        VirtualPoint prev2 = knot.knotPoints.get(idx2);
+        Knot prev2 = knot.knotPoints.get(idx2);
         while (true) {
-            VirtualPoint curr = knot.knotPoints.get(idx);
+            Knot curr = knot.knotPoints.get(idx);
             if (cutSegment.contains(curr) && cutSegment.contains(prev2)) {
                 break;
             }

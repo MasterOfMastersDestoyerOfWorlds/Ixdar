@@ -18,9 +18,7 @@ import shell.exceptions.IdDoesNotExistException;
 import shell.exceptions.IdsNotConcurrentException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
-import shell.knot.Point;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.point.PointND;
 import shell.utils.StringBuff;
 
@@ -33,7 +31,7 @@ import shell.utils.StringBuff;
 public class Shell extends LinkedList<PointND> {
     public static int failed = 0;
     private Shell child;
-    public HashMap<Integer, VirtualPoint> pointMap = new HashMap<Integer, VirtualPoint>();
+    public HashMap<Integer, Knot> pointMap = new HashMap<Integer, Knot>();
     public DistanceMatrix distanceMatrix;
     public String knotName;
 
@@ -57,14 +55,14 @@ public class Shell extends LinkedList<PointND> {
         int numPoints = distanceMatrix.size();
         for (int i = 0; i < numPoints; i++) {
             PointND pnd = distanceMatrix.getPoints().get(i);
-            Point p = new Point(pnd, this);
+            Knot p = new Knot(pnd, this);
             pointMap.put(pnd.getID(), p);
         }
         for (int i = 0; i < numPoints; i++) {
-            Point p1 = (Point) pointMap.get(i);
+            Knot p1 = pointMap.get(i);
             for (int j = 0; j < numPoints; j++) {
                 if (i != j) {
-                    Point p2 = (Point) pointMap.get(j);
+                    Knot p2 = pointMap.get(j);
                     Segment s = new Segment(p1, p2, distanceMatrix.getDistance(p1.p, p2.p));
                     p1.sortedSegments.add(s);
                     p1.segmentLookup.put(s.id, s);
@@ -82,7 +80,7 @@ public class Shell extends LinkedList<PointND> {
         pointMap = new HashMap<>();
         initPoints(distanceMatrix);
         int idx = 0;
-        ArrayList<VirtualPoint> knots = knotEngine.createKnots(30);
+        ArrayList<Knot> knots = knotEngine.createKnots(30, this.sortedSegments);
         if (knots.size() > 1) {
             System.out.println("Recursion Limit REACHED");
             float zero = 1 / 0;
@@ -95,10 +93,8 @@ public class Shell extends LinkedList<PointND> {
         buff.add("================= - WARNING - =================\n");
         int knotsCleared = 0;
         if (knots.size() == 1) {
-            VirtualPoint gp1 = knots.get(0);
-            if (gp1.isKnot) {
-                result = cutKnot((Knot) gp1);
-            }
+            Knot gp1 = knots.get(0);
+            result = cutKnot((Knot) gp1);
         }
         return result;
     }
@@ -109,13 +105,13 @@ public class Shell extends LinkedList<PointND> {
         this.sortedSegments = new ArrayList<Segment>();
         int numPoints = distanceMatrix.size();
         for (int i = 0; i < numPoints; i++) {
-            Point p = new Point(distanceMatrix.getPoints().get(i), this);
+            Knot p = new Knot(distanceMatrix.getPoints().get(i), this);
             pointMap.put(i, p);
         }
         for (int i = 0; i < numPoints; i++) {
-            Point p1 = (Point) pointMap.get(i);
+            Knot p1 = pointMap.get(i);
             for (int j = 0; j < numPoints; j++) {
-                Point p2 = (Point) pointMap.get(j);
+                Knot p2 = pointMap.get(j);
                 Segment s = new Segment(p1, p2, distanceMatrix.getDistance(p1.p, p2.p));
                 if (i != j) {
                     p1.sortedSegments.add(s);
@@ -131,15 +127,15 @@ public class Shell extends LinkedList<PointND> {
         sortedSegments.sort(null);
     }
 
-    public ArrayList<VirtualPoint> slowSolve(Shell A, DistanceMatrix distanceMatrix, int layers) {
+    public ArrayList<Knot> slowSolve(Shell A, DistanceMatrix distanceMatrix, int layers) {
         initShell(distanceMatrix);
-        ArrayList<VirtualPoint> knots = knotEngine.createKnots(layers);
+        ArrayList<Knot> knots = knotEngine.createKnots(layers, this.sortedSegments);
         return knots;
     }
 
     public Shell cutKnot(Knot mainKnot) throws SegmentBalanceException, BalancerException {
         cutEngine.totalLayers = mainKnot.getHeight();
-        ArrayList<VirtualPoint> knotList = cutEngine.cutKnot(mainKnot.knotPoints, 1);
+        ArrayList<Knot> knotList = cutEngine.cutKnot(mainKnot.knotPoints, 1);
         Knot knot = new Knot(knotList, this);
         if (!cutEngine.flattenEngine.flatKnots.containsKey(knot.id)) {
             this.updateSmallestKnot(knot);
@@ -147,8 +143,8 @@ public class Shell extends LinkedList<PointND> {
             cutEngine.flattenEngine.setFlatKnot(0, knot, mainKnot);
         }
         Shell result = new Shell();
-        for (VirtualPoint p : knotList) {
-            result.add(((Point) p).p);
+        for (Knot p : knotList) {
+            result.add((p).p);
         }
         return result;
     }
@@ -165,7 +161,7 @@ public class Shell extends LinkedList<PointND> {
             Arrays.fill(smallestKnotLookup, -1);
         }
 
-        for (VirtualPoint vp : knotNew.knotPointsFlattened) {
+        for (Knot vp : knotNew.knotPointsFlattened) {
             int low = vp.id;
             if (smallestKnotLookup[low] == -1) {
                 smallestKnotLookup[low] = knotNew.id;
@@ -183,9 +179,9 @@ public class Shell extends LinkedList<PointND> {
             }
         }
 
-        for (VirtualPoint vp : knotNew.knotPointsFlattened) {
+        for (Knot vp : knotNew.knotPointsFlattened) {
             int low = vp.id;
-            for (VirtualPoint vp2 : knotNew.knotPointsFlattened) {
+            for (Knot vp2 : knotNew.knotPointsFlattened) {
                 int high = vp2.id;
                 if (smallestCommonKnotLookup[high][low] != -1) {
                     continue;

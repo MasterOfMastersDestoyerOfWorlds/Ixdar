@@ -662,7 +662,7 @@ public abstract class PointND extends PointCollection implements Cloneable {
         public static PointND parse(String[] args, int startIdx) throws TerminalParseException {
             if (args.length - startIdx != 3) {
                 throw new TerminalParseException(
-                        "expected 3 coordinates to parse Hex Point got " + (args.length - startIdx));
+                        "expected 3 coordinates to parse Hex Knot got " + (args.length - startIdx));
             }
             int[] coords = new int[3];
             for (int i = 0; i < coords.length; i++) {
@@ -763,7 +763,8 @@ public abstract class PointND extends PointCollection implements Cloneable {
         }
 
         public static Vector2f hexCoordsToPixel(double[] hexCoords) {
-            return new Vector2f((float) (root3 * hexCoords[0] + root3over2 * hexCoords[1]), (float) (1.5 * hexCoords[1]));
+            return new Vector2f((float) (root3 * hexCoords[0] + root3over2 * hexCoords[1]),
+                    (float) (1.5 * hexCoords[1]));
         }
 
         @Override
@@ -1007,8 +1008,7 @@ public abstract class PointND extends PointCollection implements Cloneable {
     }
 
     /**
-     * Converts the N dimensional Point to a 2 Dimensional Point for graphing
-     * purposes
+     * Converts the N dimensional Knot to a 2 Dimensional Knot for graphing purposes
      * 
      * @return a {@code Point2D} that consists of the first 2 coordinates of this
      *         point

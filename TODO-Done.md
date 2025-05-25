@@ -44,9 +44,9 @@
 
 ## UI Free Tool
 
-1. - [x] Clicking on a point should mark it with a circle around the point and change the perma-hover to the selected VirtualPoint
+1. - [x] Clicking on a point should mark it with a circle around the point and change the perma-hover to the selected Knot
 
-2. - [x] Hover over a point should display information about the VirtualPoint like, it's closest three segments and their distances, the x/y coordinates and the minimum knot the point is in.
+2. - [x] Hover over a point should display information about the Knot like, it's closest three segments and their distances, the x/y coordinates and the minimum knot the point is in.
 
 3. - [x] Info Panel should display the point's containing Knot.
 

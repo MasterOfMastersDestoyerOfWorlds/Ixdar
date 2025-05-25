@@ -7,16 +7,16 @@ import shell.cuts.engines.InternalPathEngine;
 import shell.cuts.enums.RouteType;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
+import shell.knot.Knot;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
 
 public class Route implements Comparable<Route> {
     public RouteType routeType;
     public RouteType ancestorRouteType = RouteType.None;
-    public VirtualPoint neighbor;
+    public Knot neighbor;
     public double delta;
-    public VirtualPoint ancestor;
+    public Knot ancestor;
     public ArrayList<Integer> ourGroup;
     public ArrayList<Integer> otherGroup;
     public ArrayList<Segment> cuts;
@@ -31,7 +31,7 @@ public class Route implements Comparable<Route> {
     public int numPoints = -1;
     public GroupInfo[] groupInfo;
 
-    public Route(RouteType routeType, double delta, VirtualPoint neighbor, int pointId, RouteInfo parent) {
+    public Route(RouteType routeType, double delta, Knot neighbor, int pointId, RouteInfo parent) {
         this.routeType = routeType;
         this.delta = delta;
         this.neighbor = neighbor;
@@ -52,7 +52,7 @@ public class Route implements Comparable<Route> {
      * @param parent
      * 
      */
-    public Route(Route routeToCopy, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, RouteInfo parent,
+    public Route(Route routeToCopy, Knot upperCutPoint, Knot upperKnotPoint, RouteInfo parent,
             CutInfo c, ArrayList<Route> routesToCheck) {
 
         this.routeType = routeToCopy.routeType;

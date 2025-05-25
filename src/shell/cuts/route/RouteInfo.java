@@ -7,7 +7,7 @@ import shell.cuts.enums.Group;
 import shell.cuts.enums.RouteType;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
+import shell.knot.Knot;
 
 public class RouteInfo {
 
@@ -24,14 +24,14 @@ public class RouteInfo {
     public Route nextDC;
     public Route[] routes;
 
-    public VirtualPoint node;
+    public Knot node;
     public int id;
     public int rotDist;
     public int index;
 
-    public RouteInfo(VirtualPoint node, double delta, VirtualPoint prevNeighbor, VirtualPoint nextNeighbor,
-            VirtualPoint ancestor, VirtualPoint matchedNeighbor, VirtualPoint knotPoint1, VirtualPoint knotPoint2,
-            VirtualPoint cutPoint1, VirtualPoint cutPoint2, RouteMap routeMap, int index) {
+    public RouteInfo(Knot node, double delta, Knot prevNeighbor, Knot nextNeighbor,
+            Knot ancestor, Knot matchedNeighbor, Knot knotPoint1, Knot knotPoint2,
+            Knot cutPoint1, Knot cutPoint2, RouteMap routeMap, int index) {
         this.c = routeMap.c;
         this.parent = routeMap;
         this.node = node;
@@ -48,7 +48,7 @@ public class RouteInfo {
         routes[RouteType.nextDC.idx] = nextDC;
     }
 
-    public RouteInfo(RouteInfo routeInfoToCopy, VirtualPoint upperCutPoint, VirtualPoint upperKnotPoint, CutInfo c,
+    public RouteInfo(RouteInfo routeInfoToCopy, Knot upperCutPoint, Knot upperKnotPoint, CutInfo c,
             RouteMap routeMap, ArrayList<Route> routesToCheck) {
         this.c = c;
         this.parent = routeMap;
@@ -218,7 +218,7 @@ public class RouteInfo {
         }
     }
 
-    public final void updateRoute(double delta, VirtualPoint ancestor, RouteType routeType, RouteType ancestorRouteType,
+    public final void updateRoute(double delta, Knot ancestor, RouteType routeType, RouteType ancestorRouteType,
             Route ancestorRoute, Segment acrossSeg) throws SegmentBalanceException {
 
         Route route = routes[routeType.idx];
@@ -252,7 +252,7 @@ public class RouteInfo {
 
     }
 
-    public void getNeighborRoute(VirtualPoint cp) {
+    public void getNeighborRoute(Knot cp) {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'getNeighborRoute'");
     }

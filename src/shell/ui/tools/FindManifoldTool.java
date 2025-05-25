@@ -6,7 +6,7 @@ import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.cuts.Manifold;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
+import shell.knot.Knot;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
 import shell.ui.Drawing;
@@ -21,8 +21,8 @@ public class FindManifoldTool extends Tool {
     public States state = States.FindStart;
 
     public Segment firstSelectedSegment;
-    public VirtualPoint firstSelectedKP;
-    public VirtualPoint firstSelectedCP;
+    public Knot firstSelectedKP;
+    public Knot firstSelectedCP;
 
     public FindManifoldTool() {
         disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.CanSwitchLayer };
@@ -55,7 +55,7 @@ public class FindManifoldTool extends Tool {
     }
 
     @Override
-    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
+    public void click(Segment s, Knot kp, Knot cp) {
         confirm();
     }
 

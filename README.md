@@ -498,7 +498,7 @@ match2 = P<sub>*</sub>
 
 Next, so that we can look at [Points](#point) and [Knots](#knot) interchangeably, lets make some interface or abstract class above both of them (and any other structures we want to add later):
 
-### [Virtual Point](.\src\shell\knot\VirtualPoint.java)
+### [Virtual Point](.\src\shell\knot\Knot.java)
 
 all of the stuff from [Points](#point), [Knots](#knot), and [Runs](#run) combined and generalized!
 

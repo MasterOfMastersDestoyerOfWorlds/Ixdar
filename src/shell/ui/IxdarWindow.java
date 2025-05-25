@@ -75,6 +75,7 @@ public class IxdarWindow {
         glfwTerminate();
         glfwSetErrorCallback(null).free();
     }
+
     private void init() {
         // Setup an error callback. The default implementation
         // will print the error message in System.err.
@@ -169,7 +170,6 @@ public class IxdarWindow {
         glfwMakeContextCurrent(window);
         // Enable v-sync
         glfwSwapInterval(1);
-        
 
         System.out.println("Window Time: " + (Clock.time() - startTime));
         canvas.initGL();

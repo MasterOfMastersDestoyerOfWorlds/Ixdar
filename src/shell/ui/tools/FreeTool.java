@@ -5,9 +5,6 @@ import java.util.ArrayList;
 import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
-import shell.knot.Point;
-import shell.knot.Run;
-import shell.knot.VirtualPoint;
 import shell.point.PointND;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
@@ -60,8 +57,8 @@ public class FreeTool extends Tool {
         if (displayKP == null) {
             h.addWord("None");
         } else {
-            coordPoint = ((Point) displayKP).p;
-            final PointND coordPointF = ((Point) displayKP).p;
+            coordPoint = (displayKP).p;
+            final PointND coordPointF = (displayKP).p;
             pointInfo.addWord(coordPointF.toString());
             h.addTooltip(displayKP.id + "", Color.BLUE_WHITE, pointInfo, () -> Main.camera.centerOnPoint(coordPointF));
         }
@@ -78,8 +75,9 @@ public class FreeTool extends Tool {
         if (displayKP == null) {
             h.addWord("None");
         } else {
-            h.addWord(displayKP.match1.id + "");
-            h.addWord(displayKP.match2.id + "");
+            for (Knot match : displayKP.matchList) {
+                h.addWord(match.id + "");
+            }
         }
 
         h.newLine();
@@ -110,7 +108,7 @@ public class FreeTool extends Tool {
             }
             String pointStr = "" + displayKP.id + " ";
             final Knot reeK = containingKnot;
-            final PointND coordPointF = ((Point) displayKP).p;
+            final PointND coordPointF = (displayKP).p;
             HyperString minKnotInfo = new HyperString();
             if (containingKnot.s1 != null && containingKnot.s2 != null) {
                 minKnotInfo.addHyperString(containingKnot.s1.toHyperString(c, false));
@@ -129,16 +127,11 @@ public class FreeTool extends Tool {
         h.newLine();
         if (Main.result.size() > 0) {
             h.addWord("TopKnot:");
-            for (VirtualPoint topStruct : Main.result) {
-                if (topStruct.isKnot) {
+            for (Knot topStruct : Main.result) {
+                if (!topStruct.isSingleton()) {
                     h.newLine();
                     h.newLine();
                     h.addHyperString(((Knot) topStruct).toHyperString());
-                }
-                if (topStruct.isRun) {
-                    h.newLine();
-                    h.newLine();
-                    h.addHyperString(((Run) topStruct).toHyperString());
                 }
             }
         }

@@ -1,3 +1,4 @@
+
 package shell.knot;
 
 import java.awt.geom.Point2D;
@@ -5,94 +6,94 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import shell.Toggle;
+import shell.exceptions.SegmentBalanceException;
+import shell.point.PointND;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
 import shell.shell.Shell;
 import shell.ui.actions.Action;
 import shell.ui.main.Main;
 import shell.ui.tools.Tool;
-import shell.utils.RunListUtils;
 
-public class Knot extends VirtualPoint {
-
-    static int knotmergecount = 0;
-    static int knotflattencount = 0;
-    static int runlistmergecount = 0;
-    static int runmergecount = 0;
-    public int size;
-    public ArrayList<VirtualPoint> knotPoints; // [ vp1, vp2, ... vpm];
-    public HashMap<Integer, VirtualPoint> pointToInternalKnot;
+public class Knot {
+    public int minMatches;
+    public int maxMatches;
+    public ArrayList<Knot> externalKnots;
+    public ArrayList<Knot> knotPoints;
+    public ArrayList<Knot> knotPointsFlattened;
+    public ArrayList<Segment> sortedSegments;
+    public HashMap<Long, Segment> segmentLookup;
+    public Segment[] pointSegmentLookup;
+    public int id;
+    public Knot group;
+    public Knot topGroup;
+    public Knot topKnot;
+    Knot topGroupKnot;
+    Shell shell;
     public ArrayList<Segment> manifoldSegments;
     public ArrayList<Long> manifoldSegmentIds;
     int height;
     public int numKnots;
+    public HashMap<Integer, Knot> pointToInternalKnot;
+    public PointND p;
+    public ArrayList<Knot> matchList;
+    public WindingOrder order = WindingOrder.None;
+    public Segment s1;
+    public Segment s2;
+    public Knot m1;
+    public Knot m2;
 
-    // [[s1, ..., sn-1], [s1, ..., sn-1], ... m]; sorted and remove
-    // vp1, vp2, ... vpm
-
-    public Knot(ArrayList<VirtualPoint> knotPointsToAdd, Shell shell) {
+    public Knot(ArrayList<Knot> knotPointsToAdd, Shell shell) {
         constructor(knotPointsToAdd, shell, true);
     }
 
-    public Knot(ArrayList<VirtualPoint> knotPointsToAdd, Shell shell, boolean setMatches) {
+    public Knot(ArrayList<Knot> knotPointsToAdd, Shell shell, boolean setMatches) {
         constructor(knotPointsToAdd, shell, setMatches);
     }
 
-    public void constructor(ArrayList<VirtualPoint> knotPointsToAdd, Shell shell, boolean setMatches) {
+    public Knot(PointND pnd, Shell shell) {
+        this.p = pnd;
+        this.shell = shell;
+        sortedSegments = new ArrayList<>();
+        this.shell = shell;
+        this.id = p.getID();
+        shell.knotEngine.unvisited.add(this);
+        group = this;
+        topGroup = this;
+        topKnot = this;
+        knotPointsFlattened = new ArrayList<Knot>();
+        knotPointsFlattened.add(this);
+        knotPoints = new ArrayList<>();
+        knotPoints.add(this);
+        sortedSegments = new ArrayList<Segment>();
+        segmentLookup = new HashMap<>();
+        pointSegmentLookup = new Segment[shell.size()];
+        manifoldSegments = new ArrayList<>();
+        minMatches = 2;
+        maxMatches = 2;
+        matchList = new ArrayList<>();
+    }
+
+    public void constructor(ArrayList<Knot> knotPointsToAdd, Shell shell, boolean setMatches) {
         knotPointsToAdd = new ArrayList<>(knotPointsToAdd);
-        ArrayList<VirtualPoint> addList = new ArrayList<>();
+        minMatches = 2;
+        maxMatches = 2;
+        matchList = new ArrayList<>();
+        ArrayList<Knot> addList = new ArrayList<>();
         int size = knotPointsToAdd.size();
         for (int i = 0; i < knotPointsToAdd.size(); i++) {
-            VirtualPoint vp = knotPointsToAdd.get(i);
-            if (vp.isKnot && ((Knot) vp).knotPoints.size() == 2) {
-                VirtualPoint last = knotPointsToAdd.get(Math.floorMod(i - 1, size));
-                VirtualPoint next = knotPointsToAdd.get(Math.floorMod(i + 1, size));
-                VirtualPoint vp1 = ((Knot) vp).knotPoints.get(0);
-                VirtualPoint vp2 = ((Knot) vp).knotPoints.get(1);
-                if (vp1.isKnot && vp2.isKnot) {
+            Knot vp = knotPointsToAdd.get(i);
+            if (!vp.isSingleton() && ((Knot) vp).knotPoints.size() == 2) {
+                Knot last = knotPointsToAdd.get(Math.floorMod(i - 1, size));
+                Knot next = knotPointsToAdd.get(Math.floorMod(i + 1, size));
+                Knot vp1 = ((Knot) vp).knotPoints.get(0);
+                Knot vp2 = ((Knot) vp).knotPoints.get(1);
+                if (!vp1.isSingleton() && !vp2.isSingleton()) {
                     Segment lastSeg = last.getClosestSegment(vp, null);
-                    VirtualPoint lastKnotPoint = lastSeg.getOtherKnot(last);
+                    Knot lastKnotPoint = lastSeg.getOtherKnot(last);
                     Segment nextSeg = next.getClosestSegment(vp, lastSeg);
-                    VirtualPoint nextKnotPoint = nextSeg.getOtherKnot(next);
-                    if (last.id == next.id && last.isConnector(vp1, vp2)) {
-                        addList.add(vp2);
-                        addList.add(vp1);
-                        knotPointsToAdd.remove(i);
-                        knotPointsToAdd.add(i, vp1);
-                        knotPointsToAdd.add(i, vp2);
-                        size++;
-                        i++;
-                        vp1.resetMatch2();
-                        vp2.resetMatch2();
-                        next.reset(vp);
-                        last.reset(vp);
-                    } else if ((vp1.contains(lastKnotPoint) && vp2.contains(nextKnotPoint))) {
-                        addList.add(vp1);
-                        addList.add(vp2);
-                        knotPointsToAdd.remove(i);
-                        knotPointsToAdd.add(i, vp2);
-                        knotPointsToAdd.add(i, vp1);
-                        size++;
-                        i++;
-                        vp1.resetMatch2();
-                        vp2.resetMatch2();
-                        next.reset(vp);
-                        last.reset(vp);
-                    } else if (vp1.contains(nextKnotPoint) && vp2.contains(lastKnotPoint)) {
-                        addList.add(vp2);
-                        addList.add(vp1);
-                        knotPointsToAdd.remove(i);
-                        knotPointsToAdd.add(i, vp1);
-                        knotPointsToAdd.add(i, vp2);
-                        size++;
-                        i++;
-                        vp1.resetMatch2();
-                        vp2.resetMatch2();
-                        next.reset(vp);
-                        last.reset(vp);
-                    } else {
-                        addList.add(vp);
-                    }
+                    Knot nextKnotPoint = nextSeg.getOtherKnot(next);
+                    addList.add(vp);
                 } else {
                     addList.add(vp);
                 }
@@ -101,48 +102,19 @@ public class Knot extends VirtualPoint {
             }
         }
         this.shell = shell;
-        if (setMatches) {
-            if (addList.get(0).match2 == null
-                    || addList.get(addList.size() - 1).match2 == null) {
-                VirtualPoint vp1 = addList.get(0);
-                VirtualPoint vp2 = addList.get(addList.size() - 1);
-                Segment s = vp1.getClosestSegment(vp2, vp1.s1);
-                Point bp2 = (Point) s.getOtherKnot(vp1);
-                Point bp1 = (Point) s.getOther(bp2);
-                if (vp2.basePoint1 != null && vp2.isKnot && vp2.basePoint1.equals(bp2)) {
-                    s = vp1.getClosestSegment(vp2, vp2.s1);
-                    bp2 = (Point) s.getOtherKnot(vp1);
-                    bp1 = (Point) s.getOther(bp2);
-                }
-                vp1.setMatch2(vp2, bp2, bp1, s);
-                vp2.setMatch2(vp1, bp1, bp2, s);
-            }
-        }
         sortedSegments = new ArrayList<>();
-        ArrayList<VirtualPoint> flattenRunPoints = RunListUtils.flattenRunPoints(addList, shell, true);
-        if (setMatches) {
-            RunListUtils.fixRunList(flattenRunPoints, flattenRunPoints.size());
-        }
-        this.knotPoints = flattenRunPoints;
-        isKnot = true;
-        isRun = false;
+        this.knotPoints = addList;
         this.topGroup = this;
         this.topKnot = this;
         this.group = this;
         size = knotPoints.size();
-        knotPointsFlattened = new ArrayList<VirtualPoint>();
+        knotPointsFlattened = new ArrayList<Knot>();
         pointToInternalKnot = new HashMap<>();
 
-        for (VirtualPoint vp : knotPoints) {
-            if (vp.isKnot) {
+        for (Knot vp : knotPoints) {
+            if (!vp.isSingleton()) {
                 Knot knot = ((Knot) vp);
-                for (VirtualPoint p : knot.knotPointsFlattened) {
-                    knotPointsFlattened.add(p);
-                    pointToInternalKnot.put(p.id, knot);
-                }
-            } else if (vp.isRun) {
-                Run knot = ((Run) vp);
-                for (VirtualPoint p : knot.knotPointsFlattened) {
+                for (Knot p : knot.knotPointsFlattened) {
                     knotPointsFlattened.add(p);
                     pointToInternalKnot.put(p.id, knot);
                 }
@@ -152,19 +124,12 @@ public class Knot extends VirtualPoint {
             }
         }
 
-        this.externalVirtualPoints = new ArrayList<>();
-        externalVirtualPoints.addAll(knotPointsFlattened);
+        this.externalKnots = new ArrayList<>();
+        externalKnots.addAll(knotPointsFlattened);
         // store the segment lists of each point contained in the knot, recursive
         sortedSegments = new ArrayList<Segment>();
-        for (VirtualPoint vp : knotPoints) {
-            if (vp.isKnot) {
-                ArrayList<Segment> vpExternal = vp.sortedSegments;
-                for (Segment s : vpExternal) {
-                    if (!(knotPointsFlattened.contains(s.first) && knotPointsFlattened.contains(s.last))) {
-                        sortedSegments.add(s);
-                    }
-                }
-            } else if (vp.isRun) {
+        for (Knot vp : knotPoints) {
+            if (!vp.isSingleton()) {
                 ArrayList<Segment> vpExternal = vp.sortedSegments;
                 for (Segment s : vpExternal) {
                     if (!(knotPointsFlattened.contains(s.first) && knotPointsFlattened.contains(s.last))) {
@@ -183,14 +148,14 @@ public class Knot extends VirtualPoint {
                 vp.group = this;
                 vp.topGroup = this;
                 vp.topKnot = this;
-                for (VirtualPoint flat : vp.knotPointsFlattened) {
-                    flat.topGroupVirtualPoint = vp;
+                for (Knot flat : vp.knotPointsFlattened) {
+                    flat.topGroupKnot = vp;
                 }
-                vp.topGroupVirtualPoint = vp;
+                vp.topGroupKnot = vp;
             }
         }
         if (setMatches) {
-            for (VirtualPoint p : knotPointsFlattened) {
+            for (Knot p : knotPointsFlattened) {
                 p.topGroup = this;
                 p.topKnot = this;
             }
@@ -198,22 +163,19 @@ public class Knot extends VirtualPoint {
         sortedSegments.sort(null);
         this.id = shell.pointMap.keySet().size();
         shell.pointMap.put(id, this);
-        if (setMatches) {
-            shell.knotEngine.unvisited.add(this);
-        }
         manifoldSegments = new ArrayList<>();
         manifoldSegmentIds = new ArrayList<>();
         if (knotPointsFlattened.size() == knotPoints.size()) {
             for (int a = 0; a < knotPoints.size(); a++) {
-                VirtualPoint knotPoint1 = knotPoints.get(a);
-                VirtualPoint knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
+                Knot knotPoint1 = knotPoints.get(a);
+                Knot knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
                 Segment s = knotPoint1.getClosestSegment(knotPoint2, null);
                 manifoldSegments.add(s);
                 manifoldSegmentIds.add(s.id);
             }
         }
         height = 0;
-        for (VirtualPoint vp : knotPoints) {
+        for (Knot vp : knotPoints) {
             int pHeight = vp.getHeight();
             if (pHeight > height) {
                 height = pHeight;
@@ -221,47 +183,60 @@ public class Knot extends VirtualPoint {
         }
         height++;
         numKnots = 0;
-        for (VirtualPoint vp : knotPoints) {
-            if (vp.isKnot) {
+        for (Knot vp : knotPoints) {
+            if (!vp.isSingleton()) {
                 Knot k = (Knot) vp;
                 numKnots += k.numKnots;
             }
         }
+        assert (this.size() > 0);
         numKnots++;
-        if (this.size() <= 2) {
-            throw new AssertionError();
-        }
     }
 
-    public Segment getSegment(VirtualPoint a, VirtualPoint b) {
-
-        if (a.match1.equals(b)) {
-            return a.s1;
-        }
-        if (a.match2.equals(b)) {
-            return a.s2;
-        }
-        if (!a.isKnot && !b.isKnot) {
-            Point ap = (Point) a;
-            Point bp = (Point) b;
-            return new Segment(bp, ap, shell.distanceMatrix.getDistance(ap.p, bp.p));
+    public Segment getPointer(int idx) {
+        int count = idx;
+        ArrayList<Segment> seenGroups = new ArrayList<Segment>();
+        ArrayList<Knot> seenPoints = new ArrayList<Knot>();
+        for (int i = 0; i < sortedSegments.size(); i++) {
+            Segment s = sortedSegments.get(i);
+            Knot knotPoint = s.getKnotPoint(knotPointsFlattened);
+            Knot basePoint = s.getOther(knotPoint);
+            Knot vp = basePoint.group;
+            if (vp.group != null) {
+                vp = vp.group;
+            }
+            Segment potentialSegment = new Segment(basePoint, knotPoint, 0);
+            if ((!seenGroups.contains(potentialSegment)) && (!seenPoints.contains(knotPoint))
+                    && (!seenPoints.contains(basePoint))
+                    || vp.matchList.contains(knotPoint)) {
+                count--;
+                if (count == 0) {
+                    return s;
+                }
+                seenGroups.add(potentialSegment);
+                if (!this.isSingleton()) {
+                    seenPoints.add(knotPoint);
+                }
+                if (!vp.isSingleton()) {
+                    seenPoints.add(basePoint);
+                }
+            }
         }
         return null;
     }
 
-    @Override
-    public Point getNearestBasePoint(VirtualPoint vp) {
+    public Knot getNearestBasePoint(Knot vp) {
         for (int i = 0; i < sortedSegments.size(); i++) {
             Segment s = sortedSegments.get(i);
-            if (vp.isKnot) {
+            if (!vp.isSingleton()) {
                 Knot knot = (Knot) vp;
-                VirtualPoint p = s.getKnotPoint(knot.knotPointsFlattened);
+                Knot p = s.getKnotPoint(knot.knotPointsFlattened);
                 if (p != null) {
-                    return (Point) s.getOther(p);
+                    return s.getOther(p);
                 }
             } else {
                 if (s.contains(vp)) {
-                    return (Point) s.getOther(vp);
+                    return s.getOther(vp);
                 }
             }
         }
@@ -269,82 +244,82 @@ public class Knot extends VirtualPoint {
         return null;
     }
 
-    public VirtualPoint getPrev(int idx) {
+    public Knot getPrev(int idx) {
         return knotPoints.get(idx - 1 < 0 ? knotPoints.size() - 1 : idx - 1);
     }
 
-    public VirtualPoint getPrev(VirtualPoint prev) {
+    public Knot getPrev(Knot prev) {
         int idx = knotPointsFlattened.indexOf(prev);
         return knotPoints.get(idx - 1 < 0 ? knotPoints.size() - 1 : idx - 1);
     }
 
-    public VirtualPoint getNext(int idx) {
+    public Knot getNext(int idx) {
         return knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
     }
 
-    public VirtualPoint getNext(VirtualPoint next) {
+    public Knot getNext(Knot next) {
         int idx = knotPointsFlattened.indexOf(next);
         return knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
     }
 
-    public VirtualPoint getOtherNeighbor(VirtualPoint vp, VirtualPoint neighbor) {
+    public Knot getOtherNeighbor(Knot vp, Knot neighbor) {
         int idx = knotPointsFlattened.indexOf(vp);
-        VirtualPoint neighborNext = knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
+        Knot neighborNext = knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
         if (neighborNext.id == neighbor.id) {
             return knotPoints.get(idx - 1 < 0 ? knotPoints.size() - 1 : idx - 1);
         }
         return neighborNext;
     }
 
-    @Override
-    public String toString() {
-        String str = "Knot[ ";
-        for (VirtualPoint vp : knotPoints) {
-            str += vp + " ";
-        }
-        str.stripTrailing();
-        str += "]";
-        return str;
+    public boolean isSingleton() {
+        return this.size() == 1;
     }
 
-    public String beforeString(int id) {
-        String str = "Knot[ ";
-        for (VirtualPoint vp : knotPoints) {
-            if (vp.id == id) {
-                return str;
+    public int size() {
+        return knotPointsFlattened.size();
+    }
+
+    public Segment getSegment(Knot a, Knot b) {
+
+        if (a.matchList.contains(b)) {
+            return a.getClosestSegment(b, null);
+        }
+        if (a.isSingleton() && b.isSingleton()) {
+            Knot ap = a;
+            Knot bp = b;
+            return new Segment(bp, ap, shell.distanceMatrix.getDistance(ap.p, bp.p));
+        }
+        return null;
+    }
+
+    public Segment getClosestSegment(Knot vp, Segment excludeSegment) {
+        Knot excludethis = excludeSegment == null ? null : excludeSegment.getKnotPoint(knotPointsFlattened);
+        Knot excludeother = excludeSegment == null ? null : excludeSegment.getKnotPoint(vp.knotPointsFlattened);
+
+        for (int i = 0; i < sortedSegments.size(); i++) {
+            Segment s = sortedSegments.get(i);
+            Knot knot = (Knot) vp;
+            if (s.getKnotPoint(knot.knotPointsFlattened) != null
+                    && (excludeSegment == null || ((vp.isSingleton() || !s.contains(excludeother))
+                            && (this.isSingleton() || !s.contains(excludethis))))) {
+                return s;
             }
-            str += vp + " ";
         }
-        str.stripTrailing();
-        str += "]";
-        return str;
+
+        @SuppressWarnings("unused")
+        float zero = 1 / 0;
+        return null;
     }
 
-    public String afterString(int id) {
-        String str = "Knot[";
-        for (VirtualPoint vp : knotPoints) {
-            str += vp + " ";
-            if (vp.id == id) {
-                str = "";
-            }
-        }
-        str.stripTrailing();
-        str += "]";
-        return str;
+    public Segment getSegment(Knot vp) {
+        long a = this.id;
+        long b = vp.id;
+        long id = a >= b ? a * a + a + b : b + a + b * b;
+        Segment look = this.segmentLookup.get(id);
+        return look;
     }
 
-    @Override
-    public String fullString() {
-        return "" + this + " match1: " + (match1 == null ? " none " : "" + match1) + " match1endpoint: "
-                + (match1endpoint == null ? " none " : "" + match1endpoint.id) + " basepoint1: "
-                + (basePoint1 == null ? " none " : "" + basePoint1.id) + " match2: "
-                + (match2 == null ? " none " : "" + match2) + " match2endpoint: "
-                + (match2endpoint == null ? " none " : "" + match2endpoint.id) + " basepoint2: "
-                + (basePoint2 == null ? " none " : "" + basePoint2.id);
-    }
-
-    @Override
-    public boolean contains(VirtualPoint vp) {
+    public boolean contains(Knot vp) {
         if (this.equals(vp)) {
             return true;
         }
@@ -358,8 +333,8 @@ public class Knot extends VirtualPoint {
         if (manifoldSegments.size() == 0) {
             for (int a = 0; a < knotPoints.size(); a++) {
 
-                VirtualPoint knotPoint1 = knotPoints.get(a);
-                VirtualPoint knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
+                Knot knotPoint1 = knotPoints.get(a);
+                Knot knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
                 if (cut.contains(knotPoint1) && cut.contains(knotPoint2)) {
                     return true;
                 }
@@ -376,7 +351,7 @@ public class Knot extends VirtualPoint {
     }
 
     public boolean overlaps(Knot minKnot) {
-        for (VirtualPoint vp : minKnot.knotPoints) {
+        for (Knot vp : minKnot.knotPoints) {
             if (this.contains(vp)) {
                 return true;
             }
@@ -385,7 +360,7 @@ public class Knot extends VirtualPoint {
     }
 
     public boolean hasPoint(int i) {
-        for (VirtualPoint vp : knotPointsFlattened) {
+        for (Knot vp : knotPointsFlattened) {
             if (vp.id == i) {
                 return true;
             }
@@ -393,16 +368,11 @@ public class Knot extends VirtualPoint {
         return false;
     }
 
-    @Override
-    public int size() {
-        return knotPointsFlattened.size();
-    }
-
-    public Segment getOtherSegment(Segment implicitCut, VirtualPoint vp) {
+    public Segment getOtherSegment(Segment implicitCut, Knot vp) {
         for (int a = 0; a < knotPoints.size(); a++) {
 
-            VirtualPoint knotPoint1 = knotPoints.get(a);
-            VirtualPoint knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
+            Knot knotPoint1 = knotPoints.get(a);
+            Knot knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
             boolean right = implicitCut.contains(knotPoint1);
             boolean left = implicitCut.contains(knotPoint2);
             boolean hasPoint = knotPoint1.equals(vp) || knotPoint2.equals(vp);
@@ -424,9 +394,39 @@ public class Knot extends VirtualPoint {
         return d;
     }
 
-    public WindingOrder order = WindingOrder.None;
+    public int getHeight() {
+        if (!this.isSingleton()) {
+            Knot k = (Knot) this;
+            int max = 1;
+            for (Knot vp : k.knotPoints) {
+                if (!vp.isSingleton()) {
+                    int h = vp.getHeight() + 1;
+                    if (h > max) {
+                        max = h;
+                    }
+                }
+            }
+            return max;
+        } else {
+            return 1;
+        }
+    }
 
-    public VirtualPoint getNextClockWise(VirtualPoint displayPoint) {
+    public void setMatch(Knot matchPoint, Segment s) {
+        matchList.add(matchPoint);
+        if (s1 == null) {
+            m1 = matchPoint;
+            s1 = s;
+        } else {
+            m2 = matchPoint;
+            s2 = s;
+        }
+        if (m1 != null && m2 != null) {
+            assert (m1.id != m2.id);
+        }
+    }
+
+    public Knot getNextClockWise(Knot displayPoint) {
         if (order.equals(WindingOrder.None)) {
             order = DetermineWindingOrder();
         }
@@ -437,7 +437,7 @@ public class Knot extends VirtualPoint {
         }
     }
 
-    public VirtualPoint getNextCounterClockWise(VirtualPoint displayPoint) {
+    public Knot getNextCounterClockWise(Knot displayPoint) {
         if (order.equals(WindingOrder.None)) {
             order = DetermineWindingOrder();
         }
@@ -453,17 +453,17 @@ public class Knot extends VirtualPoint {
         int nVerts = knotPointsFlattened.size();
         // If vertices duplicates first as last to represent closed polygon,
         // skip last.
-        Point2D lastV = ((Point) knotPointsFlattened.get(nVerts - 1)).p.toPoint2D();
-        if (lastV.equals(((Point) knotPointsFlattened.get(0)).p.toPoint2D()))
+        Point2D lastV = (knotPointsFlattened.get(nVerts - 1)).p.toPoint2D();
+        if (lastV.equals((knotPointsFlattened.get(0)).p.toPoint2D()))
             nVerts -= 1;
         int iMinVertex = FindCornerVertex();
         // Orientation matrix:
         // [ 1 xa ya ]
         // O = | 1 xb yb |
         // [ 1 xc yc ]
-        Point2D a = ((Point) knotPointsFlattened.get(WrapAt(iMinVertex - 1, nVerts))).p.toPoint2D();
-        Point2D b = ((Point) knotPointsFlattened.get(iMinVertex)).p.toPoint2D();
-        Point2D c = ((Point) knotPointsFlattened.get(WrapAt(iMinVertex + 1, nVerts))).p.toPoint2D();
+        Point2D a = (knotPointsFlattened.get(WrapAt(iMinVertex - 1, nVerts))).p.toPoint2D();
+        Point2D b = (knotPointsFlattened.get(iMinVertex)).p.toPoint2D();
+        Point2D c = (knotPointsFlattened.get(WrapAt(iMinVertex + 1, nVerts))).p.toPoint2D();
         // determinant(O) = (xb*yc + xa*yb + ya*xc) - (ya*xb + yb*xc + xa*yc)
         double detOrient = (b.getX() * c.getY() + a.getX() * b.getY() + a.getY() * c.getX())
                 - (a.getY() * b.getX() + b.getY() * c.getX() + a.getX() * c.getY());
@@ -487,7 +487,7 @@ public class Knot extends VirtualPoint {
         double minXAtMinY = Float.MAX_VALUE;
         for (int i = 0; i < knotPointsFlattened.size(); i++) {
 
-            Point2D vert = ((Point) knotPointsFlattened.get(i)).p.toPoint2D();
+            Point2D vert = (knotPointsFlattened.get(i)).p.toPoint2D();
             double y = (double) vert.getY();
             if (y > minY)
                 continue;
@@ -513,6 +513,45 @@ public class Knot extends VirtualPoint {
     }
 
     @Override
+    public String toString() {
+        if (this.isSingleton()) {
+            return Integer.toString(id);
+        }
+        String str = "Knot[ ";
+        for (Knot vp : knotPoints) {
+            str += vp + " ";
+        }
+        str.stripTrailing();
+        str += "]";
+        return str;
+    }
+
+    public String beforeString(int id) {
+        String str = "Knot[ ";
+        for (Knot vp : knotPoints) {
+            if (vp.id == id) {
+                return str;
+            }
+            str += vp + " ";
+        }
+        str.stripTrailing();
+        str += "]";
+        return str;
+    }
+
+    public String afterString(int id) {
+        String str = "Knot[";
+        for (Knot vp : knotPoints) {
+            str += vp + " ";
+            if (vp.id == id) {
+                str = "";
+            }
+        }
+        str.stripTrailing();
+        str += "]";
+        return str;
+    }
+
     public HyperString toHyperString() {
         HyperString h = new HyperString();
         Tool tool = Main.tool;
@@ -528,8 +567,8 @@ public class Knot extends VirtualPoint {
         };
         Knot hoverKnot = Main.getKnotFlatten(this);
         h.addHoverKnot("Knot[ ", c, hoverKnot, clickAction);
-        for (VirtualPoint vp : knotPoints) {
-            if (vp.isKnot) {
+        for (Knot vp : knotPoints) {
+            if (!vp.isSingleton()) {
                 h.addHyperString(((Knot) vp).toHyperString());
             } else {
                 h.addHoverKnot(vp + " ", c, hoverKnot, clickAction);
@@ -540,4 +579,34 @@ public class Knot extends VirtualPoint {
         return h;
     }
 
+    public boolean isFull() {
+        return matchList.size() == maxMatches;
+    }
+
+    public ArrayList<Knot> getRunList() {
+        Knot next = this.m2;
+        Knot curr = this;
+        ArrayList<Knot> runList = new ArrayList<>();
+        if (next == null) {
+            float z = 0;
+        }
+        while (next.id != this.id) {
+            runList.add(curr);
+            Knot nextTemp = null;
+            if (next.m1.id == curr.id) {
+                nextTemp = next.m2;
+            } else {
+                nextTemp = next.m1;
+            }
+            curr = next;
+            next = nextTemp;
+        }
+        if (runList.size() == 1 && !runList.contains(curr)) {
+            runList.add(curr);
+        }
+        if (runList.size() == 0) {
+            float z = 0;
+        }
+        return runList;
+    }
 }

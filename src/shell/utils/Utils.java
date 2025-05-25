@@ -15,7 +15,6 @@ import org.apache.commons.math3.util.Pair;
 
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 
 public final class Utils {
 
@@ -46,8 +45,8 @@ public final class Utils {
         return str;
     }
 
-    public static Pair<VirtualPoint, VirtualPoint> marchLookup(Knot knot, VirtualPoint kp2, VirtualPoint vp2,
-            ArrayList<VirtualPoint> potentialNeighbors) {
+    public static Pair<Knot, Knot> marchLookup(Knot knot, Knot kp2, Knot vp2,
+            ArrayList<Knot> potentialNeighbors) {
         int idx = knot.knotPoints.indexOf(vp2);
         int idx2 = knot.knotPoints.indexOf(kp2);
         int marchDirection = idx2 - idx < 0 ? -1 : 1;
@@ -59,14 +58,14 @@ public final class Utils {
         }
         int totalIter = 0;
         while (true) {
-            VirtualPoint k1 = knot.knotPoints.get(idx);
+            Knot k1 = knot.knotPoints.get(idx);
             int next = idx + marchDirection;
             if (marchDirection < 0 && next < 0) {
                 next = knot.knotPoints.size() - 1;
             } else if (marchDirection > 0 && next >= knot.knotPoints.size()) {
                 next = 0;
             }
-            VirtualPoint k2 = knot.knotPoints.get(next);
+            Knot k2 = knot.knotPoints.get(next);
             if (potentialNeighbors.contains(k2)) {
                 return new Pair<>(k1, k2);
             }
@@ -78,7 +77,7 @@ public final class Utils {
         }
     }
 
-    public static boolean marchContains(VirtualPoint startPoint, Segment awaySegment, VirtualPoint target, Knot knot,
+    public static boolean marchContains(Knot startPoint, Segment awaySegment, Knot target, Knot knot,
             Knot subKnot) {
         int idx = knot.knotPoints.indexOf(startPoint);
         int idx2 = knot.knotPoints.indexOf(awaySegment.getOther(startPoint));
@@ -98,7 +97,7 @@ public final class Utils {
             } else if (marchDirection > 0 && next >= knot.knotPoints.size()) {
                 next = 0;
             }
-            VirtualPoint k2 = knot.knotPoints.get(next);
+            Knot k2 = knot.knotPoints.get(next);
             if (subKnot.contains(k2)) {
                 return false;
             }
@@ -114,7 +113,7 @@ public final class Utils {
         }
     }
 
-    public static Pair<VirtualPoint, VirtualPoint> marchLookup(Knot knot, VirtualPoint start, VirtualPoint away,
+    public static Pair<Knot, Knot> marchLookup(Knot knot, Knot start, Knot away,
             Segment cutSegment2) {
         if (!knot.hasSegment(cutSegment2)) {
             return null;
@@ -136,7 +135,7 @@ public final class Utils {
             next = 0;
         }
         marchDirection = -marchDirection;
-        VirtualPoint curr = knot.knotPoints.get(idx);
+        Knot curr = knot.knotPoints.get(idx);
         while (true) {
             curr = knot.knotPoints.get(idx);
             next = idx + marchDirection;
@@ -145,7 +144,7 @@ public final class Utils {
             } else if (marchDirection > 0 && next >= knot.knotPoints.size()) {
                 next = 0;
             }
-            VirtualPoint nextp = knot.knotPoints.get(next);
+            Knot nextp = knot.knotPoints.get(next);
 
             if (cutSegment2.contains(nextp) && cutSegment2.contains(curr)) {
                 return new Pair<>(curr, nextp);
@@ -154,8 +153,8 @@ public final class Utils {
         }
     }
 
-    public static boolean wouldOrphan(VirtualPoint cutp1, VirtualPoint knotp1, VirtualPoint cutp2, VirtualPoint knotp2,
-            ArrayList<VirtualPoint> knotList) {
+    public static boolean wouldOrphan(Knot cutp1, Knot knotp1, Knot cutp2, Knot knotp2,
+            ArrayList<Knot> knotList) {
         int cp1 = knotList.indexOf(cutp1);
         int kp1 = knotList.indexOf(knotp1);
 
@@ -179,8 +178,8 @@ public final class Utils {
         return false;
     }
 
-    public static boolean marchUntilHasOneKnotPoint(VirtualPoint startPoint, Segment awaySegment,
-            Segment untilSegment, VirtualPoint kp1, VirtualPoint kp2, Knot knot) {
+    public static boolean marchUntilHasOneKnotPoint(Knot startPoint, Segment awaySegment,
+            Segment untilSegment, Knot kp1, Knot kp2, Knot knot) {
         int idx = knot.knotPoints.indexOf(startPoint);
         int idx2 = knot.knotPoints.indexOf(awaySegment.getOther(startPoint));
         int marchDirection = idx2 - idx < 0 ? -1 : 1;
@@ -193,19 +192,19 @@ public final class Utils {
         marchDirection = -marchDirection;
         int totalIter = 0;
         int numKnotPoints = 0;
-        VirtualPoint first = knot.knotPoints.get(idx);
+        Knot first = knot.knotPoints.get(idx);
         if (first.equals(kp1) || first.equals(kp2)) {
             numKnotPoints++;
         }
         while (true) {
-            VirtualPoint k1 = knot.knotPoints.get(idx);
+            Knot k1 = knot.knotPoints.get(idx);
             int next = idx + marchDirection;
             if (marchDirection < 0 && next < 0) {
                 next = knot.knotPoints.size() - 1;
             } else if (marchDirection > 0 && next >= knot.knotPoints.size()) {
                 next = 0;
             }
-            VirtualPoint k2 = knot.knotPoints.get(next);
+            Knot k2 = knot.knotPoints.get(next);
             if (knot.getSegment(k1, k2).equals(untilSegment)) {
                 return true;
             }
@@ -253,22 +252,22 @@ public final class Utils {
         return false;
     }
 
-    public static ArrayList<VirtualPoint> segmentListToPath(ArrayList<Segment> segments) {
-        ArrayList<VirtualPoint> result = new ArrayList<>();
+    public static ArrayList<Knot> segmentListToPath(ArrayList<Segment> segments) {
+        ArrayList<Knot> result = new ArrayList<>();
         for (int i = 0; i < segments.size(); i++) {
             int prev = i - 1 < 0 ? segments.size() - 1 : i - 1;
             Segment s1 = segments.get(prev);
             Segment s2 = segments.get(i);
-            VirtualPoint p = s1.getOverlap(s2);
+            Knot p = s1.getOverlap(s2);
             result.add(p);
         }
         return result;
     }
 
-    public static Segment getSegmentInSubKnot(VirtualPoint otherNeighborPoint, Knot knot, Knot superKnot) {
+    public static Segment getSegmentInSubKnot(Knot otherNeighborPoint, Knot knot, Knot superKnot) {
         int idx = superKnot.knotPointsFlattened.indexOf(otherNeighborPoint);
-        VirtualPoint prev = superKnot.getPrev(idx);
-        VirtualPoint next = superKnot.getNext(idx);
+        Knot prev = superKnot.getPrev(idx);
+        Knot next = superKnot.getNext(idx);
         if (knot.contains(prev)) {
             return otherNeighborPoint.getClosestSegment(prev, null);
         } else if (knot.contains(next)) {
@@ -323,8 +322,8 @@ public final class Utils {
         }
     }
 
-    public static boolean hasKnot(ArrayList<VirtualPoint> runList, int i) {
-        for (VirtualPoint vp : runList) {
+    public static boolean hasKnot(ArrayList<Knot> runList, int i) {
+        for (Knot vp : runList) {
             if (vp.id == i) {
                 return true;
             }

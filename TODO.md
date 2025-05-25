@@ -98,13 +98,13 @@ I think when matching knots to each other we need ot assume that we are doing th
 
 ## Knot Finding
 
-1. - [ ] If we have a VirtualPoint A that points to two different internal VirtualPoints B and C in the top layer of a Knot, we need to insert A between B and C.
+1. - [ ] If we have a Knot A that points to two different internal Knots B and C in the top layer of a Knot, we need to insert A between B and C.
 
 2. - [ ] Need to Disallow making knots with all internals being knots where the first knot and the last knot do not actually want to match to each other. this is fine when everything is a point, but the correct way to represent this would be : Knot[Knot[Knot[1] Knot[2]] Knot[3]] instead of Knot[Knot[1] Knot[2] Knot[3]]
 
 3. - [ ] Need some rule about joining single points to knots in runs since we are too greedily joining them in 2-knots
 
-4. - [ ] Need to replace "oneOutFlag" in VirtualPoint with a mapping so that we don't trigger over the same point twice. (Do we actually need to remove this?)
+4. - [ ] Need to replace "oneOutFlag" in Knot with a mapping so that we don't trigger over the same point twice. (Do we actually need to remove this?)
 
 5. - [ ] Need to have another method or re-write shouldKnotConsume so that if we see one of our matches instead of quitting we also check to see if that should be consumed, there is a three way check that needs to happen. rather if i am a point and I have am checking if i should be consumed by my neihgbor in the runlist and i run into the oneoutflag break down problems but I break on another knot in the runlist, have to think about what to do there should we form a knot wiht all three? Look at lu634_105-127.ix
 

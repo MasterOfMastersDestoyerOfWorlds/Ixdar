@@ -8,7 +8,6 @@ import shell.Toggle;
 import shell.cuts.route.RouteMap;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.ui.main.Main;
 
 public class SortedCutMatchInfo {
@@ -30,7 +29,7 @@ public class SortedCutMatchInfo {
         cw = null;
     }
 
-    public void add(CutMatchList cutMatch, Segment cutSegment, VirtualPoint knotPoint) {
+    public void add(CutMatchList cutMatch, Segment cutSegment, Knot knotPoint) {
         sortedCutMatchLists.add(cutMatch);
         long orderedSegmentId = Segment.idTransformOrdered(cutSegment, knotPoint);
         ArrayList<CutMatchList> segmentList = sortedCutMatchListsBySegment.getOrDefault(orderedSegmentId,
@@ -61,8 +60,8 @@ public class SortedCutMatchInfo {
         }
     }
 
-    public static CutMatchList findCutMatchList(VirtualPoint startCP, VirtualPoint startKP, VirtualPoint displayCP,
-            VirtualPoint displayKP, Knot displayKnot) {
+    public static CutMatchList findCutMatchList(Knot startCP, Knot startKP, Knot displayCP,
+            Knot displayKP, Knot displayKnot) {
         HashMap<Integer, SortedCutMatchInfo> cutMatchLookup = Main.shell.cutEngine.sortedCutMatchInfoLookup;
         SortedCutMatchInfo cutMatchInfo = cutMatchLookup.get(displayKnot.id);
         Long segmentId = Segment.idTransformOrdered(startCP.id, startKP.id);
@@ -76,7 +75,7 @@ public class SortedCutMatchInfo {
         return null;
     }
 
-    public static CutMatchList findCutMatchList(VirtualPoint displayCP, VirtualPoint displayKP) {
+    public static CutMatchList findCutMatchList(Knot displayCP, Knot displayKP) {
         HashMap<Integer, SortedCutMatchInfo> cutMatchLookup = Main.shell.cutEngine.sortedCutMatchInfoLookup;
         Knot displayKnot = null;
         for (Knot k : Main.knotsDisplayed) {

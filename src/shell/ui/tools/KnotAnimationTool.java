@@ -24,7 +24,6 @@ import shell.cuts.CutMatch;
 import shell.cuts.CutMatchList;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
@@ -300,7 +299,7 @@ public class KnotAnimationTool extends Tool {
     }
 
     @Override
-    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
+    public void click(Segment s, Knot kp, Knot cp) {
         confirm();
     }
 

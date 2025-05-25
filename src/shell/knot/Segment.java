@@ -11,12 +11,12 @@ import shell.ui.actions.Action;
 import shell.ui.main.Main;
 
 public class Segment implements Comparable<Segment> {
-    public VirtualPoint first;
-    public VirtualPoint last;
+    public Knot first;
+    public Knot last;
     public double distance;
     public long id;
 
-    public Segment(VirtualPoint first, VirtualPoint last, double distance) {
+    public Segment(Knot first, Knot last, double distance) {
         this.first = first;
         this.last = last;
         this.distance = distance;
@@ -25,7 +25,7 @@ public class Segment implements Comparable<Segment> {
         id = idTransform(a, b);
     }
 
-    public VirtualPoint getOther(VirtualPoint vp) {
+    public Knot getOther(Knot vp) {
         if (vp.equals(first)) {
             return last;
         }
@@ -35,25 +35,21 @@ public class Segment implements Comparable<Segment> {
         return null;
     }
 
-    public VirtualPoint getOtherKnot(VirtualPoint vp) {
-        if (vp.isKnot) {
+    public Knot getOtherKnot(Knot vp) {
+        if (!vp.isSingleton()) {
             Knot knot = (Knot) vp;
-            VirtualPoint p = this.getKnotPoint(knot.knotPointsFlattened);
-            return this.getOther(p);
-        } else if (vp.isRun) {
-            Run knot = (Run) vp;
-            VirtualPoint p = this.getKnotPoint(knot.knotPointsFlattened);
+            Knot p = this.getKnotPoint(knot.knotPointsFlattened);
             return this.getOther(p);
         } else {
             return this.getOther(vp);
         }
     }
 
-    public boolean contains(VirtualPoint vp) {
+    public boolean contains(Knot vp) {
         return first.equals(vp) || last.equals(vp);
     }
 
-    public boolean contains(VirtualPoint[] vp) {
+    public boolean contains(Knot[] vp) {
         boolean contains = false;
         for (int i = 0; i < vp.length; i++) {
             if (first.equals(vp[i]) || last.equals(vp[i])) {
@@ -63,7 +59,7 @@ public class Segment implements Comparable<Segment> {
         return contains;
     }
 
-    public VirtualPoint getKnotPoint(ArrayList<VirtualPoint> knotPointsFlattened) {
+    public Knot getKnotPoint(ArrayList<Knot> knotPointsFlattened) {
         if (knotPointsFlattened.contains(first)) {
             return first;
         }
@@ -123,7 +119,7 @@ public class Segment implements Comparable<Segment> {
         return false;
     }
 
-    public VirtualPoint getOverlap(Segment other) {
+    public Knot getOverlap(Segment other) {
         // TODO Auto-generated method stub
         if (other.contains(first)) {
             return first;
@@ -133,8 +129,8 @@ public class Segment implements Comparable<Segment> {
         return null;
     }
 
-    public VirtualPoint containsAny(ArrayList<VirtualPoint> neighbors) {
-        for (VirtualPoint vp : neighbors) {
+    public Knot containsAny(ArrayList<Knot> neighbors) {
+        for (Knot vp : neighbors) {
             if (this.contains(vp)) {
                 return vp;
             }
@@ -155,12 +151,12 @@ public class Segment implements Comparable<Segment> {
         return false;
     }
 
-    public static int getFirstOrderId(VirtualPoint firstInnerNeighbor, VirtualPoint k2) {
+    public static int getFirstOrderId(Knot firstInnerNeighbor, Knot k2) {
         int first = firstInnerNeighbor.id < k2.id ? firstInnerNeighbor.id : k2.id;
         return first;
     }
 
-    public static int getLastOrderId(VirtualPoint firstInnerNeighbor, VirtualPoint k2) {
+    public static int getLastOrderId(Knot firstInnerNeighbor, Knot k2) {
         return firstInnerNeighbor.id < k2.id ? k2.id : firstInnerNeighbor.id;
     }
 
@@ -184,7 +180,7 @@ public class Segment implements Comparable<Segment> {
         return false;
     }
 
-    public VirtualPoint getPoint(Integer i) {
+    public Knot getPoint(Integer i) {
         if (first.id == i) {
             return first;
         }
@@ -210,8 +206,8 @@ public class Segment implements Comparable<Segment> {
         return (a + b) * (a + b + 1) / 2 + b;
     }
 
-    public static long idTransformOrdered(Segment cutSegment, VirtualPoint knotPoint) {
-        VirtualPoint cutPoint = cutSegment.getOther(knotPoint);
+    public static long idTransformOrdered(Segment cutSegment, Knot knotPoint) {
+        Knot cutPoint = cutSegment.getOther(knotPoint);
         long a = cutPoint.id;
         long b = knotPoint.id;
         return (a + b) * (a + b + 1) / 2 + b;
@@ -222,8 +218,8 @@ public class Segment implements Comparable<Segment> {
     }
 
     public double boundContains(double x, double y) {
-        PointND p1 = ((Point) first).p;
-        PointND p2 = ((Point) last).p;
+        PointND p1 = (first).p;
+        PointND p2 = (last).p;
         double x1 = p1.getScreenX();
         double y1 = p1.getScreenY();
         double x2 = p2.getScreenX();
@@ -254,9 +250,9 @@ public class Segment implements Comparable<Segment> {
 
     }
 
-    public VirtualPoint closestPoint(double x, double y) {
-        PointND p1 = ((Point) first).p;
-        PointND p2 = ((Point) last).p;
+    public Knot closestPoint(double x, double y) {
+        PointND p1 = (first).p;
+        PointND p2 = (last).p;
         double x1 = p1.getScreenX();
         double y1 = p1.getScreenY();
         double x2 = p2.getScreenX();

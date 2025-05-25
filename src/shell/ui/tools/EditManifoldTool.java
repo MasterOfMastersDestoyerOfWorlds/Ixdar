@@ -6,7 +6,7 @@ import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.cuts.Manifold;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
+import shell.knot.Knot;
 import shell.render.text.HyperString;
 import shell.ui.Drawing;
 import shell.ui.main.Main;
@@ -14,7 +14,7 @@ import shell.ui.main.Main;
 public class EditManifoldTool extends Tool {
 
     public Manifold manifold;
-    VirtualPoint lastPoint;
+    Knot lastPoint;
 
     public EditManifoldTool() {
         disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.CanSwitchLayer };
@@ -46,7 +46,7 @@ public class EditManifoldTool extends Tool {
     }
 
     @Override
-    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
+    public void click(Segment s, Knot kp, Knot cp) {
 
     }
 

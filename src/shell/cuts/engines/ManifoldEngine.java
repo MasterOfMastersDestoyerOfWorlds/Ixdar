@@ -19,7 +19,6 @@ import shell.exceptions.BalancerException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.shell.Shell;
 
 public class ManifoldEngine {
@@ -42,7 +41,7 @@ public class ManifoldEngine {
     }
 
     public static SortedCutMatchInfo findCutMatchList(Knot knot,
-            VirtualPoint external1, VirtualPoint external2, Shell shell)
+            Knot external1, Knot external2, Shell shell)
             throws SegmentBalanceException, BalancerException {
         long startTimeCutMatchList = System.currentTimeMillis();
         double minDelta = Double.MAX_VALUE;
@@ -50,8 +49,8 @@ public class ManifoldEngine {
         CutMatchDistanceMatrix d = new CutMatchDistanceMatrix(knot);
         for (int a = 0; a < knot.knotPoints.size(); a++) {
 
-            VirtualPoint knotPoint11 = knot.knotPoints.get(a);
-            VirtualPoint knotPoint12 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
+            Knot knotPoint11 = knot.knotPoints.get(a);
+            Knot knotPoint12 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
             Segment cutSegment1 = knotPoint11.getClosestSegment(knotPoint12, null);
             Segment s11 = knotPoint11.getClosestSegment(external1, null);
             Segment s12 = knotPoint12.getClosestSegment(external2, s11);
@@ -99,12 +98,12 @@ public class ManifoldEngine {
             for (int b = a; b < knot.knotPoints.size(); b++) {
 
                 // 0.28%
-                VirtualPoint knotPoint11 = knot.knotPoints.get(a);
-                VirtualPoint knotPoint12 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
+                Knot knotPoint11 = knot.knotPoints.get(a);
+                Knot knotPoint12 = knot.knotPoints.get(a + 1 >= knot.knotPoints.size() ? 0 : a + 1);
                 Segment cutSegment1 = knotPoint11.getClosestSegment(knotPoint12, null);
 
-                VirtualPoint knotPoint21 = knot.knotPoints.get(b);
-                VirtualPoint knotPoint22 = knot.knotPoints.get(b + 1 >= knot.knotPoints.size() ? 0 : b + 1);
+                Knot knotPoint21 = knot.knotPoints.get(b);
+                Knot knotPoint22 = knot.knotPoints.get(b + 1 >= knot.knotPoints.size() ? 0 : b + 1);
                 Segment cutSegment2 = knotPoint21.getClosestSegment(knotPoint22, null);
 
                 if (cutSegment1.partialOverlaps(cutSegment2)) {
@@ -385,12 +384,12 @@ public class ManifoldEngine {
 
                 // (upperCutSegment that has its upperKnotPoint as our
                 // * upperCutPoint its upperCutPoint that is not in our cutSegment)
-                VirtualPoint upperCutPointNeighbor = c.knot.getOtherNeighbor(c.upperCutPoint, c.upperKnotPoint);
+                Knot upperCutPointNeighbor = c.knot.getOtherNeighbor(c.upperCutPoint, c.upperKnotPoint);
                 Long upperCutNeighborSegIdOrdered = Segment.idTransformOrdered(upperCutPointNeighbor.id,
                         c.upperCutPoint.id);
                 // * (upperCutSegment that has its upperCutPoint as our upperKnotPoint and its
                 // * upperKnotPoint is not in our cutSegment)
-                VirtualPoint upperKnotPointNeighbor = c.knot.getOtherNeighbor(c.upperKnotPoint, c.upperCutPoint);
+                Knot upperKnotPointNeighbor = c.knot.getOtherNeighbor(c.upperKnotPoint, c.upperCutPoint);
                 Long upperKnotNeighborSegIdOrdered = Segment.idTransformOrdered(c.upperKnotPoint.id,
                         upperKnotPointNeighbor.id);
                 if (lowerSegmentMap.containsKey(upperCutNeighborSegIdOrdered)) {

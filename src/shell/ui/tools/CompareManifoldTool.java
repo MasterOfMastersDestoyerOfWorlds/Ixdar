@@ -12,7 +12,6 @@ import shell.cuts.route.Route;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
 import shell.ui.Drawing;
@@ -48,17 +47,17 @@ public class CompareManifoldTool extends Tool {
     public Route displayRouteBeta;
 
     public Segment startSegment;
-    public VirtualPoint startKP;
-    public VirtualPoint startCP;
+    public Knot startKP;
+    public Knot startCP;
 
     public Segment alphaEndSegment;
-    public VirtualPoint alphaEndKP;
-    public VirtualPoint alphaEndCP;
+    public Knot alphaEndKP;
+    public Knot alphaEndCP;
     public Manifold alphaManifold;
 
     public Segment betaEndSegment;
-    public VirtualPoint betaEndKP;
-    public VirtualPoint betaEndCP;
+    public Knot betaEndKP;
+    public Knot betaEndCP;
     public Manifold betaManifold;
 
     HashMap<Long, Integer> colorLookup;
@@ -165,7 +164,7 @@ public class CompareManifoldTool extends Tool {
     }
 
     @Override
-    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
+    public void click(Segment s, Knot kp, Knot cp) {
         confirm();
     }
 
@@ -255,8 +254,8 @@ public class CompareManifoldTool extends Tool {
             if (routeView == RouteView.Connected) {
                 for (Segment s : k.manifoldSegments) {
                     long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
-                    VirtualPoint f = s.first;
-                    VirtualPoint l = s.last;
+                    Knot f = s.first;
+                    Knot l = s.last;
                     Route aRouteC = alphaManifold.getNeighborRouteC(f, l);
                     Route aRouteDC = alphaManifold.getNeighborRouteDC(f, l);
                     Route bRouteC = betaManifold.getNeighborRouteC(f, l);
@@ -290,8 +289,8 @@ public class CompareManifoldTool extends Tool {
             } else if (routeView == RouteView.Disconnected) {
                 for (Segment s : k.manifoldSegments) {
                     long matchId = Segment.idTransformOrdered(s.first.id, s.last.id);
-                    VirtualPoint f = s.first;
-                    VirtualPoint l = s.last;
+                    Knot f = s.first;
+                    Knot l = s.last;
                     Route aRouteDC = alphaManifold.getNeighborRouteDC(f, l);
                     Route aRouteC = alphaManifold.getNeighborRouteC(f, l);
                     Route bRouteDC = betaManifold.getNeighborRouteDC(f, l);

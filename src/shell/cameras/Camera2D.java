@@ -7,9 +7,7 @@ import org.joml.Vector2f;
 
 import shell.PointSet;
 import shell.knot.Knot;
-import shell.knot.Point;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.point.PointND;
 import shell.render.Clock;
 import shell.render.shaders.ShaderProgram;
@@ -250,13 +248,13 @@ public class Camera2D implements Camera {
     }
 
     public void zoomToSegment(Segment s) {
-        ArrayList<VirtualPoint> points = new ArrayList<>();
+        ArrayList<Knot> points = new ArrayList<>();
         points.add(s.first);
         points.add(s.last);
         zoomToPoints(points);
     }
 
-    public void zoomToPoints(ArrayList<VirtualPoint> list) {
+    public void zoomToPoints(ArrayList<Knot> list) {
 
         offsetX = 0;
         offsetY = 0;
@@ -264,8 +262,8 @@ public class Camera2D implements Camera {
         float knotMinY = Float.MAX_VALUE;
         float knotMaxX = Float.MIN_VALUE;
         float knotMaxY = Float.MIN_VALUE;
-        for (VirtualPoint vp : list) {
-            PointND pn = ((Point) vp).p;
+        for (Knot vp : list) {
+            PointND pn = (vp).p;
             if (!pn.isDummyNode()) {
                 Point2D p = pn.toPoint2D();
 

@@ -4,7 +4,6 @@ import shell.cuts.CutInfo;
 import shell.cuts.CutMatchList;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.shell.Shell;
 
 public class SegmentBalanceException extends Exception {
@@ -56,8 +55,8 @@ public class SegmentBalanceException extends Exception {
 
     @Override
     public String toString() {
-        VirtualPoint kp1 = c.lowerKnotPoint;
-        VirtualPoint kp2 = c.upperKnotPoint;
+        Knot kp1 = c.lowerKnotPoint;
+        Knot kp2 = c.upperKnotPoint;
         cutName = shell.knotName + "_cut" + kp1 + "-" + cut1.getOther(kp1) + "and" + kp2
                 + "-" + cut2.getOther(kp2) + "\n" + cutMatchList;
         if (c != null) {

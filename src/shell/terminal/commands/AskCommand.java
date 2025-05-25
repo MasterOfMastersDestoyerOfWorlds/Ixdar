@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import org.apache.commons.math3.util.Pair;
 
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
+import shell.knot.Knot;
 import shell.point.PointND;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
@@ -47,8 +47,8 @@ public class AskCommand extends TerminalCommand {
         if (questionName.equals("dist")) {
             int id1 = Integer.parseInt(args[startIdx + 1]);
             int id2 = Integer.parseInt(args[startIdx + 2]);
-            VirtualPoint vp1 = Main.shell.pointMap.get(id1);
-            VirtualPoint vp2 = Main.shell.pointMap.get(id2);
+            Knot vp1 = Main.shell.pointMap.get(id1);
+            Knot vp2 = Main.shell.pointMap.get(id2);
             terminal.history.addLine("distance from " + id1 + " to " + id2 + " " + vp1.getSegment(vp2).distance,
                     Color.BLUE_WHITE);
             return new String[] { "ask dist " + id1 + " " + id2 };
@@ -70,7 +70,7 @@ public class AskCommand extends TerminalCommand {
             if (args.length - startIdx > 2) {
                 numPrint = Integer.parseInt(args[startIdx + 2]);
             }
-            VirtualPoint vp = Main.shell.pointMap.get(id1);
+            Knot vp = Main.shell.pointMap.get(id1);
             if (vp == null) {
                 terminal.error("Point with id: " + vp + " does not exist.");
             } else if (numPrint > vp.sortedSegments.size()) {
@@ -97,7 +97,7 @@ public class AskCommand extends TerminalCommand {
                     terminal.history.addHyperString(seg);
                     terminal.history.newLine();
                     i++;
-                    if(i > numPrint){
+                    if (i > numPrint) {
                         break;
                     }
                 }
@@ -113,9 +113,9 @@ public class AskCommand extends TerminalCommand {
             } else {
                 ArrayList<Segment> segements = new ArrayList<>();
                 for (int i = 0; i < numPrint; i++) {
-                    VirtualPoint vp = Main.shell.pointMap.get(i);
+                    Knot vp = Main.shell.pointMap.get(i);
                     if (vp.sortedSegments.size() > 1) {
-                        if (!vp.isKnot) {
+                        if (!!vp.isSingleton()) {
                             segements.add(vp.sortedSegments.get(0));
                             segements.add(vp.sortedSegments.get(1));
                         }
@@ -135,14 +135,14 @@ public class AskCommand extends TerminalCommand {
             if (args.length - startIdx > 2) {
                 numPrint = Integer.parseInt(args[startIdx + 2]);
             }
-            VirtualPoint vp = Main.shell.pointMap.get(id1);
+            Knot vp = Main.shell.pointMap.get(id1);
             if (vp == null) {
                 terminal.error("Point with id: " + vp + " does not exist.");
             }
             ArrayList<Long> seen = new ArrayList<>();
             ArrayList<Long> green = new ArrayList<>();
 
-            for (VirtualPoint innerVp : vp.knotPointsFlattened) {
+            for (Knot innerVp : vp.knotPointsFlattened) {
                 for (int i = 0; i < numPrint; i++) {
                     Segment seg = innerVp.sortedSegments.get(i);
                     if (seen.contains(seg.id)) {
@@ -151,7 +151,7 @@ public class AskCommand extends TerminalCommand {
                     seen.add(seg.id);
                 }
             }
-            for (VirtualPoint innerVp : vp.knotPointsFlattened) {
+            for (Knot innerVp : vp.knotPointsFlattened) {
                 for (int i = 0; i < numPrint; i++) {
                     Segment segment = innerVp.sortedSegments.get(i);
                     HyperString str = null;

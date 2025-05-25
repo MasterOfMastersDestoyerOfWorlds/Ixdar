@@ -3,7 +3,7 @@ package shell.cuts;
 import shell.cuts.engines.CutEngine;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
+import shell.knot.Knot;
 
 public class Clockwork {
     /**
@@ -16,19 +16,19 @@ public class Clockwork {
     public Clockwork prevClockwork;
     public boolean prevIsSet = false;
     public Segment prevCut;
-    public VirtualPoint prevExternal;
-    public VirtualPoint prevKnotPoint;
+    public Knot prevExternal;
+    public Knot prevKnotPoint;
     public Double prevExternalDelta;
     public Segment prevExternalSegment;
     public Clockwork nextClockwork;
     public boolean nextIsSet = false;
     public Segment nextCut;
-    public VirtualPoint nextExternal;
-    public VirtualPoint nextKnotPoint;
+    public Knot nextExternal;
+    public Knot nextKnotPoint;
     public Double nextExternalDelta;
     public Segment nextExternalSegment;
 
-    public Clockwork(CutEngine cutEngine, CutMatchList cml, VirtualPoint next, VirtualPoint prev) {
+    public Clockwork(CutEngine cutEngine, CutMatchList cml, Knot next, Knot prev) {
         this.cutEngine = cutEngine;
         this.cml = cml;
         this.cm = cml.getCutMatch();
@@ -45,7 +45,7 @@ public class Clockwork {
     }
 
     public void flip() {
-        VirtualPoint temp = nextExternal;
+        Knot temp = nextExternal;
         nextExternal = prevExternal;
         prevExternal = temp;
         Segment tempS = nextExternalSegment;
@@ -60,7 +60,7 @@ public class Clockwork {
         Segment tempC = prevCut;
         prevCut = nextCut;
         nextCut = tempC;
-        VirtualPoint tempKP = prevKnotPoint;
+        Knot tempKP = prevKnotPoint;
         prevKnotPoint = nextKnotPoint;
         nextKnotPoint = tempKP;
         Clockwork tempCW = prevClockwork;
@@ -69,7 +69,7 @@ public class Clockwork {
     }
 
     public void swapExternals() {
-        VirtualPoint temp = nextExternal;
+        Knot temp = nextExternal;
         nextExternal = prevExternal;
         prevExternal = temp;
         nextExternalSegment = nextKnotPoint.getSegment(nextExternal);
@@ -82,7 +82,7 @@ public class Clockwork {
     }
 
     public void swapExternals(Clockwork nextCw) {
-        VirtualPoint temp = nextExternal;
+        Knot temp = nextExternal;
         this.nextExternal = nextCw.prevExternal;
         nextCw.prevExternal = temp;
         this.nextExternalSegment = nextKnotPoint.getSegment(nextExternal);
@@ -93,9 +93,9 @@ public class Clockwork {
     }
 
     public void setPrevCwUpdateCML(Clockwork prevCw, CutMatchList cutMatchList, CutMatchList prevCutMatchList,
-            VirtualPoint prevKnotPoint,
-            VirtualPoint nextKnotPoint,
-            VirtualPoint prevExternal) throws SegmentBalanceException {
+            Knot prevKnotPoint,
+            Knot nextKnotPoint,
+            Knot prevExternal) throws SegmentBalanceException {
         if (nextIsSet && nextKnotPoint.id == prevKnotPoint.id) {
             throw new SegmentBalanceException(this.cutEngine.shell, null, c);
         }
@@ -134,9 +134,9 @@ public class Clockwork {
     }
 
     public void setNextCwUpdateCML(Clockwork nextCw, CutMatchList cutMatchList, CutMatchList nextCutMatchList,
-            VirtualPoint nextKnotPoint,
-            VirtualPoint prevKnotPoint,
-            VirtualPoint nextExternal) throws SegmentBalanceException {
+            Knot nextKnotPoint,
+            Knot prevKnotPoint,
+            Knot nextExternal) throws SegmentBalanceException {
         if (prevIsSet && prevKnotPoint.id == nextKnotPoint.id) {
             throw new SegmentBalanceException(this.cutEngine.shell, null, c);
         }
@@ -174,19 +174,19 @@ public class Clockwork {
         nextCw.prevExternalDelta = nextCw.cost(this, true);
     }
 
-    public void setPrevPoint(VirtualPoint prev, VirtualPoint prevBasePoint, Segment prevCutSegment) {
+    public void setPrevPoint(Knot prev, Knot prevBasePoint, Segment prevCutSegment) {
         prevExternal = prev;
         prevKnotPoint = prevBasePoint;
         prevCut = prevCutSegment;
     }
 
-    public void setNextPoint(VirtualPoint next, VirtualPoint nextBasePoint, Segment nextCutSegment) {
+    public void setNextPoint(Knot next, Knot nextBasePoint, Segment nextCutSegment) {
         nextExternal = next;
         nextKnotPoint = nextBasePoint;
         nextCut = nextCutSegment;
     }
 
-    public void setNextCw(Clockwork nextCw, VirtualPoint nextKnotPoint, VirtualPoint nextExternal,
+    public void setNextCw(Clockwork nextCw, Knot nextKnotPoint, Knot nextExternal,
             Segment nextCutSegment) throws SegmentBalanceException {
         if (prevIsSet && prevKnotPoint.id == nextKnotPoint.id) {
             throw new SegmentBalanceException(this.cutEngine.shell, null, c);
@@ -207,7 +207,7 @@ public class Clockwork {
         nextCw.prevExternalDelta = nextCw.cost(this, true);
     }
 
-    public void setPrevCw(Clockwork prevCw, VirtualPoint prevKnotPoint, VirtualPoint prevMatchPoint,
+    public void setPrevCw(Clockwork prevCw, Knot prevKnotPoint, Knot prevMatchPoint,
             Segment prevCutSegment) throws SegmentBalanceException {
         if (nextIsSet && prevKnotPoint.id == nextKnotPoint.id) {
             throw new SegmentBalanceException(this.cutEngine.shell, null, c);
@@ -240,8 +240,8 @@ public class Clockwork {
         return cost;
     }
 
-    public static double cost(CutMatchList current, VirtualPoint currentVp, CutMatchList neighbor,
-            VirtualPoint neighborVp, Segment externalPrev) {
+    public static double cost(CutMatchList current, Knot currentVp, CutMatchList neighbor,
+            Knot neighborVp, Segment externalPrev) {
         Segment externalSegment = currentVp.getSegment(neighborVp);
         double cost = current.internalDelta + neighbor.internalDelta + externalSegment.distance + externalPrev.distance;
         return cost;

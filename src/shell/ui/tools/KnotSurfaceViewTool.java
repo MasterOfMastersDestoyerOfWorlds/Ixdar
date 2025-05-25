@@ -8,7 +8,6 @@ import shell.cuts.CutMatchList;
 import shell.cuts.SortedCutMatchInfo;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.render.color.Color;
 import shell.render.color.ColorFixedLerp;
 import shell.render.text.HyperString;
@@ -41,12 +40,12 @@ public class KnotSurfaceViewTool extends Tool {
 
     public Segment startSegment;
     public long startSegmentId;
-    public VirtualPoint startKP;
-    public VirtualPoint startCP;
+    public Knot startKP;
+    public Knot startCP;
 
     public Segment endSegment;
-    public VirtualPoint endKP;
-    public VirtualPoint endCP;
+    public Knot endKP;
+    public Knot endCP;
 
     public CutMatchList displayCML;
 
@@ -136,7 +135,7 @@ public class KnotSurfaceViewTool extends Tool {
     }
 
     @Override
-    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
+    public void click(Segment s, Knot kp, Knot cp) {
         confirm();
     }
 

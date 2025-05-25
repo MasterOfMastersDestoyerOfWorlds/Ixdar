@@ -9,9 +9,8 @@ import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.cuts.Manifold;
 import shell.cuts.route.Route;
-import shell.knot.Point;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
+import shell.knot.Knot;
 import shell.point.Grid;
 import shell.point.PointCollection;
 import shell.point.PointND;
@@ -47,8 +46,8 @@ public class MapEditorTool extends Tool {
     public Route displayRouteBeta;
 
     public Segment startSegment;
-    public VirtualPoint startKP;
-    public VirtualPoint startCP;
+    public Knot startKP;
+    public Knot startCP;
 
     public Vector2f hoverPoint;
     HashMap<Long, Integer> colorLookup;
@@ -117,7 +116,7 @@ public class MapEditorTool extends Tool {
     }
 
     @Override
-    public void click(Segment s, VirtualPoint kp, VirtualPoint cp) {
+    public void click(Segment s, Knot kp, Knot cp) {
         confirm();
     }
 
@@ -170,7 +169,7 @@ public class MapEditorTool extends Tool {
         if (displayKP == null) {
             h.addWord(Main.grid.toCoordString());
         } else {
-            PointND coordPoint = ((Point) displayKP).p;
+            PointND coordPoint = (displayKP).p;
             h.addWord(coordPoint.toCoordString());
         }
         h.wrap();

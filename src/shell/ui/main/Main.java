@@ -32,10 +32,7 @@ import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
 import shell.file.PointSetPath;
 import shell.knot.Knot;
-import shell.knot.Point;
-import shell.knot.Run;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.point.Grid;
 import shell.point.PointND;
 import shell.render.color.Color;
@@ -75,7 +72,7 @@ public class Main {
     public static Shell orgShell;
     public static ArrayList<Shell> subPaths = new ArrayList<>();
     public static Shell resultShell;
-    public static ArrayList<VirtualPoint> result;
+    public static ArrayList<Knot> result;
     public static SegmentBalanceException sbe;
 
     public static Knot manifoldKnot;
@@ -260,8 +257,8 @@ public class Main {
             knotGradientColors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
             colorLookup.put((long) k.id, i);
             Knot orgKnot = (Knot) shell.pointMap.get(flattenEngine.flatKnotToKnot.get(k.id));
-            for (VirtualPoint vp : orgKnot.knotPoints) {
-                if (!vp.isKnot) {
+            for (Knot vp : orgKnot.knotPoints) {
+                if (!!vp.isSingleton()) {
                     colorLookup.put((long) vp.id, i);
                 }
             }
@@ -281,8 +278,8 @@ public class Main {
             int heightNum = flatKnotsHeight.get(id);
             int layerNum = flatKnotsLayer.get(id);
             Shell knotShell = new Shell();
-            for (VirtualPoint p : k.knotPointsFlattened) {
-                knotShell.add(((Point) p).p);
+            for (Knot p : k.knotPointsFlattened) {
+                knotShell.add((p).p);
             }
             if (totalLayers - layerNum == knotDrawLayer) {
                 knotsDisplayed.add(k);
@@ -521,7 +518,7 @@ public class Main {
         return c;
     }
 
-    public static Color getKnotGradientColor(VirtualPoint displayPoint) {
+    public static Color getKnotGradientColor(Knot displayPoint) {
         Knot smallestKnot = flattenEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
         if (smallestKnot == null) {
             return Color.IXDAR;
@@ -537,7 +534,7 @@ public class Main {
         return knotGradientColors.get(colorLookup.get((long) smallestKnot.id));
     }
 
-    public static Color getMetroColor(VirtualPoint displayPoint, Knot k) {
+    public static Color getMetroColor(Knot displayPoint, Knot k) {
         if (knotDrawLayer < 0) {
             Knot smallestKnot = flattenEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
             return metroColors.get(knotLayerLookup.get(smallestKnot.id));
@@ -563,8 +560,8 @@ public class Main {
         ArrayList<Pair<Long, Long>> idTransform = new ArrayList<>();
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
-            VirtualPoint vp1 = s.first;
-            VirtualPoint vp2 = s.last;
+            Knot vp1 = s.first;
+            Knot vp2 = s.last;
 
             Knot smallestKnot1 = flattenEngine.flatKnots.get(shell.smallestKnotLookup[vp1.id]);
 
@@ -578,29 +575,14 @@ public class Main {
         try {
 
             for (int i = 0; i < result.size(); i++) {
-                VirtualPoint vp = result.get(i);
-                if (vp.isKnot) {
+                Knot vp = result.get(i);
+                if (!vp.isSingleton()) {
                     System.out.println("Next Knot: " + vp);
                     Shell temp = shell.cutKnot((Knot) vp);
                     System.out.println("Knot: " + temp + " Length: " + temp.getLength());
                     subPaths.add(temp);
                     if (vp.getHeight() > totalLayers) {
                         totalLayers = vp.getHeight();
-                    }
-                }
-                if (vp.isRun) {
-                    Run run = (Run) vp;
-                    for (VirtualPoint sub : run.knotPoints) {
-                        if (sub.isKnot) {
-                            System.out.println("Next Knot: " + sub);
-                            Shell temp = shell.cutKnot((Knot) sub);
-                            subPaths.add(temp);
-                            System.out.println("Knot: " + temp + " Length: " + temp.getLength());
-                            if (sub.getHeight() > totalLayers) {
-                                totalLayers = sub.getHeight();
-                            }
-                        }
-
                     }
                 }
             }
@@ -612,8 +594,8 @@ public class Main {
     public static void segmentBalanceExceptionHandler(SegmentBalanceException sbe) {
         Shell result = new Shell();
         if (sbe.topKnot != null) {
-            for (VirtualPoint p : sbe.topKnot.knotPoints) {
-                result.add(((Point) p).p);
+            for (Knot p : sbe.topKnot.knotPoints) {
+                result.add((p).p);
             }
             shell.buff.printLayer(0);
         }
@@ -739,10 +721,7 @@ public class Main {
     public static Knot getKnotFlatten(Knot k) {
         Knot smallestKnot = flattenEngine.flatKnots.get(flattenEngine.knotToFlatKnot.get(k.id));
         if (smallestKnot == null) {
-            VirtualPoint first = result.get(0);
-            if (first.isRun) {
-                return k;
-            }
+            Knot first = result.get(0);
             return (Knot) first;
         }
         return smallestKnot;

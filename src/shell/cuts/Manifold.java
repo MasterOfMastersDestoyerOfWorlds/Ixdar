@@ -15,7 +15,6 @@ import shell.exceptions.SegmentBalanceException;
 import shell.file.FileStringable;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.shell.Shell;
 
 public class Manifold implements FileStringable {
@@ -64,17 +63,17 @@ public class Manifold implements FileStringable {
     }
 
     public void calculateManifoldCutMatch(Shell shell, Knot manifoldKnot) throws SegmentBalanceException {
-        VirtualPoint knotPoint1 = shell.pointMap.get(kp1);
-        VirtualPoint cutPoint1 = shell.pointMap.get(cp1);
-        VirtualPoint knotPoint2 = shell.pointMap.get(kp2);
-        VirtualPoint cutPoint2 = shell.pointMap.get(cp2);
+        Knot knotPoint1 = shell.pointMap.get(kp1);
+        Knot cutPoint1 = shell.pointMap.get(cp1);
+        Knot knotPoint2 = shell.pointMap.get(kp2);
+        Knot cutPoint2 = shell.pointMap.get(cp2);
         manifoldCutSegment1 = manifoldKnot.getSegment(knotPoint1, cutPoint1);
         manifoldCutSegment2 = manifoldKnot.getSegment(knotPoint2, cutPoint2);
         manifoldExSegment1 = manifoldKnot.getSegment(knotPoint1, knotPoint1);
         manifoldExSegment2 = manifoldKnot.getSegment(knotPoint2, knotPoint2);
 
-        VirtualPoint external1 = knotPoint1;
-        VirtualPoint external2 = knotPoint2;
+        Knot external1 = knotPoint1;
+        Knot external2 = knotPoint2;
 
         BalanceMap manifoldBalanceMap = new BalanceMap(manifoldKnot, null);
         CutInfo c1;
@@ -107,14 +106,14 @@ public class Manifold implements FileStringable {
         }
         ArrayList<Segment> cutSegments = new ArrayList<>();
         for (Pair<Integer, Integer> p : cuts) {
-            VirtualPoint vp = shell.pointMap.get(p.getFirst());
+            Knot vp = shell.pointMap.get(p.getFirst());
             long id = Segment.idTransform(p.getFirst(), p.getSecond());
             cutSegments.add(vp.segmentLookup.get(id));
         }
 
         ArrayList<Segment> matchSegments = new ArrayList<>();
         for (Pair<Integer, Integer> p : matches) {
-            VirtualPoint vp = shell.pointMap.get(p.getFirst());
+            Knot vp = shell.pointMap.get(p.getFirst());
             long id = Segment.idTransform(p.getFirst(), p.getSecond());
             matchSegments.add(vp.segmentLookup.get(id));
         }
@@ -161,8 +160,8 @@ public class Manifold implements FileStringable {
         return result;
     }
 
-    public static Pair<Manifold, Integer> findManifold(VirtualPoint startCP, VirtualPoint startKP,
-            VirtualPoint endCP, VirtualPoint endKP, ArrayList<Manifold> manifolds) {
+    public static Pair<Manifold, Integer> findManifold(Knot startCP, Knot startKP,
+            Knot endCP, Knot endKP, ArrayList<Manifold> manifolds) {
         Manifold found = null;
         int foundIndex = -1;
         for (int i = 0; i < manifolds.size(); i++) {
@@ -187,37 +186,37 @@ public class Manifold implements FileStringable {
         return new Pair<Manifold, Integer>(found, foundIndex);
     }
 
-    public Route getPrevC(VirtualPoint f) {
+    public Route getPrevC(Knot f) {
         return routeMap.get(f.id).prevC;
     }
 
-    public Route getNextC(VirtualPoint f) {
+    public Route getNextC(Knot f) {
         return routeMap.get(f.id).nextC;
     }
 
-    public Route getPrevDC(VirtualPoint f) {
+    public Route getPrevDC(Knot f) {
         return routeMap.get(f.id).prevDC;
     }
 
-    public Route getNextDC(VirtualPoint f) {
+    public Route getNextDC(Knot f) {
         return routeMap.get(f.id).nextDC;
     }
 
-    public Route getRouteDC(VirtualPoint f, RouteType rt) {
+    public Route getRouteDC(Knot f, RouteType rt) {
         if (rt.isConnected) {
             return routeMap.get(f.id).getRoute(rt.oppositeConnectionRoute);
         }
         return routeMap.get(f.id).getRoute(rt);
     }
 
-    public Route getRouteC(VirtualPoint f, RouteType rt) {
+    public Route getRouteC(Knot f, RouteType rt) {
         if (!rt.isConnected) {
             return routeMap.get(f.id).getRoute(rt.oppositeConnectionRoute);
         }
         return routeMap.get(f.id).getRoute(rt);
     }
 
-    public Route getNeighborRouteC(VirtualPoint f, VirtualPoint neighbor) {
+    public Route getNeighborRouteC(Knot f, Knot neighbor) {
         if (routeMap.get(f.id).prevC.neighbor.id == neighbor.id) {
             return routeMap.get(f.id).prevC;
         } else {
@@ -225,7 +224,7 @@ public class Manifold implements FileStringable {
         }
     }
 
-    public Route getNeighborRouteDC(VirtualPoint f, VirtualPoint neighbor) {
+    public Route getNeighborRouteDC(Knot f, Knot neighbor) {
         if (routeMap.get(f.id).prevDC.neighbor.id == neighbor.id) {
             return routeMap.get(f.id).prevDC;
         } else {
@@ -233,7 +232,7 @@ public class Manifold implements FileStringable {
         }
     }
 
-    public Route getNeighborRoute(VirtualPoint f, VirtualPoint neighbor, boolean connected) {
+    public Route getNeighborRoute(Knot f, Knot neighbor, boolean connected) {
         if (connected) {
             return getNeighborRouteC(f, neighbor);
         } else {

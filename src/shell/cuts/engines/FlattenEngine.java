@@ -6,7 +6,6 @@ import java.util.HashMap;
 import shell.exceptions.BalancerException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
-import shell.knot.VirtualPoint;
 import shell.shell.Shell;
 
 public class FlattenEngine {
@@ -42,11 +41,11 @@ public class FlattenEngine {
         flatKnotToKnot.put(flatKnot.id, k.id);
     }
 
-    public Knot flattenKnots(Knot knot, VirtualPoint external1, VirtualPoint external2,
-            ArrayList<VirtualPoint> knotList, int layerNum) throws SegmentBalanceException, BalancerException {
+    public Knot flattenKnots(Knot knot, Knot external1, Knot external2,
+            ArrayList<Knot> knotList, int layerNum) throws SegmentBalanceException, BalancerException {
 
         long reeStartTime = System.currentTimeMillis();
-        ArrayList<VirtualPoint> flattenKnots = ce.cutKnot(knot.knotPoints, layerNum + 1);
+        ArrayList<Knot> flattenKnots = ce.cutKnot(knot.knotPoints, layerNum + 1);
         Knot knotNew = new Knot(flattenKnots, shell);
         knotNew.copyMatches(knot);
         if (!flattenedKnots.contains(knot.id) && !flatKnots.containsKey(knot.id)) {
@@ -55,13 +54,13 @@ public class FlattenEngine {
             shell.updateSmallestCommonKnot(knotNew);
             shell.buff.add(flatKnots);
         }
-        boolean makeExternal1 = external1.isKnot;
+        boolean makeExternal1 = !external1.isSingleton();
 
         boolean same = external1.equals(external2);
-        boolean makeExternal2 = external2.isKnot && !same;
+        boolean makeExternal2 = !external2.isSingleton() && !same;
 
         Knot external1Knot = null;
-        ArrayList<VirtualPoint> flattenKnotsExternal1 = null;
+        ArrayList<Knot> flattenKnotsExternal1 = null;
         Knot external1New = null;
         if (makeExternal1) {
 
@@ -77,7 +76,7 @@ public class FlattenEngine {
             }
         }
         Knot external2Knot = null;
-        ArrayList<VirtualPoint> flattenKnotsExternal2 = null;
+        ArrayList<Knot> flattenKnotsExternal2 = null;
         Knot external2New = null;
         if (makeExternal2) {
 

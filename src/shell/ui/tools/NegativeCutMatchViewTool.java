@@ -10,7 +10,6 @@ import shell.cameras.Camera2D;
 import shell.cuts.Manifold;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.knot.VirtualPoint;
 import shell.ui.Drawing;
 import shell.ui.main.Main;
 
@@ -77,7 +76,7 @@ public class NegativeCutMatchViewTool extends Tool {
                 long idLast = Segment.idTransformOrdered(s.last.id, s.first.id);
                 ArrayList<Segment> firstNegativeSegments = new ArrayList<>();
                 ArrayList<Segment> lastNegativeSegments = new ArrayList<>();
-                for (VirtualPoint vp : k.knotPointsFlattened) {
+                for (Knot vp : k.knotPointsFlattened) {
                     if (!s.contains(vp)) {
                         Segment firstSegment = vp.getSegment(s.last);
                         Segment lastSegment = vp.getSegment(s.first);
