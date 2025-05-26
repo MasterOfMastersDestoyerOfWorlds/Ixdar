@@ -186,7 +186,7 @@ public class Main {
             Toggle.Manifold.value = true;
         }
         orgShell = retTup.tsp;
-        totalLayers = -1;
+
         shell = orgShell.copyShallow();
 
         CutEngine.resetMetrics();
@@ -210,7 +210,7 @@ public class Main {
         }
         long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
         flattenEngine = shell.cutEngine.flattenEngine;
-        Collection<Knot> flatKnots = flattenEngine.flatKnots.values();
+        Collection<Knot> flatKnots = result;
         if (flatKnots.size() > 0) {
             manifoldKnot = flatKnots.iterator().next();
         }
@@ -256,27 +256,29 @@ public class Main {
         for (Knot k : flatKnots) {
             knotGradientColors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
             colorLookup.put((long) k.id, i);
-            Knot orgKnot = (Knot) shell.pointMap.get(flattenEngine.flatKnotToKnot.get(k.id));
-            for (Knot vp : orgKnot.knotPoints) {
-                if (!!vp.isSingleton()) {
+            for (Knot vp : k.knotPoints) {
+                if (vp.isSingleton()) {
                     colorLookup.put((long) vp.id, i);
                 }
             }
             i++;
         }
 
-        if (totalLayers == -1) {
-            totalLayers = shell.cutEngine.totalLayers;
-        }
         knotDrawLayer = totalLayers;
         Set<Integer> knotIds = flattenEngine.flatKnots.keySet();
         HashMap<Integer, Knot> flatKnotMap = flattenEngine.flatKnots;
         HashMap<Integer, Integer> flatKnotsHeight = flattenEngine.flatKnotsHeight;
         HashMap<Integer, Integer> flatKnotsLayer = flattenEngine.flatKnotsLayer;
-        for (Integer id : knotIds) {
-            Knot k = flatKnotMap.get(id);
-            int heightNum = flatKnotsHeight.get(id);
-            int layerNum = flatKnotsLayer.get(id);
+        totalLayers = -1;
+        for (Knot k : flatKnots) {
+            int height = k.getHeight();
+            if (height > totalLayers) {
+                totalLayers = height;
+            }
+        }
+        for (Knot k : flatKnots) {
+            int heightNum = k.getHeight();
+            int layerNum = totalLayers - heightNum;
             Shell knotShell = new Shell();
             for (Knot p : k.knotPointsFlattened) {
                 knotShell.add((p).p);
@@ -285,8 +287,8 @@ public class Main {
                 knotsDisplayed.add(k);
             }
             metroPathsHeight.add(new ShellPair(knotShell, k, heightNum));
-            metroPathsLayer.add(new ShellPair(knotShell, k, totalLayers - layerNum));
-            knotLayerLookup.put(k.id, totalLayers - layerNum);
+            metroPathsLayer.add(new ShellPair(knotShell, k, layerNum));
+            knotLayerLookup.put(k.id, layerNum);
         }
 
         float startHueM = colorSeed.nextFloat();
@@ -519,7 +521,7 @@ public class Main {
     }
 
     public static Color getKnotGradientColor(Knot displayPoint) {
-        Knot smallestKnot = flattenEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
+        Knot smallestKnot = displayPoint;
         if (smallestKnot == null) {
             return Color.IXDAR;
         }
@@ -563,9 +565,9 @@ public class Main {
             Knot vp1 = s.first;
             Knot vp2 = s.last;
 
-            Knot smallestKnot1 = flattenEngine.flatKnots.get(shell.smallestKnotLookup[vp1.id]);
+            Knot smallestKnot1 = k;
 
-            Knot smallestKnot2 = flattenEngine.flatKnots.get(shell.smallestKnotLookup[vp2.id]);
+            Knot smallestKnot2 = k;
             idTransform.add(new Pair<Long, Long>((long) smallestKnot1.id, (long) smallestKnot2.id));
         }
         return idTransform;

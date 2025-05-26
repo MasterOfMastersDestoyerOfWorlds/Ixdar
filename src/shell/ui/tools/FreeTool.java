@@ -62,13 +62,13 @@ public class FreeTool extends Tool {
             pointInfo.addWord(coordPointF.toString());
             h.addTooltip(displayKP.id + "", Color.BLUE_WHITE, pointInfo, () -> Main.camera.centerOnPoint(coordPointF));
         }
-        h.newLine();
-        h.addWord("Position:");
-        if (displayKP == null) {
-            h.addWord(Main.grid.toCoordString());
-        } else {
-            h.addWord(coordPoint.toCoordString());
-        }
+        // h.newLine();
+        // h.addWord("Position:");
+        // if (displayKP == null) {
+        //     h.addWord(Main.grid.toCoordString());
+        // } else {
+        //     h.addWord(coordPoint.toCoordString());
+        // }
 
         h.newLine();
         h.addWord("Neighbors:");

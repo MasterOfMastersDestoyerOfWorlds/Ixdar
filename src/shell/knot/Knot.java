@@ -32,7 +32,7 @@ public class Knot {
     Shell shell;
     public ArrayList<Segment> manifoldSegments;
     public ArrayList<Long> manifoldSegmentIds;
-    int height;
+    int height = -1;
     public int numKnots;
     public HashMap<Integer, Knot> pointToInternalKnot;
     public PointND p;
@@ -395,21 +395,26 @@ public class Knot {
     }
 
     public int getHeight() {
-        if (!this.isSingleton()) {
-            Knot k = (Knot) this;
-            int max = 1;
-            for (Knot vp : k.knotPoints) {
-                if (!vp.isSingleton()) {
-                    int h = vp.getHeight() + 1;
-                    if (h > max) {
-                        max = h;
+        if (height == -1) {
+            if (!this.isSingleton()) {
+                Knot k = (Knot) this;
+                int max = 1;
+                for (Knot vp : k.knotPoints) {
+                    if (!vp.isSingleton()) {
+                        int h = vp.getHeight() + 1;
+                        if (h > max) {
+                            max = h;
+                        }
                     }
                 }
+                height = max;
+                return max;
+            } else {
+                height = 1;
+                return 1;
             }
-            return max;
-        } else {
-            return 1;
         }
+        return height;
     }
 
     public void setMatch(Knot matchPoint, Segment s) {
@@ -601,12 +606,7 @@ public class Knot {
             curr = next;
             next = nextTemp;
         }
-        if (runList.size() == 1 && !runList.contains(curr)) {
-            runList.add(curr);
-        }
-        if (runList.size() == 0) {
-            float z = 0;
-        }
+        runList.add(curr);
         return runList;
     }
 }
