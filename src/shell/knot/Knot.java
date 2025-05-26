@@ -588,6 +588,28 @@ public class Knot {
         return matchList.size() == maxMatches;
     }
 
+    public ArrayList<Knot> getRunList(Knot k2) {
+        Knot next = this.m1;
+        Knot curr = this;
+        ArrayList<Knot> runList = new ArrayList<>();
+        if (next == null) {
+            float z = 0;
+        }
+        while (curr.id != k2.id) {
+            runList.add(curr);
+            Knot nextTemp = null;
+            if (next.m1.id == curr.id) {
+                nextTemp = next.m2;
+            } else {
+                nextTemp = next.m1;
+            }
+            curr = next;
+            next = nextTemp;
+        }
+        runList.add(curr);
+        return runList;
+    }
+
     public ArrayList<Knot> getRunList() {
         Knot next = this.m2;
         Knot curr = this;

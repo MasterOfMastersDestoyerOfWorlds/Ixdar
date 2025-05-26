@@ -42,26 +42,53 @@ public class KnotEngine {
         for (Segment s : sortedSegments) {
             Knot k1 = s.first.topKnot;
             Knot k2 = s.last.topKnot;
-            if (k1.isFull() || k2.isFull() || k1.id == k2.id) {
+            if (k1.id == k2.id) {
+                continue;
+            }
+            boolean sameGroup = unionSet.sameGroup(k1, k2);
+            boolean k1Full = k1.isFull();
+            boolean k2Full = k2.isFull();
+            if (k1Full && k2Full) {
+                continue;
+            }
+            if (!sameGroup && (k1Full || k2Full)) {
                 continue;
             }
             if ((k1.m1 != null && k1.m1.id == k2.id) || (k1.m2 != null && k1.m2.id == k2.id)) {
                 continue;
             }
             try {
-                k1.setMatch(k2, s);
-                k2.setMatch(k1, s);
-                int groupId = unionSet.union(k1, k2);
-                int gUnmatched = unionSet.findUnmatched(groupId);
-                if (gUnmatched <= 0) {
+                // if we are making a knot the two ends are always in the same group.
+                if (sameGroup) {
                     // found knot
-                    ArrayList<Knot> runList = k1.getRunList();
+                    Knot kEnd = k1Full? k2 : k1;
+                    Knot kMid = k1Full? k1 : k2;
+                    ArrayList<Knot> runList = kEnd.getRunList(kMid);
                     Knot k = new Knot(runList, shell);
+                    if(kMid.m2 == null){
+                        kEnd.setMatch(kMid, s);
+                        kMid.setMatch(kEnd, s);
+                    }else{
+                        Knot temp = kMid.m2;
+                        kEnd.setMatch(kMid, s);
+                        kMid.setMatch(kEnd, s);
+                        if(temp.m2 != null && temp.m2.id == kMid.id){
+                            temp.m2 = k;
+                            k.setMatch(temp, temp.s2);
+                        }else if(temp.m1 != null && temp.m1.id == kMid.id){
+                            temp.m1 = k;
+                            k.setMatch(temp, temp.s1);
+                        }
+                    }
                     unionSet.addSet(k);
                     knots.add(k);
+                } else {
+                    k1.setMatch(k2, s);
+                    k2.setMatch(k1, s);
+                    unionSet.union(k1, k2);
                 }
                 segmentNumber++;
-            } catch(AssertionError e) {
+            } catch (AssertionError e) {
                 float z = 0;
             }
         }

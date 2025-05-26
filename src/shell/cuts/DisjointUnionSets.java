@@ -22,6 +22,12 @@ public class DisjointUnionSets {
         }
     }
 
+    public boolean sameGroup(Knot k1, Knot k2) {
+        int k1Group = this.find(k1.id);
+        int k2Group = this.find(k2.id);
+        return k1Group == k2Group;
+    }
+
     // Returns representative of x's set
     public int find(int x) {
         // Finds the representative of the set
