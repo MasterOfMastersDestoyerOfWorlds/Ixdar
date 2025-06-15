@@ -33,6 +33,7 @@ import shell.ui.tools.FindManifoldTool;
 import shell.ui.tools.KnotAnimationTool;
 import shell.ui.tools.KnotSurfaceViewTool;
 import shell.ui.tools.NegativeCutMatchViewTool;
+import shell.ui.tools.NeighborViewTool;
 import shell.ui.tools.Tool;
 
 public class KeyGuy {
@@ -106,6 +107,9 @@ public class KeyGuy {
                 }
                 if (KeyActions.NegativeCutMatchViewTool.keyPressed(pressedKeys)) {
                     ChangeToolCommand.run(NegativeCutMatchViewTool.class);
+                }
+                if (KeyActions.NeighborViewTool.keyPressed(pressedKeys)) {
+                    ChangeToolCommand.run(NeighborViewTool.class);
                 }
             } else {
                 Tool tool = Main.tool;

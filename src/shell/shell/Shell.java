@@ -45,6 +45,7 @@ public class Shell extends LinkedList<PointND> {
 
     boolean skipHalfKnotFlag = true;
     public ArrayList<Segment> sortedSegments;
+    public HashMap<Long, Segment> segmentLookup;
 
     public Shell() {
         pointMap = new HashMap<>();
@@ -103,6 +104,7 @@ public class Shell extends LinkedList<PointND> {
         this.distanceMatrix = distanceMatrix;
         pointMap = new HashMap<>();
         this.sortedSegments = new ArrayList<Segment>();
+        this.segmentLookup = new HashMap<>();
         int numPoints = distanceMatrix.size();
         for (int i = 0; i < numPoints; i++) {
             Knot p = new Knot(distanceMatrix.getPoints().get(i), this);
@@ -120,6 +122,7 @@ public class Shell extends LinkedList<PointND> {
                 }
                 if (i < j) {
                     this.sortedSegments.add(s);
+                    this.segmentLookup.put(s.id, s);
                 }
             }
             p1.sortedSegments.sort(null);

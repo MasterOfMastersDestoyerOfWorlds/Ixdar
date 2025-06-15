@@ -36,6 +36,7 @@ public enum KeyActions {
     KnotAnimTool(true, GLFW_KEY_A),
     EditManifold(true, GLFW_KEY_E),
     NegativeCutMatchViewTool(true, GLFW_KEY_N),
+    NeighborViewTool(true, GLFW_KEY_B),
     ControlMask(GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL),
     ShiftMask(GLFW_KEY_LEFT_SHIFT, GLFW_KEY_RIGHT_SHIFT);
 
