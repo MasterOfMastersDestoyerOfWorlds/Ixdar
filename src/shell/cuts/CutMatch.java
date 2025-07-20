@@ -16,12 +16,12 @@ public class CutMatch {
     Knot kp1;
     Knot kp2;
     CutMatch diff;
-    double delta;
+    public double delta;
     double deltaInternal;
     Knot superKnot;
     public Segment kpSegment;
     Shell shell;
-    SegmentBalanceException sbe;
+    public SegmentBalanceException sbe;
 
     Segment[] originalCutSegments;
     Segment[] originalMatchSegments;

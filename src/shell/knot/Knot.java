@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import shell.Toggle;
+import shell.cuts.CutMatch;
+import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
 import shell.point.PointND;
 import shell.render.color.Color;
@@ -18,6 +20,7 @@ import shell.ui.tools.Tool;
 public class Knot {
     public int minMatches;
     public int maxMatches;
+    public int matchCount;
     public ArrayList<Knot> externalKnots;
     public ArrayList<Knot> knotPoints;
     public ArrayList<Knot> knotPointsFlattened;
@@ -54,8 +57,6 @@ public class Knot {
     public Knot(PointND pnd, Shell shell) {
         this.p = pnd;
         this.shell = shell;
-        sortedSegments = new ArrayList<>();
-        this.shell = shell;
         this.id = p.getID();
         shell.knotEngine.unvisited.add(this);
         group = this;
@@ -71,7 +72,56 @@ public class Knot {
         manifoldSegments = new ArrayList<>();
         minMatches = 2;
         maxMatches = 2;
+        matchCount = 0;
         matchList = new ArrayList<>();
+    }
+
+    public Knot(CutMatch smallestMove, Knot k1, Knot k2) throws MultipleCyclesFoundException {
+        this.shell = k1.shell;
+        this.id = shell.pointMap.keySet().size();
+        shell.pointMap.put(id, this);
+        group = this;
+        topGroup = this;
+        topKnot = this;
+        knotPoints = new ArrayList<>();
+        knotPoints.add(k1);
+        knotPoints.add(k2);
+        sortedSegments = new ArrayList<>();
+
+        knotPointsFlattened = new ArrayList<>();
+
+        for (Segment cut : smallestMove.cutSegments) {
+            cut.first.removeMatch(cut.last);
+            cut.last.removeMatch(cut.first);
+        }
+
+        for (Segment match : smallestMove.matchSegments) {
+            match.first.setMatch(match.last, match);
+            match.last.setMatch(match.first, match);
+            sortedSegments.add(match);
+        }
+        sortedSegments.sort(null);
+
+        manifoldSegments = new ArrayList<>();
+
+        Knot vp = k1.knotPointsFlattened.get(0);
+        Knot addPoint = vp;
+        Knot prevPoint = addPoint.m1;
+        for (int j = 0; j < knotPointsFlattened.size(); j++) {
+            if (addPoint == null) {
+                throw new MultipleCyclesFoundException(smallestMove.sbe);
+            }
+            knotPointsFlattened.add(addPoint);
+            if (prevPoint.equals(addPoint.m2)) {
+                prevPoint = addPoint;
+                addPoint = addPoint.m1;
+                manifoldSegments.add(addPoint.s1);
+            } else {
+                prevPoint = addPoint;
+                addPoint = addPoint.m2;
+                manifoldSegments.add(addPoint.s2);
+            }
+        }
     }
 
     public void constructor(ArrayList<Knot> knotPointsToAdd, Shell shell, boolean setMatches) {
@@ -426,8 +476,23 @@ public class Knot {
             m2 = matchPoint;
             s2 = s;
         }
-        if (m1 != null && m2 != null) {
-            assert (m1.id != m2.id);
+        matchCount++;
+        if (matchCount > maxMatches) {
+            float z = 1 / 0;
+        }
+    }
+
+    private void removeMatch(Knot other) {
+        if (other.equals(m1)) {
+            m1 = null;
+            s1 = null;
+        } else if (other.equals(m2)) {
+            m2 = null;
+            s2 = null;
+        }
+        matchCount--;
+        if (matchCount < 0) {
+            matchCount = 0;
         }
     }
 
@@ -630,5 +695,18 @@ public class Knot {
         }
         runList.add(curr);
         return runList;
+    }
+
+    public CutMatch getDeltaDistTo(Knot o) {
+        if (this.isSingleton() && o.isSingleton()) {
+            CutMatch cm = new CutMatch("Points", shell, new SegmentBalanceException());
+            Segment s = o.getClosestSegment(this, null);
+            cm.matchSegments.add(s);
+            cm.matchSegments.add(s);
+            cm.updateDelta();
+            return cm;
+        } else {
+            return null;
+        }
     }
 }

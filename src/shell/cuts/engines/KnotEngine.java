@@ -2,7 +2,9 @@ package shell.cuts.engines;
 
 import java.util.ArrayList;
 
+import shell.cuts.CutMatch;
 import shell.cuts.DisjointUnionSets;
+import shell.exceptions.MultipleCyclesFoundException;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.shell.Shell;
@@ -23,7 +25,8 @@ public class KnotEngine {
         visited = new ArrayList<Knot>();
     }
 
-    public ArrayList<Knot> createKnots(int layers, ArrayList<Segment> sortedSegments) {
+    public ArrayList<Knot> createKnots(int layers, ArrayList<Segment> sortedSegments)
+            throws MultipleCyclesFoundException {
 
         visited = new ArrayList<Knot>();
         unvisited = new ArrayList<Knot>();
@@ -36,60 +39,37 @@ public class KnotEngine {
         return unvisited;
     }
 
-    public ArrayList<Knot> findKnots(ArrayList<Segment> sortedSegments, ArrayList<Knot> knots) {
-        DisjointUnionSets unionSet = new DisjointUnionSets(knots);
-        int segmentNumber = 0;
-        for (Segment s : sortedSegments) {
-            Knot k1 = s.first.topKnot;
-            Knot k2 = s.last.topKnot;
-            if (k1.id == k2.id) {
-                continue;
-            }
-            boolean sameGroup = unionSet.sameGroup(k1, k2);
-            boolean k1Full = k1.isFull();
-            boolean k2Full = k2.isFull();
-            if (k1Full && k2Full) {
-                continue;
-            }
-            if (!sameGroup && (k1Full || k2Full)) {
-                continue;
-            }
-            if ((k1.m1 != null && k1.m1.id == k2.id) || (k1.m2 != null && k1.m2.id == k2.id)) {
-                continue;
-            }
-            try {
-                // if we are making a knot the two ends are always in the same group.
-                if (sameGroup) {
-                    // found knot
-                    Knot kEnd = k1Full? k2 : k1;
-                    Knot kMid = k1Full? k1 : k2;
-                    ArrayList<Knot> runList = kEnd.getRunList(kMid);
-                    Knot k = new Knot(runList, shell);
-                    if(kMid.m2 == null){
-                        kEnd.setMatch(kMid, s);
-                        kMid.setMatch(kEnd, s);
-                    }else{
-                        Knot temp = kMid.m2;
-                        kEnd.setMatch(kMid, s);
-                        kMid.setMatch(kEnd, s);
-                        if(temp.m2 != null && temp.m2.id == kMid.id){
-                            temp.m2 = k;
-                            k.setMatch(temp, temp.s2);
-                        }else if(temp.m1 != null && temp.m1.id == kMid.id){
-                            temp.m1 = k;
-                            k.setMatch(temp, temp.s1);
+    public ArrayList<Knot> findKnots(ArrayList<Segment> sortedSegments, ArrayList<Knot> knots)
+            throws MultipleCyclesFoundException {
+
+        boolean updated = true;
+        while (updated) {
+            updated = false;
+            CutMatch smallestMove = new CutMatch(null, shell, null);
+            smallestMove.delta = Double.MAX_VALUE;
+            Knot k1 = null;
+            Knot k2 = null;
+            for (Knot k : knots) {
+                for (Knot o : knots) {
+                    if (k.id != o.id) {
+                        CutMatch move = k.getDeltaDistTo(o);
+                        if (move != null && move.delta < smallestMove.delta) {
+                            smallestMove = move;
+                            k1 = k;
+                            k2 = o;
                         }
                     }
-                    unionSet.addSet(k);
-                    knots.add(k);
-                } else {
-                    k1.setMatch(k2, s);
-                    k2.setMatch(k1, s);
-                    unionSet.union(k1, k2);
                 }
-                segmentNumber++;
-            } catch (AssertionError e) {
-                float z = 0;
+            }
+            if (k1 != null) {
+                knots.add(new Knot(smallestMove, k1, k2));
+                if (k1.matchCount == k1.maxMatches) {
+                    knots.remove(k1);
+                }
+                if (k2.matchCount == k2.maxMatches) {
+                    knots.remove(k2);
+                }
+                updated = true;
             }
         }
         return knots;

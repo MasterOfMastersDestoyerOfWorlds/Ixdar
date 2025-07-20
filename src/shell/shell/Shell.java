@@ -16,6 +16,7 @@ import shell.cuts.engines.KnotEngine;
 import shell.exceptions.BalancerException;
 import shell.exceptions.IdDoesNotExistException;
 import shell.exceptions.IdsNotConcurrentException;
+import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
@@ -130,7 +131,8 @@ public class Shell extends LinkedList<PointND> {
         sortedSegments.sort(null);
     }
 
-    public ArrayList<Knot> slowSolve(Shell A, DistanceMatrix distanceMatrix, int layers) {
+    public ArrayList<Knot> slowSolve(Shell A, DistanceMatrix distanceMatrix, int layers)
+            throws MultipleCyclesFoundException {
         initShell(distanceMatrix);
         ArrayList<Knot> knots = knotEngine.createKnots(layers, this.sortedSegments);
         return knots;

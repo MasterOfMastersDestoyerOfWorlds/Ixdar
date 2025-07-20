@@ -27,6 +27,7 @@ import shell.cuts.engines.CutEngine;
 import shell.cuts.engines.FlattenEngine;
 import shell.cuts.engines.InternalPathEngine;
 import shell.cuts.engines.ManifoldEngine;
+import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
 import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
@@ -142,6 +143,7 @@ public class Main {
         for (String comment : retTup.comments) {
             terminal.history.addLine(comment, Color.BLUE_WHITE);
         }
+
         IxdarWindow.setTitle("Ixdar : " + fileName);
 
         int wWidth = (int) IxdarWindow.getWidth();
@@ -196,7 +198,11 @@ public class Main {
         Collections.shuffle(shell);
         long startTimeKnotFinding = System.currentTimeMillis();
         if (Toggle.CalculateKnot.value) {
-            result = new ArrayList<>(shell.slowSolve(shell, d, 40));
+            try {
+                result = new ArrayList<>(shell.slowSolve(shell, d, 40));
+            } catch (MultipleCyclesFoundException e) {
+                e.printStackTrace();
+            }
         } else {
             result = new ArrayList<>();
         }
