@@ -43,26 +43,74 @@ public class KnotEngine {
             throws MultipleCyclesFoundException {
 
         boolean updated = true;
+        DisjointUnionSets unionSets = Knot.unionSet;
         while (updated) {
             updated = false;
+            int size = unionSets.totalNumGroups();
+            CutMatch[] smallestMoveList = new CutMatch[size];
+            int[] smallestMoveOtherGroup = new int[size];
+            Knot[] knot1ByGroup = new Knot[size];
+            Knot[] knot2ByGroup = new Knot[size];
+
             CutMatch smallestMove = new CutMatch(null, shell, null);
             smallestMove.delta = Double.MAX_VALUE;
-            Knot k1 = null;
-            Knot k2 = null;
             for (Knot k : knots) {
                 for (Knot o : knots) {
-                    if (k.id != o.id) {
+                    int kGroup = Knot.unionSet.find(k);
+                    int oGroup = Knot.unionSet.find(o);
+                    if (!(kGroup == oGroup)) {
                         CutMatch move = k.getDeltaDistTo(o);
-                        if (move != null && move.delta < smallestMove.delta) {
+                        if (move != null) {
                             smallestMove = move;
-                            k1 = k;
-                            k2 = o;
+                            if (smallestMoveList[kGroup] == null) {
+                                smallestMoveList[kGroup] = move;
+                                smallestMoveOtherGroup[kGroup] = oGroup;
+                                knot1ByGroup[kGroup] = k;
+                                knot2ByGroup[kGroup] = o;
+                            } else if (move.delta < smallestMoveList[kGroup].delta) {
+                                smallestMoveList[kGroup] = move;
+                                smallestMoveOtherGroup[kGroup] = oGroup;
+                                knot1ByGroup[kGroup] = k;
+                                knot2ByGroup[kGroup] = o;
+                            }
+                            if (smallestMoveList[oGroup] == null) {
+                                smallestMoveList[oGroup] = move;
+                                smallestMoveOtherGroup[oGroup] = kGroup;
+                                knot1ByGroup[oGroup] = k;
+                                knot2ByGroup[oGroup] = o;
+                            } else if (move.delta < smallestMoveList[oGroup].delta) {
+                                smallestMoveList[oGroup] = move;
+                                smallestMoveOtherGroup[oGroup] = kGroup;
+                                knot1ByGroup[oGroup] = k;
+                                knot2ByGroup[oGroup] = o;
+                            }
                         }
                     }
                 }
             }
-            if (k1 != null) {
-                knots.add(new Knot(smallestMove, k1, k2));
+            for (int i = 0; i < size; i++) {
+                if (smallestMoveList[i] == null) {
+                    continue;
+                }
+                int otherGroup = smallestMoveOtherGroup[i];
+                if (smallestMoveOtherGroup[otherGroup] != i) {
+                    continue;
+                }
+                Knot k1 = knot1ByGroup[i];
+                Knot k2 = knot2ByGroup[i];
+                boolean isSingle1 = k1.isSingleton();
+                boolean isSingle2 = k2.isSingleton();
+                CutMatch smallestCutMatch = smallestMoveList[i];
+                smallestMoveList[otherGroup] = null;
+                if (isSingle1 && isSingle2) {
+                    knots.add(new Knot(smallestCutMatch, k1, k2));
+                } else if (isSingle1 || isSingle2) {
+                    Knot p = isSingle1 ? k1 : k2;
+                    Knot k = isSingle1 ? k2 : k1;
+                    k.growByPoint(smallestCutMatch, p);
+                } else {
+                    knots.add(new Knot(smallestCutMatch, k1, k2));
+                }
                 if (k1.matchCount == k1.maxMatches) {
                     knots.remove(k1);
                 }

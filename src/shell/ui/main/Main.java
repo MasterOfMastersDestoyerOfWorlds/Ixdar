@@ -271,10 +271,6 @@ public class Main {
         }
 
         knotDrawLayer = totalLayers;
-        Set<Integer> knotIds = flattenEngine.flatKnots.keySet();
-        HashMap<Integer, Knot> flatKnotMap = flattenEngine.flatKnots;
-        HashMap<Integer, Integer> flatKnotsHeight = flattenEngine.flatKnotsHeight;
-        HashMap<Integer, Integer> flatKnotsLayer = flattenEngine.flatKnotsLayer;
         totalLayers = -1;
         for (Knot k : flatKnots) {
             int height = k.getHeight();
@@ -284,7 +280,7 @@ public class Main {
         }
         for (Knot k : flatKnots) {
             int heightNum = k.getHeight();
-            int layerNum = totalLayers - heightNum;
+            int layerNum = totalLayers - heightNum + 1;
             Shell knotShell = new Shell();
             for (Knot p : k.knotPointsFlattened) {
                 knotShell.add((p).p);
@@ -445,7 +441,8 @@ public class Main {
             if (tool.canUseToggle(Toggle.DrawKnotGradient) && manifoldKnot != null) {
                 for (Integer id : knotLayerLookup.keySet()) {
                     if (knotLayerLookup.get(id) == totalLayers) {
-                        Knot drawKnot = flattenEngine.flatKnots.get(id);
+                        Knot drawKnot = shell.pointMap.get(id);
+
                         ArrayList<Pair<Long, Long>> idTransform = lookupPairs(drawKnot);
                         Drawing.drawGradientPath(drawKnot, idTransform, colorLookup, knotGradientColors, camera,
                                 Drawing.MIN_THICKNESS);
@@ -708,7 +705,7 @@ public class Main {
     }
 
     public static void setDrawLevelToKnot(Knot k) {
-        Knot smallestKnot = flattenEngine.flatKnots.get(flattenEngine.knotToFlatKnot.get(k.id));
+        Knot smallestKnot = shell.pointMap.get(k.id);
         if (smallestKnot == null) {
             knotDrawLayer = totalLayers;
         } else {

@@ -7,6 +7,8 @@ import shell.knot.Knot;
 
 public class DisjointUnionSets {
     HashMap<Integer, Integer> rank, parent, unmatched;
+    int countGroups = 0;
+    int totalNumGroups = 0;
 
     // Constructor
     public DisjointUnionSets(ArrayList<Knot> knotPoints) {
@@ -19,19 +21,32 @@ public class DisjointUnionSets {
             int id = knotPoints.get(i).id;
             parent.put(id, id);
             unmatched.put(id, 2);
+            countGroups++;
+            totalNumGroups++;
         }
     }
-
+    public DisjointUnionSets() {
+        rank = new HashMap<>();
+        parent = new HashMap<>();
+        unmatched = new HashMap<>();
+    }
     public boolean sameGroup(Knot k1, Knot k2) {
         int k1Group = this.find(k1.id);
         int k2Group = this.find(k2.id);
         return k1Group == k2Group;
     }
 
+    public int find(Knot k) {
+        return this.find(k.id);
+    }
+
     // Returns representative of x's set
     public int find(int x) {
         // Finds the representative of the set
         // that x is an element of
+        if(!parent.containsKey(x)){
+            float z =0;
+        }
         if (parent.get(x) != x) {
             // if x is not the parent of itself
             // Then x is not the representative of
@@ -56,7 +71,7 @@ public class DisjointUnionSets {
     }
 
     // Unites the set that includes x and the set
-    // that includes x
+    // that includes y
     public int union(int x, int y) {
         // Find representatives of two sets
         int xRoot = find(x), yRoot = find(y);
@@ -69,6 +84,8 @@ public class DisjointUnionSets {
             unmatched.put(xRoot, xUnmatched - 2);
             return xRoot;
         }
+
+        countGroups--;
 
         // If x's rank is less than y's rank
         if (rank.getOrDefault(xRoot, 0) < rank.getOrDefault(yRoot, 0)) {
@@ -103,5 +120,15 @@ public class DisjointUnionSets {
     public void addSet(Knot k) {
         parent.put(k.id, k.id);
         unmatched.put(k.id, 2);
+        countGroups++;
+        totalNumGroups++;
     }
+
+    public int countGroups(){
+        return countGroups;
+    }
+    public int totalNumGroups(){
+        return totalNumGroups;
+    }
+
 }
