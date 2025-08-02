@@ -11,7 +11,6 @@ import org.apache.commons.math3.util.Pair;
 
 import shell.DistanceMatrix;
 import shell.PointSet;
-import shell.cuts.engines.CutEngine;
 import shell.cuts.engines.KnotEngine;
 import shell.exceptions.BalancerException;
 import shell.exceptions.IdDoesNotExistException;
@@ -36,7 +35,6 @@ public class Shell extends LinkedList<PointND> {
     public DistanceMatrix distanceMatrix;
     public String knotName;
 
-    public CutEngine cutEngine = new CutEngine(this);
     public KnotEngine knotEngine = new KnotEngine(this);
 
     public StringBuff buff = new StringBuff();
@@ -94,10 +92,6 @@ public class Shell extends LinkedList<PointND> {
         buff.add("カット開始");
         buff.add("================= - WARNING - =================\n");
         int knotsCleared = 0;
-        if (knots.size() == 1) {
-            Knot gp1 = knots.get(0);
-            result = cutKnot((Knot) gp1);
-        }
         return result;
     }
 
@@ -136,22 +130,6 @@ public class Shell extends LinkedList<PointND> {
         initShell(distanceMatrix);
         ArrayList<Knot> knots = knotEngine.createKnots(layers, this.sortedSegments);
         return knots;
-    }
-
-    public Shell cutKnot(Knot mainKnot) throws SegmentBalanceException, BalancerException {
-        cutEngine.totalLayers = mainKnot.getHeight();
-        ArrayList<Knot> knotList = cutEngine.cutKnot(mainKnot.knotPoints, 1);
-        Knot knot = new Knot(knotList, this);
-        if (!cutEngine.flattenEngine.flatKnots.containsKey(knot.id)) {
-            this.updateSmallestKnot(knot);
-            this.updateSmallestCommonKnot(knot);
-            cutEngine.flattenEngine.setFlatKnot(0, knot, mainKnot);
-        }
-        Shell result = new Shell();
-        for (Knot p : knotList) {
-            result.add((p).p);
-        }
-        return result;
     }
 
     public Integer[][] smallestCommonKnotLookup;

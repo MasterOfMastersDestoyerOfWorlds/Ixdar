@@ -19,7 +19,6 @@ import shell.cameras.Camera2D;
 import shell.cuts.CutInfo;
 import shell.cuts.CutMatch;
 import shell.cuts.CutMatchList;
-import shell.cuts.route.Route;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
@@ -170,43 +169,6 @@ public class Drawing {
                 lineThickness,
                 ps, camera);
 
-    }
-
-    public static void drawRouteComparison(Route r1, Color r1MatchColor, Color r1CutColor, Route r2, Color r2MatchColor,
-            Color r2CutColor,
-            float lineThickness, PointSet ps, Camera2D camera) {
-
-        // Draw Matches for route 1 and 2
-
-        sdfLine.setStroke(lineThickness, false);
-        for (Segment s : r1.matches) {
-            if (r2.matches.contains(s)) {
-                drawSegment(s, Color.CYAN, camera);
-            } else {
-                drawSegment(s, r1MatchColor, camera);
-            }
-        }
-        for (Segment s : r2.matches) {
-            if (!r1.matches.contains(s)) {
-                drawSegment(s, r2MatchColor, camera);
-            }
-        }
-
-        // Draw Cuts for route 1 and 2
-        sdfLine.setStroke(2 * lineThickness, false);
-        for (Segment s : r1.cuts) {
-            if (r2.cuts.contains(s)) {
-                drawSegment(s, Color.ORANGE, camera);
-            } else {
-                drawSegment(s, r1CutColor, camera);
-            }
-        }
-
-        for (Segment s : r2.cuts) {
-            if (!r1.cuts.contains(s)) {
-                drawSegment(s, r2CutColor, camera);
-            }
-        }
     }
 
     public static void drawManifoldCut(Knot hoverKP, Knot hoverCP, Camera2D camera,

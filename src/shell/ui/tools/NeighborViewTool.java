@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import shell.Toggle;
 import shell.cameras.Camera2D;
-import shell.cuts.Manifold;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.ui.Drawing;
@@ -15,7 +14,6 @@ import shell.ui.main.Main;
 
 public class NeighborViewTool extends Tool {
 
-    public Manifold manifold;
     public int layerCalculated;
     HashMap<Long, Integer> colorLookup;
     public static ArrayList<Color> colors;

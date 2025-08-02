@@ -7,8 +7,6 @@ import org.joml.Vector2f;
 
 import shell.Toggle;
 import shell.cameras.Camera2D;
-import shell.cuts.Manifold;
-import shell.cuts.route.Route;
 import shell.knot.Segment;
 import shell.knot.Knot;
 import shell.point.Grid;
@@ -41,10 +39,6 @@ public class MapEditorTool extends Tool {
 
     public States state = States.Add;
 
-    public Manifold displayManifold;
-    public Route displayRouteAlpha;
-    public Route displayRouteBeta;
-
     public Segment startSegment;
     public Knot startKP;
     public Knot startCP;
@@ -68,14 +62,10 @@ public class MapEditorTool extends Tool {
     public void reset() {
         super.reset();
         state = States.Add;
-        displayManifold = null;
         startSegment = null;
         startKP = null;
         startCP = null;
         colorLookup = null;
-        displayRouteAlpha = null;
-        displayRouteBeta = null;
-        Main.knotDrawLayer = Main.shell.cutEngine.totalLayers;
         Main.updateKnotsDisplayed();
         pointCollectionClassMap = Terminal.pointCollectionClassMap;
         currentCollectionType = Main.grid.allowableTypes()[0];

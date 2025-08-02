@@ -14,12 +14,10 @@ import javax.swing.JFrame;
 
 import shell.Toggle;
 import shell.cameras.Camera;
-import shell.file.FileManagement;
 import shell.terminal.Terminal;
 import shell.terminal.commands.ChangeToolCommand;
 import shell.terminal.commands.ColorCommand;
 import shell.terminal.commands.ExitCommand;
-import shell.terminal.commands.ManifoldTestCommand;
 import shell.terminal.commands.ResetCommand;
 import shell.terminal.commands.ResetCommand.ResetOption;
 import shell.terminal.commands.ScreenShotCommand;
@@ -27,11 +25,6 @@ import shell.terminal.commands.UpdateCommand;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
-import shell.ui.tools.CompareManifoldTool;
-import shell.ui.tools.EditManifoldTool;
-import shell.ui.tools.FindManifoldTool;
-import shell.ui.tools.KnotAnimationTool;
-import shell.ui.tools.KnotSurfaceViewTool;
 import shell.ui.tools.NegativeCutMatchViewTool;
 import shell.ui.tools.NeighborViewTool;
 import shell.ui.tools.Tool;
@@ -83,27 +76,6 @@ public class KeyGuy {
                 }
                 if (KeyActions.SaveAs.keyPressed(pressedKeys)) {
 
-                }
-                if (KeyActions.GenerateManifoldTests.keyPressed(pressedKeys)) {
-                    ManifoldTestCommand.run(Main.file.getName(),
-                            FileManagement.solutionsFolder + "/" + Main.file.getName().replace(".ix", ""));
-                }
-                if (KeyActions.Find.keyPressed(pressedKeys)) {
-                    ChangeToolCommand.run(FindManifoldTool.class);
-                }
-                if (KeyActions.KnotSurfaceView.keyPressed(pressedKeys)) {
-                    ChangeToolCommand.run(KnotSurfaceViewTool.class);
-                }
-                if (KeyActions.KnotAnimTool.keyPressed(pressedKeys)) {
-                    ChangeToolCommand.run(KnotAnimationTool.class);
-                }
-                if (KeyActions.Compare.keyPressed(pressedKeys)) {
-                    ChangeToolCommand.run(CompareManifoldTool.class);
-                }
-                if (KeyActions.EditManifold.keyPressed(pressedKeys)) {
-                    if (Toggle.Manifold.value && Toggle.DrawCutMatch.value) {
-                        ChangeToolCommand.run(EditManifoldTool.class);
-                    }
                 }
                 if (KeyActions.NegativeCutMatchViewTool.keyPressed(pressedKeys)) {
                     ChangeToolCommand.run(NegativeCutMatchViewTool.class);

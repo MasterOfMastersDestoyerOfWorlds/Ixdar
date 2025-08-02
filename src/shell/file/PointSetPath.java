@@ -5,7 +5,6 @@ import java.util.ArrayList;
 
 import shell.DistanceMatrix;
 import shell.PointSet;
-import shell.cuts.Manifold;
 import shell.point.Grid;
 import shell.shell.Shell;
 
@@ -17,7 +16,6 @@ public class PointSetPath {
 	public Path2D path;
 	public Shell tsp;
 	public DistanceMatrix d;
-	public ArrayList<Manifold> manifolds;
 	public ArrayList<String> comments;
 	public Grid grid;
 
@@ -26,13 +24,12 @@ public class PointSetPath {
 	 * 
 	 * @param comments
 	 */
-	public PointSetPath(PointSet ps, Path2D path, Shell tsp, DistanceMatrix d, ArrayList<Manifold> manifolds,
+	public PointSetPath(PointSet ps, Path2D path, Shell tsp, DistanceMatrix d, 
 			ArrayList<String> comments, Grid grid) {
 		this.path = path;
 		this.ps = ps;
 		this.tsp = tsp;
 		this.d = d;
-		this.manifolds = manifolds;
 		this.comments = comments;
 		this.grid = grid;
 	}

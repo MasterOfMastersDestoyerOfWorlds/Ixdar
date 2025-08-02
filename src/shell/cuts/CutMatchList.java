@@ -426,8 +426,6 @@ public class CutMatchList implements FileStringable {
         h.newLine();
         h.addWord("MatchCount: ", matchColor);
         h.addLine(internalCount + "", Color.COMMAND);
-        h.addWord("KnotDistance: ", matchColor);
-        h.addLine(cm.c.knotDistance() + "", Color.COMMAND);
         h.addWord("Delta: ", matchColor);
         h.addLine(String.format("%.2f", delta), Color.COMMAND);
         h.addWord("IntDelta: ", matchColor);

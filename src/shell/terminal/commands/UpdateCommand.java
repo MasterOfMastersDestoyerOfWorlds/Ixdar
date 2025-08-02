@@ -1,6 +1,5 @@
 package shell.terminal.commands;
 
-import shell.Toggle;
 import shell.file.FileManagement;
 import shell.render.color.Color;
 import shell.shell.Shell;
@@ -54,9 +53,6 @@ public class UpdateCommand extends TerminalCommand {
             terminal.history.addLine(oldLength + "", Color.BLUE_WHITE);
             terminal.history.addWord("New tour length is:", Color.GREEN);
             terminal.history.addLine(newLength + "", Color.BLUE_WHITE);
-            if (Main.tool.canUseToggle(Toggle.Manifold)) {
-                FileManagement.appendCutAns(Main.file, Main.manifolds);
-            }
         }
         return new String[] { cmd };
     }

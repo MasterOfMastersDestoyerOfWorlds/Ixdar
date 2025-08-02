@@ -277,45 +277,33 @@ public abstract class Tool {
 
     public void increaseViewLayer() {
         if (canUseToggle(Toggle.CanSwitchLayer)) {
-            if (canUseToggle(Toggle.Manifold) && canUseToggle(Toggle.DrawCutMatch)) {
-                Main.manifoldIdx++;
-                if (Main.manifoldIdx >= Main.manifolds.size()) {
-                    Main.manifoldIdx = 0;
-                }
-            } else {
-                if (!canUseToggle(Toggle.CanSwitchTopLayer) && Main.knotDrawLayer == Main.totalLayers - 1) {
-                    return;
-                }
-                Main.knotDrawLayer++;
-                if (Main.knotDrawLayer > Main.totalLayers) {
-                    Main.knotDrawLayer = Main.totalLayers;
-                }
-                if (Main.knotDrawLayer < 1) {
-                    Main.knotDrawLayer = 1;
-                }
-                Main.updateKnotsDisplayed();
+
+            if (!canUseToggle(Toggle.CanSwitchTopLayer) && Main.knotDrawLayer == Main.totalLayers - 1) {
+                return;
             }
+            Main.knotDrawLayer++;
+            if (Main.knotDrawLayer > Main.totalLayers) {
+                Main.knotDrawLayer = Main.totalLayers;
+            }
+            if (Main.knotDrawLayer < 1) {
+                Main.knotDrawLayer = 1;
+            }
+            Main.updateKnotsDisplayed();
         }
     }
 
     public void decreaseViewLayer() {
         if (canUseToggle(Toggle.CanSwitchLayer)) {
-            if (canUseToggle(Toggle.Manifold) && canUseToggle(Toggle.DrawCutMatch)) {
-                Main.manifoldIdx--;
-                if (Main.manifoldIdx < 0) {
-                    Main.manifoldIdx = Main.manifolds.size() - 1;
-                }
+
+            if (Main.knotDrawLayer == -1) {
+                Main.knotDrawLayer = Main.totalLayers;
             } else {
-                if (Main.knotDrawLayer == -1) {
-                    Main.knotDrawLayer = Main.totalLayers;
-                } else {
-                    Main.knotDrawLayer--;
-                    if (Main.knotDrawLayer < 1) {
-                        Main.knotDrawLayer = 1;
-                    }
+                Main.knotDrawLayer--;
+                if (Main.knotDrawLayer < 1) {
+                    Main.knotDrawLayer = 1;
                 }
-                Main.updateKnotsDisplayed();
             }
+            Main.updateKnotsDisplayed();
         }
     }
 

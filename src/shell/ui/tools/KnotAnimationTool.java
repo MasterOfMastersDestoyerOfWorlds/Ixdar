@@ -19,7 +19,6 @@ import io.humble.video.awt.MediaPictureConverter;
 import io.humble.video.awt.MediaPictureConverterFactory;
 import shell.Toggle;
 import shell.cameras.Camera2D;
-import shell.cuts.Clockwork;
 import shell.cuts.CutMatch;
 import shell.cuts.CutMatchList;
 import shell.knot.Knot;
@@ -162,7 +161,7 @@ public class KnotAnimationTool extends Tool {
         }
         for (Integer id : Main.knotLayerLookup.keySet()) {
             if (Main.knotLayerLookup.get(id) == matchingLayer) {
-                Knot k = Main.flattenEngine.flatKnots.get(id);
+                Knot k = Main.resultKnots.stream().filter(resultKnot -> resultKnot.id == id).findFirst().get();
                 ArrayList<Pair<Long, Long>> idTransform = Main.lookupPairs(k);
                 for (int i = 0; i < k.manifoldSegments.size(); i++) {
                     Segment s = k.manifoldSegments.get(i);

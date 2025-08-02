@@ -22,11 +22,6 @@ import shell.DistanceMatrix;
 import shell.Toggle;
 import shell.cameras.Camera;
 import shell.cameras.Camera2D;
-import shell.cuts.Manifold;
-import shell.cuts.engines.CutEngine;
-import shell.cuts.engines.FlattenEngine;
-import shell.cuts.engines.InternalPathEngine;
-import shell.cuts.engines.ManifoldEngine;
 import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
 import shell.exceptions.TerminalParseException;
@@ -73,12 +68,11 @@ public class Main {
     public static Shell orgShell;
     public static ArrayList<Shell> subPaths = new ArrayList<>();
     public static Shell resultShell;
-    public static ArrayList<Knot> result;
+    public static ArrayList<Knot> resultKnots;
     public static SegmentBalanceException sbe;
 
     public static Knot manifoldKnot;
     public static int manifoldIdx = 0;
-    public static ArrayList<Manifold> manifolds = new ArrayList<>();
     public static int knotDrawLayer = -1;
     static PriorityQueue<ShellPair> metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
     public static PriorityQueue<ShellPair> metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -114,13 +108,11 @@ public class Main {
     public static Info info;
     public static Grid grid;
     public static int totalLayers = -1;
-    public static FlattenEngine flattenEngine;
     public static double tourLength;
 
     public Main(String fileName) throws TerminalParseException {
         metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
         metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
-        manifolds = new ArrayList<>();
         knotLayerLookup = new HashMap<>();
         knotGradientColors = new ArrayList<>();
         knotsDisplayed = new ArrayList<>();
@@ -150,8 +142,6 @@ public class Main {
         int wHeight = (int) IxdarWindow.getHeight();
         camera = new Camera2D(wWidth - RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE, 0.9f, 0, BOTTOM_PANEL_SIZE,
                 retTup.ps);
-
-        Toggle.Manifold.value = !retTup.manifolds.isEmpty();
 
         Toggle.setPanelFocus(PanelTypes.KnotView);
         grid = retTup.grid;
@@ -191,32 +181,24 @@ public class Main {
 
         shell = orgShell.copyShallow();
 
-        CutEngine.resetMetrics();
-
         shell.knotName = fileName;
 
         Collections.shuffle(shell);
         long startTimeKnotFinding = System.currentTimeMillis();
         if (Toggle.CalculateKnot.value) {
             try {
-                result = new ArrayList<>(shell.slowSolve(shell, d, 40));
+                resultKnots = new ArrayList<>(shell.slowSolve(shell, d, 40));
             } catch (MultipleCyclesFoundException e) {
                 e.printStackTrace();
             }
         } else {
-            result = new ArrayList<>();
+            resultKnots = new ArrayList<>();
         }
 
         long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
         double knotFindingSeconds = ((double) endTimeKnotFinding) / 1000.0;
 
-        long startTimeKnotCutting = System.currentTimeMillis();
-        if (Toggle.CutKnot.value) {
-            calculateSubPaths();
-        }
-        long endTimeKnotCutting = System.currentTimeMillis() - startTimeKnotCutting;
-        flattenEngine = shell.cutEngine.flattenEngine;
-        Collection<Knot> flatKnots = result;
+        Collection<Knot> flatKnots = resultKnots;
         if (flatKnots.size() > 0) {
             manifoldKnot = flatKnots.iterator().next();
         }
@@ -225,32 +207,7 @@ public class Main {
                 manifoldKnot = f;
             }
         }
-        manifolds = retTup.manifolds;
-        for (Manifold m : manifolds) {
-            m.manifoldKnot = manifoldKnot;
-            try {
-                m.loadCutMatch(shell);
-            } catch (SegmentBalanceException e) {
-                sbe = e;
-            }
-        }
 
-        if (tool.canUseToggle(Toggle.Manifold) && sbe == null) {
-
-            if (result.size() > 1) {
-                Toggle.Manifold.value = false;
-                Toggle.CalculateKnot.value = true;
-            }
-
-            manifolds.parallelStream().forEach((m) -> {
-                try {
-                    m.calculateManifoldCutMatch(shell, manifoldKnot);
-                } catch (SegmentBalanceException sbe) {
-                    segmentBalanceExceptionHandler(sbe);
-                }
-            });
-
-        }
         shell.buff.flush();
         retTup.grid.init();
         Random colorSeed = new Random();
@@ -301,47 +258,15 @@ public class Main {
 
         Drawing.initDrawingSizes(shell, camera, d);
         tourLength = shell.getLength();
-        double knotCuttingSeconds = ((double) endTimeKnotCutting) / 1000.0;
-        double ixdarSeconds = ((double) InternalPathEngine.totalTimeIxdar) / 1000.0;
-        double ixdarProfileSeconds = ((double) InternalPathEngine.profileTimeIxdar) / 1000.0;
-        System.out.println(result);
+        System.out.println(resultKnots);
         System.out.println("Knot-finding time: " + knotFindingSeconds);
-        System.out.println("Knot-cutting time: " + knotCuttingSeconds);
-        System.out.println("Ixdar counted: " + ManifoldEngine.countCalculated);
-        System.out.println("Ixdar skip: " + ManifoldEngine.countSkipped);
-        System.out.println("Ixdar Calls:" + InternalPathEngine.ixdarCalls);
-
-        System.out.println("routeMapCopy %: "
-                + 100 * ((double) ManifoldEngine.routeMapsCopied) / ((double) ManifoldEngine.totalRoutes));
-
-        System.out.println("Ixdar comparisons " + String.format("%,d", InternalPathEngine.comparisons));
         System.out.println("N " + shell.size());
 
         System.out.println("Knot-finding time: " + knotFindingSeconds);
-        System.out.println("Knot-cutting time: " + knotCuttingSeconds);
-        System.out.println("Knot-cutting %: " + 100 * (knotCuttingSeconds / (knotCuttingSeconds + knotFindingSeconds)));
-        System.out.println("ree Time: " + CutEngine.reeTotalTimeSeconds);
-        System.out.println("ree %: " + 100 * (CutEngine.reeTotalTimeSeconds / (knotCuttingSeconds)));
-        System.out.println("Clockwork Time: " + CutEngine.clockworkTotalTimeSeconds);
-        System.out.println("Clockwork %: " + 100 * (CutEngine.clockworkTotalTimeSeconds / (knotCuttingSeconds)));
-        System.out.println("Flatten Time: " + FlattenEngine.flattenTotalTimeSeconds);
-        System.out.println("Flatten %: " + 100 * (FlattenEngine.flattenTotalTimeSeconds / (knotCuttingSeconds)));
-        System.out.println("Manifold Time: " + ManifoldEngine.cutMatchListTime);
-        System.out.println("Manifold %: " + 100 * (ManifoldEngine.cutMatchListTime / (knotCuttingSeconds)));
-        System.out.println("Route Map Copy Time: " + ManifoldEngine.routeMapCopyTime);
-        System.out.println("Route Map Copy %: " + 100 * (ManifoldEngine.routeMapCopyTime / (knotCuttingSeconds)));
-        System.out.println("Ixdar time: " + ixdarSeconds);
-        System.out.println("Ixdar %: " + 100 * (ixdarSeconds / (knotCuttingSeconds)));
-        System.out.println("Ixdar profile time: " + ixdarProfileSeconds);
-        System.out.println("Ixdar Profile %: " + 100 * (ixdarProfileSeconds / (ixdarSeconds)));
-        System.out.println("Ixdar profile continue count: " + String.format("%,d", InternalPathEngine.continueCount));
-        System.out.println("Ixdar Profile continue %: " + 100 * (((double) InternalPathEngine.continueCount)
-                / ((double) (InternalPathEngine.continueCount + InternalPathEngine.noncontinueCount))));
         System.out.println("Saved Answer Length: " + orgShell.getLength());
         System.out.println("Calculated Length: " + tourLength);
         System.out.println("===============================================");
 
-        System.out.println(flattenEngine.flatKnots);
         stickyColor = new ColorRGB(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
         stickyColor = Color.CYAN;
 
@@ -380,12 +305,6 @@ public class Main {
                 if (sbe.cutMatchList != null) {
                     Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS, retTup.ps, camera);
                 }
-            }
-            if (tool.canUseToggle(Toggle.DrawCutMatch) && tool.canUseToggle(Toggle.Manifold) && manifolds != null
-                    && manifolds.get(manifoldIdx).cutMatchList != null) {
-                Manifold m = manifolds.get(manifoldIdx);
-                Drawing.drawCutMatch(m.cutMatchList, m.manifoldCutSegment1, m.manifoldCutSegment2, m.manifoldExSegment1,
-                        m.manifoldExSegment2, m.manifoldKnot, Drawing.MIN_THICKNESS * 2, retTup.ps, camera);
             }
             if (tool.canUseToggle(Toggle.DrawMainPath)) {
                 Drawing.drawShell(orgShell, false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
@@ -532,7 +451,7 @@ public class Main {
     }
 
     public static Color getKnotGradientColorFlatten(Knot k) {
-        Knot smallestKnot = flattenEngine.flatKnots.get(flattenEngine.knotToFlatKnot.get(k.id));
+        Knot smallestKnot = k;
         if (smallestKnot == null) {
             return Color.IXDAR;
         }
@@ -541,7 +460,7 @@ public class Main {
 
     public static Color getMetroColor(Knot displayPoint, Knot k) {
         if (knotDrawLayer < 0) {
-            Knot smallestKnot = flattenEngine.flatKnots.get(shell.smallestKnotLookup[displayPoint.id]);
+            Knot smallestKnot = k;
             return metroColors.get(knotLayerLookup.get(smallestKnot.id));
         } else {
             return metroColors.get(knotLayerLookup.get(k.id));
@@ -549,7 +468,7 @@ public class Main {
     }
 
     public static Color getMetroColorFlatten(Knot thickKnot) {
-        Knot smallestKnot = flattenEngine.flatKnots.get(flattenEngine.knotToFlatKnot.get(thickKnot.id));
+        Knot smallestKnot = thickKnot;
         if (smallestKnot == null) {
             return Color.IXDAR;
         }
@@ -574,26 +493,6 @@ public class Main {
             idTransform.add(new Pair<Long, Long>((long) smallestKnot1.id, (long) smallestKnot2.id));
         }
         return idTransform;
-    }
-
-    public static void calculateSubPaths() {
-        try {
-
-            for (int i = 0; i < result.size(); i++) {
-                Knot vp = result.get(i);
-                if (!vp.isSingleton()) {
-                    System.out.println("Next Knot: " + vp);
-                    Shell temp = shell.cutKnot((Knot) vp);
-                    System.out.println("Knot: " + temp + " Length: " + temp.getLength());
-                    subPaths.add(temp);
-                    if (vp.getHeight() > totalLayers) {
-                        totalLayers = vp.getHeight();
-                    }
-                }
-            }
-        } catch (SegmentBalanceException sbe) {
-            segmentBalanceExceptionHandler(sbe);
-        }
     }
 
     public static void segmentBalanceExceptionHandler(SegmentBalanceException sbe) {
@@ -724,9 +623,9 @@ public class Main {
     }
 
     public static Knot getKnotFlatten(Knot k) {
-        Knot smallestKnot = flattenEngine.flatKnots.get(flattenEngine.knotToFlatKnot.get(k.id));
+        Knot smallestKnot = k;
         if (smallestKnot == null) {
-            Knot first = result.get(0);
+            Knot first = resultKnots.get(0);
             return (Knot) first;
         }
         return smallestKnot;

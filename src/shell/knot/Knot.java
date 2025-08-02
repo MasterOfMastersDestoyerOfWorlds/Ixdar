@@ -33,7 +33,6 @@ public class Knot {
     Knot topGroupKnot;
     Shell shell;
     public ArrayList<Segment> manifoldSegments;
-    public ArrayList<Long> manifoldSegmentIds;
     int height = -1;
     public int numKnots;
     public HashMap<Integer, Knot> pointToInternalKnot;
@@ -262,115 +261,6 @@ public class Knot {
         matchList = new ArrayList<>();
     }
 
-    public Knot(ArrayList<Knot> knotPointsToAdd, Shell shell) {
-        constructor(knotPointsToAdd, shell, true);
-    }
-
-    public Knot(ArrayList<Knot> knotPointsToAdd, Shell shell, boolean setMatches) {
-        constructor(knotPointsToAdd, shell, setMatches);
-    }
-
-    public void constructor(ArrayList<Knot> knotPointsToAdd, Shell shell, boolean setMatches) {
-        knotPointsToAdd = new ArrayList<>(knotPointsToAdd);
-        minMatches = 2;
-        maxMatches = 2;
-        matchList = new ArrayList<>();
-        ArrayList<Knot> addList = new ArrayList<>();
-        int size = knotPointsToAdd.size();
-        for (int i = 0; i < knotPointsToAdd.size(); i++) {
-            Knot vp = knotPointsToAdd.get(i);
-            if (!vp.isSingleton() && ((Knot) vp).knotPoints.size() == 2) {
-                Knot last = knotPointsToAdd.get(Math.floorMod(i - 1, size));
-                Knot next = knotPointsToAdd.get(Math.floorMod(i + 1, size));
-                Knot vp1 = ((Knot) vp).knotPoints.get(0);
-                Knot vp2 = ((Knot) vp).knotPoints.get(1);
-                if (!vp1.isSingleton() && !vp2.isSingleton()) {
-                    Segment lastSeg = last.getClosestSegment(vp, null);
-                    Knot lastKnotPoint = lastSeg.getOtherKnot(last);
-                    Segment nextSeg = next.getClosestSegment(vp, lastSeg);
-                    Knot nextKnotPoint = nextSeg.getOtherKnot(next);
-                    addList.add(vp);
-                } else {
-                    addList.add(vp);
-                }
-            } else {
-                addList.add(vp);
-            }
-        }
-        this.shell = shell;
-        sortedSegments = new ArrayList<>();
-        this.knotPoints = addList;
-        size = knotPoints.size();
-        knotPointsFlattened = new ArrayList<Knot>();
-        pointToInternalKnot = new HashMap<>();
-
-        for (Knot vp : knotPoints) {
-            if (!vp.isSingleton()) {
-                Knot knot = ((Knot) vp);
-                for (Knot p : knot.knotPointsFlattened) {
-                    knotPointsFlattened.add(p);
-                    pointToInternalKnot.put(p.id, knot);
-                }
-            } else {
-                pointToInternalKnot.put(vp.id, vp);
-                knotPointsFlattened.add(vp);
-            }
-        }
-
-        this.externalKnots = new ArrayList<>();
-        externalKnots.addAll(knotPointsFlattened);
-        // store the segment lists of each point contained in the knot, recursive
-        sortedSegments = new ArrayList<Segment>();
-        for (Knot vp : knotPoints) {
-            if (!vp.isSingleton()) {
-                ArrayList<Segment> vpExternal = vp.sortedSegments;
-                for (Segment s : vpExternal) {
-                    if (!(knotPointsFlattened.contains(s.first) && knotPointsFlattened.contains(s.last))) {
-                        sortedSegments.add(s);
-                    }
-                }
-            } else {
-                ArrayList<Segment> vpExternal = vp.sortedSegments;
-                for (Segment s : vpExternal) {
-                    if (!(knotPointsFlattened.contains(s.first) && knotPointsFlattened.contains(s.last))) {
-                        sortedSegments.add(s);
-                    }
-                }
-            }
-        }
-        sortedSegments.sort(null);
-        this.id = shell.pointMap.keySet().size();
-        shell.pointMap.put(id, this);
-        manifoldSegments = new ArrayList<>();
-        manifoldSegmentIds = new ArrayList<>();
-        if (knotPointsFlattened.size() == knotPoints.size()) {
-            for (int a = 0; a < knotPoints.size(); a++) {
-                Knot knotPoint1 = knotPoints.get(a);
-                Knot knotPoint2 = knotPoints.get(a + 1 >= knotPoints.size() ? 0 : a + 1);
-                Segment s = knotPoint1.getClosestSegment(knotPoint2, null);
-                manifoldSegments.add(s);
-                manifoldSegmentIds.add(s.id);
-            }
-        }
-        height = 0;
-        for (Knot vp : knotPoints) {
-            int pHeight = vp.getHeight();
-            if (pHeight > height) {
-                height = pHeight;
-            }
-        }
-        height++;
-        numKnots = 0;
-        for (Knot vp : knotPoints) {
-            if (!vp.isSingleton()) {
-                Knot k = (Knot) vp;
-                numKnots += k.numKnots;
-            }
-        }
-        assert (this.size() > 0);
-        numKnots++;
-    }
-
     public Segment getPointer(int idx) {
         int count = idx;
         ArrayList<Segment> seenGroups = new ArrayList<Segment>();
@@ -519,10 +409,6 @@ public class Knot {
             return manifoldSegments.contains(cut);
         }
         return false;
-    }
-
-    public boolean hasSegmentManifold(Segment cut) {
-        return manifoldSegmentIds.contains(cut.id);
     }
 
     public boolean overlaps(Knot minKnot) {

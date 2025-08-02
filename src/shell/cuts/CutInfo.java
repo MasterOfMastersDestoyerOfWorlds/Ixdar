@@ -6,7 +6,6 @@ import org.apache.commons.collections4.map.MultiKeyMap;
 import org.apache.commons.math3.util.Pair;
 
 import shell.BalanceMap;
-import shell.cuts.engines.FlattenEngine;
 import shell.exceptions.BalancerException;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
@@ -278,35 +277,6 @@ public class CutInfo {
             return true;
         }
         return false;
-    }
-
-    public int knotDistance() {
-        FlattenEngine flatten = shell.cutEngine.flattenEngine;
-        Knot smallestKnot1 = flatten.flatKnots.get(shell.smallestKnotLookup[lowerCutPoint.id]);
-        int smallestKnot1Height = flatten.flatKnotsHeight.get(smallestKnot1.id);
-        Knot smallestKnot2 = flatten.flatKnots.get(shell.smallestKnotLookup[upperCutPoint.id]);
-        int smallestKnot2Height = flatten.flatKnotsHeight.get(smallestKnot2.id);
-        Knot smallestCommonKnot = flatten.flatKnots
-                .get(shell.smallestCommonKnotLookup[upperCutPoint.id][lowerCutPoint.id]);
-        int smallestCommonKnotHeight = flatten.flatKnotsHeight.get(smallestCommonKnot.id);
-        int knotLayer = Math.max(1, smallestCommonKnotHeight - smallestKnot1Height + smallestCommonKnotHeight
-                - smallestKnot2Height)
-                + (knotPointsConnected ? 0 : 1);
-        if (smallestKnot2.contains(lowerCutPoint)) {
-            knotLayer = Math.max(1, smallestKnot2Height - smallestKnot1Height + 1
-                    + (knotPointsConnected ? 0 : 1));
-        }
-        if (smallestKnot1.contains(upperCutPoint)) {
-            knotLayer = Math.max(1, smallestKnot1Height - smallestKnot2Height + 1
-                    + (knotPointsConnected ? 0 : 1));
-        }
-
-        // int lowerIdx = knot.knotPointsFlattened.indexOf(this.lowerCutPoint);
-        // int upperIdx = knot.knotPointsFlattened.indexOf(this.upperCutPoint);
-        // int rightDist = lowerIdx + Math.abs(knot.size() - upperIdx);
-        // int leftDist = Math.abs(upperIdx - lowerIdx);
-        // int dist = Math.min(leftDist, rightDist);
-        return knotLayer;
     }
 
     public SegmentBalanceException getSbe() {

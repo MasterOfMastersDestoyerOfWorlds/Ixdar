@@ -65,9 +65,9 @@ public class FreeTool extends Tool {
         // h.newLine();
         // h.addWord("Position:");
         // if (displayKP == null) {
-        //     h.addWord(Main.grid.toCoordString());
+        // h.addWord(Main.grid.toCoordString());
         // } else {
-        //     h.addWord(coordPoint.toCoordString());
+        // h.addWord(coordPoint.toCoordString());
         // }
 
         h.newLine();
@@ -118,16 +118,15 @@ public class FreeTool extends Tool {
                 minKnotInfo.addDistance(containingKnot.s2.distance, c);
             }
             minKnotInfo.addLine("FlatID: " + containingKnot.id, c);
-            minKnotInfo.addLine("OrgID: " + Main.flattenEngine.flatKnotToKnot.get(containingKnot.id), c);
             h.addTooltip(containingKnot.beforeString(displayKP.id), c, minKnotInfo, () -> Main.camera.zoomToKnot(reeK));
             h.addTooltip(pointStr, Color.BLUE_WHITE, pointInfo, () -> Main.camera.centerOnPoint(coordPointF));
             h.addTooltip(containingKnot.afterString(displayKP.id), c, minKnotInfo, () -> Main.camera.zoomToKnot(reeK));
 
         }
         h.newLine();
-        if (Main.result.size() > 0) {
+        if (Main.resultKnots.size() > 0) {
             h.addWord("TopKnot:");
-            for (Knot topStruct : Main.result) {
+            for (Knot topStruct : Main.resultKnots) {
                 if (!topStruct.isSingleton()) {
                     h.newLine();
                     h.newLine();

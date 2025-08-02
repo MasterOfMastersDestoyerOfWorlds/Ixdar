@@ -16,7 +16,6 @@ import java.util.List;
 import shell.DistanceMatrix;
 import shell.PointSet;
 import shell.Toggle;
-import shell.cuts.Manifold;
 import shell.exceptions.FileParseException;
 import shell.exceptions.TerminalParseException;
 import shell.point.Arc;
@@ -142,18 +141,6 @@ public class FileManagement {
                         }
 
                         fi.index++;
-                    } else if (args[0].equals("MANIFOLD")) {
-                        // MANIFOLD
-                        fi.m = new Manifold(java.lang.Integer.parseInt(args[1]), java.lang.Integer.parseInt(args[2]),
-                                java.lang.Integer.parseInt(args[3]), java.lang.Integer.parseInt(args[4]),
-                                args[5].equals("C"));
-                        try {
-                            fi.m.parse(args);
-                        } catch (FileParseException fpe) {
-                            throw new FileParseException(f.toPath(), f.getName(), fi.lineNumber);
-                        }
-                        fi.manifolds.add(fi.m);
-
                     } else if (args[0].equals("ANS")) {
                         // ANS
                         for (int i = 1; i < args.length; i++) {
@@ -162,7 +149,6 @@ public class FileManagement {
                     } else if (Ix.opts.contains(args[0])) {
                         // LOAD
                         PointSetPath retTup = Ix.parseFull(args, 1);
-                        fi.manifolds.addAll(retTup.manifolds);
                         for (PointND pt : retTup.ps) {
                             pt2d = pt.toPoint2D();
                             fi.lookUp.put(fi.index, pt);
@@ -242,8 +228,8 @@ public class FileManagement {
                 fi.grid = new Grid.HexGrid();
                 fi.grid.showGrid();
             }
-            return new PointSetPath(fi.ps, fi.path, fi.tsp, fi.d, fi.manifolds, fi.comments, fi.grid);
-        } catch (NumberFormatException | IOException | FileParseException e) {
+            return new PointSetPath(fi.ps, fi.path, fi.tsp, fi.d,  fi.comments, fi.grid);
+        } catch (NumberFormatException | IOException e) {
             e.printStackTrace();
         }
         return null;
@@ -436,7 +422,7 @@ public class FileManagement {
         }
     }
 
-    public static void appendCutAns(File f, ArrayList<Manifold> manifold) {
+    public static void appendCutAns(File f) {
         List<String> lines = new ArrayList<String>();
         String line = null;
         try {
@@ -444,14 +430,6 @@ public class FileManagement {
             BufferedReader br = new BufferedReader(fr);
             int i = 0;
             while ((line = br.readLine()) != null) {
-                if (line.contains("MANIFOLD ")) {
-                    Manifold m = manifold.get(i);
-                    if (m.shorterPathFound) {
-                        System.out.println(line);
-                        line = m.toFileString();
-                    }
-                    i++;
-                }
                 lines.add(line + "\n");
             }
             fr.close();
@@ -517,8 +495,6 @@ class FileInfo {
     Path2D path;
     Shell tsp;
     ArrayList<String> comments;
-    ArrayList<Manifold> manifolds;
-    Manifold m;
     boolean flag, first;
     int index;
     DistanceMatrix d;
@@ -537,8 +513,6 @@ class FileInfo {
         path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
         tsp = new Shell();
         comments = new ArrayList<>();
-        manifolds = new ArrayList<>();
-        m = null;
         flag = true;
         first = true;
         index = 0;
