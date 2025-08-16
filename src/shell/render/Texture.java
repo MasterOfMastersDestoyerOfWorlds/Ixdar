@@ -1,34 +1,15 @@
 
 package shell.render;
 
-import static org.lwjgl.opengl.GL11.GL_BLEND;
-import static org.lwjgl.opengl.GL11.GL_LINEAR;
-import static org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA;
-import static org.lwjgl.opengl.GL11.GL_REPEAT;
-import static org.lwjgl.opengl.GL11.GL_RGBA;
-import static org.lwjgl.opengl.GL11.GL_RGBA8;
-import static org.lwjgl.opengl.GL11.GL_SRC_ALPHA;
-import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
-import static org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER;
-import static org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER;
-import static org.lwjgl.opengl.GL11.GL_TEXTURE_WRAP_S;
-import static org.lwjgl.opengl.GL11.GL_TEXTURE_WRAP_T;
-import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
-import static org.lwjgl.opengl.GL11.glBindTexture;
-import static org.lwjgl.opengl.GL11.glBlendFunc;
-import static org.lwjgl.opengl.GL11.glDeleteTextures;
-import static org.lwjgl.opengl.GL11.glEnable;
-import static org.lwjgl.opengl.GL11.glGenTextures;
-import static org.lwjgl.opengl.GL11.glTexImage2D;
-import static org.lwjgl.opengl.GL11.glTexParameteri;
-import static org.lwjgl.opengl.GL30.glGenerateMipmap;
-
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.stb.STBImage;
+
+import shell.platform.Platforms;
+import shell.platform.gl.GL;
 
 public class Texture {
 
@@ -42,6 +23,8 @@ public class Texture {
 
     public boolean initialized;
     String resourceName;
+
+    private static GL gl = Platforms.gl();
 
     public Texture(String resourceName) {
         this.resourceName = resourceName;
@@ -72,19 +55,20 @@ public class Texture {
     }
 
     public void bind() {
-        glBindTexture(GL_TEXTURE_2D, id);
+        gl.bindTexture2D(id);
     }
 
     public void uploadData(int width, int height, ByteBuffer data) {
-        uploadData(GL_RGBA8, width, height, GL_RGBA, data);
+        uploadData(gl.RGBA8(), width, height, gl.RGBA(), data);
     }
 
     public void uploadData(int internalFormat, int width, int height, int format, ByteBuffer data) {
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        gl.texImage2D(gl.TEXTURE_2D(), 0, internalFormat, width,
+                height, 0, format, gl.UNSIGNED_BYTE(), data);
     }
 
     public void delete() {
-        glDeleteTextures(id);
+        // TODO: platform delete
     }
 
     public float getWidth() {
@@ -114,12 +98,17 @@ public class Texture {
         texture.initialized = true;
         texture.bind();
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D(),
+                gl.TEXTURE_WRAP_S(), gl.REPEAT());
+        gl.texParameteri(gl.TEXTURE_2D(),
+                gl.TEXTURE_WRAP_T(), gl.REPEAT());
+        gl.texParameteri(gl.TEXTURE_2D(),
+                gl.TEXTURE_MIN_FILTER(), gl.LINEAR());
+        gl.texParameteri(gl.TEXTURE_2D(),
+                gl.TEXTURE_MAG_FILTER(), gl.LINEAR());
 
-        texture.uploadData(GL_RGBA8, width, height, GL_RGBA, data);
+        texture.uploadData(gl.RGBA8(), width, height, gl.RGBA(),
+                data);
 
         return texture;
     }
@@ -161,10 +150,14 @@ public class Texture {
 
         STBImage.stbi_set_flip_vertically_on_load(true);
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D(),
+                gl.TEXTURE_WRAP_S(), gl.REPEAT());
+        gl.texParameteri(gl.TEXTURE_2D(),
+                gl.TEXTURE_WRAP_T(), gl.REPEAT());
+        gl.texParameteri(gl.TEXTURE_2D(),
+                gl.TEXTURE_MIN_FILTER(), gl.LINEAR());
+        gl.texParameteri(gl.TEXTURE_2D(),
+                gl.TEXTURE_MAG_FILTER(), gl.LINEAR());
         IntBuffer w = BufferUtils.createIntBuffer(1);
         IntBuffer h = BufferUtils.createIntBuffer(1);
         IntBuffer channels = BufferUtils.createIntBuffer(1);
@@ -177,12 +170,14 @@ public class Texture {
         int width = w.get(0);
         int height = h.get(0);
 
-        int texture = glGenTextures();
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-        glGenerateMipmap(GL_TEXTURE_2D);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glEnable(GL_BLEND);
+        int texture = gl.genTexture();
+        gl.bindTexture2D(texture);
+        gl.texImage2D(gl.TEXTURE_2D(), 0,
+                gl.RGBA(), width, height, 0, gl.RGBA(),
+                gl.UNSIGNED_BYTE(), image);
+        gl.generateMipmap(gl.TEXTURE_2D());
+        gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
+        gl.enable(gl.BLEND());
         STBImage.stbi_image_free(image);
         Texture tex = new Texture(resourceName, texture, width, height);
         return tex;
@@ -193,17 +188,23 @@ public class Texture {
             return;
         }
         initialized = true;
-        id = glGenTextures();
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        id = gl.genTexture();
+        gl.texParameteri(gl.TEXTURE_2D(),
+                gl.TEXTURE_WRAP_S(), gl.REPEAT());
+        gl.texParameteri(gl.TEXTURE_2D(),
+                gl.TEXTURE_WRAP_T(), gl.REPEAT());
+        gl.texParameteri(gl.TEXTURE_2D(),
+                gl.TEXTURE_MIN_FILTER(), gl.LINEAR());
+        gl.texParameteri(gl.TEXTURE_2D(),
+                gl.TEXTURE_MAG_FILTER(), gl.LINEAR());
 
-        glBindTexture(GL_TEXTURE_2D, id);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-        glGenerateMipmap(GL_TEXTURE_2D);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glEnable(GL_BLEND);
+        gl.bindTexture2D(id);
+        gl.texImage2D(gl.TEXTURE_2D(), 0,
+                gl.RGBA(), width, height, 0, gl.RGBA(),
+                gl.UNSIGNED_BYTE(), image);
+        gl.generateMipmap(gl.TEXTURE_2D());
+        gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
+        gl.enable(gl.BLEND());
         if (image != null) {
             STBImage.stbi_image_free(image);
         }

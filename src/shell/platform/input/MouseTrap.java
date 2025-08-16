@@ -1,11 +1,6 @@
-package shell.ui.input;
+package shell.platform.input;
 
-import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
-import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
-import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
-import static org.lwjgl.glfw.GLFW.glfwGetCursorPos;
-import static org.lwjgl.glfw.GLFW.glfwGetMouseButton;
-import static org.lwjgl.system.MemoryStack.stackPush;
+import static shell.platform.input.Keys.*;
 
 import java.awt.AWTException;
 import java.awt.GraphicsConfiguration;
@@ -14,14 +9,13 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.geom.Point2D;
-import java.nio.DoubleBuffer;
 import java.util.ArrayList;
 
 import org.joml.Vector2f;
-import org.lwjgl.system.MemoryStack;
 
 import shell.Toggle;
 import shell.cameras.Camera;
+import shell.platform.Platforms;
 import shell.render.Clock;
 import shell.render.text.HyperString;
 import shell.ui.Canvas3D;
@@ -116,8 +110,8 @@ public class MouseTrap {
         }
     }
 
-    public void mouseScrollCallback(long window, double y) {
-        queuedMouseWheelTicks += 4 * y;
+    public void scrollCallback(double y) {
+        queuedMouseWheelTicks += 4 * (int) y;
         timeLastScroll = System.currentTimeMillis();
     }
 
@@ -125,7 +119,7 @@ public class MouseTrap {
         this.canvas = canvas3d;
     }
 
-    public void mouseMoved(float x, float y) {
+    public void mousePos(float x, float y) {
         if (!active) {
             return;
         }
@@ -250,37 +244,32 @@ public class MouseTrap {
     float leftMouseDown = -1;
     Vector2f leftMouseDownPos;
 
-    public void clickCallback(long window, int button, int action, int mods) {
-        try (MemoryStack stack = stackPush()) {
-            DoubleBuffer xPos = stack.mallocDouble(1);
-            DoubleBuffer yPos = stack.mallocDouble(1);
-            glfwGetCursorPos(IxdarWindow.window, xPos, yPos);
-            float x = (float) xPos.get(0);
-            float y = (float) yPos.get(0);
-            if (action == GLFW_PRESS) {
-                leftMouseDown = Clock.time();
-                leftMouseDownPos = new Vector2f(x, y);
-                mousePressed(x, y);
-            } else if (action == GLFW_RELEASE) {
-                if (leftMouseDownPos != null) {
-                    Vector2f mouseReleasePos = new Vector2f(x, y);
-                    if (mouseReleasePos.distance(leftMouseDownPos) < 3) {
-                        mouseClicked(x, y);
-                    } else {
-                        mouseReleased();
-                    }
+    public void mouseButton(int button, int action, int mods) {
+        float x = lastX;
+        float y = lastY;
+        if (action == ACTION_PRESS) {
+            leftMouseDown = Clock.time();
+            leftMouseDownPos = new Vector2f(x, y);
+            mousePressed(x, y);
+        } else if (action == ACTION_RELEASE) {
+            if (leftMouseDownPos != null) {
+                Vector2f mouseReleasePos = new Vector2f(x, y);
+                if (mouseReleasePos.distance(leftMouseDownPos) < 3) {
+                    mouseClicked(x, y);
+                } else {
+                    mouseReleased();
                 }
             }
         }
     }
 
-    public void moveCallback(long window, double x, double y) {
-        int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+    public void moveOrDrag(long window, float x, float y) {
+        boolean leftDown = Platforms.gl().getMouseButton(window, MouseButtons.MOUSE_BUTTON_LEFT);
         Vector2f mouseReleasePos = new Vector2f((float) x, (float) y);
-        if (state == GLFW_PRESS && leftMouseDownPos != null && mouseReleasePos.distance(leftMouseDownPos) > 3) {
-            mouseDragged((float) x, (float) y);
+        if (leftDown && leftMouseDownPos != null && mouseReleasePos.distance(leftMouseDownPos) > 3) {
+            mouseDragged(x, y);
         } else {
-            mouseMoved((float) x, (float) y);
+            mousePos(x, y);
         }
     }
 

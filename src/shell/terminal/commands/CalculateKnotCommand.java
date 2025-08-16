@@ -1,7 +1,6 @@
 package shell.terminal.commands;
 
 import shell.terminal.Terminal;
-import shell.ui.main.Main;
 
 public class CalculateKnotCommand extends TerminalCommand {
 

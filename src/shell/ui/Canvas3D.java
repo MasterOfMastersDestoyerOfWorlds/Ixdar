@@ -1,10 +1,5 @@
 package shell.ui;
 
-import static org.lwjgl.glfw.GLFW.glfwSetCharCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetCursorPosCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetScrollCallback;
 import static org.lwjgl.opengl.GL.createCapabilities;
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
@@ -26,6 +21,11 @@ import org.joml.Vector3f;
 import org.lwjgl.system.MemoryStack;
 
 import shell.cameras.Camera3D;
+import shell.platform.Platform;
+import shell.platform.Platforms;
+import shell.platform.input.KeyActions;
+import shell.platform.input.KeyGuy;
+import shell.platform.input.MouseTrap;
 import shell.render.Clock;
 import shell.render.Texture;
 import shell.render.lights.DirectionalLight;
@@ -40,9 +40,6 @@ import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.VertexArrayObject;
 import shell.render.shaders.VertexBufferObject;
 import shell.render.text.Font;
-import shell.ui.input.KeyActions;
-import shell.ui.input.KeyGuy;
-import shell.ui.input.MouseTrap;
 import shell.ui.main.Main;
 import shell.ui.menu.MenuBox;
 
@@ -164,6 +161,7 @@ public class Canvas3D {
     public void initGL() {
 
         createCapabilities(false, (IntFunction) null);
+        // set GL implementation for desktop
         float start = Clock.time();
         coldStartStack();
 
@@ -251,23 +249,24 @@ public class Canvas3D {
             // shader.setVec3("viewPos", camera.position);
 
             // for (int i = 0; i < 4; i++) {
-            //     pointLights[i].setShaderInfo(shader, i);
+            // pointLights[i].setShaderInfo(shader, i);
             // }
             // dirLight.setShaderInfo(shader, 0);
             // // view/projection transformations
-            // Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(camera.fov),
-            //         ((float) frameBufferWidth) / ((float) frameBufferHeight), 0.1f, 100.0f);
+            // Matrix4f projection = new Matrix4f().perspective((float)
+            // Math.toRadians(camera.fov),
+            // ((float) frameBufferWidth) / ((float) frameBufferHeight), 0.1f, 100.0f);
             // shader.setMat4("projection", projection);
             // shader.setMat4("view", camera.view);
             // shader.vao.bind();
             // for (int i = 0; i < 10; i++) {
-            //     Matrix4f model = new Matrix4f();
-            //     model.translate(cubePositions[i]);
-            //     float angle = 20.0f * i;
-            //     model.rotate((float) Math.toRadians(angle), new Vector3f(1.0f, 0.3f, 0.5f));
-            //     shader.setMat4("model", model);
+            // Matrix4f model = new Matrix4f();
+            // model.translate(cubePositions[i]);
+            // float angle = 20.0f * i;
+            // model.rotate((float) Math.toRadians(angle), new Vector3f(1.0f, 0.3f, 0.5f));
+            // shader.setMat4("model", model);
 
-            //     glDrawArrays(GL_TRIANGLES, 0, 36);
+            // glDrawArrays(GL_TRIANGLES, 0, 36);
             // }
 
             // // also draw the lamp object
@@ -276,11 +275,12 @@ public class Canvas3D {
             // lightingShader.setMat4("view", camera.view);
             // lightingShader.vao.bind();
             // for (int i = 0; i < pointLights.length; i++) {
-            //     Matrix4f model = new Matrix4f().translate(pointLights[i].position).scale(0.2f);
-            //     lightingShader.setVec3("lightColor", pointLights[i].diffuse);
-            //     lightingShader.setMat4("model", model);
+            // Matrix4f model = new
+            // Matrix4f().translate(pointLights[i].position).scale(0.2f);
+            // lightingShader.setVec3("lightColor", pointLights[i].diffuse);
+            // lightingShader.setMat4("model", model);
 
-            //     glDrawArrays(GL_TRIANGLES, 0, 36);
+            // glDrawArrays(GL_TRIANGLES, 0, 36);
 
             // }
             // Color c = new ColorRGB(Color.CYAN);
@@ -312,18 +312,12 @@ public class Canvas3D {
 
     public static void activate(boolean state) {
         if (state) {
-            glfwSetKeyCallback(IxdarWindow.window,
-                    (window, key, scancode, action, mods) -> keys.keyCallback(window, key, scancode, action, mods));
-
-            glfwSetCharCallback(IxdarWindow.window,
-                    (window, codepoint) -> keys.charCallback(window, codepoint));
-            glfwSetMouseButtonCallback(IxdarWindow.window,
-                    (window, button, action, mods) -> mouse.clickCallback(window, button, action, mods));
-
-            glfwSetCursorPosCallback(IxdarWindow.window, (window, x, y) -> mouse.moveCallback(window, x, y));
-
-            glfwSetScrollCallback(IxdarWindow.window, (window, x, y) -> mouse.mouseScrollCallback(window, y));
-
+            Platform p = Platforms.get();
+            p.setKeyCallback((key, scancode, action, mods) -> keys.keyCallback(0L, key, scancode, action, mods));
+            p.setCharCallback(codepoint -> keys.charCallback(0L, codepoint));
+            p.setMouseButtonCallback((button, action, mods) -> mouse.mouseButton(button, action, mods));
+            p.setCursorPosCallback((window, x, y) -> mouse.moveOrDrag(window, (float) x, (float) y));
+            p.setScrollCallback((xoff, yoff) -> mouse.scrollCallback(yoff));
         }
         Canvas3D.keys.active = state;
         Canvas3D.mouse.active = state;

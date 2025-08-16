@@ -7,10 +7,10 @@ import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
+import shell.platform.input.MouseTrap;
 import shell.render.color.Color;
 import shell.ui.Drawing;
 import shell.ui.actions.Action;
-import shell.ui.input.MouseTrap;
 import shell.ui.main.Main;
 
 public class HyperString {

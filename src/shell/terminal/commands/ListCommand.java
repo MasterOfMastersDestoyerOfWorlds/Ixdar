@@ -3,10 +3,10 @@ package shell.terminal.commands;
 import java.io.File;
 
 import shell.Toggle;
+import shell.platform.input.KeyActions;
 import shell.point.PointCollection;
 import shell.render.color.Color;
 import shell.terminal.Terminal;
-import shell.ui.input.KeyActions;
 import shell.ui.tools.Tool;
 
 public class ListCommand extends TerminalCommand {

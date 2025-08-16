@@ -114,49 +114,9 @@ public class KnotAnimationTool extends Tool {
         Drawing.setScaledStroke(camera);
         if (top) {
             for (Integer id : Main.knotLayerLookup.keySet()) {
-                if (Main.knotLayerLookup.get(id) == cuttingLayer) {
-                    if (Main.shell.cutEngine.flattenEngine.knotToFlatKnot.containsKey(id)) {
-                        id = Main.shell.cutEngine.flattenEngine.knotToFlatKnot.get(id);
-                    }
-                    Knot k = Main.flattenEngine.flatKnots.get(id);
-                    ArrayList<Pair<Long, Long>> idTransform = Main.lookupPairs(k);
-                    for (int i = 0; i < k.manifoldSegments.size(); i++) {
-                        Segment s = k.manifoldSegments.get(i);
-                        Pair<Long, Long> lookUpPair = idTransform.get(i);
-                        Drawing.drawGradientSegment(s, colors.get(colorLookup.get(lookUpPair.getFirst())),
-                                colors.get(colorLookup.get(lookUpPair.getSecond())),
-                                camera);
-                    }
-                }
             }
         } else {
             for (Integer id : Main.knotLayerLookup.keySet()) {
-                if (Main.knotLayerLookup.get(id) == cuttingLayer) {
-                    if (Main.shell.cutEngine.flattenEngine.knotToFlatKnot.containsKey(id)) {
-                        id = Main.shell.cutEngine.flattenEngine.knotToFlatKnot.get(id);
-                    }
-                    Clockwork cw = Main.shell.cutEngine.clockwork.get(id);
-                    CutMatch cm = null;
-                    if (cw != null) {
-                        cm = cw.cm;
-                    }
-                    Knot k = Main.flattenEngine.flatKnots.get(id);
-                    ArrayList<Pair<Long, Long>> idTransform = Main.lookupPairs(k);
-                    for (int i = 0; i < k.manifoldSegments.size(); i++) {
-                        Segment s = k.manifoldSegments.get(i);
-                        Pair<Long, Long> lookUpPair = idTransform.get(i);
-                        if (!cm.cutSegments.contains(s)) {
-                            Drawing.drawGradientSegment(s, colors.get(colorLookup.get(lookUpPair.getFirst())),
-                                    colors.get(colorLookup.get(lookUpPair.getSecond())),
-                                    camera);
-                            drawnSegments.add(s.id);
-                        } else if (!top) {
-                            Drawing.drawGradientSegmentPartial(s, colors.get(colorLookup.get(lookUpPair.getFirst())),
-                                    colors.get(colorLookup.get(lookUpPair.getSecond())), 1 - animStep,
-                                    camera);
-                        }
-                    }
-                }
             }
         }
         for (Integer id : Main.knotLayerLookup.keySet()) {

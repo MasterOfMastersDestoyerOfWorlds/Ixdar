@@ -1,7 +1,5 @@
 package shell.terminal;
 
-import static org.lwjgl.glfw.GLFW.*;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
@@ -13,8 +11,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
 import shell.cameras.Camera2D;
+import shell.platform.input.Keys;
 import shell.point.PointCollection;
 import shell.render.Clock;
 import shell.render.color.Color;
@@ -137,7 +135,7 @@ public class Terminal {
     }
 
     public void keyPress(int key, int mods, boolean controlMask) {
-        if (key == GLFW_KEY_BACKSPACE) {
+        if (key == Keys.BACKSPACE) {
             if (controlMask) {
                 commandLine = commandLine.stripTrailing();
                 int lastSpace = commandLine.lastIndexOf(" ");
@@ -155,7 +153,7 @@ public class Terminal {
             }
             return;
         }
-        if (key == GLFW_KEY_UP) {
+        if (key == Keys.BACKSPACE) {
             int nextCommand = commandHistoryIdx + 1;
             if (nextCommand >= commandHistory.size()) {
                 return;
@@ -166,7 +164,7 @@ public class Terminal {
             commandHistoryIdx = nextCommand;
             commandLine = commandHistory.get(nextCommand);
             return;
-        } else if (key == GLFW_KEY_DOWN) {
+        } else if (key == Keys.DOWN) {
             int prevCommand = commandHistoryIdx - 1;
             if (prevCommand < -1) {
                 return;
@@ -179,7 +177,7 @@ public class Terminal {
             commandHistoryIdx = prevCommand;
             return;
         }
-        if (key == GLFW_KEY_ENTER) {
+        if (key == Keys.ENTER) {
             history.addLine(commandLine);
             if (!commandLine.isBlank()) {
                 commandHistory.add(0, commandLine);
@@ -190,11 +188,11 @@ public class Terminal {
             commandLine = "";
             return;
         }
-        if (key == GLFW_KEY_SPACE) {
+        if (key == Keys.SPACE) {
             commandLine += " ";
             return;
         }
-        if (key == GLFW_KEY_TAB) {
+        if (key == Keys.TAB) {
             if (commandLine.isBlank() && nextLogicalCommand.length > 0) {
                 commandLine = nextLogicalCommand[nextLogicalCommandIdx];
                 nextLogicalCommandIdx = (nextLogicalCommandIdx + 1) % nextLogicalCommand.length;

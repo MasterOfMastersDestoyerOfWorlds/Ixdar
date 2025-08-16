@@ -1,11 +1,5 @@
 package shell.ui.main;
 
-import static org.lwjgl.glfw.GLFW.glfwSetCharCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetCursorPosCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetScrollCallback;
-
 import java.awt.Canvas;
 import java.io.File;
 import java.util.ArrayList;
@@ -29,6 +23,11 @@ import shell.file.FileManagement;
 import shell.file.PointSetPath;
 import shell.knot.Knot;
 import shell.knot.Segment;
+import shell.platform.Platform;
+import shell.platform.Platforms;
+import shell.platform.input.KeyActions;
+import shell.platform.input.KeyGuy;
+import shell.platform.input.MouseTrap;
 import shell.point.Grid;
 import shell.point.PointND;
 import shell.render.color.Color;
@@ -44,9 +43,6 @@ import shell.shell.ShellPair;
 import shell.terminal.Terminal;
 import shell.ui.Drawing;
 import shell.ui.IxdarWindow;
-import shell.ui.input.KeyActions;
-import shell.ui.input.KeyGuy;
-import shell.ui.input.MouseTrap;
 import shell.ui.tools.FreeTool;
 import shell.ui.tools.Tool;
 
@@ -534,17 +530,12 @@ public class Main {
 
     public static void activate(boolean state) {
         if (state) {
-            glfwSetKeyCallback(IxdarWindow.window,
-                    (window, key, scancode, action, mods) -> keys.keyCallback(window, key, scancode, action, mods));
-
-            glfwSetCharCallback(IxdarWindow.window, (window, codepoint) -> keys.charCallback(window, codepoint));
-
-            glfwSetMouseButtonCallback(IxdarWindow.window,
-                    (window, button, action, mods) -> mouse.clickCallback(window, button, action, mods));
-
-            glfwSetCursorPosCallback(IxdarWindow.window, (window, x, y) -> mouse.moveCallback(window, x, y));
-
-            glfwSetScrollCallback(IxdarWindow.window, (window, x, y) -> mouse.mouseScrollCallback(window, y));
+            Platform p = Platforms.get();
+            p.setKeyCallback((key, scancode, action, mods) -> keys.keyCallback(0L, key, scancode, action, mods));
+            p.setCharCallback(codepoint -> keys.charCallback(0L, codepoint));
+            p.setMouseButtonCallback((button, action, mods) -> mouse.mouseButton(button, action, mods));
+            p.setCursorPosCallback((window, x, y) -> mouse.moveOrDrag(window, (float) x, (float) y));
+            p.setScrollCallback((xoff, yoff) -> mouse.scrollCallback(yoff));
         }
         active = state;
         mouse.active = state;

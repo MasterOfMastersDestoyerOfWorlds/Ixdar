@@ -79,6 +79,7 @@
   <properties>
     <lwjgl.version>3.3.6</lwjgl.version>
     <native.maven.plugin.version>0.9.19</native.maven.plugin.version>
+    <teavm.version>0.9.2</teavm.version>
   </properties>
 
   <pluginRepositories>
@@ -144,6 +145,171 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+    <profile>
+      <id>web-teavm</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-resources-plugin</artifactId>
+            <version>3.3.1</version>
+            <executions>
+              <execution>
+                <id>copy-web-static</id>
+                <phase>prepare-package</phase>
+                <goals>
+                  <goal>copy-resources</goal>
+                </goals>
+                <configuration>
+                  <outputDirectory>${project.build.directory}/teavm</outputDirectory>
+                  <resources>
+                    <resource>
+                      <directory>src-web</directory>
+                      <filtering>false</filtering>
+                      <includes>
+                        <include>**/*.html</include>
+                        <include>**/*.css</include>
+                        <include>**/*.png</include>
+                        <include>**/*.jpg</include>
+                        <include>**/*.svg</include>
+                      </includes>
+                    </resource>
+                  </resources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.5.0</version>
+            <executions>
+              <execution>
+                <id>add-web-sources</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>add-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>src-web</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.teavm</groupId>
+            <artifactId>teavm-maven-plugin</artifactId>
+            <version>${teavm.version}</version>
+            <executions>
+              <execution>
+                <id>build-teavm-js</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>build-javascript</goal>
+                </goals>
+                <configuration>
+                  <mainClass>shell.web.teavm.WebLauncher</mainClass>
+                  <targetDirectory>${project.build.directory}/teavm</targetDirectory>
+                  <debugInformation>true</debugInformation>
+                  <sourceMaps>true</sourceMaps>
+                  <minifying>false</minifying>
+                  <incremental>true</incremental>
+                  <strict>true</strict>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+      <dependencies>
+        <dependency>
+          <groupId>org.teavm</groupId>
+          <artifactId>teavm-jso</artifactId>
+          <version>${teavm.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.teavm</groupId>
+          <artifactId>teavm-jso-apis</artifactId>
+          <version>${teavm.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.teavm</groupId>
+          <artifactId>teavm-platform</artifactId>
+          <version>${teavm.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.teavm</groupId>
+          <artifactId>teavm-jso-webgl</artifactId>
+          <version>${teavm.version}</version>
+          <scope>provided</scope>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
+      <id>web-gwt</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.5.0</version>
+            <executions>
+              <execution>
+                <id>add-gwt-sources</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>add-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>src-gwt</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>gwt-maven-plugin</artifactId>
+            <version>2.9.1</version>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>compile</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <module>shell.web.gwt.WebApp</module>
+              <logLevel>INFO</logLevel>
+              <draftCompile>true</draftCompile>
+              <style>OBF</style>
+              <superDevMode>true</superDevMode>
+              <generateJsInteropExports>true</generateJsInteropExports>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+      <dependencies>
+        <dependency>
+          <groupId>com.google.gwt</groupId>
+          <artifactId>gwt-user</artifactId>
+          <version>2.9.0</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>com.google.gwt</groupId>
+          <artifactId>gwt-dev</artifactId>
+          <version>2.9.0</version>
+          <scope>provided</scope>
+        </dependency>
+      </dependencies>
     </profile>
   </profiles>
 
@@ -262,5 +428,6 @@
       <artifactId>lwjgl-stb</artifactId>
       <classifier>${lwjgl.natives}</classifier>
     </dependency>
+    <!-- Web (TeaVM) provided dependencies resolved in web-teavm profile -->
   </dependencies>
 </project>

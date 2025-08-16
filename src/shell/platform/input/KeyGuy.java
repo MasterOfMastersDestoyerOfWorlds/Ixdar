@@ -1,9 +1,9 @@
-package shell.ui.input;
+package shell.platform.input;
 
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_CONTROL;
-import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
-import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
-import static org.lwjgl.glfw.GLFW.GLFW_REPEAT;
+import static shell.platform.input.Keys.LEFT_CONTROL;
+import static shell.platform.input.Keys.ACTION_PRESS;
+import static shell.platform.input.Keys.ACTION_RELEASE;
+import static shell.platform.input.Keys.ACTION_REPEAT;
 
 import java.awt.MouseInfo;
 import java.awt.Point;
@@ -144,7 +144,7 @@ public class KeyGuy {
                 camera.reset();
             }
         }
-        if (key == GLFW_KEY_LEFT_CONTROL) {
+        if (key == LEFT_CONTROL) {
             controlMask = false;
         }
         pressedKeys.remove(key);
@@ -209,13 +209,13 @@ public class KeyGuy {
 
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
         switch (action) {
-        case GLFW_PRESS:
+        case ACTION_PRESS:
             keyPressed(key, mods, false);
             break;
-        case GLFW_REPEAT:
+        case ACTION_REPEAT:
             keyPressed(key, mods, true);
             break;
-        case GLFW_RELEASE:
+        case ACTION_RELEASE:
             keyReleased(key, mods);
             break;
         default:

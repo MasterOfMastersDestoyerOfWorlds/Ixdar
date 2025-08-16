@@ -42,6 +42,9 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
 import shell.render.Clock;
+import shell.platform.Platforms;
+import shell.platform.lwjgl.LwjglGL;
+import shell.platform.lwjgl.LwjglPlatform;
 
 public class IxdarWindow {
 
@@ -94,9 +97,8 @@ public class IxdarWindow {
             throw new RuntimeException("Failed to create the GLFW window");
 
         System.out.println("Window Create Time: " + (Clock.time() - startTime));
-        // Setup a key callback. It will be called every time a key is pressed, repeated
-        // or released.
-
+        // Initialize platform abstraction for LWJGL
+        Platforms.init(new LwjglPlatform(window), new LwjglGL());
         canvas = new Canvas3D();
 
         glfwSetWindowSizeCallback(window, (long windowID, int width, int height) -> {
