@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg2"
+   width="416.2326"
+   height="53.15411"
+   viewBox="0 0 416.2326 53.15411"
+   sodipodi:docname="ratchet_menu.png"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs6" />
+  <sodipodi:namedview
+     id="namedview4"
+     pagecolor="#505050"
+     bordercolor="#ffffff"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="1"
+     inkscape:deskcolor="#505050"
+     showgrid="false" />
+  <g
+     inkscape:groupmode="layer"
+     inkscape:label="Image"
+     id="g8"
+     transform="translate(-207.92354,-54.734982)">
+    <path
+       style="fill:#28ad92;stroke:#f9f7b9"
+       d="m 244.52288,55.234981 h 343.96029 l 34.93809,32.111856 -21.37033,20.042103 -40.19125,-0.0313 -4.03008,-4.04738 H 275.01609 l -4.02047,4.02048 H 230.21836 L 208.66801,87.883674 Z"
+       id="path370" />
+  </g>
+</svg>

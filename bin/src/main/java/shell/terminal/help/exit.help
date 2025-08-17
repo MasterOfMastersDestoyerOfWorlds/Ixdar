@@ -1,0 +1,4 @@
+example 1: ex - if you are using a tool (e.g. the negative cut match tool), the tool will not make any changes 
+and the main view will return to the using the free tool. 
+example 2: ex - if you are using tool the free tool, the tool will not make any changes 
+and the view will return to the main menu. 

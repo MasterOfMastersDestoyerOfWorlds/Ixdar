@@ -1,0 +1,3 @@
+example 1: rst all - resets all tools and all cameras to their base states
+example 2: rst tool - resets the current tool to its initial states
+example 3: rst camera - resets the camera to see all of the points in the ixdar file

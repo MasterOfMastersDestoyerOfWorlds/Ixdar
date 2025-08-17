@@ -1,0 +1,6 @@
+example 1: add triangle -14 100 5.4 70 - would add a triangle(three 2 dimensional points) with its center at (x:-14, y:100) with a rotation of 70 degrees 
+and a radius of 5.4 units to the temp file(needs to be saved to be permanent).
+example 2: add circle 0.0 0.0 7.6 15 0 - would add a circle(n 2 dimensional points) with its center at (x:0, y:0) with a radius of 7.6 units described by 15 points 
+with a rotation of 0 degrees to the temp file(needs to be saved to be permanent).
+
+list the objects and their usage for more help.

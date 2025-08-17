@@ -1,1 +1,5 @@
-/shellCopy/
+/target/
+.vscode/settings.json
+msdfgen-1.12-win64-openmp/msdfgen/*.svg
+msdfgen-1.12-win64-openmp/msdfgen/*.png
+*.mp4

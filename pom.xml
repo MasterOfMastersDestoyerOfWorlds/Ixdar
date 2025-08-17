@@ -6,18 +6,23 @@
   <artifactId>IXDAR</artifactId>
   <version>0.0.1</version>
   <build>
-    <sourceDirectory>src</sourceDirectory>
+    <sourceDirectory>src/main/java</sourceDirectory>
     <testSourceDirectory>test</testSourceDirectory>
 
     <resources>
       <resource>
-        <directory>src</directory>
-        <excludes>
-          <exclude>**/*.java</exclude>
-        </excludes>
+        <directory>res</directory>
+        <includes>
+          <include>**/*</include>
+        </includes>
       </resource>
       <resource>
-        <directory>res</directory>
+        <directory>src/main/resources</directory>
+        <includes>
+          <include>**/*.ix</include>
+          <include>**/*.vs</include>
+          <include>**/*.fs</include>
+        </includes>
       </resource>
     </resources>
     <plugins>
@@ -200,8 +205,19 @@
   <body>
     <canvas id="ixdar-canvas"></canvas>
     <script src="classes.js"></script>
+    <script>
+      try {
+        if (typeof main === 'function') {
+          main([]);
+        } else if (typeof shell_ui_WebLauncher_main === 'function') {
+          shell_ui_WebLauncher_main([]);
+        } else {
+          console.log('Could not locate entrypoint function');
+        }
+      } catch (e) { console.error(e); }
+    </script>
   </body>
-</html>
+  </html>
           ]]></echo>
                   </target>
                 </configuration>
