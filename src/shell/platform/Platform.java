@@ -53,4 +53,6 @@ public interface Platform {
     interface ScrollCallback {
         void onScroll(double xoffset, double yoffset);
     }
+
+    float startTime();
 }

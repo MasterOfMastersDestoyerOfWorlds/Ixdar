@@ -10,6 +10,7 @@ import shell.platform.Platforms;
 import shell.platform.gl.GL;
 import shell.platform.gl.web.WebGL;
 import shell.platform.gl.web.WebPlatform;
+import shell.render.Clock;
 import shell.ui.main.Main;
 
 public final class WebLauncher {
@@ -17,10 +18,12 @@ public final class WebLauncher {
     private WebLauncher() {
     }
 
+    public static float startTime;
     private static boolean initialized;
     private static HTMLDocument document = Window.current().getDocument();
 
     public static void main(String[] args) {
+        startTime = Clock.time();
         HTMLCanvasElement canvas = (HTMLCanvasElement) document.getElementById("ixdar-canvas");
         if (canvas == null) {
             canvas = (HTMLCanvasElement) document.createElement("canvas");

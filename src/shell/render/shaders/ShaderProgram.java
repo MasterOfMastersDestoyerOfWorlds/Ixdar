@@ -13,9 +13,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
-import org.lwjgl.BufferUtils;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
+import shell.platform.buffers.Buffers;
 
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
@@ -90,6 +88,7 @@ public abstract class ShaderProgram {
     private boolean useBuffer;
     private boolean reloadShader;
     private GL gl = Platforms.gl();
+    private final Buffers buffers = Platforms.buffers();
 
     public ShaderProgram(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
             VertexBufferObject vbo, boolean useBuffer) {
@@ -150,10 +149,9 @@ public abstract class ShaderProgram {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            FloatBuffer buffer = mat.get(stack.mallocFloat(16));
-            gl.uniformMatrix4fv(uniformLocations.get(name), false, buffer);
-        }
+        FloatBuffer buffer = buffers.allocateFloats(16);
+        mat.get(buffer);
+        gl.uniformMatrix4fv(uniformLocations.get(name), false, buffer);
     }
 
     public void setMat4(String name, FloatBuffer allocatedBuffer) {
@@ -168,20 +166,18 @@ public abstract class ShaderProgram {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            FloatBuffer buffer = vec2.get(stack.mallocFloat(2));
-            gl.uniform2fv(uniformLocations.get(name), buffer);
-        }
+        FloatBuffer buffer = buffers.allocateFloats(2);
+        vec2.get(buffer);
+        gl.uniform2fv(uniformLocations.get(name), buffer);
     }
 
     public void setVec3(String name, float f, float g, float h) {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            FloatBuffer vec3 = new Vector3f(f, g, h).get(stack.mallocFloat(3));
-            gl.uniform3fv(uniformLocations.get(name), vec3);
-        }
+        FloatBuffer vec3buf = buffers.allocateFloats(3);
+        new Vector3f(f, g, h).get(vec3buf);
+        gl.uniform3fv(uniformLocations.get(name), vec3buf);
     }
 
     public void setVec3(String name, Vector3f vec3) {
@@ -189,24 +185,22 @@ public abstract class ShaderProgram {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            FloatBuffer buffer = vec3.get(stack.mallocFloat(3));
-            gl.uniform3fv(uniformLocations.get(name), buffer);
-        }
+        FloatBuffer buffer = buffers.allocateFloats(3);
+        vec3.get(buffer);
+        gl.uniform3fv(uniformLocations.get(name), buffer);
     }
 
     public void setVec4(String name, Vector4f vec4) {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            FloatBuffer buffer = vec4.get(stack.mallocFloat(4));
-            gl.uniform4fv(uniformLocations.get(name), buffer);
-        }
+        FloatBuffer buffer = buffers.allocateFloats(4);
+        vec4.get(buffer);
+        gl.uniform4fv(uniformLocations.get(name), buffer);
     }
 
     private void checkCompileErrors(int shader, ShaderOperationType type, String location) {
-        IntBuffer success = BufferUtils.createIntBuffer(1);
+        IntBuffer success = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer();
 
         if (type != ShaderOperationType.Program) {
             gl.getShaderiv(shader, gl.COMPILE_STATUS(), success);
@@ -614,7 +608,7 @@ public abstract class ShaderProgram {
 
             vbo.bind(gl.ARRAY_BUFFER());
 
-            verteciesBuff = MemoryUtil.memAllocFloat(4096);
+            verteciesBuff = buffers.allocateFloats(4096);
 
             long size = verteciesBuff.capacity() * Float.BYTES;
             vbo.uploadData(gl.ARRAY_BUFFER(), size, gl.DYNAMIC_DRAW());

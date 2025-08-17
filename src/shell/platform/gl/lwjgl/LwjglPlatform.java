@@ -22,6 +22,7 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.stb.STBImage;
 import shell.render.Texture;
 import shell.render.text.FontAtlasDTO;
+import shell.ui.IxdarWindow;
 
 public class LwjglPlatform implements Platform {
 
@@ -112,5 +113,10 @@ public class LwjglPlatform implements Platform {
         int height = h.get(0);
         // Defer GL upload to Texture.initGL()
         return new Texture(resourceName, image, width, height);
+    }
+
+    @Override
+    public float startTime() {
+        return IxdarWindow.startTime;
     }
 }

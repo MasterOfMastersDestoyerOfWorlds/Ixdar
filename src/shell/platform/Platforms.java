@@ -1,12 +1,14 @@
 package shell.platform;
 
 import shell.platform.gl.GL;
+import shell.platform.buffers.Buffers;
 
 public final class Platforms {
 
     private static Platform instance;
 
     private static GL glInstance;
+    private static Buffers buffersInstance;
 
     private Platforms() {
     }
@@ -28,5 +30,17 @@ public final class Platforms {
             throw new IllegalStateException("GL not initialized");
         }
         return glInstance;
+    }
+
+    public static void setBuffers(Buffers buffers) {
+        buffersInstance = buffers;
+    }
+
+    public static Buffers buffers() {
+        if (buffersInstance == null) {
+            // Fallback: use a default direct-ByteBuffer-based implementation
+            buffersInstance = new shell.platform.buffers.DefaultBuffers();
+        }
+        return buffersInstance;
     }
 }

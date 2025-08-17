@@ -8,10 +8,10 @@ import shell.Toggle;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
+import shell.platform.Platforms;
 import shell.render.Clock;
 import shell.render.text.HyperString;
 import shell.ui.Canvas3D;
-import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
 
 public abstract class Tool {
@@ -149,8 +149,8 @@ public abstract class Tool {
         Tool tool = Main.tool;
         float x = normalizedPosX - ScreenOffsetX;
         float y = normalizedPosY - ScreenOffsetY;
-        if (x <= IxdarWindow.getWidth() && x >= 0
-                && y <= IxdarWindow.getHeight() && y >= 0) {
+        if (x <= Platforms.get().getWindowWidth() && x >= 0
+                && y <= Platforms.get().getWindowHeight() && y >= 0) {
             ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
             Camera2D camera = Main.camera;
             if (knotsDisplayed != null) {

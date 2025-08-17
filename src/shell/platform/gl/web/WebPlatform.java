@@ -13,6 +13,7 @@ import org.teavm.jso.dom.html.HTMLElement;
 import shell.platform.Platform;
 import shell.render.Texture;
 import shell.render.text.FontAtlasDTO;
+import shell.ui.WebLauncher;
 
 import org.teavm.jso.JSObject;
 import org.teavm.jso.JSProperty;
@@ -295,6 +296,11 @@ public class WebPlatform implements Platform {
         // bind/upload
         // Alternatively, you can implement image loading via JS if desired.
         return new Texture(resourceName, 0, 0);
+    }
+
+    @Override
+    public float startTime() {
+        return WebLauncher.startTime;
     }
 }
 

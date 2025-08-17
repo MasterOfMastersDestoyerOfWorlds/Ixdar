@@ -5,7 +5,6 @@ import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.function.IntFunction;
 
-import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import shell.cameras.Camera3D;
@@ -175,7 +174,7 @@ public class Canvas3D {
 
         // sdfLine = new SDFLine();
 
-        gl.viewport(0, 0, (int) IxdarWindow.getWidth(), (int) IxdarWindow.getHeight());
+        gl.viewport(0, 0, (int) Platforms.get().getWindowWidth(), (int) Platforms.get().getWindowHeight());
         mouse.setCanvas(this);
         // mouseTrap.captureMouse(false);
 
@@ -184,7 +183,7 @@ public class Canvas3D {
         gl.clearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
         System.out.println("InitGL: " + (Clock.time() - start));
-        System.out.println("Time to First Paint: " + (Clock.time() - IxdarWindow.startTime));
+        System.out.println("Time to First Paint: " + (Clock.time() - Platforms.get().startTime()));
     }
 
     public SDFCircle circle;
@@ -265,7 +264,7 @@ public class Canvas3D {
             Main.main.draw(camera);
         }
 
-        gl.viewport(0, 0, (int) IxdarWindow.getWidth(), (int) IxdarWindow.getHeight());
+        gl.viewport(0, 0, (int) Platforms.get().getWindowWidth(), (int) Platforms.get().getWindowHeight());
         for (ShaderProgram s : shaders) {
             s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
             s.hotReload();

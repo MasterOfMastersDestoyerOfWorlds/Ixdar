@@ -14,7 +14,6 @@ import shell.point.PointND;
 import shell.render.Clock;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.Canvas3D;
-import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
 import shell.ui.tools.Tool;
 
@@ -510,7 +509,7 @@ public class Camera2D implements Camera {
 
     @Override
     public float getNormalizePosY(float yPos) {
-        return IxdarWindow.getHeight() - (yPos);
+        return Platforms.get().getWindowHeight() - (yPos);
     }
 
     @Override

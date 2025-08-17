@@ -9,7 +9,6 @@ import shell.platform.gl.GL;
 import shell.render.Clock;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.Canvas3D;
-import shell.ui.IxdarWindow;
 
 public class Camera3D implements Camera {
 
@@ -153,12 +152,12 @@ public class Camera3D implements Camera {
 
     @Override
     public float getNormalizePosX(float xPos) {
-        return (((((float) xPos) / ((float) IxdarWindow.getWidth()) * Canvas3D.frameBufferWidth)));
+        return (((((float) xPos) / ((float) Platforms.get().getWindowWidth()) * Canvas3D.frameBufferWidth)));
     }
 
     @Override
     public float getNormalizePosY(float yPos) {
-        return ((1 - (yPos) / ((float) IxdarWindow.getHeight())) * Canvas3D.frameBufferHeight);
+        return ((1 - (yPos) / ((float) Platforms.get().getWindowHeight())) * Canvas3D.frameBufferHeight);
     }
 
     @Override

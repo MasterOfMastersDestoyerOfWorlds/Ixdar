@@ -40,7 +40,6 @@ import shell.shell.ShellComparator;
 import shell.shell.ShellPair;
 import shell.terminal.Terminal;
 import shell.ui.Drawing;
-import shell.ui.IxdarWindow;
 import shell.ui.tools.FreeTool;
 import shell.ui.tools.Tool;
 import shell.utils.Compat;
@@ -132,8 +131,8 @@ public class Main {
 
         Platforms.gl().setWindowTitle("Ixdar : " + fileName);
 
-        int wWidth = (int) IxdarWindow.getWidth();
-        int wHeight = (int) IxdarWindow.getHeight();
+        int wWidth = (int) Platforms.get().getWindowWidth();
+        int wHeight = (int) Platforms.get().getWindowHeight();
         camera = new Camera2D(wWidth - RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE, 0.9f, 0, BOTTOM_PANEL_SIZE,
                 retTup.ps);
 
@@ -149,8 +148,8 @@ public class Main {
     public static void main(String[] args) throws TerminalParseException {
         main = new Main(args[0]);
 
-        int wWidth = (int) IxdarWindow.getWidth();
-        int wHeight = (int) IxdarWindow.getHeight();
+        int wWidth = (int) Platforms.get().getWindowWidth();
+        int wHeight = (int) Platforms.get().getWindowHeight();
         MAIN_VIEW_WIDTH = wWidth - RIGHT_PANEL_SIZE;
         MAIN_VIEW_HEIGHT = wHeight - BOTTOM_PANEL_SIZE;
         MAIN_VIEW_OFFSET_X = 0;
@@ -268,8 +267,8 @@ public class Main {
 
     public void draw(Camera camera3D) {
         try {
-            int wWidth = (int) IxdarWindow.getWidth();
-            int wHeight = (int) IxdarWindow.getHeight();
+            int wWidth = (int) Platforms.get().getWindowWidth();
+            int wHeight = (int) Platforms.get().getWindowHeight();
             MAIN_VIEW_WIDTH = wWidth - RIGHT_PANEL_SIZE;
             MAIN_VIEW_HEIGHT = wHeight - BOTTOM_PANEL_SIZE;
             MAIN_VIEW_OFFSET_X = 0;
@@ -573,7 +572,7 @@ public class Main {
     public static PanelTypes inView(float x, float y) {
         boolean inMainViewRightBound = x < Main.MAIN_VIEW_WIDTH + Main.MAIN_VIEW_OFFSET_X;
         boolean inMainViewLeftBound = x > Main.MAIN_VIEW_OFFSET_X;
-        float invY = IxdarWindow.getHeight() - y;
+        float invY = Platforms.get().getWindowHeight() - y;
         boolean inMainViewLowerBound = invY > Main.MAIN_VIEW_OFFSET_Y;
         boolean inMainViewUpperBound = invY < Main.MAIN_VIEW_HEIGHT + Main.MAIN_VIEW_OFFSET_Y;
         if (inMainViewLeftBound && inMainViewRightBound && inMainViewLowerBound && inMainViewUpperBound) {
