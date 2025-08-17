@@ -1,12 +1,7 @@
 
 package shell.render;
 
-import java.io.File;
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
-
-import org.lwjgl.BufferUtils;
-import org.lwjgl.stb.STBImage;
 
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
@@ -114,30 +109,8 @@ public class Texture {
     }
 
     public static Texture loadTextureThreaded(String resourceName) {
-
-        Texture tex = new Texture(resourceName);
-        Thread t1 = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                STBImage.stbi_set_flip_vertically_on_load(true);
-
-                IntBuffer w = BufferUtils.createIntBuffer(1);
-                IntBuffer h = BufferUtils.createIntBuffer(1);
-                IntBuffer channels = BufferUtils.createIntBuffer(1);
-                File file = new File("res/" + resourceName);
-                String filePath = file.getAbsolutePath();
-                ByteBuffer image = STBImage.stbi_load(filePath, w, h, channels, 4);
-                if (image == null) {
-                    System.out.println("Can't load file " + resourceName + " " + STBImage.stbi_failure_reason());
-                }
-                int width = w.get(0);
-                int height = h.get(0);
-
-                tex.setImage(width, height, image);
-            }
-        });
-        t1.start();
-        return tex;
+        // Fallback: immediate load via platform API (no actual threading here)
+        return Platforms.get().loadTexture(resourceName);
     }
 
     protected void setImage(int width, int height, ByteBuffer image) {
@@ -147,40 +120,7 @@ public class Texture {
     }
 
     public static Texture loadTexture(String resourceName) {
-
-        STBImage.stbi_set_flip_vertically_on_load(true);
-
-        gl.texParameteri(gl.TEXTURE_2D(),
-                gl.TEXTURE_WRAP_S(), gl.REPEAT());
-        gl.texParameteri(gl.TEXTURE_2D(),
-                gl.TEXTURE_WRAP_T(), gl.REPEAT());
-        gl.texParameteri(gl.TEXTURE_2D(),
-                gl.TEXTURE_MIN_FILTER(), gl.LINEAR());
-        gl.texParameteri(gl.TEXTURE_2D(),
-                gl.TEXTURE_MAG_FILTER(), gl.LINEAR());
-        IntBuffer w = BufferUtils.createIntBuffer(1);
-        IntBuffer h = BufferUtils.createIntBuffer(1);
-        IntBuffer channels = BufferUtils.createIntBuffer(1);
-        File file = new File("res/" + resourceName);
-        String filePath = file.getAbsolutePath();
-        ByteBuffer image = STBImage.stbi_load(filePath, w, h, channels, 4);
-        if (image == null) {
-            System.out.println("Can't load file " + resourceName + " " + STBImage.stbi_failure_reason());
-        }
-        int width = w.get(0);
-        int height = h.get(0);
-
-        int texture = gl.genTexture();
-        gl.bindTexture2D(texture);
-        gl.texImage2D(gl.TEXTURE_2D(), 0,
-                gl.RGBA(), width, height, 0, gl.RGBA(),
-                gl.UNSIGNED_BYTE(), image);
-        gl.generateMipmap(gl.TEXTURE_2D());
-        gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
-        gl.enable(gl.BLEND());
-        STBImage.stbi_image_free(image);
-        Texture tex = new Texture(resourceName, texture, width, height);
-        return tex;
+        return Platforms.get().loadTexture(resourceName);
     }
 
     public void initGL() {
@@ -205,9 +145,7 @@ public class Texture {
         gl.generateMipmap(gl.TEXTURE_2D());
         gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
         gl.enable(gl.BLEND());
-        if (image != null) {
-            STBImage.stbi_image_free(image);
-        }
+        // image buffer owned by platform loader; no direct free here
     }
 
 }

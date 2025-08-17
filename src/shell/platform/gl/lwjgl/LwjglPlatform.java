@@ -14,6 +14,15 @@ import org.lwjgl.system.MemoryStack;
 
 import shell.platform.Platform;
 
+import com.google.gson.Gson;
+import java.io.File;
+import java.nio.ByteBuffer;
+// removed duplicate IntBuffer import
+import org.lwjgl.BufferUtils;
+import org.lwjgl.stb.STBImage;
+import shell.render.Texture;
+import shell.render.text.FontAtlasDTO;
+
 public class LwjglPlatform implements Platform {
 
     private final long window;
@@ -80,5 +89,28 @@ public class LwjglPlatform implements Platform {
     @Override
     public void setScrollCallback(ScrollCallback callback) {
         glfwSetScrollCallback(window, (w, x, y) -> callback.onScroll(x, y));
+    }
+
+    @Override
+    public FontAtlasDTO parseFontAtlas(String json) {
+        return new Gson().fromJson(json, FontAtlasDTO.class);
+    }
+
+    @Override
+    public Texture loadTexture(String resourceName) {
+        STBImage.stbi_set_flip_vertically_on_load(true);
+        IntBuffer w = BufferUtils.createIntBuffer(1);
+        IntBuffer h = BufferUtils.createIntBuffer(1);
+        IntBuffer channels = BufferUtils.createIntBuffer(1);
+        File file = new File("res/" + resourceName);
+        String filePath = file.getAbsolutePath();
+        ByteBuffer image = STBImage.stbi_load(filePath, w, h, channels, 4);
+        if (image == null) {
+            System.out.println("Can't load file " + resourceName + " " + STBImage.stbi_failure_reason());
+        }
+        int width = w.get(0);
+        int height = h.get(0);
+        // Defer GL upload to Texture.initGL()
+        return new Texture(resourceName, image, width, height);
     }
 }

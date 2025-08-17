@@ -11,6 +11,11 @@ import org.teavm.jso.dom.html.HTMLDocument;
 import org.teavm.jso.dom.html.HTMLElement;
 
 import shell.platform.Platform;
+import shell.render.Texture;
+import shell.render.text.FontAtlasDTO;
+
+import org.teavm.jso.JSObject;
+import org.teavm.jso.JSProperty;
 import shell.platform.input.Keys;
 
 public class WebPlatform implements Platform {
@@ -134,6 +139,162 @@ public class WebPlatform implements Platform {
     @Override
     public void setScrollCallback(ScrollCallback callback) {
         this.scrollCallback = callback;
+    }
+
+    private interface JsRect extends JSObject {
+        @JSProperty
+        double getLeft();
+
+        @JSProperty
+        double getBottom();
+
+        @JSProperty
+        double getRight();
+
+        @JSProperty
+        double getTop();
+    }
+
+    private interface JsGlyphEntry extends JSObject {
+        @JSProperty
+        int getUnicode();
+
+        @JSProperty
+        double getAdvance();
+
+        @JSProperty
+        JsRect getPlaneBounds();
+
+        @JSProperty
+        JsRect getAtlasBounds();
+    }
+
+    private interface JsAtlasInfo extends JSObject {
+        @JSProperty
+        String getType();
+
+        @JSProperty
+        double getDistanceRange();
+
+        @JSProperty
+        double getDistanceRangeMiddle();
+
+        @JSProperty
+        double getSize();
+
+        @JSProperty
+        int getWidth();
+
+        @JSProperty
+        int getHeight();
+
+        @JSProperty
+        String getYOrigin();
+    }
+
+    private interface JsMetrics extends JSObject {
+        @JSProperty
+        double getEmSize();
+
+        @JSProperty
+        double getLineHeight();
+
+        @JSProperty
+        double getAscender();
+
+        @JSProperty
+        double getDescender();
+
+        @JSProperty
+        double getUnderlineY();
+
+        @JSProperty
+        double getUnderlineThickness();
+    }
+
+    private interface JsRoot extends JSObject {
+        @JSProperty
+        JsAtlasInfo getAtlas();
+
+        @JSProperty
+        JsMetrics getMetrics();
+
+        @JSProperty
+        JsGlyphEntry[] getGlyphs();
+        // kerning omitted for now
+    }
+
+    @JSBody(params = { "json" }, script = "return JSON.parse(json);")
+    private static native JsRoot parseJsonRoot(String json);
+
+    @Override
+    public FontAtlasDTO parseFontAtlas(String json) {
+        JsRoot js = parseJsonRoot(json);
+        FontAtlasDTO dto = new FontAtlasDTO();
+        // atlas
+        FontAtlasDTO.AtlasInfo ai = new FontAtlasDTO.AtlasInfo();
+        if (js.getAtlas() != null) {
+            ai.type = js.getAtlas().getType();
+            ai.distanceRange = js.getAtlas().getDistanceRange();
+            ai.distanceRangeMiddle = js.getAtlas().getDistanceRangeMiddle();
+            ai.size = js.getAtlas().getSize();
+            ai.width = js.getAtlas().getWidth();
+            ai.height = js.getAtlas().getHeight();
+            ai.yOrigin = js.getAtlas().getYOrigin();
+        }
+        dto.atlas = ai;
+        // metrics
+        FontAtlasDTO.Metrics m = new FontAtlasDTO.Metrics();
+        if (js.getMetrics() != null) {
+            m.emSize = js.getMetrics().getEmSize();
+            m.lineHeight = js.getMetrics().getLineHeight();
+            m.ascender = js.getMetrics().getAscender();
+            m.descender = js.getMetrics().getDescender();
+            m.underlineY = js.getMetrics().getUnderlineY();
+            m.underlineThickness = js.getMetrics().getUnderlineThickness();
+        }
+        dto.metrics = m;
+        // glyphs
+        JsGlyphEntry[] jg = js.getGlyphs();
+        if (jg != null) {
+            dto.glyphs = new FontAtlasDTO.GlyphEntry[jg.length];
+            for (int i = 0; i < jg.length; i++) {
+                JsGlyphEntry s = jg[i];
+                FontAtlasDTO.GlyphEntry g = new FontAtlasDTO.GlyphEntry();
+                g.unicode = s.getUnicode();
+                g.advance = s.getAdvance();
+                if (s.getPlaneBounds() != null) {
+                    FontAtlasDTO.Rect pr = new FontAtlasDTO.Rect();
+                    pr.left = s.getPlaneBounds().getLeft();
+                    pr.bottom = s.getPlaneBounds().getBottom();
+                    pr.right = s.getPlaneBounds().getRight();
+                    pr.top = s.getPlaneBounds().getTop();
+                    g.planeBounds = pr;
+                }
+                if (s.getAtlasBounds() != null) {
+                    FontAtlasDTO.Rect ar = new FontAtlasDTO.Rect();
+                    ar.left = s.getAtlasBounds().getLeft();
+                    ar.bottom = s.getAtlasBounds().getBottom();
+                    ar.right = s.getAtlasBounds().getRight();
+                    ar.top = s.getAtlasBounds().getTop();
+                    g.atlasBounds = ar;
+                }
+                dto.glyphs[i] = g;
+            }
+        } else {
+            dto.glyphs = new FontAtlasDTO.GlyphEntry[0];
+        }
+        // kerning left null
+        return dto;
+    }
+
+    @Override
+    public Texture loadTexture(String resourceName) {
+        // In web build, the image should already be loaded/bound by external runtime
+        // Here we just create an empty Texture and expect higher-level code to
+        // bind/upload
+        // Alternatively, you can implement image loading via JS if desired.
+        return new Texture(resourceName, 0, 0);
     }
 }
 

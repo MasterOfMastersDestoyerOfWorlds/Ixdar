@@ -7,7 +7,6 @@ import java.util.function.IntFunction;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.lwjgl.system.MemoryStack;
 
 import shell.cameras.Camera3D;
 import shell.platform.Platform;
@@ -153,7 +152,7 @@ public class Canvas3D {
         gl.createCapabilities(false, (IntFunction) null);
         // set GL implementation for desktop
         float start = Clock.time();
-        coldStartStack();
+        gl.coldStartStack();
 
         System.out.println("capabilities: " + (Clock.time() - start));
         VertexArrayObject vao = new VertexArrayObject();
@@ -186,19 +185,6 @@ public class Canvas3D {
 
         System.out.println("InitGL: " + (Clock.time() - start));
         System.out.println("Time to First Paint: " + (Clock.time() - IxdarWindow.startTime));
-    }
-
-    private void coldStartStack() {
-        Thread t1 = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try (MemoryStack stack = MemoryStack.stackPush()) {
-                    @SuppressWarnings("unused")
-                    FloatBuffer buffer = new Matrix4f().get(stack.mallocFloat(16));
-                }
-            }
-        });
-        t1.start();
     }
 
     public SDFCircle circle;

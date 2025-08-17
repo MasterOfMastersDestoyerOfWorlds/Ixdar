@@ -1,12 +1,12 @@
 package shell.render.sdf;
 
-import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
-
 import shell.cameras.Camera;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
+import shell.platform.Platforms;
+import shell.platform.gl.GL;
 
 public class SDFTexture {
 
@@ -29,6 +29,17 @@ public class SDFTexture {
         this.borderOffsetOuter = 0;
     }
 
+    public SDFTexture(Texture texture) {
+        this.texture = texture;
+        this.shader = ShaderType.TextureSDF.shader;
+        this.borderColor = Color.TRANSPARENT;
+        this.borderInner = 0;
+        this.borderOuter = 0;
+        this.borderOffsetInner = 0;
+        this.borderOffsetOuter = 0;
+        this.sharpCorners = false;
+    }
+
     public SDFTexture(String sdfLocation, Color borderColor,
             float borderDist, float borderOffset, boolean sharpCorners) {
         texture = Texture.loadTexture(sdfLocation);
@@ -44,7 +55,8 @@ public class SDFTexture {
     public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
         texture.bind();
         shader.use();
-        shader.setTexture("innerTexture", texture, GL_TEXTURE0, 0);
+        GL gl = Platforms.gl();
+        shader.setTexture("innerTexture", texture, gl.TEXTURE0(), 0);
         shader.setFloat("borderInner", borderInner);
         shader.setFloat("borderOuter", borderOuter);
         shader.setFloat("borderOffsetInner", borderOffsetInner);
@@ -57,6 +69,25 @@ public class SDFTexture {
                 texture.width,
                 texture.height, c);
 
+        shader.end();
+        camera.incZIndex();
+    }
+
+    public void drawRegion(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
+            int regHeight, Color c, Camera camera) {
+        texture.bind();
+        shader.use();
+        GL gl = Platforms.gl();
+        shader.setTexture("innerTexture", texture, gl.TEXTURE0(), 0);
+        shader.setFloat("borderInner", borderInner);
+        shader.setFloat("borderOuter", borderOuter);
+        shader.setFloat("borderOffsetInner", borderOffsetInner);
+        shader.setFloat("borderOffsetOuter", borderOffsetOuter);
+        shader.setVec4("borderColor", borderColor.toVector4f());
+        shader.setBool("sharpCorners", sharpCorners);
+        shader.begin();
+        shader.drawTextureRegion(texture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), regX, regY,
+                regWidth, regHeight, c);
         shader.end();
         camera.incZIndex();
     }
@@ -74,6 +105,10 @@ public class SDFTexture {
     public void setBorderDist(float borderDist) {
         this.borderInner = borderDist - 0.1f;
         this.borderOuter = borderDist;
+    }
+
+    public void setSharpCorners(boolean sharpCorners) {
+        this.sharpCorners = sharpCorners;
     }
 
     public void drawRightBound(float drawX, float drawY, float width, float height, Color c, Camera camera) {

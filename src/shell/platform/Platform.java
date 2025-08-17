@@ -1,5 +1,7 @@
 package shell.platform;
 
+import shell.render.text.FontAtlasDTO;
+
 public interface Platform {
 
     // Window/loop
@@ -24,6 +26,12 @@ public interface Platform {
     void setMouseButtonCallback(MouseButtonCallback callback);
 
     void setScrollCallback(ScrollCallback callback);
+
+    // JSON parsing (platform-specific implementation)
+    FontAtlasDTO parseFontAtlas(String json);
+
+    // Texture loading (platform-specific)
+    shell.render.Texture loadTexture(String resourceName);
 
     // Callbacks
     interface KeyCallback {

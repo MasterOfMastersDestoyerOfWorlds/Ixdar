@@ -1,8 +1,5 @@
 package shell.platform.gl.web;
 
-import static org.lwjgl.opengl.GL15.glBindBuffer;
-import static org.lwjgl.opengl.GL15.glGenBuffers;
-
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -549,5 +546,9 @@ public class WebGL implements GL {
     @Override
     public int TEXTURE0() {
         return WebGLRenderingContext.TEXTURE0;
+    }
+
+    @Override
+    public void coldStartStack() {
     }
 }

@@ -11,7 +11,7 @@
             "mainClass": "shell.ui.main.Main",
             "projectName": "IXDAR",
             "args": "djbouti",
-            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true"
+            "vmArgs": "-enableassertions"
         },
         {
             "type": "java",

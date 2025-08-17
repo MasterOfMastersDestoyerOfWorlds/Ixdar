@@ -41,7 +41,9 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.function.IntFunction;
 
+import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
+import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
 import shell.platform.gl.GL;
@@ -214,7 +216,7 @@ public class LwjglGL implements GL {
 
     @Override
     public int genTexture() {
-        return org.lwjgl.opengl.GL11.glGenTextures();
+        return glGenTextures();
     }
 
     @Override
@@ -499,6 +501,20 @@ public class LwjglGL implements GL {
     @Override
     public int TEXTURE0() {
         return GL_TEXTURE0;
+    }
+
+    @Override
+    public void coldStartStack() {
+        Thread t1 = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try (MemoryStack stack = MemoryStack.stackPush()) {
+                    @SuppressWarnings("unused")
+                    FloatBuffer buffer = new Matrix4f().get(stack.mallocFloat(16));
+                }
+            }
+        });
+        t1.start();
     }
     
 

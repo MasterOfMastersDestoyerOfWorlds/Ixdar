@@ -190,4 +190,6 @@ public interface GL {
     int[] readPixels(int i, int j, int width, int height, int rgba, int unsigned_BYTE, int fb);
 
     int TEXTURE0();
+
+    void coldStartStack();
 }
