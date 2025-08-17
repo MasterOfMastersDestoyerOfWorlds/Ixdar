@@ -1,7 +1,6 @@
 
 package shell.knot;
 
-import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -10,6 +9,7 @@ import shell.cuts.CutMatch;
 import shell.cuts.DisjointUnionSets;
 import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
+import shell.point.Point2D;
 import shell.point.PointND;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
@@ -17,6 +17,7 @@ import shell.shell.Shell;
 import shell.ui.actions.Action;
 import shell.ui.main.Main;
 import shell.ui.tools.Tool;
+import shell.utils.Compat;
 
 public class Knot {
     public int minMatches;
@@ -55,9 +56,6 @@ public class Knot {
             s2 = s;
         }
         matchCount++;
-        if (matchCount > maxMatches) {
-            float z = 1 / 0;
-        }
     }
 
     private void removeMatch(Knot other) {
@@ -113,7 +111,8 @@ public class Knot {
                 for (Segment manifoldSegment2 : k2.manifoldSegments) {
                     Segment pipe1 = manifoldSegment1.first.getSegment(manifoldSegment2.first);
                     Segment pipe2 = manifoldSegment1.last.getSegment(manifoldSegment2.last);
-                    double delta = pipe1.distance + pipe2.distance - manifoldSegment1.distance - manifoldSegment2.distance;
+                    double delta = pipe1.distance + pipe2.distance - manifoldSegment1.distance
+                            - manifoldSegment2.distance;
                     if (delta < minDelta) {
                         minDelta = delta;
                         matchSegment1 = pipe1;
@@ -573,7 +572,7 @@ public class Knot {
         for (Knot vp : knotPoints) {
             str += vp + " ";
         }
-        str.stripTrailing();
+        str = Compat.stripTrailing(str);
         str += "]";
         return str;
     }
@@ -586,7 +585,7 @@ public class Knot {
             }
             str += vp + " ";
         }
-        str.stripTrailing();
+        str = Compat.stripTrailing(str);
         str += "]";
         return str;
     }
@@ -599,7 +598,7 @@ public class Knot {
                 str = "";
             }
         }
-        str.stripTrailing();
+        str = Compat.stripTrailing(str);
         str += "]";
         return str;
     }
@@ -639,9 +638,6 @@ public class Knot {
         Knot next = this.m1;
         Knot curr = this;
         ArrayList<Knot> runList = new ArrayList<>();
-        if (next == null) {
-            float z = 0;
-        }
         while (curr.id != k2.id) {
             runList.add(curr);
             Knot nextTemp = null;
@@ -661,9 +657,6 @@ public class Knot {
         Knot next = this.m2;
         Knot curr = this;
         ArrayList<Knot> runList = new ArrayList<>();
-        if (next == null) {
-            float z = 0;
-        }
         while (next.id != this.id) {
             runList.add(curr);
             Knot nextTemp = null;

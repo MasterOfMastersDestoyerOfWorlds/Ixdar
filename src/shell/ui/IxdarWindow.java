@@ -9,7 +9,6 @@ import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
 import static org.lwjgl.glfw.GLFW.glfwGetPrimaryMonitor;
 import static org.lwjgl.glfw.GLFW.glfwGetVideoMode;
 import static org.lwjgl.glfw.GLFW.glfwGetWindowContentScale;
-import static org.lwjgl.glfw.GLFW.glfwGetWindowPos;
 import static org.lwjgl.glfw.GLFW.glfwGetWindowSize;
 import static org.lwjgl.glfw.GLFW.glfwInit;
 import static org.lwjgl.glfw.GLFW.glfwMakeContextCurrent;
@@ -25,7 +24,6 @@ import static org.lwjgl.glfw.GLFW.glfwTerminate;
 import static org.lwjgl.glfw.GLFW.glfwWindowHint;
 import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import java.awt.Point;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
@@ -43,8 +41,8 @@ import org.lwjgl.system.MemoryUtil;
 
 import shell.render.Clock;
 import shell.platform.Platforms;
-import shell.platform.lwjgl.LwjglGL;
-import shell.platform.lwjgl.LwjglPlatform;
+import shell.platform.gl.lwjgl.LwjglGL;
+import shell.platform.gl.lwjgl.LwjglPlatform;
 
 public class IxdarWindow {
 
@@ -208,15 +206,6 @@ public class IxdarWindow {
 
     public static float getHeight() {
         return windowHeight;
-    }
-
-    public static Point getLocationOnScreen() {
-        try (MemoryStack stack = stackPush()) {
-            IntBuffer pWidth = stack.mallocInt(1);
-            IntBuffer pHeight = stack.mallocInt(1);
-            glfwGetWindowPos(window, pWidth, pHeight);
-            return new Point(pWidth.get(0), pHeight.get(0));
-        }
     }
 
     public static void setTitle(String title) {

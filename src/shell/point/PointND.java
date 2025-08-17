@@ -1,6 +1,5 @@
 package shell.point;
 
-import java.awt.geom.Point2D;
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -793,9 +792,6 @@ public abstract class PointND extends PointCollection implements Cloneable {
      * number of formats for storing the information necessary to satisfy the
      * various accessor methods below.
      *
-     * @see java.awt.shell.objects.PointND.Float
-     * @see java.awt.shell.objects.PointND.Double
-     * @see java.awt.Point
      * 
      */
     protected PointND() {

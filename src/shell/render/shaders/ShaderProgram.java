@@ -1,36 +1,5 @@
 package shell.render.shaders;
 
-import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
-import static org.lwjgl.opengl.GL11.glDrawArrays;
-import static org.lwjgl.opengl.GL13.glActiveTexture;
-import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
-import static org.lwjgl.opengl.GL15.GL_DYNAMIC_DRAW;
-import static org.lwjgl.opengl.GL20.GL_COMPILE_STATUS;
-import static org.lwjgl.opengl.GL20.GL_FRAGMENT_SHADER;
-import static org.lwjgl.opengl.GL20.GL_LINK_STATUS;
-import static org.lwjgl.opengl.GL20.GL_VERTEX_SHADER;
-import static org.lwjgl.opengl.GL20.glAttachShader;
-import static org.lwjgl.opengl.GL20.glCompileShader;
-import static org.lwjgl.opengl.GL20.glCreateProgram;
-import static org.lwjgl.opengl.GL20.glCreateShader;
-import static org.lwjgl.opengl.GL20.glDeleteProgram;
-import static org.lwjgl.opengl.GL20.glDeleteShader;
-import static org.lwjgl.opengl.GL20.glDetachShader;
-import static org.lwjgl.opengl.GL20.glGetAttribLocation;
-import static org.lwjgl.opengl.GL20.glGetProgramiv;
-import static org.lwjgl.opengl.GL20.glGetShaderiv;
-import static org.lwjgl.opengl.GL20.glGetUniformLocation;
-import static org.lwjgl.opengl.GL20.glLinkProgram;
-import static org.lwjgl.opengl.GL20.glShaderSource;
-import static org.lwjgl.opengl.GL20.glUniform1f;
-import static org.lwjgl.opengl.GL20.glUniform1i;
-import static org.lwjgl.opengl.GL20.glUniform2fv;
-import static org.lwjgl.opengl.GL20.glUniform3fv;
-import static org.lwjgl.opengl.GL20.glUniform4fv;
-import static org.lwjgl.opengl.GL20.glUniformMatrix4fv;
-import static org.lwjgl.opengl.GL20.glUseProgram;
-import static org.lwjgl.opengl.GL30.glBindFragDataLocation;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -49,6 +18,8 @@ import org.lwjgl.opengl.GL33;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
+import shell.platform.Platforms;
+import shell.platform.gl.GL;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.ui.Canvas3D;
@@ -119,6 +90,7 @@ public abstract class ShaderProgram {
     private long vertexLastModified;
     private boolean useBuffer;
     private boolean reloadShader;
+    private GL gl = Platforms.gl();
 
     public ShaderProgram(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
             VertexBufferObject vbo, boolean useBuffer) {
@@ -147,90 +119,90 @@ public abstract class ShaderProgram {
     }
 
     public int getAttributeLocation(CharSequence name) {
-        return glGetAttribLocation(ID, name);
+        return gl.getAttribLocation(ID, name);
     }
 
     public void use() {
-        glUseProgram(ID);
+        gl.useProgram(ID);
     }
 
     public void setBool(String name, boolean value) {
         if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, glGetUniformLocation(ID, name));
+            uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        glUniform1i(uniformLocations.get(name), value ? 1 : 0);
+        gl.uniform1i(uniformLocations.get(name), value ? 1 : 0);
     }
 
     public void setInt(String name, int value) {
         if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, glGetUniformLocation(ID, name));
+            uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        glUniform1i(uniformLocations.get(name), value);
+        gl.uniform1i(uniformLocations.get(name), value);
     }
 
     public void setFloat(String name, float value) {
         if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, glGetUniformLocation(ID, name));
+            uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        glUniform1f(uniformLocations.get(name), value);
+        gl.uniform1f(uniformLocations.get(name), value);
     }
 
     public void setMat4(String name, Matrix4f mat) {
         if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, glGetUniformLocation(ID, name));
+            uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer buffer = mat.get(stack.mallocFloat(16));
-            glUniformMatrix4fv(uniformLocations.get(name), false, buffer);
+            gl.uniformMatrix4fv(uniformLocations.get(name), false, buffer);
         }
     }
 
     public void setMat4(String name, FloatBuffer allocatedBuffer) {
         if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, glGetUniformLocation(ID, name));
+            uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        glUniformMatrix4fv(uniformLocations.get(name), false, allocatedBuffer);
+        gl.uniformMatrix4fv(uniformLocations.get(name), false, allocatedBuffer);
     }
 
     public void setVec2(String name, Vector2f vec2) {
 
         if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, glGetUniformLocation(ID, name));
+            uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer buffer = vec2.get(stack.mallocFloat(2));
-            glUniform2fv(uniformLocations.get(name), buffer);
+            gl.uniform2fv(uniformLocations.get(name), buffer);
         }
     }
 
     public void setVec3(String name, float f, float g, float h) {
         if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, glGetUniformLocation(ID, name));
+            uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer vec3 = new Vector3f(f, g, h).get(stack.mallocFloat(3));
-            glUniform3fv(uniformLocations.get(name), vec3);
+            gl.uniform3fv(uniformLocations.get(name), vec3);
         }
     }
 
     public void setVec3(String name, Vector3f vec3) {
 
         if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, glGetUniformLocation(ID, name));
+            uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer buffer = vec3.get(stack.mallocFloat(3));
-            glUniform3fv(uniformLocations.get(name), buffer);
+            gl.uniform3fv(uniformLocations.get(name), buffer);
         }
     }
 
     public void setVec4(String name, Vector4f vec4) {
         if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, glGetUniformLocation(ID, name));
+            uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer buffer = vec4.get(stack.mallocFloat(4));
-            glUniform4fv(uniformLocations.get(name), buffer);
+            gl.uniform4fv(uniformLocations.get(name), buffer);
         }
     }
 
@@ -238,16 +210,16 @@ public abstract class ShaderProgram {
         IntBuffer success = BufferUtils.createIntBuffer(1);
 
         if (type != ShaderOperationType.Program) {
-            glGetShaderiv(shader, GL_COMPILE_STATUS, success);
+            gl.getShaderiv(shader, gl.COMPILE_STATUS(), success);
             if (success.get(0) == 0) {
-                String infoLog = GL33.glGetShaderInfoLog(shader);
+                String infoLog = gl.getShaderInfoLog(shader);
                 System.out.println(
                         "ERROR::SHADER::" + type.name() + "::COMPILATION_FAILED: " + location + " \n" + infoLog);
             }
         } else {
-            glGetProgramiv(shader, GL_LINK_STATUS, success);
+            gl.getProgramiv(shader, gl.LINK_STATUS(), success);
             if (success.get(0) == 0) {
-                String infoLog = GL33.glGetShaderInfoLog(shader);
+                String infoLog = gl.getShaderInfoLog(shader);
                 System.out.println("ERROR::SHADER::" + type.name() + "::LINK_FAILED\n" + infoLog);
             }
         }
@@ -301,30 +273,30 @@ public abstract class ShaderProgram {
     }
 
     private void deleteShader() {
-        glDetachShader(ID, vertexShader);
-        glDeleteShader(vertexShader);
-        glDetachShader(ID, fragmentShader);
-        glDeleteShader(fragmentShader);
-        glDeleteProgram(ID);
+        gl.detachShader(ID, vertexShader);
+        gl.deleteShader(vertexShader);
+        gl.detachShader(ID, fragmentShader);
+        gl.deleteShader(fragmentShader);
+        gl.deleteProgram(ID);
     }
 
     private void recompileShaders(String vertexShaderLocation, String fragmentShaderLocation) {
-        vertexShader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertexShader, vertexShaderSource);
-        glCompileShader(vertexShader);
+        vertexShader = gl.createShader(gl.VERTEX_SHADER());
+        gl.shaderSource(vertexShader, vertexShaderSource);
+        gl.compileShader(vertexShader);
         checkCompileErrors(vertexShader, ShaderOperationType.Vertex, vertexShaderLocation);
 
-        fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragmentShader, fragmentShaderSource);
-        glCompileShader(fragmentShader);
+        fragmentShader = gl.createShader(gl.FRAGMENT_SHADER());
+        gl.shaderSource(fragmentShader, fragmentShaderSource);
+        gl.compileShader(fragmentShader);
         checkCompileErrors(fragmentShader, ShaderOperationType.Fragment, fragmentShaderLocation);
 
-        ID = glCreateProgram();
-        glAttachShader(ID, vertexShader);
-        glAttachShader(ID, fragmentShader);
-        glLinkProgram(ID);
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
+        ID = gl.createProgram();
+        gl.attachShader(ID, vertexShader);
+        gl.attachShader(ID, fragmentShader);
+        gl.linkProgram(ID);
+        gl.deleteShader(vertexShader);
+        gl.deleteShader(fragmentShader);
         checkCompileErrors(ID, ShaderOperationType.Program, "both");
 
     }
@@ -340,14 +312,14 @@ public abstract class ShaderProgram {
             }
 
             setInt(glslName, j);
-            glActiveTexture(i);
+            gl.activeTexture(i);
             tex.bind();
         }
 
     }
 
     public void bindFragmentDataLocation(int i, String string) {
-        glBindFragDataLocation(ID, i, string);
+        gl.bindFragDataLocation(ID, i, string);
     }
 
     /**
@@ -379,16 +351,16 @@ public abstract class ShaderProgram {
             if (vao != null) {
                 vao.bind();
             } else {
-                vbo.bind(GL_ARRAY_BUFFER);
+                vbo.bind(gl.ARRAY_BUFFER());
             }
             use();
 
             /* Upload the new vertex data */
-            vbo.bind(GL_ARRAY_BUFFER);
-            vbo.uploadSubData(GL_ARRAY_BUFFER, 0, verteciesBuff);
+            vbo.bind(gl.ARRAY_BUFFER());
+            vbo.uploadSubData(gl.ARRAY_BUFFER(), 0, verteciesBuff);
 
             /* Draw batch */
-            glDrawArrays(GL_TRIANGLES, 0, numVertices);
+            gl.drawArrays(gl.TRIANGLES(), 0, numVertices);
 
             /* Clear vertex data for next batch */
             verteciesBuff.clear();
@@ -641,12 +613,12 @@ public abstract class ShaderProgram {
         if (useBuffer) {
             vao.bind();
 
-            vbo.bind(GL_ARRAY_BUFFER);
+            vbo.bind(gl.ARRAY_BUFFER());
 
             verteciesBuff = MemoryUtil.memAllocFloat(4096);
 
             long size = verteciesBuff.capacity() * Float.BYTES;
-            vbo.uploadData(GL_ARRAY_BUFFER, size, GL_DYNAMIC_DRAW);
+            vbo.uploadData(gl.ARRAY_BUFFER(), size, gl.DYNAMIC_DRAW());
 
             numVertices = 0;
             drawing = false;

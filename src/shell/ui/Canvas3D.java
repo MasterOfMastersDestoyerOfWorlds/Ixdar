@@ -1,16 +1,5 @@
 package shell.ui;
 
-import static org.lwjgl.opengl.GL.createCapabilities;
-import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
-import static org.lwjgl.opengl.GL11.glClear;
-import static org.lwjgl.opengl.GL11.glClearColor;
-import static org.lwjgl.opengl.GL11.glEnable;
-import static org.lwjgl.opengl.GL11.glViewport;
-import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
-import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
-
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
@@ -23,6 +12,7 @@ import org.lwjgl.system.MemoryStack;
 import shell.cameras.Camera3D;
 import shell.platform.Platform;
 import shell.platform.Platforms;
+import shell.platform.gl.GL;
 import shell.platform.input.KeyActions;
 import shell.platform.input.KeyGuy;
 import shell.platform.input.MouseTrap;
@@ -142,8 +132,9 @@ public class Canvas3D {
     public static boolean active;
 
     public static Camera3D camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f);
-    public static MouseTrap mouse = new MouseTrap(null, camera, false);
+    public static MouseTrap mouse = new MouseTrap(null, camera);
     public static KeyGuy keys = new KeyGuy(camera, canvas);
+    public static GL gl;
 
     public Canvas3D() {
         activate(true);
@@ -157,10 +148,9 @@ public class Canvas3D {
         Canvas3D.keys = keyGuy;
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     public void initGL() {
-
-        createCapabilities(false, (IntFunction) null);
+        gl = Platforms.gl();
+        gl.createCapabilities(false, (IntFunction) null);
         // set GL implementation for desktop
         float start = Clock.time();
         coldStartStack();
@@ -169,8 +159,8 @@ public class Canvas3D {
         VertexArrayObject vao = new VertexArrayObject();
         VertexBufferObject vbo = new VertexBufferObject();
         vao.bind();
-        vbo.bind(GL_ARRAY_BUFFER);
-        vbo.uploadData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
+        vbo.bind(gl.ARRAY_BUFFER());
+        vbo.uploadData(gl.ARRAY_BUFFER(), vertices, gl.STATIC_DRAW());
         shader = new DiffuseShader(vao, vbo);
         shaders.add(shader);
 
@@ -186,13 +176,13 @@ public class Canvas3D {
 
         // sdfLine = new SDFLine();
 
-        glViewport(0, 0, (int) IxdarWindow.getWidth(), (int) IxdarWindow.getHeight());
+        gl.viewport(0, 0, (int) IxdarWindow.getWidth(), (int) IxdarWindow.getHeight());
         mouse.setCanvas(this);
         // mouseTrap.captureMouse(false);
 
-        glEnable(GL_DEPTH_TEST);
+        gl.enable(gl.DEPTH_TEST());
 
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        gl.clearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
         System.out.println("InitGL: " + (Clock.time() - start));
         System.out.println("Time to First Paint: " + (Clock.time() - IxdarWindow.startTime));
@@ -216,8 +206,8 @@ public class Canvas3D {
 
     public void paintGL() {
 
-        glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        gl.clearColor(0.07f, 0.07f, 0.07f, 1.0f);
+        gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera.resetZIndex();
         if (MenuBox.menuVisible) {
             fluid.draw(0, 0, frameBufferWidth, frameBufferHeight, null, camera);
@@ -266,7 +256,6 @@ public class Canvas3D {
             // model.rotate((float) Math.toRadians(angle), new Vector3f(1.0f, 0.3f, 0.5f));
             // shader.setMat4("model", model);
 
-            // glDrawArrays(GL_TRIANGLES, 0, 36);
             // }
 
             // // also draw the lamp object
@@ -280,8 +269,6 @@ public class Canvas3D {
             // lightingShader.setVec3("lightColor", pointLights[i].diffuse);
             // lightingShader.setMat4("model", model);
 
-            // glDrawArrays(GL_TRIANGLES, 0, 36);
-
             // }
             // Color c = new ColorRGB(Color.CYAN);
             // logo.drawRightBound(Canvas3D.frameBufferWidth, 0, 800f, 800f, Color.IXDAR,
@@ -292,7 +279,7 @@ public class Canvas3D {
             Main.main.draw(camera);
         }
 
-        glViewport(0, 0, (int) IxdarWindow.getWidth(), (int) IxdarWindow.getHeight());
+        gl.viewport(0, 0, (int) IxdarWindow.getWidth(), (int) IxdarWindow.getHeight());
         for (ShaderProgram s : shaders) {
             s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
             s.hotReload();

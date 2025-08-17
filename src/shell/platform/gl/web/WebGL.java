@@ -1,9 +1,17 @@
-package shell.platform.web;
+package shell.platform.gl.web;
+
+import static org.lwjgl.opengl.GL15.glBindBuffer;
+import static org.lwjgl.opengl.GL15.glGenBuffers;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.util.function.IntFunction;
 
+import org.teavm.jso.JSBody;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
+import org.teavm.jso.typedarrays.ArrayBufferView;
+import org.teavm.jso.typedarrays.Uint8Array;
 import org.teavm.jso.webgl.WebGLBuffer;
 import org.teavm.jso.webgl.WebGLContextAttributes;
 import org.teavm.jso.webgl.WebGLProgram;
@@ -11,10 +19,10 @@ import org.teavm.jso.webgl.WebGLRenderingContext;
 import org.teavm.jso.webgl.WebGLShader;
 import org.teavm.jso.webgl.WebGLTexture;
 import org.teavm.jso.webgl.WebGLUniformLocation;
-import org.teavm.jso.webgl.WebGLVertexArrayObjectOES;
 
 import shell.platform.gl.GL;
 import shell.platform.input.MouseButtons;
+import shell.ui.WebLauncher;
 
 public class WebGL implements GL {
 
@@ -23,9 +31,9 @@ public class WebGL implements GL {
 
     public WebGL(HTMLCanvasElement canvas) {
         WebGLContextAttributes attrs = WebGLContextAttributes.create();
-        attrs.setAlpha(true);
+        attrs.setAlpha(false); // opaque canvas
         attrs.setAntialias(true);
-        this.gl = (WebGLRenderingContext) canvas.getContext("webgl", attrs);
+        this.gl = (WebGLRenderingContext) canvas.getContext("webgl2", attrs);
         this.vaoExt = new VAOExtension(gl);
     }
 
@@ -46,12 +54,12 @@ public class WebGL implements GL {
 
     @Override
     public int createProgram() {
-        return ((WebGLProgram) gl.createProgram()).getId();
+        return gl.createProgram().hashCode();
     }
 
     @Override
     public int createShader(int type) {
-        return ((WebGLShader) gl.createShader(type)).getId();
+        return gl.createShader(type).hashCode();
     }
 
     @Override
@@ -66,7 +74,7 @@ public class WebGL implements GL {
 
     @Override
     public int getShaderiv(int shader, int pname) {
-        return gl.getShaderParameter(shader(shader), pname).asInt();
+        return toInt(gl.getShaderParameter(shader(shader), pname));
     }
 
     @Override
@@ -86,7 +94,7 @@ public class WebGL implements GL {
 
     @Override
     public int getProgramiv(int program, int pname) {
-        return gl.getProgramParameter(program(program), pname).asInt();
+        return toInt(gl.getProgramParameter(program(program), pname));
     }
 
     @Override
@@ -111,7 +119,7 @@ public class WebGL implements GL {
 
     @Override
     public int genBuffer() {
-        return ((WebGLBuffer) gl.createBuffer()).getId();
+        return gl.createBuffer().hashCode();
     }
 
     @Override
@@ -121,12 +129,18 @@ public class WebGL implements GL {
 
     @Override
     public void bufferDataArray(FloatBuffer data, int usage) {
-        gl.bufferData(WebGLRenderingContext.ARRAY_BUFFER, data, usage);
+        org.teavm.jso.typedarrays.Float32Array arr = org.teavm.jso.typedarrays.Float32Array.create(data.remaining());
+        for (int i = 0, j = data.position(); j < data.limit(); i++, j++)
+            arr.set(i, data.get(j));
+        gl.bufferData(WebGLRenderingContext.ARRAY_BUFFER, arr, usage);
     }
 
     @Override
     public void bufferDataArray(float[] data, int usage) {
-        gl.bufferData(WebGLRenderingContext.ARRAY_BUFFER, data, usage);
+        org.teavm.jso.typedarrays.Float32Array arr = org.teavm.jso.typedarrays.Float32Array.create(data.length);
+        for (int i = 0; i < data.length; i++)
+            arr.set(i, data[i]);
+        gl.bufferData(WebGLRenderingContext.ARRAY_BUFFER, arr, usage);
     }
 
     @Override
@@ -157,7 +171,7 @@ public class WebGL implements GL {
     @Override
     public int getUniformLocation(int program, String name) {
         WebGLUniformLocation l = gl.getUniformLocation(program(program), name);
-        return l == null ? -1 : l.getId();
+        return l == null ? -1 : l.hashCode();
     }
 
     @Override
@@ -172,27 +186,39 @@ public class WebGL implements GL {
 
     @Override
     public void uniform2fv(int loc, java.nio.FloatBuffer buf) {
-        gl.uniform2fv(uniform(loc), buf);
+        float[] a = new float[buf.remaining()];
+        for (int i = 0, j = buf.position(); j < buf.limit(); i++, j++)
+            a[i] = buf.get(j);
+        gl.uniform2fv(uniform(loc), a);
     }
 
     @Override
     public void uniform3fv(int loc, java.nio.FloatBuffer buf) {
-        gl.uniform3fv(uniform(loc), buf);
+        float[] a = new float[buf.remaining()];
+        for (int i = 0, j = buf.position(); j < buf.limit(); i++, j++)
+            a[i] = buf.get(j);
+        gl.uniform3fv(uniform(loc), a);
     }
 
     @Override
     public void uniform4fv(int loc, java.nio.FloatBuffer buf) {
-        gl.uniform4fv(uniform(loc), buf);
+        float[] a = new float[buf.remaining()];
+        for (int i = 0, j = buf.position(); j < buf.limit(); i++, j++)
+            a[i] = buf.get(j);
+        gl.uniform4fv(uniform(loc), a);
     }
 
     @Override
     public void uniformMatrix4fv(int loc, boolean transpose, java.nio.FloatBuffer buf) {
-        gl.uniformMatrix4fv(uniform(loc), transpose, buf);
+        float[] a = new float[buf.remaining()];
+        for (int i = 0, j = buf.position(); j < buf.limit(); i++, j++)
+            a[i] = buf.get(j);
+        gl.uniformMatrix4fv(uniform(loc), transpose, a);
     }
 
     @Override
     public int genTexture() {
-        return ((WebGLTexture) gl.createTexture()).getId();
+        return gl.createTexture().hashCode();
     }
 
     @Override
@@ -208,7 +234,10 @@ public class WebGL implements GL {
     @Override
     public void texImage2D(int target, int level, int internalFormat, int width, int height, int border, int format,
             int type, ByteBuffer data) {
-        gl.texImage2D(target, level, internalFormat, width, height, border, format, type, data);
+        org.teavm.jso.typedarrays.Uint8Array arr = org.teavm.jso.typedarrays.Uint8Array.create(data.remaining());
+        for (int i = 0, j = data.position(); j < data.limit(); i++, j++)
+            arr.set(i, data.get(j));
+        gl.texImage2D(target, level, internalFormat, width, height, border, format, type, arr);
     }
 
     @Override
@@ -321,69 +350,204 @@ public class WebGL implements GL {
         return (WebGLUniformLocation) (Object) id;
     }
 
-    // Minimal VAO emulation via OES_vertex_array_object if present
+    // Minimal VAO emulation placeholder
     private static final class VAOExtension {
+        @SuppressWarnings("unused")
         private final WebGLRenderingContext gl;
-        private final VAOS him;
+        @SuppressWarnings("unused")
+        private final Object him;
 
         VAOExtension(WebGLRenderingContext gl) {
             this.gl = gl;
-            this.him = (VAOS) gl.getExtension("OES_vertex_array_object");
+            this.him = gl.getExtension("OES_vertex_array_object");
         }
 
         int genVertexArray() {
-            if (him == null)
-                return 0;
-            WebGLVertexArrayObjectOES vao = him.createVertexArrayOES();
-            return vao == null ? 0 : vao.getId();
+            return 0;
         }
 
         void bindVertexArray(int vao) {
-            if (him == null)
-                return;
-            him.bindVertexArrayOES((WebGLVertexArrayObjectOES) (Object) vao);
-        }
-
-        private static interface VAOS {
-            WebGLVertexArrayObjectOES createVertexArrayOES();
-
-            void bindVertexArrayOES(WebGLVertexArrayObjectOES vao);
-        }
+            /* no-op on WebGL1 */ }
     }
 
     @Override
     public boolean getMouseButton(long window, MouseButtons mouseButtonLeft) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getMouseButton'");
+        return WebPlatformHelper.leftDown;
     }
 
     @Override
     public int SRC_ALPHA() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'SRC_ALPHA'");
+        return WebGLRenderingContext.SRC_ALPHA;
     }
 
     @Override
     public int ONE_MINUS_SRC_ALPHA() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'ONE_MINUS_SRC_ALPHA'");
+        return WebGLRenderingContext.ONE_MINUS_SRC_ALPHA;
     }
 
     @Override
     public int BLEND() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'BLEND'");
+        return WebGLRenderingContext.BLEND;
     }
 
     @Override
     public void blendFunc(int SRC_ALPHA, int ONE_MINUS_SRC_ALPHA) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'blendFunc'");
+        gl.blendFunc(SRC_ALPHA, ONE_MINUS_SRC_ALPHA);
     }
 
     @Override
     public void enable(int blend) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'enable'");
+        gl.enable(blend);
+    }
+
+    @JSBody(params = { "v" }, script = "return (v|0);")
+    private static native int toInt(Object v);
+
+    @Override
+    public void createCapabilities(boolean b, IntFunction intFunction) {
+
+    }
+
+    @Override
+    public int DEPTH_TEST() {
+        return WebGLRenderingContext.DEPTH_TEST;
+    }
+
+    @Override
+    public int DEPTH_BUFFER_BIT() {
+        return WebGLRenderingContext.DEPTH_BUFFER_BIT;
+    }
+
+    @Override
+    public void setWindowTitle(String string) {
+        WebLauncher.setTitle(string);
+    }
+
+    @Override
+    public int genVertexArrays() {
+        return 0;
+    }
+
+    @Override
+    public void deleteVertexArrays(int id) {
+    }
+
+    @Override
+    public int genBuffers() {
+        return 0;
+    }
+
+    @Override
+    public void bindBuffer(int target, int id) {
+    }
+
+    @Override
+    public void bufferData(int target, FloatBuffer data, int usage) {
+    }
+
+    @Override
+    public void bufferData(int target, float[] data, int usage) {
+
+    }
+
+    @Override
+    public void bufferData(int target, long size, int usage) {
+    }
+
+    @Override
+    public void bufferSubData(int target, long offset, FloatBuffer data) {
+    }
+
+    @Override
+    public void bufferData(int target, IntBuffer data, int usage) {
+    }
+
+    @Override
+    public void deleteBuffers(int id) {
+    }
+
+    @Override
+    public int getAttribLocation(int iD, CharSequence name) {
+        return gl.getAttribLocation(program(iD), name.toString());
+    }
+
+    @Override
+    public int DYNAMIC_DRAW() {
+        return WebGLRenderingContext.DYNAMIC_DRAW;
+    }
+
+    @Override
+    public void bindFragDataLocation(int iD, int i, String string) {
+
+    }
+
+    @Override
+    public void activeTexture(int i) {
+        gl.activeTexture(i);
+    }
+
+    @Override
+    public void detachShader(int iD, int fragmentShader) {
+        gl.detachShader(program(iD), shader(fragmentShader));
+    }
+
+    @Override
+    public void shaderSource(int fragmentShader, CharSequence[] fragmentShaderSource) {
+        StringBuilder sb = new StringBuilder();
+        for (CharSequence cs : fragmentShaderSource) {
+            sb.append(cs);
+        }
+        String result = sb.toString();
+        gl.shaderSource(shader(fragmentShader), result);
+    }
+
+    @Override
+    public int LINK_STATUS() {
+        return WebGLRenderingContext.LINK_STATUS;
+    }
+
+    @Override
+    public void getProgramiv(int program, int link_STATUS, IntBuffer success) {
+        gl.getProgramParameteri(program(program), link_STATUS);
+    }
+
+    @Override
+    public int COMPILE_STATUS() {
+        return WebGLRenderingContext.COMPILE_STATUS;
+    }
+
+    @Override
+    public void getShaderiv(int shader, int compile_STATUS, IntBuffer success) {
+        gl.getShaderParameteri(shader(shader), compile_STATUS);
+    }
+
+    @Override
+    public void uniform3fv(Integer integer, FloatBuffer vec3) {
+        float[] a = new float[vec3.remaining()];
+        for (int i = 0, j = vec3.position(); j < vec3.limit(); i++, j++)
+            a[i] = vec3.get(j);
+        gl.uniform3fv(uniform(integer), a);
+    }
+
+    @Override
+    public int[] readPixels(int i, int j, int width, int height, int rgba, int unsigned_BYTE, int size) {
+        Uint8Array fb = Uint8Array.create(width * height * 4);
+        gl.readPixels(i, j, width, height, rgba, unsigned_BYTE, fb);
+        // Convert Uint8Array to byte[]
+        int[] pixels = new int[width * height];
+        for (int k = 0; k < pixels.length; k++) {
+            int bindex = k * 4;
+            int r = fb.get(bindex) & 0xFF;
+            int g = fb.get(bindex + 1) & 0xFF;
+            int b = fb.get(bindex + 2) & 0xFF;
+            pixels[k] = (r << 16) | (g << 8) | b;
+        }
+
+        return pixels;
+    }
+
+    @Override
+    public int TEXTURE0() {
+        return WebGLRenderingContext.TEXTURE0;
     }
 }

@@ -1,22 +1,24 @@
 
 package shell.render.shaders;
 
-import static org.lwjgl.opengl.GL30.*;
+import shell.platform.Platforms;
+import shell.platform.gl.GL;
 
 public class VertexArrayObject {
 
     private final int id;
+    private static GL gl = Platforms.gl();
 
     public VertexArrayObject() {
-        id = glGenVertexArrays();
+        id = gl.genVertexArrays();
     }
 
     public void bind() {
-        glBindVertexArray(id);
+        gl.bindVertexArray(id);
     }
 
     public void delete() {
-        glDeleteVertexArrays(id);
+        gl.deleteVertexArrays(id);
     }
 
     public int getID() {

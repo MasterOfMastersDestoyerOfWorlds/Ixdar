@@ -44,9 +44,6 @@ public class DisjointUnionSets {
     public int find(int x) {
         // Finds the representative of the set
         // that x is an element of
-        if(!parent.containsKey(x)){
-            float z =0;
-        }
         if (parent.get(x) != x) {
             // if x is not the parent of itself
             // Then x is not the representative of

@@ -137,12 +137,12 @@ public class Terminal {
     public void keyPress(int key, int mods, boolean controlMask) {
         if (key == Keys.BACKSPACE) {
             if (controlMask) {
-                commandLine = commandLine.stripTrailing();
+                commandLine = shell.utils.Compat.stripTrailing(commandLine);
                 int lastSpace = commandLine.lastIndexOf(" ");
                 if (lastSpace == -1) {
                     commandLine = "";
                 } else {
-                    commandLine = commandLine.substring(0, lastSpace).stripTrailing();
+                    commandLine = shell.utils.Compat.stripTrailing(commandLine.substring(0, lastSpace));
                 }
             } else {
                 int back = commandLine.length() - 1;
@@ -179,7 +179,7 @@ public class Terminal {
         }
         if (key == Keys.ENTER) {
             history.addLine(commandLine);
-            if (!commandLine.isBlank()) {
+            if (!shell.utils.Compat.isBlank(commandLine)) {
                 commandHistory.add(0, commandLine);
                 commandHistoryIdx = -1;
                 run(commandLine);
@@ -193,7 +193,7 @@ public class Terminal {
             return;
         }
         if (key == Keys.TAB) {
-            if (commandLine.isBlank() && nextLogicalCommand.length > 0) {
+            if (shell.utils.Compat.isBlank(commandLine) && nextLogicalCommand.length > 0) {
                 commandLine = nextLogicalCommand[nextLogicalCommandIdx];
                 nextLogicalCommandIdx = (nextLogicalCommandIdx + 1) % nextLogicalCommand.length;
                 return;
@@ -211,7 +211,7 @@ public class Terminal {
     }
 
     public void type(String typedCharacter) {
-        if (typedCharacter.isBlank()) {
+        if (shell.utils.Compat.isBlank(typedCharacter)) {
             return;
         }
         commandHistoryIdx = -1;

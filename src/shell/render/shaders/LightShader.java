@@ -1,10 +1,12 @@
 package shell.render.shaders;
 
-import static org.lwjgl.opengl.GL11.GL_FLOAT;
-import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
-import static org.lwjgl.opengl.GL20.*;
+import shell.platform.Platforms;
+import shell.platform.gl.GL;
 
 public class LightShader extends ShaderProgram {
+
+    
+    private static GL gl = Platforms.gl();
 
     public LightShader(VertexArrayObject vao,
             VertexBufferObject vbo) {
@@ -15,9 +17,9 @@ public class LightShader extends ShaderProgram {
     public void init() {
         super.init();
         vao.bind();
-        vbo.bind(GL_ARRAY_BUFFER);
-        glVertexAttribPointer(0, 3, GL_FLOAT, false, 8 * Float.BYTES, 0);
-        glEnableVertexAttribArray(0);
+        vbo.bind(gl.ARRAY_BUFFER());
+        gl.vertexAttribPointer(0, 3, gl.FLOAT(), false, 8 * Float.BYTES, 0);
+        gl.enableVertexAttribArray(0);
     }
 
     @Override

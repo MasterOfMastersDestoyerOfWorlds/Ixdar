@@ -36,6 +36,22 @@
             "mainClass": "shell.Main",
             "projectName": "IXDAR",
             "vmArgs": "-enableassertions -agentpath:Z:/VisualVM/visualvm_219/visualvm/lib/deployed/jdk16/windows-amd64/profilerinterface.dll=Z:\\VisualVM\\visualvm_219\\visualvm\\lib,5140"
+        },
+        {
+            "type": "java",
+            "name": "Web (TeaVM): build",
+            "request": "launch",
+            "mainClass": "shell.web.teavm.WebLauncher",
+            "projectName": "IXDAR",
+            "preLaunchTask": "teavm-build"
+        },
+        {
+            "type": "pwa-msedge",
+            "request": "launch",
+            "name": "Web (TeaVM): open dev server",
+            "preLaunchTask": "serve-teavm",
+            "url": "http://localhost:8080/",
+            "webRoot": "${workspaceFolder}/target/teavm"
         }
     ]
 }

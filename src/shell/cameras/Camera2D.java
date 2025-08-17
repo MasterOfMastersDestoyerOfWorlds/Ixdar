@@ -1,6 +1,5 @@
 package shell.cameras;
 
-import java.awt.geom.Point2D;
 import java.util.ArrayList;
 
 import org.joml.Vector2f;
@@ -8,6 +7,9 @@ import org.joml.Vector2f;
 import shell.PointSet;
 import shell.knot.Knot;
 import shell.knot.Segment;
+import shell.platform.Platforms;
+import shell.platform.gl.GL;
+import shell.point.Point2D;
 import shell.point.PointND;
 import shell.render.Clock;
 import shell.render.shaders.ShaderProgram;
@@ -15,10 +17,10 @@ import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
 import shell.ui.tools.Tool;
-import static org.lwjgl.opengl.GL11.glViewport;
 
 public class Camera2D implements Camera {
 
+    private static GL gl = Platforms.gl();
     public float ZOOM_SPEED = 1f;
     public float PAN_SPEED = 300f;
     public int Width, Height;
@@ -327,9 +329,10 @@ public class Camera2D implements Camera {
     }
 
     public void centerOnPoint(PointND pn) {
-        Point2D p = pn.toPoint2D();
-        PanX += Main.MAIN_VIEW_WIDTH / 2 - pointTransformX(p.getX());
-        PanY += Main.MAIN_VIEW_HEIGHT / 2 - pointTransformY(p.getY());
+        float sx = (float) pn.getScreenX();
+        float sy = (float) pn.getScreenY();
+        PanX += Main.MAIN_VIEW_WIDTH / 2 - pointTransformX(sx);
+        PanY += Main.MAIN_VIEW_HEIGHT / 2 - pointTransformY(sy);
     }
 
     public double pointSpaceLengthToScreenSpace(double smallestLength) {
@@ -513,7 +516,7 @@ public class Camera2D implements Camera {
     @Override
     public void updateView(int x, int y, int width, int height) {
         this.updateViewBounds(x, y, width, height);
-        glViewport(x, y, width, height);
+        gl.viewport(x, y, width, height);
         for (ShaderProgram s : Canvas3D.shaders) {
             s.updateProjectionMatrix(width, height, 1f);
         }

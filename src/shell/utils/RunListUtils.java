@@ -2,7 +2,6 @@ package shell.utils;
 
 import java.util.ArrayList;
 
-import shell.knot.Segment;
 import shell.knot.Knot;
 
 public final class RunListUtils {

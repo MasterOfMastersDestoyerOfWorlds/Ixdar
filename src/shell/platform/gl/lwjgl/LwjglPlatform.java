@@ -1,4 +1,4 @@
-package shell.platform.lwjgl;
+package shell.platform.gl.lwjgl;
 
 import static org.lwjgl.glfw.GLFW.glfwGetWindowSize;
 import static org.lwjgl.glfw.GLFW.glfwSetCharCallback;

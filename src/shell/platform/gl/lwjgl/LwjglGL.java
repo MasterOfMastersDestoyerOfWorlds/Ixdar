@@ -1,68 +1,52 @@
-package shell.platform.lwjgl;
+package shell.platform.gl.lwjgl;
 
+import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
+import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
+import static org.lwjgl.glfw.GLFW.glfwGetMouseButton;
 import static org.lwjgl.opengl.GL11.GL_BLEND;
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
 import static org.lwjgl.opengl.GL11.GL_FLOAT;
 import static org.lwjgl.opengl.GL11.GL_LINEAR;
+import static org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11.GL_REPEAT;
 import static org.lwjgl.opengl.GL11.GL_RGBA;
 import static org.lwjgl.opengl.GL11.GL_RGBA8;
 import static org.lwjgl.opengl.GL11.GL_SRC_ALPHA;
-import static org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA;
-import static org.lwjgl.opengl.GL11.glEnable;
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
 import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
 import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
-import static org.lwjgl.opengl.GL11.glClear;
-import static org.lwjgl.opengl.GL11.glClearColor;
-import static org.lwjgl.opengl.GL11.glViewport;
-import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
-import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
-import static org.lwjgl.opengl.GL15.glBindBuffer;
-import static org.lwjgl.opengl.GL15.glBufferData;
-import static org.lwjgl.opengl.GL15.glGenBuffers;
-import static org.lwjgl.opengl.GL20.GL_FRAGMENT_SHADER;
-import static org.lwjgl.opengl.GL20.GL_VERTEX_SHADER;
-import static org.lwjgl.opengl.GL20.glAttachShader;
-import static org.lwjgl.opengl.GL20.glCompileShader;
-import static org.lwjgl.opengl.GL20.glCreateProgram;
-import static org.lwjgl.opengl.GL20.glCreateShader;
-import static org.lwjgl.opengl.GL20.glGetProgramInfoLog;
-import static org.lwjgl.opengl.GL20.glGetProgramiv;
-import static org.lwjgl.opengl.GL20.glGetShaderInfoLog;
-import static org.lwjgl.opengl.GL20.glGetShaderiv;
-import static org.lwjgl.opengl.GL20.glLinkProgram;
-import static org.lwjgl.opengl.GL20.glShaderSource;
-import static org.lwjgl.opengl.GL20.glUseProgram;
-import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
-import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
-import static org.lwjgl.opengl.GL20.glGetUniformLocation;
-import static org.lwjgl.opengl.GL20.glUniform1f;
-import static org.lwjgl.opengl.GL20.glUniform1i;
-import static org.lwjgl.opengl.GL20.glUniform2fv;
-import static org.lwjgl.opengl.GL20.glUniform3fv;
-import static org.lwjgl.opengl.GL20.glUniform4fv;
-import static org.lwjgl.opengl.GL20.glUniformMatrix4fv;
-import static org.lwjgl.opengl.GL30.glBindVertexArray;
-import static org.lwjgl.opengl.GL30.glGenVertexArrays;
-import static org.lwjgl.opengl.GL11.glDrawArrays;
 import static org.lwjgl.opengl.GL11.glBindTexture;
 import static org.lwjgl.opengl.GL11.glBlendFunc;
-import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
+import static org.lwjgl.opengl.GL11.glClear;
+import static org.lwjgl.opengl.GL11.glClearColor;
+import static org.lwjgl.opengl.GL11.glDrawArrays;
+import static org.lwjgl.opengl.GL11.glEnable;
+import static org.lwjgl.opengl.GL11.glReadPixels;
 import static org.lwjgl.opengl.GL11.glTexImage2D;
 import static org.lwjgl.opengl.GL11.glTexParameteri;
+import static org.lwjgl.opengl.GL11.glViewport;
+import static org.lwjgl.opengl.GL13.glActiveTexture;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.glBindFragDataLocation;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glDeleteVertexArrays;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 import static org.lwjgl.opengl.GL30.glGenerateMipmap;
-import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
-import static org.lwjgl.glfw.GLFW.glfwGetMouseButton;
-import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
-import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
+
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.function.IntFunction;
 
 import org.lwjgl.BufferUtils;
+import org.lwjgl.system.MemoryUtil;
 
 import shell.platform.gl.GL;
 import shell.platform.input.MouseButtons;
+import shell.ui.IxdarWindow;
 
 public class LwjglGL implements GL {
 
@@ -369,4 +353,153 @@ public class LwjglGL implements GL {
     public void enable(int blend) {
         glEnable(blend);
     }
+
+    @Override
+    public void createCapabilities(boolean b, IntFunction intFunction) {
+        org.lwjgl.opengl.GL.createCapabilities(b, intFunction);
+    }
+
+    @Override
+    public int DEPTH_TEST() {
+        return GL_DEPTH_TEST;
+    }
+
+    @Override
+    public int DEPTH_BUFFER_BIT() {
+        return GL_DEPTH_BUFFER_BIT;
+    }
+
+    @Override
+    public void setWindowTitle(String string) {
+        IxdarWindow.setTitle(string);
+    }
+
+    @Override
+    public int genVertexArrays() {
+        return glGenVertexArrays();
+    }
+
+    @Override
+    public void deleteVertexArrays(int id) {
+        glDeleteVertexArrays(id);
+    }
+
+    @Override
+    public int genBuffers() {
+        return glGenBuffers();
+    }
+
+    @Override
+    public void bindBuffer(int target, int id) {
+        glBindBuffer(target, id);
+    }
+
+    @Override
+    public void bufferData(int target, FloatBuffer data, int usage) {
+        glBufferData(target, data, usage);
+    }
+
+    @Override
+    public void bufferData(int target, float[] data, int usage) {
+        glBufferData(target, data, usage);
+    }
+
+    @Override
+    public void bufferData(int target, long size, int usage) {
+        glBufferData(target, size, usage);
+    }
+
+    @Override
+    public void bufferSubData(int target, long offset, FloatBuffer data) {
+        glBufferSubData(target, offset, data);
+    }
+
+    @Override
+    public void bufferData(int target, IntBuffer data, int usage) {
+        glBufferData(target, data, usage);
+    }
+
+    @Override
+    public void deleteBuffers(int id) {
+        glDeleteBuffers(id);
+    }
+
+    @Override
+    public int getAttribLocation(int iD, CharSequence name) {
+        return glGetAttribLocation(iD, name);
+    }
+
+    @Override
+    public int DYNAMIC_DRAW() {
+        return GL_DYNAMIC_DRAW;
+    }
+
+    @Override
+    public void bindFragDataLocation(int iD, int i, String string) {
+        glBindFragDataLocation(iD, i, string);
+    }
+
+    @Override
+    public void activeTexture(int i) {
+        glActiveTexture(i);
+    }
+
+    @Override
+    public void detachShader(int iD, int fragmentShader) {
+        glDetachShader(iD, fragmentShader);
+    }
+
+    @Override
+    public void shaderSource(int fragmentShader, CharSequence[] fragmentShaderSource) {
+        glShaderSource(fragmentShader, fragmentShaderSource);
+    }
+
+    @Override
+    public int LINK_STATUS() {
+        return GL_LINK_STATUS;
+    }
+
+    @Override
+    public void getProgramiv(int shader, int link_STATUS, IntBuffer success) {
+        glGetProgramiv(shader, shader, success);
+    }
+
+    @Override
+    public int COMPILE_STATUS() {
+        return GL_COMPILE_STATUS;
+    }
+
+    @Override
+    public void getShaderiv(int shader, int compile_STATUS, IntBuffer success) {
+        glGetShaderiv(shader, compile_STATUS, success);
+    }
+
+    @Override
+    public void uniform3fv(Integer integer, FloatBuffer vec3) {
+        glUniform3fv(integer, vec3);
+    }
+
+    @Override
+    public int[] readPixels(int i, int j, int width, int height, int rgba, int unsigned_BYTE, int size) {
+        ByteBuffer frameBuffer = MemoryUtil.memAlloc(width * height * 4);
+        glReadPixels(i, j, width, height, rgba, unsigned_BYTE, frameBuffer);
+        int[] pixels = new int[width * height];
+        // convert RGB data in ByteBuffer to integer array
+        int bindex;
+        for (int k = 0; k < pixels.length; k++) {
+            bindex = k * 4;
+            pixels[i] = ((frameBuffer.get(bindex) << 16)) +
+                    ((frameBuffer.get(bindex + 1) << 8)) +
+                    ((frameBuffer.get(bindex + 2) << 0));
+        }
+        MemoryUtil.memFree(frameBuffer);
+        return pixels;
+    }
+
+    @Override
+    public int TEXTURE0() {
+        return GL_TEXTURE0;
+    }
+    
+
 }

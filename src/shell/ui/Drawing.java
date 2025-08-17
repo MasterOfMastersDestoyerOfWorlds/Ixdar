@@ -1,9 +1,5 @@
 package shell.ui;
 
-import static java.awt.Font.PLAIN;
-import static java.awt.Font.SANS_SERIF;
-
-import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -22,6 +18,7 @@ import shell.cuts.CutMatchList;
 import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
+import shell.point.Point2D;
 import shell.point.PointND;
 import shell.render.color.Color;
 import shell.render.color.ColorFixedLerp;
@@ -44,7 +41,7 @@ public class Drawing {
     public static float CIRCLE_RADIUS = 7.5f;
     public static SDFLine sdfLine = new SDFLine();
     public static SDFCircle circle = new SDFCircle();
-    public static Font font = new Font(new java.awt.Font(SANS_SERIF, PLAIN, 32), true);
+    public static Font font = new Font();
 
     public static void initDrawingSizes(Shell shell, Camera2D camera, DistanceMatrix d) {
 
@@ -62,7 +59,7 @@ public class Drawing {
             CIRCLE_RADIUS = CIRCLE_RADIUS_START;
         }
         if (MIN_THICKNESS == 0.0) {
-            System.out.println(1 / 0);
+            throw new IllegalStateException("MIN_THICKNESS is zero");
         }
     }
 
@@ -217,14 +214,14 @@ public class Drawing {
         Point2D first;
         Point2D last;
         if (!ex1.first.isSingleton()) {
-            first = ( ((Knot) ex1.first).knotPoints.get(0)).p.toPoint2D();
+            first = (((Knot) ex1.first).knotPoints.get(0)).p.toPoint2D();
         } else {
-            first = ( ex1.first).p.toPoint2D();
+            first = (ex1.first).p.toPoint2D();
         }
         if (!ex1.last.isSingleton()) {
-            last = ( ((Knot) ex1.last).knotPoints.get(0)).p.toPoint2D();
+            last = (((Knot) ex1.last).knotPoints.get(0)).p.toPoint2D();
         } else {
-            last = ( ex1.last).p.toPoint2D();
+            last = (ex1.last).p.toPoint2D();
         }
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
@@ -237,14 +234,14 @@ public class Drawing {
         Point2D first;
         Point2D last;
         if (!ex1.first.isSingleton()) {
-            first = ( ((Knot) ex1.first).knotPoints.get(0)).p.toPoint2D();
+            first = (((Knot) ex1.first).knotPoints.get(0)).p.toPoint2D();
         } else {
-            first = ( ex1.first).p.toPoint2D();
+            first = (ex1.first).p.toPoint2D();
         }
         if (!ex1.last.isSingleton()) {
-            last = ( ((Knot) ex1.last).knotPoints.get(0)).p.toPoint2D();
+            last = (((Knot) ex1.last).knotPoints.get(0)).p.toPoint2D();
         } else {
-            last = ( ex1.last).p.toPoint2D();
+            last = (ex1.last).p.toPoint2D();
         }
 
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
@@ -258,14 +255,14 @@ public class Drawing {
         Point2D first;
         Point2D last;
         if (!s.first.isSingleton()) {
-            first = ( ((Knot) s.first).knotPoints.get(0)).p.toPoint2D();
+            first = (((Knot) s.first).knotPoints.get(0)).p.toPoint2D();
         } else {
-            first = ( s.first).p.toPoint2D();
+            first = (s.first).p.toPoint2D();
         }
         if (!s.last.isSingleton()) {
-            last = ( ((Knot) s.last).knotPoints.get(0)).p.toPoint2D();
+            last = (((Knot) s.last).knotPoints.get(0)).p.toPoint2D();
         } else {
-            last = ( s.last).p.toPoint2D();
+            last = (s.last).p.toPoint2D();
         }
         float[] firstCoords = new float[2];
         float[] lastCoords = new float[2];
@@ -294,14 +291,14 @@ public class Drawing {
         Point2D first;
         Point2D last;
         if (!s.first.isSingleton()) {
-            first = ( ((Knot) s.first).knotPoints.get(0)).p.toPoint2D();
+            first = (((Knot) s.first).knotPoints.get(0)).p.toPoint2D();
         } else {
-            first = ( s.first).p.toPoint2D();
+            first = (s.first).p.toPoint2D();
         }
         if (!s.last.isSingleton()) {
-            last = ( ((Knot) s.last).knotPoints.get(0)).p.toPoint2D();
+            last = (((Knot) s.last).knotPoints.get(0)).p.toPoint2D();
         } else {
-            last = ( s.last).p.toPoint2D();
+            last = (s.last).p.toPoint2D();
         }
 
         Vector2f firstCoords = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));

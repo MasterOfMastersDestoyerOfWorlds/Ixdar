@@ -51,10 +51,10 @@ public class ColorFixedLerp implements Color {
         Vector4f other = endColor.toVector4f();
         Vector4f lerp = new Vector4f(vec);
 
-        lerp.x = Math.fma(other.x() - lerp.x, offset * channelLerp[0], lerp.x);
-        lerp.y = Math.fma(other.y() - lerp.y, offset * channelLerp[1], lerp.y);
-        lerp.z = Math.fma(other.z() - lerp.z, offset * channelLerp[2], lerp.z);
-        lerp.w = Math.fma(other.w() - lerp.w, offset * channelLerp[3], lerp.w);
+        lerp.x = shell.utils.Compat.fmaf(other.x() - lerp.x, offset * channelLerp[0], lerp.x);
+        lerp.y = shell.utils.Compat.fmaf(other.y() - lerp.y, offset * channelLerp[1], lerp.y);
+        lerp.z = shell.utils.Compat.fmaf(other.z() - lerp.z, offset * channelLerp[2], lerp.z);
+        lerp.w = shell.utils.Compat.fmaf(other.w() - lerp.w, offset * channelLerp[3], lerp.w);
 
         return lerp;
     }

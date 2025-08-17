@@ -52,12 +52,10 @@ public class FreeTool extends Tool {
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
         HyperString pointInfo = new HyperString();
-        PointND coordPoint = null;
         h.addWord("Point: ");
         if (displayKP == null) {
             h.addWord("None");
         } else {
-            coordPoint = (displayKP).p;
             final PointND coordPointF = (displayKP).p;
             pointInfo.addWord(coordPointF.toString());
             h.addTooltip(displayKP.id + "", Color.BLUE_WHITE, pointInfo, () -> Main.camera.centerOnPoint(coordPointF));

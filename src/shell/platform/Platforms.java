@@ -5,12 +5,13 @@ import shell.platform.gl.GL;
 public final class Platforms {
 
     private static Platform instance;
+
     private static GL glInstance;
 
     private Platforms() {
     }
 
-    public static void init(Platform platform ,GL gl) {
+    public static void init(Platform platform, GL gl) {
         instance = platform;
         glInstance = gl;
     }

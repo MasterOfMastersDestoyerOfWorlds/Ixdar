@@ -71,7 +71,6 @@ public class NeighborViewTool extends Tool {
             h.addWord("Knot Point: " + displayKP, Color.GREEN);
             h.newLine();
             h.addWord("Cut Point: " + displayCP, Color.ORANGE);
-            long matchId = Segment.idTransformOrdered(displayKP.id, displayCP.id);
             h.newLine();
 
         }

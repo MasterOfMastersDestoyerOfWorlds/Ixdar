@@ -16,19 +16,16 @@ public class KnotEngine {
 
     int halfKnotCount = 0;
     int sameKnotPointCount = 0;
-    private ArrayList<Knot> visited;
     public ArrayList<Knot> knots;
 
     public KnotEngine(Shell shell) {
         this.shell = shell;
         unvisited = new ArrayList<Knot>();
-        visited = new ArrayList<Knot>();
     }
 
     public ArrayList<Knot> createKnots(int layers, ArrayList<Segment> sortedSegments)
             throws MultipleCyclesFoundException {
 
-        visited = new ArrayList<Knot>();
         unvisited = new ArrayList<Knot>();
         unvisited.addAll(shell.pointMap.values());
         int idx = 0;

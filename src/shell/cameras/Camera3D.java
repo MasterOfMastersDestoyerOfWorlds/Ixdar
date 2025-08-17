@@ -4,14 +4,16 @@ import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 
+import shell.platform.Platforms;
+import shell.platform.gl.GL;
 import shell.render.Clock;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.Canvas3D;
 import shell.ui.IxdarWindow;
-import static org.lwjgl.opengl.GL11.glViewport;
 
 public class Camera3D implements Camera {
 
+    private static GL gl = Platforms.gl();
     private static final float MovementSpeed = 2.5f;
     private static final float ZOOM_SPEED = 1f;
     public Vector3f position;
@@ -263,7 +265,7 @@ public class Camera3D implements Camera {
 
     @Override
     public void updateView(int x, int y, int width, int height) {
-        glViewport(x, y, width, height);
+        gl.viewport(x, y, width, height);
         for (ShaderProgram s : Canvas3D.shaders) {
             s.updateProjectionMatrix(width, height, 1f);
         }

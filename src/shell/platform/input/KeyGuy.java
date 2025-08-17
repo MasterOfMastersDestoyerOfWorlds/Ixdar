@@ -1,16 +1,12 @@
 package shell.platform.input;
 
-import static shell.platform.input.Keys.LEFT_CONTROL;
 import static shell.platform.input.Keys.ACTION_PRESS;
 import static shell.platform.input.Keys.ACTION_RELEASE;
 import static shell.platform.input.Keys.ACTION_REPEAT;
+import static shell.platform.input.Keys.LEFT_CONTROL;
 
-import java.awt.MouseInfo;
-import java.awt.Point;
 import java.util.HashSet;
 import java.util.Set;
-
-import javax.swing.JFrame;
 
 import shell.Toggle;
 import shell.cameras.Camera;
@@ -20,10 +16,8 @@ import shell.terminal.commands.ColorCommand;
 import shell.terminal.commands.ExitCommand;
 import shell.terminal.commands.ResetCommand;
 import shell.terminal.commands.ResetCommand.ResetOption;
-import shell.terminal.commands.ScreenShotCommand;
 import shell.terminal.commands.UpdateCommand;
 import shell.ui.Canvas3D;
-import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
 import shell.ui.tools.NegativeCutMatchViewTool;
 import shell.ui.tools.NeighborViewTool;
@@ -37,7 +31,6 @@ public class KeyGuy {
 
     boolean controlMask;
     boolean shiftMask;
-    JFrame frame;
     public boolean active = true;
 
     public KeyGuy(Camera camera, Canvas3D canvas) {
@@ -64,9 +57,6 @@ public class KeyGuy {
         }
         if (firstPress) {
             if (controlMask) {
-                if (KeyActions.PrintScreen.keyPressed(pressedKeys)) {
-                    Terminal.runNoArgs(ScreenShotCommand.class);
-                }
                 if (KeyActions.Save.keyPressed(pressedKeys)) {
                     if (Main.file == null && Main.tempFile != null) {
 
@@ -159,37 +149,23 @@ public class KeyGuy {
         }
         camera.setShiftMod(SHIFT_MOD);
         if (!pressedKeys.isEmpty()) {
-            boolean moved = false;
             if (KeyActions.MoveUp.keyPressed(pressedKeys)) {
                 camera.move(Camera.Direction.FORWARD);
-                moved = true;
             }
             if (KeyActions.MoveLeft.keyPressed(pressedKeys)) {
                 camera.move(Camera.Direction.LEFT);
-                moved = true;
             }
             if (KeyActions.MoveDown.keyPressed(pressedKeys)) {
                 camera.move(Camera.Direction.BACKWARD);
-                moved = true;
             }
             if (KeyActions.MoveRight.keyPressed(pressedKeys)) {
                 camera.move(Camera.Direction.RIGHT);
-                moved = true;
             }
             if (KeyActions.ZoomIn.keyPressed(pressedKeys) && !KeyActions.ZoomOut.keyPressed(pressedKeys)) {
                 camera.zoom(true);
-                moved = true;
             }
             if (KeyActions.ZoomOut.keyPressed(pressedKeys) && !KeyActions.ZoomIn.keyPressed(pressedKeys)) {
-
                 camera.zoom(false);
-                moved = true;
-            }
-            if (moved && main != null) {
-                Point mouseLocation = MouseInfo.getPointerInfo().getLocation();
-                Point frameLocation = IxdarWindow.getLocationOnScreen();
-                Main.tool.calculateHover((int) (mouseLocation.getX() - frameLocation.getX()),
-                        (int) (mouseLocation.getY() - frameLocation.getY()));
             }
         }
 

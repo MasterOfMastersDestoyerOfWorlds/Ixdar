@@ -98,27 +98,27 @@
 
   <profiles>
     <profile>
-  <id>windows</id>
-    <activation>
-      <os>
-        <family>Windows</family>
-      </os>
-    </activation>
-    <properties>
-    <lwjgl.natives>natives-windows</lwjgl.natives>
-    </properties>
-  </profile>
-  <profile>
-  <id>linux</id>
-    <activation>
-      <os>
-        <family>Linux</family>
-      </os>
-    </activation>
-    <properties>
-    <lwjgl.natives>natives-linux</lwjgl.natives>
-    </properties>
-  </profile>
+      <id>windows</id>
+      <activation>
+        <os>
+          <family>Windows</family>
+        </os>
+      </activation>
+      <properties>
+        <lwjgl.natives>natives-windows</lwjgl.natives>
+      </properties>
+    </profile>
+    <profile>
+      <id>linux</id>
+      <activation>
+        <os>
+          <family>Linux</family>
+        </os>
+      </activation>
+      <properties>
+        <lwjgl.natives>natives-linux</lwjgl.natives>
+      </properties>
+    </profile>
     <profile>
       <id>native</id>
       <build>
@@ -151,55 +151,6 @@
       <build>
         <plugins>
           <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-resources-plugin</artifactId>
-            <version>3.3.1</version>
-            <executions>
-              <execution>
-                <id>copy-web-static</id>
-                <phase>prepare-package</phase>
-                <goals>
-                  <goal>copy-resources</goal>
-                </goals>
-                <configuration>
-                  <outputDirectory>${project.build.directory}/teavm</outputDirectory>
-                  <resources>
-                    <resource>
-                      <directory>src-web</directory>
-                      <filtering>false</filtering>
-                      <includes>
-                        <include>**/*.html</include>
-                        <include>**/*.css</include>
-                        <include>**/*.png</include>
-                        <include>**/*.jpg</include>
-                        <include>**/*.svg</include>
-                      </includes>
-                    </resource>
-                  </resources>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>build-helper-maven-plugin</artifactId>
-            <version>3.5.0</version>
-            <executions>
-              <execution>
-                <id>add-web-sources</id>
-                <phase>generate-sources</phase>
-                <goals>
-                  <goal>add-source</goal>
-                </goals>
-                <configuration>
-                  <sources>
-                    <source>src-web</source>
-                  </sources>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-          <plugin>
             <groupId>org.teavm</groupId>
             <artifactId>teavm-maven-plugin</artifactId>
             <version>${teavm.version}</version>
@@ -208,23 +159,73 @@
                 <id>build-teavm-js</id>
                 <phase>package</phase>
                 <goals>
-                  <goal>build-javascript</goal>
+                  <goal>compile</goal>
                 </goals>
                 <configuration>
-                  <mainClass>shell.web.teavm.WebLauncher</mainClass>
+                  <mainClass>shell.ui.WebLauncher</mainClass>
                   <targetDirectory>${project.build.directory}/teavm</targetDirectory>
                   <debugInformation>true</debugInformation>
                   <sourceMaps>true</sourceMaps>
                   <minifying>false</minifying>
-                  <incremental>true</incremental>
+                  <incremental>false</incremental>
                   <strict>true</strict>
+                  <target>javascript</target>
                 </configuration>
               </execution>
             </executions>
           </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>generate-index-html</id>
+                <phase>prepare-package</phase>
+                <configuration>
+                  <target>
+                    <mkdir dir="${project.build.directory}/teavm" />
+                    <echo file="${project.build.directory}/teavm/index.html"><![CDATA[
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Ixdar Web</title>
+    <style>html,body{height:100%;margin:0;background:#111}#ixdar-canvas{width:100vw;height:100vh;display:block}</style>
+  </head>
+  <body>
+    <canvas id="ixdar-canvas"></canvas>
+    <script src="classes.js"></script>
+  </body>
+</html>
+          ]]></echo>
+                  </target>
+                </configuration>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>3.8.0</version>
+            <configuration>
+              <release>8</release>
+              <!-- In web build, do not exclude any sources -->
+              <excludes />
+            </configuration>
+          </plugin>
         </plugins>
       </build>
       <dependencies>
+        <dependency>
+          <groupId>org.teavm</groupId>
+          <artifactId>teavm-classlib</artifactId>
+          <version>${teavm.version}</version>
+          <scope>provided</scope>
+        </dependency>
         <dependency>
           <groupId>org.teavm</groupId>
           <artifactId>teavm-jso</artifactId>
@@ -240,12 +241,6 @@
         <dependency>
           <groupId>org.teavm</groupId>
           <artifactId>teavm-platform</artifactId>
-          <version>${teavm.version}</version>
-          <scope>provided</scope>
-        </dependency>
-        <dependency>
-          <groupId>org.teavm</groupId>
-          <artifactId>teavm-jso-webgl</artifactId>
           <version>${teavm.version}</version>
           <scope>provided</scope>
         </dependency>
@@ -356,11 +351,11 @@
       <version>3.14.0</version>
     </dependency>
 
-      <dependency>
-        <groupId>io.humble</groupId>
-        <artifactId>humble-video-all</artifactId>
-        <version>0.3.0</version>
-      </dependency>
+    <dependency>
+      <groupId>io.humble</groupId>
+      <artifactId>humble-video-all</artifactId>
+      <version>0.3.0</version>
+    </dependency>
     <dependency>
       <groupId>org.joml</groupId>
       <artifactId>joml</artifactId>
@@ -429,5 +424,25 @@
       <classifier>${lwjgl.natives}</classifier>
     </dependency>
     <!-- Web (TeaVM) provided dependencies resolved in web-teavm profile -->
+    <dependency>
+      <groupId>org.teavm</groupId>
+      <artifactId>teavm-classlib</artifactId>
+      <version>${teavm.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.teavm</groupId>
+      <artifactId>teavm-jso</artifactId>
+      <version>${teavm.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.teavm</groupId>
+      <artifactId>teavm-jso-apis</artifactId>
+      <version>${teavm.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.teavm</groupId>
+      <artifactId>teavm-platform</artifactId>
+      <version>${teavm.version}</version>
+    </dependency>
   </dependencies>
 </project>

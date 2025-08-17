@@ -1,14 +1,8 @@
 package shell.platform.input;
 
-import static shell.platform.input.Keys.*;
+import static shell.platform.input.Keys.ACTION_PRESS;
+import static shell.platform.input.Keys.ACTION_RELEASE;
 
-import java.awt.AWTException;
-import java.awt.GraphicsConfiguration;
-import java.awt.GraphicsDevice;
-import java.awt.GraphicsEnvironment;
-import java.awt.Rectangle;
-import java.awt.Robot;
-import java.awt.geom.Point2D;
 import java.util.ArrayList;
 
 import org.joml.Vector2f;
@@ -19,7 +13,6 @@ import shell.platform.Platforms;
 import shell.render.Clock;
 import shell.render.text.HyperString;
 import shell.ui.Canvas3D;
-import shell.ui.IxdarWindow;
 import shell.ui.main.Main;
 import shell.ui.main.PanelTypes;
 
@@ -33,14 +26,12 @@ public class MouseTrap {
     int width;
     int height;
     public Camera camera;
-    public boolean captureMouse;
     public boolean active = true;
     public static ArrayList<HyperString> hyperStrings = new ArrayList<>();
 
-    public MouseTrap(Main main, Camera camera, boolean captureMouse) {
+    public MouseTrap(Main main, Camera camera) {
         this.main = main;
         this.camera = camera;
-        this.captureMouse = captureMouse;
         this.canvas = Canvas3D.canvas;
     }
 
@@ -72,7 +63,6 @@ public class MouseTrap {
 
     double startX;
     double startY;
-    private java.awt.geom.Point2D.Double center;
     private Canvas3D canvas;
     public float normalizedPosX;
     public float normalizedPosY;
@@ -125,17 +115,10 @@ public class MouseTrap {
         }
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
-        if (captureMouse && center == null) {
-            captureMouse(false);
-            return;
-        }
         lastX = (int) x;
         lastY = (int) y;
-        if (captureMouse) {
-            camera.mouseMove((int) center.x, (int) center.y, x, y);
-        } else {
-            camera.mouseMove(lastX, lastY, x, y);
-        }
+
+        camera.mouseMove(lastX, lastY, x, y);
         if (Canvas3D.menu != null && !(this.canvas == null)) {
 
             Canvas3D.menu.setHover(normalizedPosX, normalizedPosY);
@@ -150,9 +133,7 @@ public class MouseTrap {
             }
         }
         updateHyperStrings();
-        if (captureMouse) {
-            // captureMouse(false);
-        }
+
         hyperStrings = new ArrayList<>();
     }
 
@@ -200,45 +181,6 @@ public class MouseTrap {
         for (HyperString h : hyperStrings) {
             h.calculateHover(normalizedPosX, normalizedPosY);
         }
-    }
-
-    public void captureMouse(boolean force) {
-
-        if (canvas != null && (IxdarWindow.frame.hasFocus() || force)) {
-            Point2D topLeft = IxdarWindow.getLocationOnScreen();
-            center = new Point2D.Double((int) (IxdarWindow.getWidth() / 2), (int) (IxdarWindow.getHeight() / 2));
-            int x = (int) (topLeft.getX() + center.getX());
-            int y = (int) (topLeft.getY() + center.getY());
-            moveMouse(new Point2D.Double(x, y));
-        }
-    }
-
-    public static void moveMouse(Point2D p) {
-        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-        GraphicsDevice[] gs = ge.getScreenDevices();
-
-        // Search the devices for the one that draws the specified point.
-        for (GraphicsDevice device : gs) {
-            GraphicsConfiguration[] configurations = device.getConfigurations();
-            for (GraphicsConfiguration config : configurations) {
-                Rectangle bounds = config.getBounds();
-                if (bounds.contains(p)) {
-                    // Set point to screen coordinates.
-                    Point2D b = bounds.getLocation();
-                    Point2D s = new Point2D.Double(p.getX() - b.getX(), p.getY() - b.getY());
-
-                    try {
-                        Robot r = new Robot(device);
-                        r.mouseMove((int) s.getX(), (int) s.getY());
-                    } catch (AWTException e) {
-                        e.printStackTrace();
-                    }
-
-                    return;
-                }
-            }
-        }
-        return;
     }
 
     float leftMouseDown = -1;

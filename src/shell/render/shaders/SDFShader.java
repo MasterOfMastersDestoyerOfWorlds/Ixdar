@@ -1,14 +1,14 @@
 package shell.render.shaders;
 
-import static org.lwjgl.opengl.GL11.GL_FLOAT;
-import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
-import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
-
 import org.joml.Matrix4f;
 
+import shell.platform.Platforms;
+import shell.platform.gl.GL;
 import shell.ui.Canvas3D;
 
 public class SDFShader extends ShaderProgram {
+
+    private static GL gl = Platforms.gl();
 
     public SDFShader(String vertexShaderLocation, String fragmentShaderLocation) {
         super(vertexShaderLocation, fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
@@ -20,17 +20,17 @@ public class SDFShader extends ShaderProgram {
         super.init();
         /* Specify Vertex Pointer */
         int posAttrib = getAttributeLocation("position");
-        glEnableVertexAttribArray(posAttrib);
-        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, false, 9 * Float.BYTES, 0);
+        gl.enableVertexAttribArray(posAttrib);
+        gl.vertexAttribPointer(posAttrib, 3, gl.FLOAT(), false, 9 * Float.BYTES, 0);
 
         /* Specify Color Pointer */
         int colAttrib = getAttributeLocation("color");
-        glEnableVertexAttribArray(colAttrib);
-        glVertexAttribPointer(colAttrib, 4, GL_FLOAT, false, 9 * Float.BYTES, 3 * Float.BYTES);
+        gl.enableVertexAttribArray(colAttrib);
+        gl.vertexAttribPointer(colAttrib, 4, gl.FLOAT(), false, 9 * Float.BYTES, 3 * Float.BYTES);
         /* Specify Color Pointer */
         int texCoordAttrib = getAttributeLocation("texCoord");
-        glEnableVertexAttribArray(texCoordAttrib);
-        glVertexAttribPointer(texCoordAttrib, 2, GL_FLOAT, false, 9 * Float.BYTES, 7 * Float.BYTES);
+        gl.enableVertexAttribArray(texCoordAttrib);
+        gl.vertexAttribPointer(texCoordAttrib, 2, gl.FLOAT(), false, 9 * Float.BYTES, 7 * Float.BYTES);
 
         use();
         bindFragmentDataLocation(0, "fragColor");

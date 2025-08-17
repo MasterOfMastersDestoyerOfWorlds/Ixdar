@@ -1,8 +1,6 @@
 package shell.file;
 
-import java.awt.geom.GeneralPath;
-import java.awt.geom.Path2D;
-import java.awt.geom.Point2D;
+import shell.point.Point2D;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -16,7 +14,6 @@ import java.util.List;
 import shell.DistanceMatrix;
 import shell.PointSet;
 import shell.Toggle;
-import shell.exceptions.FileParseException;
 import shell.exceptions.TerminalParseException;
 import shell.point.Arc;
 import shell.point.Circle;
@@ -69,7 +66,7 @@ public class FileManagement {
     }
 
     public static void updateTestFileCache(String cachedLocation) {
-        if (!cachedLocation.isBlank()) {
+        if (!shell.utils.Compat.isBlank(cachedLocation)) {
             File cache = new File(testFileCacheLocation);
             try (FileWriter fw = new FileWriter(cache)) {
                 BufferedWriter out = new BufferedWriter(fw);
@@ -97,7 +94,6 @@ public class FileManagement {
             while (line != null) {
                 if (fi.flag == true) {
                     String[] args = line.split(" ");
-                    Point2D pt2d = null;
                     if (Circle.opts.contains(args[0])) {
                         // CIRCLE
                         ArrayList<PointND> points = Circle.parse(args, 1);
@@ -127,18 +123,10 @@ public class FileManagement {
                         if (firstPointId > secondPointId) {
                             insertIdx = secondPointId;
                         }
-                        pt2d = wormHole.toPoint2D();
                         fi.lines.add(insertIdx + 1, wormHole);
                         fi.ps.add(insertIdx + 1, wormHole);
                         fi.tsp.add(insertIdx + 1, wormHole);
                         fi.lookUp.put(wormHole.getID(), wormHole);
-
-                        if (fi.first) {
-                            fi.path.moveTo(pt2d.getX(), pt2d.getY());
-                            fi.first = false;
-                        } else {
-                            fi.path.lineTo(pt2d.getX(), pt2d.getY());
-                        }
 
                         fi.index++;
                     } else if (args[0].equals("ANS")) {
@@ -150,18 +138,10 @@ public class FileManagement {
                         // LOAD
                         PointSetPath retTup = Ix.parseFull(args, 1);
                         for (PointND pt : retTup.ps) {
-                            pt2d = pt.toPoint2D();
                             fi.lookUp.put(fi.index, pt);
                             fi.lines.add(pt);
                             fi.ps.add(pt);
                             fi.tsp.add(pt);
-
-                            if (fi.first) {
-                                fi.path.moveTo(pt2d.getX(), pt2d.getY());
-                                fi.first = false;
-                            } else {
-                                fi.path.lineTo(pt2d.getX(), pt2d.getY());
-                            }
 
                             fi.index++;
                         }
@@ -228,7 +208,7 @@ public class FileManagement {
                 fi.grid = new Grid.HexGrid();
                 fi.grid.showGrid();
             }
-            return new PointSetPath(fi.ps, fi.path, fi.tsp, fi.d,  fi.comments, fi.grid);
+            return new PointSetPath(fi.ps, fi.tsp, fi.d, fi.comments, fi.grid);
         } catch (NumberFormatException | IOException e) {
             e.printStackTrace();
         }
@@ -256,14 +236,6 @@ public class FileManagement {
             fi.lines.add(pt);
             fi.ps.add(pt);
             fi.tsp.add(pt);
-
-            if (fi.first) {
-                fi.path.moveTo(pt.getScreenX(), pt.getScreenY());
-                fi.first = false;
-            } else {
-                fi.path.lineTo(pt.getScreenX(), pt.getScreenY());
-            }
-
             fi.index++;
         }
     }
@@ -288,12 +260,6 @@ public class FileManagement {
             fi.lines.add(pt);
             fi.ps.add(pt);
             fi.tsp.add(pt);
-            if (fi.first) {
-                fi.path.moveTo(pt.getScreenX(), pt.getScreenY());
-                fi.first = false;
-            } else {
-                fi.path.lineTo(pt.getScreenX(), pt.getScreenY());
-            }
             fi.index++;
         }
     }
@@ -428,7 +394,6 @@ public class FileManagement {
         try {
             FileReader fr = new FileReader(f);
             BufferedReader br = new BufferedReader(fr);
-            int i = 0;
             while ((line = br.readLine()) != null) {
                 lines.add(line + "\n");
             }
@@ -492,7 +457,6 @@ public class FileManagement {
 
 class FileInfo {
     PointSet ps;
-    Path2D path;
     Shell tsp;
     ArrayList<String> comments;
     boolean flag, first;
@@ -510,7 +474,6 @@ class FileInfo {
     FileInfo() {
 
         ps = new PointSet();
-        path = new GeneralPath(GeneralPath.WIND_NON_ZERO);
         tsp = new Shell();
         comments = new ArrayList<>();
         flag = true;

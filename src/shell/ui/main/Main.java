@@ -1,6 +1,5 @@
 package shell.ui.main;
 
-import java.awt.Canvas;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -8,7 +7,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.PriorityQueue;
 import java.util.Random;
-import java.util.Set;
 
 import org.apache.commons.math3.util.Pair;
 
@@ -45,6 +43,7 @@ import shell.ui.Drawing;
 import shell.ui.IxdarWindow;
 import shell.ui.tools.FreeTool;
 import shell.ui.tools.Tool;
+import shell.utils.Compat;
 
 public class Main {
 
@@ -80,7 +79,6 @@ public class Main {
     public static ArrayList<Color> knotGradientColors = new ArrayList<>();
     public static HashMap<Long, Integer> colorLookup = new HashMap<>();
     public static boolean active;
-    public Canvas canvas;
     public static KeyGuy keys;
     public static MouseTrap mouse;
     private static HyperString toolTip;
@@ -119,7 +117,7 @@ public class Main {
         tempFile = FileManagement.getTempFile(fileName);
         Main.tempFileName = tempFile.getName();
         PointND.resetIds();
-        if (fileName.isBlank()) {
+        if (Compat.isBlank(fileName)) {
             retTup = FileManagement.importFromFile(tempFile);
             terminal = new Terminal(tempFile);
         } else {
@@ -132,7 +130,7 @@ public class Main {
             terminal.history.addLine(comment, Color.BLUE_WHITE);
         }
 
-        IxdarWindow.setTitle("Ixdar : " + fileName);
+        Platforms.gl().setWindowTitle("Ixdar : " + fileName);
 
         int wWidth = (int) IxdarWindow.getWidth();
         int wHeight = (int) IxdarWindow.getHeight();
@@ -142,7 +140,7 @@ public class Main {
         Toggle.setPanelFocus(PanelTypes.KnotView);
         grid = retTup.grid;
         keys = new KeyGuy(this, fileName, camera);
-        mouse = new MouseTrap(this, camera, false);
+        mouse = new MouseTrap(this, camera);
         activate(true);
         tool = new FreeTool();
         logo = new SDFTexture("decal_sdf_small.png", Color.DARK_IXDAR, 0.6f, 0f, true);
@@ -479,10 +477,6 @@ public class Main {
 
         ArrayList<Pair<Long, Long>> idTransform = new ArrayList<>();
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
-            Segment s = k.manifoldSegments.get(i);
-            Knot vp1 = s.first;
-            Knot vp2 = s.last;
-
             Knot smallestKnot1 = k;
 
             Knot smallestKnot2 = k;

@@ -2,6 +2,8 @@ package shell.platform.gl;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.util.function.IntFunction;
 
 import shell.platform.input.MouseButtons;
 
@@ -91,6 +93,8 @@ public interface GL {
     // Constants (subset)
     int COLOR_BUFFER_BIT();
 
+    int DEPTH_BUFFER_BIT();
+
     int TRIANGLES();
 
     int ARRAY_BUFFER();
@@ -134,4 +138,56 @@ public interface GL {
     void blendFunc(int SRC_ALPHA, int ONE_MINUS_SRC_ALPHA);
 
     void enable(int blend);
+
+    void createCapabilities(boolean b, IntFunction intFunction);
+
+    int DEPTH_TEST();
+
+    void setWindowTitle(String string);
+
+    int genVertexArrays();
+
+    void deleteVertexArrays(int id);
+
+    int genBuffers();
+
+    void bindBuffer(int target, int id);
+
+    void bufferData(int target, FloatBuffer data, int usage);
+
+    void bufferData(int target, float[] data, int usage);
+
+    void bufferData(int target, long size, int usage);
+
+    void bufferSubData(int target, long offset, FloatBuffer data);
+
+    void bufferData(int target, IntBuffer data, int usage);
+
+    void deleteBuffers(int id);
+
+    int getAttribLocation(int iD, CharSequence name);
+
+    int DYNAMIC_DRAW();
+
+    void bindFragDataLocation(int iD, int i, String string);
+
+    void activeTexture(int i);
+
+    void detachShader(int iD, int fragmentShader);
+
+    void shaderSource(int fragmentShader, CharSequence[] fragmentShaderSource);
+
+    int LINK_STATUS();
+
+    void getProgramiv(int shader, int link_STATUS, IntBuffer success);
+
+    int COMPILE_STATUS();
+
+    void getShaderiv(int shader, int compile_STATUS, IntBuffer success);
+
+    void uniform3fv(Integer integer, FloatBuffer vec3);
+
+    int[] readPixels(int i, int j, int width, int height, int rgba, int unsigned_BYTE, int fb);
+
+    int TEXTURE0();
 }

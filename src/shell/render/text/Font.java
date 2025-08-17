@@ -1,18 +1,6 @@
 
 package shell.render.text;
 
-import static java.awt.Font.MONOSPACED;
-import static java.awt.Font.PLAIN;
-import static java.awt.Font.TRUETYPE_FONT;
-import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
-
-import java.awt.FontFormatException;
-import java.awt.FontMetrics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.geom.AffineTransform;
-import java.awt.image.AffineTransformOp;
-import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -24,6 +12,8 @@ import org.lwjgl.system.MemoryUtil;
 
 import shell.cameras.Camera;
 import shell.cameras.Camera2D;
+import shell.platform.Platforms;
+import shell.platform.gl.GL;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
@@ -31,6 +21,7 @@ import shell.render.shaders.ShaderProgram.ShaderType;
 
 public class Font {
 
+    private static GL gl = Platforms.gl();
     public final Map<Character, Glyph> glyphs;
     public final Texture texture;
 
@@ -41,38 +32,6 @@ public class Font {
 
     public Font() {
         this(new java.awt.Font(MONOSPACED, PLAIN, 16), true);
-    }
-
-    public Font(boolean antiAlias) {
-        this(new java.awt.Font(MONOSPACED, PLAIN, 16), antiAlias);
-    }
-
-    public Font(int size) {
-        this(new java.awt.Font(MONOSPACED, PLAIN, size), true);
-    }
-
-    public Font(int size, boolean antiAlias) {
-        this(new java.awt.Font(MONOSPACED, PLAIN, size), antiAlias);
-    }
-
-    public Font(InputStream in, int size) throws FontFormatException, IOException {
-        this(in, size, true);
-    }
-
-    public Font(InputStream in, int size, boolean antiAlias)
-            throws FontFormatException, IOException {
-        this(java.awt.Font.createFont(TRUETYPE_FONT, in).deriveFont(PLAIN, size), antiAlias);
-    }
-
-    public Font(java.awt.Font font) {
-        this(font, true);
-    }
-
-    public Font(java.awt.Font font, boolean antiAlias) {
-        glyphs = new HashMap<>();
-        texture = createFontTexture(font, antiAlias);
-        this.maxTextWidth = Integer.MAX_VALUE;
-        this.shader = ShaderType.Font.shader;
     }
 
     public Texture createFontTexture(java.awt.Font font, boolean antiAlias) {
@@ -309,7 +268,7 @@ public class Font {
         texture.bind();
 
         shader.use();
-        shader.setTexture("texImage", texture, GL_TEXTURE0, 0);
+        shader.setTexture("texImage", texture, gl.TEXTURE0(), 0);
         shader.begin();
         for (int i = 0; i < text.length(); i++) {
             char ch = text.charAt(i);

@@ -1,11 +1,11 @@
 package shell.render.shaders;
 
-import static org.lwjgl.opengl.GL11.GL_FLOAT;
-import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
-import static org.lwjgl.opengl.GL20.*;
+import shell.platform.Platforms;
+import shell.platform.gl.GL;
 
 public class DiffuseShader extends ShaderProgram {
 
+    private static GL gl = Platforms.gl();
     public DiffuseShader(VertexArrayObject vao,
             VertexBufferObject vbo) {
         super("shader.vs", "shader.fs", vao, vbo, false);
@@ -15,14 +15,14 @@ public class DiffuseShader extends ShaderProgram {
     public void init() {
         super.init();
         vao.bind();
-        vbo.bind(GL_ARRAY_BUFFER);
+        vbo.bind(gl.ARRAY_BUFFER());
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, false, 8 * Float.BYTES, 0);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1, 3, GL_FLOAT, false, 8 * Float.BYTES, 3 * Float.BYTES);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(2, 2, GL_FLOAT, false, 8 * Float.BYTES, 6 * Float.BYTES);
-        glEnableVertexAttribArray(2);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT(), false, 8 * Float.BYTES, 0);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(1, 3, gl.FLOAT(), false, 8 * Float.BYTES, 3 * Float.BYTES);
+        gl.enableVertexAttribArray(1);
+        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, 8 * Float.BYTES, 6 * Float.BYTES);
+        gl.enableVertexAttribArray(2);
 
     }
 
