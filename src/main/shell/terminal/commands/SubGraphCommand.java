@@ -1,7 +1,5 @@
 package shell.terminal.commands;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 
 import shell.file.FileManagement;
@@ -47,16 +45,13 @@ public class SubGraphCommand extends TerminalCommand {
             try {
                 Range r = Range.parse(arg);
                 if (!Main.orgShell.hasPoint(r.startIdx)) {
-                    terminal.error("argument " + arg
-                            + " was out of bounds");
+                    terminal.error("argument " + arg + " was out of bounds");
                 } else if (!Main.orgShell.hasPoint(r.endIdx)) {
-                    terminal.error("argument " + arg
-                            + " was out of bounds");
+                    terminal.error("argument " + arg + " was out of bounds");
                 }
                 ranges.add(r);
             } catch (Exception e) {
-                terminal.error("argument " + arg
-                        + " was could not be parsed: " + e.getMessage());
+                terminal.error("argument " + arg + " was could not be parsed: " + e.getMessage());
                 return null;
             }
 
@@ -77,18 +72,13 @@ public class SubGraphCommand extends TerminalCommand {
         subGraphFileName += lastRange.toString();
 
         subGraphFileName += ".ix";
-        File newFile = new File(terminal.directory + "\\" + subGraphFileName);
-        try {
-            newFile.createNewFile();
-        } catch (IOException e) {
-            terminal.error("could not create subgraph: " + subGraphFileName);
-        }
+        String newPath = terminal.directory + "\\" + subGraphFileName;
         Shell subGraph = new Shell();
         for (Range r : ranges) {
             subGraph.addAllInRange(r, Main.orgShell);
         }
 
-        FileManagement.rewriteSolutionFile(newFile, subGraph);
+        FileManagement.rewriteSolutionFile(newPath, subGraph);
         return new String[] { "ld " + subGraphFileName };
     }
 }

@@ -1,6 +1,7 @@
 package shell.terminal.commands;
 
 import java.io.File;
+import java.io.IOException;
 
 import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
@@ -40,7 +41,12 @@ public class LoadIxCommand extends TerminalCommand {
     public static void run(String fileName) throws TerminalParseException {
         FileManagement.updateTestFileCache(fileName);
         Canvas3D.activate(false);
-        Main.main(new String[] { fileName });
+        try {
+            Main.main(new String[] { fileName });
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new TerminalParseException(e.getMessage());
+        }
         Main.activate(true);
 
     }

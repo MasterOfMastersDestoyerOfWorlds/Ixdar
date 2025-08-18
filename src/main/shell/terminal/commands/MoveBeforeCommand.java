@@ -42,7 +42,7 @@ public class MoveBeforeCommand extends TerminalCommand {
             Range idTarget = Range.parse(args[startIdx + 1]);
             int idDest = Integer.parseInt(args[startIdx]);
             Main.orgShell.moveBefore(idTarget, idDest);
-            FileManagement.rewriteSolutionFile(Main.file, Main.orgShell);
+            FileManagement.rewriteSolutionFile(Main.file.getPath(), Main.orgShell);
             return new String[] { "mb " + idTarget + " " };
 
         } catch (NumberFormatException e) {

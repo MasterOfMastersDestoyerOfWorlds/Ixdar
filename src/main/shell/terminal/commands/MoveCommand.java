@@ -44,7 +44,7 @@ public class MoveCommand extends TerminalCommand {
             int idDest1 = Integer.parseInt(args[startIdx + 1]);
             int idDest2 = Integer.parseInt(args[startIdx + 2]);
             Main.orgShell.moveBetween(idTarget, idDest1, idDest2);
-            FileManagement.rewriteSolutionFile(Main.file, Main.orgShell);
+            FileManagement.rewriteSolutionFile(Main.file.getPath(), Main.orgShell);
             return new String[] { "mv " + idTarget + " " };
 
         } catch (NumberFormatException e) {

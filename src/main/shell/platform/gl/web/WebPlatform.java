@@ -1,6 +1,19 @@
 package shell.platform.gl.web;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOError;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+
 import org.teavm.jso.JSBody;
+import org.teavm.jso.JSFunctor;
+import org.teavm.jso.JSObject;
+import org.teavm.jso.JSProperty;
 import org.teavm.jso.browser.Window;
 import org.teavm.jso.dom.events.EventListener;
 import org.teavm.jso.dom.events.KeyboardEvent;
@@ -10,14 +23,12 @@ import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.dom.html.HTMLDocument;
 import org.teavm.jso.dom.html.HTMLElement;
 
-import shell.platform.Platform;
+import shell.file.TextFile;
+import shell.platform.gl.Platform;
 import shell.platform.input.Keys;
 import shell.render.Texture;
 import shell.render.text.FontAtlasDTO;
 import shell.ui.WebLauncher;
-
-import org.teavm.jso.JSObject;
-import org.teavm.jso.JSProperty;
 
 public class WebPlatform implements Platform {
 
@@ -310,11 +321,18 @@ public class WebPlatform implements Platform {
 
     @Override
     public String loadShaderSource(String filename) {
-        // Load GLSL files as classpath resources packaged by Maven resources
-        String path = "glsl/" + filename;
-        try (java.io.InputStream in = WebPlatform.class.getClassLoader().getResourceAsStream(path)) {
+        String rel = "glsl/" + filename;
+        String text = fetchTextSync(rel);
+        if (text == null) {
+            text = fetchTextSync("/" + rel);
+        }
+        if (text != null) {
+            return text;
+        }
+        // Fallback: try classpath (may not work under TeaVM)
+        try (InputStream in = WebPlatform.class.getClassLoader().getResourceAsStream(rel)) {
             if (in != null) {
-                java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
                 byte[] buf = new byte[8192];
                 int r;
                 while ((r = in.read(buf)) != -1) {
@@ -325,6 +343,49 @@ public class WebPlatform implements Platform {
         } catch (Exception ignore) {
         }
         return "";
+    }
+
+    @Override
+    public TextFile loadFile(String path) throws IOException {
+        String norm = normalizePath(path);
+        String text = fetchTextSync(norm);
+        if (text == null) {
+            text = fetchTextSync("/" + norm);
+        }
+        if (text != null) {
+            ArrayList<String> fileContents = new ArrayList<>();
+            for (String s : text.split("\n")) {
+                fileContents.add(s);
+            }
+            return new TextFile(path, fileContents);
+        }
+        throw new IOException(path + " not found");
+    }
+
+    @JSBody(params = {
+            "url" }, script = "try{var xhr=new XMLHttpRequest();xhr.open('GET', url, false);xhr.overrideMimeType('text/plain; charset=utf-8');xhr.send(null);if(xhr.status===0||(xhr.status>=200&&xhr.status<300)){return xhr.responseText||'';}return null;}catch(e){return null;}")
+    private static native String fetchTextSync(String url);
+
+    private static String normalizePath(String path) {
+        if (path == null) {
+            return "";
+        }
+        String p = path;
+        if (p.startsWith("./")) {
+            p = p.substring(2);
+        }
+        if (p.startsWith("src/main/resources/")) {
+            p = p.substring("src/main/resources/".length());
+        }
+        if (p.startsWith("./src/main/resources/")) {
+            p = p.substring("./src/main/resources/".length());
+        }
+        return p;
+    }
+
+    @Override
+    public void writeTextFile(TextFile file, boolean append) throws java.io.IOException {
+        // No-op for web (cannot write). Intentionally ignored.
     }
 }
 

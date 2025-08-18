@@ -1,6 +1,6 @@
 package shell.terminal.commands;
 
-import java.io.File;
+import java.io.IOException;
 
 import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
@@ -40,20 +40,17 @@ public class ReloadCommand extends TerminalCommand {
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
         String fileName = terminal.loadedFile.getName();
-        File newDir = terminal.loadedFile;
-        if (newDir.exists() && newDir.isFile()) {
-            try {
-                Main.main(new String[] { fileName });
-                FileManagement.updateTestFileCache(fileName);
-                Canvas3D.activate(false);
-                Main.activate(true);
-                return new String[] { "ls " };
-            } catch (TerminalParseException e) {
-                terminal.error(e.message);
-            }
+        try {
+            Main.main(new String[] { fileName });
+            FileManagement.updateTestFileCache(fileName);
+            Canvas3D.activate(false);
+            Main.activate(true);
+            return new String[] { "ls " };
+        } catch (TerminalParseException e) {
+            terminal.error(e.message);
+        } catch (IOException e){
+            terminal.error("file not found: " + fileName);
         }
-        terminal.error("file not found: " + fileName);
-
         return null;
     }
 }

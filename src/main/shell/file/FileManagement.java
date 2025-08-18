@@ -14,6 +14,7 @@ import shell.DistanceMatrix;
 import shell.PointSet;
 import shell.Toggle;
 import shell.exceptions.TerminalParseException;
+import shell.platform.Platforms;
 import shell.point.Arc;
 import shell.point.Circle;
 import shell.point.Grid;
@@ -33,23 +34,21 @@ public class FileManagement {
 
     public static final String subGraphUnitTestFolder = "./test/unit/subgraphs/";
 
-    public static File getTestFile(String fileName) {
+    public static String getTestFile(String fileName) {
         String[] parts = fileName.split("_");
         if (fileName.contains(".ix")) {
-            return new File(solutionsFolder + parts[0].replace(".ix", "") + "/" + fileName);
+            return solutionsFolder + parts[0].replace(".ix", "") + "/" + fileName;
         }
-        return new File(solutionsFolder + parts[0] + "/" + fileName + ".ix");
+        return solutionsFolder + parts[0] + "/" + fileName + ".ix";
     }
 
-    public static File getTempFile(String fileName) {
-        File temp = null;
-        try {
-            temp = File.createTempFile("temp", ".ix");
-            temp.deleteOnExit();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return temp;
+    public static TextFile getFile(String fileName) {
+        String path = getTestFile(fileName);
+        return new TextFile(path);
+    }
+
+    public static TextFile getTempFile(String fileName) {
+        return new TextFile("temp", ".ix");
     }
 
     public static String getTestFileCache() {
@@ -78,195 +77,145 @@ public class FileManagement {
         }
     }
 
-    /**
-     * Imports the point set and optimal tsp path from a file
-     * 
-     * @param f
-     * @return the optimal PointSetPath
-     * @throws TerminalParseException
-     */
-    public static PointSetPath importFromFile(File f) throws TerminalParseException {
+    public static PointSetPath importFromFile(String path) throws TerminalParseException, IOException {
 
         boolean fromResource = false;
-        try (BufferedReader br = openBufferedReader(f)) {
-            String line = br.readLine();
-            FileInfo fi = new FileInfo();
-            while (line != null) {
-                if (fi.flag == true) {
-                    String[] args = line.split(" ");
-                    if (Circle.opts.contains(args[0])) {
-                        // CIRCLE
-                        ArrayList<PointND> points = Circle.parse(args, 1);
-                        addPoints(points, fi);
-                    } else if (Line.opts.contains(args[0])) {
-                        // LINE
-                        ArrayList<PointND> points = Line.parse(args, 1);
-                        addPoints(points, fi);
-                    } else if (Triangle.opts.contains(args[0])) {
-                        // TRIANGLE
-                        ArrayList<PointND> points = Triangle.parse(args, 1);
-                        addPoints(points, fi);
-                    } else if (Arc.opts.contains(args[0])) {
-                        // ARC
-                        ArrayList<PointND> points = Arc.parse(args, 1);
-                        addPoints(points, fi);
-                    } else if (args[0].equals("WH")) {
-                        // WORMHOLE
-                        if (fi.d == null) {
-                            fi.d = new DistanceMatrix(fi.ps);
-                        }
-                        int firstPointId = java.lang.Integer.parseInt(args[1]);
-                        int secondPointId = java.lang.Integer.parseInt(args[2]);
-                        PointND wormHole = fi.d.addDummyNode(fi.index, fi.lookUp.get(firstPointId),
-                                fi.lookUp.get(secondPointId));
-                        int insertIdx = firstPointId;
-                        if (firstPointId > secondPointId) {
-                            insertIdx = secondPointId;
-                        }
-                        fi.lines.add(insertIdx + 1, wormHole);
-                        fi.ps.add(insertIdx + 1, wormHole);
-                        fi.tsp.add(insertIdx + 1, wormHole);
-                        fi.lookUp.put(wormHole.getID(), wormHole);
+        TextFile file = Platforms.get().loadFile(path);
+        FileInfo fi = new FileInfo();
+        for (int i = 0; i < file.size(); i++) {
+            String line = file.getLines().get(i);
+            if (fi.flag == true) {
+                String[] args = line.split(" ");
+                if (Circle.opts.contains(args[0])) {
+                    // CIRCLE
+                    ArrayList<PointND> points = Circle.parse(args, 1);
+                    addPoints(points, fi);
+                } else if (Line.opts.contains(args[0])) {
+                    // LINE
+                    ArrayList<PointND> points = Line.parse(args, 1);
+                    addPoints(points, fi);
+                } else if (Triangle.opts.contains(args[0])) {
+                    // TRIANGLE
+                    ArrayList<PointND> points = Triangle.parse(args, 1);
+                    addPoints(points, fi);
+                } else if (Arc.opts.contains(args[0])) {
+                    // ARC
+                    ArrayList<PointND> points = Arc.parse(args, 1);
+                    addPoints(points, fi);
+                } else if (args[0].equals("WH")) {
+                    // WORMHOLE
+                    if (fi.d == null) {
+                        fi.d = new DistanceMatrix(fi.ps);
+                    }
+                    int firstPointId = java.lang.Integer.parseInt(args[1]);
+                    int secondPointId = java.lang.Integer.parseInt(args[2]);
+                    PointND wormHole = fi.d.addDummyNode(fi.index, fi.lookUp.get(firstPointId),
+                            fi.lookUp.get(secondPointId));
+                    int insertIdx = firstPointId;
+                    if (firstPointId > secondPointId) {
+                        insertIdx = secondPointId;
+                    }
+                    fi.lines.add(insertIdx + 1, wormHole);
+                    fi.ps.add(insertIdx + 1, wormHole);
+                    fi.tsp.add(insertIdx + 1, wormHole);
+                    fi.lookUp.put(wormHole.getID(), wormHole);
+
+                    fi.index++;
+                } else if (args[0].equals("ANS")) {
+                    // ANS
+                    for (int j = 1; j < args.length; j++) {
+                        fi.answerOrder.add(java.lang.Integer.parseInt(args[j]));
+                    }
+                } else if (Ix.opts.contains(args[0])) {
+                    // LOAD
+                    PointSetPath retTup = Ix.parseFull(args, 1);
+                    for (PointND pt : retTup.ps) {
+                        fi.lookUp.put(fi.index, pt);
+                        fi.lines.add(pt);
+                        fi.ps.add(pt);
+                        fi.tsp.add(pt);
 
                         fi.index++;
-                    } else if (args[0].equals("ANS")) {
-                        // ANS
-                        for (int i = 1; i < args.length; i++) {
-                            fi.answerOrder.add(java.lang.Integer.parseInt(args[i]));
-                        }
-                    } else if (Ix.opts.contains(args[0])) {
-                        // LOAD
-                        PointSetPath retTup = Ix.parseFull(args, 1);
-                        for (PointND pt : retTup.ps) {
-                            fi.lookUp.put(fi.index, pt);
-                            fi.lines.add(pt);
-                            fi.ps.add(pt);
-                            fi.tsp.add(pt);
-
-                            fi.index++;
-                        }
-                        if (retTup.d != null) {
-                            fi.d = new DistanceMatrix(fi.ps);
-                        }
-                        if (retTup.grid != null) {
-                            fi.grid = retTup.grid;
-                        }
-                    } else if (PointND.Hex.opts.contains(args[0])) {
-                        // HEX
-                        PointND pt = PointND.Hex.parse(args, 1);
-                        addPoint(pt, fi);
-                    } else if (args[0].equals("FLAG")) {
-                        // FLAG
-                        if (args[1].equals("REMOVE_DUPLICATES")) {
-                            fi.removeDuplicates = true;
-                        }
-                        if (args[1].equals("SHOW_GRID")) {
-                            fi.showGrid = true;
-                        }
-                    } else if (args[0].equals("TOGGLE") || args[0].equals("TGL")) {
-                        for (Toggle t : Toggle.values()) {
-                            if (args[1].equals(t.name()) || args[1].equals(t.shortName())) {
-                                t.value = Boolean.parseBoolean(args[2]);
-                            }
-                        }
-                    } else if (args[0].contains("//")) {
-                        // COMMENT
-                        fi.comments.add(line);
-                    } else {
-                        PointND pt = new PointND.Double(fi.index, java.lang.Double.parseDouble(args[1]),
-                                java.lang.Double.parseDouble(args[2]));
-
-                        addPoint(pt, fi);
                     }
-                }
+                    if (retTup.d != null) {
+                        fi.d = new DistanceMatrix(fi.ps);
+                    }
+                    if (retTup.grid != null) {
+                        fi.grid = retTup.grid;
+                    }
+                } else if (PointND.Hex.opts.contains(args[0])) {
+                    // HEX
+                    PointND pt = PointND.Hex.parse(args, 1);
+                    addPoint(pt, fi);
+                } else if (args[0].equals("FLAG")) {
+                    // FLAG
+                    if (args[1].equals("REMOVE_DUPLICATES")) {
+                        fi.removeDuplicates = true;
+                    }
+                    if (args[1].equals("SHOW_GRID")) {
+                        fi.showGrid = true;
+                    }
+                } else if (args[0].equals("TOGGLE") || args[0].equals("TGL")) {
+                    for (Toggle t : Toggle.values()) {
+                        if (args[1].equals(t.name()) || args[1].equals(t.shortName())) {
+                            t.value = Boolean.parseBoolean(args[2]);
+                        }
+                    }
+                } else if (args[0].contains("//")) {
+                    // COMMENT
+                    fi.comments.add(line);
+                } else {
+                    PointND pt = new PointND.Double(fi.index, java.lang.Double.parseDouble(args[1]),
+                            java.lang.Double.parseDouble(args[2]));
 
-                if (line.contains("NODE_COORD_SECTION")) {
-                    fi.flag = true;
+                    addPoint(pt, fi);
                 }
-                line = br.readLine();
-                fi.lineNumber++;
+            }
 
+            if (line.contains("NODE_COORD_SECTION")) {
+                fi.flag = true;
             }
-            br.close();
-            if (fi.answerOrder.size() > 0) {
-                Shell newAns = new Shell();
-                int insertLoc = 0;
-                for (Integer i : fi.answerOrder) {
-                    PointND vp = fi.lookUp.get(i);
-                    newAns.add(insertLoc, vp);
-                    insertLoc++;
-                }
-                fi.tsp = newAns;
-            }
-            if (!fromResource && fi.removeDuplicates && fi.duplicatePointIndexes.size() > 0) {
-                removeDuplicates(f, fi.duplicatePointIndexes);
-            }
-            if (fi.showGrid) {
-                fi.grid.showGrid();
-            }
-            if (fi.grid == null) {
-                fi.grid = new Grid.HexGrid();
-                fi.grid.showGrid();
-            }
-            return new PointSetPath(fi.ps, fi.tsp, fi.d, fi.comments, fi.grid);
-        } catch (NumberFormatException | IOException e) {
-            e.printStackTrace();
+            fi.lineNumber++;
         }
-        return null;
+        if (fi.answerOrder.size() > 0) {
+            Shell newAns = new Shell();
+            int insertLoc = 0;
+            for (Integer i : fi.answerOrder) {
+                PointND vp = fi.lookUp.get(i);
+                newAns.add(insertLoc, vp);
+                insertLoc++;
+            }
+            fi.tsp = newAns;
+        }
+        if (!fromResource && fi.removeDuplicates && fi.duplicatePointIndexes.size() > 0) {
+            // removeDuplicates(f, fi.duplicatePointIndexes);
+        }
+        if (fi.showGrid) {
+            fi.grid.showGrid();
+        }
+        if (fi.grid == null) {
+            fi.grid = new Grid.HexGrid();
+            fi.grid.showGrid();
+        }
+        return new PointSetPath(fi.ps, fi.tsp, fi.d, fi.comments, fi.grid);
     }
 
-    private static BufferedReader openBufferedReader(File f) throws IOException {
-        // Derive resource path from file path
-        String path = f != null ? f.getPath() : "";
-        path = path.replace('\\', '/');
-        if (path.startsWith("./")) {
-            path = path.substring(2);
+    // New APIs returning logical text files instead of java.io.File for
+    // cross-platform
+    public static TextFile toTextFile(String logicalPath) {
+        return new TextFile(logicalPath);
+    }
+
+    public static void rewriteSolutionFile(String path, Shell shell) {
+        ArrayList<String> lines = new ArrayList<String>();
+        for (int i = 0; i < shell.size(); i++) {
+            lines.add(shell.get(i).toFileString());
         }
-        // Strip leading src/ if present
-        if (path.startsWith("src/")) {
-            path = path.substring(4);
+        try {
+            Platforms.get().writeTextFile(new TextFile(path, lines), false);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        int idx = path.indexOf("/src/");
-        if (idx >= 0) {
-            path = path.substring(idx + 5);
-        }
-        // If we only got a bare filename, put it under test/solutions
-        if (!path.contains("/")) {
-            // Build default solutions path (based on getTestFile logic)
-            String name = path;
-            String base = "test/solutions/";
-            String dir = name.contains("_") ? name.substring(0, name.indexOf('_')) : name;
-            if (!name.endsWith(".ix")) {
-                name = name + ".ix";
-            }
-            path = base + dir + "/" + name;
-        }
-        // Ensure we have .ix extension
-        if (!path.endsWith(".ix")) {
-            path = path + ".ix";
-        }
-        // Attempt resource load
-        java.io.InputStream in = FileManagement.class.getClassLoader().getResourceAsStream(path);
-        if (in == null) {
-            // Also try without leading ./src prefix removed
-            String alt = path;
-            if (!alt.startsWith("src/")) {
-                alt = "src/" + path;
-            }
-            in = FileManagement.class.getClassLoader().getResourceAsStream(alt);
-        }
-        if (in == null) {
-            // As a last attempt, try using only solutions folder from constant
-            String base = solutionsFolder.replace("./src/", "").replaceFirst("^\\./", "").replace('\\', '/');
-            String name = f != null ? f.getName() : path;
-            String dir = name.contains("_") ? name.substring(0, name.indexOf('_')) : name.replace(".ix", "");
-            String res = base.replace("src/", "") + dir + "/" + (name.endsWith(".ix") ? name : name + ".ix");
-            in = FileManagement.class.getClassLoader().getResourceAsStream(res);
-        }
-        if (in == null) {
-            throw new IOException("Resource not found for " + path);
-        }
-        return new BufferedReader(new java.io.InputStreamReader(in));
     }
 
     private static void addPoint(PointND pt, FileInfo fi) throws TerminalParseException {
@@ -370,19 +319,18 @@ public class FileManagement {
         }
     }
 
-    public static void appendAns(File f, Shell ans) {
+    public static void appendAns(TextFile file, Shell ans) {
 
-        List<String> lines = new ArrayList<String>();
-        String line = null;
         try {
-            FileReader fr = new FileReader(f);
-            BufferedReader br = new BufferedReader(fr);
+            ArrayList<String> lines = new ArrayList<String>();
+            String line = null;
             boolean foundAns = false;
             String ansLine = "ANS ";
             for (int i = 0; i < ans.size(); i++) {
                 ansLine += ans.get(i).getID() + " ";
             }
-            while ((line = br.readLine()) != null) {
+            for (int i = 0; i < file.size(); i++) {
+                line = file.getLines().get(i);
                 if (line.contains("ANS ")) {
                     line = ansLine;
                     foundAns = true;
@@ -392,51 +340,26 @@ public class FileManagement {
             if (!foundAns) {
                 lines.add(ansLine + "\n");
             }
-            fr.close();
-            br.close();
-
-            FileWriter fw = new FileWriter(f);
-            BufferedWriter out = new BufferedWriter(fw);
-            for (String s : lines)
-                out.write(s);
-            out.flush();
-            out.close();
+            new TextFile(file.path, lines);
+            Platforms.get().writeTextFile(file, false);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
     }
 
-    public static void appendComment(File f, String comment) {
+    public static void appendComment(TextFile path, String comment) {
         try {
-            String ansLine = "// " + comment;
-            FileWriter fw = new FileWriter(f, true);
-            BufferedWriter out = new BufferedWriter(fw);
-            out.newLine();
-            out.append(ansLine);
-            out.flush();
-            out.close();
+            path.getLines().add("// " + comment);
+            Platforms.get().writeTextFile(path, true);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
     }
 
-    public static void appendLine(File f, String appLine) {
-
-        try (FileWriter fw = new FileWriter(f, true)) {
-            fw.write(appLine + "\n");
-            fw.close();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-    }
-
-    public static void writeLines(File f, ArrayList<String> lines) {
-
-        try (FileWriter fw = new FileWriter(f, false)) {
-            for (String s : lines) {
-                fw.write(s + "\n");
-            }
-            fw.close();
+    public static void appendLine(TextFile path, String appLine) {
+        try {
+            path.getLines().add("// " + appLine);
+            Platforms.get().writeTextFile(path, true);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -465,22 +388,7 @@ public class FileManagement {
         }
     }
 
-    public static void rewriteSolutionFile(File file, Shell shell) {
-
-        FileWriter fw;
-        try {
-            fw = new FileWriter(file);
-            BufferedWriter out = new BufferedWriter(fw);
-            for (PointND pn : shell) {
-                out.write(pn.toFileString());
-                out.newLine();
-            }
-            out.flush();
-            out.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+    // removed duplicate rewriteSolutionFile method
 
     public static void writeSubGraphTest(String fileName, String template) {
         File unitTest = new File(subGraphUnitTestFolder + fileName);

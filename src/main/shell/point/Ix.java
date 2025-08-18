@@ -1,6 +1,6 @@
 package shell.point;
 
-import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 
 import shell.exceptions.TerminalParseException;
@@ -18,9 +18,16 @@ public class Ix extends PointCollection {
     }
 
     public static PointSetPath parseFull(String[] args, int startIdx) throws TerminalParseException {
-        File loadFile = FileManagement.getTestFile(args[startIdx]);
+        String loadFile = FileManagement.getTestFile(args[startIdx]);
+        try{
         PointSetPath retTup = FileManagement.importFromFile(loadFile);
+        
         return retTup;
+        }
+        catch(IOException e){
+            throw new TerminalParseException("could not load: "+ loadFile);
+        }
+        
     }
 
     public static Ix parseIx(String[] args, int startIdx) throws TerminalParseException {

@@ -8,14 +8,18 @@ import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetScrollCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowTitle;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 // removed duplicate IntBuffer import
 import org.lwjgl.BufferUtils;
@@ -24,7 +28,9 @@ import org.lwjgl.system.MemoryStack;
 
 import com.google.gson.Gson;
 
-import shell.platform.Platform;
+import shell.file.FileManagement;
+import shell.file.TextFile;
+import shell.platform.gl.Platform;
 import shell.render.Texture;
 import shell.render.text.FontAtlasDTO;
 import shell.ui.IxdarWindow;
@@ -135,7 +141,7 @@ public class LwjglPlatform implements Platform {
         String path = "glsl/" + filename;
         try (InputStream in = LwjglPlatform.class.getClassLoader().getResourceAsStream(path)) {
             if (in != null) {
-                java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
                 byte[] buf = new byte[8192];
                 int r;
                 while ((r = in.read(buf)) != -1) {
@@ -145,5 +151,36 @@ public class LwjglPlatform implements Platform {
             }
         }
         return "";
+    }
+
+    @Override
+    public TextFile loadFile(String path) {
+        InputStream in = FileManagement.class.getClassLoader().getResourceAsStream(path);
+        if (in == null) {
+            String alt = path;
+            if (!alt.startsWith("src/")) {
+                alt = "src/" + path;
+            }
+            in = FileManagement.class.getClassLoader().getResourceAsStream(alt);
+        }
+        BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+        ArrayList<String> lines = new ArrayList<>(reader.lines().collect(Collectors.toList()));
+        return new TextFile(path, lines);
+    }
+
+    @Override
+    public void writeTextFile(TextFile file, boolean append) throws IOException {
+        File newFile = new File(file.getPath());
+        File parent = newFile.getParentFile();
+        if (parent != null)
+            parent.mkdirs();
+        try (FileWriter fw = new FileWriter(newFile, append);
+                BufferedWriter out = new BufferedWriter(fw)) {
+            for(String s : file.getLines()){
+                out.write(s);
+                out.newLine();
+            }
+            out.flush();
+        }
     }
 }

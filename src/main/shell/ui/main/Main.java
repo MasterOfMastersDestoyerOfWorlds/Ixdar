@@ -1,6 +1,7 @@
 package shell.ui.main;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -18,11 +19,12 @@ import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
 import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
+import shell.file.TextFile;
 import shell.file.PointSetPath;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.platform.Platform;
 import shell.platform.Platforms;
+import shell.platform.gl.Platform;
 import shell.platform.input.KeyActions;
 import shell.platform.input.KeyGuy;
 import shell.platform.input.MouseTrap;
@@ -46,8 +48,8 @@ import shell.utils.Compat;
 
 public class Main {
 
-    public static File file;
-    public static File tempFile;
+    public static TextFile file;
+    public static TextFile tempFile;
     static String fileName;
     static String tempFileName;
 
@@ -103,7 +105,7 @@ public class Main {
     public static int totalLayers = -1;
     public static double tourLength;
 
-    public Main(String fileName) throws TerminalParseException {
+    public Main(String fileName) throws TerminalParseException, IOException {
         metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
         metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
         knotLayerLookup = new HashMap<>();
@@ -117,12 +119,12 @@ public class Main {
         Main.tempFileName = tempFile.getName();
         PointND.resetIds();
         if (Compat.isBlank(fileName)) {
-            retTup = FileManagement.importFromFile(tempFile);
-            terminal = new Terminal(tempFile);
+            // retTup = FileManagement.importFromFile(tempFile);
+            // terminal = new Terminal(tempFile);
         } else {
             Main.fileName = fileName;
-            file = FileManagement.getTestFile(fileName);
-            retTup = FileManagement.importFromFile(file);
+            file = FileManagement.getFile(fileName);
+            retTup = FileManagement.importFromFile(file.getPath());
             terminal = new Terminal(file);
         }
         for (String comment : retTup.comments) {
@@ -145,7 +147,7 @@ public class Main {
         logo = new SDFTexture("decal_sdf_small.png", Color.DARK_IXDAR, 0.6f, 0f, true);
     }
 
-    public static void main(String[] args) throws TerminalParseException {
+    public static void main(String[] args) throws TerminalParseException, IOException {
         main = new Main(args[0]);
 
         int wWidth = (int) Platforms.get().getWindowWidth();

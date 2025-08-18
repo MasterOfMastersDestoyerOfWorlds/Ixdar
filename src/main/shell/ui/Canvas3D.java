@@ -10,9 +10,9 @@ import java.util.function.IntFunction;
 import org.joml.Vector3f;
 
 import shell.cameras.Camera3D;
-import shell.platform.Platform;
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
+import shell.platform.gl.Platform;
 import shell.platform.input.KeyActions;
 import shell.platform.input.KeyGuy;
 import shell.platform.input.MouseTrap;

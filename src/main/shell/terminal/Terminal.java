@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import shell.cameras.Camera2D;
+import shell.file.TextFile;
 import shell.platform.input.Keys;
 import shell.point.PointCollection;
 import shell.render.Clock;
@@ -39,7 +40,7 @@ public class Terminal {
     public float scrollOffsetY = 0;
     public float SCROLL_SPEED = 300f;
     boolean scrollToCommandLine;
-    public File loadedFile;
+    public TextFile loadedFile;
 
     public static ArrayList<TerminalCommand> commandList;
     public static HashMap<String, TerminalCommand> commandMap = new HashMap<>();
@@ -72,15 +73,15 @@ public class Terminal {
         }
     }
 
-    public Terminal(File loadedFile) {
+    public Terminal(TextFile file) {
         storedCommandLine = "";
         commandLine = "";
         commandLineInstruct = "";
         nextLogicalCommand = new String[] {};
         nextLogicalCommandIdx = 0;
         scrollToCommandLine = false;
-        this.directory = loadedFile.getParent();
-        this.loadedFile = loadedFile;
+        this.directory = new File(file.path).getParent();
+        this.loadedFile = file;
         history = new HyperString();
         commandHistory = new ArrayList<>();
         commandHistoryIdx = -1;

@@ -6,7 +6,7 @@
   <artifactId>IXDAR</artifactId>
   <version>0.0.1</version>
   <build>
-    <sourceDirectory>src/main/java</sourceDirectory>
+    <sourceDirectory>src/main</sourceDirectory>
     <testSourceDirectory>test</testSourceDirectory>
 
     <resources>
@@ -178,6 +178,34 @@
                   <incremental>false</incremental>
                   <strict>true</strict>
                   <target>javascript</target>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          
+          <plugin>
+            <artifactId>maven-resources-plugin</artifactId>
+            <version>3.3.1</version>
+            <executions>
+              <execution>
+                <id>copy-teavm-resources</id>
+                <phase>prepare-package</phase>
+                <goals>
+                  <goal>copy-resources</goal>
+                </goals>
+                <configuration>
+                  <outputDirectory>${project.build.directory}/teavm</outputDirectory>
+                  <resources>
+                    <resource>
+                      <directory>src/main/resources</directory>
+                      <filtering>false</filtering>
+                      <includes>
+                        <include>**/*.ix</include>
+                        <include>**/*.vs</include>
+                        <include>**/*.fs</include>
+                      </includes>
+                    </resource>
+                  </resources>
                 </configuration>
               </execution>
             </executions>

@@ -1,5 +1,6 @@
 package unit.subgraphs;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.Random;
 
@@ -19,7 +20,8 @@ public class SubGraphs {
         try {
             retTup = FileManagement.importFromFile(FileManagement.getTestFile(fileName));
         } catch (TerminalParseException e) {
-            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (IOException e){
             e.printStackTrace();
         }
         Shell answer = new Shell();

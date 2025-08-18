@@ -1,13 +1,14 @@
-package shell.platform;
+package shell.platform.gl;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
+import shell.file.TextFile;
+import shell.render.Texture;
 import shell.render.text.FontAtlasDTO;
 
 public interface Platform {
 
-    // Window/loop
     void setTitle(String title);
 
     int getWindowWidth();
@@ -16,10 +17,8 @@ public interface Platform {
 
     void requestRepaint();
 
-    // Time
     float timeSeconds();
 
-    // Input registration (platform-specific)
     void setKeyCallback(KeyCallback callback);
 
     void setCharCallback(CharCallback callback);
@@ -30,19 +29,18 @@ public interface Platform {
 
     void setScrollCallback(ScrollCallback callback);
 
-    // JSON parsing (platform-specific implementation)
     FontAtlasDTO parseFontAtlas(String json);
 
-    // Texture loading (platform-specific)
-    shell.render.Texture loadTexture(String resourceName);
-
-    // Exit/application control
     void exit(int code);
 
-    // Shader source loading (platform-specific)
-    String loadShaderSource(String filename) throws UnsupportedEncodingException, IOException;
+    Texture loadTexture(String resourceName);
 
-    // Callbacks
+    String loadShaderSource(String filename) throws UnsupportedEncodingException, IOException;
+    
+    TextFile loadFile(String path) throws IOException;
+
+    void writeTextFile(TextFile path, boolean append) throws IOException;
+
     interface KeyCallback {
         void onKey(int key, int scancode, int action, int mods);
     }

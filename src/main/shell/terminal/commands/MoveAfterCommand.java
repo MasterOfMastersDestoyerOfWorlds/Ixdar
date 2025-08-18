@@ -42,7 +42,7 @@ public class MoveAfterCommand extends TerminalCommand {
             Range idTarget = Range.parse(args[startIdx + 1]);
             int idDest = Integer.parseInt(args[startIdx]);
             Main.orgShell.moveAfter(idTarget, idDest);
-            FileManagement.rewriteSolutionFile(Main.file, Main.orgShell);
+            FileManagement.rewriteSolutionFile(Main.file.getPath(), Main.orgShell);
             return new String[] { "ma " + idTarget + " " };
 
         } catch (NumberFormatException e) {

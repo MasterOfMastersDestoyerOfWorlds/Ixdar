@@ -2,6 +2,7 @@ package shell.platform;
 
 import shell.platform.buffers.Buffers;
 import shell.platform.gl.GL;
+import shell.platform.gl.Platform;
 
 public final class Platforms {
 
