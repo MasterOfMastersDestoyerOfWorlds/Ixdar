@@ -20,9 +20,12 @@ public final class WebLauncher {
 
     public static float startTime;
     private static boolean initialized;
+    public static boolean broken = false;
 
     public static void main(String[] args) {
         startTime = Clock.time();
+        // Ensure JOML does not use DecimalFormat patterns unsupported in TeaVM
+        System.setProperty("joml.format", "false");
         HTMLDocument document = Window.current().getDocument();
         HTMLCanvasElement canvas = (HTMLCanvasElement) document.getElementById("ixdar-canvas");
         if (canvas == null) {
@@ -73,11 +76,18 @@ public final class WebLauncher {
         gl.viewport(0, 0, w, h);
         gl.clearColor(0.02f, 0.02f, 0.02f, 1.0f);
         gl.clear(gl.COLOR_BUFFER_BIT());
-        try {
-            // Drive the existing rendering path
-            Canvas3D.canvas.paintGL();
-        } catch (Throwable t) {
-            log("Render error: " + t.getMessage());
+        if (!broken) {
+            try {
+                // Drive the existing rendering path
+                Canvas3D.canvas.paintGL();
+            } catch (Exception t) {
+                for (StackTraceElement e : t.getStackTrace()) {
+                    log("Render error: " + e.getMethodName() + " " + e.getFileName() + " " + e.getLineNumber());
+                }
+                log(t.getMessage());
+                broken = true;
+            }
+        } else {
             drawFallbackTriangle(gl);
         }
         Window.requestAnimationFrame(ts -> tick());

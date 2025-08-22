@@ -9,6 +9,7 @@ public class TextFile {
 
     public TextFile(String path) {
         this.path = path == null ? "" : path;
+        this.lines = new java.util.ArrayList<>();
     }
 
     public TextFile(String path, ArrayList<String> lines) {
@@ -35,6 +36,9 @@ public class TextFile {
     }
 
     public ArrayList<String> getLines() {
+        if (lines == null) {
+            lines = new java.util.ArrayList<>();
+        }
         return lines;
     }
 
@@ -43,7 +47,7 @@ public class TextFile {
     }
 
     public int size() {
-        return lines.size();
+        return getLines().size();
     }
 
     @Override

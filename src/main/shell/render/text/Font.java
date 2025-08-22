@@ -1,10 +1,6 @@
 
 package shell.render.text;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,10 +16,9 @@ import shell.render.shaders.ShaderProgram.ShaderType;
 
 public class Font {
 
-    private static final String ATLAS_JSON_PATH = "opensans.json"; // try classpath then res/
-
-    public final Map<Character, Glyph> glyphs;
-    public final Texture texture;
+    private static final String ATLAS_JSON_PATH = "opensans.json";
+    public Map<Character, Glyph> glyphs;
+    public Texture texture;
 
     public float fontHeight;
     public float fontWidth;
@@ -32,23 +27,29 @@ public class Font {
     private SDFTexture sdfTexture;
 
     public Font() {
-        // Load atlas JSON/PNG and build glyphs
-        String json = loadResourceText(ATLAS_JSON_PATH);
-        FontAtlasDTO root = Platforms.get().parseFontAtlas(json);
-        FontAtlasData atlas = new FontAtlasData();
-        atlas.width = root.atlas.width;
-        atlas.height = root.atlas.height;
-        atlas.sizePx = (float) root.atlas.size;
-        float lineHeightEm = (float) root.metrics.lineHeight;
-        atlas.derivedLineHeight = (atlas.sizePx > 0f ? atlas.sizePx * lineHeightEm : 32f * lineHeightEm);
-        this.glyphs = buildGlyphs(root);
-        this.fontHeight = atlas.derivedLineHeight;
-        this.fontWidth = atlas.sizePx;
-        this.texture = Texture.loadTexture("opensans.png");
-        this.shader = ShaderType.TextureSDF.shader;
-        this.sdfTexture = new SDFTexture(this.texture);
-        this.sdfTexture.setSharpCorners(true);
-        this.maxTextWidth = 64;
+        try {
+
+            String json = Platforms.get().loadSource("res", ATLAS_JSON_PATH);
+            FontAtlasDTO root = Platforms.get().parseFontAtlas(json);
+            FontAtlasData atlas = new FontAtlasData();
+            atlas.width = root.atlas.width;
+            atlas.height = root.atlas.height;
+            atlas.sizePx = (float) root.atlas.size;
+            float lineHeightEm = (float) root.metrics.lineHeight;
+            atlas.derivedLineHeight = (atlas.sizePx > 0f ? atlas.sizePx * lineHeightEm : 32f * lineHeightEm);
+            this.glyphs = buildGlyphs(root);
+            this.fontHeight = atlas.derivedLineHeight;
+            this.fontWidth = atlas.sizePx;
+            Platforms.get().loadTexture("opensans.png", t -> {
+                this.texture = t;
+                this.shader = ShaderType.TextureSDF.shader;
+                this.sdfTexture = new SDFTexture(this.texture);
+                this.sdfTexture.setSharpCorners(true);
+            });
+            this.maxTextWidth = 64;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     // --- Drawing API remains the same ---
@@ -117,7 +118,9 @@ public class Font {
 
     public void drawText(CharSequence text, float x, float y, float glyphHeight,
             Color c, Camera camera) {
-
+        if (sdfTexture == null) {
+            return;
+        }
         float textHeight = getHeight(text);
 
         float drawX = x;
@@ -250,42 +253,4 @@ public class Font {
         return map;
     }
 
-    private static String loadResourceText(String resourcePath) {
-        try (InputStream in = Font.class.getClassLoader().getResourceAsStream(resourcePath)) {
-            if (in != null) {
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                byte[] buf = new byte[8192];
-                int r;
-                while ((r = in.read(buf)) != -1) {
-                    bos.write(buf, 0, r);
-                }
-                return bos.toString(StandardCharsets.UTF_8.name());
-            }
-        } catch (IOException ignore) {
-        }
-        try (InputStream in = Font.class.getClassLoader().getResourceAsStream("res/" + resourcePath)) {
-            if (in != null) {
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                byte[] buf = new byte[8192];
-                int r;
-                while ((r = in.read(buf)) != -1) {
-                    bos.write(buf, 0, r);
-                }
-                return bos.toString(StandardCharsets.UTF_8.name());
-            }
-        } catch (IOException ignore) {
-        }
-        // Fallback: load from file path under working dir
-        try (InputStream in = new java.io.FileInputStream("res/" + resourcePath)) {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            byte[] buf = new byte[8192];
-            int r;
-            while ((r = in.read(buf)) != -1) {
-                bos.write(buf, 0, r);
-            }
-            return bos.toString(StandardCharsets.UTF_8.name());
-        } catch (IOException e) {
-            return "{}";
-        }
-    }
 }

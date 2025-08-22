@@ -53,7 +53,7 @@ public enum KeyActions {
         keys = defaultKeyPresses;
     }
 
-    public final String keyBindingsFileLocation = "./src/res/keyBindings.txt";
+    public final String keyBindingsFileLocation = "./src/main/resources/res/keyBindings.txt";
 
     public boolean keyPressed(Set<Integer> pressedKeys) {
         if (controlMask) {

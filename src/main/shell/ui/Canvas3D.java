@@ -139,8 +139,8 @@ public class Canvas3D {
     public Canvas3D() {
         activate(true);
         Canvas3D.canvas = this;
-        diffuseMap = Texture.loadTextureThreaded("container2.png");
-        specularMap = Texture.loadTextureThreaded("container2_specular.png");
+        Platforms.get().loadTexture("container2.png", t -> {diffuseMap = t;});
+        Platforms.get().loadTexture("container2_specular.png", t -> {specularMap= t;});
         active = true;
     }
 
@@ -182,7 +182,7 @@ public class Canvas3D {
 
         gl.enable(gl.DEPTH_TEST());
 
-        gl.clearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        gl.clearColor(0.7f, 0.1f, 0.1f, 1.0f);
 
         System.out.println("InitGL: " + (Clock.time() - start));
         System.out.println("Time to First Paint: " + (Clock.time() - Platforms.get().startTime()));
@@ -193,7 +193,7 @@ public class Canvas3D {
 
     public void paintGL() {
 
-        gl.clearColor(0.07f, 0.07f, 0.07f, 1.0f);
+        gl.clearColor(0.7f, 0.07f, 0.7f, 1.0f);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera.resetZIndex();
         if (MenuBox.menuVisible) {

@@ -1,4 +1,5 @@
-#version 330 core
+#version 300 es
+precision mediump float;
 #define PI 3.1415926538
 #define TAU 2*3.1415926538
 in vec4 vertexColor;

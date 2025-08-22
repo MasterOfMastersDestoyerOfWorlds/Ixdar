@@ -20,8 +20,10 @@ public class SDFTexture {
     boolean sharpCorners;
 
     public SDFTexture(ShaderProgram sdfShader, String sdfLocation) {
-        texture = Texture.loadTexture(sdfLocation);
-        shader = sdfShader;
+        Platforms.get().loadTexture(sdfLocation, t -> {
+            this.texture = t;
+            this.shader = sdfShader;
+        });
         this.borderColor = Color.TRANSPARENT;
         this.borderInner = 0;
         this.borderOuter = 0;
@@ -42,8 +44,10 @@ public class SDFTexture {
 
     public SDFTexture(String sdfLocation, Color borderColor,
             float borderDist, float borderOffset, boolean sharpCorners) {
-        texture = Texture.loadTexture(sdfLocation);
-        shader = ShaderType.TextureSDF.shader;
+        Platforms.get().loadTexture(sdfLocation, t -> {
+            this.texture = t;
+            this.shader = ShaderType.TextureSDF.shader;
+        });
         this.borderColor = borderColor;
         this.borderInner = borderDist - 0.1f;
         this.borderOuter = borderDist;
@@ -53,6 +57,9 @@ public class SDFTexture {
     }
 
     public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
+        if(texture == null){
+            return;
+        }
         texture.bind();
         shader.use();
         GL gl = Platforms.gl();
@@ -75,6 +82,9 @@ public class SDFTexture {
 
     public void drawRegion(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
             int regHeight, Color c, Camera camera) {
+        if(texture == null){
+            return;
+        }
         texture.bind();
         shader.use();
         GL gl = Platforms.gl();

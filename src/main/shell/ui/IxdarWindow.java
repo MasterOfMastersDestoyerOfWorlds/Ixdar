@@ -121,7 +121,7 @@ public class IxdarWindow {
         IntBuffer w = BufferUtils.createIntBuffer(1);
         IntBuffer h = BufferUtils.createIntBuffer(1);
         IntBuffer channels = BufferUtils.createIntBuffer(1);
-        File file = new File("res/decalSmall.png");
+        File file = new File("src/main/resources/res/decalSmall.png");
         String filePath = file.getAbsolutePath();
         ByteBuffer icon = STBImage.stbi_load(filePath, w, h, channels, 4);
         int limit = icon.limit();

@@ -451,9 +451,10 @@ public class DistanceMatrix {
 
             str += "[";
             for (int j = 0; j < matrix.length; j++) {
-                BigDecimal bd = new BigDecimal(matrix[i][j]);
-                bd = bd.round(new MathContext(7));
-                str += " " + java.lang.Double.valueOf(String.format("%." + 7 + "G", bd)) + " ";
+                double v = matrix[i][j];
+                // Use plain fixed-point formatting to avoid DecimalFormat pattern issues under
+                // TeaVM
+                str += " " + String.format(java.util.Locale.ROOT, "%.7f", v) + " ";
             }
             str += "]\n";
         }

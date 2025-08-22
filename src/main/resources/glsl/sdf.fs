@@ -1,4 +1,5 @@
-#version 330 core
+#version 300 es
+precision mediump float;
 in vec4 vertexColor;
 in vec2 textureCoord;
 
@@ -27,20 +28,20 @@ float map(float value, float min1, float max1, float min2, float max2) {
     return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
 }
 void main() {
-    vec4 sample = texture(innerTexture, textureCoord);
-    float sigDist = median(sample.r, sample.g, sample.b);
+    vec4 smp = texture(innerTexture, textureCoord);
+    float sigDist = median(smp.r, smp.g, smp.b);
     float pxDist = screenPxRange() * (sigDist - 0.5);
     float opacity = clamp(pxDist + 0.5, 0.0, 1.0);
 
-    float borderOpac = 0;
-    float borderOffsetOpac = 0;
+    float borderOpac = 0.;
+    float borderOffsetOpac = 0.;
     if(sharpCorners) {
-        float newRange = map(sigDist, 0, 1, 0, 2);
-        borderOpac = smoothstep(1 - borderOuter, 1 - borderInner, newRange);
-        borderOffsetOpac = smoothstep(1 - borderOffsetOuter, 1 - borderOffsetInner, newRange);
+        float newRange = map(sigDist, 0., 1., 0., 2.);
+        borderOpac = smoothstep(1. - borderOuter, 1. - borderInner, newRange);
+        borderOffsetOpac = smoothstep(1. - borderOffsetOuter, 1. - borderOffsetInner, newRange);
     } else {
-        borderOpac = smoothstep(1 - borderOuter, 1 - borderInner, sample.a);
-        borderOffsetOpac = smoothstep(1 - borderOffsetOuter, 1 - borderOffsetInner, sample.a);
+        borderOpac = smoothstep(1. - borderOuter, 1. - borderInner, smp.a);
+        borderOffsetOpac = smoothstep(1. - borderOffsetOuter, 1. - borderOffsetInner, smp.a);
     }
     fragColor = mix(mix(vec4(borderColor.rgb, borderColor.a * borderOpac), vec4(0), borderOffsetOpac), vertexColor, opacity);
 }

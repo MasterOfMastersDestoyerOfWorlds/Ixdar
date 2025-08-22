@@ -108,19 +108,10 @@ public class Texture {
         return texture;
     }
 
-    public static Texture loadTextureThreaded(String resourceName) {
-        // Fallback: immediate load via platform API (no actual threading here)
-        return Platforms.get().loadTexture(resourceName);
-    }
-
     public void setImage(int width, int height, ByteBuffer image) {
         this.width = width;
         this.height = height;
         this.image = image;
-    }
-
-    public static Texture loadTexture(String resourceName) {
-        return Platforms.get().loadTexture(resourceName);
     }
 
     public void initGL() {

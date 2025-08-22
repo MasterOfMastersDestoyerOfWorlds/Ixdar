@@ -25,6 +25,12 @@ public class WebGL implements GL {
 
     private final WebGLRenderingContext gl;
     private final VAOExtension vaoExt;
+    private int nextId = 1;
+    private final java.util.Map<Integer, WebGLProgram> programMap = new java.util.HashMap<>();
+    private final java.util.Map<Integer, WebGLShader> shaderMap = new java.util.HashMap<>();
+    private final java.util.Map<Integer, WebGLBuffer> bufferMap = new java.util.HashMap<>();
+    private final java.util.Map<Integer, WebGLTexture> textureMap = new java.util.HashMap<>();
+    private final java.util.Map<Integer, WebGLUniformLocation> uniformMap = new java.util.HashMap<>();
 
     public WebGL(HTMLCanvasElement canvas) {
         WebGLContextAttributes attrs = WebGLContextAttributes.create();
@@ -51,77 +57,118 @@ public class WebGL implements GL {
 
     @Override
     public int createProgram() {
-        return gl.createProgram().hashCode();
+        WebGLProgram p = gl.createProgram();
+        int id = nextId++;
+        programMap.put(id, p);
+        return id;
     }
 
     @Override
     public int createShader(int type) {
-        return gl.createShader(type).hashCode();
+        WebGLShader s = gl.createShader(type);
+        int id = nextId++;
+        shaderMap.put(id, s);
+        return id;
     }
 
     @Override
     public void shaderSource(int shader, String src) {
-        gl.shaderSource(shader(shader), src);
+        WebGLShader sh = shader(shader);
+        if (sh == null) {
+            return;
+        }
+        gl.shaderSource(sh, src);
     }
 
     @Override
     public void compileShader(int shader) {
-        gl.compileShader(shader(shader));
+        WebGLShader sh = shader(shader);
+        if (sh == null) {
+            return;
+        }
+        gl.compileShader(sh);
     }
 
     @Override
     public int getShaderiv(int shader, int pname) {
-        return toInt(gl.getShaderParameter(shader(shader), pname));
+        WebGLShader sh = shader(shader);
+        if (sh == null) {
+            return 0;
+        }
+        return toInt(gl.getShaderParameter(sh, pname));
     }
 
     @Override
     public String getShaderInfoLog(int shader) {
-        return gl.getShaderInfoLog(shader(shader));
+        WebGLShader sh = shader(shader);
+        if (sh == null) {
+            return "";
+        }
+        return gl.getShaderInfoLog(sh);
     }
 
     @Override
     public void attachShader(int program, int shader) {
-        gl.attachShader(program(program), shader(shader));
+        WebGLProgram p = program(program);
+        WebGLShader s = shader(shader);
+        if (p == null || s == null) {
+            return;
+        }
+        gl.attachShader(p, s);
     }
 
     @Override
     public void linkProgram(int program) {
-        gl.linkProgram(program(program));
+        WebGLProgram p = program(program);
+        gl.linkProgram(p);
     }
 
     @Override
     public int getProgramiv(int program, int pname) {
-        return toInt(gl.getProgramParameter(program(program), pname));
+        WebGLProgram p = program(program);
+        return toInt(gl.getProgramParameter(p, pname));
     }
 
     @Override
     public String getProgramInfoLog(int program) {
-        return gl.getProgramInfoLog(program(program));
+        WebGLProgram p = program(program);
+        return gl.getProgramInfoLog(p);
     }
 
     @Override
     public void useProgram(int program) {
-        gl.useProgram(program(program));
+        WebGLProgram p = program(program);
+        gl.useProgram(p);
     }
 
     @Override
     public void deleteShader(int shader) {
-        gl.deleteShader(shader(shader));
+        WebGLShader s = shader(shader);
+        if (s != null)
+            gl.deleteShader(s);
+        shaderMap.remove(shader);
     }
 
     @Override
     public void deleteProgram(int program) {
-        gl.deleteProgram(program(program));
+        WebGLProgram p = program(program);
+        if (p != null)
+            gl.deleteProgram(p);
+        programMap.remove(program);
     }
 
     @Override
     public int genBuffer() {
-        return gl.createBuffer().hashCode();
+        WebGLBuffer b = gl.createBuffer();
+        int id = nextId++;
+        bufferMap.put(id, b);
+        return id;
     }
 
     @Override
     public void bindArrayBuffer(int buffer) {
-        gl.bindBuffer(WebGLRenderingContext.ARRAY_BUFFER, buffer(buffer));
+        WebGLBuffer b = buffer(buffer);
+        gl.bindBuffer(WebGLRenderingContext.ARRAY_BUFFER, b);
     }
 
     @Override
@@ -168,7 +215,11 @@ public class WebGL implements GL {
     @Override
     public int getUniformLocation(int program, String name) {
         WebGLUniformLocation l = gl.getUniformLocation(program(program), name);
-        return l == null ? -1 : l.hashCode();
+        if (l == null)
+            return -1;
+        int id = nextId++;
+        uniformMap.put(id, l);
+        return id;
     }
 
     @Override
@@ -215,7 +266,10 @@ public class WebGL implements GL {
 
     @Override
     public int genTexture() {
-        return gl.createTexture().hashCode();
+        WebGLTexture t = gl.createTexture();
+        int id = nextId++;
+        textureMap.put(id, t);
+        return id;
     }
 
     @Override
@@ -328,23 +382,23 @@ public class WebGL implements GL {
     }
 
     private WebGLProgram program(int id) {
-        return (WebGLProgram) (Object) id;
+        return programMap.get(id);
     }
 
     private WebGLShader shader(int id) {
-        return (WebGLShader) (Object) id;
+        return shaderMap.get(id);
     }
 
     private WebGLBuffer buffer(int id) {
-        return (WebGLBuffer) (Object) id;
+        return bufferMap.get(id);
     }
 
     private WebGLTexture texture(int id) {
-        return (WebGLTexture) (Object) id;
+        return textureMap.get(id);
     }
 
     private WebGLUniformLocation uniform(int id) {
-        return (WebGLUniformLocation) (Object) id;
+        return uniformMap.get(id);
     }
 
     // Minimal VAO emulation placeholder
@@ -422,7 +476,7 @@ public class WebGL implements GL {
 
     @Override
     public int genVertexArrays() {
-        return 0;
+        return vaoExt.genVertexArray();
     }
 
     @Override
@@ -431,36 +485,66 @@ public class WebGL implements GL {
 
     @Override
     public int genBuffers() {
-        return 0;
+        WebGLBuffer b = gl.createBuffer();
+        int id = nextId++;
+        bufferMap.put(id, b);
+        return id;
     }
 
     @Override
     public void bindBuffer(int target, int id) {
+        WebGLBuffer b = buffer(id);
+        gl.bindBuffer(target, b);
     }
 
     @Override
     public void bufferData(int target, FloatBuffer data, int usage) {
+        org.teavm.jso.typedarrays.Float32Array arr = org.teavm.jso.typedarrays.Float32Array.create(data.remaining());
+        for (int i = 0, j = data.position(); j < data.limit(); i++, j++) {
+            arr.set(i, data.get(j));
+        }
+        gl.bufferData(target, arr, usage);
     }
 
     @Override
     public void bufferData(int target, float[] data, int usage) {
-
+        org.teavm.jso.typedarrays.Float32Array arr = org.teavm.jso.typedarrays.Float32Array.create(data.length);
+        for (int i = 0; i < data.length; i++) {
+            arr.set(i, data[i]);
+        }
+        gl.bufferData(target, arr, usage);
     }
 
     @Override
     public void bufferData(int target, long size, int usage) {
+        org.teavm.jso.typedarrays.Uint8Array arr = org.teavm.jso.typedarrays.Uint8Array.create((int) size);
+        gl.bufferData(target, arr, usage);
     }
 
     @Override
     public void bufferSubData(int target, long offset, FloatBuffer data) {
+        org.teavm.jso.typedarrays.Float32Array arr = org.teavm.jso.typedarrays.Float32Array.create(data.remaining());
+        for (int i = 0, j = data.position(); j < data.limit(); i++, j++) {
+            arr.set(i, data.get(j));
+        }
+        gl.bufferSubData(target, (int) offset, arr);
     }
 
     @Override
     public void bufferData(int target, IntBuffer data, int usage) {
+        org.teavm.jso.typedarrays.Int32Array arr = org.teavm.jso.typedarrays.Int32Array.create(data.remaining());
+        for (int i = 0, j = data.position(); j < data.limit(); i++, j++) {
+            arr.set(i, data.get(j));
+        }
+        gl.bufferData(target, arr, usage);
     }
 
     @Override
     public void deleteBuffers(int id) {
+        WebGLBuffer b = bufferMap.remove(id);
+        if (b != null) {
+            gl.deleteBuffer(b);
+        }
     }
 
     @Override
@@ -505,7 +589,10 @@ public class WebGL implements GL {
 
     @Override
     public void getProgramiv(int program, int link_STATUS, IntBuffer success) {
-        gl.getProgramParameteri(program(program), link_STATUS);
+        int val = toInt(gl.getProgramParameter(program(program), link_STATUS));
+        if (success != null && success.remaining() > 0) {
+            success.put(0, val);
+        }
     }
 
     @Override
@@ -515,7 +602,10 @@ public class WebGL implements GL {
 
     @Override
     public void getShaderiv(int shader, int compile_STATUS, IntBuffer success) {
-        gl.getShaderParameteri(shader(shader), compile_STATUS);
+        int val = toInt(gl.getShaderParameter(shader(shader), compile_STATUS));
+        if (success != null && success.remaining() > 0) {
+            success.put(0, val);
+        }
     }
 
     @Override

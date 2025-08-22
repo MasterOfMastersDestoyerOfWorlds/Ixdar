@@ -109,12 +109,8 @@ public abstract class ShaderProgram {
         // Load shader sources via Platform abstraction (supports desktop and web)
         String vsrc = shell.platform.Platforms.get().loadShaderSource(vertexShaderLocation);
         String fsrc = shell.platform.Platforms.get().loadShaderSource(fragmentShaderLocation);
-        if (vsrc == null)
-            vsrc = "";
-        if (fsrc == null)
-            fsrc = "";
-        vertexShaderSource = new CharSequence[] { vsrc + "\0" };
-        fragmentShaderSource = new CharSequence[] { fsrc + "\0" };
+        vertexShaderSource = new CharSequence[] { vsrc };
+        fragmentShaderSource = new CharSequence[] { fsrc };
 
         // On desktop, set up file watchers for hot reload; on web, these files won't
         // exist
@@ -222,7 +218,8 @@ public abstract class ShaderProgram {
         gl.uniform4fv(uniformLocations.get(name), buffer);
     }
 
-    private void checkCompileErrors(int shader, ShaderOperationType type, String location) {
+    private void checkCompileErrors(int shader, ShaderOperationType type, String location,
+            CharSequence[] shaderSource) {
         IntBuffer success = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer();
 
         if (type != ShaderOperationType.Program) {
@@ -302,12 +299,12 @@ public abstract class ShaderProgram {
         vertexShader = gl.createShader(gl.VERTEX_SHADER());
         gl.shaderSource(vertexShader, vertexShaderSource);
         gl.compileShader(vertexShader);
-        checkCompileErrors(vertexShader, ShaderOperationType.Vertex, vertexShaderLocation);
+        checkCompileErrors(vertexShader, ShaderOperationType.Vertex, vertexShaderLocation, vertexShaderSource);
 
         fragmentShader = gl.createShader(gl.FRAGMENT_SHADER());
         gl.shaderSource(fragmentShader, fragmentShaderSource);
         gl.compileShader(fragmentShader);
-        checkCompileErrors(fragmentShader, ShaderOperationType.Fragment, fragmentShaderLocation);
+        checkCompileErrors(fragmentShader, ShaderOperationType.Fragment, fragmentShaderLocation, fragmentShaderSource);
 
         ID = gl.createProgram();
         gl.attachShader(ID, vertexShader);
@@ -315,7 +312,7 @@ public abstract class ShaderProgram {
         gl.linkProgram(ID);
         gl.deleteShader(vertexShader);
         gl.deleteShader(fragmentShader);
-        checkCompileErrors(ID, ShaderOperationType.Program, "both");
+        checkCompileErrors(ID, ShaderOperationType.Program, "both", vertexShaderSource);
 
     }
 

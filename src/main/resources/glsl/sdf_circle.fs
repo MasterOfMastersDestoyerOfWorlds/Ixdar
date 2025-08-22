@@ -1,6 +1,7 @@
-#version 330 core
+#version 300 es
+precision mediump float;
 #define PI 3.1415926538
-#define TAU 2*3.1415926538
+#define TAU 2.*3.1415926538
 in vec4 vertexColor;
 in vec2 textureCoord;
 in vec3 pos;
@@ -23,7 +24,7 @@ float map(float value, float min1, float max1, float min2, float max2) {
     return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
 }
 void main() {
-    float sigDist = -1;
+    float sigDist = -1.;
     float l2 = lineLengthSq;
     vec2 pos = pos.xy;
     float distA = distance(pos, pointA);

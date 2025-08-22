@@ -49,6 +49,9 @@ public class MenuBox {
     }
 
     public void draw(Camera camera) {
+        if(menuOuterBorder.outerTexture == null){
+            return;
+        }
 
         float centerX = Canvas3D.frameBufferWidth / 2;
         float centerY = Canvas3D.frameBufferHeight / 2;

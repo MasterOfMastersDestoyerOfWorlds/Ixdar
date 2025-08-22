@@ -1,4 +1,5 @@
-#version 330 core
+#version 300 es
+precision highp float;
 
 in vec4 vertexColor;
 in vec2 textureCoord;
@@ -24,7 +25,7 @@ uniform highp float spin_amount;
 uniform highp float pixel_filter;
 #define SPIN_EASE 0.0
 #define PI 3.1415926538
-#define TAU 2*3.1415926538
+#define TAU 2.*3.1415926538
 
 vec4 effect(vec2 screenSize, vec2 screen_coords) {
 	//Convert to UV coords (0-1) and floor for pixel effect
@@ -51,7 +52,7 @@ vec4 effect(vec2 screenSize, vec2 screen_coords) {
 
 	//Make the paint amount range from 0 - 2
     highp float contrast_mod = (0.20 * contrast + 0.5 * spin_amount + 1.2);
-    highp float paint_res = min(2, max(0., length(uv) * (0.06) * contrast_mod));
+    highp float paint_res = min(2., max(0., length(uv) * (0.06) * contrast_mod));
     highp float c1p = max(0., 1. - contrast_mod * abs(1. - paint_res));
     highp float c2p = max(0., 1. - contrast_mod * abs(paint_res));
     highp float c3p = 1. - min(1., c1p + c2p);

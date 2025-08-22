@@ -122,7 +122,7 @@ public class FreeTool extends Tool {
 
         }
         h.newLine();
-        if (Main.resultKnots.size() > 0) {
+        if (Main.resultKnots != null && Main.resultKnots.size() > 0) {
             h.addWord("TopKnot:");
             for (Knot topStruct : Main.resultKnots) {
                 if (!topStruct.isSingleton()) {

@@ -10,7 +10,6 @@ import static org.lwjgl.glfw.GLFW.glfwSetWindowTitle;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -19,6 +18,7 @@ import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 // removed duplicate IntBuffer import
@@ -109,12 +109,12 @@ public class LwjglPlatform implements Platform {
     }
 
     @Override
-    public Texture loadTexture(String resourceName) {
+    public void loadTexture(String resourceName, Consumer<Texture> callback) {
         STBImage.stbi_set_flip_vertically_on_load(true);
         IntBuffer w = BufferUtils.createIntBuffer(1);
         IntBuffer h = BufferUtils.createIntBuffer(1);
         IntBuffer channels = BufferUtils.createIntBuffer(1);
-        File file = new File("res/" + resourceName);
+        File file = new File("src/main/resources/res/" + resourceName);
         String filePath = file.getAbsolutePath();
         ByteBuffer image = STBImage.stbi_load(filePath, w, h, channels, 4);
         if (image == null) {
@@ -123,7 +123,7 @@ public class LwjglPlatform implements Platform {
         int width = w.get(0);
         int height = h.get(0);
         // Defer GL upload to Texture.initGL()
-        return new Texture(resourceName, image, width, height);
+        callback.accept(new Texture(resourceName, image, width, height));
     }
 
     @Override
@@ -137,20 +137,16 @@ public class LwjglPlatform implements Platform {
     }
 
     @Override
-    public String loadShaderSource(String filename) throws IOException {
-        String path = "glsl/" + filename;
+    public String loadSource(String folder, String filename) throws IOException {
+        String path = folder + "/" + filename;
         try (InputStream in = LwjglPlatform.class.getClassLoader().getResourceAsStream(path)) {
-            if (in != null) {
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                byte[] buf = new byte[8192];
-                int r;
-                while ((r = in.read(buf)) != -1) {
-                    bos.write(buf, 0, r);
-                }
-                return bos.toString(java.nio.charset.StandardCharsets.UTF_8.name());
-            }
+                return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         }
-        return "";
+    }
+
+    @Override
+    public String loadShaderSource(String filename) throws IOException {
+        return loadSource("glsl", filename);
     }
 
     @Override
@@ -176,7 +172,7 @@ public class LwjglPlatform implements Platform {
             parent.mkdirs();
         try (FileWriter fw = new FileWriter(newFile, append);
                 BufferedWriter out = new BufferedWriter(fw)) {
-            for(String s : file.getLines()){
+            for (String s : file.getLines()) {
                 out.write(s);
                 out.newLine();
             }

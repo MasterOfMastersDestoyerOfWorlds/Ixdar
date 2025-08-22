@@ -6,7 +6,7 @@
     "size": 32.90625,
     "width": 200,
     "height": 200,
-    "yOrigin": "bottom"
+    "yorigin": "bottom"
   },
   "metrics": {
     "emSize": 1,
@@ -17,7 +17,22 @@
     "underlineThickness": 0.0244140625
   },
   "glyphs": [
-    { "unicode": 32, "advance": 0.1826171875 },
+    {
+      "unicode": 32,
+      "advance": 0.1826171875,
+      "planeBounds": {
+        "left": 0.015707539470560316,
+        "bottom": -0.045584045584045586,
+        "right": 0.22843308552943972,
+        "top": 0.74453941120607792
+      },
+      "atlasBounds": {
+        "left": 34.5,
+        "bottom": 78.5,
+        "right": 41.5,
+        "top": 104.5
+      }
+    },
     {
       "unicode": 33,
       "advance": 0.24365234375,

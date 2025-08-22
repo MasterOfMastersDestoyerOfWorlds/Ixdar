@@ -463,7 +463,7 @@ public class LwjglGL implements GL {
 
     @Override
     public void getProgramiv(int shader, int link_STATUS, IntBuffer success) {
-        glGetProgramiv(shader, shader, success);
+        glGetProgramiv(shader, link_STATUS, success);
     }
 
     @Override

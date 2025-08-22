@@ -203,7 +203,7 @@ public class Camera3D implements Camera {
     @Override
     public void resetZIndex() {
         zIndex = 0;
-        farZIndex = ShaderProgram.ORTHO_NEAR + 0.01f;
+        farZIndex = ShaderProgram.ORTHO_NEAR + 1f;
     }
 
     @Override

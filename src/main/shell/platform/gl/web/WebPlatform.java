@@ -1,14 +1,10 @@
 package shell.platform.gl.web;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOError;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
+import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.function.Consumer;
 
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSFunctor;
@@ -22,6 +18,7 @@ import org.teavm.jso.dom.events.WheelEvent;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.dom.html.HTMLDocument;
 import org.teavm.jso.dom.html.HTMLElement;
+import org.teavm.jso.typedarrays.Uint8ClampedArray;
 
 import shell.file.TextFile;
 import shell.platform.gl.Platform;
@@ -201,7 +198,7 @@ public class WebPlatform implements Platform {
         int getHeight();
 
         @JSProperty
-        String getYOrigin();
+        String getYorigin();
     }
 
     private interface JsMetrics extends JSObject {
@@ -252,7 +249,7 @@ public class WebPlatform implements Platform {
             ai.size = js.getAtlas().getSize();
             ai.width = js.getAtlas().getWidth();
             ai.height = js.getAtlas().getHeight();
-            ai.yOrigin = js.getAtlas().getYOrigin();
+            ai.yorigin = js.getAtlas().getYorigin();
         }
         dto.atlas = ai;
         // metrics
@@ -301,12 +298,19 @@ public class WebPlatform implements Platform {
     }
 
     @Override
-    public Texture loadTexture(String resourceName) {
+    public void loadTexture(String resourceName, Consumer<Texture> callback) {
         // In web build, the image should already be loaded/bound by external runtime
         // Here we just create an empty Texture and expect higher-level code to
         // bind/upload
         // Alternatively, you can implement image loading via JS if desired.
-        return new Texture(resourceName, 0, 0);
+        loadImagePixels("res/" + resourceName, (w, h, data) -> {
+            ByteBuffer bb = ByteBuffer.allocate(data.getLength());
+            for (int i = 0; i < data.getLength(); i++) {
+                bb.put((byte) data.get(i));
+            }
+            bb.flip();
+            callback.accept(new Texture(resourceName, bb, w, h));
+        });
     }
 
     @Override
@@ -323,26 +327,13 @@ public class WebPlatform implements Platform {
     public String loadShaderSource(String filename) {
         String rel = "glsl/" + filename;
         String text = fetchTextSync(rel);
-        if (text == null) {
-            text = fetchTextSync("/" + rel);
-        }
-        if (text != null) {
-            return text;
-        }
-        // Fallback: try classpath (may not work under TeaVM)
-        try (InputStream in = WebPlatform.class.getClassLoader().getResourceAsStream(rel)) {
-            if (in != null) {
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                byte[] buf = new byte[8192];
-                int r;
-                while ((r = in.read(buf)) != -1) {
-                    bos.write(buf, 0, r);
-                }
-                return bos.toString(java.nio.charset.StandardCharsets.UTF_8.name());
-            }
-        } catch (Exception ignore) {
-        }
-        return "";
+        return text;
+    }
+
+    @Override
+    public String loadSource(String resourceFolder, String filename) throws UnsupportedEncodingException, IOException {
+        String rel = resourceFolder + "/" + filename;
+        return fetchTextSync(rel);
     }
 
     @Override
@@ -383,10 +374,30 @@ public class WebPlatform implements Platform {
         return p;
     }
 
+    @JSFunctor
+    public interface ImagePixelsCallback extends JSObject {
+        void onPixels(int width, int height, Uint8ClampedArray data);
+    }
+
+    @org.teavm.jso.JSBody(params = { "url", "callback" }, script = "fetch(url)" +
+            "  .then(function(r) { return r.blob(); })" +
+            "  .then(function(blob) { return createImageBitmap(blob); })" +
+            "  .then(function(bitmap) {" +
+            "    var canvas = document.createElement('canvas');" +
+            "    canvas.width = bitmap.width;" +
+            "    canvas.height = bitmap.height;" +
+            "    var ctx = canvas.getContext('2d');" +
+            "    ctx.drawImage(bitmap, 0, 0);" +
+            "    var imageData = ctx.getImageData(0, 0, bitmap.width, bitmap.height);" +
+            "    callback(bitmap.width, bitmap.height, imageData.data);" +
+            "  });")
+    public static native void loadImagePixels(String url, ImagePixelsCallback callback);
+
     @Override
     public void writeTextFile(TextFile file, boolean append) throws java.io.IOException {
         // No-op for web (cannot write). Intentionally ignored.
     }
+
 }
 
 final class WebPlatformHelper {

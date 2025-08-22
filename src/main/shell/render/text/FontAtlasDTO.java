@@ -15,7 +15,7 @@ public class FontAtlasDTO {
         public double size;
         public int width;
         public int height;
-        public String yOrigin;
+        public String yorigin;
     }
 
     public static class Metrics {

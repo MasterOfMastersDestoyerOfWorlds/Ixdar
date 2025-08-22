@@ -1,6 +1,7 @@
-#version 330 core
+#version 300 es
+precision mediump float;
 #define PI 3.1415926538
-#define TAU 2*3.1415926538
+#define TAU 2.*3.1415926538
 in vec4 vertexColor;
 in vec2 textureCoord;
 in vec3 pos;
@@ -14,7 +15,7 @@ uniform float lineLengthSq;
 uniform float width;
 uniform float height;
 
-uniform bool dashed = false;
+uniform bool dashed;
 uniform bool endCaps;
 uniform bool roundCaps;
 uniform float dashPhase;
@@ -46,36 +47,36 @@ float lengthSq(vec2 a, vec2 b) {
 
 float wave(vec2 pos) {
     float l2 = lineLengthSq;
-    float frequency = 50 / l2;
-    float phase = 1;
+    float frequency = 50. / l2;
+    float phase = 1.;
     float theta = dot((pointA - pointB), pos);
-    return (cos(frequency * (theta + phase)) + 1) / 2;
+    return (cos(frequency * (theta + phase)) + 1.) / 2.;
 }
 void main() {
-    float sigDist = -1;
+    float sigDist = -1.;
     float l2 = lineLengthSq;
     vec2 pos = pos.xy;
     float distA = distance(pos, pointA);
     float distB = distance(pos, pointB);
 
-    float blockA = smoothstep(0.5, 0.5 + edgeSharpness, (sin((height * textureCoord.x * PI) / dashLength + dashPhase) + 1) / 2);
+    float blockA = smoothstep(0.5, 0.5 + edgeSharpness, (sin((height * textureCoord.x * PI) / dashLength + dashPhase) + 1.) / 2.);
 
     if(l2 == 0.0)
         sigDist = distA;
 
-    float t = max(0, min(1, dot(pos - pointA, pointB - pointA) / l2));
+    float t = max(0., min(1., dot(pos - pointA, pointB - pointA) / l2));
     vec2 projection = pointA + t * (pointB - pointA);  // Projection falls on the segment
     sigDist = distance(pos, projection) / width;
 
     float opacity = smoothstep(edgeDist, edgeDist - edgeSharpness, sigDist);
 
-    fragColor = vec4(mix(vertexColor.rgb, linearGradientColor.rgb, textureCoord.x), 1 * opacity * linearGradientColor.a);
+    fragColor = vec4(mix(vertexColor.rgb, linearGradientColor.rgb, textureCoord.x), 1. * opacity * linearGradientColor.a);
     float dashOpac = blockA;
-    float le2 = 1;
-    float re2 = 1;
-    /*float dashEndR = 1;
-    float dashEndL = 1;
-    float dashCenter = 1;*/
+    float le2 = 1.;
+    float re2 = 1.;
+    /*float dashEndR = 1.;
+    float dashEndL = 1.;
+    float dashCenter = 1.;*/
     if(dashed) {
         float x = (height * textureCoord.x * PI) / dashLength + dashPhase;
         le2 = mod(x + PI + dashEdgeDist, TAU);
@@ -101,7 +102,7 @@ void main() {
             }
         }
     } else {
-        dashOpac = 1;
+        dashOpac = 1.;
     }
 
     float opacA = smoothstep(edgeDist + edgeSharpness, edgeDist, min(distA, distB) / (width));

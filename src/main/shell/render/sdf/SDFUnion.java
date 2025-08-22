@@ -4,6 +4,7 @@ import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
 
 import shell.cameras.Camera;
+import shell.platform.Platforms;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
@@ -27,9 +28,13 @@ public class SDFUnion {
     public SDFUnion(String sdfInnerLocation, Color innerColor, float innerScale,
             float innerOffsetX, float innerOffsetY, String sdfOuterLocation, Color outerColor, float alpha,
             float numberPinStripes, float showPin) {
-
-        innerTexture = Texture.loadTextureThreaded(sdfInnerLocation);
-        outerTexture = Texture.loadTextureThreaded(sdfOuterLocation);
+        
+        Platforms.get().loadTexture(sdfInnerLocation, t -> {
+            this.innerTexture = t;
+        });
+        Platforms.get().loadTexture(sdfOuterLocation, t -> {
+            this.outerTexture = t;
+        });
         shader = ShaderType.UnionSDF.shader;
         this.innerColor = new ColorRGB(innerColor, alpha);
         this.innerScale = innerScale;
@@ -46,6 +51,9 @@ public class SDFUnion {
 
     public void draw(float drawX, float drawY, float width, float height, Color innerColor,
             Color outerColor, Camera camera) {
+        if(innerTexture == null || outerTexture == null){
+            return;
+        }
         outerTexture.bind();
         innerTexture.bind();
         shader.use();
@@ -57,8 +65,8 @@ public class SDFUnion {
         shader.setFloat("innerScaleY", scale);
         shader.setFloat("innerOffsetX", innerOffsetX);
         shader.setFloat("innerOffsetY", innerOffsetY);
-        shader.setInt("numberPinStripes", (int) numberPinStripes);
-        shader.setInt("showPin", (int) showPin);
+        shader.setFloat("numberPinStripes", (float) numberPinStripes);
+        shader.setFloat("showPin", (float) showPin);
         shader.begin();
 
         shader.drawTextureRegion(outerTexture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), 0, 0,

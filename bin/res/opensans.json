@@ -6,7 +6,7 @@
     "size": 32.90625,
     "width": 200,
     "height": 200,
-    "yOrigin": "bottom"
+    "yorigin": "bottom"
   },
   "metrics": {
     "emSize": 1,
