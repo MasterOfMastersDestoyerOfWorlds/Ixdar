@@ -193,7 +193,7 @@ public class Canvas3D {
 
     public void paintGL() {
 
-        gl.clearColor(0.7f, 0.07f, 0.7f, 1.0f);
+        gl.clearColor(0.07f, 0.07f, 0.07f, 1.0f);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera.resetZIndex();
         if (MenuBox.menuVisible) {
