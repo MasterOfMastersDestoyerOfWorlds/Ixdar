@@ -76,6 +76,9 @@ public final class WebLauncher {
         gl.viewport(0, 0, w, h);
         gl.clearColor(0.02f, 0.02f, 0.02f, 1.0f);
         gl.clear(gl.COLOR_BUFFER_BIT());
+        // Ensure framebuffer dimensions are up-to-date for projection matrices
+        shell.ui.Canvas3D.frameBufferWidth = w;
+        shell.ui.Canvas3D.frameBufferHeight = h;
         if (!broken) {
             try {
                 // Drive the existing rendering path

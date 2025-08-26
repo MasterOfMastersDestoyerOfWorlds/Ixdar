@@ -90,8 +90,9 @@ public class Texture {
         Texture texture = new Texture(fontName);
         texture.setWidth(width);
         texture.setHeight(height);
+        texture.id = gl.genTexture();
         texture.initialized = true;
-        texture.bind();
+        gl.bindTexture2D(texture.id);
 
         gl.texParameteri(gl.TEXTURE_2D(),
                 gl.TEXTURE_WRAP_S(), gl.REPEAT());
@@ -120,6 +121,7 @@ public class Texture {
         }
         initialized = true;
         id = gl.genTexture();
+        gl.bindTexture2D(id);
         gl.texParameteri(gl.TEXTURE_2D(),
                 gl.TEXTURE_WRAP_S(), gl.REPEAT());
         gl.texParameteri(gl.TEXTURE_2D(),
@@ -128,8 +130,6 @@ public class Texture {
                 gl.TEXTURE_MIN_FILTER(), gl.LINEAR());
         gl.texParameteri(gl.TEXTURE_2D(),
                 gl.TEXTURE_MAG_FILTER(), gl.LINEAR());
-
-        gl.bindTexture2D(id);
         gl.texImage2D(gl.TEXTURE_2D(), 0,
                 gl.RGBA(), width, height, 0, gl.RGBA(),
                 gl.UNSIGNED_BYTE(), image);

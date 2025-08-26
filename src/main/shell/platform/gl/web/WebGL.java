@@ -6,6 +6,7 @@ import java.nio.IntBuffer;
 import java.util.function.IntFunction;
 
 import org.teavm.jso.JSBody;
+import org.teavm.jso.JSObject;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.typedarrays.ArrayBufferView;
 import org.teavm.jso.typedarrays.Uint8Array;
@@ -36,7 +37,7 @@ public class WebGL implements GL {
         WebGLContextAttributes attrs = WebGLContextAttributes.create();
         attrs.setAlpha(false); // opaque canvas
         attrs.setAntialias(true);
-        this.gl = (WebGLRenderingContext) canvas.getContext("webgl2", attrs);
+        this.gl = acquireGL(canvas, attrs);
         this.vaoExt = new VAOExtension(gl);
     }
 
@@ -403,22 +404,57 @@ public class WebGL implements GL {
 
     // Minimal VAO emulation placeholder
     private static final class VAOExtension {
-        @SuppressWarnings("unused")
         private final WebGLRenderingContext gl;
-        @SuppressWarnings("unused")
-        private final Object him;
+        private int nextId = 1;
+        private final java.util.Map<Integer, JSObject> vaoMap = new java.util.HashMap<>();
 
         VAOExtension(WebGLRenderingContext gl) {
             this.gl = gl;
-            this.him = gl.getExtension("OES_vertex_array_object");
         }
 
         int genVertexArray() {
-            return 0;
+            JSObject vao = jsCreateVAO(gl);
+            if (vao == null) {
+                return 0;
+            }
+            int id = nextId++;
+            vaoMap.put(id, vao);
+            return id;
         }
 
         void bindVertexArray(int vao) {
-            /* no-op on WebGL1 */ }
+            if (vao == 0) {
+                jsUnbindVAO(gl);
+                return;
+            }
+            JSObject o = vaoMap.get(vao);
+            if (o != null) {
+                jsBindVAO(gl, o);
+            }
+        }
+
+        void deleteVertexArray(int id) {
+            JSObject o = vaoMap.remove(id);
+            if (o != null) {
+                jsDeleteVAO(gl, o);
+            }
+        }
+
+        @JSBody(params = {
+                "gl" }, script = "var v=null; if(gl && gl.createVertexArray){v=gl.createVertexArray();} else {var ext=gl?gl.getExtension('OES_vertex_array_object'):null; if(ext){v=ext.createVertexArrayOES();}} return v;")
+        private static native JSObject jsCreateVAO(WebGLRenderingContext gl);
+
+        @JSBody(params = { "gl",
+                "vao" }, script = "if(gl && gl.bindVertexArray){gl.bindVertexArray(vao);} else {var ext=gl?gl.getExtension('OES_vertex_array_object'):null; if(ext){ext.bindVertexArrayOES(vao);}}")
+        private static native void jsBindVAO(WebGLRenderingContext gl, JSObject vao);
+
+        @JSBody(params = {
+                "gl" }, script = "if(gl && gl.bindVertexArray){gl.bindVertexArray(null);} else {var ext=gl?gl.getExtension('OES_vertex_array_object'):null; if(ext){ext.bindVertexArrayOES(null);}}")
+        private static native void jsUnbindVAO(WebGLRenderingContext gl);
+
+        @JSBody(params = { "gl",
+                "vao" }, script = "if(gl && gl.deleteVertexArray){gl.deleteVertexArray(vao);} else {var ext=gl?gl.getExtension('OES_vertex_array_object'):null; if(ext){ext.deleteVertexArrayOES(vao);}}")
+        private static native void jsDeleteVAO(WebGLRenderingContext gl, JSObject vao);
     }
 
     @Override
@@ -481,6 +517,7 @@ public class WebGL implements GL {
 
     @Override
     public void deleteVertexArrays(int id) {
+        vaoExt.deleteVertexArray(id);
     }
 
     @Override
@@ -641,4 +678,8 @@ public class WebGL implements GL {
     @Override
     public void coldStartStack() {
     }
+
+    @JSBody(params = { "canvas",
+            "attrs" }, script = "return (canvas.getContext('webgl2', attrs) || canvas.getContext('webgl', attrs) || canvas.getContext('experimental-webgl', attrs));")
+    private static native WebGLRenderingContext acquireGL(HTMLCanvasElement canvas, WebGLContextAttributes attrs);
 }
