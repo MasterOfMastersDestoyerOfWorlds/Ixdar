@@ -289,7 +289,10 @@ public class WebGL implements GL {
         org.teavm.jso.typedarrays.Uint8Array arr = org.teavm.jso.typedarrays.Uint8Array.create(data.remaining());
         for (int i = 0, j = data.position(); j < data.limit(); i++, j++)
             arr.set(i, data.get(j));
+        // Ensure textures uploaded match typical OpenGL origin expectations
+        setUnpackFlipY(gl, true);
         gl.texImage2D(target, level, internalFormat, width, height, border, format, type, arr);
+        setUnpackFlipY(gl, false);
     }
 
     @Override
@@ -682,4 +685,7 @@ public class WebGL implements GL {
     @JSBody(params = { "canvas",
             "attrs" }, script = "return (canvas.getContext('webgl2', attrs) || canvas.getContext('webgl', attrs) || canvas.getContext('experimental-webgl', attrs));")
     private static native WebGLRenderingContext acquireGL(HTMLCanvasElement canvas, WebGLContextAttributes attrs);
+
+    @JSBody(params = { "gl", "enable" }, script = "if(!gl){return;} try{gl.pixelStorei(0x9240, enable?1:0);}catch(e){}")
+    private static native void setUnpackFlipY(WebGLRenderingContext gl, boolean enable);
 }
