@@ -151,6 +151,7 @@ public class LwjglPlatform implements Platform {
 
     @Override
     public TextFile loadFile(String path) {
+        path = path.replaceAll("./src/main/resources/", "");
         InputStream in = FileManagement.class.getClassLoader().getResourceAsStream(path);
         if (in == null) {
             String alt = path;

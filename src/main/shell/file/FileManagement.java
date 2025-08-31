@@ -26,7 +26,7 @@ import shell.shell.Shell;
 
 public class FileManagement {
 
-    public static final String solutionsFolder = "solutions/";
+    public static final String solutionsFolder = "./src/main/resources/solutions/";
 
     public static final String testFileCacheLocation = "./src/test/cache/cache";
 

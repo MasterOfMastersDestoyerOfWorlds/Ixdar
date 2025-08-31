@@ -448,7 +448,7 @@ public class Camera2D implements Camera {
 
     @Override
     public void incZIndex() {
-        zIndex += 0.01;
+        zIndex += 0.001;
     }
 
     @Override
@@ -474,7 +474,7 @@ public class Camera2D implements Camera {
 
     @Override
     public void decFarZIndex() {
-        farZIndex -= 0.01;
+        farZIndex -= 0.001;
     }
 
     @Override

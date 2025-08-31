@@ -30,6 +30,8 @@ public abstract class ShaderProgram {
 
         LineSDF(SDFShader.class, "font.vs", "sdf_line.fs"),
 
+        DashedLineSDF(SDFShader.class, "font.vs", "sdf_dashed_line.fs"),
+
         CircleSDF(SDFShader.class, "font.vs", "sdf_circle.fs"),
 
         UnionSDF(SDFShader.class, "font.vs", "sdf_union.fs"),

@@ -25,6 +25,11 @@ public class Font {
     public ShaderProgram shader;
     public int maxTextWidth;
     private SDFTexture sdfTexture;
+    // Metrics from atlas
+    private float pxPerEm;
+    private float ascenderPx;
+    private float descenderPx;
+    private Map<Integer, Map<Integer, Float>> kerningEm;
 
     public Font() {
         try {
@@ -38,6 +43,10 @@ public class Font {
             float lineHeightEm = (float) root.metrics.lineHeight;
             atlas.derivedLineHeight = (atlas.sizePx > 0f ? atlas.sizePx * lineHeightEm : 32f * lineHeightEm);
             this.glyphs = buildGlyphs(root);
+            this.pxPerEm = atlas.sizePx;
+            this.ascenderPx = (float) (atlas.sizePx * root.metrics.ascender);
+            this.descenderPx = (float) (atlas.sizePx * root.metrics.descender);
+            this.kerningEm = buildKerning(root);
             this.fontHeight = atlas.derivedLineHeight;
             this.fontWidth = atlas.sizePx;
             Platforms.get().loadTexture("opensans.png", t -> {
@@ -54,66 +63,51 @@ public class Font {
 
     // --- Drawing API remains the same ---
     public float getWidth(CharSequence text) {
-        float width = 0;
-        float lineWidth = 0;
+        float maxWidthPx = 0f;
+        float lineAdvanceEm = 0f;
+        int prevCodePoint = -1;
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             if (c == '\n') {
-                width = Math.max(width, lineWidth);
-                lineWidth = 0;
+                float lineWidthPx = lineAdvanceEm * pxPerEm;
+                if (lineWidthPx > maxWidthPx)
+                    maxWidthPx = lineWidthPx;
+                lineAdvanceEm = 0f;
+                prevCodePoint = -1;
                 continue;
             }
             if (c == '\r') {
                 continue;
             }
             Glyph g = glyphs.get(c);
-            if (g != null)
-                lineWidth += g.width;
+            if (g == null)
+                continue;
+            if (prevCodePoint != -1) {
+                lineAdvanceEm += getKerningEm(prevCodePoint, c);
+            }
+            lineAdvanceEm += g.advance;
+            prevCodePoint = c;
         }
-        width = Math.max(width, lineWidth);
-        return width;
+        float lastLineWidthPx = lineAdvanceEm * pxPerEm;
+        if (lastLineWidthPx > maxWidthPx)
+            maxWidthPx = lastLineWidthPx;
+        return maxWidthPx;
     }
 
     public float getWidthScaled(CharSequence text, float glyphHeight) {
-        float width = 0;
-        float lineWidth = 0;
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (c == '\n') {
-                width = Math.max(width, lineWidth);
-                lineWidth = 0;
-                continue;
-            }
-            if (c == '\r') {
-                continue;
-            }
-            Glyph g = glyphs.get(c);
-            if (g != null)
-                lineWidth += glyphHeight * g.widthHeightRatio;
-        }
-        width = Math.max(width, lineWidth);
-        return width;
+        float scale = glyphHeight / fontHeight;
+        return getWidth(text) * scale;
     }
 
     public int getHeight(CharSequence text) {
-        int height = 0;
-        int lineHeight = 0;
+        int lines = 1;
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             if (c == '\n') {
-                height += lineHeight;
-                lineHeight = 0;
-                continue;
+                lines++;
             }
-            if (c == '\r') {
-                continue;
-            }
-            Glyph g = glyphs.get(c);
-            if (g != null)
-                lineHeight = Math.max(lineHeight, g.height);
         }
-        height += lineHeight;
-        return height;
+        return Math.round(lines * fontHeight);
     }
 
     public void drawText(CharSequence text, float x, float y, float glyphHeight,
@@ -121,30 +115,43 @@ public class Font {
         if (sdfTexture == null) {
             return;
         }
-        float textHeight = getHeight(text);
-
+        float scale = glyphHeight / fontHeight;
         float drawX = x;
-        float drawY = y;
-        if (textHeight > fontHeight) {
-            drawY += textHeight - fontHeight;
-        }
+        float baselineY = y + (ascenderPx * scale);
+        float penEm = 0f;
+        int prevCodePoint = -1;
 
         for (int i = 0; i < text.length(); i++) {
             char ch = text.charAt(i);
             if (ch == '\n') {
-                drawY -= fontHeight;
-                drawX = x;
+                baselineY -= fontHeight * scale;
+                penEm = 0f;
+                prevCodePoint = -1;
                 continue;
             }
             if (ch == '\r') {
                 continue;
             }
             Glyph g = glyphs.get(ch);
-            if (g == null)
+            if (g == null) {
+                prevCodePoint = -1;
                 continue;
-            float w = (g.widthHeightRatio * glyphHeight);
-            sdfTexture.drawRegion(drawX, drawY, w, glyphHeight, g.x, g.y, g.width, g.height, c, camera);
-            drawX += glyphHeight * g.widthHeightRatio;
+            }
+            if (prevCodePoint != -1) {
+                penEm += getKerningEm(prevCodePoint, ch);
+            }
+            float glyphLeftPx = (penEm + g.planeLeft) * pxPerEm * scale;
+            float glyphBottomPx = (g.planeBottom) * pxPerEm * scale;
+            float glyphWidthPx = (g.planeRight - g.planeLeft) * pxPerEm * scale;
+            float glyphHeightPx = (g.planeTop - g.planeBottom) * pxPerEm * scale;
+
+            if (glyphWidthPx > 0 && glyphHeightPx > 0) {
+                sdfTexture.drawRegion(drawX + glyphLeftPx, baselineY + glyphBottomPx,
+                        glyphWidthPx, glyphHeightPx,
+                        g.x, g.y, g.width, g.height, c, camera);
+            }
+            penEm += g.advance;
+            prevCodePoint = ch;
         }
         // sdfTexture.drawRegion handles zIndex increment per glyph
     }
@@ -165,7 +172,8 @@ public class Font {
                 text += " ";
             }
         }
-        drawText(text, xLimit - getWidth(text.substring(0, numCharsBack)), y, height, c, camera);
+        float prefixWidth = getWidthScaled(text.substring(0, numCharsBack), height);
+        drawText(text, xLimit - prefixWidth, y, height, c, camera);
     }
 
     public void drawTextCentered(String text, float x, float y, float height, Color c, Camera camera) {
@@ -248,9 +256,36 @@ public class Font {
             if (width <= 0 || height <= 0)
                 continue;
             char ch = (char) ge.unicode;
-            map.put(ch, new Glyph(width, height, x, y, (float) ge.advance));
+            float pl = ge.planeBounds != null ? (float) ge.planeBounds.left : 0f;
+            float pb = ge.planeBounds != null ? (float) ge.planeBounds.bottom : 0f;
+            float pr = ge.planeBounds != null ? (float) ge.planeBounds.right : 0f;
+            float pt = ge.planeBounds != null ? (float) ge.planeBounds.top : 0f;
+            map.put(ch, new Glyph(width, height, x, y, (float) ge.advance, pl, pb, pr, pt));
         }
         return map;
+    }
+
+    private static Map<Integer, Map<Integer, Float>> buildKerning(FontAtlasDTO root) {
+        HashMap<Integer, Map<Integer, Float>> kerning = new HashMap<>();
+        if (root.kerning == null)
+            return kerning;
+        for (FontAtlasDTO.KerningEntry ke : root.kerning) {
+            int u1 = ke.unicode1;
+            int u2 = ke.unicode2;
+            float advEm = (float) ke.advance;
+            kerning.computeIfAbsent(u1, k -> new HashMap<>()).put(u2, advEm);
+        }
+        return kerning;
+    }
+
+    private float getKerningEm(int prevCodePoint, int codePoint) {
+        if (kerningEm == null)
+            return 0f;
+        Map<Integer, Float> m = kerningEm.get(prevCodePoint);
+        if (m == null)
+            return 0f;
+        Float v = m.get(codePoint);
+        return v != null ? v.floatValue() : 0f;
     }
 
 }

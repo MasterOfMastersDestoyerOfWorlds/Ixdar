@@ -8,7 +8,6 @@ import java.util.function.IntFunction;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
-import org.teavm.jso.typedarrays.ArrayBufferView;
 import org.teavm.jso.typedarrays.Uint8Array;
 import org.teavm.jso.webgl.WebGLBuffer;
 import org.teavm.jso.webgl.WebGLContextAttributes;
