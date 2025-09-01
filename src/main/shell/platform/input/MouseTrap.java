@@ -4,8 +4,6 @@ import static shell.platform.input.Keys.ACTION_PRESS;
 import static shell.platform.input.Keys.ACTION_RELEASE;
 
 import java.util.ArrayList;
-
-import org.joml.Math;
 import org.joml.Vector2f;
 
 import shell.Toggle;
@@ -171,7 +169,6 @@ public class MouseTrap {
             Canvas3D.menu.scroll(false);
             queuedMouseWheelTicks--;
         }
-
         MouseTrap.hyperStrings = new ArrayList<>();
     }
 

@@ -135,12 +135,15 @@ public class Canvas3D {
     public static MouseTrap mouse = new MouseTrap(null, camera);
     public static KeyGuy keys = new KeyGuy(camera, canvas);
     public static GL gl;
+    public static Platform platform;
+    public static long checkPaintTime;
 
     public Canvas3D() {
         activate(true);
         Canvas3D.canvas = this;
-        Platforms.get().loadTexture("container2.png", t -> {diffuseMap = t;});
-        Platforms.get().loadTexture("container2_specular.png", t -> {specularMap= t;});
+        platform = Platforms.get();
+        platform.loadTexture("container2.png", t -> {diffuseMap = t;});
+        platform.loadTexture("container2_specular.png", t -> {specularMap= t;});
         active = true;
     }
 
@@ -190,9 +193,11 @@ public class Canvas3D {
 
     public SDFCircle circle;
     public SDFFluid fluid;
+    private long totalPaintTime;
 
     public void paintGL() {
 
+        long startTime = System.nanoTime();
         gl.clearColor(0.07f, 0.07f, 0.07f, 1.0f);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera.resetZIndex();
@@ -274,6 +279,7 @@ public class Canvas3D {
         if (MenuBox.menuVisible) {
             menu.draw(camera);
         }
+        long endTime = System.nanoTime();
         // menuInnerBorder.drawCentered(frameBufferWidth / 2,
         // // frameBufferHeight / 2, 3, -10.5f, Color.TRANSPARENT);
         // sdfLine.drawCentered(frameBufferWidth / 2,
@@ -282,6 +288,9 @@ public class Canvas3D {
         // frameBufferWidth / 2,
         // frameBufferHeight / 2, -1f, 1, Color.CYAN);
         // c.setAlpha(0.6f);
+        totalPaintTime = endTime - startTime;
+        //platform.log("total paint time: "+ totalPaintTime);
+        //platform.log("checktime percent: " + ((double)checkPaintTime) / ((double) totalPaintTime) * 100.0);
     }
 
     public static void activate(boolean state) {

@@ -1,6 +1,5 @@
 package shell.ui;
 
-import org.teavm.jso.JSBody;
 import org.teavm.jso.browser.Window;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.dom.html.HTMLDocument;
@@ -8,6 +7,7 @@ import org.teavm.jso.dom.html.HTMLElement;
 
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
+import shell.platform.gl.Platform;
 import shell.platform.gl.web.WebGL;
 import shell.platform.gl.web.WebPlatform;
 import shell.render.Clock;
@@ -21,6 +21,7 @@ public final class WebLauncher {
     public static float startTime;
     private static boolean initialized;
     public static boolean broken = false;
+    private static Platform platform;
 
     public static void main(String[] args) {
         startTime = Clock.time();
@@ -36,11 +37,12 @@ public final class WebLauncher {
             HTMLElement body = document.getBody();
             body.appendChild(canvas);
         }
-        log("WebLauncher is running");
 
         Platforms.init(new WebPlatform(), new WebGL(canvas));
+        platform = Platforms.get();
+        platform.log("WebLauncher is running");
         // Provide default buffers implementation for web
-        shell.platform.Platforms.setBuffers(new shell.platform.buffers.DefaultBuffers());
+        Platforms.setBuffers(new shell.platform.buffers.DefaultBuffers());
         Window.requestAnimationFrame(ts -> tick());
     }
 
@@ -54,7 +56,7 @@ public final class WebLauncher {
             new Canvas3D().initGL();
             initialized = true;
         } catch (Exception e) {
-            log("Init error: " + e.getMessage());
+            platform.log("Init error: " + e.getMessage());
             // Show fallback triangle if init fails
         }
     }
@@ -85,9 +87,9 @@ public final class WebLauncher {
                 Canvas3D.canvas.paintGL();
             } catch (Exception t) {
                 for (StackTraceElement e : t.getStackTrace()) {
-                    log("Render error: " + e.getMethodName() + " " + e.getFileName() + " " + e.getLineNumber());
+                    platform.log("Render error: " + e.getMethodName() + " " + e.getFileName() + " " + e.getLineNumber());
                 }
-                log(t.getMessage());
+                platform.log(t.getMessage());
                 broken = true;
             }
         } else {
@@ -96,8 +98,6 @@ public final class WebLauncher {
         Window.requestAnimationFrame(ts -> tick());
     }
 
-    @JSBody(params = { "msg" }, script = "console.log(msg);")
-    private static native void log(String msg);
 
     public static void setTitle(String string) {
         Window.current().getDocument().setTitle(string);

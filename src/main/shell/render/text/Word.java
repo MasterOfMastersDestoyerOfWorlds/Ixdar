@@ -1,5 +1,8 @@
 package shell.render.text;
 
+import java.util.ArrayList;
+import java.util.function.Supplier;
+
 import shell.cameras.Bounds;
 import shell.render.color.Color;
 import shell.ui.Drawing;
@@ -9,6 +12,7 @@ public class Word {
 
     public CharSequence text;
     public Color color;
+    public Supplier<String> wordAction;
     public Action hoverAction;
     public Action clickAction;
     public boolean newLine = false;
@@ -20,6 +24,7 @@ public class Word {
     public float x;
     public float y;
     public Bounds viewBounds;
+    public ArrayList<Word> subWords;
 
     public Word(String word, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         text = word;
@@ -38,6 +43,21 @@ public class Word {
     public Word(boolean b) {
         newLine = b;
         text = "";
+        viewBounds = new Bounds(0, 0, 0, 0);
+    }
+
+    public Word(Supplier<String> wordAction, Color c, Action hoverAction, Action clearHover, Action clickAction) {
+        text = "?MissingWord?";
+        color = c;
+        this.wordAction = wordAction;
+        this.hoverAction = hoverAction;
+        this.clearHover = clearHover;
+        if (clickAction != null) {
+            this.clickAction = clickAction;
+        } else {
+            this.clickAction = () -> {
+            };
+        }
         viewBounds = new Bounds(0, 0, 0, 0);
     }
 
@@ -89,6 +109,16 @@ public class Word {
                 && viewBounds.contains(normalizedPosX, normalizedPosY)) {
             clickAction.perform();
         }
+    }
+
+    public ArrayList<Word> subWords() {
+        String text = wordAction.get();
+        ArrayList<Word> subWords = new ArrayList<>();
+        for (String textPart : text.split(" ")) {
+            subWords.add(new Word(textPart, color, hoverAction, clearHover, clickAction));
+        }
+        this.subWords = subWords;
+        return subWords;
     }
 
 }

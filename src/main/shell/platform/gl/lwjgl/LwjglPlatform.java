@@ -180,4 +180,9 @@ public class LwjglPlatform implements Platform {
             out.flush();
         }
     }
+
+    @Override
+    public void log(String msg) {
+       System.out.println(msg); 
+    }
 }

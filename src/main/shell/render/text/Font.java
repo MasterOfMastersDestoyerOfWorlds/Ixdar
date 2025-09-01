@@ -110,14 +110,14 @@ public class Font {
         return Math.round(lines * fontHeight);
     }
 
-    public void drawText(CharSequence text, float x, float y, float glyphHeight,
+    public void drawTextNoSetup(CharSequence text, float x, float y, float glyphHeight,
             Color c, Camera camera) {
         if (sdfTexture == null) {
             return;
         }
         float scale = glyphHeight / fontHeight;
         float drawX = x;
-        float baselineY = y + (ascenderPx * scale) *0.25f;
+        float baselineY = y + (ascenderPx * scale) * 0.25f;
         float penEm = 0f;
         int prevCodePoint = -1;
 
@@ -146,15 +146,21 @@ public class Font {
             float glyphHeightPx = (g.planeTop - g.planeBottom) * pxPerEm * scale;
 
             if (glyphWidthPx > 0 && glyphHeightPx > 0) {
-                sdfTexture.drawRegionNoInc(drawX + glyphLeftPx, baselineY + glyphBottomPx,
+                sdfTexture.drawRegionNoSetup(drawX + glyphLeftPx, baselineY + glyphBottomPx,
                         glyphWidthPx, glyphHeightPx,
                         g.x, g.y, g.width, g.height, c, camera);
             }
             penEm += g.advance;
             prevCodePoint = ch;
         }
-        camera.incZIndex();
         // sdfTexture.drawRegion handles zIndex increment per glyph
+    }
+
+    public void drawText(CharSequence text, float x, float y, float glyphHeight,
+            Color c, Camera camera) {
+        sdfTexture.setUniforms();
+        drawTextNoSetup(text, x, y, glyphHeight, c, camera);
+        sdfTexture.cleanup(camera);
     }
 
     public void drawText(CharSequence text, float x, float y, float height, Camera camera) {
@@ -194,33 +200,30 @@ public class Font {
         drawText(string, 0, camera.getHeight() - ((row + 1) * height) + yScrollOffset, height, c, camera);
     }
 
-    public void drawHyperStringRow(ArrayList<Word> hyperString, float height, Camera2D camera) {
-        float characterOffset = 0;
-        float scaleRatio = height / fontHeight;
-        for (int i = 0; i < hyperString.size(); i++) {
-            Word word = hyperString.get(i);
-            drawText(word.text, characterOffset + 0,
-                    word.y, height, word.color,
-                    camera);
-            characterOffset += getWidth(word.text) * scaleRatio;
-        }
-    }
-
     public void drawHyperString(HyperString hyperString, float x, float y, float height, Camera2D camera) {
         hyperString.setLineOffsetCentered(camera, x, y, this, 0);
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
             ArrayList<Word> words = hyperString.getLine(lineNumber);
             for (int i = 0; i < words.size(); i++) {
                 Word word = words.get(i);
-                drawText(word.text, word.x,
-                        word.y, height, word.color,
-                        camera);
+                if (word.subWords != null) {
+                    for (Word subWord : word.subWords) {
+                        drawTextNoSetup(subWord.text, subWord.x,
+                                subWord.y, height, subWord.color,
+                                camera);
+                    }
+                } else {
+                    drawText(word.text, word.x,
+                            word.y, height, word.color,
+                            camera);
+                }
             }
         }
     }
 
     public void drawHyperStringRows(HyperString hyperString, int row, float scrollOffsetY, float height,
             Camera2D camera) {
+        sdfTexture.setUniforms();
         hyperString.setLineOffsetFromTopRow(camera, row, scrollOffsetY, height, this);
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
             ArrayList<Word> words = hyperString.getLine(lineNumber);
@@ -229,11 +232,20 @@ public class Font {
                 if (word.newLine) {
                     continue;
                 }
-                drawText(word.text, word.x,
-                        word.y, height, word.color,
-                        camera);
+                if (word.subWords != null) {
+                    for (Word subWord : word.subWords) {
+                        drawTextNoSetup(subWord.text, subWord.x,
+                                subWord.y, height, subWord.color,
+                                camera);
+                    }
+                } else {
+                    drawTextNoSetup(word.text, word.x,
+                            word.y, height, word.color,
+                            camera);
+                }
             }
         }
+        sdfTexture.cleanup(camera);
     }
 
     private static class FontAtlasData {

@@ -65,4 +65,6 @@ public interface Platform {
     }
 
     float startTime();
+
+    void log(String msg);
 }

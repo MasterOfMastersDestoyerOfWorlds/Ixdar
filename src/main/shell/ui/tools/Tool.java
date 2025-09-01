@@ -9,6 +9,7 @@ import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.platform.Platforms;
+import shell.platform.input.MouseTrap;
 import shell.render.Clock;
 import shell.render.text.HyperString;
 import shell.ui.Canvas3D;
@@ -247,10 +248,20 @@ public abstract class Tool {
         Free, None
     }
 
+
     public abstract HyperString buildInfoText();
 
+    private HyperString toolInfoHyperString;
+
     public HyperString info() {
-        return buildInfoText();
+        if(toolInfoHyperString == null){
+            toolInfoHyperString = buildInfoText();
+        }
+        for(HyperString h : toolInfoHyperString.children){
+            MouseTrap.hyperStrings.add(h);
+        }
+        MouseTrap.hyperStrings.add(toolInfoHyperString);
+        return toolInfoHyperString;
     };
 
     public HyperString toolGeneralInfo() {

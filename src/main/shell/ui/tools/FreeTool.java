@@ -53,13 +53,22 @@ public class FreeTool extends Tool {
         HyperString h = new HyperString();
         HyperString pointInfo = new HyperString();
         h.addWord("Point: ");
-        if (displayKP == null) {
-            h.addWord("None");
-        } else {
-            final PointND coordPointF = (displayKP).p;
-            pointInfo.addWord(coordPointF.toString());
-            h.addTooltip(displayKP.id + "", Color.BLUE_WHITE, pointInfo, () -> Main.camera.centerOnPoint(coordPointF));
-        }
+        pointInfo.addDynamicWord(() -> {
+            if (Main.tool.displayKP == null) {
+                return "None";
+            }
+            return ((Main.tool.displayKP).p).toString();
+        });
+        h.addDynamicTooltip(() -> {
+            if (displayKP == null) {
+                return "None";
+            }
+            return displayKP.id + "";
+        }, Color.BLUE_WHITE, pointInfo, () -> {
+            if (displayKP != null) {
+                Main.camera.centerOnPoint(Main.tool.displayKP.p);
+            }
+        });
         // h.newLine();
         // h.addWord("Position:");
         // if (displayKP == null) {

@@ -41,6 +41,7 @@ import shell.shell.Shell;
 import shell.shell.ShellComparator;
 import shell.shell.ShellPair;
 import shell.terminal.Terminal;
+import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 import shell.ui.tools.FreeTool;
 import shell.ui.tools.Tool;
@@ -323,6 +324,7 @@ public class Main {
             camera.updateView(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
                     wHeight - BOTTOM_PANEL_SIZE);
             info.draw(camera);
+
 
             camera.updateView(0, 0, MAIN_VIEW_WIDTH, BOTTOM_PANEL_SIZE);
             terminal.draw(camera);

@@ -398,6 +398,14 @@ public class WebPlatform implements Platform {
         // No-op for web (cannot write). Intentionally ignored.
     }
 
+    @Override 
+    public void log(String msg){
+        WebPlatform.jsLog(msg);
+    }
+
+
+    @JSBody(params = { "msg" }, script = "console.log(msg);")
+    private static native void jsLog(String msg);
 }
 
 final class WebPlatformHelper {

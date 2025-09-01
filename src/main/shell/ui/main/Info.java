@@ -3,6 +3,7 @@ package shell.ui.main;
 import shell.cameras.Camera2D;
 import shell.render.Clock;
 import shell.render.text.HyperString;
+import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 import shell.ui.tools.Tool;
 
@@ -20,10 +21,22 @@ public class Info {
         HyperString toolGeneralInfo = tool.toolGeneralInfo();
         Drawing.font.drawHyperStringRows(toolGeneralInfo, row, scrollOffsetY, rowHeight, camera);
         row += toolGeneralInfo.getLines();
-        cachedInfo = tool.info();
 
-        Drawing.font.drawHyperStringRows(cachedInfo, row, scrollOffsetY, rowHeight, camera);
+        
+
+        //50-79% of draw time
+        
+        long start = System.nanoTime();
+        cachedInfo = tool.info();
+        long end = System.nanoTime();
+        Canvas3D.checkPaintTime = end - start;  
+
+
+        //6% of draw time
+        Drawing.font.drawHyperStringRows(cachedInfo, row, scrollOffsetY, rowHeight, camera);   
         row += cachedInfo.getLines();
+
+
     }
 
     public void scrollInfoPanel(boolean scrollUp) {

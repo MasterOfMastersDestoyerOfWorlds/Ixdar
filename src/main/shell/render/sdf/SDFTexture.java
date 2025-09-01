@@ -18,6 +18,7 @@ public class SDFTexture {
     private float borderOffsetInner;
     private float borderOffsetOuter;
     boolean sharpCorners;
+    GL gl = Platforms.gl();
 
     public SDFTexture(ShaderProgram sdfShader, String sdfLocation) {
         Platforms.get().loadTexture(sdfLocation, t -> {
@@ -57,7 +58,7 @@ public class SDFTexture {
     }
 
     public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
-        if(texture == null){
+        if (texture == null) {
             return;
         }
         texture.bind();
@@ -79,15 +80,21 @@ public class SDFTexture {
         shader.end();
         camera.incZIndex();
     }
-    
-    public void drawRegionNoInc(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
+
+    public void drawRegionNoSetup(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
             int regHeight, Color c, Camera camera) {
-        if(texture == null){
+
+        shader.drawTextureRegion(texture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), regX, regY,
+                regWidth, regHeight, c);
+    }
+
+    public void setUniforms() {
+        if (texture == null) {
             return;
         }
         texture.bind();
         shader.use();
-        GL gl = Platforms.gl();
+        shader.begin();
         shader.setTexture("innerTexture", texture, gl.TEXTURE0(), 0);
         shader.setFloat("borderInner", borderInner);
         shader.setFloat("borderOuter", borderOuter);
@@ -95,16 +102,18 @@ public class SDFTexture {
         shader.setFloat("borderOffsetOuter", borderOffsetOuter);
         shader.setVec4("borderColor", borderColor.toVector4f());
         shader.setBool("sharpCorners", sharpCorners);
-        shader.begin();
-        shader.drawTextureRegion(texture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), regX, regY,
-                regWidth, regHeight, c);
+    }
+
+    public void cleanup(Camera c) {
         shader.end();
+        c.incZIndex();
     }
 
     public void drawRegion(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
             int regHeight, Color c, Camera camera) {
-        drawRegionNoInc(drawX, drawY, width, height, regX, regY, regWidth, regHeight, c, camera);
-        camera.incZIndex();
+        setUniforms();
+        drawRegionNoSetup(drawX, drawY, width, height, regX, regY, regWidth, regHeight, c, camera);
+        cleanup(camera);
     }
 
     public void drawCentered(float drawX, float drawY, float width, float height, Color c, Camera camera) {
