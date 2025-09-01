@@ -5,6 +5,7 @@ import static shell.platform.input.Keys.ACTION_RELEASE;
 
 import java.util.ArrayList;
 
+import org.joml.Math;
 import org.joml.Vector2f;
 
 import shell.Toggle;
@@ -101,7 +102,7 @@ public class MouseTrap {
     }
 
     public void scrollCallback(double y) {
-        queuedMouseWheelTicks += 4 * (int) y;
+        queuedMouseWheelTicks += (int)(4 * y);
         timeLastScroll = System.currentTimeMillis();
     }
 
