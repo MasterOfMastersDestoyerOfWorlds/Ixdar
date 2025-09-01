@@ -325,7 +325,6 @@ public class Main {
                     wHeight - BOTTOM_PANEL_SIZE);
             info.draw(camera);
 
-
             camera.updateView(0, 0, MAIN_VIEW_WIDTH, BOTTOM_PANEL_SIZE);
             terminal.draw(camera);
 
@@ -348,7 +347,9 @@ public class Main {
             camera3D.setZIndex(camera);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            for (StackTraceElement ste : e.getStackTrace()) {
+                Platforms.get().log(ste.getMethodName());
+            }
         }
     }
 

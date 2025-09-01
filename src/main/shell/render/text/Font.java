@@ -158,6 +158,9 @@ public class Font {
 
     public void drawText(CharSequence text, float x, float y, float glyphHeight,
             Color c, Camera camera) {
+        if(sdfTexture == null){
+            return;
+        }
         sdfTexture.setUniforms();
         drawTextNoSetup(text, x, y, glyphHeight, c, camera);
         sdfTexture.cleanup(camera);
@@ -223,6 +226,9 @@ public class Font {
 
     public void drawHyperStringRows(HyperString hyperString, int row, float scrollOffsetY, float height,
             Camera2D camera) {
+        if(sdfTexture == null){
+            return;
+        }
         sdfTexture.setUniforms();
         hyperString.setLineOffsetFromTopRow(camera, row, scrollOffsetY, height, this);
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
