@@ -448,7 +448,7 @@ public class Camera2D implements Camera {
 
     @Override
     public void incZIndex() {
-        zIndex += 0.001;
+        zIndex += ShaderProgram.ORTHO_Z_INCREMENT;
     }
 
     @Override
@@ -469,12 +469,12 @@ public class Camera2D implements Camera {
     @Override
     public void resetZIndex() {
         zIndex = 0;
-        farZIndex = ShaderProgram.ORTHO_FAR - 0.01f;
+        farZIndex = ShaderProgram.ORTHO_FAR - ShaderProgram.ORTHO_Z_INCREMENT;
     }
 
     @Override
     public void decFarZIndex() {
-        farZIndex -= 0.001;
+        farZIndex -= ShaderProgram.ORTHO_Z_INCREMENT;
     }
 
     @Override

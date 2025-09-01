@@ -182,7 +182,7 @@ public class Camera3D implements Camera {
 
     @Override
     public void incZIndex() {
-        zIndex += 0.001;
+        zIndex += ShaderProgram.ORTHO_Z_INCREMENT;
     }
 
     @Override
@@ -208,7 +208,7 @@ public class Camera3D implements Camera {
 
     @Override
     public void decFarZIndex() {
-        farZIndex += 0.001;
+        farZIndex += ShaderProgram.ORTHO_Z_INCREMENT;
     }
 
     @Override

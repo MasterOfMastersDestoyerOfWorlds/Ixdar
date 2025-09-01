@@ -79,8 +79,8 @@ public class SDFTexture {
         shader.end();
         camera.incZIndex();
     }
-
-    public void drawRegion(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
+    
+    public void drawRegionNoInc(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
             int regHeight, Color c, Camera camera) {
         if(texture == null){
             return;
@@ -99,6 +99,11 @@ public class SDFTexture {
         shader.drawTextureRegion(texture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), regX, regY,
                 regWidth, regHeight, c);
         shader.end();
+    }
+
+    public void drawRegion(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
+            int regHeight, Color c, Camera camera) {
+        drawRegionNoInc(drawX, drawY, width, height, regX, regY, regWidth, regHeight, c, camera);
         camera.incZIndex();
     }
 

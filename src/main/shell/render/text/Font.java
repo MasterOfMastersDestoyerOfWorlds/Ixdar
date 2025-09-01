@@ -146,13 +146,14 @@ public class Font {
             float glyphHeightPx = (g.planeTop - g.planeBottom) * pxPerEm * scale;
 
             if (glyphWidthPx > 0 && glyphHeightPx > 0) {
-                sdfTexture.drawRegion(drawX + glyphLeftPx, baselineY + glyphBottomPx,
+                sdfTexture.drawRegionNoInc(drawX + glyphLeftPx, baselineY + glyphBottomPx,
                         glyphWidthPx, glyphHeightPx,
                         g.x, g.y, g.width, g.height, c, camera);
             }
             penEm += g.advance;
             prevCodePoint = ch;
         }
+        camera.incZIndex();
         // sdfTexture.drawRegion handles zIndex increment per glyph
     }
 
