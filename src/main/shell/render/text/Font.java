@@ -117,7 +117,7 @@ public class Font {
         }
         float scale = glyphHeight / fontHeight;
         float drawX = x;
-        float baselineY = y + (ascenderPx * scale);
+        float baselineY = y + (ascenderPx * scale) *0.25f;
         float penEm = 0f;
         int prevCodePoint = -1;
 
