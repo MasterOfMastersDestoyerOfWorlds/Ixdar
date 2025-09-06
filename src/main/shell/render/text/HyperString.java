@@ -26,6 +26,7 @@ public class HyperString {
     public boolean wrap;
     public int charWrap = Integer.MAX_VALUE;
     public Bounds bounds;
+    public Object data;
     private int wrappedLines;
 
     public HyperString() {
@@ -35,7 +36,6 @@ public class HyperString {
         children = new ArrayList<>();
         lineStartMap.add(0);
         strMap.put(0, "");
-        MouseTrap.hyperStrings.add(this);
     }
 
     public void addWord(String word) {
@@ -354,4 +354,15 @@ public class HyperString {
         wrap = true;
     }
 
+    public void setData(Object data){
+        this.data = data;
+    }
+
+    public Object getData(){
+        return data;
+    }
+
+    public void draw(){
+        MouseTrap.hyperStrings.add(this);
+    }
 }

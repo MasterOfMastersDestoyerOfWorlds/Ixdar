@@ -288,6 +288,9 @@ public class Canvas3D {
         // frameBufferWidth / 2,
         // frameBufferHeight / 2, -1f, 1, Color.CYAN);
         // c.setAlpha(0.6f);
+        for(ShaderProgram s: shaders){
+            s.flush();
+        }
         totalPaintTime = endTime - startTime;
         //platform.log("total paint time: "+ totalPaintTime);
         //platform.log("checktime percent: " + ((double)checkPaintTime) / ((double) totalPaintTime) * 100.0);

@@ -88,7 +88,7 @@ public abstract class ShaderProgram {
 
     public final static float ORTHO_FAR = 1000f;
     public final static float ORTHO_NEAR = -ORTHO_FAR;
-    public final static float ORTHO_Z_INCREMENT= 0.1f;
+    public final static float ORTHO_Z_INCREMENT = 0.1f;
 
     @SuppressWarnings("unused")
     private String vertexShaderLocation, fragmentShaderLocation;
@@ -363,7 +363,7 @@ public abstract class ShaderProgram {
     }
 
     public void flush() {
-        if (numVertices > 0) {
+        if (useBuffer) {
             verteciesBuff.flip();
 
             if (vao != null) {
@@ -527,11 +527,10 @@ public abstract class ShaderProgram {
     public void drawTextureRegion(float x1, float y1, float x2, float y2, float zIndex, float s1, float t1, float s2,
             float t2,
             Color c) {
-        if (verteciesBuff.remaining() < 8 * 6) {
+        if (verteciesBuff.remaining() < 9 * 6) {
             /* We need more space in the buffer, so flush it */
             flush();
         }
-
         Vector4f color = c.toVector4f();
         float r = color.x;
         float g = color.y;
@@ -550,7 +549,7 @@ public abstract class ShaderProgram {
     }
 
     public void drawColorRegion(float x1, float y1, float x2, float y2, float zIndex, Color c) {
-        if (verteciesBuff.remaining() < 8 * 6) {
+        if (verteciesBuff.remaining() < 7 * 6) {
             /* We need more space in the buffer, so flush it */
             flush();
         }
@@ -574,7 +573,7 @@ public abstract class ShaderProgram {
 
     public void drawSDFRegion(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
             float zIndex, float s1, float t1, float s2, float t2, Color c) {
-        if (verteciesBuff.remaining() < 8 * 6) {
+        if (verteciesBuff.remaining() < 9 * 6) {
             /* We need more space in the buffer, so flush it */
             flush();
         }
@@ -598,7 +597,7 @@ public abstract class ShaderProgram {
 
     public void drawSDFLinearGradient(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
             float zIndex, float s1, float t1, float s2, float t2, Color c, Color c2) {
-        if (verteciesBuff.remaining() < 8 * 6) {
+        if (verteciesBuff.remaining() < 9 * 6) {
             /* We need more space in the buffer, so flush it */
             flush();
         }
@@ -633,7 +632,7 @@ public abstract class ShaderProgram {
 
             vbo.bind(gl.ARRAY_BUFFER());
 
-            verteciesBuff = buffers.allocateFloats(4096);
+            verteciesBuff = buffers.allocateFloats((int) Math.pow(2, 16));
 
             long size = verteciesBuff.capacity() * Float.BYTES;
             vbo.uploadData(gl.ARRAY_BUFFER(), size, gl.DYNAMIC_DRAW());

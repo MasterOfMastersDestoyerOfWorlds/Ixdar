@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.joml.Vector2f;
+
 import shell.cameras.Camera;
 import shell.cameras.Camera2D;
 import shell.platform.Platforms;
@@ -13,6 +15,7 @@ import shell.render.color.Color;
 import shell.render.sdf.SDFTexture;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
+import shell.ui.main.Main;
 
 public class Font {
 
@@ -158,7 +161,7 @@ public class Font {
 
     public void drawText(CharSequence text, float x, float y, float glyphHeight,
             Color c, Camera camera) {
-        if(sdfTexture == null){
+        if (sdfTexture == null) {
             return;
         }
         sdfTexture.setUniforms();
@@ -205,7 +208,9 @@ public class Font {
 
     public void drawHyperString(HyperString hyperString, float x, float y, float height, Camera2D camera) {
         hyperString.setLineOffsetCentered(camera, x, y, this, 0);
+        sdfTexture.setUniforms();
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
+            hyperString.draw();
             ArrayList<Word> words = hyperString.getLine(lineNumber);
             for (int i = 0; i < words.size(); i++) {
                 Word word = words.get(i);
@@ -216,21 +221,52 @@ public class Font {
                                 camera);
                     }
                 } else {
-                    drawText(word.text, word.x,
+                    drawTextNoSetup(word.text, word.x,
                             word.y, height, word.color,
                             camera);
                 }
             }
         }
+        sdfTexture.cleanup(camera);
+    }
+
+    public void drawHyperStrings(ArrayList<HyperString> hyperStrings, ArrayList<Vector2f> xLoc, float height,
+            Camera2D camera) {
+        sdfTexture.setUniforms();
+        for (int j = 0; j < hyperStrings.size(); j++) {
+            Vector2f loc = xLoc.get(j);
+            HyperString hyperString = hyperStrings.get(j);
+            hyperString.setLineOffsetCentered(camera, loc.x, loc.y, this, 0);
+            hyperString.draw();
+            for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
+                ArrayList<Word> words = hyperString.getLine(lineNumber);
+                for (int i = 0; i < words.size(); i++) {
+                    Word word = words.get(i);
+                    if (word.subWords != null) {
+                        for (Word subWord : word.subWords) {
+                            drawTextNoSetup(subWord.text, subWord.x,
+                                    subWord.y, height, subWord.color,
+                                    camera);
+                        }
+                    } else {
+                        drawTextNoSetup(word.text, word.x,
+                                word.y, height, word.color,
+                                camera);
+                    }
+                }
+            }
+        }
+        sdfTexture.cleanup(camera);
     }
 
     public void drawHyperStringRows(HyperString hyperString, int row, float scrollOffsetY, float height,
             Camera2D camera) {
-        if(sdfTexture == null){
+        if (sdfTexture == null) {
             return;
         }
         sdfTexture.setUniforms();
         hyperString.setLineOffsetFromTopRow(camera, row, scrollOffsetY, height, this);
+        hyperString.draw();
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
             ArrayList<Word> words = hyperString.getLine(lineNumber);
             for (int i = 0; i < words.size(); i++) {

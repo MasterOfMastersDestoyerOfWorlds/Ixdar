@@ -359,15 +359,14 @@ public class Drawing {
         PointND last = shell.getLast();
         PointND next;
         int count = 0;
-        for (PointND p : shell) {
-            next = shell.getNext(count);
-            float x = camera.pointTransformX(p.getScreenX());
-            float y = camera.pointTransformY(p.getScreenY());
-            if (drawCircles) {
-                circle.draw(new Vector2f(x, y), CIRCLE_RADIUS * scale, color, camera);
-            }
-
-            if (drawNumbers) {
+        if (drawNumbers) {
+            ArrayList<HyperString> hyperStrings = shell.getHyperStrings(color);
+            ArrayList<Vector2f> xLoc = new ArrayList<>();
+            for (HyperString h : hyperStrings) {
+                PointND p = (PointND) h.getData();
+                float x = camera.pointTransformX(p.getScreenX());
+                float y = camera.pointTransformY(p.getScreenY());
+                next = shell.getNext(count);
                 float numberPixelDistance = scale * FONT_HEIGHT_LABELS_PIXELS / 4;
                 Vector2f point = new Vector2f(x, y);
                 Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getScreenX()),
@@ -377,15 +376,18 @@ public class Drawing {
                 Vector2f bisector = new Vector2f(lastVector).normalize().add(new Vector2f(nextVector).normalize())
                         .normalize().mul(numberPixelDistance);
                 Vector2f textCenter = point.sub(bisector);
-                HyperString number = new HyperString();
-                HyperString pointInfo = new HyperString();
-                pointInfo.addWord(p.toString());
-                number.addTooltip(p.getID() + "", color, pointInfo, () -> {
-                });
-                number.debug = true;
-                Drawing.font.drawHyperString(number, textCenter.x, textCenter.y,
-                        scale * FONT_HEIGHT_LABELS_PIXELS, camera);
+                xLoc.add(textCenter);
             }
+            font.drawHyperStrings(hyperStrings, xLoc, scale * FONT_HEIGHT_LABELS_PIXELS, camera);
+        }
+        for (PointND p : shell) {
+            next = shell.getNext(count);
+            float x = camera.pointTransformX(p.getScreenX());
+            float y = camera.pointTransformY(p.getScreenY());
+            if (drawCircles) {
+                circle.draw(new Vector2f(x, y), CIRCLE_RADIUS * scale, color, camera);
+            }
+
             if (drawLines) {
                 float lx = camera.pointTransformX(last.getScreenX());
                 float ly = camera.pointTransformY(last.getScreenY());

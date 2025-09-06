@@ -20,7 +20,9 @@ import shell.exceptions.SegmentBalanceException;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.point.PointND;
+import shell.render.text.HyperString;
 import shell.utils.StringBuff;
+import shell.render.color.Color;
 
 /**
  * This class represents a list of some points in the point set. Initially each
@@ -45,6 +47,7 @@ public class Shell extends LinkedList<PointND> {
     boolean skipHalfKnotFlag = true;
     public ArrayList<Segment> sortedSegments;
     public HashMap<Long, Segment> segmentLookup;
+    public ArrayList<HyperString> hyperStrings = new ArrayList<>();
 
     public Shell() {
         pointMap = new HashMap<>();
@@ -727,6 +730,26 @@ public class Shell extends LinkedList<PointND> {
             }
         }
         return null;
+    }
+
+    public ArrayList<HyperString> getHyperStrings(Color c) {
+        if (hyperStrings.size() == this.size()) {
+            return hyperStrings;
+        }
+        hyperStrings = new ArrayList<>();
+        for (PointND p : this) {
+            HyperString number = new HyperString();
+            HyperString pointInfo = new HyperString();
+            pointInfo.addWord(p.toString());
+            number.addTooltip(p.getID() + "", c, pointInfo, () -> {
+            });
+            number.debug = true;
+            number.setData(p);
+            hyperStrings.add(number);
+
+
+        }
+        return hyperStrings;
     }
 
 }

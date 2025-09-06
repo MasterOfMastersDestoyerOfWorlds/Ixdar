@@ -257,10 +257,6 @@ public abstract class Tool {
         if(toolInfoHyperString == null){
             toolInfoHyperString = buildInfoText();
         }
-        for(HyperString h : toolInfoHyperString.children){
-            MouseTrap.hyperStrings.add(h);
-        }
-        MouseTrap.hyperStrings.add(toolInfoHyperString);
         return toolInfoHyperString;
     };
 
