@@ -23,6 +23,10 @@ public final class WebLauncher {
     public static boolean broken = false;
     private static Platform platform;
 
+    // Multi-scene support
+    private static BouncingLineScene bouncingLineScene;
+    private static boolean bouncingLineInitialized = false;
+
     public static void main(String[] args) {
         startTime = Clock.time();
         // Ensure JOML does not use DecimalFormat patterns unsupported in TeaVM
@@ -40,7 +44,7 @@ public final class WebLauncher {
 
         Platforms.init(new WebPlatform(), new WebGL(canvas));
         platform = Platforms.get();
-        platform.log("WebLauncher is running");
+        platform.log("WebLauncher is running with multi-scene support");
         // Provide default buffers implementation for web
         Platforms.setBuffers(new shell.platform.buffers.DefaultBuffers());
         Window.requestAnimationFrame(ts -> tick());
@@ -61,10 +65,37 @@ public final class WebLauncher {
         }
     }
 
+    private static void initBouncingLineIfNeeded() {
+        if (bouncingLineInitialized)
+            return;
+        try {
+            bouncingLineScene = new BouncingLineScene();
+            bouncingLineInitialized = true;
+            platform.log("Bouncing line scene initialized");
+        } catch (Exception e) {
+            platform.log("Bouncing line init error: " + e.getMessage());
+        }
+    }
+
     private static void tick() {
         initAppIfNeeded();
+        initBouncingLineIfNeeded();
+
+        // Render Ixdar scene first (exactly as original)
+        renderIxdarScene();
+
+        // Render bouncing line scene
+        renderBouncingLineScene();
+
+        Window.requestAnimationFrame(ts -> tick());
+    }
+
+    private static void renderIxdarScene() {
         GL gl = Platforms.gl();
         HTMLCanvasElement canvas = (HTMLCanvasElement) Window.current().getDocument().getElementById("ixdar-canvas");
+        if (canvas == null)
+            return;
+
         int w = canvas.getClientWidth();
         int h = canvas.getClientHeight();
         if (w <= 0)
@@ -87,7 +118,8 @@ public final class WebLauncher {
                 Canvas3D.canvas.paintGL();
             } catch (Exception t) {
                 for (StackTraceElement e : t.getStackTrace()) {
-                    platform.log("Render error: " + e.getMethodName() + " " + e.getFileName() + " " + e.getLineNumber());
+                    platform.log(
+                            "Render error: " + e.getMethodName() + " " + e.getFileName() + " " + e.getLineNumber());
                 }
                 platform.log(t.getMessage());
                 broken = true;
@@ -95,9 +127,52 @@ public final class WebLauncher {
         } else {
             drawFallbackTriangle(gl);
         }
-        Window.requestAnimationFrame(ts -> tick());
     }
 
+    private static void renderBouncingLineScene() {
+        if (!bouncingLineInitialized || bouncingLineScene == null)
+            return;
+
+        HTMLCanvasElement canvas = (HTMLCanvasElement) Window.current().getDocument()
+                .getElementById("bouncing-line-canvas");
+        if (canvas == null)
+            return;
+
+        try {
+            // Create a temporary WebGL context for the bouncing line canvas
+            WebGL webGL = new WebGL(canvas);
+            WebPlatform tempPlatform = new WebPlatform("bouncing-line-canvas");
+
+            // Temporarily switch to bouncing line context
+            Platforms.init(tempPlatform, webGL);
+            GL gl = Platforms.gl();
+
+            int w = canvas.getClientWidth();
+            int h = canvas.getClientHeight();
+            if (w <= 0)
+                w = 400;
+            if (h <= 0)
+                h = 300;
+            if (canvas.getWidth() != w)
+                canvas.setWidth(w);
+            if (canvas.getHeight() != h)
+                canvas.setHeight(h);
+
+            // Render the bouncing line scene
+            bouncingLineScene.render(gl, w, h);
+
+        } catch (Exception e) {
+            platform.log("Bouncing line render error: " + e.getMessage());
+        } finally {
+            // Restore original Ixdar context
+            HTMLCanvasElement ixdarCanvas = (HTMLCanvasElement) Window.current().getDocument()
+                    .getElementById("ixdar-canvas");
+            if (ixdarCanvas != null) {
+                Platforms.init(new WebPlatform(), new WebGL(ixdarCanvas));
+                platform = Platforms.get();
+            }
+        }
+    }
 
     public static void setTitle(String string) {
         Window.current().getDocument().setTitle(string);

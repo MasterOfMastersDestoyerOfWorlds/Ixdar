@@ -29,7 +29,8 @@ import shell.ui.WebLauncher;
 
 public class WebPlatform implements Platform {
 
-    private final HTMLCanvasElement canvas;
+    private HTMLCanvasElement canvas;
+    private String currentCanvasId;
 
     private KeyCallback keyCallback;
     private CharCallback charCallback;
@@ -38,15 +39,51 @@ public class WebPlatform implements Platform {
     private ScrollCallback scrollCallback;
 
     public WebPlatform() {
+        // Default to Ixdar canvas for backward compatibility
+        this.currentCanvasId = "ixdar-canvas";
+        this.canvas = getOrCreateCanvas(currentCanvasId);
+        setupEventListeners();
+    }
+
+    public WebPlatform(String canvasId) {
+        this.currentCanvasId = canvasId;
+        this.canvas = getOrCreateCanvas(canvasId);
+        setupEventListeners();
+    }
+
+    private HTMLCanvasElement getOrCreateCanvas(String canvasId) {
         HTMLDocument document = Window.current().getDocument();
-        HTMLCanvasElement cnv = (HTMLCanvasElement) document.getElementById("ixdar-canvas");
+        HTMLCanvasElement cnv = (HTMLCanvasElement) document.getElementById(canvasId);
         if (cnv == null) {
             cnv = (HTMLCanvasElement) document.createElement("canvas");
-            cnv.setId("ixdar-canvas");
+            cnv.setId(canvasId);
             HTMLElement body = document.getBody();
             body.appendChild(cnv);
         }
-        this.canvas = cnv;
+        return cnv;
+    }
+
+    /**
+     * Switch to a different canvas
+     */
+    public void switchCanvas(String canvasId) {
+        this.currentCanvasId = canvasId;
+        this.canvas = getOrCreateCanvas(canvasId);
+        setupEventListeners();
+    }
+
+    /**
+     * Get the current canvas ID
+     */
+    public String getCurrentCanvasId() {
+        return currentCanvasId;
+    }
+
+    private void setupEventListeners() {
+
+        // Remove existing listeners first (if any)
+        // Note: In a more complete implementation, we'd store references to remove them
+        // properly
 
         // Mouse move
         canvas.addEventListener("mousemove", (EventListener<MouseEvent>) e -> {
@@ -73,7 +110,7 @@ public class WebPlatform implements Platform {
                 scrollCallback.onScroll(0, e.getDeltaY());
             }
         });
-        // Keys
+        // Keys - attach to document for global key handling
         Window.current().getDocument().addEventListener("keydown", (EventListener<KeyboardEvent>) e -> {
             if (keyCallback != null) {
                 keyCallback.onKey(e.getKeyCode(), 0, Keys.ACTION_PRESS, 0);

@@ -10,19 +10,31 @@
         body {
             height: 100%;
             margin: 0;
-            background: #111
+            background: #111;
         }
 
-        #ixdar-canvas {
-            width: 100vw;
+        .canvas-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             height: 100vh;
-            display: block
+            gap: 0;
+        }
+
+        #ixdar-canvas,
+        #bouncing-line-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
         }
     </style>
 </head>
 
 <body>
-    <canvas id="ixdar-canvas"></canvas>
+    <div class="canvas-container">
+        <canvas id="ixdar-canvas"></canvas>
+        <canvas id="bouncing-line-canvas"></canvas>
+    </div>
+
     <script src="classes.js"></script>
     <script>
         try {
@@ -33,7 +45,9 @@
             } else {
                 console.log('Could not locate entrypoint function');
             }
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+        }
     </script>
 </body>
 
