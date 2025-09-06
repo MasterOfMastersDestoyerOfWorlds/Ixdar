@@ -81,11 +81,34 @@ public final class WebLauncher {
         initAppIfNeeded();
         initBouncingLineIfNeeded();
 
-        // Render Ixdar scene first (exactly as original)
-        renderIxdarScene();
+        if (!broken) {
+            try {
+                // Render Ixdar scene using traditional method
+                renderIxdarScene();
 
-        // Render bouncing line scene
-        renderBouncingLineScene();
+                // Render bouncing line scene
+                renderBouncingLineScene();
+            } catch (Exception t) {
+                for (StackTraceElement e : t.getStackTrace()) {
+                    platform.log("Multi-scene render error: " + e.getMethodName() + " " + e.getFileName() + " "
+                            + e.getLineNumber());
+                }
+                platform.log(t.getMessage());
+                broken = true;
+            }
+        } else {
+            // Draw fallback on the main canvas
+            HTMLCanvasElement mainCanvas = (HTMLCanvasElement) Window.current().getDocument()
+                    .getElementById("ixdar-canvas");
+            if (mainCanvas != null) {
+                WebGL webGL = new WebGL(mainCanvas);
+                Platforms.init(new WebPlatform(), webGL);
+                GL gl = Platforms.gl();
+                if (gl != null) {
+                    drawFallbackTriangle(gl);
+                }
+            }
+        }
 
         Window.requestAnimationFrame(ts -> tick());
     }
@@ -106,27 +129,17 @@ public final class WebLauncher {
             canvas.setWidth(w);
         if (canvas.getHeight() != h)
             canvas.setHeight(h);
+
         gl.viewport(0, 0, w, h);
         gl.clearColor(0.02f, 0.02f, 0.02f, 1.0f);
         gl.clear(gl.COLOR_BUFFER_BIT());
+
         // Ensure framebuffer dimensions are up-to-date for projection matrices
-        shell.ui.Canvas3D.frameBufferWidth = w;
-        shell.ui.Canvas3D.frameBufferHeight = h;
-        if (!broken) {
-            try {
-                // Drive the existing rendering path
-                Canvas3D.canvas.paintGL();
-            } catch (Exception t) {
-                for (StackTraceElement e : t.getStackTrace()) {
-                    platform.log(
-                            "Render error: " + e.getMethodName() + " " + e.getFileName() + " " + e.getLineNumber());
-                }
-                platform.log(t.getMessage());
-                broken = true;
-            }
-        } else {
-            drawFallbackTriangle(gl);
-        }
+        Canvas3D.frameBufferWidth = w;
+        Canvas3D.frameBufferHeight = h;
+
+        // Drive the existing rendering path
+        Canvas3D.canvas.paintGL();
     }
 
     private static void renderBouncingLineScene() {
@@ -139,7 +152,7 @@ public final class WebLauncher {
             return;
 
         try {
-            // Create a temporary WebGL context for the bouncing line canvas
+            // Create a separate WebGL context for the bouncing line canvas
             WebGL webGL = new WebGL(canvas);
             WebPlatform tempPlatform = new WebPlatform("bouncing-line-canvas");
 
@@ -158,7 +171,9 @@ public final class WebLauncher {
             if (canvas.getHeight() != h)
                 canvas.setHeight(h);
 
-            // Render the bouncing line scene
+            gl.viewport(0, 0, w, h);
+
+            // Render the bouncing line scene (simple implementation)
             bouncingLineScene.render(gl, w, h);
 
         } catch (Exception e) {

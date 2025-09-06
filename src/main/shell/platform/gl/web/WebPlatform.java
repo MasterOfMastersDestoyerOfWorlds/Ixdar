@@ -25,6 +25,7 @@ import shell.platform.gl.Platform;
 import shell.platform.input.Keys;
 import shell.render.Texture;
 import shell.render.text.FontAtlasDTO;
+import shell.ui.Canvas3D;
 import shell.ui.WebLauncher;
 
 public class WebPlatform implements Platform {
@@ -64,12 +65,12 @@ public class WebPlatform implements Platform {
     }
 
     /**
-     * Switch to a different canvas
+     * Register a Canvas3D instance with its HTML canvas - sets up event listeners
+     * once
      */
-    public void switchCanvas(String canvasId) {
-        this.currentCanvasId = canvasId;
-        this.canvas = getOrCreateCanvas(canvasId);
-        setupEventListeners();
+    public void registerCanvas(Canvas3D canvas3D, String canvasId) {
+        HTMLCanvasElement htmlCanvas = getOrCreateCanvas(canvasId);
+        setupEventListenersForCanvas(htmlCanvas, canvas3D);
     }
 
     /**
@@ -80,55 +81,69 @@ public class WebPlatform implements Platform {
     }
 
     private void setupEventListeners() {
+        // Keep this for backward compatibility - sets up listeners for the main canvas
+        setupEventListenersForCanvas(this.canvas, null);
+    }
 
-        // Remove existing listeners first (if any)
-        // Note: In a more complete implementation, we'd store references to remove them
-        // properly
+    private void setupEventListenersForCanvas(HTMLCanvasElement htmlCanvas, Canvas3D canvas3D) {
+        // For now, use the fallback callback system to avoid Canvas3D static conflicts
+        // The specific canvas3D instance will be handled during rendering
 
         // Mouse move
-        canvas.addEventListener("mousemove", (EventListener<MouseEvent>) e -> {
+        htmlCanvas.addEventListener("mousemove", (EventListener<MouseEvent>) e -> {
             if (cursorPosCallback != null) {
-                cursorPosCallback.onMousePos(0L, e.getClientX(), e.getClientY());
+                // Use offsetX and offsetY for canvas-relative coordinates
+                double canvasX = e.getOffsetX();
+                double canvasY = e.getOffsetY();
+                cursorPosCallback.onMousePos(0L, canvasX, canvasY);
             }
         });
+
         // Mouse buttons
-        canvas.addEventListener("mousedown", (EventListener<MouseEvent>) e -> {
+        htmlCanvas.addEventListener("mousedown", (EventListener<MouseEvent>) e -> {
             WebPlatformHelper.leftDown = true;
             if (mouseButtonCallback != null) {
                 mouseButtonCallback.onMouseButton(0, Keys.ACTION_PRESS, 0);
             }
         });
-        canvas.addEventListener("mouseup", (EventListener<MouseEvent>) e -> {
+
+        htmlCanvas.addEventListener("mouseup", (EventListener<MouseEvent>) e -> {
             WebPlatformHelper.leftDown = false;
             if (mouseButtonCallback != null) {
                 mouseButtonCallback.onMouseButton(0, Keys.ACTION_RELEASE, 0);
             }
         });
+
         // Wheel
-        canvas.addEventListener("wheel", (EventListener<WheelEvent>) e -> {
+        htmlCanvas.addEventListener("wheel", (EventListener<WheelEvent>) e -> {
             if (scrollCallback != null) {
                 scrollCallback.onScroll(0, e.getDeltaY());
             }
         });
-        // Keys - attach to document for global key handling
-        Window.current().getDocument().addEventListener("keydown", (EventListener<KeyboardEvent>) e -> {
-            if (keyCallback != null) {
-                keyCallback.onKey(e.getKeyCode(), 0, Keys.ACTION_PRESS, 0);
-            }
-        });
-        Window.current().getDocument().addEventListener("keyup", (EventListener<KeyboardEvent>) e -> {
-            if (keyCallback != null) {
-                keyCallback.onKey(e.getKeyCode(), 0, Keys.ACTION_RELEASE, 0);
-            }
-        });
-        Window.current().getDocument().addEventListener("keypress", (EventListener<KeyboardEvent>) e -> {
-            if (charCallback != null) {
-                String k = e.getKey();
-                if (k != null && k.length() == 1) {
-                    charCallback.onChar(k.charAt(0));
+
+        // Keys - attach to document for global key handling (shared across all
+        // canvases)
+        // Only set up once to avoid duplicate listeners
+        if (htmlCanvas.getId().equals("ixdar-canvas")) {
+            Window.current().getDocument().addEventListener("keydown", (EventListener<KeyboardEvent>) e -> {
+                if (keyCallback != null) {
+                    keyCallback.onKey(e.getKeyCode(), 0, Keys.ACTION_PRESS, 0);
                 }
-            }
-        });
+            });
+            Window.current().getDocument().addEventListener("keyup", (EventListener<KeyboardEvent>) e -> {
+                if (keyCallback != null) {
+                    keyCallback.onKey(e.getKeyCode(), 0, Keys.ACTION_RELEASE, 0);
+                }
+            });
+            Window.current().getDocument().addEventListener("keypress", (EventListener<KeyboardEvent>) e -> {
+                if (charCallback != null) {
+                    String k = e.getKey();
+                    if (k != null && k.length() == 1) {
+                        charCallback.onChar(k.charAt(0));
+                    }
+                }
+            });
+        }
     }
 
     @Override

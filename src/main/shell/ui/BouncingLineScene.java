@@ -3,7 +3,7 @@ package shell.ui;
 import shell.platform.gl.GL;
 
 /**
- * A simple bouncing line scene for demonstration This will be implemented later
+ * A simple bouncing line scene - standalone implementation
  */
 public class BouncingLineScene {
 
@@ -11,20 +11,12 @@ public class BouncingLineScene {
     private float lineY = 0.0f;
     private float velocityX = 0.01f;
     private float velocityY = 0.01f;
-    private boolean initialized = false;
-    private int shaderProgram = -1;
-    private int vertexBuffer = -1;
 
     public BouncingLineScene() {
-        // Constructor - actual initialization will happen in render
+        // Simple constructor
     }
 
     public void render(GL gl, int width, int height) {
-        if (!initialized) {
-            initializeShaders(gl);
-            initialized = true;
-        }
-
         // Update line position
         lineX += velocityX;
         lineY += velocityY;
@@ -37,30 +29,14 @@ public class BouncingLineScene {
             velocityY = -velocityY;
         }
 
-        // Draw a simple line (placeholder implementation)
-        // TODO: Implement actual line rendering
-        // For now, just clear with a different color to show it's working
-        gl.clearColor(0.1f, 0.3f, 0.1f, 1.0f);
+        // Clear the screen with green background to show it's working
+        gl.clearColor(0.1f, 0.5f, 0.1f, 1.0f);
+        gl.clear(gl.COLOR_BUFFER_BIT());
+
+        // TODO: Add actual line rendering here using OpenGL primitives
+        // For now, just the green background with changing intensity based on position
+        float intensity = (lineX + 1.0f) * 0.5f; // Convert -1..1 to 0..1
+        gl.clearColor(0.1f, intensity * 0.5f + 0.2f, 0.1f, 1.0f);
         gl.clear(gl.COLOR_BUFFER_BIT());
     }
-
-    private void initializeShaders(GL gl) {
-        // TODO: Implement shader initialization for line rendering
-        // This is a placeholder that will be expanded later
-
-        String vertexShader = "precision mediump float;\n" +
-                "attribute vec2 a_position;\n" +
-                "void main() {\n" +
-                "    gl_Position = vec4(a_position, 0.0, 1.0);\n" +
-                "}";
-
-        String fragmentShader = "precision mediump float;\n" +
-                "void main() {\n" +
-                "    gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0);\n" +
-                "}";
-
-        // Shader compilation would go here
-        // For now, this is just a placeholder
-    }
 }
-
