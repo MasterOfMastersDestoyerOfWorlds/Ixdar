@@ -16,8 +16,6 @@ import org.teavm.jso.dom.events.KeyboardEvent;
 import org.teavm.jso.dom.events.MouseEvent;
 import org.teavm.jso.dom.events.WheelEvent;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
-import org.teavm.jso.dom.html.HTMLDocument;
-import org.teavm.jso.dom.html.HTMLElement;
 import org.teavm.jso.typedarrays.Uint8ClampedArray;
 
 import shell.file.TextFile;
@@ -25,7 +23,6 @@ import shell.platform.gl.Platform;
 import shell.platform.input.Keys;
 import shell.render.Texture;
 import shell.render.text.FontAtlasDTO;
-import shell.ui.Canvas3D;
 import shell.ui.WebLauncher;
 
 public class WebPlatform implements Platform {
@@ -39,38 +36,10 @@ public class WebPlatform implements Platform {
     private MouseButtonCallback mouseButtonCallback;
     private ScrollCallback scrollCallback;
 
-    public WebPlatform() {
-        // Default to Ixdar canvas for backward compatibility
-        this.currentCanvasId = "ixdar-canvas";
-        this.canvas = getOrCreateCanvas(currentCanvasId);
-        setupEventListeners();
-    }
-
-    public WebPlatform(String canvasId) {
-        this.currentCanvasId = canvasId;
-        this.canvas = getOrCreateCanvas(canvasId);
-        setupEventListeners();
-    }
-
-    private HTMLCanvasElement getOrCreateCanvas(String canvasId) {
-        HTMLDocument document = Window.current().getDocument();
-        HTMLCanvasElement cnv = (HTMLCanvasElement) document.getElementById(canvasId);
-        if (cnv == null) {
-            cnv = (HTMLCanvasElement) document.createElement("canvas");
-            cnv.setId(canvasId);
-            HTMLElement body = document.getBody();
-            body.appendChild(cnv);
-        }
-        return cnv;
-    }
-
-    /**
-     * Register a Canvas3D instance with its HTML canvas - sets up event listeners
-     * once
-     */
-    public void registerCanvas(Canvas3D canvas3D, String canvasId) {
-        HTMLCanvasElement htmlCanvas = getOrCreateCanvas(canvasId);
-        setupEventListenersForCanvas(htmlCanvas, canvas3D);
+    public WebPlatform(HTMLCanvasElement canvas, String id) {
+        this.currentCanvasId = id;
+        this.canvas = canvas;
+        setupEventListeners(canvas);
     }
 
     /**
@@ -80,12 +49,8 @@ public class WebPlatform implements Platform {
         return currentCanvasId;
     }
 
-    private void setupEventListeners() {
-        // Keep this for backward compatibility - sets up listeners for the main canvas
-        setupEventListenersForCanvas(this.canvas, null);
-    }
 
-    private void setupEventListenersForCanvas(HTMLCanvasElement htmlCanvas, Canvas3D canvas3D) {
+    private void setupEventListeners(HTMLCanvasElement htmlCanvas) {
         // For now, use the fallback callback system to avoid Canvas3D static conflicts
         // The specific canvas3D instance will be handled during rendering
 

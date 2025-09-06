@@ -1,11 +1,10 @@
 package shell.ui;
 
-import shell.platform.gl.GL;
 
 /**
  * A simple bouncing line scene - standalone implementation
  */
-public class BouncingLineScene {
+public class BouncingLineScene extends Canvas3D {
 
     private float lineX = 0.0f;
     private float lineY = 0.0f;
@@ -16,7 +15,8 @@ public class BouncingLineScene {
         // Simple constructor
     }
 
-    public void render(GL gl, int width, int height) {
+    @Override
+    public void paintGL() {
         // Update line position
         lineX += velocityX;
         lineY += velocityY;

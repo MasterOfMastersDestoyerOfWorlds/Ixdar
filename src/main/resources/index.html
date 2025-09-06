@@ -1,54 +1,46 @@
-<!doctype html>
-<html>
+<p></p><div class="canvas-container">
+    <canvas id="ixdar-canvas" width="1423" height="889"></canvas>
+</div>
 
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ixdar Web</title>
-    <style>
-        html,
-        body {
-            height: 100%;
-            margin: 0;
-            background: #111;
-        }
-
-        .canvas-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            height: 100vh;
-            gap: 0;
-        }
-
-        #ixdar-canvas,
-        #bouncing-line-canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="canvas-container">
-        <canvas id="ixdar-canvas"></canvas>
-        <canvas id="bouncing-line-canvas"></canvas>
-    </div>
-
-    <script src="classes.js"></script>
-    <script>
+<script>
+(function() {
+    
+    var script = document.createElement('script');
+    script.src = '/ixdar/classes.js';
+    script.onload = function() {
         try {
-            if (typeof main === 'function') {
-                main([]);
-            } else if (typeof shell_ui_WebLauncher_main === 'function') {
-                shell_ui_WebLauncher_main([]);
-            } else {
-                console.log('Could not locate entrypoint function');
-            }
+            main(["ixdar-canvas"]);
         } catch (e) {
-            console.error(e);
+            console.error('Error in ixdar-canvas:', e);
         }
-    </script>
-</body>
+    };
+    script.onerror = function() {
+        console.error('Failed to load classes.js for ixdar-canvas');
+    };
+    document.head.appendChild(script);
+})();
+</script>
 
-</html>
+<div class="canvas-container">
+    <canvas id="bouncing-line-canvas" width="1423" height="889"></canvas>
+</div>
+
+<script>
+(function() {
+    
+    var script = document.createElement('script');
+    script.src = '/ixdar/classes.js';
+    script.onload = function() {
+        try {
+            main(["bouncing-line-canvas"]);
+        } catch (e) {
+            console.error('Error in bouncing-line-canvas:', e);
+        }
+    };
+    script.onerror = function() {
+        console.error('Failed to load classes.js for bouncing-line-canvas');
+    };
+    document.head.appendChild(script);
+})();
+</script>
+<p></p>

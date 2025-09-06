@@ -1,10 +1,16 @@
 package shell.ui;
 
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.InvocationTargetException;
+import java.util.function.Supplier;
+
 import org.teavm.jso.browser.Window;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.dom.html.HTMLDocument;
 import org.teavm.jso.dom.html.HTMLElement;
 
+import shell.exceptions.TerminalParseException;
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
 import shell.platform.gl.Platform;
@@ -19,75 +25,95 @@ public final class WebLauncher {
     }
 
     public static float startTime;
-    private static boolean initialized;
     public static boolean broken = false;
     private static Platform platform;
 
-    // Multi-scene support
-    private static BouncingLineScene bouncingLineScene;
-    private static boolean bouncingLineInitialized = false;
+    private static String DEFAULT_CANVAS_NAME = "ixdar-canvas";
+    private static Canvas3D canvas3d;
+    private static HTMLCanvasElement canvas;
 
-    public static void main(String[] args) {
+    public enum CanvasScene {
+        Ixdar("ixdar-canvas", () -> {
+            try {
+                Main.main = new Main("djbouti");
+            } catch (TerminalParseException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            return new Canvas3D();}),
+        BouncingLineScene("bouncing-line-canvas", () -> {return new BouncingLineScene();});
+        public String id;
+        public Supplier<? extends Canvas3D> newScene;
+        CanvasScene(String id, Supplier<? extends Canvas3D> scene) {
+            this.id = id;
+            this.newScene = scene;
+        }
+
+    }
+
+    public static void main(String[] args) throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException, UnsupportedEncodingException, IOException {
         startTime = Clock.time();
-        // Ensure JOML does not use DecimalFormat patterns unsupported in TeaVM
         System.setProperty("joml.format", "false");
         HTMLDocument document = Window.current().getDocument();
-        HTMLCanvasElement canvas = (HTMLCanvasElement) document.getElementById("ixdar-canvas");
+        String canvasId = args[0];
+        canvas = (HTMLCanvasElement) document.getElementById(canvasId);
         if (canvas == null) {
             canvas = (HTMLCanvasElement) document.createElement("canvas");
-            canvas.setId("ixdar-canvas");
+            canvas.setId(canvasId);
             canvas.setWidth(800);
             canvas.setHeight(600);
             HTMLElement body = document.getBody();
             body.appendChild(canvas);
         }
 
-        Platforms.init(new WebPlatform(), new WebGL(canvas));
+        Platforms.init(new WebPlatform(canvas, canvasId), new WebGL(canvas));
         platform = Platforms.get();
         platform.log("WebLauncher is running with multi-scene support");
+        for(CanvasScene cs : CanvasScene.values()){
+            if(cs.id.equals(canvasId)){
+                canvas3d = (Canvas3D) cs.newScene.get();
+                canvas3d.initGL();
+                break;
+            }
+        }
         // Provide default buffers implementation for web
         Platforms.setBuffers(new shell.platform.buffers.DefaultBuffers());
         Window.requestAnimationFrame(ts -> tick());
     }
 
-    private static void initAppIfNeeded() {
-        if (initialized)
-            return;
-        try {
-            // Initialize app with default dataset 'djbouti'
-            Main.main = new Main("djbouti");
-            // Ensure Canvas3D static states mirror desktop
-            new Canvas3D().initGL();
-            initialized = true;
-        } catch (Exception e) {
-            platform.log("Init error: " + e.getMessage());
-            // Show fallback triangle if init fails
-        }
-    }
-
-    private static void initBouncingLineIfNeeded() {
-        if (bouncingLineInitialized)
-            return;
-        try {
-            bouncingLineScene = new BouncingLineScene();
-            bouncingLineInitialized = true;
-            platform.log("Bouncing line scene initialized");
-        } catch (Exception e) {
-            platform.log("Bouncing line init error: " + e.getMessage());
-        }
-    }
-
     private static void tick() {
-        initAppIfNeeded();
-        initBouncingLineIfNeeded();
 
         if (!broken) {
             try {
-                // Render Ixdar scene using traditional method
-                renderIxdarScene();
+                GL gl = Platforms.gl();
 
-                // Render bouncing line scene
-                renderBouncingLineScene();
+                if (canvas == null)
+                    return;
+        
+                int w = canvas.getClientWidth();
+                int h = canvas.getClientHeight();
+                if (w <= 0)
+                    w = 800;
+                if (h <= 0)
+                    h = 600;
+                if (canvas.getWidth() != w)
+                    canvas.setWidth(w);
+                if (canvas.getHeight() != h)
+                    canvas.setHeight(h);
+        
+                gl.viewport(0, 0, w, h);
+                gl.clearColor(0.02f, 0.02f, 0.02f, 1.0f);
+                gl.clear(gl.COLOR_BUFFER_BIT());
+        
+                // Ensure framebuffer dimensions are up-to-date for projection matrices
+                Canvas3D.frameBufferWidth = w;
+                Canvas3D.frameBufferHeight = h;
+        
+                // Drive the existing rendering path
+                canvas3d.paintGL();
             } catch (Exception t) {
                 for (StackTraceElement e : t.getStackTrace()) {
                     platform.log("Multi-scene render error: " + e.getMethodName() + " " + e.getFileName() + " "
@@ -98,11 +124,9 @@ public final class WebLauncher {
             }
         } else {
             // Draw fallback on the main canvas
-            HTMLCanvasElement mainCanvas = (HTMLCanvasElement) Window.current().getDocument()
-                    .getElementById("ixdar-canvas");
-            if (mainCanvas != null) {
-                WebGL webGL = new WebGL(mainCanvas);
-                Platforms.init(new WebPlatform(), webGL);
+            if (canvas != null) {
+                WebGL webGL = new WebGL(canvas);
+                Platforms.init(new WebPlatform(canvas, DEFAULT_CANVAS_NAME), webGL);
                 GL gl = Platforms.gl();
                 if (gl != null) {
                     drawFallbackTriangle(gl);
@@ -111,82 +135,6 @@ public final class WebLauncher {
         }
 
         Window.requestAnimationFrame(ts -> tick());
-    }
-
-    private static void renderIxdarScene() {
-        GL gl = Platforms.gl();
-        HTMLCanvasElement canvas = (HTMLCanvasElement) Window.current().getDocument().getElementById("ixdar-canvas");
-        if (canvas == null)
-            return;
-
-        int w = canvas.getClientWidth();
-        int h = canvas.getClientHeight();
-        if (w <= 0)
-            w = 800;
-        if (h <= 0)
-            h = 600;
-        if (canvas.getWidth() != w)
-            canvas.setWidth(w);
-        if (canvas.getHeight() != h)
-            canvas.setHeight(h);
-
-        gl.viewport(0, 0, w, h);
-        gl.clearColor(0.02f, 0.02f, 0.02f, 1.0f);
-        gl.clear(gl.COLOR_BUFFER_BIT());
-
-        // Ensure framebuffer dimensions are up-to-date for projection matrices
-        Canvas3D.frameBufferWidth = w;
-        Canvas3D.frameBufferHeight = h;
-
-        // Drive the existing rendering path
-        Canvas3D.canvas.paintGL();
-    }
-
-    private static void renderBouncingLineScene() {
-        if (!bouncingLineInitialized || bouncingLineScene == null)
-            return;
-
-        HTMLCanvasElement canvas = (HTMLCanvasElement) Window.current().getDocument()
-                .getElementById("bouncing-line-canvas");
-        if (canvas == null)
-            return;
-
-        try {
-            // Create a separate WebGL context for the bouncing line canvas
-            WebGL webGL = new WebGL(canvas);
-            WebPlatform tempPlatform = new WebPlatform("bouncing-line-canvas");
-
-            // Temporarily switch to bouncing line context
-            Platforms.init(tempPlatform, webGL);
-            GL gl = Platforms.gl();
-
-            int w = canvas.getClientWidth();
-            int h = canvas.getClientHeight();
-            if (w <= 0)
-                w = 400;
-            if (h <= 0)
-                h = 300;
-            if (canvas.getWidth() != w)
-                canvas.setWidth(w);
-            if (canvas.getHeight() != h)
-                canvas.setHeight(h);
-
-            gl.viewport(0, 0, w, h);
-
-            // Render the bouncing line scene (simple implementation)
-            bouncingLineScene.render(gl, w, h);
-
-        } catch (Exception e) {
-            platform.log("Bouncing line render error: " + e.getMessage());
-        } finally {
-            // Restore original Ixdar context
-            HTMLCanvasElement ixdarCanvas = (HTMLCanvasElement) Window.current().getDocument()
-                    .getElementById("ixdar-canvas");
-            if (ixdarCanvas != null) {
-                Platforms.init(new WebPlatform(), new WebGL(ixdarCanvas));
-                platform = Platforms.get();
-            }
-        }
     }
 
     public static void setTitle(String string) {
