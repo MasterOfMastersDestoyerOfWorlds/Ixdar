@@ -303,7 +303,7 @@ public class WebPlatform implements Platform {
         // Here we just create an empty Texture and expect higher-level code to
         // bind/upload
         // Alternatively, you can implement image loading via JS if desired.
-        loadImagePixels("res/" + resourceName, (w, h, data) -> {
+        loadImagePixels("/ixdar/res/" + resourceName, (w, h, data) -> {
             ByteBuffer bb = ByteBuffer.allocate(data.getLength());
             for (int i = 0; i < data.getLength(); i++) {
                 bb.put((byte) data.get(i));
@@ -325,23 +325,23 @@ public class WebPlatform implements Platform {
 
     @Override
     public String loadShaderSource(String filename) {
-        String rel = "glsl/" + filename;
+        String rel = "/ixdar/glsl/" + filename;
         String text = fetchTextSync(rel);
         return text;
     }
 
     @Override
     public String loadSource(String resourceFolder, String filename) throws UnsupportedEncodingException, IOException {
-        String rel = resourceFolder + "/" + filename;
+        String rel = "/ixdar/" + resourceFolder + "/" + filename;
         return fetchTextSync(rel);
     }
 
     @Override
     public TextFile loadFile(String path) throws IOException {
         String norm = normalizePath(path);
-        String text = fetchTextSync(norm);
+        String text = fetchTextSync("/ixdar/" + norm);
         if (text == null) {
-            text = fetchTextSync("/" + norm);
+            text = fetchTextSync("/ixdar/" + norm);
         }
         if (text != null) {
             ArrayList<String> fileContents = new ArrayList<>();
@@ -398,11 +398,10 @@ public class WebPlatform implements Platform {
         // No-op for web (cannot write). Intentionally ignored.
     }
 
-    @Override 
-    public void log(String msg){
+    @Override
+    public void log(String msg) {
         WebPlatform.jsLog(msg);
     }
-
 
     @JSBody(params = { "msg" }, script = "console.log(msg);")
     private static native void jsLog(String msg);

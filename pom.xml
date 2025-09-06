@@ -169,7 +169,7 @@
                 </goals>
                 <configuration>
                   <mainClass>shell.ui.WebLauncher</mainClass>
-                  <targetDirectory>${project.build.directory}/teavm</targetDirectory>
+                  <targetDirectory>${project.build.directory}/teavm/ixdar</targetDirectory>
                   <debugInformation>true</debugInformation>
                   <sourceMaps>true</sourceMaps>
                   <minifying>false</minifying>
@@ -192,7 +192,7 @@
                   <goal>copy-resources</goal>
                 </goals>
                 <configuration>
-                  <outputDirectory>${project.build.directory}/teavm</outputDirectory>
+                  <outputDirectory>${project.build.directory}/teavm/ixdar</outputDirectory>
                   <resources>
                     <resource>
                       <directory>src/main/resources</directory>
@@ -222,8 +222,8 @@
                 <phase>prepare-package</phase>
                 <configuration>
                   <target>
-                    <mkdir dir="${project.build.directory}/teavm" />
-                    <echo file="${project.build.directory}/teavm/index.html"><![CDATA[
+                    <mkdir dir="${project.build.directory}/teavm/ixdar" />
+                    <echo file="${project.build.directory}/teavm/ixdar/index.html"><![CDATA[
 <!doctype html>
 <html>
   <head>
@@ -249,6 +249,25 @@
   </body>
   </html>
           ]]></echo>
+                  </target>
+                </configuration>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+              </execution>
+              <execution>
+                <id>copy-ixdar-to-hugo</id>
+                <phase>package</phase>
+                <configuration>
+                  <target>
+                    <mkdir dir="${user.home}/KriegEterna/web/static" />
+                    <copy todir="${user.home}/KriegEterna/web/static" 
+                          overwrite="true">
+                      <fileset dir="${project.build.directory}/teavm">
+                        <include name="ixdar/**/*" />
+                      </fileset>
+                    </copy>
+                    <echo message="Copied all ixdar resources to Hugo site directory" />
                   </target>
                 </configuration>
                 <goals>
