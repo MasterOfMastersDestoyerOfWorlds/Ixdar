@@ -5,14 +5,23 @@
       "label": "teavm-build",
       "type": "shell",
       "command": "mvn -Pweb-teavm -DskipTests package",
-      "problemMatcher": []
+      "problemMatcher": [],
+      "options": {
+        "env": {
+          "PATH": "/usr/local/maven/bin:${env:PATH}"
+        }
+      }
     },
     {
       "label": "serve-teavm",
       "type": "shell",
       "command": "npx -y http-server target/teavm -p 8080 -c-1",
-      "problemMatcher": []
+      "problemMatcher": [],
+      "options": {
+        "env": {
+          "PATH": "/usr/local/maven/bin:${env:PATH}"
+        }
+      }
     }
   ]
 }
-
