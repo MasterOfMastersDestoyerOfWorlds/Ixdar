@@ -20,6 +20,7 @@
           <include>**/*.png</include>
           <include>**/*.webp</include>
           <include>**/*.ico</include>
+          <include>**/*.html</include>
         </includes>
       </resource>
     </resources>
@@ -205,74 +206,11 @@
                         <include>**/*.png</include>
                         <include>**/*.webp</include>
                         <include>**/*.ico</include>
+                        <include>**/*.html</include>
                       </includes>
                     </resource>
                   </resources>
                 </configuration>
-              </execution>
-            </executions>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-antrun-plugin</artifactId>
-            <version>3.1.0</version>
-            <executions>
-              <execution>
-                <id>generate-index-html</id>
-                <phase>prepare-package</phase>
-                <configuration>
-                  <target>
-                    <mkdir dir="${project.build.directory}/teavm/ixdar" />
-                    <echo file="${project.build.directory}/teavm/ixdar/index.html"><![CDATA[
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title>Ixdar Web</title>
-    <style>html,body{height:100%;margin:0;background:#111}#ixdar-canvas{width:100vw;height:100vh;display:block}</style>
-  </head>
-  <body>
-    <canvas id="ixdar-canvas"></canvas>
-    <script src="classes.js"></script>
-    <script>
-      try {
-        if (typeof main === 'function') {
-          main([]);
-        } else if (typeof shell_ui_WebLauncher_main === 'function') {
-          shell_ui_WebLauncher_main([]);
-        } else {
-          console.log('Could not locate entrypoint function');
-        }
-      } catch (e) { console.error(e); }
-    </script>
-  </body>
-  </html>
-          ]]></echo>
-                  </target>
-                </configuration>
-                <goals>
-                  <goal>run</goal>
-                </goals>
-              </execution>
-              <execution>
-                <id>copy-ixdar-to-hugo</id>
-                <phase>package</phase>
-                <configuration>
-                  <target>
-                    <mkdir dir="${user.home}/KriegEterna/web/static" />
-                    <copy todir="${user.home}/KriegEterna/web/static" 
-                          overwrite="true">
-                      <fileset dir="${project.build.directory}/teavm">
-                        <include name="ixdar/**/*" />
-                      </fileset>
-                    </copy>
-                    <echo message="Copied all ixdar resources to Hugo site directory" />
-                  </target>
-                </configuration>
-                <goals>
-                  <goal>run</goal>
-                </goals>
               </execution>
             </executions>
           </plugin>

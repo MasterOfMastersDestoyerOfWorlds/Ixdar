@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ixdar Web</title>
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: #111
+        }
+
+        #ixdar-canvas {
+            width: 100vw;
+            height: 100vh;
+            display: block
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="ixdar-canvas"></canvas>
+    <script src="classes.js"></script>
+    <script>
+        try {
+            if (typeof main === 'function') {
+                main([]);
+            } else if (typeof shell_ui_WebLauncher_main === 'function') {
+                shell_ui_WebLauncher_main([]);
+            } else {
+                console.log('Could not locate entrypoint function');
+            }
+        } catch (e) { console.error(e); }
+    </script>
+</body>
+
+</html>
