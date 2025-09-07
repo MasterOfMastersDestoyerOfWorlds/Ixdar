@@ -4,6 +4,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 
+import shell.PointSet;
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
 import shell.render.Clock;
@@ -217,7 +218,7 @@ public class Camera3D implements Camera {
     }
 
     @Override
-    public void calculateCameraTransform() {
+    public void calculateCameraTransform(PointSet ps) {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'calculateCameraTransform'");
     }

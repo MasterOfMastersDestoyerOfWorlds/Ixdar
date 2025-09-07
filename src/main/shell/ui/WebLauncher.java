@@ -36,15 +36,13 @@ public final class WebLauncher {
         Ixdar("ixdar-canvas", () -> {
             try {
                 Main.main = new Main("djbouti");
-            } catch (TerminalParseException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+            } catch (TerminalParseException | IOException e) {
+                throw new RuntimeException(e);
             }
-            return new Canvas3D();}),
-        BouncingLineScene("bouncing-line-canvas", () -> {return new BouncingLineScene();});
+            return new Canvas3D();
+        }),
+        BouncingLineScene("bouncing-line-canvas", BouncingLineScene::new);
+
         public String id;
         public Supplier<? extends Canvas3D> newScene;
         CanvasScene(String id, Supplier<? extends Canvas3D> scene) {
@@ -71,7 +69,14 @@ public final class WebLauncher {
 
         Platforms.init(new WebPlatform(canvas, canvasId), new WebGL(canvas));
         platform = Platforms.get();
-        platform.log("WebLauncher is running with multi-scene support");
+        platform.log("WebLauncher is running for " + canvasId);
+
+
+        int w = canvas.getClientWidth();
+        int h = canvas.getClientHeight();
+        Canvas3D.frameBufferWidth = w;
+        Canvas3D.frameBufferHeight = h;
+
         for(CanvasScene cs : CanvasScene.values()){
             if(cs.id.equals(canvasId)){
                 canvas3d = (Canvas3D) cs.newScene.get();

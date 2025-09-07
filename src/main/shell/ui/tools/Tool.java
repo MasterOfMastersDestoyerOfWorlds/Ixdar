@@ -155,7 +155,7 @@ public abstract class Tool {
             ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
             Camera2D camera = Main.camera;
             if (knotsDisplayed != null) {
-                camera.calculateCameraTransform();
+                camera.calculateCameraTransform(Main.retTup.ps);
                 x = camera.screenTransformX(x);
                 y = camera.screenTransformY(y);
                 double minDist = Double.MAX_VALUE;
@@ -195,7 +195,7 @@ public abstract class Tool {
         ArrayList<Knot> knotsDisplayed = Main.knotsDisplayed;
         Camera2D camera = Main.camera;
         if (knotsDisplayed != null) {
-            camera.calculateCameraTransform();
+            camera.calculateCameraTransform(Main.retTup.ps);
             x = camera.screenTransformX(x);
             y = camera.screenTransformY(y);
             double minDist = Double.MAX_VALUE;

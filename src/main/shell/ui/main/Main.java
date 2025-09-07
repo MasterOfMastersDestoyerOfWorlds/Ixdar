@@ -288,7 +288,7 @@ public class Main {
                 mouse.paintUpdate(SHIFT_MOD);
             }
             camera.setZIndex(camera3D);
-            camera.calculateCameraTransform();
+            camera.calculateCameraTransform(retTup.ps);
 
             if (tool.canUseToggle(Toggle.DrawGridLines)) {
                 grid.draw(camera, Drawing.MIN_THICKNESS / 2);

@@ -39,10 +39,10 @@ public class Camera2D implements Camera {
     public float minY;
     public float maxX;
     public float maxY;
-    private float height;
+    public float height;
     public float zIndex;
     public float farZIndex;
-    float width;
+    public float width;
     private float SHIFT_MOD = 1.0f;
     public float ScreenOffsetY;
     public float ScreenOffsetX;
@@ -88,8 +88,7 @@ public class Camera2D implements Camera {
     }
 
     @Override
-    public void calculateCameraTransform() {
-        PointSet ps = Main.retTup.ps;
+    public void calculateCameraTransform(PointSet ps) {
         minX = java.lang.Float.MAX_VALUE;
         minY = java.lang.Float.MAX_VALUE;
         maxX = 0;

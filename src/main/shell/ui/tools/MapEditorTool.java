@@ -78,7 +78,7 @@ public class MapEditorTool extends Tool {
         mouseX = mouseX - ScreenOffsetX;
         mouseY = mouseY - ScreenOffsetY;
         Camera2D camera = Main.camera;
-        camera.calculateCameraTransform();
+        camera.calculateCameraTransform(Main.retTup.ps);
         float x = camera.screenTransformX(mouseX);
         float y = camera.screenTransformY(mouseY);
         if (Toggle.SnapToGrid.value) {

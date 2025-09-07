@@ -2,6 +2,8 @@ package shell.cameras;
 
 import org.joml.Vector2f;
 
+import shell.PointSet;
+
 public interface Camera {
 
     void reset();
@@ -31,7 +33,7 @@ public interface Camera {
 
     void setZIndex(Camera camera);
 
-    void calculateCameraTransform();
+    void calculateCameraTransform(PointSet ps);
 
     /**
      * transform from point space to screen space
