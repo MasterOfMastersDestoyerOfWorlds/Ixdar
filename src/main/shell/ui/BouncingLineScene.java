@@ -2,6 +2,7 @@ package shell.ui;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -12,7 +13,7 @@ import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.point.PointND;
 import shell.render.color.Color;
-import shell.render.shaders.ShaderProgram;
+import shell.render.text.HyperString;
 import shell.shell.Shell;
 import shell.ui.main.Main;
 
@@ -21,7 +22,9 @@ import shell.ui.main.Main;
  */
 public class BouncingLineScene extends Canvas3D {
 
-    public static final String VIEW_LINE = "LINE";
+    public static final String VIEW_LEFT_RENDER = "LEFT_RENDER";
+    public static final String VIEW_RIGHT_CODE = "RIGHT_CODE";
+    public static final String BTN_SHOW_CODE = "Show Code";
 
     /** Two bouncing endpoints */
     private float point1X = -0.8f;
@@ -43,6 +46,12 @@ public class BouncingLineScene extends Canvas3D {
     private PointSet dummyPointSet;
     private DistanceMatrix distanceMatrix;
     private PointSet cameraBounds;
+    private Map<String, shell.cameras.Bounds> webViews;
+    private shell.cameras.Bounds leftBounds;
+    private shell.cameras.Bounds rightBounds;
+    private boolean showCode;
+    private HyperString showCodeButton;
+    private HyperString codeText;
 
     public BouncingLineScene() {
         super();
@@ -83,10 +92,18 @@ public class BouncingLineScene extends Canvas3D {
                         Math.pow(point2Y - point1Y, 2));
         lineSegment = new Segment(knot1, knot2, distance);
 
-        Map<String, shell.cameras.Bounds> webViews = new HashMap<>();
-        webViews.put(VIEW_LINE, new shell.cameras.Bounds(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight,
-                b -> b.update(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight)));
-        camera2D.initCamera(webViews, VIEW_LINE);
+        webViews = new HashMap<>();
+        int half = Canvas3D.frameBufferWidth / 2;
+        leftBounds = new shell.cameras.Bounds(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight,
+                b -> b.update(0, 0, showCode ? Canvas3D.frameBufferWidth / 2 : Canvas3D.frameBufferWidth,
+                        Canvas3D.frameBufferHeight));
+        rightBounds = new shell.cameras.Bounds(half, 0, 0, Canvas3D.frameBufferHeight,
+                b -> b.update(Canvas3D.frameBufferWidth / 2, 0, Canvas3D.frameBufferWidth / 2,
+                        Canvas3D.frameBufferHeight));
+        webViews.put(VIEW_LEFT_RENDER, leftBounds);
+        webViews.put(VIEW_RIGHT_CODE, rightBounds);
+        showCode = false;
+        camera2D.initCamera(webViews, VIEW_LEFT_RENDER);
 
         cameraBounds.add(new PointND.Double(-1.0, -1.0));
         cameraBounds.add(new PointND.Double(1.0, -1.0));
@@ -97,32 +114,58 @@ public class BouncingLineScene extends Canvas3D {
 
         Drawing.initDrawingSizes(dummyShell, camera2D, distanceMatrix);
 
-        camera2D.updateView(VIEW_LINE);
+        camera2D.updateView(VIEW_LEFT_RENDER);
         gl.clearColor(0.05f, 0.05f, 0.15f, 1.0f);
         platform.log("BouncingLineScene initialized");
+
+        showCodeButton = new HyperString();
+        showCodeButton.addWordClick(BTN_SHOW_CODE, Color.CYAN, () -> {
+            showCode = !showCode;
+            if (showCode) {
+                rightBounds.viewWidth = Canvas3D.frameBufferWidth / 2f;
+                leftBounds.viewWidth = Canvas3D.frameBufferWidth / 2f;
+            } else {
+                rightBounds.viewWidth = 0f;
+                leftBounds.viewWidth = Canvas3D.frameBufferWidth;
+            }
+        });
+        showCodeButton.draw();
+
+        codeText = new HyperString();
+        String vs = shell.platform.Platforms.get().loadShaderSource("font.vs");
+        String fs = shell.platform.Platforms.get().loadShaderSource("sdf_line.fs");
+        ArrayList<String> lines = new ArrayList<>();
+        lines.add("// Vertex Shader: font.vs");
+        for (String ln : vs.split("\n")) {
+            codeText.addLine(ln, Color.WHITE);
+        }
+        codeText.addLine(" ", Color.WHITE);
+        codeText.addLine("// Fragment Shader: sdf_line.fs", Color.WHITE);
+        for (String ln : fs.split("\n")) {
+            codeText.addLine(ln, Color.WHITE);
+        }
+        codeText.draw();
     }
 
     @Override
-    public void paintGL() {
+    public void drawScene() {
         updateBouncingPoints();
-        gl.clearColor(0.05f, 0.05f, 0.15f, 1.0f);
-        gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera2D.updateSize(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
         camera2D.resetZIndex();
-        camera2D.updateView(VIEW_LINE);
+        camera2D.updateView(VIEW_LEFT_RENDER);
         camera2D.calculateCameraTransform(cameraBounds);
+        Drawing.sdfLine.setStroke(Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false);
+        Color startColor = Color.RED;
+        Color endColor = Color.GREEN;
+        Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);
 
-        try {
-            Drawing.sdfLine.setStroke(Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false);
-            Color startColor = Color.RED;
-            Color endColor = Color.GREEN;
-            Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);
+        // UI: draw the Show Code button in the left panel
+        Drawing.font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera2D);
 
-        } catch (Exception e) {
-            platform.log("Drawing fallback - error: " + e.getMessage());
-        }
-        for (ShaderProgram s : shaders) {
-            s.flush();
+        // If code pane is visible, draw it on the right panel
+        if (rightBounds.viewWidth > 0) {
+            camera2D.updateView(VIEW_RIGHT_CODE);
+            Drawing.font.drawHyperStringRows(codeText, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera2D);
         }
     }
 

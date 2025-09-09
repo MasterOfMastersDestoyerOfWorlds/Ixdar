@@ -46,11 +46,10 @@ public class Canvas3D {
         platform = Platforms.get();
         active = true;
     }
-    
+
     public void initGL() throws UnsupportedEncodingException, IOException {
         gl = Platforms.gl();
         gl.createCapabilities(false, (IntFunction) null);
-        // set GL implementation for desktop
         float start = Clock.time();
         gl.coldStartStack();
 
@@ -77,35 +76,43 @@ public class Canvas3D {
         gl.clearColor(0.07f, 0.07f, 0.07f, 1.0f);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera.resetZIndex();
-        if (MenuBox.menuVisible) {
-            fluid.draw(0, 0, frameBufferWidth, frameBufferHeight, null, camera);
 
-            float SHIFT_MOD = 1;
-            if (keys != null && KeyActions.DoubleSpeed.keyPressed(keys.pressedKeys)) {
-                SHIFT_MOD = 2;
-            }
-            if (keys != null) {
-                keys.paintUpdate(SHIFT_MOD);
-            }
-            if (mouse != null) {
-                mouse.paintUpdate(SHIFT_MOD);
-            }
+        // Always update input once per frame (centralize input handling here)
+        float SHIFT_MOD = 1;
+        if (keys != null && KeyActions.DoubleSpeed.keyPressed(keys.pressedKeys)) {
+            SHIFT_MOD = 2;
+        }
+        if (keys != null) {
+            keys.paintUpdate(SHIFT_MOD);
+        }
+        if (mouse != null) {
+            mouse.paintUpdate(SHIFT_MOD);
         }
 
-        if (Main.main != null) {
-            Main.main.draw(camera);
-        }
+        // Delegate scene drawing to overridable hook
+        drawScene();
 
         gl.viewport(0, 0, (int) Platforms.get().getWindowWidth(), (int) Platforms.get().getWindowHeight());
         for (ShaderProgram s : shaders) {
             s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
             s.hotReload();
         }
+        for (ShaderProgram s : shaders) {
+            s.flush();
+        }
+    }
+
+    public void drawScene() {
+        if (MenuBox.menuVisible) {
+            fluid.draw(0, 0, frameBufferWidth, frameBufferHeight, null, camera);
+        }
+
+        if (Main.main != null && !MenuBox.menuVisible) {
+            Main.main.draw(camera);
+        }
+
         if (MenuBox.menuVisible) {
             menu.draw(camera);
-        }
-        for(ShaderProgram s: shaders){
-            s.flush();
         }
     }
 

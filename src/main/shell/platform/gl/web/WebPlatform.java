@@ -84,7 +84,8 @@ public class WebPlatform implements Platform {
             if (scrollCallback != null) {
                 scrollCallback.onScroll(0, e.getDeltaY());
             }
-        });
+            e.preventDefault();
+        }, false);
 
         // Keys - attach to document for global key handling (shared across all
         // canvases)
