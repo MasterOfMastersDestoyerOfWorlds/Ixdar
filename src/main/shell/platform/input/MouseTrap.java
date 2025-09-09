@@ -185,8 +185,7 @@ public class MouseTrap {
                             && yFromBottom <= sub.bounds.offsetY + sub.bounds.viewHeight;
                     if (inside) {
                         boolean up = queuedMouseWheelTicks < 0;
-                        sub.handler.onScroll(up, Clock.deltaTime());
-
+                        sub.handler.onScroll(up, Clock.deltaTime()*100f);
                         return;
                     }
                 }

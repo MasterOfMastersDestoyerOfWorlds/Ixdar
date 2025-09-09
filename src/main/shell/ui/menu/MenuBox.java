@@ -31,7 +31,7 @@ public class MenuBox implements MouseTrap.ScrollHandler {
     public static ArrayList<MenuItem> menuItems;
     public static Menu activeMenu;
     public static float scrollOffsetY;
-    public float SCROLL_SPEED = 1000f;
+    public float SCROLL_SPEED = 10f;
     public static boolean menuVisible = true;
     public SDFTexture logo;
     private Bounds scrollBounds;

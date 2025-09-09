@@ -14,7 +14,6 @@ import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.platform.input.MouseTrap;
 import shell.point.PointND;
-import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
 import shell.shell.Shell;
@@ -40,6 +39,8 @@ public class BouncingLineScene extends Canvas3D {
     private float vel1Y = 0.006f;
     private float vel2X = -0.005f;
     private float vel2Y = -0.007f;
+
+    private float SCROLL_SPEED = 5f;
 
     /** Scene components */
     private Camera2D camera2D;
@@ -155,14 +156,14 @@ public class BouncingLineScene extends Canvas3D {
         // camera2D.updateView during draw
         codeScrollHandler = (scrollUp, delta) -> {
             if (scrollUp) {
-                codeScrollOffsetY -= delta;
+                codeScrollOffsetY -= SCROLL_SPEED * delta;
                 if (codeScrollOffsetY < 0) {
                     codeScrollOffsetY = 0;
                 }
             } else {
                 float bottom = codeText.getLastWord().yScreenOffset;
                 if (bottom < 0) {
-                    codeScrollOffsetY += delta;
+                    codeScrollOffsetY += SCROLL_SPEED * delta;
                 }
             }
         };

@@ -121,14 +121,15 @@ public class Camera3D implements Camera {
     @Override
     public void onScroll(boolean b, double delta) {
 
+        float deltaRee= (float)delta/100f;
         if (b) {
-            fov += (float) ZOOM_SPEED * SHIFT_MOD * delta * fov;
+            fov += (float) ZOOM_SPEED * SHIFT_MOD * deltaRee * fov;
             if (fov < 1.0f)
                 fov = 1.0f;
             if (fov > 45.0f)
                 fov = 45.0f;
         } else {
-            fov -= (float) ZOOM_SPEED * SHIFT_MOD * delta * fov;
+            fov -= (float) ZOOM_SPEED * SHIFT_MOD * deltaRee * fov;
             if (fov < 1.0f)
                 fov = 1.0f;
             if (fov > 45.0f)

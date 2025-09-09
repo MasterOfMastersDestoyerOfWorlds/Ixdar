@@ -12,7 +12,7 @@ public class Info implements MouseTrap.ScrollHandler {
     private HyperString cachedInfo;
 
     public float scrollOffsetY = 0;
-    public float SCROLL_SPEED = 400f;
+    public float SCROLL_SPEED = 4f;
 
     public void draw(Camera2D camera) {
         int row = 0;
