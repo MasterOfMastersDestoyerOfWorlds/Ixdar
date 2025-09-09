@@ -1,6 +1,7 @@
 package shell.cameras;
 
 import java.util.ArrayList;
+import java.util.Map;
 
 import org.joml.Vector2f;
 
@@ -47,7 +48,9 @@ public class Camera2D implements Camera {
     public float ScreenOffsetY;
     public float ScreenOffsetX;
     public Bounds viewBounds;
+    private Map<String, Bounds> namedBounds;
     public double screenSpaceDistanceOverPointSpaceDistanceRatio = -1;
+    private Bounds mainViewBounds;
 
     public Camera2D(int Width, int Height, float ScaleFactor, float ScreenOffsetX, float ScreenOffsetY, PointSet ps) {
         if (Height < Width) {
@@ -200,8 +203,8 @@ public class Camera2D implements Camera {
         offsetX = 0;
         offsetY = 0;
 
-        float ScaleFactorX = InitialScale + InitialScale * (Main.MAIN_VIEW_WIDTH - Width) / Width;
-        float ScaleFactorY = InitialScale + InitialScale * (Main.MAIN_VIEW_HEIGHT - Height) / Height;
+        float ScaleFactorX = InitialScale + InitialScale * (mainViewBounds.viewWidth - Width) / Width;
+        float ScaleFactorY = InitialScale + InitialScale * (mainViewBounds.viewHeight - Height) / Height;
         float aspectRatio = (maxX - minX) / (maxY - minY);
         if (aspectRatio >= 1) {
             ScaleFactor = ScaleFactorX;
@@ -209,7 +212,7 @@ public class Camera2D implements Camera {
             height = Height * ScaleFactor;
             float rangeX = (Math.abs(pointTransformX(maxX) - pointTransformX(minX)));
             float rangeY = (Math.abs(pointTransformY(maxY) - pointTransformY(minY)));
-            if (rangeY > Main.MAIN_VIEW_HEIGHT) {
+            if (rangeY > mainViewBounds.viewHeight) {
 
                 ScaleFactor = ScaleFactorY * aspectRatio;
                 width = Width * ScaleFactor;
@@ -217,23 +220,23 @@ public class Camera2D implements Camera {
                 rangeX = (Math.abs(pointTransformX(maxX) - pointTransformX(minX)));
                 rangeY = (Math.abs(pointTransformY(maxY) - pointTransformY(minY)));
             }
-            offsetX += (Main.MAIN_VIEW_WIDTH - rangeX) / 2;
-            offsetY += (Main.MAIN_VIEW_HEIGHT - rangeY) / 2;
+            offsetX += (mainViewBounds.viewWidth - rangeX) / 2;
+            offsetY += (mainViewBounds.viewHeight - rangeY) / 2;
         } else {
             ScaleFactor = ScaleFactorY;
             width = Width * ScaleFactor;
             height = Height * ScaleFactor;
             float rangeX = (Math.abs(pointTransformX(maxX) - pointTransformX(minX)));
             float rangeY = (Math.abs(pointTransformY(maxY) - pointTransformY(minY)));
-            if (rangeX > Main.MAIN_VIEW_WIDTH) {
+            if (rangeX > mainViewBounds.viewWidth) {
                 ScaleFactor = ScaleFactorX * (maxY - minY) / (maxX - minX);
                 width = Width * ScaleFactor;
                 height = Height * ScaleFactor;
                 rangeX = (Math.abs(pointTransformX(maxX) - pointTransformX(minX)));
                 rangeY = (Math.abs(pointTransformY(maxY) - pointTransformY(minY)));
             }
-            offsetX += (Main.MAIN_VIEW_WIDTH - rangeX) / 2;
-            offsetY += (Main.MAIN_VIEW_HEIGHT - rangeY) / 2;
+            offsetX += (mainViewBounds.viewWidth - rangeX) / 2;
+            offsetY += (mainViewBounds.viewHeight - rangeY) / 2;
         }
         PanX = offsetX;
         PanY = offsetY;
@@ -284,11 +287,11 @@ public class Camera2D implements Camera {
         float widthRatio = Math.abs(pointTransformX(maxX) - pointTransformX(minX))
                 / Math.abs(pointTransformX(knotMaxX) - pointTransformX(knotMinX));
         float ScaleFactorX = InitialScale * widthRatio
-                + InitialScale * widthRatio * (Main.MAIN_VIEW_WIDTH - Width) / Width;
+                + InitialScale * widthRatio * (mainViewBounds.viewWidth - Width) / Width;
         float heightRatio = Math.abs(pointTransformY(maxY) - pointTransformY(minY))
                 / Math.abs(pointTransformY(knotMaxY) - pointTransformY(knotMinY));
         float ScaleFactorY = InitialScale * heightRatio
-                + InitialScale * heightRatio * (Main.MAIN_VIEW_HEIGHT - Height) / Height;
+                + InitialScale * heightRatio * (mainViewBounds.viewHeight - Height) / Height;
         float aspectRatio = (knotMaxX - knotMinX) / (knotMaxY - knotMinY);
         if (aspectRatio >= 1) {
             ScaleFactor = ScaleFactorX;
@@ -296,7 +299,7 @@ public class Camera2D implements Camera {
             height = Height * ScaleFactor;
             float rangeX = (Math.abs(pointTransformX(knotMaxX) - pointTransformX(knotMinX)));
             float rangeY = (Math.abs(pointTransformY(knotMaxY) - pointTransformY(knotMinY)));
-            if (rangeY > Main.MAIN_VIEW_HEIGHT) {
+            if (rangeY > mainViewBounds.viewHeight) {
 
                 ScaleFactor = ScaleFactorY;
                 width = Width * ScaleFactor;
@@ -304,23 +307,23 @@ public class Camera2D implements Camera {
                 rangeX = (Math.abs(pointTransformX(knotMaxX) - pointTransformX(knotMinX)));
                 rangeY = (Math.abs(pointTransformY(knotMaxY) - pointTransformY(knotMinY)));
             }
-            offsetX += (Main.MAIN_VIEW_WIDTH - rangeX) / 2;
-            offsetY += (Main.MAIN_VIEW_HEIGHT - rangeY) / 2;
+            offsetX += (mainViewBounds.viewWidth - rangeX) / 2;
+            offsetY += (mainViewBounds.viewHeight - rangeY) / 2;
         } else {
             ScaleFactor = ScaleFactorY;
             width = Width * ScaleFactor;
             height = Height * ScaleFactor;
             float rangeX = (Math.abs(pointTransformX(knotMaxX) - pointTransformX(knotMinX)));
             float rangeY = (Math.abs(pointTransformY(knotMaxY) - pointTransformY(knotMinY)));
-            if (rangeX > Main.MAIN_VIEW_WIDTH) {
+            if (rangeX > mainViewBounds.viewWidth) {
                 ScaleFactor = ScaleFactorX;
                 width = Width * ScaleFactor;
                 height = Height * ScaleFactor;
                 rangeX = (Math.abs(pointTransformX(knotMaxX) - pointTransformX(knotMinX)));
                 rangeY = (Math.abs(pointTransformY(knotMaxY) - pointTransformY(knotMinY)));
             }
-            offsetX += (Main.MAIN_VIEW_WIDTH - rangeX) / 2;
-            offsetY += (Main.MAIN_VIEW_HEIGHT - rangeY) / 2;
+            offsetX += (mainViewBounds.viewWidth - rangeX) / 2;
+            offsetY += (mainViewBounds.viewHeight - rangeY) / 2;
         }
         PanX = offsetX - Math.abs(pointTransformX(knotMinX) - pointTransformX(minX));
         PanY = offsetY - Math.abs(pointTransformY(knotMinY) - pointTransformY(minY));
@@ -329,8 +332,8 @@ public class Camera2D implements Camera {
     public void centerOnPoint(PointND pn) {
         float sx = (float) pn.getScreenX();
         float sy = (float) pn.getScreenY();
-        PanX += Main.MAIN_VIEW_WIDTH / 2 - pointTransformX(sx);
-        PanY += Main.MAIN_VIEW_HEIGHT / 2 - pointTransformY(sy);
+        PanX += mainViewBounds.viewWidth / 2 - pointTransformX(sx);
+        PanY += mainViewBounds.viewHeight / 2 - pointTransformY(sy);
     }
 
     public double pointSpaceLengthToScreenSpace(double smallestLength) {
@@ -518,6 +521,31 @@ public class Camera2D implements Camera {
         for (ShaderProgram s : Canvas3D.shaders) {
             s.updateProjectionMatrix(width, height, 1f);
         }
+    }
+
+    public void initCamera(Map<String, Bounds> boundsMap, String active) {
+        this.namedBounds = boundsMap;
+        Bounds b = boundsMap.get(active);
+        if (b != null) {
+            this.viewBounds.update(b);
+            this.updateSize(b.viewWidth, b.viewHeight);
+            this.ScreenOffsetX = b.offsetX;
+            this.ScreenOffsetY = b.offsetY;
+            this.mainViewBounds = b;
+        }
+        initCamera();
+    }
+
+    public void updateView(String key) {
+        if (namedBounds == null) {
+            return;
+        }
+        Bounds b = namedBounds.get(key);
+        if (b == null) {
+            return;
+        }
+        b.recalc();
+        this.updateView((int) b.offsetX, (int) b.offsetY, (int) b.viewWidth, (int) b.viewHeight);
     }
 
     @Override

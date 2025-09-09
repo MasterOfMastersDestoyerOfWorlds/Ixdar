@@ -2,6 +2,8 @@ package shell.ui;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.HashMap;
+import java.util.Map;
 
 import shell.DistanceMatrix;
 import shell.PointSet;
@@ -19,6 +21,8 @@ import shell.ui.main.Main;
  */
 public class BouncingLineScene extends Canvas3D {
 
+    public static final String VIEW_LINE = "LINE";
+
     /** Two bouncing endpoints */
     private float point1X = -0.8f;
     private float point1Y = -0.6f;
@@ -30,9 +34,6 @@ public class BouncingLineScene extends Canvas3D {
     private float vel1Y = 0.006f;
     private float vel2X = -0.005f;
     private float vel2Y = -0.007f;
-
-    /** Bounds for bouncing */
-    private static final float BOUNDS = 0.8f;
 
     /** Scene components */
     private Camera2D camera2D;
@@ -82,12 +83,10 @@ public class BouncingLineScene extends Canvas3D {
                         Math.pow(point2Y - point1Y, 2));
         lineSegment = new Segment(knot1, knot2, distance);
 
-        Main.MAIN_VIEW_WIDTH = Canvas3D.frameBufferWidth;
-        Main.MAIN_VIEW_HEIGHT = Canvas3D.frameBufferHeight;
-        Main.MAIN_VIEW_OFFSET_X = 0;
-        Main.MAIN_VIEW_OFFSET_Y = 0;
-
-        camera2D.initCamera();
+        Map<String, shell.cameras.Bounds> webViews = new HashMap<>();
+        webViews.put(VIEW_LINE, new shell.cameras.Bounds(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight,
+                b -> b.update(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight)));
+        camera2D.initCamera(webViews, VIEW_LINE);
 
         cameraBounds.add(new PointND.Double(-1.0, -1.0));
         cameraBounds.add(new PointND.Double(1.0, -1.0));
@@ -98,7 +97,7 @@ public class BouncingLineScene extends Canvas3D {
 
         Drawing.initDrawingSizes(dummyShell, camera2D, distanceMatrix);
 
-        camera2D.updateView(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+        camera2D.updateView(VIEW_LINE);
         gl.clearColor(0.05f, 0.05f, 0.15f, 1.0f);
         platform.log("BouncingLineScene initialized");
     }
@@ -110,7 +109,7 @@ public class BouncingLineScene extends Canvas3D {
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera2D.updateSize(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
         camera2D.resetZIndex();
-        camera2D.updateView(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+        camera2D.updateView(VIEW_LINE);
         camera2D.calculateCameraTransform(cameraBounds);
 
         try {

@@ -1,11 +1,11 @@
 package shell.ui.main;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Random;
 
@@ -15,6 +15,7 @@ import shell.DistanceMatrix;
 import shell.Toggle;
 import shell.cameras.Camera;
 import shell.cameras.Camera2D;
+import shell.cameras.Bounds;
 import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
 import shell.exceptions.TerminalParseException;
@@ -41,7 +42,6 @@ import shell.shell.Shell;
 import shell.shell.ShellComparator;
 import shell.shell.ShellPair;
 import shell.terminal.Terminal;
-import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 import shell.ui.tools.FreeTool;
 import shell.ui.tools.Tool;
@@ -106,6 +106,12 @@ public class Main {
     public static int totalLayers = -1;
     public static double tourLength;
 
+    public static final String VIEW_MAIN = "MAIN";
+    public static final String VIEW_RIGHT_TOP = "RIGHT_TOP";
+    public static final String VIEW_RIGHT_BOTTOM = "RIGHT_BOTTOM";
+    public static final String VIEW_BOTTOM = "BOTTOM";
+    public static final String VIEW_TOOLTIP = "TOOLTIP";
+
     public Main(String fileName) throws TerminalParseException, IOException {
         metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
         metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -157,7 +163,46 @@ public class Main {
         MAIN_VIEW_HEIGHT = wHeight - BOTTOM_PANEL_SIZE;
         MAIN_VIEW_OFFSET_X = 0;
         MAIN_VIEW_OFFSET_Y = BOTTOM_PANEL_SIZE;
-        camera.initCamera();
+        Map<String, Bounds> views = new HashMap<>();
+        views.put(VIEW_MAIN,
+                new Bounds(0, BOTTOM_PANEL_SIZE, wWidth - RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE, b -> {
+                    int ww = (int) Platforms.get().getWindowWidth();
+                    int wh = (int) Platforms.get().getWindowHeight();
+                    b.update(0, BOTTOM_PANEL_SIZE, ww - RIGHT_PANEL_SIZE, wh - BOTTOM_PANEL_SIZE);
+                }));
+        views.put(VIEW_RIGHT_TOP, new Bounds(wWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, b -> {
+            int ww = (int) Platforms.get().getWindowWidth();
+            b.update(ww - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
+        }));
+        views.put(VIEW_RIGHT_BOTTOM, new Bounds(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
+                wHeight - BOTTOM_PANEL_SIZE, b -> {
+                    int ww = (int) Platforms.get().getWindowWidth();
+                    int wh = (int) Platforms.get().getWindowHeight();
+                    b.update(ww - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE, wh - BOTTOM_PANEL_SIZE);
+                }));
+        views.put(VIEW_BOTTOM, new Bounds(0, 0, wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, b -> {
+            int ww = (int) Platforms.get().getWindowWidth();
+            b.update(0, 0, ww - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
+        }));
+
+        views.put(VIEW_TOOLTIP, new Bounds(0, 0, 0, 0, b -> {
+            int ww = (int) Platforms.get().getWindowWidth();
+            int wh = (int) Platforms.get().getWindowHeight();
+            if (toolTip == null) {
+                b.update(0, 0, 0, 0);
+                return;
+            }
+            float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
+            int isRight = mouse.normalizedPosX > ww / 2 ? 1 : 0;
+            int isTop = mouse.normalizedPosY > wh / 2 ? 1 : 0;
+            float toolTipWidth = toolTip.getWidthPixels();
+            int toolTipHeight = toolTip.getHeightPixels();
+            int x = (int) (mouse.normalizedPosX - (isRight * toolTipWidth));
+            int y = (int) mouse.normalizedPosY - (isTop * toolTipHeight);
+            b.update(x, y, (int) Math.ceil(toolTipWidth), (int) (toolTip.getLines() * rowHeight));
+        }));
+
+        camera.initCamera(views, VIEW_MAIN);
         DistanceMatrix d = retTup.d;
         if (retTup.d == null) {
             d = new DistanceMatrix(retTup.ps);
@@ -276,7 +321,7 @@ public class Main {
             MAIN_VIEW_HEIGHT = wHeight - BOTTOM_PANEL_SIZE;
             MAIN_VIEW_OFFSET_X = 0;
             MAIN_VIEW_OFFSET_Y = BOTTOM_PANEL_SIZE;
-            camera.updateView(MAIN_VIEW_OFFSET_X, MAIN_VIEW_OFFSET_Y, MAIN_VIEW_WIDTH, MAIN_VIEW_HEIGHT);
+            camera.updateView(VIEW_MAIN);
             float SHIFT_MOD = 1;
             if (keys != null && KeyActions.DoubleSpeed.keyPressed(keys.pressedKeys)) {
                 SHIFT_MOD = 2;
@@ -318,29 +363,19 @@ public class Main {
                 Drawing.drawPath(retTup.tsp, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false, true, false,
                         camera);
             }
-            camera.updateView(wWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
+            camera.updateView(VIEW_RIGHT_TOP);
             logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 
-            camera.updateView(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
-                    wHeight - BOTTOM_PANEL_SIZE);
+            camera.updateView(VIEW_RIGHT_BOTTOM);
             info.draw(camera);
 
-            camera.updateView(0, 0, MAIN_VIEW_WIDTH, BOTTOM_PANEL_SIZE);
+            camera.updateView(VIEW_BOTTOM);
             terminal.draw(camera);
 
             if (toolTip != null && showToolTip) {
                 float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
-                int isRight = mouse.normalizedPosX > wWidth / 2 ? 1 : 0;
-
-                int isTop = mouse.normalizedPosY > wHeight / 2 ? 1 : 0;
                 toolTip.setLineOffsetFromTopRow(camera, 0, 0, rowHeight, Drawing.font);
-
-                float toolTipWidth = toolTip.getWidthPixels();
-                int toolTipHeight = toolTip.getHeightPixels();
-                camera.updateView((int) (mouse.normalizedPosX - (isRight * toolTipWidth)),
-                        (int) mouse.normalizedPosY - (isTop * toolTipHeight), (int) Math.ceil(toolTipWidth),
-                        (int) (toolTip.getLines() * rowHeight));
-
+                camera.updateView(VIEW_TOOLTIP);
                 new ColorBox().draw(Color.DARK_GRAY, camera);
                 Drawing.font.drawHyperStringRows(toolTip, 0, 0, rowHeight, camera);
             }

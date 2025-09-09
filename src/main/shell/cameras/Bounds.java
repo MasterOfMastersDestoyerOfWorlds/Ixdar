@@ -1,5 +1,7 @@
 package shell.cameras;
 
+import java.util.function.Consumer;
+
 import org.joml.Vector2f;
 
 public class Bounds {
@@ -7,6 +9,7 @@ public class Bounds {
     public float offsetY;
     public float viewWidth;
     public float viewHeight;
+    public Consumer<Bounds> recalculator;
 
     public Bounds(float x, float y, float width, float height) {
 
@@ -14,6 +17,11 @@ public class Bounds {
         offsetY = y;
         viewWidth = width;
         viewHeight = height;
+    }
+
+    public Bounds(float x, float y, float width, float height, Consumer<Bounds> recalculator) {
+        this(x, y, width, height);
+        this.recalculator = recalculator;
     }
 
     public void update(float x, float y, float width, float height) {
@@ -40,5 +48,11 @@ public class Bounds {
 
     public boolean contains(Vector2f pA) {
         return contains(pA.x, pA.y);
+    }
+
+    public void recalc() {
+        if (recalculator != null) {
+            recalculator.accept(this);
+        }
     }
 }
