@@ -15,16 +15,16 @@ import shell.cameras.Camera2D;
 import shell.file.TextFile;
 import shell.platform.input.Keys;
 import shell.point.PointCollection;
-import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.color.ColorLerp;
 import shell.render.text.HyperString;
 import shell.terminal.commands.TerminalCommand;
 import shell.ui.Drawing;
+import shell.platform.input.MouseTrap;
 import shell.ui.main.Main;
 import shell.ui.tools.Tool;
 
-public class Terminal {
+public class Terminal implements MouseTrap.ScrollHandler {
     public HyperString history;
     ArrayList<String> commandHistory;
     String storedCommandLine;
@@ -288,18 +288,18 @@ public class Terminal {
 
     }
 
-    public void scrollTerminal(boolean scrollUp) {
-        float menuBottom = cachedInfo.getLastWord().yScreenOffset;
-        double d = Clock.deltaTime();
+    @Override
+    public void onScroll(boolean scrollUp, float deltaSeconds) {
+        float menuBottom = cachedInfo != null ? cachedInfo.getLastWord().yScreenOffset : 0;
         if (scrollUp) {
-            scrollOffsetY -= SCROLL_SPEED * d;
+            scrollOffsetY -= SCROLL_SPEED * deltaSeconds;
             if (scrollOffsetY < 0) {
                 scrollOffsetY = 0;
             }
         } else if (menuBottom < 0) {
-            scrollOffsetY += SCROLL_SPEED * d;
-            if (menuBottom > cachedInfo.getLastWord().rowHeight) {
-                scrollOffsetY -= SCROLL_SPEED * d;
+            scrollOffsetY += SCROLL_SPEED * deltaSeconds;
+            if (cachedInfo != null && menuBottom > cachedInfo.getLastWord().rowHeight) {
+                scrollOffsetY -= SCROLL_SPEED * deltaSeconds;
             }
         }
     }

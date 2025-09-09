@@ -3,8 +3,10 @@ package shell.platform.input;
 import static shell.platform.input.Keys.ACTION_PRESS;
 import static shell.platform.input.Keys.ACTION_RELEASE;
 
-import java.util.ArrayList;
 import org.joml.Vector2f;
+import java.util.List;
+import java.util.ArrayList;
+import shell.cameras.Bounds;
 
 import shell.Toggle;
 import shell.cameras.Camera;
@@ -27,6 +29,31 @@ public class MouseTrap {
     public Camera camera;
     public boolean active = true;
     public static ArrayList<HyperString> hyperStrings = new ArrayList<>();
+
+    // Scroll subscriptions
+    public interface ScrollHandler {
+        void onScroll(boolean scrollUp, double deltaSeconds);
+    }
+
+    public static class ScrollSubscription {
+        public Bounds bounds;
+        public ScrollHandler handler;
+
+        public ScrollSubscription(Bounds bounds, ScrollHandler handler) {
+            this.bounds = bounds;
+            this.handler = handler;
+        }
+    }
+
+    private static final List<ScrollSubscription> scrollSubscriptions = new ArrayList<>();
+
+    public static void subscribeScrollRegion(Bounds bounds, ScrollHandler handler) {
+        scrollSubscriptions.add(new ScrollSubscription(bounds, handler));
+    }
+
+    public static void unsubscribeScrollRegion(ScrollHandler handler) {
+        scrollSubscriptions.removeIf(s -> s.handler == handler);
+    }
 
     public MouseTrap(Main main, Camera camera) {
         this.main = main;
@@ -100,7 +127,7 @@ public class MouseTrap {
     }
 
     public void scrollCallback(double y) {
-        queuedMouseWheelTicks += (int)(4 * y);
+        queuedMouseWheelTicks += (int) (4 * y);
         timeLastScroll = System.currentTimeMillis();
     }
 
@@ -141,33 +168,41 @@ public class MouseTrap {
             queuedMouseWheelTicks = 0;
         }
         PanelTypes view = Main.inView(lastX, lastY);
-        if (queuedMouseWheelTicks < 0) {
-            if (view == PanelTypes.KnotView) {
-                camera.zoom(false);
-            } else if (view == PanelTypes.Info) {
-                Main.info.scrollInfoPanel(true);
-            } else if (view == PanelTypes.Terminal) {
-                Main.terminal.scrollTerminal(true);
+
+        // First, allow any custom scroll subscription to consume wheel ticks if the
+        // mouse is over its bounds
+        if (queuedMouseWheelTicks != 0) {
+            for (ScrollSubscription sub : scrollSubscriptions) {
+                // Ensure subscribed bounds are up-to-date for current frame
+                if (sub.bounds != null) {
+                    sub.bounds.recalc();
+                }
+                if (sub.bounds != null) {
+                    float windowHeight = (float) Platforms.get().getWindowHeight();
+                    float yFromBottom = windowHeight - lastY;
+                    boolean inside = lastX >= sub.bounds.offsetX && lastX <= sub.bounds.offsetX + sub.bounds.viewWidth
+                            && yFromBottom >= sub.bounds.offsetY
+                            && yFromBottom <= sub.bounds.offsetY + sub.bounds.viewHeight;
+                    if (inside) {
+                        boolean up = queuedMouseWheelTicks < 0;
+                        sub.handler.onScroll(up, Clock.deltaTime());
+
+                        return;
+                    }
+                }
             }
+        }
+        if (queuedMouseWheelTicks < 0) {
             if (view != PanelTypes.None) {
                 updateHyperStrings();
             }
-            Canvas3D.menu.scroll(true);
-            queuedMouseWheelTicks++;
+            queuedMouseWheelTicks = 0;
         }
         if (queuedMouseWheelTicks > 0) {
-            if (view == PanelTypes.KnotView) {
-                camera.zoom(true);
-            } else if (view == PanelTypes.Info) {
-                Main.info.scrollInfoPanel(false);
-            } else if (view == PanelTypes.Terminal) {
-                Main.terminal.scrollTerminal(false);
-            }
             if (view != PanelTypes.None) {
                 updateHyperStrings();
             }
-            Canvas3D.menu.scroll(false);
-            queuedMouseWheelTicks--;
+            queuedMouseWheelTicks = 0;
         }
         MouseTrap.hyperStrings = new ArrayList<>();
     }

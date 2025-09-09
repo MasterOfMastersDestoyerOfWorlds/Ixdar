@@ -424,12 +424,11 @@ public class Camera2D implements Camera {
     }
 
     @Override
-    public void zoom(boolean b) {
-        float d = (float) Clock.deltaTime() * ScaleFactor;
+    public void onScroll(boolean b, double delta) {
         if (b) {
-            scale(ZOOM_SPEED * SHIFT_MOD * d);
+            scale(ZOOM_SPEED * SHIFT_MOD * (float)delta * ScaleFactor);
         } else {
-            scale(-1 * ZOOM_SPEED * SHIFT_MOD * d);
+            scale(-1 * ZOOM_SPEED * SHIFT_MOD * (float)delta * ScaleFactor);
         }
     }
 

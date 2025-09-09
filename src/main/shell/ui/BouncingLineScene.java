@@ -8,10 +8,13 @@ import java.util.Map;
 
 import shell.DistanceMatrix;
 import shell.PointSet;
+import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
+import shell.platform.input.MouseTrap;
 import shell.point.PointND;
+import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
 import shell.shell.Shell;
@@ -52,6 +55,8 @@ public class BouncingLineScene extends Canvas3D {
     private boolean showCode;
     private HyperString showCodeButton;
     private HyperString codeText;
+    private float codeScrollOffsetY;
+    private MouseTrap.ScrollHandler codeScrollHandler;
 
     public BouncingLineScene() {
         super();
@@ -94,10 +99,10 @@ public class BouncingLineScene extends Canvas3D {
 
         webViews = new HashMap<>();
         int half = Canvas3D.frameBufferWidth / 2;
-        leftBounds = new shell.cameras.Bounds(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight,
+        leftBounds = new Bounds(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight,
                 b -> b.update(0, 0, showCode ? Canvas3D.frameBufferWidth / 2 : Canvas3D.frameBufferWidth,
                         Canvas3D.frameBufferHeight));
-        rightBounds = new shell.cameras.Bounds(half, 0, 0, Canvas3D.frameBufferHeight,
+        rightBounds = new Bounds(half, 0, 0, Canvas3D.frameBufferHeight,
                 b -> b.update(Canvas3D.frameBufferWidth / 2, 0, Canvas3D.frameBufferWidth / 2,
                         Canvas3D.frameBufferHeight));
         webViews.put(VIEW_LEFT_RENDER, leftBounds);
@@ -115,8 +120,6 @@ public class BouncingLineScene extends Canvas3D {
         Drawing.initDrawingSizes(dummyShell, camera2D, distanceMatrix);
 
         camera2D.updateView(VIEW_LEFT_RENDER);
-        gl.clearColor(0.05f, 0.05f, 0.15f, 1.0f);
-        platform.log("BouncingLineScene initialized");
 
         showCodeButton = new HyperString();
         showCodeButton.addWordClick(BTN_SHOW_CODE, Color.CYAN, () -> {
@@ -128,6 +131,8 @@ public class BouncingLineScene extends Canvas3D {
                 rightBounds.viewWidth = 0f;
                 leftBounds.viewWidth = Canvas3D.frameBufferWidth;
             }
+            camera2D.updateView(VIEW_LEFT_RENDER);
+            camera2D.calculateCameraTransform(cameraBounds);
         });
         showCodeButton.draw();
 
@@ -145,6 +150,23 @@ public class BouncingLineScene extends Canvas3D {
             codeText.addLine(ln, Color.WHITE);
         }
         codeText.draw();
+
+        // Register scroll handler region once; we will keep its bounds up to date via
+        // camera2D.updateView during draw
+        codeScrollHandler = (scrollUp, delta) -> {
+            if (scrollUp) {
+                codeScrollOffsetY -= delta;
+                if (codeScrollOffsetY < 0) {
+                    codeScrollOffsetY = 0;
+                }
+            } else {
+                float bottom = codeText.getLastWord().yScreenOffset;
+                if (bottom < 0) {
+                    codeScrollOffsetY += delta;
+                }
+            }
+        };
+        MouseTrap.subscribeScrollRegion(rightBounds, codeScrollHandler);
     }
 
     @Override
@@ -161,11 +183,9 @@ public class BouncingLineScene extends Canvas3D {
 
         // UI: draw the Show Code button in the left panel
         Drawing.font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera2D);
-
-        // If code pane is visible, draw it on the right panel
         if (rightBounds.viewWidth > 0) {
             camera2D.updateView(VIEW_RIGHT_CODE);
-            Drawing.font.drawHyperStringRows(codeText, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera2D);
+            Drawing.font.drawHyperStringRows(codeText, 0, codeScrollOffsetY, Drawing.FONT_HEIGHT_PIXELS, camera2D);
         }
     }
 
@@ -176,13 +196,15 @@ public class BouncingLineScene extends Canvas3D {
         point2X += vel2X;
         point2Y += vel2Y;
 
+        float viewW = camera2D.getBounds().viewWidth;
+        float viewH = camera2D.getBounds().viewHeight;
         float worldLeft = camera2D.screenTransformX(0f);
-        float worldRight = camera2D.screenTransformX(Canvas3D.frameBufferWidth);
+        float worldRight = camera2D.screenTransformX(viewW);
         float minX = Math.min(worldLeft, worldRight);
         float maxX = Math.max(worldLeft, worldRight);
 
         float worldTop = camera2D.screenTransformY(0f);
-        float worldBottom = camera2D.screenTransformY(Canvas3D.frameBufferHeight);
+        float worldBottom = camera2D.screenTransformY(viewH);
         float minY = Math.min(worldTop, worldBottom);
         float maxY = Math.max(worldTop, worldBottom);
 

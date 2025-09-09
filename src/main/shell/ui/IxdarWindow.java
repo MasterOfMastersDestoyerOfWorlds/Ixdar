@@ -194,7 +194,6 @@ public class IxdarWindow {
         while (!glfwWindowShouldClose(window)) {
 
             canvas.paintGL();
-            Clock.frameRendered();
             glfwSwapBuffers(window); // swap the color buffers
             // Poll for window events. The key callback above will only be
             // invoked during this call.

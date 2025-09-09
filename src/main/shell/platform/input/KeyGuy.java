@@ -10,6 +10,7 @@ import java.util.Set;
 
 import shell.Toggle;
 import shell.cameras.Camera;
+import shell.render.Clock;
 import shell.terminal.Terminal;
 import shell.terminal.commands.ChangeToolCommand;
 import shell.terminal.commands.ColorCommand;
@@ -162,10 +163,10 @@ public class KeyGuy {
                 camera.move(Camera.Direction.RIGHT);
             }
             if (KeyActions.ZoomIn.keyPressed(pressedKeys) && !KeyActions.ZoomOut.keyPressed(pressedKeys)) {
-                camera.zoom(true);
+                camera.onScroll(true, (float)Clock.deltaTime());
             }
             if (KeyActions.ZoomOut.keyPressed(pressedKeys) && !KeyActions.ZoomIn.keyPressed(pressedKeys)) {
-                camera.zoom(false);
+                camera.onScroll(false, (float)Clock.deltaTime());
             }
         }
 

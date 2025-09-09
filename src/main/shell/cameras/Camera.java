@@ -3,16 +3,15 @@ package shell.cameras;
 import org.joml.Vector2f;
 
 import shell.PointSet;
+import shell.platform.input.MouseTrap;
 
-public interface Camera {
+public interface Camera extends MouseTrap.ScrollHandler {
 
     void reset();
 
     void move(Direction direction);
 
     void setShiftMod(float sHIFT_MOD);
-
-    void zoom(boolean b);
 
     void drag(float d, float e);
 

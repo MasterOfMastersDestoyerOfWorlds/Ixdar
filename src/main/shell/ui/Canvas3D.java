@@ -100,6 +100,7 @@ public class Canvas3D {
         for (ShaderProgram s : shaders) {
             s.flush();
         }
+        Clock.frameRendered();
     }
 
     public void drawScene() {

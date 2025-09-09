@@ -170,11 +170,12 @@ public class Main {
                     int wh = (int) Platforms.get().getWindowHeight();
                     b.update(0, BOTTOM_PANEL_SIZE, ww - RIGHT_PANEL_SIZE, wh - BOTTOM_PANEL_SIZE);
                 }));
-        views.put(VIEW_RIGHT_TOP, new Bounds(wWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, b -> {
-            int ww = (int) Platforms.get().getWindowWidth();
-            b.update(ww - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
-        }));
-        views.put(VIEW_RIGHT_BOTTOM, new Bounds(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
+        views.put(VIEW_RIGHT_BOTTOM,
+                new Bounds(wWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, b -> {
+                    int ww = (int) Platforms.get().getWindowWidth();
+                    b.update(ww - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
+                }));
+        views.put(VIEW_RIGHT_TOP, new Bounds(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
                 wHeight - BOTTOM_PANEL_SIZE, b -> {
                     int ww = (int) Platforms.get().getWindowWidth();
                     int wh = (int) Platforms.get().getWindowHeight();
@@ -203,6 +204,12 @@ public class Main {
         }));
 
         camera.initCamera(views, VIEW_MAIN);
+        // Subscribe scroll regions for Info and Terminal panels
+        Bounds rightTop = views.get(VIEW_RIGHT_TOP);
+        Bounds bottom = views.get(VIEW_BOTTOM);
+        MouseTrap.subscribeScrollRegion(rightTop, info);
+        MouseTrap.subscribeScrollRegion(bottom, terminal);
+        MouseTrap.subscribeScrollRegion(views.get(VIEW_MAIN), camera);
         DistanceMatrix d = retTup.d;
         if (retTup.d == null) {
             d = new DistanceMatrix(retTup.ps);
@@ -363,10 +370,10 @@ public class Main {
                 Drawing.drawPath(retTup.tsp, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false, true, false,
                         camera);
             }
-            camera.updateView(VIEW_RIGHT_TOP);
+            camera.updateView(VIEW_RIGHT_BOTTOM);
             logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 
-            camera.updateView(VIEW_RIGHT_BOTTOM);
+            camera.updateView(VIEW_RIGHT_TOP);
             info.draw(camera);
 
             camera.updateView(VIEW_BOTTOM);

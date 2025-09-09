@@ -3,6 +3,7 @@ package shell.ui.menu;
 import java.util.ArrayList;
 
 import shell.cameras.Camera;
+import shell.cameras.Bounds;
 import shell.file.FileManagement;
 import shell.render.color.Color;
 import shell.render.color.ColorBox;
@@ -12,8 +13,9 @@ import shell.render.sdf.SDFTexture;
 import shell.render.sdf.SDFUnion;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
+import shell.platform.input.MouseTrap;
 
-public class MenuBox {
+public class MenuBox implements MouseTrap.ScrollHandler {
     SDFUnion menuOuterBorder;
     int hoverItem = -1;
     float scale = 2f;
@@ -29,9 +31,10 @@ public class MenuBox {
     public static ArrayList<MenuItem> menuItems;
     public static Menu activeMenu;
     public static float scrollOffsetY;
-    public float SCROLL_SPEED = 20f;
+    public float SCROLL_SPEED = 1000f;
     public static boolean menuVisible = true;
     public SDFTexture logo;
+    private Bounds scrollBounds;
 
     public MenuBox() {
         alpha = 0.95f;
@@ -46,10 +49,12 @@ public class MenuBox {
         String cachedFileName = FileManagement.getTestFileCache();
         activeMenu = new Menu.MainMenu(cachedFileName);
         menuItems = activeMenu.loadMenu();
+        scrollBounds = new Bounds(0, 0, 0, 0);
+        MouseTrap.subscribeScrollRegion(scrollBounds, this);
     }
 
     public void draw(Camera camera) {
-        if(menuOuterBorder.outerTexture == null){
+        if (menuOuterBorder.outerTexture == null) {
             return;
         }
 
@@ -65,12 +70,27 @@ public class MenuBox {
         }
         itemHeight = menuOuterBorder.outerTexture.height * scale / 2;
         itemWidth = menuOuterBorder.outerTexture.width * scale * 0.91f;
+
+        // Track menu extents to update scroll bounds each frame
+        float minLeft = Float.MAX_VALUE;
+        float maxRight = Float.MIN_VALUE;
+        float minDown = Float.MAX_VALUE;
+        float maxUp = Float.MIN_VALUE;
         for (int i = 0; i < menuItems.size(); i++) {
             float itemCenterY = centerY - itemHeight - (itemHeight * i * 1.5f) - scrollOffsetY;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
             float upBoundX = itemCenterY + itemHeight / 2;
             float downBoundX = itemCenterY - itemHeight / 2;
+
+            if (leftBoundX < minLeft)
+                minLeft = leftBoundX;
+            if (rightBoundX > maxRight)
+                maxRight = rightBoundX;
+            if (downBoundX < minDown)
+                minDown = downBoundX;
+            if (upBoundX > maxUp)
+                maxUp = upBoundX;
             if (hoverX > leftBoundX && hoverX < rightBoundX && hoverY > downBoundX && hoverY < upBoundX) {
 
                 menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, outerFlash, camera);
@@ -84,6 +104,13 @@ public class MenuBox {
             Drawing.font.drawTextCentered(menuItems.get(i).itemString(), centerX, itemCenterY + itemHeight * 0.045f,
                     itemHeight / 2,
                     Color.BLUE_WHITE, camera);
+        }
+        if (menuItems.size() > 0) {
+            float width = Math.max(0, maxRight - minLeft);
+            float height = Math.max(0, maxUp - minDown);
+            scrollBounds.update(minLeft, Math.max(0, minDown), width, height);
+        } else {
+            scrollBounds.update(0, 0, 0, 0);
         }
     }
 
@@ -125,7 +152,7 @@ public class MenuBox {
         activeMenu.back();
     }
 
-    public void scroll(boolean scrollUp) {
+    public void onScroll(boolean scrollUp, double deltaSeconds) {
         float menuBottom = Canvas3D.frameBufferHeight / 2 - (itemHeight * menuItems.size() * 1.5f);
 
         if (menuBottom > 0) {
@@ -133,12 +160,12 @@ public class MenuBox {
             return;
         }
         if (scrollUp) {
-            scrollOffsetY += SCROLL_SPEED;
+            scrollOffsetY += SCROLL_SPEED * deltaSeconds;
             if (scrollOffsetY > 0) {
                 scrollOffsetY = 0;
             }
         } else {
-            scrollOffsetY -= SCROLL_SPEED;
+            scrollOffsetY -= SCROLL_SPEED * deltaSeconds;
             float centerY = menuBottom - scrollOffsetY;
             if (!(centerY < 0)) {
                 scrollOffsetY = centerY + scrollOffsetY;
