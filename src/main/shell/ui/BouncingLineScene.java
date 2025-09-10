@@ -104,7 +104,10 @@ public class BouncingLineScene extends Canvas3D {
                 b -> b.update(0, 0, showCode ? Canvas3D.frameBufferWidth / 2 : Canvas3D.frameBufferWidth,
                         Canvas3D.frameBufferHeight));
         rightBounds = new Bounds(half, 0, 0, Canvas3D.frameBufferHeight,
-                b -> b.update(Canvas3D.frameBufferWidth / 2, 0, Canvas3D.frameBufferWidth / 2,
+                b -> b.update(
+                        Canvas3D.frameBufferWidth / 2,
+                        0,
+                        showCode ? Canvas3D.frameBufferWidth / 2f : 0f,
                         Canvas3D.frameBufferHeight));
         webViews.put(VIEW_LEFT_RENDER, leftBounds);
         webViews.put(VIEW_RIGHT_CODE, rightBounds);
