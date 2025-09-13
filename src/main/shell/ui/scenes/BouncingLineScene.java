@@ -68,13 +68,11 @@ public class BouncingLineScene extends Scene {
                         Math.pow(point2Y - point1Y, 2));
         lineSegment = new Segment(knot1, knot2, distance);
 
-        // Use frame buffer size implicitly via camera transforms
-
         camera2D.calculateCameraTransform(cameraBounds);
         camera2D.updateView(VIEW_LEFT_RENDER);
 
         initViews(camera2D, VIEW_LEFT_RENDER, VIEW_RIGHT_CODE);
-        initCodePane("Line SDF", ShaderType.LineSDF.shader);
+        // initCodePane("Line SDF", ShaderType.LineSDF.shader, Drawing.sdfLine);
     }
 
     @Override

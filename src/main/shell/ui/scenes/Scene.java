@@ -78,10 +78,10 @@ public abstract class Scene extends Canvas3D {
         showCodeButton.draw();
     }
 
-    protected void initCodePane(String title, ShaderProgram shader) {
-        codePane = new ShaderCodePane(rightBounds, SCROLL_SPEED, shader, title);
+    protected void initCodePane(String title, ShaderProgram shader, ShaderCodePane.UniformProvider provider) {
+        codePane = new ShaderCodePane(rightBounds, SCROLL_SPEED, shader, title, provider);
     }
-
+ 
     protected void drawUI(String leftId, String rightId) {
         Drawing.font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera2D);
         if (rightBounds.viewWidth > 0) {

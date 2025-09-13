@@ -78,6 +78,13 @@ public class HyperString {
         }));
     }
 
+    public void addDynamicWord(Supplier<String> wordAction, Color c) {
+        words.add(new Word(wordAction, c, () -> {
+        }, () -> {
+        }, () -> {
+        }));
+    }
+
     public void addDynamicWord(Supplier<String> wordAction, Color c, Action hoverAction, Action clearHover,
             Action clickAction) {
         words.add(new Word(wordAction, c, hoverAction, clearHover, clickAction));

@@ -8,14 +8,12 @@ import org.joml.Vector2f;
 import shell.cameras.Camera2D;
 import shell.render.color.Color;
 import shell.render.sdf.SDFCircleSimple;
-import shell.render.shaders.ShaderProgram.ShaderType;
 import shell.ui.Canvas3D;
-import shell.ui.Drawing;
 
 public class CircleScene extends Scene {
 
     private SDFCircleSimple circle;
-    
+
     public CircleScene() {
         super();
         circle = new SDFCircleSimple();
@@ -37,7 +35,7 @@ public class CircleScene extends Scene {
         camera2D.updateView(DEFAULT_VIEW_LEFT);
 
         initViews(camera2D, DEFAULT_VIEW_LEFT, DEFAULT_VIEW_RIGHT);
-        initCodePane("Circle SDF", ShaderType.CircleSDFSimple.shader);
+        initCodePane("Circle SDF", circle.shader, circle);
     }
 
     @Override
@@ -55,4 +53,5 @@ public class CircleScene extends Scene {
 
         drawUI(DEFAULT_VIEW_LEFT, DEFAULT_VIEW_RIGHT);
     }
+
 }

@@ -31,12 +31,19 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private final ShaderProgram targetShader;
     private final String title;
 
+    public static interface UniformProvider {
+        void populateEnv(Map<String, Double> env);
+    }
+
+    private final UniformProvider uniformProvider;
+
     public ShaderCodePane(Bounds paneBounds, float scrollSpeed) {
         this.paneBounds = paneBounds;
         this.scrollSpeed = scrollSpeed;
         this.codeText = new HyperString();
         this.targetShader = ShaderType.Font.shader;
         this.title = "Font Shader";
+        this.uniformProvider = null;
         loadCode(targetShader, title);
         codeText.draw();
         MouseTrap.subscribeScrollRegion(this.paneBounds, this);
@@ -48,6 +55,20 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         this.codeText = new HyperString();
         this.targetShader = shader != null ? shader : ShaderType.Font.shader;
         this.title = title != null ? title : "Shader";
+        this.uniformProvider = null;
+        loadCode(this.targetShader, this.title);
+        codeText.draw();
+        MouseTrap.subscribeScrollRegion(this.paneBounds, this);
+    }
+
+    public ShaderCodePane(Bounds paneBounds, float scrollSpeed, ShaderProgram shader, String title,
+            UniformProvider provider) {
+        this.paneBounds = paneBounds;
+        this.scrollSpeed = scrollSpeed;
+        this.codeText = new HyperString();
+        this.targetShader = shader != null ? shader : ShaderType.Font.shader;
+        this.title = title != null ? title : "Shader";
+        this.uniformProvider = provider;
         loadCode(this.targetShader, this.title);
         codeText.draw();
         MouseTrap.subscribeScrollRegion(this.paneBounds, this);
@@ -57,28 +78,12 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         try {
             displayedLines.clear();
             cachedSuffixes.clear();
-            String vs = shader != null ? shader.getVertexSource() : "";
             String fs = shader != null ? shader.getFragmentSource() : "";
             int gIndex = 0;
             // Live mouse coordinates header
             codeText.addWord("Mouse: ", Color.CYAN);
             codeText.addDynamicWord(() -> mouseText());
             codeText.newLine();
-            displayedLines.add(null);
-            gIndex++;
-            codeText.addLine("// " + headerTitle + " - Vertex Shader", Color.WHITE);
-            displayedLines.add(null);
-            gIndex++;
-            for (String ln : vs.split("\n")) {
-                final int idx = gIndex;
-                codeText.addWord(ln, Color.WHITE);
-                codeText.addWord("  ", Color.WHITE);
-                codeText.addDynamicWord(() -> dynamicSuffix(idx));
-                codeText.newLine();
-                displayedLines.add(ln);
-                gIndex++;
-            }
-            codeText.addLine(" ", Color.WHITE);
             displayedLines.add(null);
             gIndex++;
             codeText.addLine("// " + headerTitle + " - Fragment Shader", Color.WHITE);
@@ -88,7 +93,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 final int idx = gIndex;
                 codeText.addWord(ln, Color.WHITE);
                 codeText.addWord("  ", Color.WHITE);
-                codeText.addDynamicWord(() -> dynamicSuffix(idx));
+                codeText.addDynamicWord(() -> dynamicSuffix(idx), Color.BLUE_WHITE);
                 codeText.newLine();
                 displayedLines.add(ln);
                 gIndex++;
@@ -129,6 +134,14 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         env.put("my", (double) my);
         env.put("x", (double) mx);
         env.put("y", (double) my);
+        env.put("posx", (double) mx);
+        env.put("posy", (double) my);
+        if (uniformProvider != null) {
+            try {
+                uniformProvider.populateEnv(env);
+            } catch (Throwable t) {
+            }
+        }
         // Ensure cache size matches displayed lines
         if (cachedSuffixes.size() != displayedLines.size()) {
             cachedSuffixes.clear();
@@ -139,9 +152,21 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             String line = displayedLines.get(i);
             String out = "";
             if (line != null) {
-                Double res = evaluateAndAssign(line, env);
-                if (res != null && !res.isNaN() && !res.isInfinite()) {
-                    out = "// = " + formatFixed(res, 4);
+                // If this line declares a uniform, show its current value
+                String decl = line.trim();
+                if (decl.startsWith("uniform ")) {
+                    String name = extractUniformName(decl);
+                    if (name != null) {
+                        Double val = uniformValueForName(name, env);
+                        if (val != null) {
+                            out = "// = " + formatFixed(val, 2);
+                        }
+                    }
+                } else {
+                    Double res = evaluateAndAssign(line, env);
+                    if (res != null && !res.isNaN() && !res.isInfinite()) {
+                        out = "// = " + formatFixed(res, 4);
+                    }
                 }
             }
             cachedSuffixes.set(i, out);
@@ -172,6 +197,12 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 || sl.startsWith("struct ") || sl.startsWith("attribute ") || sl.startsWith("varying ")) {
             return null;
         }
+        // Special-case vector distance like: distance(p, pointA)
+        if (s.startsWith("distance(") && s.endsWith(")")) {
+            Double v = tryEvalDistance(s, env);
+            if (v != null)
+                return v;
+        }
         // Handle assignment with optional type prefixes
         int eq = s.indexOf('=');
         if (eq > 0 && s.indexOf('=', eq + 1) == -1) {
@@ -179,6 +210,31 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             String right = s.substring(eq + 1).trim();
             String var = extractVarName(left);
             if (var != null && !var.isEmpty()) {
+                // Vector assignment from mouse pos: vec2 p = pos.xy
+                if (right.contains("pos.xy") || right.equals("pos")) {
+                    Double px = env.getOrDefault("posx", env.getOrDefault("mx", 0.0));
+                    Double py = env.getOrDefault("posy", env.getOrDefault("my", 0.0));
+                    env.put(var + "_x", px);
+                    env.put(var + "_y", py);
+                    return null;
+                }
+                // Vector literal assignment: vec2 p = vec2(a,b)
+                if (right.startsWith("vec2(")) {
+                    double[] v2 = parseVec2(right, env);
+                    if (v2 != null) {
+                        env.put(var + "_x", v2[0]);
+                        env.put(var + "_y", v2[1]);
+                        return null;
+                    }
+                }
+                // distance with vectors on RHS
+                if (right.startsWith("distance(") && right.endsWith(")")) {
+                    Double dv = tryEvalDistance(right, env);
+                    if (dv != null) {
+                        env.put(var, dv);
+                        return dv;
+                    }
+                }
                 try {
                     double val = new ExpressionParser(right, env).parse();
                     env.put(var, val);
@@ -192,6 +248,11 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             // Heuristic: only attempt if it references known vars, functions, or digits
             if (!s.matches(".*(mx|my|[0-9]|sin|cos|tan|sqrt|abs|min|max|clamp|mix|distance|dot).*")) {
                 return null;
+            }
+            if (s.startsWith("distance(") && s.endsWith(")")) {
+                Double v = tryEvalDistance(s, env);
+                if (v != null)
+                    return v;
             }
             try {
                 return new ExpressionParser(s, env).parse();
@@ -209,6 +270,101 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             my = Canvas3D.mouse.normalizedPosY;
         }
         return "mx=" + formatFixed(mx, 1) + " my=" + formatFixed(my, 1);
+    }
+
+    // Unused after moving uniform display inline with declarations; keep for
+    // potential future use
+    // private String uniformsText() { ... }
+
+    private String extractUniformName(String decl) {
+        // Examples: "uniform float radius;", "uniform vec2 pointA;"
+        try {
+            int semi = decl.indexOf(';');
+            String s = semi >= 0 ? decl.substring(0, semi) : decl;
+            String[] parts = s.split("\\s+");
+            if (parts.length >= 3) {
+                String cand = parts[2];
+                // strip array or trailing commas if any
+                cand = cand.replaceAll("[;,]", "");
+                return cand;
+            }
+        } catch (Exception ignore) {
+        }
+        return null;
+    }
+
+    private Double uniformValueForName(String name, Map<String, Double> env) {
+        if (env.containsKey(name))
+            return env.get(name);
+        if (env.containsKey(name + "_x") && env.containsKey(name + "_y")) {
+            double x = env.get(name + "_x");
+            double y = env.get(name + "_y");
+            return Math.sqrt(x * x + y * y); // show magnitude if vec2
+        }
+        return null;
+    }
+
+    private Double tryEvalDistance(String expr, Map<String, Double> env) {
+        // Expect distance(A, B)
+        int l = expr.indexOf('(');
+        int r = expr.lastIndexOf(')');
+        if (l < 0 || r < 0 || r <= l + 1)
+            return null;
+        String inside = expr.substring(l + 1, r);
+        String[] parts = inside.split(",");
+        if (parts.length != 2)
+            return null;
+        double[] a = getVec2(trim(parts[0]), env);
+        double[] b = getVec2(trim(parts[1]), env);
+        if (a == null || b == null)
+            return null;
+        double dx = a[0] - b[0];
+        double dy = a[1] - b[1];
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    private String trim(String s) {
+        return s.trim();
+    }
+
+    private double[] getVec2(String token, Map<String, Double> env) {
+        if ("pos".equals(token)) {
+            return new double[] { env.getOrDefault("posx", 0.0), env.getOrDefault("posy", 0.0) };
+        }
+        if (env.containsKey(token + "_x") && env.containsKey(token + "_y")) {
+            return new double[] { env.get(token + "_x"), env.get(token + "_y") };
+        }
+        if ("pointA".equals(token)) {
+            return new double[] { env.getOrDefault("pointA_x", 0.0), env.getOrDefault("pointA_y", 0.0) };
+        }
+        if (token.startsWith("vec2(")) {
+            return parseVec2(token, env);
+        }
+        return null;
+    }
+
+    private double[] parseVec2(String expr, Map<String, Double> env) {
+        int l = expr.indexOf('(');
+        int r = expr.lastIndexOf(')');
+        if (l < 0 || r < 0 || r <= l + 1)
+            return null;
+        String inside = expr.substring(l + 1, r);
+        String[] parts = inside.split(",");
+        if (parts.length != 2)
+            return null;
+        Double a = evalSimple(parts[0].trim(), env);
+        Double b = evalSimple(parts[1].trim(), env);
+        if (a == null || b == null)
+            return null;
+        return new double[] { a, b };
+    }
+
+    private Double evalSimple(String token, Map<String, Double> env) {
+        try {
+            return new ExpressionParser(token, env).parse();
+        } catch (Exception e) {
+            return env.get(token);
+        }
     }
 
     private String extractVarName(String left) {
