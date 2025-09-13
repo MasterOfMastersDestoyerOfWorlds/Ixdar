@@ -2,7 +2,6 @@ package shell.ui;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -12,10 +11,10 @@ import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
-import shell.platform.input.MouseTrap;
 import shell.point.PointND;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
+import shell.render.shaders.ShaderProgram.ShaderType;
 import shell.shell.Shell;
 import shell.ui.main.Main;
 
@@ -138,7 +137,7 @@ public class BouncingLineScene extends Canvas3D {
         });
         showCodeButton.draw();
 
-        codePane = new ShaderCodePane(rightBounds, SCROLL_SPEED);
+        codePane = new ShaderCodePane(rightBounds, SCROLL_SPEED, ShaderType.LineSDF.shader, "Line SDF");
     }
 
     @Override
