@@ -20,7 +20,6 @@ void main() {
 
     sigDist = (distA / radius);
 
-    // Fill up to the circle edge (normalized distance 1.0) with a smooth falloff
     float opacity = smoothstep(1.0, 1.0 - edgeSharpness, sigDist);
     fragColor = vec4(vertexColor.rgb, vertexColor.a * opacity);
 }

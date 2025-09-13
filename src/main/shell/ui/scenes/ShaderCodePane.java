@@ -1,10 +1,12 @@
-package shell.ui;
+package shell.ui.scenes;
 
 import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
 import shell.platform.input.MouseTrap;
 import shell.render.color.Color;
 import shell.render.text.HyperString;
+import shell.ui.Canvas3D;
+import shell.ui.Drawing;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 import java.util.ArrayList;
@@ -58,6 +60,12 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             String vs = shader != null ? shader.getVertexSource() : "";
             String fs = shader != null ? shader.getFragmentSource() : "";
             int gIndex = 0;
+            // Live mouse coordinates header
+            codeText.addWord("Mouse: ", Color.CYAN);
+            codeText.addDynamicWord(() -> mouseText());
+            codeText.newLine();
+            displayedLines.add(null);
+            gIndex++;
             codeText.addLine("// " + headerTitle + " - Vertex Shader", Color.WHITE);
             displayedLines.add(null);
             gIndex++;
@@ -156,8 +164,12 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         if (s.isEmpty()) {
             return null;
         }
-        // Ignore obvious non-expressions
-        if (s.contains("==") || s.contains("?") || s.contains(":") || s.startsWith("#")) {
+        // Ignore obvious non-expressions / declarations
+        String sl = s.toLowerCase();
+        if (s.contains("==") || s.contains("?") || s.contains(":") || s.startsWith("#")
+                || sl.startsWith("in ") || sl.startsWith("out ") || sl.startsWith("uniform ")
+                || sl.startsWith("layout") || sl.startsWith("precision ") || sl.startsWith("void ")
+                || sl.startsWith("struct ") || sl.startsWith("attribute ") || sl.startsWith("varying ")) {
             return null;
         }
         // Handle assignment with optional type prefixes
@@ -177,6 +189,10 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             }
         } else {
             // Expression only
+            // Heuristic: only attempt if it references known vars, functions, or digits
+            if (!s.matches(".*(mx|my|[0-9]|sin|cos|tan|sqrt|abs|min|max|clamp|mix|distance|dot).*")) {
+                return null;
+            }
             try {
                 return new ExpressionParser(s, env).parse();
             } catch (Exception ex) {
@@ -184,6 +200,15 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             }
         }
         return null;
+    }
+
+    private String mouseText() {
+        float mx = 0f, my = 0f;
+        if (Canvas3D.mouse != null) {
+            mx = Canvas3D.mouse.normalizedPosX;
+            my = Canvas3D.mouse.normalizedPosY;
+        }
+        return "mx=" + formatFixed(mx, 1) + " my=" + formatFixed(my, 1);
     }
 
     private String extractVarName(String left) {

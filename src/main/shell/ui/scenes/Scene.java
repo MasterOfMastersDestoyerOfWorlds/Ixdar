@@ -12,7 +12,6 @@ import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
-import shell.ui.ShaderCodePane;
 import shell.render.text.HyperString;
 
 public abstract class Scene extends Canvas3D {

@@ -27,7 +27,7 @@ public class SDFCircleSimple {
 
         float edgeDist = 0.35f;
         shader.setFloat("edgeDist", edgeDist);
-        shader.setFloat("edgeSharpness", edgeDist / (8 * edgeDist * camera.getScaleFactor()));
+        shader.setFloat("edgeSharpness", edgeDist / (32 * edgeDist * camera.getScaleFactor()));
         shader.setFloat("radius", circleRadius);
 
         shader.begin();

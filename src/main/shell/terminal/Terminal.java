@@ -289,7 +289,7 @@ public class Terminal implements MouseTrap.ScrollHandler {
     }
 
     @Override
-    public void onScroll(boolean scrollUp, float deltaSeconds) {
+    public void onScroll(boolean scrollUp, double deltaSeconds) {
         float menuBottom = cachedInfo != null ? cachedInfo.getLastWord().yScreenOffset : 0;
         if (scrollUp) {
             scrollOffsetY -= SCROLL_SPEED * deltaSeconds;
