@@ -98,7 +98,7 @@ public class MenuBox implements MouseTrap.ScrollHandler {
                 // + 0.1f,
                 // new Color(Color.YELLOW, 0.5f));
             } else {
-                menuOuterBorder.drawCentered(centerX, itemCenterY, scale, camera);
+                menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, outerColor, camera);
 
             }
             Drawing.font.drawTextCentered(menuItems.get(i).itemString(), centerX, itemCenterY + itemHeight * 0.045f,

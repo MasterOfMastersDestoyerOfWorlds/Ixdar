@@ -8,10 +8,9 @@ import shell.platform.Platforms;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
-import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 
-public class SDFUnion {
+public class SDFUnion extends ShaderDrawable{
 
     public Texture outerTexture;
     public Color outerColor;
@@ -21,7 +20,6 @@ public class SDFUnion {
     public float innerScale;
     public float innerOffsetX;
     public float innerOffsetY;
-    public ShaderProgram shader;
     public float numberPinStripes;
     public float showPin;
 
@@ -45,18 +43,22 @@ public class SDFUnion {
         this.showPin = showPin;
     }
 
-    public void draw(float drawX, float drawY, float width, float height, Camera camera) {
-        draw(drawX, drawY, width, height, innerColor, outerColor, camera);
-    }
-
     public void draw(float drawX, float drawY, float width, float height, Color innerColor,
             Color outerColor, Camera camera) {
+        this.outerColor = outerColor;
+        setup(camera);
+        shader.drawTextureRegion(outerTexture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), 0, 0,
+                outerTexture.width,
+                outerTexture.height, innerColor);
+        cleanup(camera);
+    }
+
+    protected void setUniforms() {
         if(innerTexture == null || outerTexture == null){
             return;
         }
         outerTexture.bind();
         innerTexture.bind();
-        shader.use();
         shader.setTexture("outerTexture", outerTexture, GL_TEXTURE0, 0);
         shader.setTexture("innerTexture", innerTexture, GL_TEXTURE1, 1);
         shader.setVec4("borderColor", outerColor.toVector4f());
@@ -67,14 +69,6 @@ public class SDFUnion {
         shader.setFloat("innerOffsetY", innerOffsetY);
         shader.setFloat("numberPinStripes", (float) numberPinStripes);
         shader.setFloat("showPin", (float) showPin);
-        shader.begin();
-
-        shader.drawTextureRegion(outerTexture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), 0, 0,
-                outerTexture.width,
-                outerTexture.height, innerColor);
-
-        shader.end();
-        camera.incZIndex();
     }
 
     public void drawCentered(float drawX, float drawY, float scale, Color innerColor, Color outerColor, Camera camera) {

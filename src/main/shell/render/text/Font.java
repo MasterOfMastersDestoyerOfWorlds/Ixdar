@@ -15,7 +15,6 @@ import shell.render.color.Color;
 import shell.render.sdf.SDFTexture;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
-import shell.ui.main.Main;
 
 public class Font {
 
@@ -25,10 +24,9 @@ public class Font {
 
     public float fontHeight;
     public float fontWidth;
-    public ShaderProgram shader;
+    public ShaderProgram shader; 
     public int maxTextWidth;
-    private SDFTexture sdfTexture;
-    // Metrics from atlas
+    private SDFTexture sdfTexture; 
     private float pxPerEm;
     private float ascenderPx;
     private float descenderPx;
@@ -164,7 +162,7 @@ public class Font {
         if (sdfTexture == null) {
             return;
         }
-        sdfTexture.setUniforms();
+        sdfTexture.setup(camera);
         drawTextNoSetup(text, x, y, glyphHeight, c, camera);
         sdfTexture.cleanup(camera);
     }
@@ -208,7 +206,7 @@ public class Font {
 
     public void drawHyperString(HyperString hyperString, float x, float y, float height, Camera2D camera) {
         hyperString.setLineOffsetCentered(camera, x, y, this, 0);
-        sdfTexture.setUniforms();
+        sdfTexture.setup(camera);
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
             hyperString.draw();
             ArrayList<Word> words = hyperString.getLine(lineNumber);
@@ -232,7 +230,7 @@ public class Font {
 
     public void drawHyperStrings(ArrayList<HyperString> hyperStrings, ArrayList<Vector2f> xLoc, float height,
             Camera2D camera) {
-        sdfTexture.setUniforms();
+        sdfTexture.setup(camera);
         for (int j = 0; j < hyperStrings.size(); j++) {
             Vector2f loc = xLoc.get(j);
             HyperString hyperString = hyperStrings.get(j);
@@ -264,7 +262,7 @@ public class Font {
         if (sdfTexture == null) {
             return;
         }
-        sdfTexture.setUniforms();
+        sdfTexture.setup(camera);
         hyperString.setLineOffsetFromTopRow(camera, row, scrollOffsetY, height, this);
         hyperString.draw();
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {

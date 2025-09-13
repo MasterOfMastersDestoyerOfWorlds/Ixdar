@@ -12,8 +12,8 @@ uniform vec2 pointA;
 uniform vec2 pointB;
 uniform float inverseLineLengthSq;
 
-uniform float width;
 uniform float height;
+uniform float width;
 
 uniform float edgeDist;
 uniform float edgeSharpness;
@@ -27,7 +27,7 @@ void main() {
 
     float t = max(0., min(1., dot(pos - pointA, pointB - pointA) * inverseLineLengthSq));
     vec2 projection = pointA + t * (pointB - pointA);  // Projection falls on the segment
-    sigDist = distance(pos, projection) / width;
+    sigDist = distance(pos, projection) / height;
 
     float opacity = smoothstep(edgeDist, edgeDist - edgeSharpness, sigDist);
 

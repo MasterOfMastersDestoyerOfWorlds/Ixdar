@@ -4,15 +4,19 @@ import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
 import shell.platform.input.MouseTrap;
 import shell.render.color.Color;
+import shell.render.sdf.ShaderDrawable;
 import shell.render.text.HyperString;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
+
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * Renders shader source code into a scrollable pane area using HyperString.
@@ -31,11 +35,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private final ShaderProgram targetShader;
     private final String title;
 
-    public static interface UniformProvider {
-        void populateEnv(Map<String, Double> env);
-    }
-
-    private final UniformProvider uniformProvider;
+    private final ShaderDrawable uniformProvider;
 
     public ShaderCodePane(Bounds paneBounds, float scrollSpeed) {
         this.paneBounds = paneBounds;
@@ -62,7 +62,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     }
 
     public ShaderCodePane(Bounds paneBounds, float scrollSpeed, ShaderProgram shader, String title,
-            UniformProvider provider) {
+            ShaderDrawable provider) {
         this.paneBounds = paneBounds;
         this.scrollSpeed = scrollSpeed;
         this.codeText = new HyperString();
@@ -129,16 +129,18 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         if (mx == lastMouseX && my == lastMouseY) {
             return;
         }
-        Map<String, Double> env = new HashMap<>();
-        env.put("mx", (double) mx);
-        env.put("my", (double) my);
-        env.put("x", (double) mx);
-        env.put("y", (double) my);
-        env.put("posx", (double) mx);
-        env.put("posy", (double) my);
+        Map<String, Entry<String, Float>> env = uniformProvider.getEnv();
+        Entry<String, Float> x = new AbstractMap.SimpleEntry<String, Float>(Float.toString(mx), mx);
+        Entry<String, Float> y = new AbstractMap.SimpleEntry<String, Float>(Float.toString(my), my);
+        env.put("mx", x);
+        env.put("my", y);
+        env.put("x", x);
+        env.put("y", y);
+        env.put("posx", x);
+        env.put("posy", y);
         if (uniformProvider != null) {
             try {
-                uniformProvider.populateEnv(env);
+
             } catch (Throwable t) {
             }
         }
@@ -157,13 +159,13 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 if (decl.startsWith("uniform ")) {
                     String name = extractUniformName(decl);
                     if (name != null) {
-                        Double val = uniformValueForName(name, env);
+                        Entry<String, Float> val = env.get(name);
                         if (val != null) {
-                            out = "// = " + formatFixed(val, 2);
+                            out = "// = " + val.getKey();
                         }
                     }
                 } else {
-                    Double res = evaluateAndAssign(line, env);
+                    Float res = evaluateAndAssign(line, env);
                     if (res != null && !res.isNaN() && !res.isInfinite()) {
                         out = "// = " + formatFixed(res, 4);
                     }
@@ -175,7 +177,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         lastMouseY = my;
     }
 
-    private Double evaluateAndAssign(String line, Map<String, Double> env) {
+    private Float evaluateAndAssign(String line, Map<String, Entry<String, Float>> env) {
         // strip comments and semicolon
         String s = line;
         int cidx = s.indexOf("//");
@@ -199,7 +201,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         }
         // Special-case vector distance like: distance(p, pointA)
         if (s.startsWith("distance(") && s.endsWith(")")) {
-            Double v = tryEvalDistance(s, env);
+            Float v = tryEvalDistance(s, env);
             if (v != null)
                 return v;
         }
@@ -212,32 +214,30 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             if (var != null && !var.isEmpty()) {
                 // Vector assignment from mouse pos: vec2 p = pos.xy
                 if (right.contains("pos.xy") || right.equals("pos")) {
-                    Double px = env.getOrDefault("posx", env.getOrDefault("mx", 0.0));
-                    Double py = env.getOrDefault("posy", env.getOrDefault("my", 0.0));
-                    env.put(var + "_x", px);
-                    env.put(var + "_y", py);
+                    Float px = getOrDefault(env, "posx", "mx");
+                    Float py = getOrDefault(env, "posy", "my");
+                    put(env, var, px, py);
                     return null;
                 }
                 // Vector literal assignment: vec2 p = vec2(a,b)
                 if (right.startsWith("vec2(")) {
-                    double[] v2 = parseVec2(right, env);
+                    Float[] v2 = parseVec2(right, env);
                     if (v2 != null) {
-                        env.put(var + "_x", v2[0]);
-                        env.put(var + "_y", v2[1]);
+                        put(env, var, v2);
                         return null;
                     }
                 }
                 // distance with vectors on RHS
                 if (right.startsWith("distance(") && right.endsWith(")")) {
-                    Double dv = tryEvalDistance(right, env);
+                    Float dv = tryEvalDistance(right, env);
                     if (dv != null) {
-                        env.put(var, dv);
+                        put(env, var, dv);
                         return dv;
                     }
                 }
                 try {
-                    double val = new ExpressionParser(right, env).parse();
-                    env.put(var, val);
+                    Float val = new ExpressionParser(right, env).parse();
+                    put(env, var, val);
                     return val;
                 } catch (Exception ex) {
                     return null;
@@ -250,7 +250,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 return null;
             }
             if (s.startsWith("distance(") && s.endsWith(")")) {
-                Double v = tryEvalDistance(s, env);
+                Float v = tryEvalDistance(s, env);
                 if (v != null)
                     return v;
             }
@@ -261,6 +261,25 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             }
         }
         return null;
+    }
+
+    static final String[] vecNames = new String[]{"x", "y", "z", "w"};
+    private void put(Map<String, Entry<String, Float>> env, String var, Float... dv) {
+        String vectorString = String.format("vec%s(", dv.length);
+        for(int i =0; i < dv.length; i ++){
+            vectorString += Float.toString(dv[i]);
+            if(i != dv.length - 1){
+                vectorString += ", ";
+            }else{
+                vectorString += ")";
+            }
+        }
+        env.put(var, new AbstractMap.SimpleEntry<String, Float>(vectorString, 0f));
+
+        for(int i =0; i < dv.length; i ++){
+            String varName = var + "_" + vecNames[i];
+            env.put(varName, new AbstractMap.SimpleEntry<String, Float>(vectorString, dv[i]));
+        }
     }
 
     private String mouseText() {
@@ -293,18 +312,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         return null;
     }
 
-    private Double uniformValueForName(String name, Map<String, Double> env) {
-        if (env.containsKey(name))
-            return env.get(name);
-        if (env.containsKey(name + "_x") && env.containsKey(name + "_y")) {
-            double x = env.get(name + "_x");
-            double y = env.get(name + "_y");
-            return Math.sqrt(x * x + y * y); // show magnitude if vec2
-        }
-        return null;
-    }
-
-    private Double tryEvalDistance(String expr, Map<String, Double> env) {
+    private Float tryEvalDistance(String expr, Map<String, Entry<String, Float>> env) {
         // Expect distance(A, B)
         int l = expr.indexOf('(');
         int r = expr.lastIndexOf(')');
@@ -314,28 +322,28 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         String[] parts = inside.split(",");
         if (parts.length != 2)
             return null;
-        double[] a = getVec2(trim(parts[0]), env);
-        double[] b = getVec2(trim(parts[1]), env);
+        Float[] a = getVec2(trim(parts[0]), env);
+        Float[] b = getVec2(trim(parts[1]), env);
         if (a == null || b == null)
             return null;
-        double dx = a[0] - b[0];
-        double dy = a[1] - b[1];
-        return Math.sqrt(dx * dx + dy * dy);
+        Float dx = a[0] - b[0];
+        Float dy = a[1] - b[1];
+        return (float) Math.sqrt((dx * dx + dy * dy));
     }
 
     private String trim(String s) {
         return s.trim();
     }
 
-    private double[] getVec2(String token, Map<String, Double> env) {
+    private Float[] getVec2(String token, Map<String, Entry<String, Float>> env) {
         if ("pos".equals(token)) {
-            return new double[] { env.getOrDefault("posx", 0.0), env.getOrDefault("posy", 0.0) };
+            return new Float[] { getOrDefault(env, "posx"), getOrDefault(env, "posy") };
         }
         if (env.containsKey(token + "_x") && env.containsKey(token + "_y")) {
-            return new double[] { env.get(token + "_x"), env.get(token + "_y") };
+            return new Float[] { env.get(token + "_x").getValue(), env.get(token + "_y").getValue() };
         }
         if ("pointA".equals(token)) {
-            return new double[] { env.getOrDefault("pointA_x", 0.0), env.getOrDefault("pointA_y", 0.0) };
+            return new Float[] { getOrDefault(env, "pointA_x"), getOrDefault(env, "pointA_y") };
         }
         if (token.startsWith("vec2(")) {
             return parseVec2(token, env);
@@ -343,7 +351,16 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         return null;
     }
 
-    private double[] parseVec2(String expr, Map<String, Double> env) {
+    private Float getOrDefault(Map<String, Entry<String, Float>> env, String... keys) {
+        for (String key : keys) {
+            if (env.containsKey(key)) {
+                return env.get(key).getValue();
+            }
+        }
+        return 0f;
+    }
+
+    private Float[] parseVec2(String expr, Map<String, Entry<String, Float>> env) {
         int l = expr.indexOf('(');
         int r = expr.lastIndexOf(')');
         if (l < 0 || r < 0 || r <= l + 1)
@@ -352,24 +369,24 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         String[] parts = inside.split(",");
         if (parts.length != 2)
             return null;
-        Double a = evalSimple(parts[0].trim(), env);
-        Double b = evalSimple(parts[1].trim(), env);
+        Float a = evalSimple(parts[0].trim(), env);
+        Float b = evalSimple(parts[1].trim(), env);
         if (a == null || b == null)
             return null;
-        return new double[] { a, b };
+        return new Float[] { a, b };
     }
 
-    private Double evalSimple(String token, Map<String, Double> env) {
+    private Float evalSimple(String token, Map<String, Entry<String, Float>> env) {
         try {
             return new ExpressionParser(token, env).parse();
         } catch (Exception e) {
-            return env.get(token);
+            return env.get(token).getValue();
         }
     }
 
     private String extractVarName(String left) {
         // Remove qualifiers/types
-        String cleaned = left.replaceAll("^(const\\s+)?(uniform\\s+|varying\\s+)?(float|double|int)\\s+", "").trim();
+        String cleaned = left.replaceAll("^(const\\s+)?(uniform\\s+|varying\\s+)?(float|Float|int)\\s+", "").trim();
         // Take last identifier-like token
         String[] parts = cleaned.split("[^A-Za-z0-9_]+");
         if (parts.length == 0) {
@@ -378,10 +395,10 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         return parts[parts.length - 1];
     }
 
-    private String formatFixed(double val, int digits) {
-        double pow = Math.pow(10, digits);
-        double rounded = Math.round(val * pow) / pow;
-        String s = Double.toString(rounded);
+    private String formatFixed(Float val, int digits) {
+        Float pow = (float) Math.pow(10, digits);
+        Float rounded = Math.round(val * pow) / pow;
+        String s = Float.toString(rounded);
         int dot = s.indexOf('.');
         if (dot < 0) {
             StringBuilder sb = new StringBuilder(s);
@@ -406,22 +423,22 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private static class ExpressionParser {
         private final String s;
         private int pos;
-        private final Map<String, Double> env;
+        private final Map<String, Entry<String, Float>> env;
 
-        ExpressionParser(String s, Map<String, Double> env) {
+        ExpressionParser(String s, Map<String, Entry<String, Float>> env) {
             this.s = s;
             this.env = env;
             this.pos = 0;
         }
 
-        double parse() {
-            double v = parseExpr();
+        Float parse() {
+            Float v = parseExpr();
             skipWs();
             return v;
         }
 
-        private double parseExpr() {
-            double v = parseTerm();
+        private Float parseExpr() {
+            Float v = parseTerm();
             while (true) {
                 skipWs();
                 if (match('+')) {
@@ -434,8 +451,8 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             }
         }
 
-        private double parseTerm() {
-            double v = parseFactor();
+        private Float parseTerm() {
+            Float v = parseFactor();
             while (true) {
                 skipWs();
                 if (match('*')) {
@@ -448,7 +465,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             }
         }
 
-        private double parseFactor() {
+        private Float parseFactor() {
             skipWs();
             if (match('+')) {
                 return parseFactor();
@@ -457,7 +474,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 return -parseFactor();
             }
             if (match('(')) {
-                double v = parseExpr();
+                Float v = parseExpr();
                 expect(')');
                 return v;
             }
@@ -465,7 +482,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 String ident = parseIdent();
                 skipWs();
                 if (match('(')) {
-                    List<Double> args = new ArrayList<>();
+                    List<Float> args = new ArrayList<>();
                     skipWs();
                     if (!peekIs(')')) {
                         do {
@@ -482,7 +499,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             return parseNumber();
         }
 
-        private double parseNumber() {
+        private Float parseNumber() {
             skipWs();
             int start = pos;
             while (pos < s.length() && (Character.isDigit(s.charAt(pos)) || s.charAt(pos) == '.'))
@@ -490,7 +507,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             if (start == pos) {
                 throw new RuntimeException("Expected number at " + pos);
             }
-            return Double.parseDouble(s.substring(start, pos));
+            return Float.parseFloat(s.substring(start, pos));
         }
 
         private String parseIdent() {
@@ -500,37 +517,37 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             return s.substring(start, pos);
         }
 
-        private double resolveVar(String name) {
+        private Float resolveVar(String name) {
             if ("pi".equalsIgnoreCase(name) || "PI".equals(name))
-                return Math.PI;
+                return (float) Math.PI;
             if ("TAU".equals(name))
-                return Math.PI * 2.0;
+                return (float) (Math.PI * 2.0f);
             if ("e".equalsIgnoreCase(name))
-                return Math.E;
-            Double v = env.get(name);
-            return v != null ? v : 0.0;
+                return (float) Math.E;
+            Float v = env.get(name).getValue();
+            return v != null ? v : 0.0f;
         }
 
-        private double applyFunc(String name, List<Double> a) {
+        private Float applyFunc(String name, List<Float> a) {
             switch (name) {
             case "sin":
-                return Math.sin(a.get(0));
+                return (float) Math.sin(a.get(0));
             case "cos":
-                return Math.cos(a.get(0));
+                return (float) Math.cos(a.get(0));
             case "tan":
-                return Math.tan(a.get(0));
+                return (float) Math.tan(a.get(0));
             case "sqrt":
-                return Math.sqrt(a.get(0));
+                return (float) Math.sqrt(a.get(0));
             case "abs":
-                return Math.abs(a.get(0));
+                return (float) Math.abs(a.get(0));
             case "floor":
-                return Math.floor(a.get(0));
+                return (float) Math.floor(a.get(0));
             case "ceil":
-                return Math.ceil(a.get(0));
+                return (float) Math.ceil(a.get(0));
             case "round":
-                return (double) Math.round(a.get(0));
+                return (float) Math.round(a.get(0));
             case "min":
-                return Math.min(a.get(0), a.get(1));
+                return (float) Math.min(a.get(0), a.get(1));
             case "max":
                 return Math.max(a.get(0), a.get(1));
             case "dot":
@@ -538,26 +555,26 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             case "distance":
                 return Math.abs(a.get(0) - a.get(1));
             case "mix": {
-                double x = a.get(0), y = a.get(1), t = a.get(2);
-                return x * (1.0 - t) + y * t;
+                Float x = a.get(0), y = a.get(1), t = a.get(2);
+                return x * (1.0f - t) + y * t;
             }
             case "smoothstep": {
-                double edge0 = a.get(0), edge1 = a.get(1), x = a.get(2);
+                Float edge0 = a.get(0), edge1 = a.get(1), x = a.get(2);
                 if (edge0 == edge1)
-                    return x < edge0 ? 0.0 : 1.0;
-                double t = (x - edge0) / (edge1 - edge0);
-                if (t < 0.0)
-                    t = 0.0;
-                if (t > 1.0)
-                    t = 1.0;
-                return t * t * (3.0 - 2.0 * t);
+                    return x < edge0 ? 0.0f : 1.0f;
+                Float t = (x - edge0) / (edge1 - edge0);
+                if (t < 0.0f)
+                    t = 0.0f;
+                if (t > 1.0f)
+                    t = 1.0f;
+                return t * t * (3.0f - 2.0f * t);
             }
             case "clamp": {
-                double x = a.get(0), lo = a.get(1), hi = a.get(2);
+                Float x = a.get(0), lo = a.get(1), hi = a.get(2);
                 return Math.max(lo, Math.min(hi, x));
             }
             default:
-                return 0.0;
+                return 0.0f;
             }
         }
 

@@ -9,6 +9,7 @@ import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
 import shell.PointSet;
 import shell.render.color.Color;
+import shell.render.sdf.ShaderDrawable;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
@@ -78,7 +79,7 @@ public abstract class Scene extends Canvas3D {
         showCodeButton.draw();
     }
 
-    protected void initCodePane(String title, ShaderProgram shader, ShaderCodePane.UniformProvider provider) {
+    protected void initCodePane(String title, ShaderProgram shader, ShaderDrawable provider) {
         codePane = new ShaderCodePane(rightBounds, SCROLL_SPEED, shader, title, provider);
     }
  

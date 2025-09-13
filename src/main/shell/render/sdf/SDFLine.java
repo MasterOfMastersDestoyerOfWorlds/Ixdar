@@ -11,7 +11,7 @@ import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 import shell.ui.Drawing;
 
-public class SDFLine {
+public class SDFLine extends ShaderDrawable {
 
     public ShaderProgram line_shader;
     public ShaderProgram dashed_line_shader;
@@ -28,10 +28,14 @@ public class SDFLine {
     public boolean endCaps;
     private float edgeDist;
     public boolean culling = true;
+    public Vector2f pA;
+    public Vector2f pB;
+    public Color c2;
 
     public SDFLine() {
         line_shader = ShaderType.LineSDF.shader;
         dashed_line_shader = ShaderType.DashedLineSDF.shader;
+        shader = line_shader;
         this.borderColor = Color.TRANSPARENT;
         this.borderInner = 0;
         this.borderOuter = 0;
@@ -59,6 +63,42 @@ public class SDFLine {
     }
 
     public void draw(Vector2f pA, Vector2f pB, Color c, Color c2, Camera camera) {
+        this.pA = pA;
+        this.pB = pB;
+        this.c = c;
+        this.c2 = c2;
+        shader = line_shader;
+        if (dashed) {
+            shader = dashed_line_shader;
+        }
+        draw(camera);
+    }
+
+    public void setBorderDist(float borderDist) {
+        this.borderInner = borderDist - 0.1f;
+        this.borderOuter = borderDist;
+    }
+
+    public void setStroke(float lineWidth, boolean dashed) {
+        this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS / 3f);
+        this.dashed = dashed;
+        edgeDist = 0.35f;
+    }
+
+    public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
+            boolean endCaps) {
+        this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS);
+        this.dashed = dashed;
+        this.dashLength = dashLength;
+        this.dashRate = dashRate;
+        this.roundCaps = roundCaps;
+        this.endCaps = endCaps;
+
+        edgeDist = 0.35f;
+    }
+
+    @Override
+    public void calculateQuad() {
         if (culling) {
             boolean containsA = camera.contains(pA);
             boolean containsB = camera.contains(pB);
@@ -139,73 +179,35 @@ public class SDFLine {
         normalUnitVector = normalUnitVector.normalize().mul(lineWidth * 2);
         Vector2f line = new Vector2f(pA).sub(pB);
         Vector2f lineVectorA = line.normalize().mul(lineWidth * 2);
-        Vector2f tL = new Vector2f(normalUnitVector).add(pA).add(lineVectorA);
-        Vector2f bL = new Vector2f(pA).sub(normalUnitVector).add(lineVectorA);
-        Vector2f tR = new Vector2f(normalUnitVector).add(pB).sub(lineVectorA);
-        Vector2f bR = new Vector2f(pB).sub(normalUnitVector).sub(lineVectorA);
+        topLeft = new Vector2f(normalUnitVector).add(pA).add(lineVectorA);
+        bottomLeft = new Vector2f(pA).sub(normalUnitVector).add(lineVectorA);
+        topRight = new Vector2f(normalUnitVector).add(pB).sub(lineVectorA);
+        bottomRight = new Vector2f(pB).sub(normalUnitVector).sub(lineVectorA);
+    }
 
-        float width = bL.distance(tL);
-        float height = bL.distance(bR);
-        ShaderProgram shader = line_shader;
-        if(dashed){
-            shader = dashed_line_shader;
-        }
-        shader.use();
+    @Override
+    protected void setUniforms() {
         shader.setFloat("edgeSharpness", (float) Math.min(1 / (lineWidth * 2), 0.1));
         shader.setFloat("dashPhase", Clock.spin(dashRate));
-        float inverseLineLengthSq = 1/lengthSq(pA, pB);
+        float inverseLineLengthSq = 1 / lengthSq(pA, pB);
         shader.setFloat("inverseLineLengthSq", inverseLineLengthSq);
         shader.setVec2("pointA", pA);
         shader.setVec2("pointB", pB);
         shader.setFloat("width", width);
         shader.setFloat("height", height);
-
         shader.setFloat("dashes", (float) ((Math.PI * height) / (dashLength)));
         shader.setFloat("dashEdgeDist", (float) (Math.PI * width * edgeDist) / (dashLength));
         shader.setVec4("linearGradientColor", c2.toVector4f());
-        shader.begin();
-        shader.drawSDFRegion(bL.x, bL.y, bR.x, bR.y, tL.x, tL.y, tR.x, tR.y, camera.getZIndex(), 0, 0, 1, 1, c);
-        shader.end();
-        camera.incZIndex();
-    }
-
-    public void setBorderDist(float borderDist) {
-        this.borderInner = borderDist - 0.1f;
-        this.borderOuter = borderDist;
-    }
-
-    public void setStroke(float lineWidth, boolean dashed) {
-        this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS / 3f);
-        this.dashed = dashed;
-        edgeDist = 0.35f;
-        setUniforms();
-    }
-
-    public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
-            boolean endCaps) {
-        this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS);
-        this.dashed = dashed;
-        this.dashLength = dashLength;
-        this.dashRate = dashRate;
-        this.roundCaps = roundCaps;
-        this.endCaps = endCaps;
-
-        edgeDist = 0.35f;
-        setUniforms();
-    }
-
-    private void setUniforms() {
-        line_shader.use();
-        line_shader.setFloat("borderInner", borderInner);
-        line_shader.setFloat("borderOuter", borderOuter);
-        line_shader.setFloat("borderOffsetInner", borderOffsetInner);
-        line_shader.setFloat("borderOffsetOuter", borderOffsetOuter);
-        line_shader.setVec4("borderColor", borderColor.toVector4f());
-        line_shader.setBool("dashed", dashed);
-        line_shader.setBool("endCaps", endCaps);
-        line_shader.setBool("roundCaps", roundCaps);
-        line_shader.setFloat("dashLength", dashLength);
-        line_shader.setFloat("edgeDist", edgeDist);
+        shader.setFloat("borderInner", borderInner);
+        shader.setFloat("borderOuter", borderOuter);
+        shader.setFloat("borderOffsetInner", borderOffsetInner);
+        shader.setFloat("borderOffsetOuter", borderOffsetOuter);
+        shader.setVec4("borderColor", borderColor.toVector4f());
+        shader.setBool("dashed", dashed);
+        shader.setBool("endCaps", endCaps);
+        shader.setBool("roundCaps", roundCaps);
+        shader.setFloat("dashLength", dashLength);
+        shader.setFloat("edgeDist", edgeDist);
     }
 
     /**

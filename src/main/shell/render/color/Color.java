@@ -29,6 +29,7 @@ public interface Color {
     public static final Color DARK_GRAY = new ColorRGB(0.15f, 0.15f, 0.15f, "Dark Gray");
     public static final Color ORANGE = new ColorRGB(210, 105, 30, "Orange");
     public static final Color COMMAND = new ColorRGB(0f, 0.75f, 0.5f, "Command");
+    public static final Color PINK = new ColorRGB(255,192,203, "Pink");
 
     public Vector3f toVector3f();
 

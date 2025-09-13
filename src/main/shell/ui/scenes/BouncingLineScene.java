@@ -10,7 +10,7 @@ import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.point.PointND;
 import shell.render.color.Color;
-import shell.render.shaders.ShaderProgram.ShaderType;
+import shell.shell.Shell;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 
@@ -41,7 +41,7 @@ public class BouncingLineScene extends Scene {
     @Override
     public void initGL() throws UnsupportedEncodingException, IOException {
         super.initGL();
-
+        PointND.resetIds();
         dummyPointSet = new PointSet();
 
         PointND point1 = new PointND.Double(point1X, point1Y);
@@ -50,7 +50,7 @@ public class BouncingLineScene extends Scene {
         dummyPointSet.add(point2);
         distanceMatrix = new DistanceMatrix(dummyPointSet);
 
-        shell.shell.Shell dummyShell = new shell.shell.Shell(point1, point2);
+        Shell dummyShell = new Shell(point1, point2);
         knot1 = new Knot(point1, dummyShell);
         knot2 = new Knot(point2, dummyShell);
         dummyShell.initShell(distanceMatrix);

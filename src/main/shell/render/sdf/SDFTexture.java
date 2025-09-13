@@ -1,36 +1,19 @@
 package shell.render.sdf;
 
 import shell.cameras.Camera;
-import shell.platform.Platforms;
-import shell.platform.gl.GL;
 import shell.render.Texture;
 import shell.render.color.Color;
-import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 
-public class SDFTexture {
+public class SDFTexture extends ShaderDrawable {
 
     public Texture texture;
-    public ShaderProgram shader;
     private Color borderColor;
     private float borderInner;
     private float borderOuter;
     private float borderOffsetInner;
     private float borderOffsetOuter;
     boolean sharpCorners;
-    GL gl = Platforms.gl();
-
-    public SDFTexture(ShaderProgram sdfShader, String sdfLocation) {
-        Platforms.get().loadTexture(sdfLocation, t -> {
-            this.texture = t;
-            this.shader = sdfShader;
-        });
-        this.borderColor = Color.TRANSPARENT;
-        this.borderInner = 0;
-        this.borderOuter = 0;
-        this.borderOffsetInner = 0;
-        this.borderOffsetOuter = 0;
-    }
 
     public SDFTexture(Texture texture) {
         this.texture = texture;
@@ -45,7 +28,7 @@ public class SDFTexture {
 
     public SDFTexture(String sdfLocation, Color borderColor,
             float borderDist, float borderOffset, boolean sharpCorners) {
-        Platforms.get().loadTexture(sdfLocation, t -> {
+        platform.loadTexture(sdfLocation, t -> {
             this.texture = t;
             this.shader = ShaderType.TextureSDF.shader;
         });
@@ -61,40 +44,25 @@ public class SDFTexture {
         if (texture == null) {
             return;
         }
-        texture.bind();
-        shader.use();
-        GL gl = Platforms.gl();
-        shader.setTexture("innerTexture", texture, gl.TEXTURE0(), 0);
-        shader.setFloat("borderInner", borderInner);
-        shader.setFloat("borderOuter", borderOuter);
-        shader.setFloat("borderOffsetInner", borderOffsetInner);
-        shader.setFloat("borderOffsetOuter", borderOffsetOuter);
-        shader.setVec4("borderColor", borderColor.toVector4f());
-        shader.setBool("sharpCorners", sharpCorners);
-        shader.begin();
-
+        setup(camera);
         shader.drawTextureRegion(texture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), 0, 0,
                 texture.width,
                 texture.height, c);
-
-        shader.end();
-        camera.incZIndex();
+        cleanup(camera);
     }
 
     public void drawRegionNoSetup(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
             int regHeight, Color c, Camera camera) {
-
         shader.drawTextureRegion(texture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), regX, regY,
                 regWidth, regHeight, c);
     }
 
-    public void setUniforms() {
+    @Override
+    protected void setUniforms() {
         if (texture == null) {
             return;
         }
         texture.bind();
-        shader.use();
-        shader.begin();
         shader.setTexture("innerTexture", texture, gl.TEXTURE0(), 0);
         shader.setFloat("borderInner", borderInner);
         shader.setFloat("borderOuter", borderOuter);
@@ -104,14 +72,9 @@ public class SDFTexture {
         shader.setBool("sharpCorners", sharpCorners);
     }
 
-    public void cleanup(Camera c) {
-        shader.end();
-        c.incZIndex();
-    }
-
     public void drawRegion(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
             int regHeight, Color c, Camera camera) {
-        setUniforms();
+        setup(camera);
         drawRegionNoSetup(drawX, drawY, width, height, regX, regY, regWidth, regHeight, c, camera);
         cleanup(camera);
     }

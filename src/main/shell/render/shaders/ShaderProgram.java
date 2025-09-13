@@ -9,6 +9,8 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
@@ -102,6 +104,7 @@ public abstract class ShaderProgram {
     private boolean reloadShader;
     private GL gl = Platforms.gl();
     private final Buffers buffers = Platforms.buffers();
+    public Map<String, Entry<String, Float>> uniformMap;
 
     public ShaderProgram(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
             VertexBufferObject vbo, boolean useBuffer) throws UnsupportedEncodingException, IOException {

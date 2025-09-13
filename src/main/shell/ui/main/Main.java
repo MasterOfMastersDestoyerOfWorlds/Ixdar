@@ -390,7 +390,7 @@ public class Main {
 
         } catch (Exception e) {
             for (StackTraceElement ste : e.getStackTrace()) {
-                Platforms.get().log(ste.getMethodName());
+                Platforms.get().log(ste.getFileName() + "."+ ste.getMethodName() + ":" + ste.getLineNumber());
             }
         }
     }
