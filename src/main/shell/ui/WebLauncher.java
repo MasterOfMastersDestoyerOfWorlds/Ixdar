@@ -18,6 +18,8 @@ import shell.platform.gl.web.WebGL;
 import shell.platform.gl.web.WebPlatform;
 import shell.render.Clock;
 import shell.ui.main.Main;
+import shell.ui.scenes.BouncingLineScene;
+import shell.ui.scenes.CircleScene;
 
 public final class WebLauncher {
 
@@ -36,15 +38,20 @@ public final class WebLauncher {
         Ixdar("ixdar-canvas", () -> {
             try {
                 Main.main = new Main("djbouti");
-            } catch (TerminalParseException | IOException e) {
+            } catch (TerminalParseException |
+
+                    IOException e) {
                 throw new RuntimeException(e);
             }
             return new Canvas3D();
         }),
-        BouncingLineScene("bouncing-line-canvas", BouncingLineScene::new);
+
+        BouncingLineScene("bouncing-line-canvas", BouncingLineScene::new),
+        CircleScene("circle-canvas", CircleScene::new);
 
         public String id;
         public Supplier<? extends Canvas3D> newScene;
+
         CanvasScene(String id, Supplier<? extends Canvas3D> scene) {
             this.id = id;
             this.newScene = scene;
@@ -52,7 +59,9 @@ public final class WebLauncher {
 
     }
 
-    public static void main(String[] args) throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException, UnsupportedEncodingException, IOException {
+    public static void main(String[] args)
+            throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException, UnsupportedEncodingException, IOException {
         startTime = Clock.time();
         System.setProperty("joml.format", "false");
         HTMLDocument document = Window.current().getDocument();
@@ -71,18 +80,20 @@ public final class WebLauncher {
         platform = Platforms.get();
         platform.log("WebLauncher is running for " + canvasId);
 
-
         int w = canvas.getClientWidth();
         int h = canvas.getClientHeight();
         Canvas3D.frameBufferWidth = w;
         Canvas3D.frameBufferHeight = h;
 
-        for(CanvasScene cs : CanvasScene.values()){
-            if(cs.id.equals(canvasId)){
+        for (CanvasScene cs : CanvasScene.values()) {
+            if (cs.id.equals(canvasId)) {
                 canvas3d = (Canvas3D) cs.newScene.get();
                 canvas3d.initGL();
                 break;
             }
+        }
+        if (canvas3d == null) {
+            platform.log("Canvas3D not found for " + canvasId);
         }
         // Provide default buffers implementation for web
         Platforms.setBuffers(new shell.platform.buffers.DefaultBuffers());
@@ -97,7 +108,7 @@ public final class WebLauncher {
 
                 if (canvas == null)
                     return;
-        
+
                 int w = canvas.getClientWidth();
                 int h = canvas.getClientHeight();
                 if (w <= 0)
@@ -108,15 +119,15 @@ public final class WebLauncher {
                     canvas.setWidth(w);
                 if (canvas.getHeight() != h)
                     canvas.setHeight(h);
-        
+
                 gl.viewport(0, 0, w, h);
                 gl.clearColor(0.02f, 0.02f, 0.02f, 1.0f);
                 gl.clear(gl.COLOR_BUFFER_BIT());
-        
+
                 // Ensure framebuffer dimensions are up-to-date for projection matrices
                 Canvas3D.frameBufferWidth = w;
                 Canvas3D.frameBufferHeight = h;
-        
+
                 // Drive the existing rendering path
                 canvas3d.paintGL();
             } catch (Exception t) {
