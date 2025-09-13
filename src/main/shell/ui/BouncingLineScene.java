@@ -55,9 +55,7 @@ public class BouncingLineScene extends Canvas3D {
     private shell.cameras.Bounds rightBounds;
     private boolean showCode;
     private HyperString showCodeButton;
-    private HyperString codeText;
-    private float codeScrollOffsetY;
-    private MouseTrap.ScrollHandler codeScrollHandler;
+    private ShaderCodePane codePane;
 
     public BouncingLineScene() {
         super();
@@ -140,37 +138,7 @@ public class BouncingLineScene extends Canvas3D {
         });
         showCodeButton.draw();
 
-        codeText = new HyperString();
-        String vs = shell.platform.Platforms.get().loadShaderSource("font.vs");
-        String fs = shell.platform.Platforms.get().loadShaderSource("sdf_line.fs");
-        ArrayList<String> lines = new ArrayList<>();
-        lines.add("// Vertex Shader: font.vs");
-        for (String ln : vs.split("\n")) {
-            codeText.addLine(ln, Color.WHITE);
-        }
-        codeText.addLine(" ", Color.WHITE);
-        codeText.addLine("// Fragment Shader: sdf_line.fs", Color.WHITE);
-        for (String ln : fs.split("\n")) {
-            codeText.addLine(ln, Color.WHITE);
-        }
-        codeText.draw();
-
-        // Register scroll handler region once; we will keep its bounds up to date via
-        // camera2D.updateView during draw
-        codeScrollHandler = (scrollUp, delta) -> {
-            if (scrollUp) {
-                codeScrollOffsetY -= SCROLL_SPEED * delta;
-                if (codeScrollOffsetY < 0) {
-                    codeScrollOffsetY = 0;
-                }
-            } else {
-                float bottom = codeText.getLastWord().yScreenOffset;
-                if (bottom < 0) {
-                    codeScrollOffsetY += SCROLL_SPEED * delta;
-                }
-            }
-        };
-        MouseTrap.subscribeScrollRegion(rightBounds, codeScrollHandler);
+        codePane = new ShaderCodePane(rightBounds, SCROLL_SPEED);
     }
 
     @Override
@@ -185,11 +153,10 @@ public class BouncingLineScene extends Canvas3D {
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);
 
-        // UI: draw the Show Code button in the left panel
         Drawing.font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera2D);
         if (rightBounds.viewWidth > 0) {
             camera2D.updateView(VIEW_RIGHT_CODE);
-            Drawing.font.drawHyperStringRows(codeText, 0, codeScrollOffsetY, Drawing.FONT_HEIGHT_PIXELS, camera2D);
+            codePane.draw(camera2D);
         }
     }
 

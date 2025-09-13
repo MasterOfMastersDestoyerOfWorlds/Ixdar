@@ -386,6 +386,36 @@ public abstract class ShaderProgram {
         }
     }
 
+    public String getVertexSource() {
+        if (vertexShaderSource == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (CharSequence cs : vertexShaderSource) {
+            if (cs != null)
+                sb.append(cs);
+        }
+        int nul = sb.indexOf("\0");
+        if (nul >= 0)
+            sb.delete(nul, sb.length());
+        return sb.toString();
+    }
+
+    public String getFragmentSource() {
+        if (fragmentShaderSource == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (CharSequence cs : fragmentShaderSource) {
+            if (cs != null)
+                sb.append(cs);
+        }
+        int nul = sb.indexOf("\0");
+        if (nul >= 0)
+            sb.delete(nul, sb.length());
+        return sb.toString();
+    }
+
     /**
      * Draws the currently bound texture on specified coordinates and with specified
      * color.
