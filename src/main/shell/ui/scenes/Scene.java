@@ -7,12 +7,12 @@ import java.util.Map;
 
 import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
+import shell.PointSet;
 import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 import shell.ui.ShaderCodePane;
-import shell.ui.main.Main;
 import shell.render.text.HyperString;
 
 public abstract class Scene extends Canvas3D {
@@ -25,6 +25,7 @@ public abstract class Scene extends Canvas3D {
     protected HyperString showCodeButton;
     protected ShaderCodePane codePane;
     protected float SCROLL_SPEED = 5f;
+    protected PointSet cameraBounds;
 
     public static final String DEFAULT_VIEW_LEFT = "LEFT_RENDER";
     public static final String DEFAULT_VIEW_RIGHT = "RIGHT_CODE";
@@ -38,6 +39,12 @@ public abstract class Scene extends Canvas3D {
     public void initGL() throws UnsupportedEncodingException, IOException {
         super.initGL();
         showCode = false;
+        cameraBounds = new PointSet();
+        cameraBounds.clear();
+        cameraBounds.add(new shell.point.PointND.Double(-1.0, -1.0));
+        cameraBounds.add(new shell.point.PointND.Double(1.0, -1.0));
+        cameraBounds.add(new shell.point.PointND.Double(1.0, 1.0));
+        cameraBounds.add(new shell.point.PointND.Double(-1.0, 1.0));
     }
 
     protected void initViews(Camera2D camera2D, String leftId, String rightId) {

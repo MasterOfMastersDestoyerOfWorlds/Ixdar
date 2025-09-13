@@ -31,7 +31,6 @@ public class BouncingLineScene extends Scene {
 
     private PointSet dummyPointSet;
     private DistanceMatrix distanceMatrix;
-    private PointSet cameraBounds;
     private Knot knot1, knot2;
     private Segment lineSegment;
 
@@ -44,7 +43,6 @@ public class BouncingLineScene extends Scene {
         super.initGL();
 
         dummyPointSet = new PointSet();
-        cameraBounds = new PointSet();
 
         PointND point1 = new PointND.Double(point1X, point1Y);
         PointND point2 = new PointND.Double(point2X, point2Y);
@@ -71,10 +69,6 @@ public class BouncingLineScene extends Scene {
         lineSegment = new Segment(knot1, knot2, distance);
 
         // Use frame buffer size implicitly via camera transforms
-        cameraBounds.add(new PointND.Double(-1.0, -1.0));
-        cameraBounds.add(new PointND.Double(1.0, -1.0));
-        cameraBounds.add(new PointND.Double(1.0, 1.0));
-        cameraBounds.add(new PointND.Double(-1.0, 1.0));
 
         camera2D.calculateCameraTransform(cameraBounds);
         camera2D.updateView(VIEW_LEFT_RENDER);

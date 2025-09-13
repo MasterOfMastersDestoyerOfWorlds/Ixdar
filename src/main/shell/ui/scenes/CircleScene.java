@@ -5,30 +5,25 @@ import java.io.UnsupportedEncodingException;
 
 import org.joml.Vector2f;
 
-import shell.PointSet;
 import shell.cameras.Camera2D;
 import shell.render.color.Color;
+import shell.render.sdf.SDFCircleSimple;
 import shell.render.shaders.ShaderProgram.ShaderType;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 
 public class CircleScene extends Scene {
 
-    private PointSet cameraBounds;
-
+    private SDFCircleSimple circle;
+    
     public CircleScene() {
         super();
+        circle = new SDFCircleSimple();
     }
 
     @Override
     public void initGL() throws UnsupportedEncodingException, IOException {
         super.initGL();
-
-        cameraBounds = new PointSet();
-        cameraBounds.add(new shell.point.PointND.Double(-1.0, -1.0));
-        cameraBounds.add(new shell.point.PointND.Double(1.0, -1.0));
-        cameraBounds.add(new shell.point.PointND.Double(1.0, 1.0));
-        cameraBounds.add(new shell.point.PointND.Double(-1.0, 1.0));
 
         camera2D = new Camera2D(
                 Canvas3D.frameBufferWidth,
@@ -42,7 +37,7 @@ public class CircleScene extends Scene {
         camera2D.updateView(DEFAULT_VIEW_LEFT);
 
         initViews(camera2D, DEFAULT_VIEW_LEFT, DEFAULT_VIEW_RIGHT);
-        initCodePane("Circle SDF", ShaderType.CircleSDF.shader);
+        initCodePane("Circle SDF", ShaderType.CircleSDFSimple.shader);
     }
 
     @Override
@@ -55,8 +50,8 @@ public class CircleScene extends Scene {
         float cy = camera2D.getBounds().viewHeight / 2f;
         float radius = Math.min(cx, cy);
 
-        Vector2f center = new Vector2f(camera2D.screenTransformX(cx), camera2D.screenTransformY(cy));
-        Drawing.circle.draw(center, radius, Color.IXDAR, camera2D);
+        Vector2f center = new Vector2f(cx, cy);
+        circle.draw(center, radius, Color.IXDAR, camera2D);
 
         drawUI(DEFAULT_VIEW_LEFT, DEFAULT_VIEW_RIGHT);
     }
