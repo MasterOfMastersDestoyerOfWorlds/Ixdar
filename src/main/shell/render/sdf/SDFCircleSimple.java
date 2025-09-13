@@ -4,12 +4,10 @@ import org.joml.Vector2f;
 
 import shell.cameras.Camera;
 import shell.render.color.Color;
-import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 
 public class SDFCircleSimple extends ShaderDrawable {
 
-    public ShaderProgram shader;
     public Vector2f center;
     public float radius;
 
@@ -20,6 +18,7 @@ public class SDFCircleSimple extends ShaderDrawable {
     public void draw(Vector2f center, float radius, Color c, Camera camera) {
         this.radius = radius;
         this.center = center;
+        this.c = c;
         draw(camera);
     }
 

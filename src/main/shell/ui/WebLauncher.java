@@ -3,23 +3,19 @@ package shell.ui;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
-import java.util.function.Supplier;
 
 import org.teavm.jso.browser.Window;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.dom.html.HTMLDocument;
 import org.teavm.jso.dom.html.HTMLElement;
 
-import shell.exceptions.TerminalParseException;
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
 import shell.platform.gl.Platform;
 import shell.platform.gl.web.WebGL;
 import shell.platform.gl.web.WebPlatform;
 import shell.render.Clock;
-import shell.ui.main.Main;
-import shell.ui.scenes.BouncingLineScene;
-import shell.ui.scenes.CircleScene;
+import shell.ui.Canvas3D.CanvasScene;
 
 public final class WebLauncher {
 
@@ -34,30 +30,6 @@ public final class WebLauncher {
     private static Canvas3D canvas3d;
     private static HTMLCanvasElement canvas;
 
-    public enum CanvasScene {
-        Ixdar("ixdar-canvas", () -> {
-            try {
-                Main.main = new Main("djbouti");
-            } catch (TerminalParseException |
-
-                    IOException e) {
-                throw new RuntimeException(e);
-            }
-            return new Canvas3D();
-        }),
-
-        BouncingLineScene("bouncing-line-canvas", BouncingLineScene::new),
-        CircleScene("circle-canvas", CircleScene::new);
-
-        public String id;
-        public Supplier<? extends Canvas3D> newScene;
-
-        CanvasScene(String id, Supplier<? extends Canvas3D> scene) {
-            this.id = id;
-            this.newScene = scene;
-        }
-
-    }
 
     public static void main(String[] args)
             throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException,

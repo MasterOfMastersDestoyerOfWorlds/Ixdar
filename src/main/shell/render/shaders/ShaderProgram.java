@@ -65,7 +65,6 @@ public abstract class ShaderProgram {
                     this.shader = new ColorShader(vertexShaderLocation, fragmentShaderLocation);
                 }
             } catch (IOException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
             Canvas3D.shaders.add(shader);
@@ -104,7 +103,7 @@ public abstract class ShaderProgram {
     private boolean reloadShader;
     private GL gl = Platforms.gl();
     private final Buffers buffers = Platforms.buffers();
-    public Map<String, Entry<String, Float>> uniformMap;
+    public Map<String, Object> uniformMap = new HashMap<>();
 
     public ShaderProgram(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
             VertexBufferObject vbo, boolean useBuffer) throws UnsupportedEncodingException, IOException {
@@ -151,6 +150,7 @@ public abstract class ShaderProgram {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
         gl.uniform1i(uniformLocations.get(name), value ? 1 : 0);
+        uniformMap.put(name, value);
     }
 
     public void setInt(String name, int value) {
@@ -158,6 +158,7 @@ public abstract class ShaderProgram {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
         gl.uniform1i(uniformLocations.get(name), value);
+        uniformMap.put(name, value);
     }
 
     public void setFloat(String name, float value) {
@@ -165,6 +166,7 @@ public abstract class ShaderProgram {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
         gl.uniform1f(uniformLocations.get(name), value);
+        uniformMap.put(name, value);
     }
 
     public void setMat4(String name, Matrix4f mat) {
@@ -179,6 +181,7 @@ public abstract class ShaderProgram {
         buffer.put(mat.m30()).put(mat.m31()).put(mat.m32()).put(mat.m33());
         buffer.flip();
         gl.uniformMatrix4fv(uniformLocations.get(name), false, buffer);
+        uniformMap.put(name, mat);
     }
 
     public void setMat4(String name, FloatBuffer allocatedBuffer) {
@@ -186,6 +189,7 @@ public abstract class ShaderProgram {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
         gl.uniformMatrix4fv(uniformLocations.get(name), false, allocatedBuffer);
+        uniformMap.put(name, allocatedBuffer);
     }
 
     public void setVec2(String name, Vector2f vec2) {
@@ -196,6 +200,7 @@ public abstract class ShaderProgram {
         FloatBuffer buffer = buffers.allocateFloats(2);
         buffer.put(vec2.x).put(vec2.y).flip();
         gl.uniform2fv(uniformLocations.get(name), buffer);
+        uniformMap.put(name, vec2);
     }
 
     public void setVec3(String name, float f, float g, float h) {
@@ -205,6 +210,7 @@ public abstract class ShaderProgram {
         FloatBuffer vec3buf = buffers.allocateFloats(3);
         vec3buf.put(f).put(g).put(h).flip();
         gl.uniform3fv(uniformLocations.get(name), vec3buf);
+        uniformMap.put(name, new Vector3f(f, g, h));
     }
 
     public void setVec3(String name, Vector3f vec3) {
@@ -215,6 +221,7 @@ public abstract class ShaderProgram {
         FloatBuffer buffer = buffers.allocateFloats(3);
         buffer.put(vec3.x).put(vec3.y).put(vec3.z).flip();
         gl.uniform3fv(uniformLocations.get(name), buffer);
+        uniformMap.put(name, vec3);
     }
 
     public void setVec4(String name, Vector4f vec4) {
@@ -224,6 +231,7 @@ public abstract class ShaderProgram {
         FloatBuffer buffer = buffers.allocateFloats(4);
         buffer.put(vec4.x).put(vec4.y).put(vec4.z).put(vec4.w).flip();
         gl.uniform4fv(uniformLocations.get(name), buffer);
+        uniformMap.put(name, vec4);
     }
 
     private void checkCompileErrors(int shader, ShaderOperationType type, String location,
@@ -338,7 +346,7 @@ public abstract class ShaderProgram {
             gl.activeTexture(i);
             tex.bind();
         }
-
+        uniformMap.put(glslName, tex);
     }
 
     public void bindFragmentDataLocation(int i, String string) {

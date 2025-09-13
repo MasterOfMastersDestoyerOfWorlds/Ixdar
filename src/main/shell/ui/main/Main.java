@@ -169,22 +169,22 @@ public class Main {
                     int ww = (int) Platforms.get().getWindowWidth();
                     int wh = (int) Platforms.get().getWindowHeight();
                     b.update(0, BOTTOM_PANEL_SIZE, ww - RIGHT_PANEL_SIZE, wh - BOTTOM_PANEL_SIZE);
-                }));
+                }, VIEW_MAIN));
         views.put(VIEW_RIGHT_BOTTOM,
                 new Bounds(wWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, b -> {
                     int ww = (int) Platforms.get().getWindowWidth();
                     b.update(ww - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
-                }));
+                }, VIEW_RIGHT_BOTTOM));
         views.put(VIEW_RIGHT_TOP, new Bounds(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
                 wHeight - BOTTOM_PANEL_SIZE, b -> {
                     int ww = (int) Platforms.get().getWindowWidth();
                     int wh = (int) Platforms.get().getWindowHeight();
                     b.update(ww - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE, wh - BOTTOM_PANEL_SIZE);
-                }));
+                }, VIEW_RIGHT_TOP));
         views.put(VIEW_BOTTOM, new Bounds(0, 0, wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, b -> {
             int ww = (int) Platforms.get().getWindowWidth();
             b.update(0, 0, ww - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
-        }));
+        }, VIEW_BOTTOM));
 
         views.put(VIEW_TOOLTIP, new Bounds(0, 0, 0, 0, b -> {
             int ww = (int) Platforms.get().getWindowWidth();
@@ -201,7 +201,7 @@ public class Main {
             int x = (int) (mouse.normalizedPosX - (isRight * toolTipWidth));
             int y = (int) mouse.normalizedPosY - (isTop * toolTipHeight);
             b.update(x, y, (int) Math.ceil(toolTipWidth), (int) (toolTip.getLines() * rowHeight));
-        }));
+        }, VIEW_TOOLTIP));
 
         camera.initCamera(views, VIEW_MAIN);
         // Subscribe scroll regions for Info and Terminal panels
@@ -390,7 +390,7 @@ public class Main {
 
         } catch (Exception e) {
             for (StackTraceElement ste : e.getStackTrace()) {
-                Platforms.get().log(ste.getFileName() + "."+ ste.getMethodName() + ":" + ste.getLineNumber());
+                Platforms.get().log(ste.getFileName() + "." + ste.getMethodName() + ":" + ste.getLineNumber());
             }
         }
     }

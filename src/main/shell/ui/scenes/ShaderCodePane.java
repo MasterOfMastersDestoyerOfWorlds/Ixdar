@@ -1,6 +1,7 @@
 package shell.ui.scenes;
 
 import shell.cameras.Bounds;
+import shell.cameras.Camera;
 import shell.cameras.Camera2D;
 import shell.platform.input.MouseTrap;
 import shell.render.color.Color;
@@ -24,7 +25,6 @@ import java.util.Map.Entry;
  */
 public class ShaderCodePane implements MouseTrap.ScrollHandler {
 
-    private final Bounds paneBounds;
     private final HyperString codeText;
     private float scrollOffsetY;
     private final float scrollSpeed;
@@ -34,43 +34,55 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private float lastMouseY = Float.NaN;
     private final ShaderProgram targetShader;
     private final String title;
+    public  Bounds paneBounds;
+    private Bounds parentBounds;
+    private boolean showCode;
+    private HyperString showCodeButton;
 
     private final ShaderDrawable uniformProvider;
 
-    public ShaderCodePane(Bounds paneBounds, float scrollSpeed) {
-        this.paneBounds = paneBounds;
-        this.scrollSpeed = scrollSpeed;
-        this.codeText = new HyperString();
-        this.targetShader = ShaderType.Font.shader;
-        this.title = "Font Shader";
-        this.uniformProvider = null;
-        loadCode(targetShader, title);
-        codeText.draw();
-        MouseTrap.subscribeScrollRegion(this.paneBounds, this);
-    }
+    public static final String DEFAULT_VIEW_RIGHT = "RIGHT_CODE";
 
-    public ShaderCodePane(Bounds paneBounds, float scrollSpeed, ShaderProgram shader, String title) {
-        this.paneBounds = paneBounds;
-        this.scrollSpeed = scrollSpeed;
-        this.codeText = new HyperString();
-        this.targetShader = shader != null ? shader : ShaderType.Font.shader;
-        this.title = title != null ? title : "Shader";
-        this.uniformProvider = null;
-        loadCode(this.targetShader, this.title);
-        codeText.draw();
-        MouseTrap.subscribeScrollRegion(this.paneBounds, this);
-    }
+    public ShaderCodePane(Bounds parentBounds, Map<String, Bounds> webViews, float scrollSpeed, ShaderProgram shader,
+            String title,
+            ShaderDrawable provider, Camera2D camera) {
 
-    public ShaderCodePane(Bounds paneBounds, float scrollSpeed, ShaderProgram shader, String title,
-            ShaderDrawable provider) {
-        this.paneBounds = paneBounds;
+        parentBounds.setUpdateCallback(
+                b -> b.update(0, 0, showCode ? Canvas3D.frameBufferWidth / 2 : Canvas3D.frameBufferWidth,
+                        Canvas3D.frameBufferHeight));
+        this.parentBounds = parentBounds;
         this.scrollSpeed = scrollSpeed;
         this.codeText = new HyperString();
         this.targetShader = shader != null ? shader : ShaderType.Font.shader;
         this.title = title != null ? title : "Shader";
         this.uniformProvider = provider;
+        showCode = true;
+        paneBounds = new Bounds(Canvas3D.frameBufferWidth / 2, 0, 0, Canvas3D.frameBufferHeight,
+                b -> b.update(
+                        Canvas3D.frameBufferWidth / 2,
+                        0,
+                        showCode ? Canvas3D.frameBufferWidth / 2f : 0f,
+                        Canvas3D.frameBufferHeight),
+                DEFAULT_VIEW_RIGHT);
+
+        showCodeButton = new HyperString();
+        showCodeButton.addDynamicWordClick(() -> {
+            return showCode ? "Hide Code" : "Show Code";
+        }, Color.CYAN, () -> {
+            showCode = !showCode;
+            if (showCode) {
+                paneBounds.viewWidth = Canvas3D.frameBufferWidth / 2f;
+                parentBounds.viewWidth = Canvas3D.frameBufferWidth / 2f;
+            } else {
+                paneBounds.viewWidth = 0f;
+                parentBounds.viewWidth = Canvas3D.frameBufferWidth;
+            }
+            camera.updateView(paneBounds.id);
+            camera.updateView(parentBounds.id);
+        });
+        webViews.put(paneBounds.id, paneBounds);
         loadCode(this.targetShader, this.title);
-        codeText.draw();
+        camera.updateView(paneBounds.id);
         MouseTrap.subscribeScrollRegion(this.paneBounds, this);
     }
 
@@ -89,6 +101,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             codeText.addLine("// " + headerTitle + " - Fragment Shader", Color.WHITE);
             displayedLines.add(null);
             gIndex++;
+            codeText.addDynamicWord(() -> updateCacheIfMouseMoved(), Color.BLUE_WHITE);
             for (String ln : fs.split("\n")) {
                 final int idx = gIndex;
                 codeText.addWord(ln, Color.WHITE);
@@ -114,12 +127,11 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         if (lineIndex < 0 || lineIndex >= displayedLines.size()) {
             return "";
         }
-        updateCacheIfMouseMoved();
         String cached = cachedSuffixes.get(lineIndex);
         return cached != null ? cached : "";
     }
 
-    private void updateCacheIfMouseMoved() {
+    private String updateCacheIfMouseMoved() {
         float mx = 0f;
         float my = 0f;
         if (Canvas3D.mouse != null) {
@@ -127,9 +139,9 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             my = Canvas3D.mouse.normalizedPosY;
         }
         if (mx == lastMouseX && my == lastMouseY) {
-            return;
+            return "";
         }
-        Map<String, Entry<String, Float>> env = uniformProvider.getEnv();
+        Map<String, Entry<String, Float>> env = uniformProvider.getUniformMap();
         Entry<String, Float> x = new AbstractMap.SimpleEntry<String, Float>(Float.toString(mx), mx);
         Entry<String, Float> y = new AbstractMap.SimpleEntry<String, Float>(Float.toString(my), my);
         env.put("mx", x);
@@ -175,6 +187,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         }
         lastMouseX = mx;
         lastMouseY = my;
+        return "";
     }
 
     private Float evaluateAndAssign(String line, Map<String, Entry<String, Float>> env) {
@@ -216,14 +229,14 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 if (right.contains("pos.xy") || right.equals("pos")) {
                     Float px = getOrDefault(env, "posx", "mx");
                     Float py = getOrDefault(env, "posy", "my");
-                    put(env, var, px, py);
+                    ShaderDrawable.put(env, var, px, py);
                     return null;
                 }
                 // Vector literal assignment: vec2 p = vec2(a,b)
                 if (right.startsWith("vec2(")) {
                     Float[] v2 = parseVec2(right, env);
                     if (v2 != null) {
-                        put(env, var, v2);
+                        ShaderDrawable.put(env, var, v2);
                         return null;
                     }
                 }
@@ -231,13 +244,13 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 if (right.startsWith("distance(") && right.endsWith(")")) {
                     Float dv = tryEvalDistance(right, env);
                     if (dv != null) {
-                        put(env, var, dv);
+                        ShaderDrawable.put(env, var, dv);
                         return dv;
                     }
                 }
                 try {
                     Float val = new ExpressionParser(right, env).parse();
-                    put(env, var, val);
+                    ShaderDrawable.put(env, var, val);
                     return val;
                 } catch (Exception ex) {
                     return null;
@@ -261,25 +274,6 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             }
         }
         return null;
-    }
-
-    static final String[] vecNames = new String[]{"x", "y", "z", "w"};
-    private void put(Map<String, Entry<String, Float>> env, String var, Float... dv) {
-        String vectorString = String.format("vec%s(", dv.length);
-        for(int i =0; i < dv.length; i ++){
-            vectorString += Float.toString(dv[i]);
-            if(i != dv.length - 1){
-                vectorString += ", ";
-            }else{
-                vectorString += ")";
-            }
-        }
-        env.put(var, new AbstractMap.SimpleEntry<String, Float>(vectorString, 0f));
-
-        for(int i =0; i < dv.length; i ++){
-            String varName = var + "_" + vecNames[i];
-            env.put(varName, new AbstractMap.SimpleEntry<String, Float>(vectorString, dv[i]));
-        }
     }
 
     private String mouseText() {
@@ -614,7 +608,12 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     }
 
     public void draw(Camera2D camera) {
-        Drawing.font.drawHyperStringRows(codeText, 0, scrollOffsetY, Drawing.FONT_HEIGHT_PIXELS, camera);
+        if (paneBounds.viewWidth > 0) {
+            camera.updateView(paneBounds.id);
+            Drawing.font.drawHyperStringRows(codeText, 0, scrollOffsetY, Drawing.FONT_HEIGHT_PIXELS, camera);
+        }
+        camera.updateView(parentBounds.id);
+        Drawing.font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera);
     }
 
     @Override

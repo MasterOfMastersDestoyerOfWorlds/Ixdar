@@ -10,6 +10,7 @@ import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.point.PointND;
 import shell.render.color.Color;
+import shell.render.shaders.ShaderProgram.ShaderType;
 import shell.shell.Shell;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
@@ -54,15 +55,6 @@ public class BouncingLineScene extends Scene {
         knot1 = new Knot(point1, dummyShell);
         knot2 = new Knot(point2, dummyShell);
         dummyShell.initShell(distanceMatrix);
-
-        camera2D = new Camera2D(
-                Canvas3D.frameBufferWidth,
-                Canvas3D.frameBufferHeight,
-                1.0f,
-                0,
-                0,
-                dummyPointSet);
-
         double distance = Math.sqrt(
                 Math.pow(point2X - point1X, 2) +
                         Math.pow(point2Y - point1Y, 2));
@@ -70,9 +62,7 @@ public class BouncingLineScene extends Scene {
 
         camera2D.calculateCameraTransform(cameraBounds);
         camera2D.updateView(VIEW_LEFT_RENDER);
-
-        initViews(camera2D, VIEW_LEFT_RENDER, VIEW_RIGHT_CODE);
-        // initCodePane("Line SDF", ShaderType.LineSDF.shader, Drawing.sdfLine);
+        initCodePane("Line SDF", ShaderType.LineSDF.shader, Drawing.sdfLine);
     }
 
     @Override
@@ -87,7 +77,7 @@ public class BouncingLineScene extends Scene {
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);
 
-        drawUI(VIEW_LEFT_RENDER, VIEW_RIGHT_CODE);
+        drawUI();
     }
 
     private void updateBouncingPoints() {

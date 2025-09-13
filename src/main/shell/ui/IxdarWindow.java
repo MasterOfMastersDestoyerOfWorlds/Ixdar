@@ -24,6 +24,7 @@ import static org.lwjgl.glfw.GLFW.glfwTerminate;
 import static org.lwjgl.glfw.GLFW.glfwWindowHint;
 import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
 import static org.lwjgl.system.MemoryStack.stackPush;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -45,14 +46,21 @@ import shell.platform.Platforms;
 import shell.platform.gl.lwjgl.LwjglGL;
 import shell.platform.gl.lwjgl.LwjglPlatform;
 import shell.render.Clock;
+import shell.ui.Canvas3D.CanvasScene;
 
 public class IxdarWindow {
 
     public static JFrame frame;
     private static Canvas3D canvas;
     public static float startTime;
+    private static String canvasId;
 
     public static void main(String[] args) throws UnsupportedEncodingException, IOException {
+        if (args.length == 0) {
+            canvasId = "ixdar";
+        } else {
+            canvasId = args[0];
+        }
         startTime = Clock.time();
         new IxdarWindow().runGLFW();
     }
@@ -99,7 +107,7 @@ public class IxdarWindow {
         System.out.println("Window Create Time: " + (Clock.time() - startTime));
         // Initialize platform abstraction for LWJGL
         Platforms.init(new LwjglPlatform(window), new LwjglGL());
-        canvas = new Canvas3D();
+
 
         glfwSetWindowSizeCallback(window, (long windowID, int width, int height) -> {
             try (MemoryStack stack = stackPush()) {
@@ -174,8 +182,17 @@ public class IxdarWindow {
         glfwSwapInterval(1);
 
         System.out.println("Window Time: " + (Clock.time() - startTime));
+        
+        for (CanvasScene cs : CanvasScene.values()) {
+            if (cs.id.equals(canvasId)) {
+                canvas = (Canvas3D) cs.newScene.get();
+                break;
+            }
+        }
+        if (canvas == null) {
+            Platforms.get().log("Canvas3D not found for " + canvasId);
+        }
         canvas.initGL();
-
         glfwSetWindowIcon(window, gb);
     }
 

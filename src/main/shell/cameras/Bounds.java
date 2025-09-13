@@ -10,6 +10,7 @@ public class Bounds {
     public float viewWidth;
     public float viewHeight;
     public Consumer<Bounds> recalculator;
+    public String id;
 
     public Bounds(float x, float y, float width, float height) {
 
@@ -19,9 +20,10 @@ public class Bounds {
         viewHeight = height;
     }
 
-    public Bounds(float x, float y, float width, float height, Consumer<Bounds> recalculator) {
+    public Bounds(float x, float y, float width, float height, Consumer<Bounds> recalculator, String id) {
         this(x, y, width, height);
         this.recalculator = recalculator;
+        this.id = id;
     }
 
     public void update(float x, float y, float width, float height) {
@@ -54,5 +56,9 @@ public class Bounds {
         if (recalculator != null) {
             recalculator.accept(this);
         }
+    }
+
+    public void setUpdateCallback(Consumer<Bounds> recalculator) {
+        this.recalculator = recalculator;
     }
 }

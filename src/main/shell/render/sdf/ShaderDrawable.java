@@ -1,14 +1,21 @@
 package shell.render.sdf;
 
+import java.nio.FloatBuffer;
+import java.util.AbstractMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.joml.Matrix4f;
 import org.joml.Vector2f;
+import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import shell.cameras.Camera;
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
 import shell.platform.gl.Platform;
+import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
 
@@ -63,8 +70,55 @@ public abstract class ShaderDrawable {
         throw new UnsupportedOperationException("Unimplemented method");
     }
 
-    public Map<String, Entry<String, Float>> getEnv() {
-        return shader.uniformMap;
+    public Map<String, Entry<String, Float>> getUniformMap() {
+        Map<String, Entry<String, Float>> map = new HashMap<>();
+        Map<String, Object> uniformMap = shader.uniformMap;
+        for(String key : uniformMap.keySet()) {
+            Object value = uniformMap.get(key);
+            if(value instanceof Float) {
+                Float f = (Float) value;
+                map.put(key, new AbstractMap.SimpleEntry<String, Float>(Float.toString(f), f));
+            } else if(value instanceof Vector2f) {
+                Vector2f vec2 = (Vector2f) value;
+                put(map, key, vec2.x, vec2.y);
+            } else if(value instanceof Vector3f) {
+                Vector3f vec3 = (Vector3f) value;
+                put(map, key, vec3.x, vec3.y, vec3.z);
+            } else if(value instanceof Vector4f) {
+                Vector4f vec4 = (Vector4f) value;
+                put(map, key, vec4.x, vec4.y, vec4.z, vec4.w);
+            }
+            else if(value instanceof FloatBuffer) {
+                //skip
+            } else if(value instanceof Matrix4f) {
+                //skip
+            } else if(value instanceof Texture) {
+                Texture texture = (Texture) value;
+                map.put(key, new AbstractMap.SimpleEntry<String, Float>(texture.toString(), 0f));
+            }
+            
+        }
+        return map;
+    }
+
+    static final String[] vecNames = new String[] { "x", "y", "z", "w" };
+
+    public static void put(Map<String, Entry<String, Float>> env, String var, Float... dv) {
+        String vectorString = String.format("vec%s(", dv.length);
+        for (int i = 0; i < dv.length; i++) {
+            vectorString += Float.toString(dv[i]);
+            if (i != dv.length - 1) {
+                vectorString += ", ";
+            } else {
+                vectorString += ")";
+            }
+        }
+        env.put(var, new AbstractMap.SimpleEntry<String, Float>(vectorString, 0f));
+
+        for (int i = 0; i < dv.length; i++) {
+            String varName = var + "_" + vecNames[i];
+            env.put(varName, new AbstractMap.SimpleEntry<String, Float>(vectorString, dv[i]));
+        }
     }
 
     public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
@@ -79,6 +133,10 @@ public abstract class ShaderDrawable {
     }
 
     public void draw(Camera camera) {
+        if(shader == null) {
+            platform.log("Shader is null");
+            return;
+        }
         this.camera = camera;
         setup(camera);
         shader.drawSDFRegion(bottomLeft.x, bottomLeft.y, bottomRight.x, bottomRight.y, topLeft.x, topLeft.y, topRight.x,
@@ -86,7 +144,7 @@ public abstract class ShaderDrawable {
                 c);
         cleanup(camera);
     }
-    
+
     public void drawFar(Camera camera) {
         this.camera = camera;
         setup(camera);

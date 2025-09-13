@@ -76,7 +76,7 @@ public class KeyGuy {
                 }
             } else {
                 Tool tool = Main.tool;
-                if (tool.canUseToggle(Toggle.IsMainFocused)) {
+                if (tool != null && tool.canUseToggle(Toggle.IsMainFocused)) {
                     if (KeyActions.ColorRandomization.keyPressed(pressedKeys)) {
                         Terminal.runNoArgs(ColorCommand.class);
                     }

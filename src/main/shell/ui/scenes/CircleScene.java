@@ -16,25 +16,15 @@ public class CircleScene extends Scene {
 
     public CircleScene() {
         super();
-        circle = new SDFCircleSimple();
     }
 
     @Override
     public void initGL() throws UnsupportedEncodingException, IOException {
         super.initGL();
-
-        camera2D = new Camera2D(
-                Canvas3D.frameBufferWidth,
-                Canvas3D.frameBufferHeight,
-                1.0f,
-                0,
-                0,
-                cameraBounds);
-
+        circle = new SDFCircleSimple();
         camera2D.calculateCameraTransform(cameraBounds);
-        camera2D.updateView(DEFAULT_VIEW_LEFT);
+        camera2D.updateView(DEFAULT_VIEW);
 
-        initViews(camera2D, DEFAULT_VIEW_LEFT, DEFAULT_VIEW_RIGHT);
         initCodePane("Circle SDF", circle.shader, circle);
     }
 
@@ -42,16 +32,15 @@ public class CircleScene extends Scene {
     public void drawScene() {
         camera2D.updateSize(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
         camera2D.resetZIndex();
-        camera2D.updateView(DEFAULT_VIEW_LEFT);
+        camera2D.updateView(DEFAULT_VIEW);
 
         float cx = camera2D.getBounds().viewWidth / 2f;
         float cy = camera2D.getBounds().viewHeight / 2f;
         float radius = Math.min(cx, cy);
 
         Vector2f center = new Vector2f(cx, cy);
-        circle.draw(center, radius, Color.IXDAR, camera2D);
-
-        drawUI(DEFAULT_VIEW_LEFT, DEFAULT_VIEW_RIGHT);
+        circle.draw(center, radius, Color.BLUE_WHITE, camera2D);
+        drawUI();
     }
 
 }

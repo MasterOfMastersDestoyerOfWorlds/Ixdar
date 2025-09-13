@@ -19,17 +19,12 @@ public abstract class Scene extends Canvas3D {
 
     protected Camera2D camera2D;
     protected Map<String, Bounds> webViews;
-    protected Bounds leftBounds;
-    protected Bounds rightBounds;
-    protected boolean showCode;
-    protected HyperString showCodeButton;
+    protected Bounds paneBounds;
     protected ShaderCodePane codePane;
     protected float SCROLL_SPEED = 5f;
     protected PointSet cameraBounds;
 
-    public static final String DEFAULT_VIEW_LEFT = "LEFT_RENDER";
-    public static final String DEFAULT_VIEW_RIGHT = "RIGHT_CODE";
-    public static final String BTN_SHOW_CODE = "Show Code";
+    public static final String DEFAULT_VIEW = "MAIN";
 
     public Scene() {
         super();
@@ -38,55 +33,34 @@ public abstract class Scene extends Canvas3D {
     @Override
     public void initGL() throws UnsupportedEncodingException, IOException {
         super.initGL();
-        showCode = false;
+        camera2D = new Camera2D(
+                Canvas3D.frameBufferWidth,
+                Canvas3D.frameBufferHeight,
+                1.0f,
+                0,
+                0,
+                cameraBounds);
         cameraBounds = new PointSet();
         cameraBounds.clear();
         cameraBounds.add(new shell.point.PointND.Double(-1.0, -1.0));
         cameraBounds.add(new shell.point.PointND.Double(1.0, -1.0));
         cameraBounds.add(new shell.point.PointND.Double(1.0, 1.0));
         cameraBounds.add(new shell.point.PointND.Double(-1.0, 1.0));
-    }
-
-    protected void initViews(Camera2D camera2D, String leftId, String rightId) {
-        this.camera2D = camera2D;
+        this.camera2D = new Camera2D(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight, 1.0f, 0.0f, 0.0f,
+                cameraBounds);
         webViews = new HashMap<>();
-        int half = Canvas3D.frameBufferWidth / 2;
-        leftBounds = new Bounds(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight,
-                b -> b.update(0, 0, showCode ? Canvas3D.frameBufferWidth / 2 : Canvas3D.frameBufferWidth,
-                        Canvas3D.frameBufferHeight));
-        rightBounds = new Bounds(half, 0, 0, Canvas3D.frameBufferHeight,
-                b -> b.update(
-                        Canvas3D.frameBufferWidth / 2,
-                        0,
-                        showCode ? Canvas3D.frameBufferWidth / 2f : 0f,
-                        Canvas3D.frameBufferHeight));
-        webViews.put(leftId, leftBounds);
-        webViews.put(rightId, rightBounds);
-        camera2D.initCamera(webViews, leftId);
-
-        showCodeButton = new HyperString();
-        showCodeButton.addWordClick(BTN_SHOW_CODE, Color.CYAN, () -> {
-            showCode = !showCode;
-            if (showCode) {
-                rightBounds.viewWidth = Canvas3D.frameBufferWidth / 2f;
-                leftBounds.viewWidth = Canvas3D.frameBufferWidth / 2f;
-            } else {
-                rightBounds.viewWidth = 0f;
-                leftBounds.viewWidth = Canvas3D.frameBufferWidth;
-            }
-            camera2D.updateView(leftId);
-        });
-        showCodeButton.draw();
+        paneBounds = new Bounds(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+        webViews.put(DEFAULT_VIEW, paneBounds);
+        camera2D.initCamera(webViews, DEFAULT_VIEW);
     }
 
     protected void initCodePane(String title, ShaderProgram shader, ShaderDrawable provider) {
-        codePane = new ShaderCodePane(rightBounds, SCROLL_SPEED, shader, title, provider);
+        codePane = new ShaderCodePane(paneBounds, webViews, SCROLL_SPEED, shader, title, provider, camera2D);
+        camera2D.initCamera(webViews, DEFAULT_VIEW);
     }
- 
-    protected void drawUI(String leftId, String rightId) {
-        Drawing.font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera2D);
-        if (rightBounds.viewWidth > 0) {
-            camera2D.updateView(rightId);
+
+    protected void drawUI() {
+        if (codePane != null) {
             codePane.draw(camera2D);
         }
     }

@@ -4,10 +4,12 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.function.IntFunction;
+import java.util.function.Supplier;
 
 import org.joml.Vector3f;
 
 import shell.cameras.Camera3D;
+import shell.exceptions.TerminalParseException;
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
 import shell.platform.gl.Platform;
@@ -21,6 +23,8 @@ import shell.render.shaders.DiffuseShader;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.main.Main;
 import shell.ui.menu.MenuBox;
+import shell.ui.scenes.BouncingLineScene;
+import shell.ui.scenes.CircleScene;
 
 public class Canvas3D {
     DiffuseShader shader;
@@ -45,6 +49,34 @@ public class Canvas3D {
         Canvas3D.canvas = this;
         platform = Platforms.get();
         active = true;
+    }
+
+    public enum CanvasScene {
+        Ixdar("ixdar", () -> {
+            return new Canvas3D();
+        }),
+        IxdarWeb("ixdar-canvas", () -> {
+            try {
+                Main.main = new Main("djbouti");
+            } catch (TerminalParseException |
+
+                    IOException e) {
+                throw new RuntimeException(e);
+            }
+            return new Canvas3D();
+        }),
+
+        BouncingLineScene("bouncing-line-canvas", BouncingLineScene::new),
+        CircleScene("circle-canvas", CircleScene::new);
+
+        public String id;
+        public Supplier<? extends Canvas3D> newScene;
+
+        CanvasScene(String id, Supplier<? extends Canvas3D> scene) {
+            this.id = id;
+            this.newScene = scene;
+        }
+
     }
 
     public void initGL() throws UnsupportedEncodingException, IOException {

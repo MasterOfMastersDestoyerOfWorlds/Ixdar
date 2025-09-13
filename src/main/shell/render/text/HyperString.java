@@ -64,6 +64,12 @@ public class HyperString {
         }
     }
 
+    public void addDynamicWordClick(Supplier<String> wordAction, Color c, Action clickAction) {
+        words.add(new Word(wordAction, c, () -> {
+        }, () -> {
+        }, clickAction));
+    }
+
     public void addWord(String word, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         for (String w : word.split(" ")) {
             strMap.computeIfPresent(lines - 1, (key, val) -> val + w + " ");
@@ -237,11 +243,11 @@ public class HyperString {
 
     public void click(float normalizedPosX, float normalizedPosY) {
         for (Word w : words) {
-            if(w.subWords != null){
-                for(Word subWord: w.subWords){
+            if (w.subWords != null) {
+                for (Word subWord : w.subWords) {
                     subWord.click(normalizedPosX, normalizedPosY);
                 }
-            }else{
+            } else {
                 w.click(normalizedPosX, normalizedPosY);
             }
         }
@@ -361,15 +367,20 @@ public class HyperString {
         wrap = true;
     }
 
-    public void setData(Object data){
+    public void setData(Object data) {
         this.data = data;
     }
 
-    public Object getData(){
+    public Object getData() {
         return data;
     }
 
-    public void draw(){
+    public void draw() {
         MouseTrap.hyperStrings.add(this);
+    }
+
+    public void addWordClick(Object word, Color cyan, Action clickAction) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'addWordClick'");
     }
 }
