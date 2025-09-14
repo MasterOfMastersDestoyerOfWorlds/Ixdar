@@ -77,7 +77,7 @@ public abstract class ShaderDrawable {
             Object value = uniformMap.get(key);
             if (value instanceof Float) {
                 Float f = (Float) value;
-                map.put(key, new AbstractMap.SimpleEntry<String, Float>(Float.toString(f), f));
+                map.put(key, new AbstractMap.SimpleEntry<String, Float>(formatFixed(f), f));
             } else if (value instanceof Vector2f) {
                 Vector2f vec2 = (Vector2f) value;
                 put(map, key, vec2.x, vec2.y);
@@ -102,13 +102,39 @@ public abstract class ShaderDrawable {
 
     static final String[] vecNames = new String[] { "x", "y", "z", "w" };
 
+    public static String formatFixed(Float val) {
+        int digits = 2;
+        Float pow = (float) Math.pow(10, digits);
+        Float rounded = Math.round(val * pow) / pow;
+        String s = Float.toString(rounded);
+        int dot = s.indexOf('.');
+        if (dot < 0) {
+            StringBuilder sb = new StringBuilder(s);
+            sb.append('.');
+            for (int i = 0; i < digits; i++)
+                sb.append('0');
+            return sb.toString();
+        }
+        int need = digits - (s.length() - dot - 1);
+        if (need > 0) {
+            StringBuilder sb = new StringBuilder(s);
+            for (int i = 0; i < need; i++)
+                sb.append('0');
+            return sb.toString();
+        }
+        if (need < 0) {
+            return s.substring(0, dot + 1 + digits);
+        }
+        return s;
+    }
+
     public static void put(Map<String, Entry<String, Float>> env, String var, Float... dv) {
         if (dv == null || dv.length == 0) {
             return;
         }
         if (dv.length == 1) {
             Float value = dv[0];
-            String scalarString = Float.toString(value);
+            String scalarString = formatFixed(value);
             env.put(var, new AbstractMap.SimpleEntry<String, Float>(scalarString, value));
             // Provide a consistent "_x" alias for scalar values
             env.put(var + "_x", new AbstractMap.SimpleEntry<String, Float>(scalarString, value));
@@ -117,7 +143,7 @@ public abstract class ShaderDrawable {
 
         String vectorString = String.format("vec%s(", dv.length);
         for (int i = 0; i < dv.length; i++) {
-            vectorString += Float.toString(dv[i]);
+            vectorString += formatFixed(dv[i]);
             if (i != dv.length - 1) {
                 vectorString += ", ";
             } else {

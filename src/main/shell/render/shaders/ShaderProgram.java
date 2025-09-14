@@ -575,6 +575,7 @@ public abstract class ShaderProgram {
             flush();
         }
         Vector4f color = c.toVector4f();
+        uniformMap.put("vertexColor", color);
         float r = color.x;
         float g = color.y;
         float b = color.z;
@@ -598,6 +599,7 @@ public abstract class ShaderProgram {
         }
 
         Vector4f color = c.toVector4f();
+        uniformMap.put("vertexColor", color);
         float r = color.x;
         float g = color.y;
         float b = color.z;
@@ -622,6 +624,7 @@ public abstract class ShaderProgram {
         }
 
         Vector4f color = c.toVector4f();
+        uniformMap.put("vertexColor", color);
         float r = color.x;
         float g = color.y;
         float b = color.z;
@@ -646,6 +649,7 @@ public abstract class ShaderProgram {
         }
 
         Vector4f color = c.toVector4f();
+        uniformMap.put("vertexColor", color);
         float r = color.x;
         float g = color.y;
         float b = color.z;

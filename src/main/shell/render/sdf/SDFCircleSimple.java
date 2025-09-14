@@ -33,7 +33,7 @@ public class SDFCircleSimple extends ShaderDrawable {
     @Override
     protected void setUniforms() {
         float edgeDist = 1.0f;
-        float edgeSharpness = edgeDist / (32 * edgeDist * camera.getScaleFactor());
+        float edgeSharpness = edgeDist / (2 * edgeDist * camera.getScaleFactor());
         shader.setVec2("pointA", center);
         shader.setFloat("edgeDist", edgeDist);
         shader.setFloat("edgeSharpness", edgeSharpness);

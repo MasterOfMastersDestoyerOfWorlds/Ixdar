@@ -1,7 +1,6 @@
 package shell.ui.scenes;
 
 import shell.cameras.Bounds;
-import shell.cameras.Camera;
 import shell.cameras.Camera2D;
 import shell.platform.input.MouseTrap;
 import shell.render.color.Color;
@@ -12,9 +11,7 @@ import shell.ui.Drawing;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 
-import java.util.AbstractMap;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -40,7 +37,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
 
     private final ShaderDrawable uniformProvider;
 
-    private ExpressionParser expressionParser;
+    // private ExpressionParser expressionParser;
 
     public static final String DEFAULT_VIEW_RIGHT = "RIGHT_CODE";
 
@@ -112,6 +109,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 displayedLines.add(ln);
                 gIndex++;
             }
+            codeText.wrap();
             // Initialize cache to correct size
             for (int i = 0; i < displayedLines.size(); i++) {
                 cachedSuffixes.add("");
@@ -143,14 +141,9 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             return "";
         }
         Map<String, Entry<String, Float>> env = uniformProvider.getUniformMap();
-        Entry<String, Float> x = new AbstractMap.SimpleEntry<String, Float>(Float.toString(mx), mx);
-        Entry<String, Float> y = new AbstractMap.SimpleEntry<String, Float>(Float.toString(my), my);
-        env.put("mx", x);
-        env.put("my", y);
-        env.put("x", x);
-        env.put("y", y);
-        env.put("posx", x);
-        env.put("posy", y);
+        // Inject mouse position as a vector `pos` with component aliases `pos_x`,
+        // `pos_y`
+        ShaderDrawable.put(env, "pos", mx, my, 0f);
         if (uniformProvider != null) {
             try {
 
@@ -169,7 +162,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             if (line != null) {
                 // If this line declares a uniform, show its current value
                 String decl = line.trim();
-                if (decl.startsWith("uniform ")) {
+                if (decl.startsWith("uniform") || decl.startsWith("in")) {
                     String name = ExpressionParser.extractUniformName(decl);
                     if (name != null) {
                         Entry<String, Float> val = env.get(name);
@@ -180,7 +173,17 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 } else {
                     Float res = ExpressionParser.evaluateAndAssign(line, env);
                     if (res != null && !res.isNaN() && !res.isInfinite()) {
-                        out = "// = " + ExpressionParser.formatFixed(res, 4);
+                        out = "// = " + ShaderDrawable.formatFixed(res);
+                    } else {
+                        // If this is an assignment and we have a textual value (e.g., vecN literal),
+                        // show it
+                        String assigned = ExpressionParser.extractAssignedVar(line);
+                        if (assigned != null) {
+                            Entry<String, Float> v = env.get(assigned);
+                            if (v != null && v.getKey() != null && !v.getKey().isEmpty()) {
+                                out = "// = " + v.getKey();
+                            }
+                        }
                     }
                 }
             }
@@ -197,7 +200,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             mx = Canvas3D.mouse.normalizedPosX;
             my = Canvas3D.mouse.normalizedPosY;
         }
-        return "mx=" + ExpressionParser.formatFixed(mx, 1) + " my=" + ExpressionParser.formatFixed(my, 1);
+        return "mx=" + ShaderDrawable.formatFixed(mx) + " my=" + ShaderDrawable.formatFixed(my);
     }
 
     public void draw(Camera2D camera) {

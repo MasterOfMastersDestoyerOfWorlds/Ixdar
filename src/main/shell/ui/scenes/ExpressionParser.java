@@ -1,6 +1,7 @@
 package shell.ui.scenes;
 
 import java.util.ArrayList;
+import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -54,18 +55,25 @@ public class ExpressionParser {
             String right = s.substring(eq + 1).trim();
             String var = extractVarName(left);
             if (var != null && !var.isEmpty()) {
-                // Vector assignment from mouse pos: vec2 p = pos.xy
-                if (right.contains("pos.xy") || right.equals("pos")) {
-                    Float px = getOrDefault(env, "posx", "mx");
-                    Float py = getOrDefault(env, "posy", "my");
-                    ShaderDrawable.put(env, var, px, py);
-                    return null;
+                // Swizzle assignment: vec from identifier swizzle e.g., p = pos.xy or frag.rgba
+                if (isSwizzle(right)) {
+                    String base = right.substring(0, right.indexOf('.'));
+                    String sw = right.substring(right.indexOf('.') + 1);
+                    Float[] comps = resolveSwizzleVector(base, sw, env);
+                    if (comps != null && comps.length > 0) {
+                        ShaderDrawable.put(env, var, comps);
+                        return comps.length == 1 ? comps[0] : null;
+                    }
                 }
-                // Vector literal assignment: vec2 p = vec2(a,b)
-                if (right.startsWith("vec2(")) {
-                    Float[] v2 = parseVec2(right, env);
-                    if (v2 != null) {
-                        ShaderDrawable.put(env, var, v2);
+                // Vector literal assignment: vecN p = vecN(...)
+                if (right.startsWith("vec") && right.contains("(") && right.endsWith(")")) {
+                    Float[] vec = parseVec(right, env);
+                    if (vec != null && vec.length > 0) {
+                        ShaderDrawable.put(env, var, vec);
+                        return null;
+                    } else {
+                        // Could not resolve numeric components; keep the textual representation
+                        env.put(var, new AbstractMap.SimpleEntry<String, Float>(right, 0f));
                         return null;
                     }
                 }
@@ -88,7 +96,7 @@ public class ExpressionParser {
         } else {
             // Expression only
             // Heuristic: only attempt if it references known vars, functions, or digits
-            if (!s.matches(".*(mx|my|[0-9]|sin|cos|tan|sqrt|abs|min|max|clamp|mix|distance|dot).*")) {
+            if (!s.matches(".*([A-Za-z_][A-Za-z0-9_]*|[0-9]|sin|cos|tan|sqrt|abs|min|max|clamp|mix|distance|dot).*")) {
                 return null;
             }
             if (s.startsWith("distance(") && s.endsWith(")")) {
@@ -116,30 +124,23 @@ public class ExpressionParser {
         return parts[parts.length - 1];
     }
 
-    static String formatFixed(Float val, int digits) {
-        Float pow = (float) Math.pow(10, digits);
-        Float rounded = Math.round(val * pow) / pow;
-        String s = Float.toString(rounded);
-        int dot = s.indexOf('.');
-        if (dot < 0) {
-            StringBuilder sb = new StringBuilder(s);
-            sb.append('.');
-            for (int i = 0; i < digits; i++)
-                sb.append('0');
-            return sb.toString();
+    public static String extractAssignedVar(String line) {
+        if (line == null) {
+            return null;
         }
-        int need = digits - (s.length() - dot - 1);
-        if (need > 0) {
-            StringBuilder sb = new StringBuilder(s);
-            for (int i = 0; i < need; i++)
-                sb.append('0');
-            return sb.toString();
+        String s = line;
+        int cidx = s.indexOf("//");
+        if (cidx >= 0) {
+            s = s.substring(0, cidx);
         }
-        if (need < 0) {
-            return s.substring(0, dot + 1 + digits);
+        int eq = s.indexOf('=');
+        if (eq > 0 && s.indexOf('=', eq + 1) == -1) {
+            String left = s.substring(0, eq).trim();
+            return extractVarName(left);
         }
-        return s;
+        return null;
     }
+
 
     Float parse() {
         Float v = parseExpr();
@@ -203,6 +204,19 @@ public class ExpressionParser {
                 expect(')');
                 return applyFunc(ident, args);
             } else {
+                // Support scalar swizzles like base.x or frag.a
+                if (peekIs('.')) {
+                    match('.');
+                    StringBuilder sb = new StringBuilder();
+                    while (pos < s.length() && isSwizzleChar(s.charAt(pos))) {
+                        sb.append(s.charAt(pos++));
+                    }
+                    String sw = sb.toString();
+                    if (sw.length() >= 1) {
+                        String name = ident + "." + sw.charAt(0);
+                        return resolveVar(name);
+                    }
+                }
                 return resolveVar(ident);
             }
         }
@@ -228,13 +242,32 @@ public class ExpressionParser {
     }
 
     private Float resolveVar(String name) {
-        if ("pi".equalsIgnoreCase(name) || "PI".equals(name))
+        if ("pi".equalsIgnoreCase(name))
             return (float) Math.PI;
-        if ("TAU".equals(name))
+        if ("TAU".equalsIgnoreCase(name))
             return (float) (Math.PI * 2.0f);
         if ("e".equalsIgnoreCase(name))
             return (float) Math.E;
-        Float v = env.get(name).getValue();
+        // Handle swizzled scalar like base.x or frag.r
+        int dotIdx = name.indexOf('.');
+        if (dotIdx > 0 && dotIdx == name.lastIndexOf('.')) {
+            String base = name.substring(0, dotIdx);
+            String sw = name.substring(dotIdx + 1);
+            if (sw.length() == 1 && isValidSwizzle(sw)) {
+                String suffix = componentSuffix(sw.charAt(0));
+                Entry<String, Float> entry = env.get(base + suffix);
+                if (entry == null) {
+                    throw new RuntimeException("Unknown variable: " + base + suffix);
+                }
+                Float v = entry.getValue();
+                return v != null ? v : 0.0f;
+            }
+        }
+        Entry<String, Float> entry = env.get(name);
+        if (entry == null) {
+            throw new RuntimeException("Unknown variable: " + name);
+        }
+        Float v = entry.getValue();
         return v != null ? v : 0.0f;
     }
 
@@ -353,27 +386,44 @@ public class ExpressionParser {
         String[] parts = inside.split(",");
         if (parts.length != 2)
             return null;
-        Float[] a = getVec2(parts[0].trim(), env);
-        Float[] b = getVec2(parts[1].trim(), env);
+        Float[] a = getVec(parts[0].trim(), env);
+        Float[] b = getVec(parts[1].trim(), env);
         if (a == null || b == null)
             return null;
-        Float dx = a[0] - b[0];
-        Float dy = a[1] - b[1];
-        return (float) Math.sqrt((dx * dx + dy * dy));
+        int n = Math.min(a.length, b.length);
+        float sum = 0f;
+        for (int i = 0; i < n; i++) {
+            float d = a[i] - b[i];
+            sum += d * d;
+        }
+        return (float) Math.sqrt(sum);
     }
 
-    private static Float[] getVec2(String token, Map<String, Entry<String, Float>> env) {
+    private static Float[] getVec(String token, Map<String, Entry<String, Float>> env) {
         if ("pos".equals(token)) {
             return new Float[] { getOrDefault(env, "posx"), getOrDefault(env, "posy") };
         }
-        if (env.containsKey(token + "_x") && env.containsKey(token + "_y")) {
-            return new Float[] { env.get(token + "_x").getValue(), env.get(token + "_y").getValue() };
+        // Named vector in env with components
+        String[] comps = new String[] { "_x", "_y", "_z", "_w" };
+        ArrayList<Float> values = new ArrayList<>();
+        for (String c : comps) {
+            String key = token + c;
+            if (env.containsKey(key)) {
+                values.add(env.get(key).getValue());
+            }
         }
-        if ("pointA".equals(token)) {
-            return new Float[] { getOrDefault(env, "pointA_x"), getOrDefault(env, "pointA_y") };
+        if (!values.isEmpty()) {
+            return values.toArray(new Float[0]);
         }
-        if (token.startsWith("vec2(")) {
-            return parseVec2(token, env);
+        // Swizzle like base.xy or frag.rgba
+        if (isSwizzle(token)) {
+            String base = token.substring(0, token.indexOf('.'));
+            String sw = token.substring(token.indexOf('.') + 1);
+            return resolveSwizzleVector(base, sw, env);
+        }
+        // Literal vector
+        if (token.startsWith("vec") && token.contains("(") && token.endsWith(")")) {
+            return parseVec(token, env);
         }
         return null;
     }
@@ -387,27 +437,164 @@ public class ExpressionParser {
         return 0f;
     }
 
-    private static Float[] parseVec2(String expr, Map<String, Entry<String, Float>> env) {
+    private static Float[] parseVec(String expr, Map<String, Entry<String, Float>> env) {
         int l = expr.indexOf('(');
         int r = expr.lastIndexOf(')');
         if (l < 0 || r < 0 || r <= l + 1)
             return null;
         String inside = expr.substring(l + 1, r);
-        String[] parts = inside.split(",");
-        if (parts.length != 2)
-            return null;
-        Float a = evalSimple(parts[0].trim(), env);
-        Float b = evalSimple(parts[1].trim(), env);
-        if (a == null || b == null)
-            return null;
-        return new Float[] { a, b };
+        ArrayList<String> args = splitTopLevelArgs(inside);
+        ArrayList<String> expanded = new ArrayList<>();
+        for (String a : args) {
+            String t = a.trim();
+            if (isPureSwizzle(t)) {
+                int dot = t.indexOf('.');
+                String base = t.substring(0, dot).trim();
+                String sw = t.substring(dot + 1).trim();
+                for (int i = 0; i < sw.length(); i++) {
+                    expanded.add(base + "." + sw.charAt(i));
+                }
+            } else {
+                expanded.add(t);
+            }
+        }
+        ArrayList<Float> vals = new ArrayList<>();
+        for (String p : expanded) {
+            Float v = evalSimple(p.trim(), env);
+            if (v == null) {
+                return null;
+            }
+            vals.add(v);
+        }
+        return vals.toArray(new Float[0]);
     }
+
+    private static ArrayList<String> splitTopLevelArgs(String s) {
+        ArrayList<String> parts = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        int depth = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '(') {
+                depth++;
+            } else if (c == ')') {
+                depth--;
+            }
+            if (c == ',' && depth == 0) {
+                parts.add(cur.toString());
+                cur.setLength(0);
+            } else {
+                cur.append(c);
+            }
+        }
+        if (cur.length() > 0) {
+            parts.add(cur.toString());
+        }
+        return parts;
+    }
+
+    private static boolean isPureSwizzle(String token) {
+        token = token.trim();
+        int dot = token.indexOf('.');
+        if (dot <= 0)
+            return false;
+        String left = token.substring(0, dot).trim();
+        String right = token.substring(dot + 1).trim();
+        if (left.isEmpty() || right.isEmpty())
+            return false;
+        if (right.matches(".*[+\\-*/].*"))
+            return false;
+        if (!left.matches("[A-Za-z_][A-Za-z0-9_]*"))
+            return false;
+        return isValidSwizzle(right);
+    }
+
+    private static boolean isSwizzle(String s) {
+        int dot = s.indexOf('.');
+        if (dot <= 0 || dot == s.length() - 1)
+            return false;
+        String sw = s.substring(dot + 1);
+        return isValidSwizzle(sw);
+    }
+
+    // private static String extractSwizzle(String s) {
+    // int dot = s.indexOf('.');
+    // if (dot <= 0 || dot == s.length() - 1)
+    // return null;
+    // String sw = s.substring(dot + 1);
+    // return isValidSwizzle(sw) ? sw : null;
+    // }
+
+    private static boolean isValidSwizzle(String sw) {
+        if (sw == null || sw.isEmpty() || sw.length() > 4)
+            return false;
+        for (int i = 0; i < sw.length(); i++) {
+            char c = sw.charAt(i);
+            if (!isSwizzleChar(c))
+                return false;
+        }
+        return true;
+    }
+
+    private static boolean isSwizzleChar(char c) {
+        switch (Character.toLowerCase(c)) {
+        case 'x':
+        case 'y':
+        case 'z':
+        case 'w':
+        case 'r':
+        case 'g':
+        case 'b':
+        case 'a':
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    private static String componentSuffix(char c) {
+        switch (Character.toLowerCase(c)) {
+        case 'x':
+        case 'r':
+            return "_x";
+        case 'y':
+        case 'g':
+            return "_y";
+        case 'z':
+        case 'b':
+            return "_z";
+        case 'w':
+        case 'a':
+            return "_w";
+        default:
+            return "_x";
+        }
+    }
+
+    private static Float[] resolveSwizzleVector(String base, String sw, Map<String, Entry<String, Float>> env) {
+        if (!isValidSwizzle(sw))
+            return null;
+        ArrayList<Float> list = new ArrayList<>();
+        for (int i = 0; i < sw.length(); i++) {
+            String key = base + componentSuffix(sw.charAt(i));
+            Entry<String, Float> e = env.get(key);
+            if (e == null)
+                return null;
+            list.add(e.getValue());
+        }
+        return list.toArray(new Float[0]);
+    }
+
+    // private static int swizzleLength(String sw) {
+    // return (sw != null && isValidSwizzle(sw)) ? sw.length() : 0;
+    // }
 
     private static Float evalSimple(String token, Map<String, Entry<String, Float>> env) {
         try {
             return new ExpressionParser(token, env).parse();
         } catch (Exception e) {
-            return env.get(token).getValue();
+            Entry<String, Float> entry = env.get(token);
+            return entry != null ? entry.getValue() : null;
         }
     }
 }

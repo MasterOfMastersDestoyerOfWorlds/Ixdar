@@ -116,7 +116,7 @@ public class Word {
         String text = wordAction.get();
         ArrayList<Word> subWords = new ArrayList<>();
         for (String textPart : text.split(" ")) {
-            subWords.add(new Word(textPart, color, hoverAction, clearHover, clickAction));
+            subWords.add(new Word(textPart + " ", color, hoverAction, clearHover, clickAction));
         }
         this.subWords = subWords;
         return subWords;
