@@ -64,7 +64,7 @@ public class HyperString {
         }
     }
 
-    public void addDynamicWordClick(Supplier<String> wordAction, Color c, Action clickAction) {
+    public void addDynamicWordClick(Supplier<ColorText> wordAction, Color c, Action clickAction) {
         words.add(new Word(wordAction, c, () -> {
         }, () -> {
         }, clickAction));
@@ -77,21 +77,21 @@ public class HyperString {
         }
     }
 
-    public void addDynamicWord(Supplier<String> wordAction) {
+    public void addDynamicWord(Supplier<ColorText> wordAction) {
         words.add(new Word(wordAction, defaultColor, () -> {
         }, () -> {
         }, () -> {
         }));
     }
 
-    public void addDynamicWord(Supplier<String> wordAction, Color c) {
+    public void addDynamicWord(Supplier<ColorText> wordAction, Color c) {
         words.add(new Word(wordAction, c, () -> {
         }, () -> {
         }, () -> {
         }));
     }
 
-    public void addDynamicWord(Supplier<String> wordAction, Color c, Action hoverAction, Action clearHover,
+    public void addDynamicWord(Supplier<ColorText> wordAction, Color c, Action hoverAction, Action clearHover,
             Action clickAction) {
         words.add(new Word(wordAction, c, hoverAction, clearHover, clickAction));
     }
@@ -113,7 +113,8 @@ public class HyperString {
         }
     }
 
-    public void addDynamicTooltip(Supplier<String> wordAction, Color c, HyperString toolTipText, Action clickAction) {
+    public void addDynamicTooltip(Supplier<ColorText> wordAction, Color c, HyperString toolTipText,
+            Action clickAction) {
         words.add(new Word(wordAction, c, () -> Main.setTooltipText(toolTipText), () -> Main.clearTooltipText(),
                 clickAction));
     }

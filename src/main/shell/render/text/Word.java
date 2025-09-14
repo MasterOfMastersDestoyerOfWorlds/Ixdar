@@ -12,7 +12,7 @@ public class Word {
 
     public CharSequence text;
     public Color color;
-    public Supplier<String> wordAction;
+    public Supplier<ColorText> wordAction;
     public Action hoverAction;
     public Action clickAction;
     public boolean newLine = false;
@@ -47,7 +47,7 @@ public class Word {
         viewBounds = new Bounds(0, 0, 0, 0, WORD_BOUNDS_ID);
     }
 
-    public Word(Supplier<String> wordAction, Color c, Action hoverAction, Action clearHover, Action clickAction) {
+    public Word(Supplier<ColorText> wordAction, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         text = "?MissingWord?";
         color = c;
         this.wordAction = wordAction;
@@ -113,10 +113,15 @@ public class Word {
     }
 
     public ArrayList<Word> subWords() {
-        String text = wordAction.get();
+        ColorText colorText = wordAction.get();
         ArrayList<Word> subWords = new ArrayList<>();
-        for (String textPart : text.split(" ")) {
-            subWords.add(new Word(textPart + " ", color, hoverAction, clearHover, clickAction));
+        int i = 0;
+        for (String textPart : colorText.text) {
+            subWords.add(new Word(textPart + " ", colorText.color[i], hoverAction, clearHover, clickAction));
+            i++;
+            if (i >= colorText.color.length) {
+                i = 0;
+            }
         }
         this.subWords = subWords;
         return subWords;

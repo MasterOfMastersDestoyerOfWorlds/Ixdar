@@ -5,6 +5,7 @@ import shell.cameras.Camera2D;
 import shell.platform.input.MouseTrap;
 import shell.render.color.Color;
 import shell.render.sdf.ShaderDrawable;
+import shell.render.text.ColorText;
 import shell.render.text.HyperString;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
@@ -25,7 +26,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private float scrollOffsetY;
     private final float scrollSpeed;
     private final ArrayList<String> displayedLines = new ArrayList<>();
-    private final ArrayList<String> cachedSuffixes = new ArrayList<>();
+    private final ArrayList<ColorText> cachedSuffixes = new ArrayList<>();
     private float lastMouseX = Float.NaN;
     private float lastMouseY = Float.NaN;
     private final ShaderProgram targetShader;
@@ -65,7 +66,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
 
         showCodeButton = new HyperString();
         showCodeButton.addDynamicWordClick(() -> {
-            return showCode ? "Hide Code" : "Show Code";
+            return showCode ? new ColorText("Hide Code") : new ColorText("Show Code");
         }, Color.CYAN, () -> {
             showCode = !showCode;
             if (showCode) {
@@ -112,7 +113,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             codeText.wrap();
             // Initialize cache to correct size
             for (int i = 0; i < displayedLines.size(); i++) {
-                cachedSuffixes.add("");
+                cachedSuffixes.add(ColorText.BLANK);
             }
             // Force recompute on first draw
             lastMouseX = Float.NaN;
@@ -122,15 +123,15 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         }
     }
 
-    private String dynamicSuffix(int lineIndex) {
+    private ColorText dynamicSuffix(int lineIndex) {
         if (lineIndex < 0 || lineIndex >= displayedLines.size()) {
-            return "";
+            return ColorText.BLANK;
         }
-        String cached = cachedSuffixes.get(lineIndex);
-        return cached != null ? cached : "";
+        ColorText cached = cachedSuffixes.get(lineIndex);
+        return cached != null ? cached : ColorText.BLANK;
     }
 
-    private String updateCacheIfMouseMoved() {
+    private ColorText updateCacheIfMouseMoved() {
         float mx = 0f;
         float my = 0f;
         if (Canvas3D.mouse != null) {
@@ -138,7 +139,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             my = Canvas3D.mouse.normalizedPosY;
         }
         if (mx == lastMouseX && my == lastMouseY) {
-            return "";
+            return ColorText.BLANK;
         }
         Map<String, Entry<String, Float>> env = uniformProvider.getUniformMap();
         // Inject mouse position as a vector `pos` with component aliases `pos_x`,
@@ -154,7 +155,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         if (cachedSuffixes.size() != displayedLines.size()) {
             cachedSuffixes.clear();
             for (int i = 0; i < displayedLines.size(); i++)
-                cachedSuffixes.add("");
+                cachedSuffixes.add(ColorText.BLANK);
         }
         for (int i = 0; i < displayedLines.size(); i++) {
             String line = displayedLines.get(i);
@@ -187,20 +188,20 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                     }
                 }
             }
-            cachedSuffixes.set(i, out);
+            cachedSuffixes.set(i, new ColorText(out));
         }
         lastMouseX = mx;
-        lastMouseY = my;
-        return "";
+        lastMouseY = my; 
+        return ColorText.BLANK;
     }
 
-    private String mouseText() {
+    private ColorText mouseText() {
         float mx = 0f, my = 0f;
         if (Canvas3D.mouse != null) {
             mx = Canvas3D.mouse.normalizedPosX;
             my = Canvas3D.mouse.normalizedPosY;
         }
-        return "mx=" + ShaderDrawable.formatFixed(mx) + " my=" + ShaderDrawable.formatFixed(my);
+        return new ColorText("mx=" + ShaderDrawable.formatFixed(mx) + " my=" + ShaderDrawable.formatFixed(my));
     }
 
     public void draw(Camera2D camera) {

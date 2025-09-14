@@ -7,6 +7,7 @@ import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.point.PointND;
 import shell.render.color.Color;
+import shell.render.text.ColorText;
 import shell.render.text.HyperString;
 import shell.ui.Drawing;
 import shell.ui.main.Main;
@@ -55,15 +56,15 @@ public class FreeTool extends Tool {
         h.addWord("Point: ");
         pointInfo.addDynamicWord(() -> {
             if (Main.tool.displayKP == null) {
-                return "None";
+                return new ColorText("None");
             }
-            return ((Main.tool.displayKP).p).toString();
+            return new ColorText(((Main.tool.displayKP).p).toString());
         });
         h.addDynamicTooltip(() -> {
             if (displayKP == null) {
-                return "None";
+                return new ColorText("None");
             }
-            return displayKP.id + "";
+            return new ColorText(displayKP.id + "");
         }, Color.BLUE_WHITE, pointInfo, () -> {
             if (displayKP != null) {
                 Main.camera.centerOnPoint(Main.tool.displayKP.p);
