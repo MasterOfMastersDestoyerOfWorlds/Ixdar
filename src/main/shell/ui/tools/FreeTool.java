@@ -55,14 +55,16 @@ public class FreeTool extends Tool {
         HyperString pointInfo = new HyperString();
         h.addWord("Point: ");
         pointInfo.addDynamicWord(() -> {
+            final ColorText NONE = new ColorText("None");
             if (Main.tool.displayKP == null) {
-                return new ColorText("None");
+                return NONE;
             }
             return new ColorText(((Main.tool.displayKP).p).toString());
         });
         h.addDynamicTooltip(() -> {
+            final ColorText NONE = new ColorText("None");
             if (displayKP == null) {
-                return new ColorText("None");
+                return NONE;
             }
             return new ColorText(displayKP.id + "");
         }, Color.BLUE_WHITE, pointInfo, () -> {

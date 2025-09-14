@@ -41,6 +41,15 @@
         },
         {
             "type": "java",
+            "name": "Line",
+            "request": "launch",
+            "mainClass": "shell.ui.IxdarWindow",
+            "projectName": "IXDAR",
+            "args": "line-canvas",
+            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true"
+        },
+        {
+            "type": "java",
             "name": "Launch Current File",
             "request": "launch",
             "mainClass": "${file}",

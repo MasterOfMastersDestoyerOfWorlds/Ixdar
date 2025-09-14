@@ -1,10 +1,9 @@
 package shell.render.sdf;
 
 import java.nio.FloatBuffer;
-import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.ArrayList;
 
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
@@ -18,6 +17,7 @@ import shell.platform.gl.Platform;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
+import shell.render.text.ColorText;
 
 public abstract class ShaderDrawable {
 
@@ -70,14 +70,14 @@ public abstract class ShaderDrawable {
         throw new UnsupportedOperationException("Unimplemented method");
     }
 
-    public Map<String, Entry<String, Float>> getUniformMap() {
-        Map<String, Entry<String, Float>> map = new HashMap<>();
+    public Map<String, ColorText<Float>> getUniformMap() {
+        Map<String, ColorText<Float>> map = new HashMap<>();
         Map<String, Object> uniformMap = shader.uniformMap;
         for (String key : uniformMap.keySet()) {
             Object value = uniformMap.get(key);
             if (value instanceof Float) {
                 Float f = (Float) value;
-                map.put(key, new AbstractMap.SimpleEntry<String, Float>(formatFixed(f), f));
+                put(map, key, f);
             } else if (value instanceof Vector2f) {
                 Vector2f vec2 = (Vector2f) value;
                 put(map, key, vec2.x, vec2.y);
@@ -93,14 +93,12 @@ public abstract class ShaderDrawable {
                 // skip
             } else if (value instanceof Texture) {
                 Texture texture = (Texture) value;
-                map.put(key, new AbstractMap.SimpleEntry<String, Float>(texture.toString(), 0f));
+                map.put(key, new ColorText<Float>(texture.toString()));
             }
 
         }
         return map;
     }
-
-    static final String[] vecNames = new String[] { "x", "y", "z", "w" };
 
     public static String formatFixed(Float val) {
         int digits = 2;
@@ -128,34 +126,47 @@ public abstract class ShaderDrawable {
         return s;
     }
 
-    public static void put(Map<String, Entry<String, Float>> env, String var, Float... dv) {
+    static final String[] vecNames = new String[] { "x", "y", "z", "w" };
+    static final Color[] vecColors = new Color[] { Color.GLSL_VECTOR_FLOAT_X, Color.GLSL_VECTOR_FLOAT_Y,
+            Color.GLSL_VECTOR_FLOAT_Z, Color.GLSL_VECTOR_FLOAT_W };
+
+    public static void put(Map<String, ColorText<Float>> env, String var, Float... dv) {
         if (dv == null || dv.length == 0) {
             return;
         }
         if (dv.length == 1) {
             Float value = dv[0];
             String scalarString = formatFixed(value);
-            env.put(var, new AbstractMap.SimpleEntry<String, Float>(scalarString, value));
+            env.put(var, new ColorText<Float>(scalarString, vecColors[0], value));
             // Provide a consistent "_x" alias for scalar values
-            env.put(var + "_x", new AbstractMap.SimpleEntry<String, Float>(scalarString, value));
+            env.put(var + "_x", new ColorText<Float>(scalarString, vecColors[0], value));
             return;
         }
 
-        String vectorString = String.format("vec%s(", dv.length);
+        ColorText<Float> vectorString = new ColorText<Float>(String.format("vec%s", dv.length), Color.GLSL_VECTOR);
+        vectorString = vectorString.join(new ColorText<Float>("(", Color.GLSL_PARENTHESIS));
         for (int i = 0; i < dv.length; i++) {
-            vectorString += formatFixed(dv[i]);
+            vectorString = vectorString.join(new ColorText<Float>(formatFixed(dv[i]), vecColors[i], dv[i]));
             if (i != dv.length - 1) {
-                vectorString += ", ";
+                vectorString = vectorString.join(new ColorText<Float>(", ", Color.GLSL_COMMA));
             } else {
-                vectorString += ")";
+                vectorString = vectorString.join(new ColorText<Float>(")", Color.GLSL_PARENTHESIS));
             }
         }
-        env.put(var, new AbstractMap.SimpleEntry<String, Float>(vectorString, 0f));
+        env.put(var, vectorString);
 
         for (int i = 0; i < dv.length; i++) {
             String varName = var + "_" + vecNames[i];
-            env.put(varName, new AbstractMap.SimpleEntry<String, Float>(vectorString, dv[i]));
+            env.put(varName, new ColorText<Float>(vectorString, dv[i]));
         }
+    }
+
+    public static void put(Map<String, ColorText<Float>> env, String var, ArrayList<ColorText<Float>> dv) {
+        Float[] data = new Float[dv.size()];
+        for (int i = 0; i < dv.size(); i++) {
+            data[i] = dv.get(i).getData();
+        }
+        put(env, var, data);
     }
 
     public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {

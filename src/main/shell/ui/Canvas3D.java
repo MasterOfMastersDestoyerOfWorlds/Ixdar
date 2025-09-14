@@ -25,6 +25,7 @@ import shell.ui.main.Main;
 import shell.ui.menu.MenuBox;
 import shell.ui.scenes.BouncingLineScene;
 import shell.ui.scenes.CircleScene;
+import shell.ui.scenes.LineScene;
 
 public class Canvas3D {
     DiffuseShader shader;
@@ -55,6 +56,7 @@ public class Canvas3D {
         Ixdar("ixdar", () -> {
             return new Canvas3D();
         }),
+
         IxdarWeb("ixdar-canvas", () -> {
             try {
                 Main.main = new Main("djbouti");
@@ -67,7 +69,8 @@ public class Canvas3D {
         }),
 
         BouncingLineScene("bouncing-line-canvas", BouncingLineScene::new),
-        CircleScene("circle-canvas", CircleScene::new);
+        CircleScene("circle-canvas", CircleScene::new),
+        LineScene("line-canvas", LineScene::new);
 
         public String id;
         public Supplier<? extends Canvas3D> newScene;

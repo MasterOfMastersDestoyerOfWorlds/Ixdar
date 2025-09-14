@@ -1,28 +1,33 @@
 package shell.ui.scenes;
 
 import java.util.ArrayList;
-import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
+import shell.render.color.Color;
 import shell.render.sdf.ShaderDrawable;
+import shell.render.text.ColorText;
 
 public class ExpressionParser {
 
     private final String s;
     private int pos;
-    private final Map<String, Entry<String, Float>> env;
+    private final Map<String, ColorText<Float>> env;
 
-    ExpressionParser(String s, Map<String, Entry<String, Float>> env) {
+    public static final ColorText<Float> MISSING = new ColorText<Float>("?Missing?", Color.PINK);
+
+    ExpressionParser(String s, Map<String, ColorText<Float>> env) {
         this.s = s;
         this.env = env;
         this.pos = 0;
     }
 
-    public static Float evaluateAndAssign(String line, Map<String, Entry<String, Float>> env) {
+    public static ColorText<Float> evaluateAndAssign(String line, Map<String, ColorText<Float>> env) {
         // strip comments and semicolon
         String s = line;
+        if (line.contains("sigDist")) {
+            float z = 0;
+        }
         int cidx = s.indexOf("//");
         if (cidx >= 0) {
             s = s.substring(0, cidx);
@@ -44,7 +49,7 @@ public class ExpressionParser {
         }
         // Special-case vector distance like: distance(p, pointA)
         if (s.startsWith("distance(") && s.endsWith(")")) {
-            Float v = tryEvalDistance(s, env);
+            ColorText<Float> v = tryEvalDistance(s, env);
             if (v != null)
                 return v;
         }
@@ -59,35 +64,38 @@ public class ExpressionParser {
                 if (isSwizzle(right)) {
                     String base = right.substring(0, right.indexOf('.'));
                     String sw = right.substring(right.indexOf('.') + 1);
-                    Float[] comps = resolveSwizzleVector(base, sw, env);
-                    if (comps != null && comps.length > 0) {
+                    ArrayList<ColorText<Float>> comps = resolveSwizzleVector(base, sw, env);
+                    if (comps != null && comps.size() > 0) {
                         ShaderDrawable.put(env, var, comps);
-                        return comps.length == 1 ? comps[0] : null;
+                        if (comps.size() == 1)
+                            return comps.get(0);
+                        return new ColorText<Float>("vec" + comps.size() + "(swizzle)", Color.BLUE_WHITE);
                     }
                 }
                 // Vector literal assignment: vecN p = vecN(...)
                 if (right.startsWith("vec") && right.contains("(") && right.endsWith(")")) {
-                    Float[] vec = parseVec(right, env);
-                    if (vec != null && vec.length > 0) {
+                    ArrayList<ColorText<Float>> vec = parseVec(right, env);
+                    if (vec != null && vec.size() > 0) {
                         ShaderDrawable.put(env, var, vec);
-                        return null;
+                        return new ColorText<Float>("vec" + vec.size() + "(...)", Color.BLUE_WHITE);
                     } else {
-                        // Could not resolve numeric components; keep the textual representation
-                        env.put(var, new AbstractMap.SimpleEntry<String, Float>(right, 0f));
-                        return null;
+                        env.put(var, new ColorText<Float>(right, Color.BLUE_WHITE));
+                        return env.get(var);
                     }
                 }
                 // distance with vectors on RHS
                 if (right.startsWith("distance(") && right.endsWith(")")) {
-                    Float dv = tryEvalDistance(right, env);
+                    ColorText<Float> dv = tryEvalDistance(right, env);
                     if (dv != null) {
-                        ShaderDrawable.put(env, var, dv);
+                        if (dv.data != null)
+                            ShaderDrawable.put(env, var, dv.data);
                         return dv;
                     }
                 }
                 try {
-                    Float val = new ExpressionParser(right, env).parse();
-                    ShaderDrawable.put(env, var, val);
+                    ColorText<Float> val = new ExpressionParser(right, env).parse();
+                    if (val != null && val.data != null)
+                        ShaderDrawable.put(env, var, val.data);
                     return val;
                 } catch (Exception ex) {
                     return null;
@@ -100,7 +108,7 @@ public class ExpressionParser {
                 return null;
             }
             if (s.startsWith("distance(") && s.endsWith(")")) {
-                Float v = tryEvalDistance(s, env);
+                ColorText<Float> v = tryEvalDistance(s, env);
                 if (v != null)
                     return v;
             }
@@ -141,51 +149,62 @@ public class ExpressionParser {
         return null;
     }
 
-
-    Float parse() {
-        Float v = parseExpr();
+    ColorText<Float> parse() {
+        ColorText<Float> v = parseExpr();
         skipWs();
         return v;
     }
 
-    private Float parseExpr() {
-        Float v = parseTerm();
+    private ColorText<Float> parseExpr() {
+        ColorText<Float> v = parseTerm();
         while (true) {
             skipWs();
             if (match('+')) {
-                v += parseTerm();
+                ColorText<Float> r = parseTerm();
+                v = new ColorText<Float>("+", Color.BLUE_WHITE,
+                        (v != null && v.data != null ? v.data : 0f) + (r != null && r.data != null ? r.data : 0f));
             } else if (match('-')) {
-                v -= parseTerm();
+                ColorText<Float> r = parseTerm();
+                v = new ColorText<Float>("-", Color.BLUE_WHITE,
+                        (v != null && v.data != null ? v.data : 0f) - (r != null && r.data != null ? r.data : 0f));
             } else {
                 return v;
             }
         }
     }
 
-    private Float parseTerm() {
-        Float v = parseFactor();
+    private ColorText<Float> parseTerm() {
+        ColorText<Float> v = parseFactor();
         while (true) {
             skipWs();
             if (match('*')) {
-                v *= parseFactor();
+                ColorText<Float> r = parseFactor();
+                Float out = (v != null && v.data != null ? v.data : 0f) * (r != null && r.data != null ? r.data : 1f);
+                v = new ColorText<Float>(ShaderDrawable.formatFixed(out), Color.GLSL_FLOAT, out);
+                return v;
             } else if (match('/')) {
-                v /= parseFactor();
+                ColorText<Float> r = parseFactor();
+                Float out = (v != null && v.data != null ? v.data : 0f) / (r != null && r.data != null ? r.data : 1f);
+                v = new ColorText<Float>(ShaderDrawable.formatFixed(out), Color.GLSL_FLOAT, out);
+                return v;
             } else {
                 return v;
             }
         }
     }
 
-    private Float parseFactor() {
+    private ColorText<Float> parseFactor() {
         skipWs();
         if (match('+')) {
             return parseFactor();
         }
         if (match('-')) {
-            return -parseFactor();
+            ColorText<Float> f = parseFactor();
+            Float out = f.data * -1f;
+            return new ColorText<Float>(ShaderDrawable.formatFixed(out), Color.GLSL_FLOAT, out);
         }
         if (match('(')) {
-            Float v = parseExpr();
+            ColorText<Float> v = parseExpr();
             expect(')');
             return v;
         }
@@ -193,7 +212,7 @@ public class ExpressionParser {
             String ident = parseIdent();
             skipWs();
             if (match('(')) {
-                List<Float> args = new ArrayList<>();
+                List<ColorText<Float>> args = new ArrayList<>();
                 skipWs();
                 if (!peekIs(')')) {
                     do {
@@ -202,7 +221,8 @@ public class ExpressionParser {
                     } while (match(','));
                 }
                 expect(')');
-                return applyFunc(ident, args);
+                Float out = applyFunc(ident, args);
+                return new ColorText<Float>(ShaderDrawable.formatFixed(out), Color.GLSL_FLOAT, out);
             } else {
                 // Support scalar swizzles like base.x or frag.a
                 if (peekIs('.')) {
@@ -223,7 +243,7 @@ public class ExpressionParser {
         return parseNumber();
     }
 
-    private Float parseNumber() {
+    private ColorText<Float> parseNumber() {
         skipWs();
         int start = pos;
         while (pos < s.length() && (Character.isDigit(s.charAt(pos)) || s.charAt(pos) == '.'))
@@ -231,7 +251,8 @@ public class ExpressionParser {
         if (start == pos) {
             throw new RuntimeException("Expected number at " + pos);
         }
-        return Float.parseFloat(s.substring(start, pos));
+        Float val = Float.parseFloat(s.substring(start, pos));
+        return new ColorText<Float>(ShaderDrawable.formatFixed(val), Color.BLUE_WHITE, val);
     }
 
     private String parseIdent() {
@@ -241,13 +262,13 @@ public class ExpressionParser {
         return s.substring(start, pos);
     }
 
-    private Float resolveVar(String name) {
+    private ColorText<Float> resolveVar(String name) {
         if ("pi".equalsIgnoreCase(name))
-            return (float) Math.PI;
+            return new ColorText<Float>("pi", Color.BLUE_WHITE, (float) Math.PI);
         if ("TAU".equalsIgnoreCase(name))
-            return (float) (Math.PI * 2.0f);
+            return new ColorText<Float>("TAU", Color.BLUE_WHITE, (float) (Math.PI * 2.0f));
         if ("e".equalsIgnoreCase(name))
-            return (float) Math.E;
+            return new ColorText<Float>("e", Color.BLUE_WHITE, (float) Math.E);
         // Handle swizzled scalar like base.x or frag.r
         int dotIdx = name.indexOf('.');
         if (dotIdx > 0 && dotIdx == name.lastIndexOf('.')) {
@@ -255,54 +276,53 @@ public class ExpressionParser {
             String sw = name.substring(dotIdx + 1);
             if (sw.length() == 1 && isValidSwizzle(sw)) {
                 String suffix = componentSuffix(sw.charAt(0));
-                Entry<String, Float> entry = env.get(base + suffix);
+                ColorText<Float> entry = env.get(base + suffix);
                 if (entry == null) {
                     throw new RuntimeException("Unknown variable: " + base + suffix);
                 }
-                Float v = entry.getValue();
-                return v != null ? v : 0.0f;
+                ColorText<Float> v = entry;
+                return v == null ? ColorText.BLANK : v;
             }
         }
-        Entry<String, Float> entry = env.get(name);
-        if (entry == null) {
+        ColorText<Float> v = env.get(name);
+        if (v == null) {
             throw new RuntimeException("Unknown variable: " + name);
         }
-        Float v = entry.getValue();
-        return v != null ? v : 0.0f;
+        return v;
     }
 
-    private Float applyFunc(String name, List<Float> a) {
+    private Float applyFunc(String name, List<ColorText<Float>> a) {
         switch (name) {
         case "sin":
-            return (float) Math.sin(a.get(0));
+            return (float) Math.sin(a.get(0).data);
         case "cos":
-            return (float) Math.cos(a.get(0));
+            return (float) Math.cos(a.get(0).data);
         case "tan":
-            return (float) Math.tan(a.get(0));
+            return (float) Math.tan(a.get(0).data);
         case "sqrt":
-            return (float) Math.sqrt(a.get(0));
+            return (float) Math.sqrt(a.get(0).data);
         case "abs":
-            return (float) Math.abs(a.get(0));
+            return (float) Math.abs(a.get(0).data);
         case "floor":
-            return (float) Math.floor(a.get(0));
+            return (float) Math.floor(a.get(0).data);
         case "ceil":
-            return (float) Math.ceil(a.get(0));
+            return (float) Math.ceil(a.get(0).data);
         case "round":
-            return (float) Math.round(a.get(0));
+            return (float) Math.round(a.get(0).data);
         case "min":
-            return (float) Math.min(a.get(0), a.get(1));
+            return (float) Math.min(a.get(0).data, a.get(1).data);
         case "max":
-            return Math.max(a.get(0), a.get(1));
+            return Math.max(a.get(0).data, a.get(1).data);
         case "dot":
-            return a.get(0) * a.get(1);
+            return a.get(0).data * a.get(1).data;
         case "distance":
-            return Math.abs(a.get(0) - a.get(1));
+            return Math.abs(a.get(0).data - a.get(1).data);
         case "mix": {
-            Float x = a.get(0), y = a.get(1), t = a.get(2);
-            return x * (1.0f - t) + y * t;
+            ColorText<Float> x = a.get(0), y = a.get(1), t = a.get(2);
+            return x.data * (1.0f - t.data) + y.data * t.data;
         }
         case "smoothstep": {
-            Float edge0 = a.get(0), edge1 = a.get(1), x = a.get(2);
+            Float edge0 = a.get(0).data, edge1 = a.get(1).data, x = a.get(2).data;
             if (edge0 == edge1)
                 return x < edge0 ? 0.0f : 1.0f;
             Float t = (x - edge0) / (edge1 - edge0);
@@ -313,7 +333,7 @@ public class ExpressionParser {
             return t * t * (3.0f - 2.0f * t);
         }
         case "clamp": {
-            Float x = a.get(0), lo = a.get(1), hi = a.get(2);
+            Float x = a.get(0).data, lo = a.get(1).data, hi = a.get(2).data;
             return Math.max(lo, Math.min(hi, x));
         }
         default:
@@ -376,7 +396,7 @@ public class ExpressionParser {
         return null;
     }
 
-    private static Float tryEvalDistance(String expr, Map<String, Entry<String, Float>> env) {
+    private static ColorText<Float> tryEvalDistance(String expr, Map<String, ColorText<Float>> env2) {
         // Expect distance(A, B)
         int l = expr.indexOf('(');
         int r = expr.lastIndexOf(')');
@@ -386,34 +406,32 @@ public class ExpressionParser {
         String[] parts = inside.split(",");
         if (parts.length != 2)
             return null;
-        Float[] a = getVec(parts[0].trim(), env);
-        Float[] b = getVec(parts[1].trim(), env);
+        ArrayList<ColorText<Float>> a = getVec(parts[0].trim(), env2);
+        ArrayList<ColorText<Float>> b = getVec(parts[1].trim(), env2);
         if (a == null || b == null)
             return null;
-        int n = Math.min(a.length, b.length);
+        int n = Math.min(a.size(), b.size());
         float sum = 0f;
         for (int i = 0; i < n; i++) {
-            float d = a[i] - b[i];
+            float d = a.get(i).data - b.get(i).data;
             sum += d * d;
         }
-        return (float) Math.sqrt(sum);
+        Float out = (float) Math.sqrt(sum);
+        return new ColorText<Float>(ShaderDrawable.formatFixed(out), Color.GLSL_FLOAT, out);
     }
 
-    private static Float[] getVec(String token, Map<String, Entry<String, Float>> env) {
-        if ("pos".equals(token)) {
-            return new Float[] { getOrDefault(env, "posx"), getOrDefault(env, "posy") };
-        }
+    private static ArrayList<ColorText<Float>> getVec(String token, Map<String, ColorText<Float>> env) {
         // Named vector in env with components
         String[] comps = new String[] { "_x", "_y", "_z", "_w" };
-        ArrayList<Float> values = new ArrayList<>();
+        ArrayList<ColorText<Float>> values = new ArrayList<>();
         for (String c : comps) {
             String key = token + c;
             if (env.containsKey(key)) {
-                values.add(env.get(key).getValue());
+                values.add(env.get(key));
             }
         }
         if (!values.isEmpty()) {
-            return values.toArray(new Float[0]);
+            return values;
         }
         // Swizzle like base.xy or frag.rgba
         if (isSwizzle(token)) {
@@ -428,16 +446,7 @@ public class ExpressionParser {
         return null;
     }
 
-    private static Float getOrDefault(Map<String, Entry<String, Float>> env, String... keys) {
-        for (String key : keys) {
-            if (env.containsKey(key)) {
-                return env.get(key).getValue();
-            }
-        }
-        return 0f;
-    }
-
-    private static Float[] parseVec(String expr, Map<String, Entry<String, Float>> env) {
+    private static ArrayList<ColorText<Float>> parseVec(String expr, Map<String, ColorText<Float>> env) {
         int l = expr.indexOf('(');
         int r = expr.lastIndexOf(')');
         if (l < 0 || r < 0 || r <= l + 1)
@@ -458,15 +467,15 @@ public class ExpressionParser {
                 expanded.add(t);
             }
         }
-        ArrayList<Float> vals = new ArrayList<>();
+        ArrayList<ColorText<Float>> vals = new ArrayList<>();
         for (String p : expanded) {
-            Float v = evalSimple(p.trim(), env);
+            ColorText<Float> v = evalSimple(p.trim(), env);
             if (v == null) {
                 return null;
             }
             vals.add(v);
         }
-        return vals.toArray(new Float[0]);
+        return vals;
     }
 
     private static ArrayList<String> splitTopLevelArgs(String s) {
@@ -571,30 +580,30 @@ public class ExpressionParser {
         }
     }
 
-    private static Float[] resolveSwizzleVector(String base, String sw, Map<String, Entry<String, Float>> env) {
+    private static ArrayList<ColorText<Float>> resolveSwizzleVector(String base, String sw,
+            Map<String, ColorText<Float>> env) {
         if (!isValidSwizzle(sw))
             return null;
-        ArrayList<Float> list = new ArrayList<>();
+        ArrayList<ColorText<Float>> list = new ArrayList<>();
         for (int i = 0; i < sw.length(); i++) {
             String key = base + componentSuffix(sw.charAt(i));
-            Entry<String, Float> e = env.get(key);
+            ColorText<Float> e = env.get(key);
             if (e == null)
                 return null;
-            list.add(e.getValue());
+            list.add(e);
         }
-        return list.toArray(new Float[0]);
+        return list;
     }
 
     // private static int swizzleLength(String sw) {
     // return (sw != null && isValidSwizzle(sw)) ? sw.length() : 0;
     // }
 
-    private static Float evalSimple(String token, Map<String, Entry<String, Float>> env) {
+    private static ColorText<Float> evalSimple(String token, Map<String, ColorText<Float>> env) {
         try {
             return new ExpressionParser(token, env).parse();
         } catch (Exception e) {
-            Entry<String, Float> entry = env.get(token);
-            return entry != null ? entry.getValue() : null;
+            return env.get(token);
         }
     }
 }

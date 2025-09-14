@@ -113,13 +113,13 @@ public class Word {
     }
 
     public ArrayList<Word> subWords() {
-        ColorText colorText = wordAction.get();
+        ColorText<?> colorText = wordAction.get();
         ArrayList<Word> subWords = new ArrayList<>();
         int i = 0;
         for (String textPart : colorText.text) {
-            subWords.add(new Word(textPart + " ", colorText.color[i], hoverAction, clearHover, clickAction));
+            subWords.add(new Word(textPart + " ", colorText.color.get(i), hoverAction, clearHover, clickAction));
             i++;
-            if (i >= colorText.color.length) {
+            if (i >= colorText.color.size()) {
                 i = 0;
             }
         }

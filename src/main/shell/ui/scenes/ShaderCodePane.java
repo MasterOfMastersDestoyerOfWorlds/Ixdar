@@ -14,7 +14,6 @@ import shell.render.shaders.ShaderProgram.ShaderType;
 
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * Renders shader source code into a scrollable pane area using HyperString.
@@ -26,7 +25,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private float scrollOffsetY;
     private final float scrollSpeed;
     private final ArrayList<String> displayedLines = new ArrayList<>();
-    private final ArrayList<ColorText> cachedSuffixes = new ArrayList<>();
+    private final ArrayList<ColorText<Float>> cachedSuffixes = new ArrayList<>();
     private float lastMouseX = Float.NaN;
     private float lastMouseY = Float.NaN;
     private final ShaderProgram targetShader;
@@ -66,7 +65,9 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
 
         showCodeButton = new HyperString();
         showCodeButton.addDynamicWordClick(() -> {
-            return showCode ? new ColorText("Hide Code") : new ColorText("Show Code");
+            final ColorText<Float> HIDE = new ColorText<Float>("Hide Code", Color.CYAN);
+            final ColorText<Float> SHOW = new ColorText<Float>("Show Code", Color.CYAN);
+            return showCode ? HIDE : SHOW;
         }, Color.CYAN, () -> {
             showCode = !showCode;
             if (showCode) {
@@ -123,15 +124,15 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         }
     }
 
-    private ColorText dynamicSuffix(int lineIndex) {
+    private ColorText<Float> dynamicSuffix(int lineIndex) {
         if (lineIndex < 0 || lineIndex >= displayedLines.size()) {
             return ColorText.BLANK;
         }
-        ColorText cached = cachedSuffixes.get(lineIndex);
+        ColorText<Float> cached = cachedSuffixes.get(lineIndex);
         return cached != null ? cached : ColorText.BLANK;
     }
 
-    private ColorText updateCacheIfMouseMoved() {
+    private ColorText<Float> updateCacheIfMouseMoved() {
         float mx = 0f;
         float my = 0f;
         if (Canvas3D.mouse != null) {
@@ -141,7 +142,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         if (mx == lastMouseX && my == lastMouseY) {
             return ColorText.BLANK;
         }
-        Map<String, Entry<String, Float>> env = uniformProvider.getUniformMap();
+        Map<String, ColorText<Float>> env = uniformProvider.getUniformMap();
         // Inject mouse position as a vector `pos` with component aliases `pos_x`,
         // `pos_y`
         ShaderDrawable.put(env, "pos", mx, my, 0f);
@@ -159,49 +160,49 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         }
         for (int i = 0; i < displayedLines.size(); i++) {
             String line = displayedLines.get(i);
-            String out = "";
+            ColorText<Float> out = ColorText.BLANK;
             if (line != null) {
                 // If this line declares a uniform, show its current value
                 String decl = line.trim();
                 if (decl.startsWith("uniform") || decl.startsWith("in")) {
                     String name = ExpressionParser.extractUniformName(decl);
                     if (name != null) {
-                        Entry<String, Float> val = env.get(name);
+                        ColorText<Float> val = env.get(name);
                         if (val != null) {
-                            out = "// = " + val.getKey();
+                            out = new ColorText<Float>("// = ").join(val);
                         }
                     }
                 } else {
-                    Float res = ExpressionParser.evaluateAndAssign(line, env);
-                    if (res != null && !res.isNaN() && !res.isInfinite()) {
-                        out = "// = " + ShaderDrawable.formatFixed(res);
+                    ColorText<Float> res = ExpressionParser.evaluateAndAssign(line, env);
+                    if (res != null && res.getData() != null && !res.getData().isNaN() && !res.getData().isInfinite()) {
+                        out = new ColorText<Float>("// = ").join(res);
                     } else {
                         // If this is an assignment and we have a textual value (e.g., vecN literal),
                         // show it
                         String assigned = ExpressionParser.extractAssignedVar(line);
                         if (assigned != null) {
-                            Entry<String, Float> v = env.get(assigned);
-                            if (v != null && v.getKey() != null && !v.getKey().isEmpty()) {
-                                out = "// = " + v.getKey();
+                            ColorText<Float> v = env.get(assigned);
+                            if (v != null && v.text.size() > 0) {
+                                out = new ColorText<Float>("// = ").join(v);
                             }
                         }
                     }
                 }
             }
-            cachedSuffixes.set(i, new ColorText(out));
+            cachedSuffixes.set(i, out);
         }
         lastMouseX = mx;
-        lastMouseY = my; 
+        lastMouseY = my;
         return ColorText.BLANK;
     }
 
-    private ColorText mouseText() {
+    private ColorText<Float> mouseText() {
         float mx = 0f, my = 0f;
         if (Canvas3D.mouse != null) {
             mx = Canvas3D.mouse.normalizedPosX;
             my = Canvas3D.mouse.normalizedPosY;
         }
-        return new ColorText("mx=" + ShaderDrawable.formatFixed(mx) + " my=" + ShaderDrawable.formatFixed(my));
+        return new ColorText<Float>("mx=" + ShaderDrawable.formatFixed(mx) + " my=" + ShaderDrawable.formatFixed(my));
     }
 
     public void draw(Camera2D camera) {

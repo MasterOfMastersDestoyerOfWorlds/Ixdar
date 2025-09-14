@@ -29,7 +29,15 @@ public interface Color {
     public static final Color DARK_GRAY = new ColorRGB(0.15f, 0.15f, 0.15f, "Dark Gray");
     public static final Color ORANGE = new ColorRGB(210, 105, 30, "Orange");
     public static final Color COMMAND = new ColorRGB(0f, 0.75f, 0.5f, "Command");
-    public static final Color PINK = new ColorRGB(255,192,203, "Pink");
+    public static final Color PINK = new ColorRGB(255, 192, 203, "Pink");
+    public static final Color GLSL_VECTOR = new ColorRGB(0.72f, 0.58f, 0.85f,  "GLSL Vector");
+    public static final Color GLSL_COMMA = new ColorRGB(0.80f, 0.86f, 0.96f, "GLSL Comma");
+    public static final Color GLSL_PARENTHESIS = new ColorRGB(0.88f, 0.90f, 0.96f, "GLSL Parenthesis");
+    public static final Color GLSL_FLOAT = new ColorRGB(0.98f, 0.74f, 0.80f, "GLSL Float");
+    public static final Color GLSL_VECTOR_FLOAT_X = new ColorRGB(0.99f, 0.80f, 0.80f,  "GLSL Vector Float X");
+    public static final Color GLSL_VECTOR_FLOAT_Y = new ColorRGB(0.80f, 0.96f, 0.80f,"GLSL Vector Float Y");
+    public static final Color GLSL_VECTOR_FLOAT_Z = new ColorRGB(0.80f, 0.86f, 0.99f, "GLSL Vector Float Z");
+    public static final Color GLSL_VECTOR_FLOAT_W = new ColorRGB(0.98f, 0.88f, 0.70f,  "GLSL Vector Float W");
 
     public Vector3f toVector3f();
 
