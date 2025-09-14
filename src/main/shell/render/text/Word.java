@@ -25,6 +25,7 @@ public class Word {
     public float y;
     public Bounds viewBounds;
     public ArrayList<Word> subWords;
+    public static final String WORD_BOUNDS_ID = "WORD";
 
     public Word(String word, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         text = word;
@@ -37,13 +38,13 @@ public class Word {
             this.clickAction = () -> {
             };
         }
-        viewBounds = new Bounds(0, 0, 0, 0);
+        viewBounds = new Bounds(0, 0, 0, 0, WORD_BOUNDS_ID);
     }
 
     public Word(boolean b) {
         newLine = b;
         text = "";
-        viewBounds = new Bounds(0, 0, 0, 0);
+        viewBounds = new Bounds(0, 0, 0, 0, WORD_BOUNDS_ID);
     }
 
     public Word(Supplier<String> wordAction, Color c, Action hoverAction, Action clearHover, Action clickAction) {
@@ -58,7 +59,7 @@ public class Word {
             this.clickAction = () -> {
             };
         }
-        viewBounds = new Bounds(0, 0, 0, 0);
+        viewBounds = new Bounds(0, 0, 0, 0, WORD_BOUNDS_ID);
     }
 
     public void setBounds(float x, float y, float xScreen, float yScreen, float height, Bounds viewBounds) {

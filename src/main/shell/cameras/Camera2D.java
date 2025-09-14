@@ -69,7 +69,7 @@ public class Camera2D implements Camera {
         this.ScaleFactor = ScaleFactor;
         this.ScreenOffsetX = ScreenOffsetX;
         this.ScreenOffsetY = ScreenOffsetY;
-        this.viewBounds = new Bounds(ScreenOffsetX, ScreenOffsetY, Width, Height);
+        this.viewBounds = new Bounds(ScreenOffsetX, ScreenOffsetY, Width, Height, "CAMERA_2D");
         this.ps = ps;
         zIndex = 0;
 

@@ -49,7 +49,7 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         String cachedFileName = FileManagement.getTestFileCache();
         activeMenu = new Menu.MainMenu(cachedFileName);
         menuItems = activeMenu.loadMenu();
-        scrollBounds = new Bounds(0, 0, 0, 0);
+        scrollBounds = new Bounds(0, 0, 0, 0, "MENU_SCROLL");
         MouseTrap.subscribeScrollRegion(scrollBounds, this);
     }
 

@@ -49,7 +49,7 @@ public abstract class Scene extends Canvas3D {
         this.camera2D = new Camera2D(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight, 1.0f, 0.0f, 0.0f,
                 cameraBounds);
         webViews = new HashMap<>();
-        paneBounds = new Bounds(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+        paneBounds = new Bounds(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight, null, DEFAULT_VIEW);
         webViews.put(DEFAULT_VIEW, paneBounds);
         camera2D.initCamera(webViews, DEFAULT_VIEW);
     }

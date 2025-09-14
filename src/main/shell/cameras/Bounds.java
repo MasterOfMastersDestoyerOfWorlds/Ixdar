@@ -12,18 +12,18 @@ public class Bounds {
     public Consumer<Bounds> recalculator;
     public String id;
 
-    public Bounds(float x, float y, float width, float height) {
+    public Bounds(float x, float y, float width, float height, String id) {
 
         offsetX = x;
         offsetY = y;
         viewWidth = width;
         viewHeight = height;
+        this.id = id;
     }
 
     public Bounds(float x, float y, float width, float height, Consumer<Bounds> recalculator, String id) {
-        this(x, y, width, height);
+        this(x, y, width, height, id);
         this.recalculator = recalculator;
-        this.id = id;
     }
 
     public void update(float x, float y, float width, float height) {
