@@ -73,30 +73,29 @@ public abstract class ShaderDrawable {
     public Map<String, Entry<String, Float>> getUniformMap() {
         Map<String, Entry<String, Float>> map = new HashMap<>();
         Map<String, Object> uniformMap = shader.uniformMap;
-        for(String key : uniformMap.keySet()) {
+        for (String key : uniformMap.keySet()) {
             Object value = uniformMap.get(key);
-            if(value instanceof Float) {
+            if (value instanceof Float) {
                 Float f = (Float) value;
                 map.put(key, new AbstractMap.SimpleEntry<String, Float>(Float.toString(f), f));
-            } else if(value instanceof Vector2f) {
+            } else if (value instanceof Vector2f) {
                 Vector2f vec2 = (Vector2f) value;
                 put(map, key, vec2.x, vec2.y);
-            } else if(value instanceof Vector3f) {
+            } else if (value instanceof Vector3f) {
                 Vector3f vec3 = (Vector3f) value;
                 put(map, key, vec3.x, vec3.y, vec3.z);
-            } else if(value instanceof Vector4f) {
+            } else if (value instanceof Vector4f) {
                 Vector4f vec4 = (Vector4f) value;
                 put(map, key, vec4.x, vec4.y, vec4.z, vec4.w);
-            }
-            else if(value instanceof FloatBuffer) {
-                //skip
-            } else if(value instanceof Matrix4f) {
-                //skip
-            } else if(value instanceof Texture) {
+            } else if (value instanceof FloatBuffer) {
+                // skip
+            } else if (value instanceof Matrix4f) {
+                // skip
+            } else if (value instanceof Texture) {
                 Texture texture = (Texture) value;
                 map.put(key, new AbstractMap.SimpleEntry<String, Float>(texture.toString(), 0f));
             }
-            
+
         }
         return map;
     }
@@ -104,6 +103,18 @@ public abstract class ShaderDrawable {
     static final String[] vecNames = new String[] { "x", "y", "z", "w" };
 
     public static void put(Map<String, Entry<String, Float>> env, String var, Float... dv) {
+        if (dv == null || dv.length == 0) {
+            return;
+        }
+        if (dv.length == 1) {
+            Float value = dv[0];
+            String scalarString = Float.toString(value);
+            env.put(var, new AbstractMap.SimpleEntry<String, Float>(scalarString, value));
+            // Provide a consistent "_x" alias for scalar values
+            env.put(var + "_x", new AbstractMap.SimpleEntry<String, Float>(scalarString, value));
+            return;
+        }
+
         String vectorString = String.format("vec%s(", dv.length);
         for (int i = 0; i < dv.length; i++) {
             vectorString += Float.toString(dv[i]);
@@ -133,7 +144,7 @@ public abstract class ShaderDrawable {
     }
 
     public void draw(Camera camera) {
-        if(shader == null) {
+        if (shader == null) {
             platform.log("Shader is null");
             return;
         }
