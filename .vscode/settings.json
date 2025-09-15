@@ -1,9 +1,6 @@
 {
-    "java.configuration.updateBuildConfiguration": "interactive",
-    "java.project.sourcePaths": [
-        "src\\shell"
-    ],
-    "java.project.outputPath": "bin",
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.import.maven.enabled": true,
     "java.debug.settings.onBuildFailureProceed": true,
     "java.debug.settings.showToString": true,
     "java.debug.settings.showStaticVariables": true,

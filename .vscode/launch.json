@@ -9,44 +9,44 @@
             "name": "Launch Main",
             "request": "launch",
             "mainClass": "shell.ui.main.Main",
-            "projectName": "IXDAR",
             "args": "djbouti",
-            "vmArgs": "-enableassertions"
+            "vmArgs": "-enableassertions",
+            "cwd": "${workspaceFolder}/ixdar-app"
         },
         {
             "type": "java",
             "name": "Ixdar",
             "request": "launch",
             "mainClass": "shell.ui.IxdarWindow",
-            "projectName": "IXDAR",
-            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true"
+            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+            "cwd": "${workspaceFolder}/ixdar-app"
         },
         {
             "type": "java",
             "name": "Bouncing Line",
             "request": "launch",
             "mainClass": "shell.ui.IxdarWindow",
-            "projectName": "IXDAR",
             "args": "bouncing-line-canvas",
-            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true"
+            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+            "cwd": "${workspaceFolder}/ixdar-app"
         },
         {
             "type": "java",
             "name": "Circle",
             "request": "launch",
             "mainClass": "shell.ui.IxdarWindow",
-            "projectName": "IXDAR",
             "args": "circle-canvas",
-            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true"
+            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+            "cwd": "${workspaceFolder}/ixdar-app"
         },
         {
             "type": "java",
             "name": "Line",
             "request": "launch",
             "mainClass": "shell.ui.IxdarWindow",
-            "projectName": "IXDAR",
             "args": "line-canvas",
-            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true"
+            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+            "cwd": "${workspaceFolder}/ixdar-app"
         },
         {
             "type": "java",
@@ -55,21 +55,21 @@
             "mainClass": "${file}",
             "vmArgs": "-enableassertions",
             "console": "internalConsole",
+            "cwd": "${workspaceFolder}/ixdar-app"
         },
         {
             "type": "java",
             "name": "Launch Profile",
             "request": "launch",
             "mainClass": "shell.Main",
-            "projectName": "IXDAR",
-            "vmArgs": "-enableassertions -agentpath:Z:/VisualVM/visualvm_219/visualvm/lib/deployed/jdk16/windows-amd64/profilerinterface.dll=Z:\\VisualVM\\visualvm_219\\visualvm\\lib,5140"
+            "vmArgs": "-enableassertions -agentpath:Z:/VisualVM/visualvm_219/visualvm/lib/deployed/jdk16/windows-amd64/profilerinterface.dll=Z:\\VisualVM\\visualvm_219\\visualvm\\lib,5140",
+            "cwd": "${workspaceFolder}/ixdar-app"
         },
         {
             "type": "java",
             "name": "Web (TeaVM): build",
             "request": "launch",
             "mainClass": "shell.ui.WebLauncher",
-            "projectName": "IXDAR",
             "preLaunchTask": "teavm-build"
         },
         {
