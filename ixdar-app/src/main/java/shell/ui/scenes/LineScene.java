@@ -40,7 +40,7 @@ public class LineScene extends Scene {
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
         line = new SDFLine();
-        initCodePane("Line SDF", line.shader, line);
+        initCodePane("Line SDF", line.shader, Drawing.sdfLine);
     }
 
 

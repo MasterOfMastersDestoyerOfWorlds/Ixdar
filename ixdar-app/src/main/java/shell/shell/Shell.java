@@ -116,6 +116,7 @@ public class Shell extends LinkedList<PointND> {
                 if (i != j) {
                     p1.sortedSegments.add(s);
                     p1.segmentLookup.put(s.id, s);
+                    //causes out of points exception
                     p1.pointSegmentLookup[p2.id] = s;
                 }
                 if (i < j) {

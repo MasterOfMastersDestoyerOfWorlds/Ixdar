@@ -62,7 +62,6 @@ public class Font {
         }
     }
 
-    // --- Drawing API remains the same ---
     public float getWidth(CharSequence text) {
         float maxWidthPx = 0f;
         float lineAdvanceEm = 0f;
@@ -154,7 +153,6 @@ public class Font {
             penEm += g.advance;
             prevCodePoint = ch;
         }
-        // sdfTexture.drawRegion handles zIndex increment per glyph
     }
 
     public void drawText(CharSequence text, float x, float y, float glyphHeight,
@@ -314,6 +312,9 @@ public class Font {
             float pr = ge.planeBounds != null ? (float) ge.planeBounds.right : 0f;
             float pt = ge.planeBounds != null ? (float) ge.planeBounds.top : 0f;
             map.put(ch, new Glyph(width, height, x, y, (float) ge.advance, pl, pb, pr, pt));
+        }
+        for (SpecialGlyphs specialGlyph : SpecialGlyphs.values()) {
+            map.put(specialGlyph.getChar(), specialGlyph.glyph);
         }
         return map;
     }

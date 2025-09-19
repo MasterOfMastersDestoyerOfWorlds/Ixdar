@@ -24,13 +24,13 @@ public class ParseText extends ColorText<Vector4f> {
             Color.GLSL_VECTOR_FLOAT_Z, Color.GLSL_VECTOR_FLOAT_W };
 
     private void transformVecText(Vector4f data, int vectorLength) {
-        if(vectorLength < 1 || vectorLength > 4){
+        if (vectorLength < 1 || vectorLength > 4) {
             return;
         }
         super.resetText();
-        if(vectorLength == 1){
+        if (vectorLength == 1) {
             super.addWord(formatFixed(data.x), Color.GLSL_FLOAT);
-        }else{
+        } else {
             super.addWord(String.format("vec%s", vectorLength), Color.GLSL_VECTOR);
             super.addWord("(", Color.GLSL_PARENTHESIS);
             for (int i = 0; i < vectorLength; i++) {
@@ -87,6 +87,14 @@ public class ParseText extends ColorText<Vector4f> {
         this(text, Color.BLUE_WHITE, null, -1, null);
     }
 
+    public ParseText(String text, Color color) {
+        this(text, color, null, -1, null);
+    }
+
+    public ParseText(String text, Vector4f vec, int vectorLength) {
+        this(text, Color.BLUE_WHITE, vec, vectorLength, null);
+    }
+
     public ParseText join(ParseText v) {
         ParseText result = new ParseText();
         result.text = new ArrayList<>(this.text);
@@ -135,7 +143,7 @@ public class ParseText extends ColorText<Vector4f> {
             return;
         }
         float[] xyzw = new float[4];
-        for(int i = 0 ; i< dv.length; i++){
+        for (int i = 0; i < dv.length; i++) {
             xyzw[i] = dv[i];
         }
         Vector4f result = new Vector4f(xyzw);
@@ -144,11 +152,25 @@ public class ParseText extends ColorText<Vector4f> {
         env.put(var, vectorString);
     }
 
-    public static void put(Map<String, ParseText> env, String var, ArrayList<ParseText> dv) {
-        Float[] data = new Float[dv.size()];
+    public static void putVec(Map<String, ParseText> env, String var, ArrayList<ParseText> dv) {
+        Float[] data = new Float[4];
+        int vectorLength = 0;
         for (int i = 0; i < dv.size(); i++) {
-            data[i] = dv.get(i).getData().x;
+            ParseText pt = dv.get(i);
+            Vector4f vec = dv.get(i).getData();
+            for(int k = vectorLength; k < vectorLength + pt.vectorLength; k ++){
+                data[k] = vec.get(k - vectorLength);
+            }
+            vectorLength += pt.vectorLength;
+
+            if(pt.vectorLength < 1 || vectorLength > 4){
+                return;
+            }
         }
-        put(env, var, data);
+        Float[] finalData = new Float[vectorLength];
+        for (int i = 0; i < finalData.length; i++) {
+            finalData[i] = data[i];
+        }
+        put(env, var, finalData);
     }
 }

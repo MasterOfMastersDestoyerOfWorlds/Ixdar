@@ -4,9 +4,11 @@ import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
 import shell.platform.input.MouseTrap;
 import shell.render.color.Color;
+import shell.render.color.ColorRGB;
 import shell.render.sdf.ShaderDrawable;
 import shell.render.text.ColorText;
 import shell.render.text.HyperString;
+import shell.render.text.SpecialGlyphs;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 import shell.render.shaders.ShaderProgram;
@@ -14,6 +16,8 @@ import shell.render.shaders.ShaderProgram.ShaderType;
 
 import java.util.ArrayList;
 import java.util.Map;
+
+import org.joml.Vector2f;
 
 /**
  * Renders shader source code into a scrollable pane area using HyperString.
@@ -80,6 +84,9 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             camera.updateView(paneBounds.id);
             camera.updateView(parentBounds.id);
         });
+        showCodeButton.newLine();
+        showCodeButton.addWord("Mouse: ", Color.CYAN);
+        showCodeButton.addDynamicWord(() -> mouseText());
         webViews.put(paneBounds.id, paneBounds);
         loadCode(this.targetShader, this.title);
         camera.updateView(paneBounds.id);
@@ -92,15 +99,6 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             cachedSuffixes.clear();
             String fs = shader != null ? shader.getFragmentSource() : "";
             int gIndex = 0;
-            // Live mouse coordinates header
-            codeText.addWord("Mouse: ", Color.CYAN);
-            codeText.addDynamicWord(() -> mouseText());
-            codeText.newLine();
-            displayedLines.add(null);
-            gIndex++;
-            codeText.addLine("// " + headerTitle + " - Fragment Shader", Color.WHITE);
-            displayedLines.add(null);
-            gIndex++;
             codeText.addDynamicWord(() -> updateCacheIfMouseMoved(), Color.BLUE_WHITE);
             for (String ln : fs.split("\n")) {
                 final int idx = gIndex;
@@ -146,11 +144,20 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         // Inject mouse position as a vector `pos` with component aliases `pos_x`,
         // `pos_y`
         ParseText.put(env, "pos", mx, my, 0f);
-        if (uniformProvider != null) {
-            try {
+        if (uniformProvider.bottomLeft != null) {
+            Vector2f m = new Vector2f(mx, my);
 
-            } catch (Throwable t) {
-            }
+            Vector2f a = new Vector2f(uniformProvider.bottomLeft);
+            Vector2f b = new Vector2f(uniformProvider.bottomRight).sub(new Vector2f(uniformProvider.bottomLeft),
+                    new Vector2f());
+            Vector2f c = new Vector2f(uniformProvider.topLeft).sub(new Vector2f(uniformProvider.bottomLeft),
+                    new Vector2f());
+            Vector2f am = m.sub(a, new Vector2f());
+
+            float u = (am.dot(b) / b.lengthSquared());
+            float v = (am.dot(c) / c.lengthSquared());
+
+            ParseText.put(env, "textureCoord", Math.clamp(u, 0, 1), Math.clamp(v, 0, 1));
         }
         // Ensure cache size matches displayed lines
         if (cachedSuffixes.size() != displayedLines.size()) {
@@ -167,25 +174,16 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 if (decl.startsWith("uniform") || decl.startsWith("in")) {
                     String name = ExpressionParser.extractUniformName(decl);
                     if (name != null) {
-                        ParseText val = env.get(name);
-                        if (val != null) {
-                            out = new ParseText("// = ").join(val);
+                        ParseText v = env.get(name);
+                        if (v != null) {
+                            out = commentStart(v).join(new ParseText(" = ")).join(v);
                         }
                     }
                 } else {
                     ParseText res = ExpressionParser.evaluateAndAssign(line, env);
-                    if (res != null && res.getData() != null) {
-                        out = new ParseText("// = ").join(res);
-                    } else {
-                        // If this is an assignment and we have a textual value (e.g., vecN literal),
-                        // show it
-                        String assigned = ExpressionParser.extractAssignedVar(line);
-                        if (assigned != null) {
-                            ParseText v = env.get(assigned);
-                            if (v != null && v.text.size() > 0) {
-                                out = new ParseText("// = ").join(v);
-                            }
-                        }
+                    if (res != null) {
+                       
+                        out = commentStart(res).join(new ParseText(" = ")).join(res);
                     }
                 }
             }
@@ -194,6 +192,16 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         lastMouseX = mx;
         lastMouseY = my;
         return ParseText.BLANK;
+    }
+
+    private ParseText commentStart(ParseText res){
+        if(res.vectorLength == 4){
+            return new ParseText(SpecialGlyphs.COLOR_TRACKER.getChar() + "",
+                                new ColorRGB(res.data.x, res.data.y, res.data.z, res.data.w));
+        }else{
+            return new ParseText("//");
+        }
+        
     }
 
     private ParseText mouseText() {

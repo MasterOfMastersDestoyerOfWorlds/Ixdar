@@ -8,7 +8,6 @@ import java.util.function.Supplier;
 import org.teavm.jso.browser.Window;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.dom.html.HTMLDocument;
-import org.teavm.jso.dom.html.HTMLElement;
 
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
@@ -28,8 +27,8 @@ public final class WebLauncher {
     private static Platform platform;
 
     private static String DEFAULT_CANVAS_NAME = "ixdar-canvas";
-    private static Canvas3D canvas3d;
-    private static HTMLCanvasElement canvas;
+    private static Canvas3D[] canvas3dScenes;
+    private static HTMLCanvasElement[] canvasElements;
 
     public static void main(String[] args)
             throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException,
@@ -37,40 +36,40 @@ public final class WebLauncher {
         startTime = Clock.time();
         System.setProperty("joml.format", "false");
         HTMLDocument document = Window.current().getDocument();
-        String canvasId = args[0];
-        canvas = (HTMLCanvasElement) document.getElementById(canvasId);
-        if (canvas == null) {
-            canvas = (HTMLCanvasElement) document.createElement("canvas");
-            canvas.setId(canvasId);
-            canvas.setWidth(800);
-            canvas.setHeight(600);
-            HTMLElement body = document.getBody();
-            body.appendChild(canvas);
+        canvasElements = new HTMLCanvasElement[args.length];
+        canvas3dScenes = new Canvas3D[args.length];
+        for (int i = 0; i < canvasElements.length; i++) {
+            String canvasId = args[i];
+            HTMLCanvasElement canvas = (HTMLCanvasElement) document.getElementById(canvasId);
+
+            Platforms.init(new WebPlatform(canvas, canvasId), new WebGL(canvas));
+            platform = Platforms.get();
+            platform.log("WebLauncher is running for " + canvasId);
+
+            int w = canvas.getClientWidth();
+            int h = canvas.getClientHeight();
+            Canvas3D.frameBufferWidth = w;
+            Canvas3D.frameBufferHeight = h;
+
+            Supplier<? extends Canvas3D> cs = CanvasScene.MAP.get(canvasId);
+            if (cs == null) {
+                Platforms.get().log("Canvas3D not found for " + canvasId);
+            }
+            Canvas3D canvas3d = (Canvas3D) cs.get();
+
+            canvas3d.initGL();
+            // Provide default buffers implementation for web
+            Platforms.setBuffers(new shell.platform.buffers.DefaultBuffers());
+            canvasElements[i] = canvas;
+            canvas3dScenes[i] = canvas3d;
+            final int j = i;
+            Window.requestAnimationFrame(ts -> tick(j));
         }
-
-        Platforms.init(new WebPlatform(canvas, canvasId), new WebGL(canvas));
-        platform = Platforms.get();
-        platform.log("WebLauncher is running for " + canvasId);
-
-        int w = canvas.getClientWidth();
-        int h = canvas.getClientHeight();
-        Canvas3D.frameBufferWidth = w;
-        Canvas3D.frameBufferHeight = h;
-
-        Supplier<? extends Canvas3D> cs = CanvasScene.MAP.get(canvasId);
-        if (cs == null) {
-            Platforms.get().log("Canvas3D not found for " + canvasId);
-        }
-        canvas3d = (Canvas3D) cs.get();
-
-        canvas3d.initGL();
-        // Provide default buffers implementation for web
-        Platforms.setBuffers(new shell.platform.buffers.DefaultBuffers());
-        Window.requestAnimationFrame(ts -> tick());
     }
 
-    private static void tick() {
-
+    private static void tick(int i) {
+        Canvas3D canvas3d = canvas3dScenes[i];
+        HTMLCanvasElement canvas = canvasElements[i];
         if (!broken) {
             try {
                 GL gl = Platforms.gl();
@@ -119,7 +118,7 @@ public final class WebLauncher {
             }
         }
 
-        Window.requestAnimationFrame(ts -> tick());
+        Window.requestAnimationFrame(ts -> tick(i));
     }
 
     public static void setTitle(String string) {

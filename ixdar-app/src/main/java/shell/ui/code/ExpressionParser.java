@@ -65,7 +65,7 @@ public class ExpressionParser {
                     String sw = right.substring(right.indexOf('.') + 1);
                     ArrayList<ParseText> comps = resolveSwizzleVector(base, sw, env);
                     if (comps != null && comps.size() > 0) {
-                        ParseText.put(env, var, comps);
+                        ParseText.putVec(env, var, comps);
                         return env.get(var);
                     }
                 }
@@ -73,7 +73,7 @@ public class ExpressionParser {
                 if (right.startsWith("vec") && right.contains("(") && right.endsWith(")")) {
                     ArrayList<ParseText> vec = parseVec(right, env);
                     if (vec != null && vec.size() > 0) {
-                        ParseText.put(env, var, vec);
+                        ParseText.putVec(env, var, vec);
                         return env.get(var);
                     } else {
                         env.put(var, new ParseText(right, Color.BLUE_WHITE, -1));
@@ -225,7 +225,7 @@ public class ExpressionParser {
                     }
                     String sw = sb.toString();
                     if (sw.length() >= 1) {
-                        String name = ident + "." + sw.charAt(0);
+                        String name = ident + "." + sw;
                         return resolveVar(name);
                     }
                 }
@@ -266,9 +266,16 @@ public class ExpressionParser {
         if (dotIdx > 0 && dotIdx == name.lastIndexOf('.')) {
             String base = name.substring(0, dotIdx);
             String sw = name.substring(dotIdx + 1);
-            if (sw.length() == 1 && isValidSwizzle(sw)) {
-                int component = componentSuffix(sw.charAt(0));
-                return new ParseText(env.get(base).getData().get(component));
+            int vectorLength = sw.length();
+            float[] xyzw = new float[4];
+            if (isValidSwizzle(sw)) {
+                Vector4f org = env.get(base).getData();
+                for (int i = 0; i < vectorLength; i++) {
+                    int component = componentSuffix(sw.charAt(i));
+                    xyzw[i] = org.get(component);
+                }
+                Vector4f vec = new Vector4f(xyzw);
+                return new ParseText(name, vec, vectorLength);
             }
         }
         ParseText v = env.get(name);
@@ -305,7 +312,7 @@ public class ExpressionParser {
         case "distance":
             return distanceFunc(a);
         case "mix": {
-            return applyThreeArgFunc((x, y, t) -> x * (1.0f - t) + y * t, a);
+            return mixFunc(a);
         }
         case "smoothstep": {
             return applyThreeArgFunc((edge0, edge1, x) -> {
@@ -362,6 +369,24 @@ public class ExpressionParser {
         float[] result = new float[4];
         for (int i = 0; i < arg.vectorLength; i++) {
             result[i] = func.apply((double) data.get(i), (double) data2.get(i), (double) data3.get(i)).floatValue();
+        }
+        Vector4f resultVec = new Vector4f(result);
+        return new ParseText(s, resultVec, arg.vectorLength, "");
+    }
+
+    private ParseText mixFunc(List<ParseText> a) {
+        ParseText arg = a.get(0);
+        Vector4f data = arg.data;
+        ParseText arg2 = a.get(1);
+        Vector4f data2 = arg2.data;
+        ParseText arg3 = a.get(2);
+        Vector4f data3 = arg3.data;
+        float[] result = new float[4];
+        for (int i = 0; i < arg.vectorLength; i++) {
+            double x = data.get(i);
+            double y = data2.get(i);
+            double t = data3.get(0);
+            result[i] = (float) (x * (1.0f - t) + y * t);
         }
         Vector4f resultVec = new Vector4f(result);
         return new ParseText(s, resultVec, arg.vectorLength, "");
@@ -591,7 +616,7 @@ public class ExpressionParser {
         try {
             return new ExpressionParser(token, env).parse();
         } catch (Exception e) {
-            return env.get(token);
+            return MISSING;
         }
     }
 }
