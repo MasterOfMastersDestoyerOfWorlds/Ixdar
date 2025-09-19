@@ -3,6 +3,11 @@ package shell.ui.code;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
+import org.apache.commons.lang3.function.TriFunction;
+import org.joml.Vector4f;
 
 import shell.render.color.Color;
 import shell.render.sdf.ShaderDrawable;
@@ -12,17 +17,17 @@ public class ExpressionParser {
 
     private final String s;
     private int pos;
-    private final Map<String, ColorText<Float>> env;
+    private final Map<String, ParseText> env;
 
-    public static final ColorText<Float> MISSING = new ColorText<Float>("?Missing?", Color.PINK);
+    public static final ParseText MISSING = new ParseText("?Missing?", Color.PINK, -1);
 
-    ExpressionParser(String s, Map<String, ColorText<Float>> env) {
+    ExpressionParser(String s, Map<String, ParseText> env) {
         this.s = s;
         this.env = env;
         this.pos = 0;
     }
 
-    public static ColorText<Float> evaluateAndAssign(String line, Map<String, ColorText<Float>> env) {
+    public static ParseText evaluateAndAssign(String line, Map<String, ParseText> env) {
         // strip comments and semicolon
         String s = line;
         if (line.contains("sigDist")) {
@@ -47,12 +52,6 @@ public class ExpressionParser {
                 || sl.startsWith("struct ") || sl.startsWith("attribute ") || sl.startsWith("varying ")) {
             return null;
         }
-        // Special-case vector distance like: distance(p, pointA)
-        if (s.startsWith("distance(") && s.endsWith(")")) {
-            ColorText<Float> v = tryEvalDistance(s, env);
-            if (v != null)
-                return v;
-        }
         // Handle assignment with optional type prefixes
         int eq = s.indexOf('=');
         if (eq > 0 && s.indexOf('=', eq + 1) == -1) {
@@ -64,38 +63,27 @@ public class ExpressionParser {
                 if (isSwizzle(right)) {
                     String base = right.substring(0, right.indexOf('.'));
                     String sw = right.substring(right.indexOf('.') + 1);
-                    ArrayList<ColorText<Float>> comps = resolveSwizzleVector(base, sw, env);
+                    ArrayList<ParseText> comps = resolveSwizzleVector(base, sw, env);
                     if (comps != null && comps.size() > 0) {
-                        ShaderDrawable.put(env, var, comps);
-                        if (comps.size() == 1)
-                            return comps.get(0);
-                        return new ColorText<Float>("vec" + comps.size() + "(swizzle)", Color.BLUE_WHITE);
+                        ParseText.put(env, var, comps);
+                        return env.get(var);
                     }
                 }
                 // Vector literal assignment: vecN p = vecN(...)
                 if (right.startsWith("vec") && right.contains("(") && right.endsWith(")")) {
-                    ArrayList<ColorText<Float>> vec = parseVec(right, env);
+                    ArrayList<ParseText> vec = parseVec(right, env);
                     if (vec != null && vec.size() > 0) {
-                        ShaderDrawable.put(env, var, vec);
-                        return new ColorText<Float>("vec" + vec.size() + "(...)", Color.BLUE_WHITE);
+                        ParseText.put(env, var, vec);
+                        return env.get(var);
                     } else {
-                        env.put(var, new ColorText<Float>(right, Color.BLUE_WHITE));
+                        env.put(var, new ParseText(right, Color.BLUE_WHITE, -1));
                         return env.get(var);
                     }
                 }
-                // distance with vectors on RHS
-                if (right.startsWith("distance(") && right.endsWith(")")) {
-                    ColorText<Float> dv = tryEvalDistance(right, env);
-                    if (dv != null) {
-                        if (dv.data != null)
-                            ShaderDrawable.put(env, var, dv.data);
-                        return dv;
-                    }
-                }
                 try {
-                    ColorText<Float> val = new ExpressionParser(right, env).parse();
+                    ParseText val = new ExpressionParser(right, env).parse();
                     if (val != null && val.data != null)
-                        ShaderDrawable.put(env, var, val.data);
+                        env.put(var, val);
                     return val;
                 } catch (Exception ex) {
                     return null;
@@ -106,11 +94,6 @@ public class ExpressionParser {
             // Heuristic: only attempt if it references known vars, functions, or digits
             if (!s.matches(".*([A-Za-z_][A-Za-z0-9_]*|[0-9]|sin|cos|tan|sqrt|abs|min|max|clamp|mix|distance|dot).*")) {
                 return null;
-            }
-            if (s.startsWith("distance(") && s.endsWith(")")) {
-                ColorText<Float> v = tryEvalDistance(s, env);
-                if (v != null)
-                    return v;
             }
             try {
                 return new ExpressionParser(s, env).parse();
@@ -149,62 +132,72 @@ public class ExpressionParser {
         return null;
     }
 
-    ColorText<Float> parse() {
-        ColorText<Float> v = parseExpr();
+    ParseText parse() {
+        ParseText v = parseExpr();
         skipWs();
         return v;
     }
 
-    private ColorText<Float> parseExpr() {
-        ColorText<Float> v = parseTerm();
+    private ParseText parseExpr() {
+        ParseText v = parseTerm();
         while (true) {
             skipWs();
             if (match('+')) {
-                ColorText<Float> r = parseTerm();
-                v = new ColorText<Float>("+", Color.BLUE_WHITE,
-                        (v != null && v.data != null ? v.data : 0f) + (r != null && r.data != null ? r.data : 0f));
+                ParseText r = parseTerm();
+                List<ParseText> list = new ArrayList<>();
+                list.add(v);
+                list.add(r);
+                ParseText result = applyTwoArgFunc((x, y) -> x + y, list);
+                return result;
             } else if (match('-')) {
-                ColorText<Float> r = parseTerm();
-                v = new ColorText<Float>("-", Color.BLUE_WHITE,
-                        (v != null && v.data != null ? v.data : 0f) - (r != null && r.data != null ? r.data : 0f));
+                ParseText r = parseTerm();
+                List<ParseText> list = new ArrayList<>();
+                list.add(v);
+                list.add(r);
+                ParseText result = applyTwoArgFunc((x, y) -> x - y, list);
+                return result;
             } else {
                 return v;
             }
         }
     }
 
-    private ColorText<Float> parseTerm() {
-        ColorText<Float> v = parseFactor();
+    private ParseText parseTerm() {
+        ParseText v = parseFactor();
         while (true) {
             skipWs();
             if (match('*')) {
-                ColorText<Float> r = parseFactor();
-                Float out = (v != null && v.data != null ? v.data : 0f) * (r != null && r.data != null ? r.data : 1f);
-                v = new ColorText<Float>(ShaderDrawable.formatFixed(out), Color.GLSL_FLOAT, out);
-                return v;
+                ParseText r = parseFactor();
+                List<ParseText> list = new ArrayList<>();
+                list.add(v);
+                list.add(r);
+                ParseText result = applyTwoArgFunc((x, y) -> x * y, list);
+                return result;
             } else if (match('/')) {
-                ColorText<Float> r = parseFactor();
-                Float out = (v != null && v.data != null ? v.data : 0f) / (r != null && r.data != null ? r.data : 1f);
-                v = new ColorText<Float>(ShaderDrawable.formatFixed(out), Color.GLSL_FLOAT, out);
-                return v;
+                ParseText r = parseFactor();
+                List<ParseText> list = new ArrayList<>();
+                list.add(v);
+                list.add(r);
+                ParseText result = applyTwoArgFunc((x, y) -> x / y, list);
+                return result;
             } else {
                 return v;
             }
         }
     }
 
-    private ColorText<Float> parseFactor() {
+    private ParseText parseFactor() {
         skipWs();
         if (match('+')) {
             return parseFactor();
         }
         if (match('-')) {
-            ColorText<Float> f = parseFactor();
-            Float out = f.data * -1f;
-            return new ColorText<Float>(ShaderDrawable.formatFixed(out), Color.GLSL_FLOAT, out);
+            ParseText f = parseFactor();
+            Vector4f out = new Vector4f(f.data).negate();
+            return new ParseText("", Color.GLSL_FLOAT, out, f.vectorLength, "");
         }
         if (match('(')) {
-            ColorText<Float> v = parseExpr();
+            ParseText v = parseExpr();
             expect(')');
             return v;
         }
@@ -212,7 +205,7 @@ public class ExpressionParser {
             String ident = parseIdent();
             skipWs();
             if (match('(')) {
-                List<ColorText<Float>> args = new ArrayList<>();
+                List<ParseText> args = new ArrayList<>();
                 skipWs();
                 if (!peekIs(')')) {
                     do {
@@ -221,8 +214,7 @@ public class ExpressionParser {
                     } while (match(','));
                 }
                 expect(')');
-                Float out = applyFunc(ident, args);
-                return new ColorText<Float>(ShaderDrawable.formatFixed(out), Color.GLSL_FLOAT, out);
+                return applyFunc(ident, args);
             } else {
                 // Support scalar swizzles like base.x or frag.a
                 if (peekIs('.')) {
@@ -243,7 +235,7 @@ public class ExpressionParser {
         return parseNumber();
     }
 
-    private ColorText<Float> parseNumber() {
+    private ParseText parseNumber() {
         skipWs();
         int start = pos;
         while (pos < s.length() && (Character.isDigit(s.charAt(pos)) || s.charAt(pos) == '.'))
@@ -252,7 +244,7 @@ public class ExpressionParser {
             throw new RuntimeException("Expected number at " + pos);
         }
         Float val = Float.parseFloat(s.substring(start, pos));
-        return new ColorText<Float>(ShaderDrawable.formatFixed(val), Color.BLUE_WHITE, val);
+        return new ParseText(val);
     }
 
     private String parseIdent() {
@@ -262,83 +254,131 @@ public class ExpressionParser {
         return s.substring(start, pos);
     }
 
-    private ColorText<Float> resolveVar(String name) {
+    private ParseText resolveVar(String name) {
         if ("pi".equalsIgnoreCase(name))
-            return new ColorText<Float>("pi", Color.BLUE_WHITE, (float) Math.PI);
+            return new ParseText("pi", (float) Math.PI);
         if ("TAU".equalsIgnoreCase(name))
-            return new ColorText<Float>("TAU", Color.BLUE_WHITE, (float) (Math.PI * 2.0f));
+            return new ParseText("TAU", (float) (Math.PI * 2.0f));
         if ("e".equalsIgnoreCase(name))
-            return new ColorText<Float>("e", Color.BLUE_WHITE, (float) Math.E);
+            return new ParseText("e", (float) Math.E);
         // Handle swizzled scalar like base.x or frag.r
         int dotIdx = name.indexOf('.');
         if (dotIdx > 0 && dotIdx == name.lastIndexOf('.')) {
             String base = name.substring(0, dotIdx);
             String sw = name.substring(dotIdx + 1);
             if (sw.length() == 1 && isValidSwizzle(sw)) {
-                String suffix = componentSuffix(sw.charAt(0));
-                ColorText<Float> entry = env.get(base + suffix);
-                if (entry == null) {
-                    throw new RuntimeException("Unknown variable: " + base + suffix);
-                }
-                ColorText<Float> v = entry;
-                return v == null ? ColorText.BLANK : v;
+                int component = componentSuffix(sw.charAt(0));
+                return new ParseText(env.get(base).getData().get(component));
             }
         }
-        ColorText<Float> v = env.get(name);
+        ParseText v = env.get(name);
         if (v == null) {
             throw new RuntimeException("Unknown variable: " + name);
         }
         return v;
     }
 
-    private Float applyFunc(String name, List<ColorText<Float>> a) {
+    private ParseText applyFunc(String name, List<ParseText> a) {
         switch (name) {
         case "sin":
-            return (float) Math.sin(a.get(0).data);
+            return applyOneArgFunc(Math::sin, a);
         case "cos":
-            return (float) Math.cos(a.get(0).data);
+            return applyOneArgFunc(Math::cos, a);
         case "tan":
-            return (float) Math.tan(a.get(0).data);
+            return applyOneArgFunc(Math::tan, a);
         case "sqrt":
-            return (float) Math.sqrt(a.get(0).data);
+            return applyOneArgFunc(Math::sqrt, a);
         case "abs":
-            return (float) Math.abs(a.get(0).data);
+            return applyOneArgFunc(Math::abs, a);
         case "floor":
-            return (float) Math.floor(a.get(0).data);
+            return applyOneArgFunc(Math::floor, a);
         case "ceil":
-            return (float) Math.ceil(a.get(0).data);
+            return applyOneArgFunc(Math::ceil, a);
         case "round":
-            return (float) Math.round(a.get(0).data);
+            return applyOneArgFunc((x) -> x - (x.intValue()) < 0.5 ? Math.floor(x) : Math.ceil(x), a);
         case "min":
-            return (float) Math.min(a.get(0).data, a.get(1).data);
+            return applyTwoArgFunc(Math::min, a);
         case "max":
-            return Math.max(a.get(0).data, a.get(1).data);
+            return applyTwoArgFunc(Math::max, a);
         case "dot":
-            return a.get(0).data * a.get(1).data;
+            return applyTwoArgFunc((x, y) -> x * y, a);
         case "distance":
-            return Math.abs(a.get(0).data - a.get(1).data);
+            return distanceFunc(a);
         case "mix": {
-            ColorText<Float> x = a.get(0), y = a.get(1), t = a.get(2);
-            return x.data * (1.0f - t.data) + y.data * t.data;
+            return applyThreeArgFunc((x, y, t) -> x * (1.0f - t) + y * t, a);
         }
         case "smoothstep": {
-            Float edge0 = a.get(0).data, edge1 = a.get(1).data, x = a.get(2).data;
-            if (edge0 == edge1)
-                return x < edge0 ? 0.0f : 1.0f;
-            Float t = (x - edge0) / (edge1 - edge0);
-            if (t < 0.0f)
-                t = 0.0f;
-            if (t > 1.0f)
-                t = 1.0f;
-            return t * t * (3.0f - 2.0f * t);
+            return applyThreeArgFunc((edge0, edge1, x) -> {
+                if (edge0 == edge1)
+                    return x < edge0 ? 0.0 : 1.0;
+                double t = (x - edge0) / (edge1 - edge0);
+                if (t < 0.0)
+                    t = 0.0;
+                if (t > 1.0)
+                    t = 1.0;
+                return t * t * (3.0 - 2.0 * t);
+            }, a);
+
         }
         case "clamp": {
-            Float x = a.get(0).data, lo = a.get(1).data, hi = a.get(2).data;
-            return Math.max(lo, Math.min(hi, x));
+            return applyThreeArgFunc((x, lo, hi) -> Math.max(lo, Math.min(hi, x)), a);
         }
         default:
-            return 0.0f;
+            return ParseText.BLANK;
         }
+    }
+
+    private ParseText applyOneArgFunc(Function<Double, Double> func, List<ParseText> a) {
+        ParseText arg = a.get(0);
+        Vector4f data = arg.data;
+        float[] result = new float[4];
+        for (int i = 0; i < arg.vectorLength; i++) {
+            result[i] = func.apply((double) data.get(i)).floatValue();
+        }
+        Vector4f resultVec = new Vector4f(result);
+        return new ParseText(s, resultVec, arg.vectorLength, "");
+    }
+
+    private ParseText applyTwoArgFunc(BiFunction<Double, Double, Double> func, List<ParseText> a) {
+        ParseText arg = a.get(0);
+        Vector4f data = arg.data;
+        ParseText arg2 = a.get(1);
+        Vector4f data2 = arg2.data;
+        float[] result = new float[4];
+        for (int i = 0; i < arg.vectorLength; i++) {
+            result[i] = func.apply((double) data.get(i), (double) data2.get(i)).floatValue();
+        }
+        Vector4f resultVec = new Vector4f(result);
+        return new ParseText(s, resultVec, arg.vectorLength, "");
+    }
+
+    private ParseText applyThreeArgFunc(TriFunction<Double, Double, Double, Double> func, List<ParseText> a) {
+        ParseText arg = a.get(0);
+        Vector4f data = arg.data;
+        ParseText arg2 = a.get(1);
+        Vector4f data2 = arg2.data;
+        ParseText arg3 = a.get(2);
+        Vector4f data3 = arg3.data;
+        float[] result = new float[4];
+        for (int i = 0; i < arg.vectorLength; i++) {
+            result[i] = func.apply((double) data.get(i), (double) data2.get(i), (double) data3.get(i)).floatValue();
+        }
+        Vector4f resultVec = new Vector4f(result);
+        return new ParseText(s, resultVec, arg.vectorLength, "");
+    }
+
+    private ParseText distanceFunc(List<ParseText> a) {
+        ParseText arg = a.get(0);
+        Vector4f data = arg.data;
+        ParseText arg2 = a.get(1);
+        Vector4f data2 = arg2.data;
+        float result = 0.0f;
+        for (int i = 0; i < arg.vectorLength; i++) {
+            result += Math.pow(data.get(i) - data2.get(i), 2);
+        }
+
+        Vector4f resultVec = new Vector4f((float) Math.sqrt(result), 0f, 0f, 0f);
+        return new ParseText(s, resultVec, 1, "");
     }
 
     private void skipWs() {
@@ -396,57 +436,7 @@ public class ExpressionParser {
         return null;
     }
 
-    private static ColorText<Float> tryEvalDistance(String expr, Map<String, ColorText<Float>> env2) {
-        // Expect distance(A, B)
-        int l = expr.indexOf('(');
-        int r = expr.lastIndexOf(')');
-        if (l < 0 || r < 0 || r <= l + 1)
-            return null;
-        String inside = expr.substring(l + 1, r);
-        String[] parts = inside.split(",");
-        if (parts.length != 2)
-            return null;
-        ArrayList<ColorText<Float>> a = getVec(parts[0].trim(), env2);
-        ArrayList<ColorText<Float>> b = getVec(parts[1].trim(), env2);
-        if (a == null || b == null)
-            return null;
-        int n = Math.min(a.size(), b.size());
-        float sum = 0f;
-        for (int i = 0; i < n; i++) {
-            float d = a.get(i).data - b.get(i).data;
-            sum += d * d;
-        }
-        Float out = (float) Math.sqrt(sum);
-        return new ColorText<Float>(ShaderDrawable.formatFixed(out), Color.GLSL_FLOAT, out);
-    }
-
-    private static ArrayList<ColorText<Float>> getVec(String token, Map<String, ColorText<Float>> env) {
-        // Named vector in env with components
-        String[] comps = new String[] { "_x", "_y", "_z", "_w" };
-        ArrayList<ColorText<Float>> values = new ArrayList<>();
-        for (String c : comps) {
-            String key = token + c;
-            if (env.containsKey(key)) {
-                values.add(env.get(key));
-            }
-        }
-        if (!values.isEmpty()) {
-            return values;
-        }
-        // Swizzle like base.xy or frag.rgba
-        if (isSwizzle(token)) {
-            String base = token.substring(0, token.indexOf('.'));
-            String sw = token.substring(token.indexOf('.') + 1);
-            return resolveSwizzleVector(base, sw, env);
-        }
-        // Literal vector
-        if (token.startsWith("vec") && token.contains("(") && token.endsWith(")")) {
-            return parseVec(token, env);
-        }
-        return null;
-    }
-
-    private static ArrayList<ColorText<Float>> parseVec(String expr, Map<String, ColorText<Float>> env) {
+    private static ArrayList<ParseText> parseVec(String expr, Map<String, ParseText> env) {
         int l = expr.indexOf('(');
         int r = expr.lastIndexOf(')');
         if (l < 0 || r < 0 || r <= l + 1)
@@ -467,9 +457,9 @@ public class ExpressionParser {
                 expanded.add(t);
             }
         }
-        ArrayList<ColorText<Float>> vals = new ArrayList<>();
+        ArrayList<ParseText> vals = new ArrayList<>();
         for (String p : expanded) {
-            ColorText<Float> v = evalSimple(p.trim(), env);
+            ParseText v = evalSimple(p.trim(), env);
             if (v == null) {
                 return null;
             }
@@ -561,35 +551,33 @@ public class ExpressionParser {
         }
     }
 
-    private static String componentSuffix(char c) {
+    private static int componentSuffix(char c) {
         switch (Character.toLowerCase(c)) {
         case 'x':
         case 'r':
-            return "_x";
+            return 0;
         case 'y':
         case 'g':
-            return "_y";
+            return 1;
         case 'z':
         case 'b':
-            return "_z";
+            return 2;
         case 'w':
         case 'a':
-            return "_w";
+            return 3;
         default:
-            return "_x";
+            return 4;
         }
     }
 
-    private static ArrayList<ColorText<Float>> resolveSwizzleVector(String base, String sw,
-            Map<String, ColorText<Float>> env) {
+    private static ArrayList<ParseText> resolveSwizzleVector(String base, String sw,
+            Map<String, ParseText> env) {
         if (!isValidSwizzle(sw))
             return null;
-        ArrayList<ColorText<Float>> list = new ArrayList<>();
+        ArrayList<ParseText> list = new ArrayList<>();
         for (int i = 0; i < sw.length(); i++) {
-            String key = base + componentSuffix(sw.charAt(i));
-            ColorText<Float> e = env.get(key);
-            if (e == null)
-                return null;
+            int component = componentSuffix(sw.charAt(i));
+            ParseText e = new ParseText(env.get(base).getData().get(component));
             list.add(e);
         }
         return list;
@@ -599,7 +587,7 @@ public class ExpressionParser {
     // return (sw != null && isValidSwizzle(sw)) ? sw.length() : 0;
     // }
 
-    private static ColorText<Float> evalSimple(String token, Map<String, ColorText<Float>> env) {
+    private static ParseText evalSimple(String token, Map<String, ParseText> env) {
         try {
             return new ExpressionParser(token, env).parse();
         } catch (Exception e) {

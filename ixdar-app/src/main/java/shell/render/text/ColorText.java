@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import shell.render.color.Color;
 
 public class ColorText<T> {
-    public static final ColorText<Float> BLANK = new ColorText<Float>("", Color.BLUE_WHITE);
     public ArrayList<String> text;
     public ArrayList<Color> color;
     public T data;
@@ -48,7 +47,7 @@ public class ColorText<T> {
         return data;
     }
 
-    private ColorText() {
+    public ColorText() {
     }
 
     public ColorText<T> join(ColorText<T> v) {
@@ -60,5 +59,15 @@ public class ColorText<T> {
         result.color.addAll(v.color);
         result.data = v.data;
         return result;
+    }
+
+    public void resetText() {
+        text = new ArrayList<>();
+        color = new ArrayList<>();
+    }
+
+    public void addWord(String word, Color wordColor) {
+        text.add(word);
+        color.add(wordColor);
     }
 }

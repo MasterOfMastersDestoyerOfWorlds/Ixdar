@@ -18,6 +18,7 @@ import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
 import shell.render.text.ColorText;
+import shell.ui.code.ParseText;
 
 public abstract class ShaderDrawable {
 
@@ -70,103 +71,34 @@ public abstract class ShaderDrawable {
         throw new UnsupportedOperationException("Unimplemented method");
     }
 
-    public Map<String, ColorText<Float>> getUniformMap() {
-        Map<String, ColorText<Float>> map = new HashMap<>();
+    public Map<String, ParseText> getUniformMap() {
+        Map<String, ParseText> map = new HashMap<>();
         Map<String, Object> uniformMap = shader.uniformMap;
         for (String key : uniformMap.keySet()) {
             Object value = uniformMap.get(key);
             if (value instanceof Float) {
                 Float f = (Float) value;
-                put(map, key, f);
+                ParseText.put(map, key, f);
             } else if (value instanceof Vector2f) {
                 Vector2f vec2 = (Vector2f) value;
-                put(map, key, vec2.x, vec2.y);
+                ParseText.put(map, key, vec2.x, vec2.y);
             } else if (value instanceof Vector3f) {
                 Vector3f vec3 = (Vector3f) value;
-                put(map, key, vec3.x, vec3.y, vec3.z);
+                ParseText.put(map, key, vec3.x, vec3.y, vec3.z);
             } else if (value instanceof Vector4f) {
                 Vector4f vec4 = (Vector4f) value;
-                put(map, key, vec4.x, vec4.y, vec4.z, vec4.w);
+                ParseText.put(map, key, vec4.x, vec4.y, vec4.z, vec4.w);
             } else if (value instanceof FloatBuffer) {
                 // skip
             } else if (value instanceof Matrix4f) {
                 // skip
             } else if (value instanceof Texture) {
                 Texture texture = (Texture) value;
-                map.put(key, new ColorText<Float>(texture.toString()));
+                map.put(key, new ParseText(texture.toString(), key));
             }
 
         }
         return map;
-    }
-
-    public static String formatFixed(Float val) {
-        int digits = 2;
-        Float pow = (float) Math.pow(10, digits);
-        Float rounded = Math.round(val * pow) / pow;
-        String s = Float.toString(rounded);
-        int dot = s.indexOf('.');
-        if (dot < 0) {
-            StringBuilder sb = new StringBuilder(s);
-            sb.append('.');
-            for (int i = 0; i < digits; i++)
-                sb.append('0');
-            return sb.toString();
-        }
-        int need = digits - (s.length() - dot - 1);
-        if (need > 0) {
-            StringBuilder sb = new StringBuilder(s);
-            for (int i = 0; i < need; i++)
-                sb.append('0');
-            return sb.toString();
-        }
-        if (need < 0) {
-            return s.substring(0, dot + 1 + digits);
-        }
-        return s;
-    }
-
-    static final String[] vecNames = new String[] { "x", "y", "z", "w" };
-    static final Color[] vecColors = new Color[] { Color.GLSL_VECTOR_FLOAT_X, Color.GLSL_VECTOR_FLOAT_Y,
-            Color.GLSL_VECTOR_FLOAT_Z, Color.GLSL_VECTOR_FLOAT_W };
-
-    public static void put(Map<String, ColorText<Float>> env, String var, Float... dv) {
-        if (dv == null || dv.length == 0) {
-            return;
-        }
-        if (dv.length == 1) {
-            Float value = dv[0];
-            String scalarString = formatFixed(value);
-            env.put(var, new ColorText<Float>(scalarString, vecColors[0], value));
-            // Provide a consistent "_x" alias for scalar values
-            env.put(var + "_x", new ColorText<Float>(scalarString, vecColors[0], value));
-            return;
-        }
-
-        ColorText<Float> vectorString = new ColorText<Float>(String.format("vec%s", dv.length), Color.GLSL_VECTOR);
-        vectorString = vectorString.join(new ColorText<Float>("(", Color.GLSL_PARENTHESIS));
-        for (int i = 0; i < dv.length; i++) {
-            vectorString = vectorString.join(new ColorText<Float>(formatFixed(dv[i]), vecColors[i], dv[i]));
-            if (i != dv.length - 1) {
-                vectorString = vectorString.join(new ColorText<Float>(", ", Color.GLSL_COMMA));
-            } else {
-                vectorString = vectorString.join(new ColorText<Float>(")", Color.GLSL_PARENTHESIS));
-            }
-        }
-        env.put(var, vectorString);
-
-        for (int i = 0; i < dv.length; i++) {
-            String varName = var + "_" + vecNames[i];
-            env.put(varName, new ColorText<Float>(vectorString, dv[i]));
-        }
-    }
-
-    public static void put(Map<String, ColorText<Float>> env, String var, ArrayList<ColorText<Float>> dv) {
-        Float[] data = new Float[dv.size()];
-        for (int i = 0; i < dv.size(); i++) {
-            data[i] = dv.get(i).getData();
-        }
-        put(env, var, data);
     }
 
     public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
