@@ -47,25 +47,39 @@ public abstract class ShaderProgram {
 
         public String vertexShaderLocation;
         public String fragmentShaderLocation;
-        public ShaderProgram shader;
+        public HashMap<Integer, ShaderProgram> shaderMap = new HashMap<>();
+        private Class<?> shaderClass;
 
         @SuppressWarnings("rawtypes")
         ShaderType(Class shaderClass, String vertexShaderLocation, String fragmentShaderLocation) {
             this.vertexShaderLocation = vertexShaderLocation;
             this.fragmentShaderLocation = fragmentShaderLocation;
+            this.shaderClass = shaderClass;
+            createShader();
 
+        }
+        public void createShader() {
+            ShaderProgram shader = null;
             try {
                 if (shaderClass.equals(SDFShader.class)) {
-                    this.shader = new SDFShader(vertexShaderLocation, fragmentShaderLocation);
+                    shader = new SDFShader(vertexShaderLocation, fragmentShaderLocation);
                 } else if (shaderClass.equals(FontShader.class)) {
-                    this.shader = new FontShader(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+                    shader = new FontShader(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
                 } else if (shaderClass.equals(ColorShader.class)) {
-                    this.shader = new ColorShader(vertexShaderLocation, fragmentShaderLocation);
+                    shader = new ColorShader(vertexShaderLocation, fragmentShaderLocation);
                 }
             } catch (IOException e) {
                 throw new RuntimeException("Failed to load shader resources: " + fragmentShaderLocation, e);
             }
-            Canvas3D.shaders.add(shader);
+            this.shaderMap.put(Platforms.gl().getID(), shader);
+            Platforms.gl().addShader(shader);
+        }
+
+        public ShaderProgram getShader() {
+            if (!shaderMap.containsKey(Platforms.gl().getID())) {
+                createShader();
+            }
+            return shaderMap.get(Platforms.gl().getID());
         }
     }
 
@@ -99,9 +113,9 @@ public abstract class ShaderProgram {
     private long vertexLastModified;
     private boolean useBuffer;
     private boolean reloadShader;
-    private GL gl = Platforms.gl();
     private final Buffers buffers = Platforms.buffers();
     public Map<String, Object> uniformMap = new HashMap<>();
+    public int platformId;
 
     public ShaderProgram(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
             VertexBufferObject vbo, boolean useBuffer) throws UnsupportedEncodingException, IOException {
@@ -111,6 +125,7 @@ public abstract class ShaderProgram {
         this.vao = vao;
         this.vbo = vbo;
         this.useBuffer = useBuffer;
+        this.platformId = Platforms.gl().getID();
         // Load shader sources via Platform abstraction (supports desktop and web)
         String vsrc = shell.platform.Platforms.get().loadShaderSource(vertexShaderLocation);
         String fsrc = shell.platform.Platforms.get().loadShaderSource(fragmentShaderLocation);
@@ -136,14 +151,17 @@ public abstract class ShaderProgram {
     }
 
     public int getAttributeLocation(CharSequence name) {
+        GL gl = Platforms.gl();
         return gl.getAttribLocation(ID, name);
     }
 
     public void use() {
+        GL gl = Platforms.gl();
         gl.useProgram(ID);
     }
 
     public void setBool(String name, boolean value) {
+        GL gl = Platforms.gl();
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
@@ -152,6 +170,7 @@ public abstract class ShaderProgram {
     }
 
     public void setInt(String name, int value) {
+        GL gl = Platforms.gl();
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
@@ -160,6 +179,7 @@ public abstract class ShaderProgram {
     }
 
     public void setFloat(String name, float value) {
+        GL gl = Platforms.gl();
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
@@ -168,6 +188,7 @@ public abstract class ShaderProgram {
     }
 
     public void setMat4(String name, Matrix4f mat) {
+        GL gl = Platforms.gl();
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
@@ -183,6 +204,7 @@ public abstract class ShaderProgram {
     }
 
     public void setMat4(String name, FloatBuffer allocatedBuffer) {
+        GL gl = Platforms.gl();
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
@@ -192,6 +214,7 @@ public abstract class ShaderProgram {
 
     public void setVec2(String name, Vector2f vec2) {
 
+        GL gl = Platforms.gl();
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
@@ -202,6 +225,7 @@ public abstract class ShaderProgram {
     }
 
     public void setVec3(String name, float f, float g, float h) {
+        GL gl = Platforms.gl();
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
@@ -212,7 +236,7 @@ public abstract class ShaderProgram {
     }
 
     public void setVec3(String name, Vector3f vec3) {
-
+        GL gl = Platforms.gl();
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
@@ -223,6 +247,7 @@ public abstract class ShaderProgram {
     }
 
     public void setVec4(String name, Vector4f vec4) {
+        GL gl = Platforms.gl();
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
@@ -234,6 +259,7 @@ public abstract class ShaderProgram {
 
     private void checkCompileErrors(int shader, ShaderOperationType type, String location,
             CharSequence[] shaderSource) {
+        GL gl = Platforms.gl();
         IntBuffer success = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer();
 
         if (type != ShaderOperationType.Program) {
@@ -302,6 +328,7 @@ public abstract class ShaderProgram {
     }
 
     private void deleteShader() {
+        GL gl = Platforms.gl();
         gl.detachShader(ID, vertexShader);
         gl.deleteShader(vertexShader);
         gl.detachShader(ID, fragmentShader);
@@ -310,6 +337,7 @@ public abstract class ShaderProgram {
     }
 
     private void recompileShaders(String vertexShaderLocation, String fragmentShaderLocation) {
+        GL gl = Platforms.gl();
         vertexShader = gl.createShader(gl.VERTEX_SHADER());
         gl.shaderSource(vertexShader, vertexShaderSource);
         gl.compileShader(vertexShader);
@@ -331,7 +359,7 @@ public abstract class ShaderProgram {
     }
 
     public void setTexture(String glslName, Texture tex, int i, int j) {
-
+        GL gl = Platforms.gl();
         if (tex != null) {
             if (!tex.initialized) {
                 tex.initGL();
@@ -348,6 +376,7 @@ public abstract class ShaderProgram {
     }
 
     public void bindFragmentDataLocation(int i, String string) {
+        GL gl = Platforms.gl();
         gl.bindFragDataLocation(ID, i, string);
     }
 
@@ -374,6 +403,7 @@ public abstract class ShaderProgram {
     }
 
     public void flush() {
+        GL gl = Platforms.gl();
         if (useBuffer) {
             verteciesBuff.flip();
 
@@ -673,6 +703,7 @@ public abstract class ShaderProgram {
 
     public void init() {
         if (useBuffer) {
+            GL gl = Platforms.gl();
             vao.bind();
 
             vbo.bind(gl.ARRAY_BUFFER());

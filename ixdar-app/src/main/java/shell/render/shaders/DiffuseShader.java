@@ -8,8 +8,6 @@ import shell.platform.gl.GL;
 
 public class DiffuseShader extends ShaderProgram {
 
-    private static GL gl = Platforms.gl();
-
     public DiffuseShader(VertexArrayObject vao,
             VertexBufferObject vbo) throws UnsupportedEncodingException, IOException {
         super("shader.vs", "shader.fs", vao, vbo, false);
@@ -18,6 +16,7 @@ public class DiffuseShader extends ShaderProgram {
     @Override
     public void init() {
         super.init();
+        GL gl = Platforms.gl();
         vao.bind();
         vbo.bind(gl.ARRAY_BUFFER());
 

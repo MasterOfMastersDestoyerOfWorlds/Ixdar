@@ -42,6 +42,7 @@ public class LwjglPlatform implements Platform {
     public LwjglPlatform(long window) {
         this.window = window;
     }
+    
 
     @Override
     public void setTitle(String title) {

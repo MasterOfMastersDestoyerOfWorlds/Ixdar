@@ -12,7 +12,7 @@ public class SDFCircleSimple extends ShaderDrawable {
     public float radius;
 
     public SDFCircleSimple() {
-        shader = ShaderType.CircleSDFSimple.shader;
+        shader = ShaderType.CircleSDFSimple.getShader();
     }
 
     public void draw(Vector2f center, float radius, Color c, Camera camera) {

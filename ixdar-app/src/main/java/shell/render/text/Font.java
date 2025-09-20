@@ -52,7 +52,7 @@ public class Font {
             this.fontWidth = atlas.sizePx;
             Platforms.get().loadTexture("opensans.png", t -> {
                 this.texture = t;
-                this.shader = ShaderType.TextureSDF.shader;
+                this.shader = ShaderType.TextureSDF.getShader();
                 this.sdfTexture = new SDFTexture(this.texture);
                 this.sdfTexture.setSharpCorners(true);
             });

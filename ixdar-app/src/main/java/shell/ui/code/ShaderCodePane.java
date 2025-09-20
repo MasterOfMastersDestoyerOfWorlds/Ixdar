@@ -1,23 +1,24 @@
 package shell.ui.code;
 
+import java.util.ArrayList;
+import java.util.Map;
+
+import org.joml.Vector2f;
+
 import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
+import shell.platform.Platforms;
 import shell.platform.input.MouseTrap;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.ShaderDrawable;
+import shell.render.shaders.ShaderProgram;
+import shell.render.shaders.ShaderProgram.ShaderType;
 import shell.render.text.ColorText;
 import shell.render.text.HyperString;
 import shell.render.text.SpecialGlyphs;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
-import shell.render.shaders.ShaderProgram;
-import shell.render.shaders.ShaderProgram.ShaderType;
-
-import java.util.ArrayList;
-import java.util.Map;
-
-import org.joml.Vector2f;
 
 /**
  * Renders shader source code into a scrollable pane area using HyperString.
@@ -55,7 +56,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         this.parentBounds = parentBounds;
         this.scrollSpeed = scrollSpeed;
         this.codeText = new HyperString();
-        this.targetShader = shader != null ? shader : ShaderType.Font.shader;
+        this.targetShader = shader != null ? shader : ShaderType.Font.getShader();
         this.title = title != null ? title : "Shader";
         this.uniformProvider = provider;
         showCode = true;
@@ -216,10 +217,10 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     public void draw(Camera2D camera) {
         if (paneBounds.viewWidth > 0 && showCode) {
             camera.updateView(paneBounds.id);
-            Drawing.font.drawHyperStringRows(codeText, 0, scrollOffsetY, Drawing.FONT_HEIGHT_PIXELS, camera);
+            Drawing.getDrawing().font.drawHyperStringRows(codeText, 0, scrollOffsetY, Drawing.FONT_HEIGHT_PIXELS, camera);
         }
         camera.updateView(parentBounds.id);
-        Drawing.font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera);
+        Drawing.getDrawing().font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera);
     }
 
     @Override

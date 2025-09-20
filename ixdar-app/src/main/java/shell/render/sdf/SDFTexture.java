@@ -17,7 +17,7 @@ public class SDFTexture extends ShaderDrawable {
 
     public SDFTexture(Texture texture) {
         this.texture = texture;
-        this.shader = ShaderType.TextureSDF.shader;
+        this.shader = ShaderType.TextureSDF.getShader();
         this.borderColor = Color.TRANSPARENT;
         this.borderInner = 0;
         this.borderOuter = 0;
@@ -30,7 +30,7 @@ public class SDFTexture extends ShaderDrawable {
             float borderDist, float borderOffset, boolean sharpCorners) {
         platform.loadTexture(sdfLocation, t -> {
             this.texture = t;
-            this.shader = ShaderType.TextureSDF.shader;
+            this.shader = ShaderType.TextureSDF.getShader();
         });
         this.borderColor = borderColor;
         this.borderInner = borderDist - 0.1f;

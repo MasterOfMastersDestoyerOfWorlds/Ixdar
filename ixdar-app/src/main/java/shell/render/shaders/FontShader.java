@@ -11,7 +11,6 @@ import shell.ui.Canvas3D;
 
 public class FontShader extends ShaderProgram {
 
-    private static GL gl = Platforms.gl();
 
     public FontShader(int framebufferWidth, int framebufferHeight) throws UnsupportedEncodingException, IOException {
         super("font.vs", "font.fs", new VertexArrayObject(), new VertexBufferObject(), true);
@@ -20,6 +19,7 @@ public class FontShader extends ShaderProgram {
     @Override
     public void init() {
         super.init();
+        GL gl = Platforms.gl();
         /* Specify Vertex Pointer */
         int posAttrib = getAttributeLocation("position");
         gl.enableVertexAttribArray(posAttrib);

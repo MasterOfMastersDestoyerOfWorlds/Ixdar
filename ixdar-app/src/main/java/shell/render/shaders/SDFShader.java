@@ -11,8 +11,6 @@ import shell.ui.Canvas3D;
 
 public class SDFShader extends ShaderProgram {
 
-    private static GL gl = Platforms.gl();
-
     public SDFShader(String vertexShaderLocation, String fragmentShaderLocation) throws UnsupportedEncodingException, IOException {
         super(vertexShaderLocation, fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
                 true);
@@ -21,6 +19,7 @@ public class SDFShader extends ShaderProgram {
     @Override
     public void init() {
         super.init();
+        GL gl = Platforms.gl();
         /* Specify Vertex Pointer */
         int posAttrib = getAttributeLocation("position");
         gl.enableVertexAttribArray(posAttrib);

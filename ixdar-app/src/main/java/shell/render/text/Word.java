@@ -63,7 +63,7 @@ public class Word {
     }
 
     public void setBounds(float x, float y, float xScreen, float yScreen, float height, Bounds viewBounds) {
-        this.width = Drawing.font.getWidth(text);
+        this.width = Drawing.getDrawing().font.getWidth(text);
         this.x = x;
         this.y = y;
         this.xScreenOffset = xScreen;

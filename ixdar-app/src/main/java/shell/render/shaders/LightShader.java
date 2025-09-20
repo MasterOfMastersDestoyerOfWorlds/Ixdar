@@ -8,7 +8,6 @@ import shell.platform.gl.GL;
 
 public class LightShader extends ShaderProgram {
 
-    private static GL gl = Platforms.gl();
 
     public LightShader(VertexArrayObject vao,
             VertexBufferObject vbo) throws UnsupportedEncodingException, IOException {
@@ -17,6 +16,7 @@ public class LightShader extends ShaderProgram {
 
     @Override
     public void init() {
+        GL gl = Platforms.gl();
         super.init();
         vao.bind();
         vbo.bind(gl.ARRAY_BUFFER());

@@ -3,6 +3,7 @@ package shell.platform.gl.web;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.ArrayList;
 import java.util.function.IntFunction;
 
 import org.teavm.jso.JSBody;
@@ -19,10 +20,12 @@ import org.teavm.jso.webgl.WebGLUniformLocation;
 
 import shell.platform.gl.GL;
 import shell.platform.input.MouseButtons;
+import shell.render.shaders.ShaderProgram;
 import shell.ui.WebLauncher;
 
 public class WebGL implements GL {
-
+    private static int staticId = 0;
+    private int id;
     private final WebGLRenderingContext gl;
     private final VAOExtension vaoExt;
     private int nextId = 1;
@@ -31,6 +34,7 @@ public class WebGL implements GL {
     private final java.util.Map<Integer, WebGLBuffer> bufferMap = new java.util.HashMap<>();
     private final java.util.Map<Integer, WebGLTexture> textureMap = new java.util.HashMap<>();
     private final java.util.Map<Integer, WebGLUniformLocation> uniformMap = new java.util.HashMap<>();
+    private final ArrayList<ShaderProgram> shaders = new ArrayList<>();
 
     public WebGL(HTMLCanvasElement canvas) {
         WebGLContextAttributes attrs = WebGLContextAttributes.create();
@@ -38,6 +42,22 @@ public class WebGL implements GL {
         attrs.setAntialias(true);
         this.gl = getOrCreateContext(canvas, attrs);
         this.vaoExt = new VAOExtension(gl);
+        this.id = staticId++;
+    }
+
+    @Override
+    public Integer getID() {
+        return id;
+    }
+
+    @Override
+    public ArrayList<ShaderProgram> getShaders() {
+        return shaders;
+    }
+
+    @Override
+    public void addShader(ShaderProgram shader) {
+        shaders.add(shader);
     }
 
     // Cache a single WebGL context per canvas to support multiple canvases reliably

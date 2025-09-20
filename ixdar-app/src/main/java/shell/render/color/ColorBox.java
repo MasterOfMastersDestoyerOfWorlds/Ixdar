@@ -11,7 +11,7 @@ public class ColorBox {
     public ShaderProgram shader;
 
     public ColorBox() {
-        shader = ShaderType.Color.shader;
+        shader = ShaderType.Color.getShader();
     }
 
     float lengthSq(Vector2f a, Vector2f b) {

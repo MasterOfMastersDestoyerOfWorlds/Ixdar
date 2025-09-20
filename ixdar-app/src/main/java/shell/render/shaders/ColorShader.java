@@ -11,7 +11,6 @@ import shell.ui.Canvas3D;
 
 public class ColorShader extends ShaderProgram {
 
-    private static GL gl = Platforms.gl();
 
     public ColorShader(String vertexShaderLocation, String fragmentShaderLocation) throws UnsupportedEncodingException, IOException {
         super(vertexShaderLocation, fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
@@ -21,6 +20,7 @@ public class ColorShader extends ShaderProgram {
     @Override
     public void init() {
         super.init();
+        GL gl = Platforms.gl();
         /* Specify Vertex Pointer */
         int posAttrib = getAttributeLocation("position");
         gl.enableVertexAttribArray(posAttrib);

@@ -13,7 +13,7 @@ public class SDFCircle extends ShaderDrawable {
     private Vector2f pA;
 
     public SDFCircle() {
-        shader = ShaderType.CircleSDF.shader;
+        shader = ShaderType.CircleSDF.getShader();
         this.borderThickness = 0.15f;
     }
 

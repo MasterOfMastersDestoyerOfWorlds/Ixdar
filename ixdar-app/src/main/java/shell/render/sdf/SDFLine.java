@@ -33,8 +33,8 @@ public class SDFLine extends ShaderDrawable {
     public Color c2;
 
     public SDFLine() {
-        line_shader = ShaderType.LineSDF.shader;
-        dashed_line_shader = ShaderType.DashedLineSDF.shader;
+        line_shader = ShaderType.LineSDF.getShader();
+        dashed_line_shader = ShaderType.DashedLineSDF.getShader();
         shader = line_shader;
         this.borderColor = Color.TRANSPARENT;
         this.borderInner = 0;

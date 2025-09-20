@@ -29,14 +29,12 @@ public class Canvas3D {
     public static MenuBox menu;
     boolean changedSize = false;
     // private SDFTexture logo;
-    public static ArrayList<ShaderProgram> shaders = new ArrayList<>();
     public static Canvas3D canvas;
     public static boolean active;
 
     public static Camera3D camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f);
     public static MouseTrap mouse = new MouseTrap(null, camera);
     public static KeyGuy keys = new KeyGuy(camera, canvas);
-    public static GL gl;
     public static Platform platform;
     public static long checkPaintTime;
 
@@ -49,7 +47,7 @@ public class Canvas3D {
 
 
     public void initGL() throws UnsupportedEncodingException, IOException {
-        gl = Platforms.gl();
+        GL gl = Platforms.gl();
         gl.createCapabilities(false, (IntFunction) null);
         float start = Clock.time();
         gl.coldStartStack();
@@ -74,6 +72,7 @@ public class Canvas3D {
     public SDFFluid fluid;
 
     public void paintGL() {
+        GL gl = Platforms.gl();
         gl.clearColor(0.07f, 0.07f, 0.07f, 1.0f);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera.resetZIndex();
@@ -94,6 +93,7 @@ public class Canvas3D {
         drawScene();
 
         gl.viewport(0, 0, (int) Platforms.get().getWindowWidth(), (int) Platforms.get().getWindowHeight());
+        ArrayList<ShaderProgram> shaders = gl.getShaders();
         for (ShaderProgram s : shaders) {
             s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
             s.hotReload();

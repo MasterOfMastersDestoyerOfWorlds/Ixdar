@@ -33,7 +33,7 @@ public class SDFUnion extends ShaderDrawable{
         Platforms.get().loadTexture(sdfOuterLocation, t -> {
             this.outerTexture = t;
         });
-        shader = ShaderType.UnionSDF.shader;
+        shader = ShaderType.UnionSDF.getShader();
         this.innerColor = new ColorRGB(innerColor, alpha);
         this.innerScale = innerScale;
         this.outerColor = new ColorRGB(outerColor, alpha);

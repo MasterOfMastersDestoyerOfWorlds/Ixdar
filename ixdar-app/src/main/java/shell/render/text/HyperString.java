@@ -182,7 +182,7 @@ public class HyperString {
             float lineWidth = 0;
             for (String w : str.split(" ")) {
                 String r = w + " ";
-                float width = Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * Drawing.font.getWidth(r);
+                float width = Drawing.FONT_HEIGHT_PIXELS / Drawing.getDrawing().font.fontHeight * Drawing.getDrawing().font.getWidth(r);
                 chars += r.length();
                 if (wrap && chars > charWrap) {
                     if (max < lineWidth) {
@@ -286,7 +286,7 @@ public class HyperString {
                 subWord.setWidth(font);
                 charLength += subWord.text.length();
                 float wordX = offset;
-                float wordWidth = Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * subWord.width;
+                float wordWidth = Drawing.FONT_HEIGHT_PIXELS / Drawing.getDrawing().font.fontHeight * subWord.width;
 
                 if (wrap && (wordX + wordWidth > camera.getWidth() || charLength > charWrap)) {
                     row++;
@@ -307,8 +307,8 @@ public class HyperString {
 
     public void setLineOffsetCentered(Camera2D camera, float x, float y, Font font, int lineNumber) {
         String lineText = strMap.get(lineNumber);
-        float centerX = Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * Drawing.font.getWidth(lineText) / 2;
-        float centerY = Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * font.getHeight(lineText) / 2;
+        float centerX = Drawing.FONT_HEIGHT_PIXELS / Drawing.getDrawing().font.fontHeight * Drawing.getDrawing().font.getWidth(lineText) / 2;
+        float centerY = Drawing.FONT_HEIGHT_PIXELS / Drawing.getDrawing().font.fontHeight * font.getHeight(lineText) / 2;
         int idxStart = lineStartMap.get(lineNumber);
         int idxEnd = words.size();
         if (lineNumber < lines - 1) {
@@ -332,7 +332,7 @@ public class HyperString {
                 float wordY = y - centerY;
                 subWord.setBounds(wordX, wordY, camera.getScreenOffsetX() + wordX, camera.getScreenOffsetY() + wordY,
                         font.getHeight(subWord.text), camera.viewBounds);
-                offset += Drawing.FONT_HEIGHT_PIXELS / Drawing.font.fontHeight * subWord.width;
+                offset += Drawing.FONT_HEIGHT_PIXELS / Drawing.getDrawing().font.fontHeight * subWord.width;
             }
         }
     }

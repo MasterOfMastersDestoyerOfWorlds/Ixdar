@@ -10,7 +10,7 @@ public class SDFFluid extends ShaderDrawable{
 
 
     public SDFFluid() {
-        shader = ShaderType.Fluid.shader;
+        shader = ShaderType.Fluid.getShader();
     }
 
     protected void setUniforms(){

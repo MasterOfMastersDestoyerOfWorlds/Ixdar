@@ -117,6 +117,10 @@ public abstract class ShaderDrawable {
             platform.log("Shader is null");
             return;
         }
+        if(shader.platformId != Platforms.gl().getID()){
+            platform.log("Shader is not for the current platform");
+            return;
+        }
         this.camera = camera;
         setup(camera);
         shader.drawSDFRegion(bottomLeft.x, bottomLeft.y, bottomRight.x, bottomRight.y, topLeft.x, topLeft.y, topRight.x,

@@ -3,9 +3,11 @@ package shell.platform.gl;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.ArrayList;
 import java.util.function.IntFunction;
 
 import shell.platform.input.MouseButtons;
+import shell.render.shaders.ShaderProgram;
 
 public interface GL {
     void viewport(int x, int y, int w, int h);
@@ -184,4 +186,10 @@ public interface GL {
     int TEXTURE0();
 
     void coldStartStack();
+
+    ArrayList<ShaderProgram> getShaders();
+
+    void addShader(ShaderProgram shader);
+
+    Integer getID();
 }
