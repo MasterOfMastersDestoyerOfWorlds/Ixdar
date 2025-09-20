@@ -8,8 +8,6 @@ import java.util.function.IntFunction;
 import shell.platform.input.MouseButtons;
 
 public interface GL {
-
-    // Core
     void viewport(int x, int y, int w, int h);
 
     void clearColor(float r, float g, float b, float a);
@@ -42,7 +40,6 @@ public interface GL {
 
     void deleteProgram(int program);
 
-    // Buffers
     int genBuffer();
 
     void bindArrayBuffer(int buffer);
@@ -55,15 +52,12 @@ public interface GL {
 
     void vertexAttribPointer(int index, int size, int type, boolean normalized, int stride, int pointer);
 
-    // Vertex arrays (no-op on WebGL1)
     int genVertexArray();
 
     void bindVertexArray(int vao);
 
-    // Draw
     void drawArrays(int mode, int first, int count);
 
-    // Uniforms
     int getUniformLocation(int program, String name);
 
     void uniform1f(int loc, float v);
@@ -78,7 +72,6 @@ public interface GL {
 
     void uniformMatrix4fv(int loc, boolean transpose, FloatBuffer buf);
 
-    // Textures
     int genTexture();
 
     void bindTexture2D(int id);
@@ -90,7 +83,6 @@ public interface GL {
 
     void generateMipmap(int target);
 
-    // Constants (subset)
     int COLOR_BUFFER_BIT();
 
     int DEPTH_BUFFER_BIT();

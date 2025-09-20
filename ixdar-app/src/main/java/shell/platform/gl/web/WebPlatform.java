@@ -317,10 +317,6 @@ public class WebPlatform implements Platform {
 
     @Override
     public void loadTexture(String resourceName, Consumer<Texture> callback) {
-        // In web build, the image should already be loaded/bound by external runtime
-        // Here we just create an empty Texture and expect higher-level code to
-        // bind/upload
-        // Alternatively, you can implement image loading via JS if desired.
         loadImagePixels("/ixdar/res/" + resourceName, (w, h, data) -> {
             ByteBuffer bb = ByteBuffer.allocate(data.getLength());
             for (int i = 0; i < data.getLength(); i++) {

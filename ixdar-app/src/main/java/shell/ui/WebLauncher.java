@@ -11,7 +11,6 @@ import org.teavm.jso.dom.html.HTMLDocument;
 
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
-import shell.platform.gl.Platform;
 import shell.platform.gl.web.WebGL;
 import shell.platform.gl.web.WebPlatform;
 import shell.render.Clock;
@@ -24,11 +23,12 @@ public final class WebLauncher {
 
     public static float startTime;
     public static boolean broken = false;
-    private static Platform platform;
 
     private static String DEFAULT_CANVAS_NAME = "ixdar-canvas";
     private static Canvas3D[] canvas3dScenes;
     private static HTMLCanvasElement[] canvasElements;
+    private static WebPlatform[] webPlatforms;
+    private static WebGL[] webGLs;
 
     public static void main(String[] args)
             throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException,
@@ -38,13 +38,15 @@ public final class WebLauncher {
         HTMLDocument document = Window.current().getDocument();
         canvasElements = new HTMLCanvasElement[args.length];
         canvas3dScenes = new Canvas3D[args.length];
+        webPlatforms = new WebPlatform[args.length];
+        webGLs = new WebGL[args.length];
         for (int i = 0; i < canvasElements.length; i++) {
             String canvasId = args[i];
             HTMLCanvasElement canvas = (HTMLCanvasElement) document.getElementById(canvasId);
-
-            Platforms.init(new WebPlatform(canvas, canvasId), new WebGL(canvas));
-            platform = Platforms.get();
-            platform.log("WebLauncher is running for " + canvasId);
+            webPlatforms[i] = new WebPlatform(canvas, canvasId);
+            webGLs[i] = new WebGL(canvas);
+            Platforms.init(webPlatforms[i], webGLs[i]);
+            webPlatforms[i].log("WebLauncher is running for " + canvasId);
 
             int w = canvas.getClientWidth();
             int h = canvas.getClientHeight();
@@ -70,54 +72,45 @@ public final class WebLauncher {
     private static void tick(int i) {
         Canvas3D canvas3d = canvas3dScenes[i];
         HTMLCanvasElement canvas = canvasElements[i];
-        if (!broken) {
-            try {
-                GL gl = Platforms.gl();
-
-                if (canvas == null)
-                    return;
-
-                int w = canvas.getClientWidth();
-                int h = canvas.getClientHeight();
-                if (w <= 0)
-                    w = 800;
-                if (h <= 0)
-                    h = 600;
-                if (canvas.getWidth() != w)
-                    canvas.setWidth(w);
-                if (canvas.getHeight() != h)
-                    canvas.setHeight(h);
-
-                gl.viewport(0, 0, w, h);
-                gl.clearColor(0.02f, 0.02f, 0.02f, 1.0f);
-                gl.clear(gl.COLOR_BUFFER_BIT());
-
-                // Ensure framebuffer dimensions are up-to-date for projection matrices
-                Canvas3D.frameBufferWidth = w;
-                Canvas3D.frameBufferHeight = h;
-
-                // Drive the existing rendering path
-                canvas3d.paintGL();
-            } catch (Exception t) {
-                for (StackTraceElement e : t.getStackTrace()) {
-                    platform.log("Multi-scene render error: " + e.getMethodName() + " " + e.getFileName() + " "
-                            + e.getLineNumber());
-                }
-                platform.log(t.getMessage());
-                broken = true;
+        Platforms.init(webPlatforms[i], webGLs[i]);
+        if (canvas != null) {
+            WebGL webGL = new WebGL(canvas);
+            Platforms.init(new WebPlatform(canvas, DEFAULT_CANVAS_NAME), webGL);
+            GL gl = Platforms.gl();
+            if (gl != null) {
+                drawFallbackTriangle(gl);
             }
         } else {
-            // Draw fallback on the main canvas
-            if (canvas != null) {
-                WebGL webGL = new WebGL(canvas);
-                Platforms.init(new WebPlatform(canvas, DEFAULT_CANVAS_NAME), webGL);
-                GL gl = Platforms.gl();
-                if (gl != null) {
-                    drawFallbackTriangle(gl);
+            if (!broken) {
+                try {
+                    if (canvas == null)
+                        return;
+                    int w = canvas.getClientWidth();
+                    int h = canvas.getClientHeight();
+                    if (w <= 0)
+                        w = 800;
+                    if (h <= 0)
+                        h = 600;
+                    if (canvas.getWidth() != w)
+                        canvas.setWidth(w);
+                    if (canvas.getHeight() != h)
+                        canvas.setHeight(h);
+                    Canvas3D.frameBufferWidth = w;
+                    Canvas3D.frameBufferHeight = h;
+                    canvas3d.paintGL();
+                } catch (Exception t) {
+                    for (StackTraceElement e : t.getStackTrace()) {
+                        webPlatforms[i]
+                                .log("Multi-scene render error: " + e.getMethodName() + " " + e.getFileName() + " "
+                                        + e.getLineNumber());
+                    }
+                    webPlatforms[i].log(t.getMessage());
+                    broken = true;
                 }
+            } else {
+
             }
         }
-
         Window.requestAnimationFrame(ts -> tick(i));
     }
 

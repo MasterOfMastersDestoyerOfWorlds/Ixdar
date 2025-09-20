@@ -53,7 +53,6 @@ public class SceneRegistryProcessor extends AbstractProcessor {
             generated = true;
         } catch (Exception e) {
             e.printStackTrace();
-            float f = 1f / 0f;
         }
         return true;
     }

@@ -10,8 +10,6 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.joml.Vector4f;
 
 import shell.render.color.Color;
-import shell.render.sdf.ShaderDrawable;
-import shell.render.text.ColorText;
 
 public class ExpressionParser {
 
@@ -28,11 +26,8 @@ public class ExpressionParser {
     }
 
     public static ParseText evaluateAndAssign(String line, Map<String, ParseText> env) {
-        // strip comments and semicolon
+
         String s = line;
-        if (line.contains("sigDist")) {
-            float z = 0;
-        }
         int cidx = s.indexOf("//");
         if (cidx >= 0) {
             s = s.substring(0, cidx);
@@ -44,7 +39,7 @@ public class ExpressionParser {
         if (s.isEmpty()) {
             return null;
         }
-        // Ignore obvious non-expressions / declarations
+
         String sl = s.toLowerCase();
         if (s.contains("==") || s.contains("?") || s.contains(":") || s.startsWith("#")
                 || sl.startsWith("in ") || sl.startsWith("out ") || sl.startsWith("uniform ")
@@ -52,14 +47,14 @@ public class ExpressionParser {
                 || sl.startsWith("struct ") || sl.startsWith("attribute ") || sl.startsWith("varying ")) {
             return null;
         }
-        // Handle assignment with optional type prefixes
+
         int eq = s.indexOf('=');
         if (eq > 0 && s.indexOf('=', eq + 1) == -1) {
             String left = s.substring(0, eq).trim();
             String right = s.substring(eq + 1).trim();
             String var = extractVarName(left);
             if (var != null && !var.isEmpty()) {
-                // Swizzle assignment: vec from identifier swizzle e.g., p = pos.xy or frag.rgba
+
                 if (isSwizzle(right)) {
                     String base = right.substring(0, right.indexOf('.'));
                     String sw = right.substring(right.indexOf('.') + 1);
@@ -69,7 +64,7 @@ public class ExpressionParser {
                         return env.get(var);
                     }
                 }
-                // Vector literal assignment: vecN p = vecN(...)
+
                 if (right.startsWith("vec") && right.contains("(") && right.endsWith(")")) {
                     ArrayList<ParseText> vec = parseVec(right, env);
                     if (vec != null && vec.size() > 0) {
@@ -90,8 +85,7 @@ public class ExpressionParser {
                 }
             }
         } else {
-            // Expression only
-            // Heuristic: only attempt if it references known vars, functions, or digits
+
             if (!s.matches(".*([A-Za-z_][A-Za-z0-9_]*|[0-9]|sin|cos|tan|sqrt|abs|min|max|clamp|mix|distance|dot).*")) {
                 return null;
             }
@@ -105,9 +99,9 @@ public class ExpressionParser {
     }
 
     private static String extractVarName(String left) {
-        // Remove qualifiers/types
+
         String cleaned = left.replaceAll("^(const\\s+)?(uniform\\s+|varying\\s+)?(float|Float|int)\\s+", "").trim();
-        // Take last identifier-like token
+
         String[] parts = cleaned.split("[^A-Za-z0-9_]+");
         if (parts.length == 0) {
             return null;
@@ -216,7 +210,7 @@ public class ExpressionParser {
                 expect(')');
                 return applyFunc(ident, args);
             } else {
-                // Support scalar swizzles like base.x or frag.a
+
                 if (peekIs('.')) {
                     match('.');
                     StringBuilder sb = new StringBuilder();
@@ -261,7 +255,7 @@ public class ExpressionParser {
             return new ParseText("TAU", (float) (Math.PI * 2.0f));
         if ("e".equalsIgnoreCase(name))
             return new ParseText("e", (float) Math.E);
-        // Handle swizzled scalar like base.x or frag.r
+
         int dotIdx = name.indexOf('.');
         if (dotIdx > 0 && dotIdx == name.lastIndexOf('.')) {
             String base = name.substring(0, dotIdx);
@@ -440,19 +434,15 @@ public class ExpressionParser {
         return Character.isLetterOrDigit(c) || c == '_';
     }
 
-    // Unused after moving uniform display inline with declarations; keep for
-    // potential future use
-    // private String uniformsText() { ... }
-
     static String extractUniformName(String decl) {
-        // Examples: "uniform float radius;", "uniform vec2 pointA;"
+
         try {
             int semi = decl.indexOf(';');
             String s = semi >= 0 ? decl.substring(0, semi) : decl;
             String[] parts = s.split("\\s+");
             if (parts.length >= 3) {
                 String cand = parts[2];
-                // strip array or trailing commas if any
+
                 cand = cand.replaceAll("[;,]", "");
                 return cand;
             }
@@ -541,14 +531,6 @@ public class ExpressionParser {
         return isValidSwizzle(sw);
     }
 
-    // private static String extractSwizzle(String s) {
-    // int dot = s.indexOf('.');
-    // if (dot <= 0 || dot == s.length() - 1)
-    // return null;
-    // String sw = s.substring(dot + 1);
-    // return isValidSwizzle(sw) ? sw : null;
-    // }
-
     private static boolean isValidSwizzle(String sw) {
         if (sw == null || sw.isEmpty() || sw.length() > 4)
             return false;
@@ -607,10 +589,6 @@ public class ExpressionParser {
         }
         return list;
     }
-
-    // private static int swizzleLength(String sw) {
-    // return (sw != null && isValidSwizzle(sw)) ? sw.length() : 0;
-    // }
 
     private static ParseText evalSimple(String token, Map<String, ParseText> env) {
         try {

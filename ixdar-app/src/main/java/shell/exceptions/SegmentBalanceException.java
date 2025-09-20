@@ -68,7 +68,6 @@ public class SegmentBalanceException extends Exception {
     }
 
     public void generateUnitTestFromCut() {
-        // TODO: WRITE THIS
     }
 
 }

@@ -411,7 +411,6 @@ public abstract class PointND extends PointCollection implements Cloneable {
          */
         @Override
         public double[] getCoordList() {
-            // TODO Auto-generated method stub
             return ds;
         }
 

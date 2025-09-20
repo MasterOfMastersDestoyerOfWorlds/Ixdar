@@ -12,7 +12,7 @@ public class Word {
 
     public CharSequence text;
     public Color color;
-    public Supplier<ColorText> wordAction;
+    public Supplier<ColorText<?>> wordAction;
     public Action hoverAction;
     public Action clickAction;
     public boolean newLine = false;
@@ -47,7 +47,7 @@ public class Word {
         viewBounds = new Bounds(0, 0, 0, 0, WORD_BOUNDS_ID);
     }
 
-    public Word(Supplier<ColorText> wordAction, Color c, Action hoverAction, Action clearHover, Action clickAction) {
+    public Word(Supplier<ColorText<?>> wordAction, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         text = "?MissingWord?";
         color = c;
         this.wordAction = wordAction;

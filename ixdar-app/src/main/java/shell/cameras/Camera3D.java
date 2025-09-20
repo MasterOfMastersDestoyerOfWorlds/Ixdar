@@ -220,7 +220,6 @@ public class Camera3D implements Camera {
 
     @Override
     public void calculateCameraTransform(PointSet ps) {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'calculateCameraTransform'");
     }
 

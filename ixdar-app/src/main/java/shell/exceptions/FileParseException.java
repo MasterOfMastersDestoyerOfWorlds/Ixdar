@@ -14,7 +14,6 @@ public class FileParseException extends Exception {
     }
 
     public FileParseException() {
-        // TODO Auto-generated constructor stub
     }
 
 }

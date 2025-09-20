@@ -130,7 +130,6 @@ public class Segment implements Comparable<Segment> {
     }
 
     public Knot getOverlap(Segment other) {
-        // TODO Auto-generated method stub
         if (other.contains(first)) {
             return first;
         } else if (other.contains(last)) {

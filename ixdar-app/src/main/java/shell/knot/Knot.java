@@ -28,7 +28,6 @@ public class Knot {
     public ArrayList<Knot> knotPointsFlattened;
     public ArrayList<Segment> sortedSegments;
     public HashMap<Long, Segment> segmentLookup;
-    public Segment[] pointSegmentLookup;
     public int id;
 
     Knot topGroupKnot;
@@ -255,7 +254,6 @@ public class Knot {
         sortedSegments = new ArrayList<>();
         knotPointsFlattened = new ArrayList<>();
         segmentLookup = new HashMap<>();
-        pointSegmentLookup = new Segment[shell.size()];
         manifoldSegments = new ArrayList<>();
         matchList = new ArrayList<>();
     }

@@ -69,7 +69,6 @@ public class Shell extends LinkedList<PointND> {
                     Segment s = new Segment(p1, p2, distanceMatrix.getDistance(p1.p, p2.p));
                     p1.sortedSegments.add(s);
                     p1.segmentLookup.put(s.id, s);
-                    p1.pointSegmentLookup[p2.id] = s;
                 }
             }
             p1.sortedSegments.sort(null);
@@ -116,8 +115,6 @@ public class Shell extends LinkedList<PointND> {
                 if (i != j) {
                     p1.sortedSegments.add(s);
                     p1.segmentLookup.put(s.id, s);
-                    //causes out of points exception
-                    p1.pointSegmentLookup[p2.id] = s;
                 }
                 if (i < j) {
                     this.sortedSegments.add(s);

@@ -76,7 +76,6 @@ public class CutMatchDistanceMatrix {
     }
 
     public int size() {
-        // TODO Auto-generated method stub
         return matrix.length;
     }
 

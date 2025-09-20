@@ -461,12 +461,10 @@ public class DistanceMatrix {
     }
 
     public double getZero() {
-        // TODO Auto-generated method stub
         return this.zero;
     }
 
     public int size() {
-        // TODO Auto-generated method stub
         return matrix.length;
     }
 
