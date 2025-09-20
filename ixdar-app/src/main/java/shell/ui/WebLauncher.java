@@ -69,6 +69,10 @@ public final class WebLauncher {
         }
     }
 
+    @org.teavm.jso.JSBody(params = {
+            "el" }, script = "if(!el) return false; var style=getComputedStyle(el); if(style.display==='none'||style.visibility==='hidden'||parseFloat(style.opacity)===0) return false; var rect=el.getBoundingClientRect(); var vw=window.innerWidth||document.documentElement.clientWidth; var vh=window.innerHeight||document.documentElement.clientHeight; return rect.bottom>0 && rect.right>0 && rect.top<vh && rect.left<vw;")
+    private static native boolean isElementVisible(HTMLCanvasElement el);
+
     private static void tick(int i) {
         Canvas3D canvas3d = canvas3dScenes[i];
         HTMLCanvasElement canvas = canvasElements[i];
@@ -78,6 +82,11 @@ public final class WebLauncher {
             try {
                 if (canvas == null)
                     return;
+                // Skip expensive updates and painting if the canvas is not visible
+                if (!isElementVisible(canvas)) {
+                    Window.requestAnimationFrame(ts -> tick(i));
+                    return;
+                }
                 int w = canvas.getClientWidth();
                 int h = canvas.getClientHeight();
                 if (w <= 0)

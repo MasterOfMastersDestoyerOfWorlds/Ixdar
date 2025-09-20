@@ -426,6 +426,11 @@ public class WebPlatform implements Platform {
 
     @JSBody(params = { "msg" }, script = "console.log(msg);")
     private static native void jsLog(String msg);
+
+    @Override
+    public boolean canHotReload() {
+        return false;
+    }
 }
 
 final class WebPlatformHelper {

@@ -188,4 +188,10 @@ public class LwjglPlatform implements Platform {
     public void log(String msg) {
         System.out.println(msg);
     }
+
+
+    @Override
+    public boolean canHotReload() {
+        return true;
+    }
 }

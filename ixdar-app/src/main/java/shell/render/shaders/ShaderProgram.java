@@ -307,6 +307,9 @@ public abstract class ShaderProgram {
     }
 
     public void hotReload() {
+        if(!Platforms.get().canHotReload()) {
+            return;
+        }
         try {
             if (reloadShader) {
                 this.vao = new VertexArrayObject();
