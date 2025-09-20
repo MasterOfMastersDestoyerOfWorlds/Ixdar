@@ -6,6 +6,7 @@ import static shell.platform.input.Keys.ACTION_RELEASE;
 import org.joml.Vector2f;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.HashMap;
 import shell.cameras.Bounds;
 
 import shell.Toggle;
@@ -22,8 +23,8 @@ public class MouseTrap {
     public int queuedMouseWheelTicks = 0;
     Main main;
     long timeLastScroll;
-    public static int lastX = Integer.MIN_VALUE;
-    public static int lastY = Integer.MIN_VALUE;
+    public int lastX = Integer.MIN_VALUE;
+    public int lastY = Integer.MIN_VALUE;
     int width;
     int height;
     public Camera camera;
@@ -45,14 +46,20 @@ public class MouseTrap {
         }
     }
 
-    private static final List<ScrollSubscription> scrollSubscriptions = new ArrayList<>();
+    private static final HashMap<Integer, List<ScrollSubscription>> scrollSubscriptionsByPlatform = new HashMap<>();
+
+    private static List<ScrollSubscription> getSubscriptionsForCurrentPlatform() {
+        int id = Platforms.gl().getID();
+        return scrollSubscriptionsByPlatform.computeIfAbsent(id, k -> new ArrayList<>());
+    }
 
     public static void subscribeScrollRegion(Bounds bounds, ScrollHandler handler) {
-        scrollSubscriptions.add(new ScrollSubscription(bounds, handler));
+        getSubscriptionsForCurrentPlatform().add(new ScrollSubscription(bounds, handler));
     }
 
     public static void unsubscribeScrollRegion(ScrollHandler handler) {
-        scrollSubscriptions.removeIf(s -> s.handler == handler);
+        List<ScrollSubscription> list = getSubscriptionsForCurrentPlatform();
+        list.removeIf(s -> s.handler == handler);
     }
 
     public MouseTrap(Main main, Camera camera, Canvas3D canvas) {
@@ -172,7 +179,8 @@ public class MouseTrap {
         // First, allow any custom scroll subscription to consume wheel ticks if the
         // mouse is over its bounds
         if (queuedMouseWheelTicks != 0) {
-            for (ScrollSubscription sub : scrollSubscriptions) {
+            List<ScrollSubscription> subs = getSubscriptionsForCurrentPlatform();
+            for (ScrollSubscription sub : subs) {
                 // Ensure subscribed bounds are up-to-date for current frame
                 if (sub.bounds != null) {
                     sub.bounds.recalc();
@@ -185,7 +193,7 @@ public class MouseTrap {
                             && yFromBottom <= sub.bounds.offsetY + sub.bounds.viewHeight;
                     if (inside) {
                         boolean up = queuedMouseWheelTicks < 0;
-                        sub.handler.onScroll(up, Clock.deltaTime()*100f);
+                        sub.handler.onScroll(up, Clock.deltaTime() * 100f);
                         return;
                     }
                 }
