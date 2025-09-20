@@ -280,7 +280,7 @@ public class Terminal implements MouseTrap.ScrollHandler {
         }
         commandHyperString.wrap();
         cachedInfo = commandHyperString;
-        Drawing.font.drawHyperStringRows(commandHyperString, row, scrollOffsetY, rowHeight, camera);
+        Drawing.getDrawing().font.drawHyperStringRows(commandHyperString, row, scrollOffsetY, rowHeight, camera);
         if (scrollToCommandLine) {
             scrollToCommandLine = false;
             scrollOffsetY -= cachedInfo.getLastWord().yScreenOffset;

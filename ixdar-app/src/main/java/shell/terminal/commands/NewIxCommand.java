@@ -6,7 +6,6 @@ import java.io.IOException;
 import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
 import shell.terminal.Terminal;
-import shell.ui.Canvas3D;
 import shell.ui.main.Main;
 
 public class NewIxCommand extends TerminalCommand {
@@ -40,7 +39,7 @@ public class NewIxCommand extends TerminalCommand {
 
     public static void run(String fileName) throws TerminalParseException {
         FileManagement.updateTestFileCache(fileName);
-        Canvas3D.activate(false);
+        Main.canvas.activate(false);
         try {
             Main.main(new String[] { fileName });
         } catch (IOException e) {

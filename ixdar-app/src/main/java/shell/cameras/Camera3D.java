@@ -30,8 +30,8 @@ public class Camera3D implements Camera {
     public double fov;
     private float zIndex;
     private float farZIndex;
-
-    public Camera3D(Vector3f position, float yaw, float pitch) {
+    public Canvas3D canvas;
+    public Camera3D(Vector3f position, float yaw, float pitch, Canvas3D canvas) {
         this.position = position;
         worldUp = new Vector3f(0.0f, 1.0f, 0.0f);
         this.yaw = yaw;
@@ -47,6 +47,7 @@ public class Camera3D implements Camera {
         view = new Matrix4f().lookAt(position, target, up);
 
         fov = 45f;
+        this.canvas = canvas;
     }
 
     public void orbit(float radius, float radsPerSecond) {
@@ -285,7 +286,7 @@ public class Camera3D implements Camera {
     @Override
     public void updateView(int x, int y, int width, int height) {
         Platforms.gl().viewport(x, y, width, height);
-        for (ShaderProgram s : Canvas3D.shaders) {
+        for (ShaderProgram s : Platforms.gl().getShaders()) {
             s.updateProjectionMatrix(width, height, 1f);
         }
     }

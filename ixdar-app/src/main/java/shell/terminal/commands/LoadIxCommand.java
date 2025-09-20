@@ -40,7 +40,6 @@ public class LoadIxCommand extends TerminalCommand {
 
     public static void run(String fileName) throws TerminalParseException {
         FileManagement.updateTestFileCache(fileName);
-        Canvas3D.activate(false);
         try {
             Main.main(new String[] { fileName });
         } catch (IOException e) {

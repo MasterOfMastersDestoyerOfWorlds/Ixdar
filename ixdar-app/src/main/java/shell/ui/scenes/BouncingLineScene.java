@@ -49,14 +49,15 @@ public class BouncingLineScene extends Scene {
         knot1 = new Knot(point1, shell);
         knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        initCodePane("Line SDF", ShaderType.LineSDF.shader, Drawing.sdfLine);
+        initCodePane("Line SDF", ShaderType.LineSDF.getShader(), Drawing.getDrawing().sdfLine);
     }
 
     @Override
     public void drawScene() {
         updateBouncingPoints();
         super.drawScene();
-        Drawing.sdfLine.setStroke(Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false);
+        Drawing.getDrawing().sdfLine.setStroke(Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true,
+                false);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);

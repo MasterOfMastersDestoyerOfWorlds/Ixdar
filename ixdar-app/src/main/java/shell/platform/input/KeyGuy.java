@@ -33,9 +33,11 @@ public class KeyGuy {
     boolean controlMask;
     boolean shiftMask;
     public boolean active = true;
-
+    public Canvas3D canvas;
+    
     public KeyGuy(Camera camera, Canvas3D canvas) {
         this.camera = camera;
+        this.canvas = canvas;
     }
 
     public KeyGuy(Main main, String fileName, Camera camera) {
@@ -127,9 +129,9 @@ public class KeyGuy {
         }
         if (main != null && Main.active) {
 
-        } else if (Canvas3D.active) {
+        } else if (canvas.active) {
             if (KeyActions.Back.keyPressed(pressedKeys)) {
-                Canvas3D.menu.back();
+                canvas.menu.back();
             }
             if (KeyActions.Reset.keyPressed(pressedKeys)) {
                 camera.reset();

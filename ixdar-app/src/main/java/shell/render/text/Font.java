@@ -261,7 +261,6 @@ public class Font {
             return;
         }
 
-        Platforms.get().log("Font texture " + shader.platformId + " " + Platforms.gl().getID());
         sdfTexture.setup(camera);
         hyperString.setLineOffsetFromTopRow(camera, row, scrollOffsetY, height, this);
         hyperString.draw();

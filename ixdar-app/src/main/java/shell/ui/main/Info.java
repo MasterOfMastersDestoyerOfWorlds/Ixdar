@@ -2,7 +2,6 @@ package shell.ui.main;
 
 import shell.cameras.Camera2D;
 import shell.render.text.HyperString;
-import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 import shell.ui.tools.Tool;
 import shell.platform.input.MouseTrap;
@@ -19,7 +18,7 @@ public class Info implements MouseTrap.ScrollHandler {
         float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
         Tool tool = Main.tool;
         HyperString toolGeneralInfo = tool.toolGeneralInfo();
-        Drawing.font.drawHyperStringRows(toolGeneralInfo, row, scrollOffsetY, rowHeight, camera);
+        Drawing.getDrawing().font.drawHyperStringRows(toolGeneralInfo, row, scrollOffsetY, rowHeight, camera);
         row += toolGeneralInfo.getLines();
 
         // 50-79% of draw time
@@ -27,10 +26,10 @@ public class Info implements MouseTrap.ScrollHandler {
         long start = System.nanoTime();
         cachedInfo = tool.info();
         long end = System.nanoTime();
-        Canvas3D.checkPaintTime = end - start;
+        Main.canvas.checkPaintTime = end - start;
 
         // 6% of draw time
-        Drawing.font.drawHyperStringRows(cachedInfo, row, scrollOffsetY, rowHeight, camera);
+        Drawing.getDrawing().font.drawHyperStringRows(cachedInfo, row, scrollOffsetY, rowHeight, camera);
         row += cachedInfo.getLines();
 
     }

@@ -55,10 +55,10 @@ public class MouseTrap {
         scrollSubscriptions.removeIf(s -> s.handler == handler);
     }
 
-    public MouseTrap(Main main, Camera camera) {
+    public MouseTrap(Main main, Camera camera, Canvas3D canvas) {
         this.main = main;
         this.camera = camera;
-        this.canvas = Canvas3D.canvas;
+        this.canvas = canvas;
     }
 
     public void mouseClicked(float xPos, float yPos) {
@@ -81,9 +81,9 @@ public class MouseTrap {
         for (HyperString h : hyperStrings) {
             h.click(normalizedPosX, normalizedPosY);
         }
-        if (Canvas3D.menu != null) {
+        if (canvas.menu != null) {
 
-            Canvas3D.menu.click(normalizedPosX, normalizedPosY);
+            canvas.menu.click(normalizedPosX, normalizedPosY);
         }
     }
 
@@ -145,9 +145,9 @@ public class MouseTrap {
         lastY = (int) y;
 
         camera.mouseMove(lastX, lastY, x, y);
-        if (Canvas3D.menu != null && !(this.canvas == null)) {
+        if (canvas.menu != null && !(this.canvas == null)) {
 
-            Canvas3D.menu.setHover(normalizedPosX, normalizedPosY);
+            canvas.menu.setHover(normalizedPosX, normalizedPosY);
         }
 
         PanelTypes inMainView = Main.inView(x, y);

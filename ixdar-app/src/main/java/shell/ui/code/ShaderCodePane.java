@@ -41,6 +41,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private HyperString showCodeButton;
 
     private final ShaderDrawable uniformProvider;
+    private Canvas3D canvas;
 
     // private ExpressionParser expressionParser;
 
@@ -48,8 +49,9 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
 
     public ShaderCodePane(Bounds parentBounds, Map<String, Bounds> webViews, float scrollSpeed, ShaderProgram shader,
             String title,
-            ShaderDrawable provider, Camera2D camera) {
+            ShaderDrawable provider, Camera2D camera, Canvas3D canvas) {
 
+        this.canvas = canvas;
         parentBounds.setUpdateCallback(
                 b -> b.update(0, 0, showCode ? Canvas3D.frameBufferWidth / 2 : Canvas3D.frameBufferWidth,
                         Canvas3D.frameBufferHeight));
@@ -134,9 +136,9 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private ParseText updateCacheIfMouseMoved() {
         float mx = 0f;
         float my = 0f;
-        if (Canvas3D.mouse != null) {
-            mx = Canvas3D.mouse.normalizedPosX;
-            my = Canvas3D.mouse.normalizedPosY;
+        if (canvas.mouse != null) {
+            mx = canvas.mouse.normalizedPosX;
+            my = canvas.mouse.normalizedPosY;
         }
         if (mx == lastMouseX && my == lastMouseY) {
             return ParseText.BLANK;
@@ -207,9 +209,9 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
 
     private ParseText mouseText() {
         float mx = 0f, my = 0f;
-        if (Canvas3D.mouse != null) {
-            mx = Canvas3D.mouse.normalizedPosX;
-            my = Canvas3D.mouse.normalizedPosY;
+        if (canvas.mouse != null) {
+            mx = canvas.mouse.normalizedPosX;
+            my = canvas.mouse.normalizedPosY;
         }
         return new ParseText("mx=" + ParseText.formatFixed(mx) + " my=" + ParseText.formatFixed(my));
     }

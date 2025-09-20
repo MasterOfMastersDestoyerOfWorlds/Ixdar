@@ -13,15 +13,15 @@ import org.apache.commons.math3.util.Pair;
 
 import shell.DistanceMatrix;
 import shell.Toggle;
+import shell.cameras.Bounds;
 import shell.cameras.Camera;
 import shell.cameras.Camera2D;
-import shell.cameras.Bounds;
 import shell.exceptions.MultipleCyclesFoundException;
 import shell.exceptions.SegmentBalanceException;
 import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
-import shell.file.TextFile;
 import shell.file.PointSetPath;
+import shell.file.TextFile;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.platform.Platforms;
@@ -42,6 +42,7 @@ import shell.shell.Shell;
 import shell.shell.ShellComparator;
 import shell.shell.ShellPair;
 import shell.terminal.Terminal;
+import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 import shell.ui.tools.FreeTool;
 import shell.ui.tools.Tool;
@@ -105,6 +106,7 @@ public class Main {
     public static Grid grid;
     public static int totalLayers = -1;
     public static double tourLength;
+    public static Canvas3D canvas;
 
     public static final String VIEW_MAIN = "MAIN";
     public static final String VIEW_RIGHT_TOP = "RIGHT_TOP";
@@ -112,7 +114,7 @@ public class Main {
     public static final String VIEW_BOTTOM = "BOTTOM";
     public static final String VIEW_TOOLTIP = "TOOLTIP";
 
-    public Main(String fileName) throws TerminalParseException, IOException {
+    public Main(String fileName, Canvas3D canvas) throws TerminalParseException, IOException {
         metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
         metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
         knotLayerLookup = new HashMap<>();
@@ -148,14 +150,15 @@ public class Main {
         Toggle.setPanelFocus(PanelTypes.KnotView);
         grid = retTup.grid;
         keys = new KeyGuy(this, fileName, camera);
-        mouse = new MouseTrap(this, camera);
+        mouse = new MouseTrap(this, camera, canvas);
         activate(true);
         tool = new FreeTool();
         logo = new SDFTexture("decal_sdf_small.png", Color.DARK_IXDAR, 0.6f, 0f, true);
     }
 
     public static void main(String[] args) throws TerminalParseException, IOException {
-        main = new Main(args[0]);
+        canvas = new Canvas3D();
+        main = new Main(args[0], canvas);
 
         int wWidth = (int) Platforms.get().getWindowWidth();
         int wHeight = (int) Platforms.get().getWindowHeight();
@@ -381,10 +384,10 @@ public class Main {
 
             if (toolTip != null && showToolTip) {
                 float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
-                toolTip.setLineOffsetFromTopRow(camera, 0, 0, rowHeight, Drawing.font);
+                toolTip.setLineOffsetFromTopRow(camera, 0, 0, rowHeight, Drawing.getDrawing().font);
                 camera.updateView(VIEW_TOOLTIP);
                 new ColorBox().draw(Color.DARK_GRAY, camera);
-                Drawing.font.drawHyperStringRows(toolTip, 0, 0, rowHeight, camera);
+                Drawing.getDrawing().font.drawHyperStringRows(toolTip, 0, 0, rowHeight, camera);
             }
             camera3D.setZIndex(camera);
 
@@ -577,6 +580,7 @@ public class Main {
             p.setCursorPosCallback((window, x, y) -> mouse.moveOrDrag(window, (float) x, (float) y));
             p.setScrollCallback((xoff, yoff) -> mouse.scrollCallback(yoff));
         }
+        canvas.activate(!state);
         active = state;
         mouse.active = state;
         keys.active = state;

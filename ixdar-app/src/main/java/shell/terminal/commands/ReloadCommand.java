@@ -43,7 +43,6 @@ public class ReloadCommand extends TerminalCommand {
         try {
             Main.main(new String[] { fileName });
             FileManagement.updateTestFileCache(fileName);
-            Canvas3D.activate(false);
             Main.activate(true);
             return new String[] { "ls " };
         } catch (TerminalParseException e) {

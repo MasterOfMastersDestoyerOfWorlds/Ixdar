@@ -26,21 +26,19 @@ public class Canvas3D {
     DiffuseShader shader;
     public static int frameBufferWidth;
     public static int frameBufferHeight;
-    public static MenuBox menu;
+    public MenuBox menu;
     boolean changedSize = false;
     // private SDFTexture logo;
-    public static Canvas3D canvas;
-    public static boolean active;
+    public boolean active;
 
-    public static Camera3D camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f);
-    public static MouseTrap mouse = new MouseTrap(null, camera);
-    public static KeyGuy keys = new KeyGuy(camera, canvas);
-    public static Platform platform;
-    public static long checkPaintTime;
+    public Camera3D camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f, this);
+    public MouseTrap mouse = new MouseTrap(null, camera, this);
+    public KeyGuy keys = new KeyGuy(camera, this);
+    public Platform platform;
+    public long checkPaintTime;
 
     public Canvas3D() {
         activate(true);
-        Canvas3D.canvas = this;
         platform = Platforms.get();
         active = true;
     }
@@ -118,7 +116,7 @@ public class Canvas3D {
         }
     }
 
-    public static void activate(boolean state) {
+    public void activate(boolean state) {
         if (state) {
             Platform p = Platforms.get();
             p.setKeyCallback((key, scancode, action, mods) -> keys.keyCallback(0L, key, scancode, action, mods));
@@ -127,8 +125,8 @@ public class Canvas3D {
             p.setCursorPosCallback((window, x, y) -> mouse.moveOrDrag(window, (float) x, (float) y));
             p.setScrollCallback((xoff, yoff) -> mouse.scrollCallback(yoff));
         }
-        Canvas3D.keys.active = state;
-        Canvas3D.mouse.active = state;
+        keys.active = state;
+        mouse.active = state;
         MenuBox.menuVisible = state;
         active = state;
     }
