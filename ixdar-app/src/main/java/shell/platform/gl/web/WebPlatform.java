@@ -32,6 +32,9 @@ public class WebPlatform implements Platform {
 
     private KeyCallback keyCallback;
     private CharCallback charCallback;
+    // Global (document-level) key callbacks shared across canvases
+    private static KeyCallback sKeyCallback;
+    private static CharCallback sCharCallback;
     private CursorPosCallback cursorPosCallback;
     private MouseButtonCallback mouseButtonCallback;
     private ScrollCallback scrollCallback;
@@ -48,7 +51,6 @@ public class WebPlatform implements Platform {
     public String getCurrentCanvasId() {
         return currentCanvasId;
     }
-
 
     private void setupEventListeners(HTMLCanvasElement htmlCanvas) {
         // For now, use the fallback callback system to avoid Canvas3D static conflicts
@@ -90,22 +92,23 @@ public class WebPlatform implements Platform {
         // Keys - attach to document for global key handling (shared across all
         // canvases)
         // Only set up once to avoid duplicate listeners
-        if (htmlCanvas.getId().equals("ixdar-canvas")) {
+        if (!WebPlatformHelper.keysInstalled) {
+            WebPlatformHelper.keysInstalled = true;
             Window.current().getDocument().addEventListener("keydown", (EventListener<KeyboardEvent>) e -> {
-                if (keyCallback != null) {
-                    keyCallback.onKey(e.getKeyCode(), 0, Keys.ACTION_PRESS, 0);
+                if (sKeyCallback != null) {
+                    sKeyCallback.onKey(e.getKeyCode(), 0, Keys.ACTION_PRESS, 0);
                 }
             });
             Window.current().getDocument().addEventListener("keyup", (EventListener<KeyboardEvent>) e -> {
-                if (keyCallback != null) {
-                    keyCallback.onKey(e.getKeyCode(), 0, Keys.ACTION_RELEASE, 0);
+                if (sKeyCallback != null) {
+                    sKeyCallback.onKey(e.getKeyCode(), 0, Keys.ACTION_RELEASE, 0);
                 }
             });
             Window.current().getDocument().addEventListener("keypress", (EventListener<KeyboardEvent>) e -> {
-                if (charCallback != null) {
+                if (sCharCallback != null) {
                     String k = e.getKey();
                     if (k != null && k.length() == 1) {
-                        charCallback.onChar(k.charAt(0));
+                        sCharCallback.onChar(k.charAt(0));
                     }
                 }
             });
@@ -146,11 +149,13 @@ public class WebPlatform implements Platform {
     @Override
     public void setKeyCallback(KeyCallback callback) {
         this.keyCallback = callback;
+        sKeyCallback = callback;
     }
 
     @Override
     public void setCharCallback(CharCallback callback) {
         this.charCallback = callback;
+        sCharCallback = callback;
     }
 
     @Override
@@ -423,4 +428,5 @@ public class WebPlatform implements Platform {
 
 final class WebPlatformHelper {
     static boolean leftDown;
+    static boolean keysInstalled;
 }

@@ -13,7 +13,6 @@ import shell.ui.Canvas3D;
 
 public class Camera3D implements Camera {
 
-    private static GL gl = Platforms.gl();
     private static final float MovementSpeed = 2.5f;
     private static final float ZOOM_SPEED = 1f;
     public Vector3f position;
@@ -285,7 +284,7 @@ public class Camera3D implements Camera {
 
     @Override
     public void updateView(int x, int y, int width, int height) {
-        gl.viewport(x, y, width, height);
+        Platforms.gl().viewport(x, y, width, height);
         for (ShaderProgram s : Canvas3D.shaders) {
             s.updateProjectionMatrix(width, height, 1f);
         }

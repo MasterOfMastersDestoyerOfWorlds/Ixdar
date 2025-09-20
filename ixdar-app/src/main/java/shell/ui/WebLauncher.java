@@ -73,42 +73,38 @@ public final class WebLauncher {
         Canvas3D canvas3d = canvas3dScenes[i];
         HTMLCanvasElement canvas = canvasElements[i];
         Platforms.init(webPlatforms[i], webGLs[i]);
-        if (canvas != null) {
-            WebGL webGL = new WebGL(canvas);
-            Platforms.init(new WebPlatform(canvas, DEFAULT_CANVAS_NAME), webGL);
-            GL gl = Platforms.gl();
-            if (gl != null) {
-                drawFallbackTriangle(gl);
+        GL gl = Platforms.gl();
+        if (!broken) {
+            try {
+                if (canvas == null)
+                    return;
+                int w = canvas.getClientWidth();
+                int h = canvas.getClientHeight();
+                if (w <= 0)
+                    w = 800;
+                if (h <= 0)
+                    h = 600;
+                if (canvas.getWidth() != w)
+                    canvas.setWidth(w);
+                if (canvas.getHeight() != h)
+                    canvas.setHeight(h);
+                Canvas3D.frameBufferWidth = w;
+                Canvas3D.frameBufferHeight = h;
+                canvas3d.paintGL();
+            } catch (Exception t) {
+                for (StackTraceElement e : t.getStackTrace()) {
+                    webPlatforms[i]
+                            .log("Multi-scene render error: " + e.getMethodName() + " " + e.getFileName() + " "
+                                    + e.getLineNumber());
+                }
+                webPlatforms[i].log(t.getMessage());
+                broken = true;
             }
         } else {
-            if (!broken) {
-                try {
-                    if (canvas == null)
-                        return;
-                    int w = canvas.getClientWidth();
-                    int h = canvas.getClientHeight();
-                    if (w <= 0)
-                        w = 800;
-                    if (h <= 0)
-                        h = 600;
-                    if (canvas.getWidth() != w)
-                        canvas.setWidth(w);
-                    if (canvas.getHeight() != h)
-                        canvas.setHeight(h);
-                    Canvas3D.frameBufferWidth = w;
-                    Canvas3D.frameBufferHeight = h;
-                    canvas3d.paintGL();
-                } catch (Exception t) {
-                    for (StackTraceElement e : t.getStackTrace()) {
-                        webPlatforms[i]
-                                .log("Multi-scene render error: " + e.getMethodName() + " " + e.getFileName() + " "
-                                        + e.getLineNumber());
-                    }
-                    webPlatforms[i].log(t.getMessage());
-                    broken = true;
-                }
-            } else {
-
+            if (gl != null) {
+                // Ensure viewport per-canvas before drawing fallback
+                gl.viewport(0, 0, Platforms.get().getWindowWidth(), Platforms.get().getWindowHeight());
+                drawFallbackTriangle(gl, i);
             }
         }
         Window.requestAnimationFrame(ts -> tick(i));
@@ -118,7 +114,7 @@ public final class WebLauncher {
         Window.current().getDocument().setTitle(string);
     }
 
-    private static void drawFallbackTriangle(GL gl) {
+    private static void drawFallbackTriangle(GL gl, int i) {
         String vs = "precision mediump float;\n"
                 + "attribute vec2 a_pos;\n"
                 + "void main(){\n"
@@ -126,7 +122,7 @@ public final class WebLauncher {
                 + "}";
         String fs = "precision mediump float;\n"
                 + "void main(){\n"
-                + "  gl_FragColor=vec4(1.0,0.4,0.2,1.0);\n"
+                + "  gl_FragColor=vec4(1.0,0." + 2 * i + ",0.2,1.0);\n"
                 + "}";
 
         int vsh = gl.createShader(gl.VERTEX_SHADER());

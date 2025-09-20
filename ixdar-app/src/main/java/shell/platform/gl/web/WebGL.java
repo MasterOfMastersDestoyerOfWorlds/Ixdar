@@ -36,8 +36,24 @@ public class WebGL implements GL {
         WebGLContextAttributes attrs = WebGLContextAttributes.create();
         attrs.setAlpha(false); // opaque canvas
         attrs.setAntialias(true);
-        this.gl = acquireGL(canvas, attrs);
+        this.gl = getOrCreateContext(canvas, attrs);
         this.vaoExt = new VAOExtension(gl);
+    }
+
+    // Cache a single WebGL context per canvas to support multiple canvases reliably
+    private static final java.util.Map<String, WebGLRenderingContext> CONTEXT_CACHE = new java.util.HashMap<>();
+
+    private static WebGLRenderingContext getOrCreateContext(HTMLCanvasElement canvas, WebGLContextAttributes attrs) {
+        String id = canvas != null ? canvas.getId() : null;
+        WebGLRenderingContext cached = id != null ? CONTEXT_CACHE.get(id) : null;
+        if (cached != null) {
+            return cached;
+        }
+        WebGLRenderingContext created = acquireGL(canvas, attrs);
+        if (id != null && created != null) {
+            CONTEXT_CACHE.put(id, created);
+        }
+        return created;
     }
 
     @Override

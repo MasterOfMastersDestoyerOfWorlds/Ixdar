@@ -19,8 +19,6 @@ public class Texture {
     public boolean initialized;
     String resourceName;
 
-    private static GL gl = Platforms.gl();
-
     public Texture(String resourceName) {
         this.resourceName = resourceName;
         this.initialized = false;
@@ -50,14 +48,17 @@ public class Texture {
     }
 
     public void bind() {
+        GL gl = Platforms.gl();
         gl.bindTexture2D(id);
     }
 
     public void uploadData(int width, int height, ByteBuffer data) {
+        GL gl = Platforms.gl();
         uploadData(gl.RGBA8(), width, height, gl.RGBA(), data);
     }
 
     public void uploadData(int internalFormat, int width, int height, int format, ByteBuffer data) {
+        GL gl = Platforms.gl();
         gl.texImage2D(gl.TEXTURE_2D(), 0, internalFormat, width,
                 height, 0, format, gl.UNSIGNED_BYTE(), data);
     }
@@ -86,28 +87,6 @@ public class Texture {
         }
     }
 
-    public static Texture createTexture(String fontName, int width, int height, ByteBuffer data) {
-        Texture texture = new Texture(fontName);
-        texture.setWidth(width);
-        texture.setHeight(height);
-        texture.id = gl.genTexture();
-        texture.initialized = true;
-        gl.bindTexture2D(texture.id);
-
-        gl.texParameteri(gl.TEXTURE_2D(),
-                gl.TEXTURE_WRAP_S(), gl.REPEAT());
-        gl.texParameteri(gl.TEXTURE_2D(),
-                gl.TEXTURE_WRAP_T(), gl.REPEAT());
-        gl.texParameteri(gl.TEXTURE_2D(),
-                gl.TEXTURE_MIN_FILTER(), gl.LINEAR());
-        gl.texParameteri(gl.TEXTURE_2D(),
-                gl.TEXTURE_MAG_FILTER(), gl.LINEAR());
-
-        texture.uploadData(gl.RGBA8(), width, height, gl.RGBA(),
-                data);
-
-        return texture;
-    }
 
     public void setImage(int width, int height, ByteBuffer image) {
         this.width = width;
@@ -119,6 +98,7 @@ public class Texture {
         if (image == null) {
             return;
         }
+        GL gl = Platforms.gl();
         initialized = true;
         id = gl.genTexture();
         gl.bindTexture2D(id);

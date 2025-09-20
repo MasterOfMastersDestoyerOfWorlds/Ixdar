@@ -20,7 +20,6 @@ import shell.ui.tools.Tool;
 
 public class Camera2D implements Camera {
 
-    private static GL gl = Platforms.gl();
     public float ZOOM_SPEED = 1f;
     public float PAN_SPEED = 300f;
     public int Width, Height;
@@ -517,7 +516,7 @@ public class Camera2D implements Camera {
     @Override
     public void updateView(int x, int y, int width, int height) {
         this.updateViewBounds(x, y, width, height);
-        gl.viewport(x, y, width, height);
+        Platforms.gl().viewport(x, y, width, height);
         for (ShaderProgram s : Canvas3D.shaders) {
             s.updateProjectionMatrix(width, height, 1f);
         }
