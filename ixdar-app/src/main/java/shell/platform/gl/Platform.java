@@ -2,6 +2,7 @@ package shell.platform.gl;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import shell.file.TextFile;
@@ -34,7 +35,7 @@ public interface Platform {
 
     void exit(int code);
 
-    void loadTexture(String resourceName, Consumer<Texture> callback);
+    void loadTexture(String resourceName, int platformId, Consumer<Texture> callback);
 
     String loadSource(String resourceFolder, String filename) throws UnsupportedEncodingException, IOException;
 

@@ -19,6 +19,7 @@ import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.typedarrays.Uint8ClampedArray;
 
 import shell.file.TextFile;
+import shell.platform.Platforms;
 import shell.platform.gl.Platform;
 import shell.platform.input.Keys;
 import shell.render.Texture;
@@ -321,13 +322,14 @@ public class WebPlatform implements Platform {
     }
 
     @Override
-    public void loadTexture(String resourceName, Consumer<Texture> callback) {
+    public void loadTexture(String resourceName, int platformId, Consumer<Texture> callback) {
         loadImagePixels("/ixdar/res/" + resourceName, (w, h, data) -> {
             ByteBuffer bb = ByteBuffer.allocate(data.getLength());
             for (int i = 0; i < data.getLength(); i++) {
                 bb.put((byte) data.get(i));
             }
             bb.flip();
+            Platforms.init(platformId);
             callback.accept(new Texture(resourceName, bb, w, h));
         });
     }

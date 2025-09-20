@@ -1,5 +1,7 @@
 package shell.platform;
 
+import java.util.HashMap;
+
 import shell.platform.buffers.Buffers;
 import shell.platform.gl.GL;
 import shell.platform.gl.Platform;
@@ -10,6 +12,8 @@ public final class Platforms {
 
     private static GL glInstance;
     private static Buffers buffersInstance;
+    private static HashMap<Integer, Platform> platformMap = new HashMap<>();
+    private static HashMap<Integer, GL> glMap = new HashMap<>();
 
     private Platforms() {
     }
@@ -17,6 +21,16 @@ public final class Platforms {
     public static void init(Platform platform, GL gl) {
         instance = platform;
         glInstance = gl;
+        Integer p = gl.getID();
+        platformMap.put(p, platform);
+        glMap.put(p, gl);
+    }
+    public static void init(Integer p) {
+        if (!platformMap.containsKey(p)) {
+            throw new IllegalStateException("Platform not initialized");
+        }
+        instance = platformMap.get(p);
+        glInstance = glMap.get(p);
     }
 
     public static Platform get() {
@@ -44,4 +58,6 @@ public final class Platforms {
         }
         return buffersInstance;
     }
+
+
 }

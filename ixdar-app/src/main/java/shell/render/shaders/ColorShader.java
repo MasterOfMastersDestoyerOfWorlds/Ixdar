@@ -11,8 +11,8 @@ import shell.ui.Canvas3D;
 
 public class ColorShader extends ShaderProgram {
 
-
-    public ColorShader(String vertexShaderLocation, String fragmentShaderLocation) throws UnsupportedEncodingException, IOException {
+    public ColorShader(String vertexShaderLocation, String fragmentShaderLocation)
+            throws UnsupportedEncodingException, IOException {
         super(vertexShaderLocation, fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
                 true);
     }

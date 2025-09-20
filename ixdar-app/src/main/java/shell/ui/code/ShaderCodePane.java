@@ -215,12 +215,13 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     }
 
     public void draw(Camera2D camera) {
+        Drawing d = Drawing.getDrawing();
         if (paneBounds.viewWidth > 0 && showCode) {
             camera.updateView(paneBounds.id);
-            Drawing.getDrawing().font.drawHyperStringRows(codeText, 0, scrollOffsetY, Drawing.FONT_HEIGHT_PIXELS, camera);
+            d.font.drawHyperStringRows(codeText, 0, scrollOffsetY, Drawing.FONT_HEIGHT_PIXELS, camera);
         }
         camera.updateView(parentBounds.id);
-        Drawing.getDrawing().font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera);
+        d.font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera);
     }
 
     @Override

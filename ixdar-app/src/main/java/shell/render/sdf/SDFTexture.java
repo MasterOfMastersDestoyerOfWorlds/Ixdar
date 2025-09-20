@@ -1,6 +1,7 @@
 package shell.render.sdf;
 
 import shell.cameras.Camera;
+import shell.platform.Platforms;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram.ShaderType;
@@ -28,7 +29,8 @@ public class SDFTexture extends ShaderDrawable {
 
     public SDFTexture(String sdfLocation, Color borderColor,
             float borderDist, float borderOffset, boolean sharpCorners) {
-        platform.loadTexture(sdfLocation, t -> {
+        int id = Platforms.gl().getID();
+        Platforms.get().loadTexture(sdfLocation, id, (t) -> {
             this.texture = t;
             this.shader = ShaderType.TextureSDF.getShader();
         });

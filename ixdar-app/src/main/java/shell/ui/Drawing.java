@@ -42,12 +42,17 @@ public class Drawing {
     public static float CIRCLE_RADIUS = 7.5f;
 
     public static HashMap<Integer, Drawing> drawing = new HashMap<>();
-    public SDFLine sdfLine = new SDFLine();
-    public SDFCircle circle = new SDFCircle();
-    public Font font = new Font();
+    public SDFLine sdfLine;
+    public SDFCircle circle;
+    public Font font;
+    public int platformId;
 
     public Drawing() {
-        drawing.put(Platforms.gl().getID(), this);
+        sdfLine = new SDFLine();
+        circle = new SDFCircle();
+        font = new Font();
+        platformId = Platforms.gl().getID();
+        drawing.put(platformId, this);
     }
 
     public static Drawing getDrawing() {

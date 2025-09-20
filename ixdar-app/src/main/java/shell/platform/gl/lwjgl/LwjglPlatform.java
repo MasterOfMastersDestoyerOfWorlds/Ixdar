@@ -30,6 +30,7 @@ import com.google.gson.Gson;
 
 import shell.file.FileManagement;
 import shell.file.TextFile;
+import shell.platform.Platforms;
 import shell.platform.gl.Platform;
 import shell.render.Texture;
 import shell.render.text.FontAtlasDTO;
@@ -42,7 +43,7 @@ public class LwjglPlatform implements Platform {
     public LwjglPlatform(long window) {
         this.window = window;
     }
-    
+
 
     @Override
     public void setTitle(String title) {
@@ -110,7 +111,7 @@ public class LwjglPlatform implements Platform {
     }
 
     @Override
-    public void loadTexture(String resourceName, Consumer<Texture> callback) {
+    public void loadTexture(String resourceName, int platformId, Consumer<Texture> callback) {
         STBImage.stbi_set_flip_vertically_on_load(true);
         IntBuffer w = BufferUtils.createIntBuffer(1);
         IntBuffer h = BufferUtils.createIntBuffer(1);
@@ -124,6 +125,7 @@ public class LwjglPlatform implements Platform {
         int width = w.get(0);
         int height = h.get(0);
         // Defer GL upload to Texture.initGL()
+        Platforms.init(platformId);
         callback.accept(new Texture(resourceName, image, width, height));
     }
 

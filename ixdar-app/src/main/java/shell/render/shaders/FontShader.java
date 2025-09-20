@@ -11,7 +11,6 @@ import shell.ui.Canvas3D;
 
 public class FontShader extends ShaderProgram {
 
-
     public FontShader(int framebufferWidth, int framebufferHeight) throws UnsupportedEncodingException, IOException {
         super("font.vs", "font.fs", new VertexArrayObject(), new VertexBufferObject(), true);
     }

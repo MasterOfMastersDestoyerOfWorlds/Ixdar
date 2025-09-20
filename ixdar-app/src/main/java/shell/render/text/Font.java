@@ -24,9 +24,9 @@ public class Font {
 
     public float fontHeight;
     public float fontWidth;
-    public ShaderProgram shader; 
+    public ShaderProgram shader;
     public int maxTextWidth;
-    private SDFTexture sdfTexture; 
+    private SDFTexture sdfTexture;
     private float pxPerEm;
     private float ascenderPx;
     private float descenderPx;
@@ -50,7 +50,7 @@ public class Font {
             this.kerningEm = buildKerning(root);
             this.fontHeight = atlas.derivedLineHeight;
             this.fontWidth = atlas.sizePx;
-            Platforms.get().loadTexture("opensans.png", t -> {
+            Platforms.get().loadTexture("opensans.png", Platforms.gl().getID(), t -> {
                 this.texture = t;
                 this.shader = ShaderType.TextureSDF.getShader();
                 this.sdfTexture = new SDFTexture(this.texture);
@@ -260,6 +260,8 @@ public class Font {
         if (sdfTexture == null) {
             return;
         }
+
+        Platforms.get().log("Font texture " + shader.platformId + " " + Platforms.gl().getID());
         sdfTexture.setup(camera);
         hyperString.setLineOffsetFromTopRow(camera, row, scrollOffsetY, height, this);
         hyperString.draw();

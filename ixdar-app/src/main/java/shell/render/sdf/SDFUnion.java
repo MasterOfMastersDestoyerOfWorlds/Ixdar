@@ -26,11 +26,11 @@ public class SDFUnion extends ShaderDrawable{
     public SDFUnion(String sdfInnerLocation, Color innerColor, float innerScale,
             float innerOffsetX, float innerOffsetY, String sdfOuterLocation, Color outerColor, float alpha,
             float numberPinStripes, float showPin) {
-        
-        Platforms.get().loadTexture(sdfInnerLocation, t -> {
+        int id = Platforms.gl().getID();
+        Platforms.get().loadTexture(sdfInnerLocation, id, (t) -> {
             this.innerTexture = t;
         });
-        Platforms.get().loadTexture(sdfOuterLocation, t -> {
+        Platforms.get().loadTexture(sdfOuterLocation, id, (t) -> {
             this.outerTexture = t;
         });
         shader = ShaderType.UnionSDF.getShader();

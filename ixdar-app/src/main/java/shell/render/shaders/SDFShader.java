@@ -11,7 +11,8 @@ import shell.ui.Canvas3D;
 
 public class SDFShader extends ShaderProgram {
 
-    public SDFShader(String vertexShaderLocation, String fragmentShaderLocation) throws UnsupportedEncodingException, IOException {
+    public SDFShader(String vertexShaderLocation, String fragmentShaderLocation)
+            throws UnsupportedEncodingException, IOException {
         super(vertexShaderLocation, fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
                 true);
     }
