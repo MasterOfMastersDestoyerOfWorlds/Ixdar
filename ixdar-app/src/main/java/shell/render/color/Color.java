@@ -30,14 +30,21 @@ public interface Color {
     public static final Color ORANGE = new ColorRGB(210, 105, 30, "Orange");
     public static final Color COMMAND = new ColorRGB(0f, 0.75f, 0.5f, "Command");
     public static final Color PINK = new ColorRGB(255, 192, 203, "Pink");
-    public static final Color GLSL_VECTOR = new ColorRGB(0.72f, 0.58f, 0.85f,  "GLSL Vector");
+    public static final Color GLSL_VECTOR = new ColorRGB(0.72f, 0.58f, 0.85f, "GLSL Vector");
     public static final Color GLSL_COMMA = new ColorRGB(0.80f, 0.86f, 0.96f, "GLSL Comma");
     public static final Color GLSL_PARENTHESIS = new ColorRGB(0.88f, 0.90f, 0.96f, "GLSL Parenthesis");
     public static final Color GLSL_FLOAT = new ColorRGB(0.98f, 0.74f, 0.80f, "GLSL Float");
-    public static final Color GLSL_VECTOR_FLOAT_X = new ColorRGB(0.99f, 0.80f, 0.80f,  "GLSL Vector Float X");
-    public static final Color GLSL_VECTOR_FLOAT_Y = new ColorRGB(0.80f, 0.96f, 0.80f,"GLSL Vector Float Y");
+    public static final Color GLSL_VECTOR_FLOAT_X = new ColorRGB(0.99f, 0.80f, 0.80f, "GLSL Vector Float X");
+    public static final Color GLSL_VECTOR_FLOAT_Y = new ColorRGB(0.80f, 0.96f, 0.80f, "GLSL Vector Float Y");
     public static final Color GLSL_VECTOR_FLOAT_Z = new ColorRGB(0.80f, 0.86f, 0.99f, "GLSL Vector Float Z");
-    public static final Color GLSL_VECTOR_FLOAT_W = new ColorRGB(0.98f, 0.88f, 0.70f,  "GLSL Vector Float W");
+    public static final Color GLSL_VECTOR_FLOAT_W = new ColorRGB(0.98f, 0.88f, 0.70f, "GLSL Vector Float W");
+    public static final Color GLSL_BRACE = new ColorRGB(0.88f, 0.95f, 1.0f, "GLSL Brace");
+    public static final Color GLSL_KEYWORD = new ColorRGB(0.90f, 0.80f, 0.60f, "GLSL Keyword");
+    public static final Color GLSL_TYPE = new ColorRGB(0.60f, 0.85f, 0.90f, "GLSL Type");
+    public static final Color GLSL_FUNCTION = new ColorRGB(0.75f, 0.85f, 0.65f, "GLSL Function");
+    public static final Color GLSL_VECN = new ColorRGB(0.85f, 0.70f, 0.95f, "GLSL VecN");
+    public static final Color GLSL_OPERATOR = new ColorRGB(0.95f, 0.85f, 0.55f, "GLSL Operator");
+    public static final Color GLSL_EQUALS = new ColorRGB(0.90f, 0.95f, 0.55f, "GLSL Equals");
 
     public Vector3f toVector3f();
 

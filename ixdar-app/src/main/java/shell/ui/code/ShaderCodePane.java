@@ -7,7 +7,6 @@ import org.joml.Vector2f;
 
 import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
-import shell.platform.Platforms;
 import shell.platform.input.MouseTrap;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
@@ -105,7 +104,16 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             codeText.addDynamicWord(() -> updateCacheIfMouseMoved(), Color.BLUE_WHITE);
             for (String ln : fs.split("\n")) {
                 final int idx = gIndex;
-                codeText.addWord(ln, Color.WHITE);
+                ColorText<?> ct = new ColorText<>("");
+                ct.resetText();
+                for (var t : GLSLColorizer.colorize(ln)) {
+                    int k = 0;
+                    for (String w : t.text) {
+                        ct.addWord(w, t.color.get(Math.min(k, t.color.size() - 1)));
+                        k++;
+                    }
+                }
+                codeText.addDynamicWord(() -> ct, Color.WHITE);
                 codeText.addWord("  ", Color.WHITE);
                 codeText.addDynamicWord(() -> dynamicSuffix(idx), Color.BLUE_WHITE);
                 codeText.newLine();
@@ -185,7 +193,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 } else {
                     ParseText res = ExpressionParser.evaluateAndAssign(line, env);
                     if (res != null) {
-                       
+
                         out = commentStart(res).join(new ParseText(" = ")).join(res);
                     }
                 }
@@ -197,14 +205,14 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         return ParseText.BLANK;
     }
 
-    private ParseText commentStart(ParseText res){
-        if(res.vectorLength == 4){
+    private ParseText commentStart(ParseText res) {
+        if (res.vectorLength == 4) {
             return new ParseText(SpecialGlyphs.COLOR_TRACKER.getChar() + "",
-                                new ColorRGB(res.data.x, res.data.y, res.data.z, res.data.w));
-        }else{
+                    new ColorRGB(res.data.x, res.data.y, res.data.z, res.data.w));
+        } else {
             return new ParseText("//");
         }
-        
+
     }
 
     private ParseText mouseText() {
