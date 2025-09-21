@@ -271,7 +271,6 @@ public abstract class Tool {
 
     public void back() {
         if (Main.tool.toolType() == Tool.Type.Free) {
-            Canvas3D.activate(true);
             Main.activate(false);
         }
         Main.tool.freeTool();

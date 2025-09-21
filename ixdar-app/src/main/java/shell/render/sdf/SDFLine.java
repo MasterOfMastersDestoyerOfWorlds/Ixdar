@@ -190,6 +190,7 @@ public class SDFLine extends ShaderDrawable {
         shader.setFloat("edgeSharpness", (float) Math.min(1 / (lineWidth * 2), 0.1));
         shader.setFloat("dashPhase", Clock.spin(dashRate));
         float inverseLineLengthSq = 1 / lengthSq(pA, pB);
+        shader.setFloat("lineLengthSq", lengthSq(pA, pB));
         shader.setFloat("inverseLineLengthSq", inverseLineLengthSq);
         shader.setVec2("pointA", pA);
         shader.setVec2("pointB", pB);

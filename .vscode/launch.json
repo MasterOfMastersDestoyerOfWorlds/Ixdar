@@ -50,6 +50,15 @@
         },
         {
             "type": "java",
+            "name": "Dashed Line",
+            "request": "launch",
+            "mainClass": "shell.ui.IxdarWindow",
+            "args": "dashed-line-canvas",
+            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+            "cwd": "${workspaceFolder}/ixdar-app"
+        },
+        {
+            "type": "java",
             "name": "Launch Current File",
             "request": "launch",
             "mainClass": "${file}",
