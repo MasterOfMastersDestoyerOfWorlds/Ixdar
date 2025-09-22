@@ -1,10 +1,9 @@
 
 package shell.render.shaders;
 
-import java.nio.FloatBuffer;
-
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
+import shell.platform.gl.IxBuffer;
 
 public class VertexBufferObject {
 
@@ -20,7 +19,7 @@ public class VertexBufferObject {
         gl.bindBuffer(target, id);
     }
 
-    public void uploadData(int target, FloatBuffer data, int usage) {
+    public void uploadData(int target, IxBuffer data, int usage) {
         GL gl = Platforms.gl();
         gl.bufferData(target, data, usage);
     }
@@ -35,7 +34,7 @@ public class VertexBufferObject {
         gl.bufferData(target, size, usage);
     }
 
-    public void uploadSubData(int target, long offset, FloatBuffer data) {
+    public void uploadSubData(int target, long offset, IxBuffer data) {
         GL gl = Platforms.gl();
         gl.bufferSubData(target, offset, data);
     }

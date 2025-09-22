@@ -31,6 +31,7 @@ import com.google.gson.Gson;
 import shell.file.FileManagement;
 import shell.file.TextFile;
 import shell.platform.Platforms;
+import shell.platform.gl.IxBuffer;
 import shell.platform.gl.Platform;
 import shell.render.Texture;
 import shell.render.text.FontAtlasDTO;
@@ -44,6 +45,10 @@ public class LwjglPlatform implements Platform {
         this.window = window;
     }
 
+    @Override
+    public IxBuffer allocateFloats(int capacity) {
+        return new DefaultBuffer(capacity);
+    }
 
     @Override
     public void setTitle(String title) {
@@ -188,7 +193,6 @@ public class LwjglPlatform implements Platform {
     public void log(String msg) {
         System.out.println(msg);
     }
-
 
     @Override
     public boolean canHotReload() {

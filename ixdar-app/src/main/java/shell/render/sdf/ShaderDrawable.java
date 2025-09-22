@@ -3,7 +3,6 @@ package shell.render.sdf;
 import java.nio.FloatBuffer;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.ArrayList;
 
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
@@ -17,7 +16,6 @@ import shell.platform.gl.Platform;
 import shell.render.Texture;
 import shell.render.color.Color;
 import shell.render.shaders.ShaderProgram;
-import shell.render.text.ColorText;
 import shell.ui.code.ParseText;
 
 public abstract class ShaderDrawable {

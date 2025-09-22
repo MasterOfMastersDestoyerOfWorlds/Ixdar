@@ -1,7 +1,6 @@
 package shell.platform.gl.web;
 
 import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.function.IntFunction;
@@ -19,6 +18,8 @@ import org.teavm.jso.webgl.WebGLTexture;
 import org.teavm.jso.webgl.WebGLUniformLocation;
 
 import shell.platform.gl.GL;
+import shell.platform.gl.IxBuffer;
+import shell.platform.gl.lwjgl.DefaultBuffer;
 import shell.platform.input.MouseButtons;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.WebLauncher;
@@ -208,11 +209,8 @@ public class WebGL implements GL {
     }
 
     @Override
-    public void bufferDataArray(FloatBuffer data, int usage) {
-        org.teavm.jso.typedarrays.Float32Array arr = org.teavm.jso.typedarrays.Float32Array.create(data.remaining());
-        for (int i = 0, j = data.position(); j < data.limit(); i++, j++)
-            arr.set(i, data.get(j));
-        gl.bufferData(WebGLRenderingContext.ARRAY_BUFFER, arr, usage);
+    public void bufferDataArray(IxBuffer data, int usage) {
+        gl.bufferData(WebGLRenderingContext.ARRAY_BUFFER, ((WebBuffer) data).getFloatBuffer(), usage);
     }
 
     @Override
@@ -269,35 +267,23 @@ public class WebGL implements GL {
     }
 
     @Override
-    public void uniform2fv(int loc, java.nio.FloatBuffer buf) {
-        float[] a = new float[buf.remaining()];
-        for (int i = 0, j = buf.position(); j < buf.limit(); i++, j++)
-            a[i] = buf.get(j);
-        gl.uniform2fv(uniform(loc), a);
+    public void uniform2fv(int loc, IxBuffer buf) {
+        gl.uniform2fv(uniform(loc), ((WebBuffer) buf).getFloatBuffer());
     }
 
     @Override
-    public void uniform3fv(int loc, java.nio.FloatBuffer buf) {
-        float[] a = new float[buf.remaining()];
-        for (int i = 0, j = buf.position(); j < buf.limit(); i++, j++)
-            a[i] = buf.get(j);
-        gl.uniform3fv(uniform(loc), a);
+    public void uniform3fv(int loc, IxBuffer buf) {
+        gl.uniform3fv(uniform(loc), ((WebBuffer) buf).getFloatBuffer());
     }
 
     @Override
-    public void uniform4fv(int loc, java.nio.FloatBuffer buf) {
-        float[] a = new float[buf.remaining()];
-        for (int i = 0, j = buf.position(); j < buf.limit(); i++, j++)
-            a[i] = buf.get(j);
-        gl.uniform4fv(uniform(loc), a);
+    public void uniform4fv(int loc, IxBuffer buf) {
+        gl.uniform4fv(uniform(loc), ((WebBuffer) buf).getFloatBuffer());
     }
 
     @Override
-    public void uniformMatrix4fv(int loc, boolean transpose, java.nio.FloatBuffer buf) {
-        float[] a = new float[buf.remaining()];
-        for (int i = 0, j = buf.position(); j < buf.limit(); i++, j++)
-            a[i] = buf.get(j);
-        gl.uniformMatrix4fv(uniform(loc), transpose, a);
+    public void uniformMatrix4fv(int loc, boolean transpose, IxBuffer buf) {
+        gl.uniformMatrix4fv(uniform(loc), transpose, ((WebBuffer) buf).getFloatBuffer());
     }
 
     @Override
@@ -573,12 +559,8 @@ public class WebGL implements GL {
     }
 
     @Override
-    public void bufferData(int target, FloatBuffer data, int usage) {
-        org.teavm.jso.typedarrays.Float32Array arr = org.teavm.jso.typedarrays.Float32Array.create(data.remaining());
-        for (int i = 0, j = data.position(); j < data.limit(); i++, j++) {
-            arr.set(i, data.get(j));
-        }
-        gl.bufferData(target, arr, usage);
+    public void bufferData(int target, IxBuffer data, int usage) {
+        gl.bufferData(target, ((WebBuffer) data).getFloatBuffer(), usage);
     }
 
     @Override
@@ -597,12 +579,8 @@ public class WebGL implements GL {
     }
 
     @Override
-    public void bufferSubData(int target, long offset, FloatBuffer data) {
-        org.teavm.jso.typedarrays.Float32Array arr = org.teavm.jso.typedarrays.Float32Array.create(data.remaining());
-        for (int i = 0, j = data.position(); j < data.limit(); i++, j++) {
-            arr.set(i, data.get(j));
-        }
-        gl.bufferSubData(target, (int) offset, arr);
+    public void bufferSubData(int target, long offset, IxBuffer data) {
+        gl.bufferSubData(target, (int) offset, ((WebBuffer) data).getFloatBuffer());
     }
 
     @Override
@@ -684,11 +662,8 @@ public class WebGL implements GL {
     }
 
     @Override
-    public void uniform3fv(Integer integer, FloatBuffer vec3) {
-        float[] a = new float[vec3.remaining()];
-        for (int i = 0, j = vec3.position(); j < vec3.limit(); i++, j++)
-            a[i] = vec3.get(j);
-        gl.uniform3fv(uniform(integer), a);
+    public void uniform3fv(Integer integer, IxBuffer vec3) {
+        gl.uniform3fv(uniform(integer), ((WebBuffer) vec3).getFloatBuffer());
     }
 
     @Override

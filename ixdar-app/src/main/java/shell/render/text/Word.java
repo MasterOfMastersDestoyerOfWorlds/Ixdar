@@ -28,6 +28,7 @@ public class Word {
     public ArrayList<Word> subWords;
     private Font font;
     public static final String WORD_BOUNDS_ID = "WORD";
+    public boolean culled = false;
 
     public Word(String word, Color c, Action hoverAction, Action clearHover, Action clickAction, Font font) {
         text = word;
@@ -53,7 +54,8 @@ public class Word {
         this.font = font;
     }
 
-    public Word(Supplier<ColorText<?>> wordAction, Color c, Action hoverAction, Action clearHover, Action clickAction, Font font) {
+    public Word(Supplier<ColorText<?>> wordAction, Color c, Action hoverAction, Action clearHover, Action clickAction,
+            Font font) {
         text = "?MissingWord?";
         color = c;
         this.wordAction = wordAction;
@@ -71,7 +73,6 @@ public class Word {
     }
 
     public void setBounds(float x, float y, float xScreen, float yScreen, float height, Bounds viewBounds) {
-        this.width = Drawing.getDrawing().font.getWidth(text);
         this.x = x;
         this.y = y;
         this.xScreenOffset = xScreen;
@@ -82,7 +83,7 @@ public class Word {
 
     public void setFont(Font font) {
         this.font = font;
-        if(isDynamic) {
+        if (isDynamic) {
             this.width = font.getWidth(text);
         }
     }
@@ -125,16 +126,21 @@ public class Word {
 
     public ArrayList<Word> subWords() {
         ColorText<?> colorText = wordAction.get();
-        ArrayList<Word> subWords = new ArrayList<>();
-        int i = 0;
-        for (String textPart : colorText.text) {
-            subWords.add(new Word(textPart + " ", colorText.color.get(i), hoverAction, clearHover, clickAction, font));
-            i++;
-            if (i >= colorText.color.size()) {
-                i = 0;
+        if (colorText.dirty) {
+            ArrayList<Word> subWords = new ArrayList<>();
+            int i = 0;
+            for (String textPart : colorText.text) {
+                subWords.add(
+                        new Word(textPart + " ", colorText.color.get(i), hoverAction, clearHover, clickAction, font));
+                i++;
+                if (i >= colorText.color.size()) {
+                    i = 0;
+                }
             }
+            colorText.subWords = subWords;
         }
-        this.subWords = subWords;
+        colorText.dirty = false;
+        this.subWords = colorText.subWords;
         return subWords;
     }
 

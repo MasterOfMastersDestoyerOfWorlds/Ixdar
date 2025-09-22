@@ -5,7 +5,6 @@ import java.io.IOException;
 
 import shell.file.FileManagement;
 import shell.terminal.Terminal;
-import shell.ui.main.Main;
 
 public class SaveCommand extends TerminalCommand {
 

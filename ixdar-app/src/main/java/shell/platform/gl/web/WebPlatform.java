@@ -20,6 +20,7 @@ import org.teavm.jso.typedarrays.Uint8ClampedArray;
 
 import shell.file.TextFile;
 import shell.platform.Platforms;
+import shell.platform.gl.IxBuffer;
 import shell.platform.gl.Platform;
 import shell.platform.input.Keys;
 import shell.render.Texture;
@@ -430,6 +431,11 @@ public class WebPlatform implements Platform {
     @Override
     public boolean canHotReload() {
         return false;
+    }
+
+    @Override
+    public IxBuffer allocateFloats(int i) {
+        return new WebBuffer(i);
     }
 }
 

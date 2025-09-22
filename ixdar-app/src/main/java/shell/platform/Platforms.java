@@ -2,7 +2,6 @@ package shell.platform;
 
 import java.util.HashMap;
 
-import shell.platform.buffers.Buffers;
 import shell.platform.gl.GL;
 import shell.platform.gl.Platform;
 
@@ -11,7 +10,6 @@ public final class Platforms {
     private static Platform instance;
 
     private static GL glInstance;
-    private static Buffers buffersInstance;
     private static HashMap<Integer, Platform> platformMap = new HashMap<>();
     private static HashMap<Integer, GL> glMap = new HashMap<>();
 
@@ -25,6 +23,7 @@ public final class Platforms {
         platformMap.put(p, platform);
         glMap.put(p, gl);
     }
+
     public static void init(Integer p) {
         if (!platformMap.containsKey(p)) {
             throw new IllegalStateException("Platform not initialized");
@@ -46,18 +45,5 @@ public final class Platforms {
         }
         return glInstance;
     }
-
-    public static void setBuffers(Buffers buffers) {
-        buffersInstance = buffers;
-    }
-
-    public static Buffers buffers() {
-        if (buffersInstance == null) {
-            // Fallback: use a default direct-ByteBuffer-based implementation
-            buffersInstance = new shell.platform.buffers.DefaultBuffers();
-        }
-        return buffersInstance;
-    }
-
 
 }

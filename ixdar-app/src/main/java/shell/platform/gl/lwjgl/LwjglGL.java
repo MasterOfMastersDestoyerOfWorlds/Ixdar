@@ -82,6 +82,7 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
 import shell.platform.gl.GL;
+import shell.platform.gl.IxBuffer;
 import shell.platform.input.MouseButtons;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.IxdarWindow;
@@ -200,8 +201,8 @@ public class LwjglGL implements GL {
     }
 
     @Override
-    public void bufferDataArray(FloatBuffer data, int usage) {
-        glBufferData(GL_ARRAY_BUFFER, data, usage);
+    public void bufferDataArray(IxBuffer data, int usage) {
+        glBufferData(GL_ARRAY_BUFFER, ((DefaultBuffer)data).getFloatBuffer(), usage);
     }
 
     @Override
@@ -250,23 +251,23 @@ public class LwjglGL implements GL {
     }
 
     @Override
-    public void uniform2fv(int loc, java.nio.FloatBuffer buf) {
-        glUniform2fv(loc, buf);
+    public void uniform2fv(int loc, IxBuffer buf) {
+        glUniform2fv(loc, ((DefaultBuffer)buf).getFloatBuffer());
     }
 
     @Override
-    public void uniform3fv(int loc, java.nio.FloatBuffer buf) {
-        glUniform3fv(loc, buf);
+    public void uniform3fv(int loc, IxBuffer buf) {
+        glUniform3fv(loc, ((DefaultBuffer)buf).getFloatBuffer());
     }
 
     @Override
-    public void uniform4fv(int loc, java.nio.FloatBuffer buf) {
-        glUniform4fv(loc, buf);
+    public void uniform4fv(int loc, IxBuffer buf) {
+        glUniform4fv(loc, ((DefaultBuffer)buf).getFloatBuffer());
     }
 
     @Override
-    public void uniformMatrix4fv(int loc, boolean transpose, java.nio.FloatBuffer buf) {
-        glUniformMatrix4fv(loc, transpose, buf);
+    public void uniformMatrix4fv(int loc, boolean transpose, IxBuffer buf) {
+        glUniformMatrix4fv(loc, transpose, ((DefaultBuffer)buf).getFloatBuffer());
     }
 
     @Override
@@ -452,8 +453,8 @@ public class LwjglGL implements GL {
     }
 
     @Override
-    public void bufferData(int target, FloatBuffer data, int usage) {
-        glBufferData(target, data, usage);
+    public void bufferData(int target, IxBuffer data, int usage) {
+        glBufferData(target, ((DefaultBuffer)data).getFloatBuffer(), usage);
     }
 
     @Override
@@ -467,8 +468,8 @@ public class LwjglGL implements GL {
     }
 
     @Override
-    public void bufferSubData(int target, long offset, FloatBuffer data) {
-        glBufferSubData(target, offset, data);
+    public void bufferSubData(int target, long offset, IxBuffer data) {
+        glBufferSubData(target, offset, ((DefaultBuffer)data).getFloatBuffer());
     }
 
     @Override
@@ -532,8 +533,8 @@ public class LwjglGL implements GL {
     }
 
     @Override
-    public void uniform3fv(Integer integer, FloatBuffer vec3) {
-        glUniform3fv(integer, vec3);
+    public void uniform3fv(Integer integer, IxBuffer vec3) {
+        glUniform3fv(integer, ((DefaultBuffer)vec3).getFloatBuffer());
     }
 
     @Override

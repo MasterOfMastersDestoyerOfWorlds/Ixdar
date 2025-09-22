@@ -2,7 +2,6 @@ package shell.platform.gl;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import shell.file.TextFile;
@@ -70,4 +69,6 @@ public interface Platform {
     void log(String msg);
 
     boolean canHotReload();
+
+    IxBuffer allocateFloats(int i);
 }

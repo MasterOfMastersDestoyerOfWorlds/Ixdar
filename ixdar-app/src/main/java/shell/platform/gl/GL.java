@@ -1,7 +1,6 @@
 package shell.platform.gl;
 
 import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.function.IntFunction;
@@ -46,7 +45,7 @@ public interface GL {
 
     void bindArrayBuffer(int buffer);
 
-    void bufferDataArray(FloatBuffer data, int usage);
+    void bufferDataArray(IxBuffer data, int usage);
 
     void bufferDataArray(float[] data, int usage);
 
@@ -66,13 +65,13 @@ public interface GL {
 
     void uniform1i(int loc, int v);
 
-    void uniform2fv(int loc, FloatBuffer buf);
+    void uniform2fv(int loc, IxBuffer buffer);
 
-    void uniform3fv(int loc, FloatBuffer buf);
+    void uniform3fv(int loc, IxBuffer buffer);
 
-    void uniform4fv(int loc, FloatBuffer buf);
+    void uniform4fv(int loc, IxBuffer buffer);
 
-    void uniformMatrix4fv(int loc, boolean transpose, FloatBuffer buf);
+    void uniformMatrix4fv(int loc, boolean transpose, IxBuffer buffer);
 
     int genTexture();
 
@@ -147,13 +146,13 @@ public interface GL {
 
     void bindBuffer(int target, int id);
 
-    void bufferData(int target, FloatBuffer data, int usage);
+    void bufferData(int target, IxBuffer data, int usage);
 
     void bufferData(int target, float[] data, int usage);
 
     void bufferData(int target, long size, int usage);
 
-    void bufferSubData(int target, long offset, FloatBuffer data);
+    void bufferSubData(int target, long offset, IxBuffer data);
 
     void bufferData(int target, IntBuffer data, int usage);
 
@@ -179,7 +178,7 @@ public interface GL {
 
     void getShaderiv(int shader, int compile_STATUS, IntBuffer success);
 
-    void uniform3fv(Integer integer, FloatBuffer vec3);
+    void uniform3fv(Integer integer, IxBuffer vec3);
 
     int[] readPixels(int i, int j, int width, int height, int rgba, int unsigned_BYTE, int fb);
 

@@ -268,6 +268,9 @@ public class Font {
             ArrayList<Word> words = hyperString.getLine(lineNumber);
             for (int i = 0; i < words.size(); i++) {
                 Word word = words.get(i);
+                if (word.culled) {
+                    continue;
+                }
                 if (word.newLine) {
                     continue;
                 }

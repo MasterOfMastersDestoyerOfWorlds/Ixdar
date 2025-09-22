@@ -5,7 +5,6 @@ import java.io.IOException;
 import shell.exceptions.TerminalParseException;
 import shell.file.FileManagement;
 import shell.terminal.Terminal;
-import shell.ui.Canvas3D;
 import shell.ui.main.Main;
 
 public class ReloadCommand extends TerminalCommand {

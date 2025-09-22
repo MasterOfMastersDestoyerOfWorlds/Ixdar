@@ -60,8 +60,6 @@ public final class WebLauncher {
             Canvas3D canvas3d = (Canvas3D) cs.get();
 
             canvas3d.initGL();
-            // Provide default buffers implementation for web
-            Platforms.setBuffers(new shell.platform.buffers.DefaultBuffers());
             canvasElements[i] = canvas;
             canvas3dScenes[i] = canvas3d;
             final int j = i;

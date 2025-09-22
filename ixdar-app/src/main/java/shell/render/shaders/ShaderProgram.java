@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,7 +16,8 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import shell.platform.Platforms;
-import shell.platform.buffers.Buffers;
+import shell.platform.gl.IxBuffer;
+import shell.platform.gl.Platform;
 import shell.platform.gl.GL;
 import shell.render.Texture;
 import shell.render.color.Color;
@@ -107,7 +107,7 @@ public abstract class ShaderProgram {
 
     protected int ID = -1;
     int vertexShader, fragmentShader;
-    private FloatBuffer verteciesBuff;
+    private IxBuffer verteciesBuff;
     private int numVertices;
     private boolean drawing;
 
@@ -123,10 +123,10 @@ public abstract class ShaderProgram {
     private long vertexLastModified;
     private boolean useBuffer;
     private boolean reloadShader;
-    private final Buffers buffers = Platforms.buffers();
     public Map<String, Object> uniformMap = new HashMap<>();
     public int platformId;
     public GL gl;
+    public Platform platform;
 
     public ShaderProgram(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
             VertexBufferObject vbo, boolean useBuffer) throws UnsupportedEncodingException, IOException {
@@ -138,6 +138,7 @@ public abstract class ShaderProgram {
         this.useBuffer = useBuffer;
         this.platformId = Platforms.gl().getID();
         gl = Platforms.gl();
+        platform = Platforms.get();
         // Load shader sources via Platform abstraction (supports desktop and web)
         String vsrc = shell.platform.Platforms.get().loadShaderSource(vertexShaderLocation);
         String fsrc = shell.platform.Platforms.get().loadShaderSource(fragmentShaderLocation);
@@ -204,7 +205,7 @@ public abstract class ShaderProgram {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        FloatBuffer buffer = buffers.allocateFloats(16);
+        IxBuffer buffer = platform.allocateFloats(16);
         // Manually pack to avoid JOML MemUtil/Unsafe on TeaVM
         buffer.put(mat.m00()).put(mat.m01()).put(mat.m02()).put(mat.m03());
         buffer.put(mat.m10()).put(mat.m11()).put(mat.m12()).put(mat.m13());
@@ -215,7 +216,7 @@ public abstract class ShaderProgram {
         uniformMap.put(name, mat);
     }
 
-    public void setMat4(String name, FloatBuffer allocatedBuffer) {
+    public void setMat4(String name, IxBuffer allocatedBuffer) {
 
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
@@ -229,7 +230,7 @@ public abstract class ShaderProgram {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        FloatBuffer buffer = buffers.allocateFloats(2);
+        IxBuffer buffer = platform.allocateFloats(2);
         buffer.put(vec2.x).put(vec2.y).flip();
         gl.uniform2fv(uniformLocations.get(name), buffer);
         uniformMap.put(name, vec2);
@@ -240,7 +241,7 @@ public abstract class ShaderProgram {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        FloatBuffer vec3buf = buffers.allocateFloats(3);
+        IxBuffer vec3buf = platform.allocateFloats(3);
         vec3buf.put(f).put(g).put(h).flip();
         gl.uniform3fv(uniformLocations.get(name), vec3buf);
         uniformMap.put(name, new Vector3f(f, g, h));
@@ -250,7 +251,7 @@ public abstract class ShaderProgram {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        FloatBuffer buffer = buffers.allocateFloats(3);
+        IxBuffer buffer = platform.allocateFloats(3);
         buffer.put(vec3.x).put(vec3.y).put(vec3.z).flip();
         gl.uniform3fv(uniformLocations.get(name), buffer);
         uniformMap.put(name, vec3);
@@ -261,7 +262,7 @@ public abstract class ShaderProgram {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        FloatBuffer buffer = buffers.allocateFloats(4);
+        IxBuffer buffer = platform.allocateFloats(4);
         buffer.put(vec4.x).put(vec4.y).put(vec4.z).put(vec4.w).flip();
         gl.uniform4fv(uniformLocations.get(name), buffer);
         uniformMap.put(name, vec4);
@@ -307,7 +308,7 @@ public abstract class ShaderProgram {
     }
 
     public void hotReload() {
-        if(!Platforms.get().canHotReload()) {
+        if (!Platforms.get().canHotReload()) {
             return;
         }
         try {
@@ -721,7 +722,7 @@ public abstract class ShaderProgram {
 
             vbo.bind(gl.ARRAY_BUFFER());
 
-            verteciesBuff = buffers.allocateFloats((int) Math.pow(2, 16));
+            verteciesBuff = platform.allocateFloats((int) Math.pow(2, 16));
 
             long size = verteciesBuff.capacity() * Float.BYTES;
             vbo.uploadData(gl.ARRAY_BUFFER(), size, gl.DYNAMIC_DRAW());
