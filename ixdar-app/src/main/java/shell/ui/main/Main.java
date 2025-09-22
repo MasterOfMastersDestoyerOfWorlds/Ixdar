@@ -384,7 +384,7 @@ public class Main {
 
             if (toolTip != null && showToolTip) {
                 float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
-                toolTip.setLineOffsetFromTopRow(camera, 0, 0, rowHeight, Drawing.getDrawing().font);
+                toolTip.setLineOffsetFromTopRow(camera, 0, 0, rowHeight);
                 camera.updateView(VIEW_TOOLTIP);
                 new ColorBox().draw(Color.DARK_GRAY, camera);
                 Drawing.getDrawing().font.drawHyperStringRows(toolTip, 0, 0, rowHeight, camera);

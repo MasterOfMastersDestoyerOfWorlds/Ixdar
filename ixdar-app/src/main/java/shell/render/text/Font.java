@@ -262,7 +262,7 @@ public class Font {
         }
 
         sdfTexture.setup(camera);
-        hyperString.setLineOffsetFromTopRow(camera, row, scrollOffsetY, height, this);
+        hyperString.setLineOffsetFromTopRow(camera, row, scrollOffsetY, height);
         hyperString.draw();
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
             ArrayList<Word> words = hyperString.getLine(lineNumber);

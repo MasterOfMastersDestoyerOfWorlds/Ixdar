@@ -26,8 +26,8 @@ public class DashedLineScene extends Scene {
     @Override
     public void initPoints() {
         super.initPoints();
-        point1 = new PointND.Double(-0.6, 0.0);
-        point2 = new PointND.Double(0.6, 0.0);
+        point1 = new PointND.Double(-0.8, 0.0);
+        point2 = new PointND.Double(0.8, 0.0);
         shell.add(point1);
         shell.add(point2);
     }

@@ -28,6 +28,7 @@ public class HyperString {
     public Bounds bounds;
     public Object data;
     private int wrappedLines;
+    private Font font;
 
     public HyperString() {
         words = new ArrayList<>();
@@ -36,6 +37,14 @@ public class HyperString {
         children = new ArrayList<>();
         lineStartMap.add(0);
         strMap.put(0, "");
+        font = Drawing.getDrawing().font;
+    }
+
+    public void setFont(Font font) {
+        this.font = font;
+        for (Word w : words) {
+            w.setFont(font);
+        }
     }
 
     public void addWord(String word) {
@@ -67,13 +76,13 @@ public class HyperString {
     public void addDynamicWordClick(Supplier<ColorText<?>> wordAction, Color c, Action clickAction) {
         words.add(new Word(wordAction, c, () -> {
         }, () -> {
-        }, clickAction));
+        }, clickAction, font));
     }
 
     public void addWord(String word, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         for (String w : word.split(" ")) {
             strMap.computeIfPresent(lines - 1, (key, val) -> val + w + " ");
-            words.add(new Word(w + " ", c, hoverAction, clearHover, clickAction));
+            words.add(new Word(w + " ", c, hoverAction, clearHover, clickAction, font));
         }
     }
 
@@ -81,19 +90,19 @@ public class HyperString {
         words.add(new Word(wordAction, defaultColor, () -> {
         }, () -> {
         }, () -> {
-        }));
+        }, font));
     }
 
     public void addDynamicWord(Supplier<ColorText<?>> wordAction, Color c) {
         words.add(new Word(wordAction, c, () -> {
         }, () -> {
         }, () -> {
-        }));
+        }, font));
     }
 
     public void addDynamicWord(Supplier<ColorText<?>> wordAction, Color c, Action hoverAction, Action clearHover,
             Action clickAction) {
-        words.add(new Word(wordAction, c, hoverAction, clearHover, clickAction));
+        words.add(new Word(wordAction, c, hoverAction, clearHover, clickAction, font));
     }
 
     public void addLine(String word, Color c) {
@@ -109,14 +118,14 @@ public class HyperString {
     public void addTooltip(String word, Color c, HyperString toolTipText, Action clickAction) {
         for (String w : word.split(" ")) {
             words.add(new Word(w + " ", c, () -> Main.setTooltipText(toolTipText), () -> Main.clearTooltipText(),
-                    clickAction));
+                    clickAction, font));
         }
     }
 
     public void addDynamicTooltip(Supplier<ColorText<?>> wordAction, Color c, HyperString toolTipText,
             Action clickAction) {
         words.add(new Word(wordAction, c, () -> Main.setTooltipText(toolTipText), () -> Main.clearTooltipText(),
-                clickAction));
+                clickAction, font));
     }
 
     public void addHoverKnot(String word, Color c, Knot hoverKnot, Action clickAction) {
@@ -130,7 +139,7 @@ public class HyperString {
         }, () -> {
             Main.clearHoverKnot();
             Main.clearTooltipText();
-        }, clickAction));
+        }, clickAction, font));
     }
 
     public void addHoverSegment(String str, Color c, Segment segment, Action clickAction) {
@@ -143,7 +152,7 @@ public class HyperString {
         }, () -> {
             Main.clearHoverSegment();
             Main.clearTooltipText();
-        }, clickAction));
+        }, clickAction, font));
     }
 
     public void addDistance(double distance, Color c) {
@@ -167,7 +176,7 @@ public class HyperString {
 
     public void newLine() {
         lines++;
-        words.add(new Word(true));
+        words.add(new Word(true, font));
         lineStartMap.add(words.size() - 1);
         strMap.put(lines - 1, "");
     }
@@ -254,15 +263,15 @@ public class HyperString {
         }
     }
 
-    public int setLineOffsetFromTopRow(Camera2D camera, int row, float scrollOffsetY, float rowHeight, Font font) {
+    public int setLineOffsetFromTopRow(Camera2D camera, int row, float scrollOffsetY, float rowHeight) {
         int startRow = row;
         for (int i = 0; i < lines; i++) {
-            row += setLineOffsetFromTopRow(camera, row, scrollOffsetY, rowHeight, font, i);
+            row += setLineOffsetFromTopRow(camera, row, scrollOffsetY, rowHeight, i);
         }
         return row - startRow;
     }
 
-    public int setLineOffsetFromTopRow(Camera2D camera, int row, float scrollOffsetY, float rowHeight, Font font,
+    public int setLineOffsetFromTopRow(Camera2D camera, int row, float scrollOffsetY, float rowHeight,
             int lineNumber) {
         int startRow = row;
         int idxStart = lineStartMap.get(lineNumber);
@@ -283,7 +292,6 @@ public class HyperString {
                 subWords = w.subWords();
             }
             for (Word subWord : subWords) {
-                subWord.setWidth(font);
                 charLength += subWord.text.length();
                 float wordX = offset;
                 float wordWidth = Drawing.FONT_HEIGHT_PIXELS / Drawing.getDrawing().font.fontHeight * subWord.width;

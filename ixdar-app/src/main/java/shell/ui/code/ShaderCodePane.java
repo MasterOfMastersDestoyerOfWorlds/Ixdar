@@ -8,6 +8,7 @@ import org.joml.Vector2f;
 import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
 import shell.platform.input.MouseTrap;
+import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.ShaderDrawable;
@@ -89,6 +90,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         showCodeButton.newLine();
         showCodeButton.addWord("Mouse: ", Color.CYAN);
         showCodeButton.addDynamicWord(() -> mouseText());
+        showCodeButton.addDynamicWord(() -> {return new ColorText<Float>("FPS: " + Clock.fps(), Color.CYAN);});
         webViews.put(paneBounds.id, paneBounds);
         loadCode(this.targetShader, this.title);
         camera.updateView(paneBounds.id);

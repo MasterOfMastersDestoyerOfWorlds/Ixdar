@@ -50,6 +50,4 @@ void main() {
 
     float opacA = smoothstep(edgeDist + edgeSharpness, edgeDist, min(distA, distB) / (width));
     fragColor = mix(vec4(fragColor.rgb, fragColor.a * dashOpac), fragColor, opacA * float(endCaps));
-
-    //fragColor = vec4(mix(vertexColor.rgb, linearGradientColor.rgb, textureCoord.x), 1. * opacity * linearGradientColor.a);
 }
