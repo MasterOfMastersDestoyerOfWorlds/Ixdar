@@ -11,7 +11,7 @@ public class LightShader extends ShaderProgram {
 
     public LightShader(VertexArrayObject vao,
             VertexBufferObject vbo) throws UnsupportedEncodingException, IOException {
-        super("light_shader.vs", "light_shader.fs", vao, vbo, false);
+        super("light_shader.vs", "light_shader.fs", vao, vbo, 8, false);
     }
 
     @Override

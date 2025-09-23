@@ -37,7 +37,28 @@ public abstract class ShaderDrawable {
     public Vector2f center;
     public Color c = Color.PINK;
 
-    public void setup(Camera camera) {
+    // Persistent VBO allocation for this drawable's quad geometry
+    private ShaderProgram.Allocation allocation;
+    private boolean geometryDirty = true;
+    private boolean colorDirty = true;
+
+    private final Map<Long, Object> ownerKeyById = new HashMap<>();
+    private final Map<Long, ShaderProgram.Allocation> allocationById = new HashMap<>();
+    private final Map<Long, Quad> prevQuadById = new HashMap<>();
+
+    private static final class Quad {
+        final Vector2f bl, br, tr, tl;
+        public final static int VERTEX_COUNT = 6;
+
+        Quad(Vector2f bl, Vector2f br, Vector2f tr, Vector2f tl) {
+            this.bl = new Vector2f(bl);
+            this.br = new Vector2f(br);
+            this.tr = new Vector2f(tr);
+            this.tl = new Vector2f(tl);
+        }
+    }
+
+    public void setup(Camera camera, Long id) {
         this.camera = camera;
         shader.use();
         shader.begin();
@@ -53,6 +74,21 @@ public abstract class ShaderDrawable {
                 .div(4f);
 
         setUniforms();
+
+        // Prepare or update persistent VBO geometry for this quad
+        ShaderProgram.Allocation alloc = ensureAllocation(id);
+        if (isGeometryDirty(id) || alloc.isDirty() || colorDirty) {
+            uploadGeometry(alloc);
+            colorDirty = false;
+
+        } else {
+            ensureAllocation();
+            if (allocation.isDirty() || geometryDirty || colorDirty) {
+                uploadGeometry(allocation);
+                geometryDirty = false;
+                colorDirty = false;
+            }
+        }
     }
 
     public void cleanup(Camera c) {
@@ -99,7 +135,7 @@ public abstract class ShaderDrawable {
         return map;
     }
 
-    public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
+    public void draw(float drawX, float drawY, float width, float height, Color c, Long id, Camera camera) {
         if (c != null) {
             this.c = c;
         }
@@ -107,32 +143,48 @@ public abstract class ShaderDrawable {
         this.drawY = drawY;
         this.width = width;
         this.height = height;
-        draw(camera);
+        draw(camera, id);
     }
 
-    public void draw(Camera camera) {
+    // Backwards-compatible overloads (no id provided)
+    public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
+        long id = ShaderProgram.assignId(this);
+        draw(drawX, drawY, width, height, c, id, camera);
+    }
+
+    public void draw(Camera camera, Long id) {
         if (shader == null) {
             platform.log("Shader is null");
             return;
         }
-        if(shader.platformId != Platforms.gl().getID()){
+        if (shader.platformId != Platforms.gl().getID()) {
             platform.log("Shader is not for the current platform");
             return;
         }
         this.camera = camera;
-        setup(camera);
-        shader.drawSDFRegion(bottomLeft.x, bottomLeft.y, bottomRight.x, bottomRight.y, topLeft.x, topLeft.y, topRight.x,
-                topRight.y, camera.getZIndex(), 0, 0, 1, 1,
-                c);
+        setup(camera, id);
+        // Queue draw referencing persistent buffer region instead of repacking each
+        // frame
+        ShaderProgram.Allocation alloc = allocationById.get(id);
+        if (alloc != null) {
+            shader.queueDraw(alloc, Quad.VERTEX_COUNT);
+        }
         cleanup(camera);
     }
 
-    public void drawFar(Camera camera) {
+    // Backwards-compatible overload (no id provided)
+    public void draw(Camera camera) {
+        long id = ShaderProgram.assignId(this);
+        draw(camera, id);
+    }
+
+    public void drawFar(Camera camera, Long id) {
         this.camera = camera;
-        setup(camera);
-        shader.drawSDFRegion(bottomLeft.x, bottomLeft.y, bottomRight.x, bottomRight.y, topLeft.x, topLeft.y, topRight.x,
-                topRight.y, camera.getFarZIndex(), 0, 0, 1, 1,
-                c);
+        setup(camera, id);
+        ShaderProgram.Allocation alloc = allocationById.get(id);
+        if (alloc != null) {
+            shader.queueDraw(alloc, Quad.VERTEX_COUNT);
+        }
         cleanupFar(camera);
     }
 
@@ -143,11 +195,98 @@ public abstract class ShaderDrawable {
         topRight = new Vector2f(bottomLeft).add(width, height);
     }
 
+    public void drawCentered(float drawX, float drawY, float width, float height, Color c, Long id, Camera camera) {
+        draw(drawX - (width / 2), drawY - (height / 2), width, height, c, id, camera);
+    }
+
     public void drawCentered(float drawX, float drawY, float width, float height, Color c, Camera camera) {
-        draw(drawX - (width / 2), drawY - (height / 2), width, height, c, camera);
+        long id = ShaderProgram.assignId(this);
+        drawCentered(drawX, drawY, width, height, c, id, camera);
+    }
+
+    public void drawRightBound(float drawX, float drawY, float width, float height, Color c, Long id, Camera camera) {
+        draw(drawX - width, drawY, width, height, c, id, camera);
     }
 
     public void drawRightBound(float drawX, float drawY, float width, float height, Color c, Camera camera) {
-        draw(drawX - width, drawY, width, height, c, camera);
+        long id = ShaderProgram.assignId(this);
+        drawRightBound(drawX, drawY, width, height, c, id, camera);
+    }
+
+    private void ensureAllocation() {
+        if (allocation == null) {
+            allocation = shader.ensureAllocation(this, Quad.VERTEX_COUNT);
+            geometryDirty = true;
+            colorDirty = true;
+        }
+    }
+
+    private ShaderProgram.Allocation ensureAllocation(Long id) {
+        if (id == null)
+            return null;
+        ShaderProgram.Allocation alloc = allocationById.get(id);
+        if (alloc == null) {
+            Object key = ownerKeyById.computeIfAbsent(id, k -> new Object());
+            alloc = shader.ensureAllocation(key, Quad.VERTEX_COUNT);
+            allocationById.put(id, alloc);
+        }
+        return alloc;
+    }
+
+    private boolean isGeometryDirty(Long id) {
+        if (id == null) {
+            return geometryDirty;
+        }
+        Quad newQuad = new Quad(bottomLeft, bottomRight, topRight, topLeft);
+        Quad old = prevQuadById.get(id);
+        boolean changed = (old == null) || !sameQuad(old, newQuad);
+        prevQuadById.put(id, newQuad);
+        return changed;
+    }
+
+    private static boolean sameQuad(Quad a, Quad b) {
+        float eps = 0.01f;
+        return a.bl.distance(b.bl) <= eps && a.br.distance(b.br) <= eps && a.tr.distance(b.tr) <= eps
+                && a.tl.distance(b.tl) <= eps;
+    }
+
+    private void uploadGeometry(ShaderProgram.Allocation target) {
+        // Build quad vertex data into a temporary buffer matching the shader's stride
+        int stride = shader.getStrideFloats();
+        if (stride <= 0)
+            stride = 9; // default for SDF/Font
+        int floatsNeeded = stride * Quad.VERTEX_COUNT;
+        shell.platform.gl.IxBuffer buf = platform.allocateFloats(floatsNeeded);
+
+        // Prepare common color and UVs for SDF/Font shaders; Color-only shaders ignore
+        // UVs
+        Vector4f color = c.toVector4f();
+        float r = color.x, g = color.y, b = color.z, a = color.w;
+        float z = camera != null ? camera.getZIndex() : 0f;
+
+        // Triangle 1: bottomLeft, topLeft, topRight
+        if (stride == 9) {
+            // pos3 + color4 + uv2
+            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(0f);
+            buf.put(topLeft.x).put(topLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(1f);
+            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(1f);
+
+            // Triangle 2: bottomLeft, topRight, bottomRight
+            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(0f);
+            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(1f);
+            buf.put(bottomRight.x).put(bottomRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(0f);
+        } else if (stride == 7) {
+            // pos3 + color4
+            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a);
+            buf.put(topLeft.x).put(topLeft.y).put(z).put(r).put(g).put(b).put(a);
+            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a);
+
+            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a);
+            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a);
+            buf.put(bottomRight.x).put(bottomRight.y).put(z).put(r).put(g).put(b).put(a);
+        }
+
+        buf.flip();
+        shader.uploadAllocation(target, buf, Quad.VERTEX_COUNT);
     }
 }

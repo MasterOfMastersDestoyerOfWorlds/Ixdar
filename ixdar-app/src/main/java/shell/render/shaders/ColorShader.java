@@ -14,7 +14,7 @@ public class ColorShader extends ShaderProgram {
     public ColorShader(String vertexShaderLocation, String fragmentShaderLocation)
             throws UnsupportedEncodingException, IOException {
         super(vertexShaderLocation, fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
-                true);
+                7, true);
     }
 
     @Override

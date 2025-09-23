@@ -10,7 +10,7 @@ public class DiffuseShader extends ShaderProgram {
 
     public DiffuseShader(VertexArrayObject vao,
             VertexBufferObject vbo) throws UnsupportedEncodingException, IOException {
-        super("shader.vs", "shader.fs", vao, vbo, false);
+        super("shader.vs", "shader.fs", vao, vbo, 8, false);
     }
 
     @Override

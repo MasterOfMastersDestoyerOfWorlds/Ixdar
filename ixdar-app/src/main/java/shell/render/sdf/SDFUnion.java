@@ -10,7 +10,7 @@ import shell.render.color.Color;
 import shell.render.color.ColorRGB;
 import shell.render.shaders.ShaderProgram.ShaderType;
 
-public class SDFUnion extends ShaderDrawable{
+public class SDFUnion extends ShaderDrawable {
 
     public Texture outerTexture;
     public Color outerColor;
@@ -45,8 +45,13 @@ public class SDFUnion extends ShaderDrawable{
 
     public void draw(float drawX, float drawY, float width, float height, Color innerColor,
             Color outerColor, Camera camera) {
+        draw(drawX, drawY, width, height, innerColor, outerColor, 0L, camera);
+    }
+
+    public void draw(float drawX, float drawY, float width, float height, Color innerColor,
+            Color outerColor, long id, Camera camera) {
         this.outerColor = outerColor;
-        setup(camera);
+        setup(camera, id);
         shader.drawTextureRegion(outerTexture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), 0, 0,
                 outerTexture.width,
                 outerTexture.height, innerColor);
@@ -54,7 +59,7 @@ public class SDFUnion extends ShaderDrawable{
     }
 
     protected void setUniforms() {
-        if(innerTexture == null || outerTexture == null){
+        if (innerTexture == null || outerTexture == null) {
             return;
         }
         outerTexture.bind();

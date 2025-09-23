@@ -14,7 +14,7 @@ public class SDFShader extends ShaderProgram {
     public SDFShader(String vertexShaderLocation, String fragmentShaderLocation)
             throws UnsupportedEncodingException, IOException {
         super(vertexShaderLocation, fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
-                true);
+                9, true);
     }
 
     @Override

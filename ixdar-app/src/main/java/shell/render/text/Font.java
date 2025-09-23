@@ -32,6 +32,22 @@ public class Font {
     private float descenderPx;
     private Map<Integer, Map<Integer, Float>> kerningEm;
 
+    // Stable ids for text objects used with id-aware setup
+    private final Map<Object, Long> objectIds = new HashMap<>();
+    private long nextObjectId = 1L;
+
+    private long stableId(Object key) {
+        if (key == null) {
+            return 0L;
+        }
+        Long id = objectIds.get(key);
+        if (id == null) {
+            id = Long.valueOf(nextObjectId++);
+            objectIds.put(key, id);
+        }
+        return id.longValue();
+    }
+
     public Font() {
         try {
 
@@ -160,29 +176,13 @@ public class Font {
         if (sdfTexture == null) {
             return;
         }
-        sdfTexture.setup(camera);
+        sdfTexture.setup(camera, stableId(text));
         drawTextNoSetup(text, x, y, glyphHeight, c, camera);
         sdfTexture.cleanup(camera);
     }
 
-    public void drawText(CharSequence text, float x, float y, float height, Camera camera) {
-        drawText(text, x, y, height, Color.WHITE, camera);
-    }
-
     public void dispose() {
         texture.delete();
-    }
-
-    public void drawNCharactersBack(String text, int xLimit, int y, float height, int numCharsBack,
-            Color c, Camera camera) {
-        if (text.length() < numCharsBack + 1) {
-            int diff = (numCharsBack + 1 - text.length());
-            for (int i = 0; i < diff; i++) {
-                text += " ";
-            }
-        }
-        float prefixWidth = getWidthScaled(text.substring(0, numCharsBack), height);
-        drawText(text, xLimit - prefixWidth, y, height, c, camera);
     }
 
     public void drawTextCentered(String text, float x, float y, float height, Color c, Camera camera) {
@@ -204,7 +204,7 @@ public class Font {
 
     public void drawHyperString(HyperString hyperString, float x, float y, float height, Camera2D camera) {
         hyperString.setLineOffsetCentered(camera, x, y, this, 0);
-        sdfTexture.setup(camera);
+        sdfTexture.setup(camera, stableId(hyperString));
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
             hyperString.draw();
             ArrayList<Word> words = hyperString.getLine(lineNumber);
@@ -228,7 +228,7 @@ public class Font {
 
     public void drawHyperStrings(ArrayList<HyperString> hyperStrings, ArrayList<Vector2f> xLoc, float height,
             Camera2D camera) {
-        sdfTexture.setup(camera);
+        sdfTexture.setup(camera, 0L);
         for (int j = 0; j < hyperStrings.size(); j++) {
             Vector2f loc = xLoc.get(j);
             HyperString hyperString = hyperStrings.get(j);
@@ -261,7 +261,7 @@ public class Font {
             return;
         }
 
-        sdfTexture.setup(camera);
+        sdfTexture.setup(camera, stableId(hyperString));
         hyperString.setLineOffsetFromTopRow(camera, row, scrollOffsetY, height);
         hyperString.draw();
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {

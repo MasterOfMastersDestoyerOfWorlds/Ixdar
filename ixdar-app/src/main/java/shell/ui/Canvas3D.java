@@ -43,12 +43,27 @@ public class Canvas3D {
         active = true;
     }
 
-
     public void initGL() throws UnsupportedEncodingException, IOException {
         GL gl = Platforms.gl();
         gl.createCapabilities(false, (IntFunction) null);
         float start = Clock.time();
         gl.coldStartStack();
+
+        // Set global id provider (mandatory) for persistent VBO allocations
+        shell.render.shaders.ShaderProgram.setGlobalIdProvider(new shell.render.shaders.ShaderProgram.IdProvider() {
+            private final java.util.IdentityHashMap<Object, Long> instanceToId = new java.util.IdentityHashMap<>();
+            private long nextId = 1L;
+
+            @Override
+            public long getId(Object owner) {
+                Long id = instanceToId.get(owner);
+                if (id == null) {
+                    id = Long.valueOf(nextId++);
+                    instanceToId.put(owner, id);
+                }
+                return id.longValue();
+            }
+        });
 
         System.out.println("capabilities: " + (Clock.time() - start));
 

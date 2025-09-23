@@ -130,7 +130,7 @@ public class Drawing {
         firstCoords[1] = camera.pointTransformY(knotPoint1.getY());
 
         d.circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN,
-                camera);
+                0L, camera);
 
         d.sdfLine.setStroke(lineThickness, false);
         drawSegment(ex1, Color.GREEN, camera);
@@ -143,7 +143,7 @@ public class Drawing {
         firstCoords[1] = camera.pointTransformY(knotPoint2.getY());
 
         d.circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN,
-                camera);
+                0L, camera);
         drawSegment(ex2, Color.GREEN, camera);
 
         // Draw Cuts and Matches
@@ -213,7 +213,8 @@ public class Drawing {
         midCoords[0] = (kpCoords[0] + cpCoords[0]) / 2.0f;
         midCoords[1] = (kpCoords[1] + cpCoords[1]) / 2.0f;
         d.font.drawTextCentered("X", midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, xColor, camera);
-        d.circle.draw(new Vector2f(kpCoords[0], kpCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, circleColor, camera);
+        d.circle.draw(new Vector2f(kpCoords[0], kpCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, circleColor, 0L,
+                camera);
     }
 
     public static void drawSegment(Segment segment, Color c, float thickness, Camera2D camera) {
@@ -228,11 +229,11 @@ public class Drawing {
         drawSegment(segment, c, camera);
     }
 
-    public static void drawScaledSegment(Vector2f a, Vector2f b, Color c, float thickness, Camera2D camera) {
+    public static void drawScaledSegment(Vector2f a, Vector2f b, Color c, float thickness, long id, Camera2D camera) {
         Drawing d = getDrawing();
         d.sdfLine.setStroke(thickness * camera.ScaleFactor, false);
         d.sdfLine.dashed = false;
-        d.sdfLine.draw(a, b, c, camera);
+        d.sdfLine.draw(a, b, c, id, camera);
     }
 
     private static void drawSegment(Segment ex1, Color c, Camera2D camera) {
@@ -253,7 +254,7 @@ public class Drawing {
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
 
         d.sdfLine.dashed = false;
-        d.sdfLine.draw(firstVec, lastVec, c, camera);
+        d.sdfLine.draw(firstVec, lastVec, c, ex1.id, camera);
     }
 
     public static void drawDashedSegment(Segment ex1, Color c, Camera2D camera) {
@@ -275,7 +276,7 @@ public class Drawing {
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
         d.sdfLine.setStroke(Drawing.MIN_THICKNESS * camera.ScaleFactor, true, 20 * camera.ScaleFactor, 1f, true,
                 false);
-        d.sdfLine.draw(firstVec, lastVec, c, camera);
+        d.sdfLine.draw(firstVec, lastVec, c, ex1.id, camera);
     }
 
     public static void drawGradientSegment(Segment s, Color color1, Color color2, Camera2D camera) {
@@ -299,7 +300,7 @@ public class Drawing {
 
         lastCoords[0] = camera.pointTransformX(last.getX());
         lastCoords[1] = camera.pointTransformY(last.getY());
-        d.sdfLine.draw(new Vector2f(firstCoords), new Vector2f(lastCoords), color1, color2, camera);
+        d.sdfLine.draw(new Vector2f(firstCoords), new Vector2f(lastCoords), color1, color2, s.id, camera);
     }
 
     /**
@@ -335,7 +336,7 @@ public class Drawing {
 
         Vector2f newLast = new Vector2f(lastCoords).sub(firstCoords).mul(length).add(firstCoords);
 
-        d.sdfLine.draw(firstCoords, newLast, color1, new ColorFixedLerp(color1, color2, length), camera);
+        d.sdfLine.draw(firstCoords, newLast, color1, new ColorFixedLerp(color1, color2, length), s.id, camera);
     }
 
     /**
@@ -416,13 +417,14 @@ public class Drawing {
             float x = camera.pointTransformX(p.getScreenX());
             float y = camera.pointTransformY(p.getScreenY());
             if (drawCircles) {
-                d.circle.draw(new Vector2f(x, y), CIRCLE_RADIUS * scale, color, camera);
+                d.circle.draw(new Vector2f(x, y), CIRCLE_RADIUS * scale, color, 0L, camera);
             }
 
             if (drawLines) {
                 float lx = camera.pointTransformX(last.getScreenX());
                 float ly = camera.pointTransformY(last.getScreenY());
-                d.sdfLine.draw(new Vector2f(lx, ly), new Vector2f(x, y), color, camera);
+                long edgeId = Segment.idTransform(last.getID(), p.getID());
+                d.sdfLine.draw(new Vector2f(lx, ly), new Vector2f(x, y), color, edgeId, camera);
             }
             last = p;
             count++;

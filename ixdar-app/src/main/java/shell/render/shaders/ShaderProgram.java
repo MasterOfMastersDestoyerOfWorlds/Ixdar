@@ -111,6 +111,22 @@ public abstract class ShaderProgram {
     private int numVertices;
     private boolean drawing;
 
+    // === Persistent VBO region management ===
+    /** Number of floats per vertex for this shader's bound attributes. */
+    protected int strideFloats = 0;
+    /** First vertex index reserved for persistent drawable allocations. */
+    private int regionStartVertex = -1;
+    /** Next free vertex cursor within the persistent region. */
+    private int regionCursorVertex = -1;
+    /** Queued draw ranges that refer to persistent VBO regions. */
+    private final java.util.List<DrawRange> queuedRanges = new java.util.ArrayList<>();
+    /** Allocation table per owner object for its persistent VBO slice. */
+    private final java.util.Map<Object, Allocation> allocations = new java.util.HashMap<>();
+    /** Current GPU buffer size in bytes. */
+    private long vboSizeBytes = 0L;
+    /** Reserved staging floats for legacy immediate path. */
+    private int stagingReservedFloats = 0;
+
     public final static float ORTHO_FAR = 1000f;
     public final static float ORTHO_NEAR = -ORTHO_FAR;
     public final static float ORTHO_Z_INCREMENT = 0.1f;
@@ -128,13 +144,47 @@ public abstract class ShaderProgram {
     public GL gl;
     public Platform platform;
 
+    // ===== Global ID assignment via callback =====
+    @FunctionalInterface
+    public static interface IdProvider {
+        long getId(Object owner);
+    }
+
+    public static interface HasStableId {
+        long getStableId();
+    }
+
+    private static volatile IdProvider globalIdProvider;
+
+    public static void setGlobalIdProvider(IdProvider provider) {
+        globalIdProvider = provider;
+    }
+
+    public static long assignId(Object owner) {
+        if (owner instanceof HasStableId) {
+            return ((HasStableId) owner).getStableId();
+        }
+        IdProvider p = globalIdProvider;
+        if (p == null) {
+            throw new IllegalStateException("Global IdProvider is not set and owner does not implement HasStableId");
+        }
+        return p.getId(owner);
+    }
+
+    // Global id registry (shared across all ShaderProgram instances)
+    private static final java.util.Map<Long, Object> GLOBAL_OWNER_KEYS = new java.util.HashMap<>();
+    // Instance-level id→allocation lookup for convenience
+    private final java.util.Map<Long, Allocation> idToAllocation = new java.util.HashMap<>();
+
     public ShaderProgram(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
-            VertexBufferObject vbo, boolean useBuffer) throws UnsupportedEncodingException, IOException {
+            VertexBufferObject vbo, int strideFloats, boolean useBuffer)
+            throws UnsupportedEncodingException, IOException {
         this.fragmentShaderLocation = fragmentShaderLocation;
         this.vertexShaderLocation = vertexShaderLocation;
         this.uniformLocations = new HashMap<>();
         this.vao = vao;
         this.vbo = vbo;
+        this.strideFloats = strideFloats;
         this.useBuffer = useBuffer;
         this.platformId = Platforms.gl().getID();
         gl = Platforms.gl();
@@ -403,6 +453,7 @@ public abstract class ShaderProgram {
         }
         drawing = true;
         numVertices = 0;
+        queuedRanges.clear();
     }
 
     /**
@@ -419,25 +470,39 @@ public abstract class ShaderProgram {
     public void flush() {
 
         if (useBuffer) {
-            verteciesBuff.flip();
+            // 1) Immediate/batched path (legacy). Keep supporting existing callers.
+            if (verteciesBuff != null && numVertices > 0) {
+                verteciesBuff.flip();
 
-            if (vao != null) {
-                vao.bind();
-            } else {
+                if (vao != null) {
+                    vao.bind();
+                } else {
+                    vbo.bind(gl.ARRAY_BUFFER());
+                }
+                use();
+
                 vbo.bind(gl.ARRAY_BUFFER());
+                vbo.uploadSubData(gl.ARRAY_BUFFER(), 0, verteciesBuff);
+                gl.drawArrays(gl.TRIANGLES(), 0, numVertices);
+
+                verteciesBuff.clear();
+                numVertices = 0;
             }
-            use();
 
-            /* Upload the new vertex data */
-            vbo.bind(gl.ARRAY_BUFFER());
-            vbo.uploadSubData(gl.ARRAY_BUFFER(), 0, verteciesBuff);
-
-            /* Draw batch */
-            gl.drawArrays(gl.TRIANGLES(), 0, numVertices);
-
-            /* Clear vertex data for next batch */
-            verteciesBuff.clear();
-            numVertices = 0;
+            // 2) Persistent draw ranges path. Avoid re-upload when geometry unchanged.
+            if (!queuedRanges.isEmpty()) {
+                if (vao != null) {
+                    vao.bind();
+                } else {
+                    vbo.bind(gl.ARRAY_BUFFER());
+                }
+                use();
+                for (int i = 0; i < queuedRanges.size(); i++) {
+                    DrawRange r = queuedRanges.get(i);
+                    gl.drawArrays(gl.TRIANGLES(), r.firstVertex, r.vertexCount);
+                }
+                queuedRanges.clear();
+            }
         }
     }
 
@@ -724,11 +789,167 @@ public abstract class ShaderProgram {
 
             verteciesBuff = platform.allocateFloats((int) Math.pow(2, 16));
 
-            long size = verteciesBuff.capacity() * Float.BYTES;
+            long size = (long) verteciesBuff.capacity() * (long) Float.BYTES;
             vbo.uploadData(gl.ARRAY_BUFFER(), size, gl.DYNAMIC_DRAW());
+            vboSizeBytes = size;
+            stagingReservedFloats = verteciesBuff.capacity();
 
             numVertices = 0;
             drawing = false;
+        }
+    }
+
+    public int getStrideFloats() {
+        return strideFloats;
+    }
+
+    private void ensureRegionInitialized() {
+        if (regionStartVertex >= 0) {
+            return;
+        }
+        // Reserve initial portion of buffer for legacy immediate path so we don't
+        // overlap.
+        int reservedFloats = stagingReservedFloats;
+        int stride = Math.max(1, strideFloats);
+        regionStartVertex = reservedFloats / stride;
+        regionCursorVertex = regionStartVertex;
+    }
+
+    public Allocation ensureAllocation(Object owner, int minVertexCapacity) {
+        if (owner == null) {
+            throw new IllegalArgumentException("owner cannot be null");
+        }
+        ensureRegionInitialized();
+        Allocation alloc = allocations.get(owner);
+        if (alloc == null) {
+            int capacity = nextPowerOfTwo(minVertexCapacity);
+            int first = regionCursorVertex;
+            regionCursorVertex += capacity;
+            growBufferIfNeeded(regionCursorVertex);
+            alloc = new Allocation(first, capacity);
+            allocations.put(owner, alloc);
+        } else if (alloc.vertexCapacity < minVertexCapacity) {
+            // Reallocate by moving to the end; simple bump allocator; old space is leaked.
+            int capacity = nextPowerOfTwo(minVertexCapacity);
+            int first = regionCursorVertex;
+            regionCursorVertex += capacity;
+            growBufferIfNeeded(regionCursorVertex);
+            alloc.firstVertex = first;
+            alloc.vertexCapacity = capacity;
+            alloc.dirty = true;
+        }
+        return alloc;
+    }
+
+    private static synchronized Object getGlobalOwnerKey(long id) {
+        Object key = GLOBAL_OWNER_KEYS.get(id);
+        if (key == null) {
+            key = new Object();
+            GLOBAL_OWNER_KEYS.put(id, key);
+        }
+        return key;
+    }
+
+    public Allocation ensureAllocation(long id, int minVertexCapacity) {
+        Object key = getGlobalOwnerKey(id);
+        Allocation alloc = ensureAllocation(key, minVertexCapacity);
+        idToAllocation.put(id, alloc);
+        return alloc;
+    }
+
+    public Allocation getAllocationById(long id) {
+        return idToAllocation.get(id);
+    }
+
+    public void queueDraw(long id, int vertexCount) {
+        Allocation alloc = getAllocationById(id);
+        if (alloc != null) {
+            queueDraw(alloc, vertexCount);
+        }
+    }
+
+    public void uploadAllocation(Allocation allocation, IxBuffer data, int verticesToUpload) {
+        if (allocation == null || data == null || verticesToUpload <= 0) {
+            return;
+        }
+        vbo.bind(gl.ARRAY_BUFFER());
+        long byteOffset = (long) allocation.firstVertex * (long) strideFloats * (long) Float.BYTES;
+        vbo.uploadSubData(gl.ARRAY_BUFFER(), byteOffset, data);
+        allocation.dirty = false;
+        allocation.lastVertexCount = verticesToUpload;
+    }
+
+    public void queueDraw(Allocation allocation, int vertexCount) {
+        if (allocation == null || vertexCount <= 0)
+            return;
+        queuedRanges.add(new DrawRange(allocation.firstVertex, vertexCount));
+    }
+
+    private void growBufferIfNeeded(int requiredMaxVertexIndexExclusive) {
+        // Buffer was initially created with some size; if our required range would
+        // exceed
+        // current size, reallocate with a larger size. Keep it simple: double until big
+        // enough.
+        int requiredFloats = requiredMaxVertexIndexExclusive * Math.max(1, strideFloats);
+        long currentSizeBytes = vboSizeBytes;
+        long requiredBytes = (long) requiredFloats * (long) Float.BYTES;
+        if (requiredBytes <= currentSizeBytes) {
+            return;
+        }
+        // Compute new float capacity as next power of two of required floats.
+        int newFloatCapacity = nextPowerOfTwo(Math.max(stagingReservedFloats, requiredFloats));
+        vbo.bind(gl.ARRAY_BUFFER());
+        long newSizeBytes = (long) newFloatCapacity * (long) Float.BYTES;
+        vbo.uploadData(gl.ARRAY_BUFFER(), newSizeBytes, gl.DYNAMIC_DRAW());
+        vboSizeBytes = newSizeBytes;
+    }
+
+    private static int nextPowerOfTwo(int x) {
+        int v = x - 1;
+        v |= v >> 1;
+        v |= v >> 2;
+        v |= v >> 4;
+        v |= v >> 8;
+        v |= v >> 16;
+        return (v < 0) ? 1 : v + 1;
+    }
+
+    public static final class Allocation {
+        int firstVertex;
+        int vertexCapacity;
+        int lastVertexCount;
+        boolean dirty = true;
+
+        public Allocation(int firstVertex, int vertexCapacity) {
+            this.firstVertex = firstVertex;
+            this.vertexCapacity = vertexCapacity;
+            this.lastVertexCount = 0;
+        }
+
+        public int getFirstVertex() {
+            return firstVertex;
+        }
+
+        public int getVertexCapacity() {
+            return vertexCapacity;
+        }
+
+        public int getLastVertexCount() {
+            return lastVertexCount;
+        }
+
+        public boolean isDirty() {
+            return dirty;
+        }
+    }
+
+    private static final class DrawRange {
+        final int firstVertex;
+        final int vertexCount;
+
+        DrawRange(int firstVertex, int vertexCount) {
+            this.firstVertex = firstVertex;
+            this.vertexCount = vertexCount;
         }
     }
 

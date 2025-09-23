@@ -6,14 +6,13 @@ import shell.render.color.Color;
 import shell.render.color.ColorLerp;
 import shell.render.shaders.ShaderProgram.ShaderType;
 
-public class SDFFluid extends ShaderDrawable{
-
+public class SDFFluid extends ShaderDrawable {
 
     public SDFFluid() {
         shader = ShaderType.Fluid.getShader();
     }
 
-    protected void setUniforms(){
+    protected void setUniforms() {
         shader.setBool("polar_coordinates", false); // cool polar coordinates effect
         shader.setVec2("polar_center", new Vector2f(1f));
         shader.setFloat("polar_zoom", 1f);
