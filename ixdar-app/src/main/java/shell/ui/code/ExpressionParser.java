@@ -141,15 +141,13 @@ public class ExpressionParser {
                 List<ParseText> list = new ArrayList<>();
                 list.add(v);
                 list.add(r);
-                ParseText result = applyTwoArgFunc((x, y) -> x + y, list);
-                return result;
+                v = applyTwoArgFunc((x, y) -> x + y, list);
             } else if (match('-')) {
                 ParseText r = parseTerm();
                 List<ParseText> list = new ArrayList<>();
                 list.add(v);
                 list.add(r);
-                ParseText result = applyTwoArgFunc((x, y) -> x - y, list);
-                return result;
+                v = applyTwoArgFunc((x, y) -> x - y, list);
             } else {
                 return v;
             }
@@ -165,15 +163,13 @@ public class ExpressionParser {
                 List<ParseText> list = new ArrayList<>();
                 list.add(v);
                 list.add(r);
-                ParseText result = applyTwoArgFunc((x, y) -> x * y, list);
-                return result;
+                v = applyTwoArgFunc((x, y) -> x * y, list);
             } else if (match('/')) {
                 ParseText r = parseFactor();
                 List<ParseText> list = new ArrayList<>();
                 list.add(v);
                 list.add(r);
-                ParseText result = applyTwoArgFunc((x, y) -> x / y, list);
-                return result;
+                v = applyTwoArgFunc((x, y) -> x / y, list);
             } else {
                 return v;
             }
@@ -226,7 +222,33 @@ public class ExpressionParser {
                 return resolveVar(ident);
             }
         }
-        return parseNumber();
+        return parseNumberOrParenExpr();
+    }
+
+    private ParseText parseNumberOrParenExpr() {
+        skipWs();
+        int start = pos;
+        // Allow nested parenthesis and unary before numbers
+        if (match('(')) {
+            ParseText inner = parseExpr();
+            expect(')');
+            return inner;
+        }
+        boolean sawDigit = false;
+        while (pos < s.length()) {
+            char c = s.charAt(pos);
+            if (Character.isDigit(c) || c == '.') {
+                sawDigit = true;
+                pos++;
+            } else {
+                break;
+            }
+        }
+        if (!sawDigit) {
+            throw new RuntimeException("Expected number at " + pos);
+        }
+        Float val = Float.parseFloat(s.substring(start, pos));
+        return new ParseText(val);
     }
 
     private ParseText parseNumber() {
@@ -308,6 +330,13 @@ public class ExpressionParser {
         case "mix": {
             return mixFunc(a);
         }
+        case "float": {
+            // GLSL float(x): cast to float; we just forward the value (use first component)
+            ParseText arg = a.get(0);
+            Vector4f v = arg.data;
+            Vector4f res = new Vector4f(v.x, 0f, 0f, 0f);
+            return new ParseText(s, res, 1, "");
+        }
         case "smoothstep": {
             return applyThreeArgFunc((edge0, edge1, x) -> {
                 if (edge0 == edge1)
@@ -324,9 +353,31 @@ public class ExpressionParser {
         case "clamp": {
             return applyThreeArgFunc((x, lo, hi) -> Math.max(lo, Math.min(hi, x)), a);
         }
+        case "vec2":
+            return constructVecN(2, a);
+        case "vec3":
+            return constructVecN(3, a);
+        case "vec4":
+            return constructVecN(4, a);
         default:
             return ParseText.BLANK;
         }
+    }
+
+    private ParseText constructVecN(int n, List<ParseText> args) {
+        float[] out = new float[4];
+        int filled = 0;
+        for (int i = 0; i < args.size() && filled < n; i++) {
+            ParseText a = args.get(i);
+            int len = Math.max(1, a.vectorLength);
+            for (int k = 0; k < len && filled < n; k++) {
+                out[filled++] = a.data.get(Math.min(k, len - 1));
+            }
+        }
+        while (filled < n)
+            out[filled++] = 0f;
+        Vector4f result = new Vector4f(out);
+        return new ParseText(s, result, n, "");
     }
 
     private ParseText applyOneArgFunc(Function<Double, Double> func, List<ParseText> a) {
@@ -341,16 +392,21 @@ public class ExpressionParser {
     }
 
     private ParseText applyTwoArgFunc(BiFunction<Double, Double, Double> func, List<ParseText> a) {
-        ParseText arg = a.get(0);
-        Vector4f data = arg.data;
-        ParseText arg2 = a.get(1);
-        Vector4f data2 = arg2.data;
+        ParseText lhs = a.get(0);
+        ParseText rhs = a.get(1);
+        Vector4f l = lhs.data;
+        Vector4f r = rhs.data;
+        int len = Math.max(lhs.vectorLength, rhs.vectorLength);
+        if (len < 1)
+            len = 1;
         float[] result = new float[4];
-        for (int i = 0; i < arg.vectorLength; i++) {
-            result[i] = func.apply((double) data.get(i), (double) data2.get(i)).floatValue();
+        for (int i = 0; i < len; i++) {
+            int li = Math.min(i, Math.max(0, lhs.vectorLength - 1));
+            int ri = Math.min(i, Math.max(0, rhs.vectorLength - 1));
+            result[i] = func.apply((double) l.get(li), (double) r.get(ri)).floatValue();
         }
         Vector4f resultVec = new Vector4f(result);
-        return new ParseText(s, resultVec, arg.vectorLength, "");
+        return new ParseText(s, resultVec, len, "");
     }
 
     private ParseText applyThreeArgFunc(TriFunction<Double, Double, Double, Double> func, List<ParseText> a) {
@@ -369,21 +425,26 @@ public class ExpressionParser {
     }
 
     private ParseText mixFunc(List<ParseText> a) {
-        ParseText arg = a.get(0);
-        Vector4f data = arg.data;
-        ParseText arg2 = a.get(1);
-        Vector4f data2 = arg2.data;
-        ParseText arg3 = a.get(2);
-        Vector4f data3 = arg3.data;
+        ParseText x = a.get(0);
+        ParseText y = a.get(1);
+        ParseText t = a.get(2);
+        Vector4f xv = x.data;
+        Vector4f yv = y.data;
+        Vector4f tv = t.data;
+        int len = Math.max(x.vectorLength, y.vectorLength);
+        if (len < 1)
+            len = 1;
         float[] result = new float[4];
-        for (int i = 0; i < arg.vectorLength; i++) {
-            double x = data.get(i);
-            double y = data2.get(i);
-            double t = data3.get(0);
-            result[i] = (float) (x * (1.0f - t) + y * t);
+        for (int i = 0; i < len; i++) {
+            int xi = Math.min(i, Math.max(0, x.vectorLength - 1));
+            int yi = Math.min(i, Math.max(0, y.vectorLength - 1));
+            // GLSL mix allows scalar or vector t; support both
+            int ti = Math.min(i, Math.max(0, t.vectorLength - 1));
+            double tt = tv.get(t.vectorLength == 1 ? 0 : ti);
+            result[i] = (float) (xv.get(xi) * (1.0 - tt) + yv.get(yi) * tt);
         }
         Vector4f resultVec = new Vector4f(result);
-        return new ParseText(s, resultVec, arg.vectorLength, "");
+        return new ParseText(s, resultVec, len, "");
     }
 
     private ParseText distanceFunc(List<ParseText> a) {

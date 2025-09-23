@@ -75,6 +75,12 @@ public abstract class ShaderDrawable {
 
         setUniforms();
 
+        // Provide default varying-like values for shader preview/evaluator
+        // so expressions like textureCoord.x can be resolved by the parser.
+        if (!shader.uniformMap.containsKey("textureCoord")) {
+            shader.uniformMap.put("textureCoord", new Vector2f(0.5f, 0.5f));
+        }
+
         // Prepare or update persistent VBO geometry for this quad
         ShaderProgram.Allocation alloc = ensureAllocation(id);
         if (isGeometryDirty(id) || alloc.isDirty() || colorDirty) {
@@ -113,6 +119,11 @@ public abstract class ShaderDrawable {
             if (value instanceof Float) {
                 Float f = (Float) value;
                 ParseText.put(map, key, f);
+            } else if (value instanceof Boolean) {
+                Boolean b = (Boolean) value;
+                // Provide both display text and numeric data (1/0) for evaluation
+                map.put(key, new ParseText(b ? "tru" : "false", shell.render.color.Color.GLSL_BOOLEAN,
+                        new Vector4f(b ? 1f : 0f, 0f, 0f, 0f), 1, key));
             } else if (value instanceof Vector2f) {
                 Vector2f vec2 = (Vector2f) value;
                 ParseText.put(map, key, vec2.x, vec2.y);
@@ -261,6 +272,8 @@ public abstract class ShaderDrawable {
         // Prepare common color and UVs for SDF/Font shaders; Color-only shaders ignore
         // UVs
         Vector4f color = c.toVector4f();
+        // Expose vertexColor in the shader's uniform map for the expression parser
+        shader.uniformMap.put("vertexColor", color);
         float r = color.x, g = color.y, b = color.z, a = color.w;
         float z = camera != null ? camera.getZIndex() : 0f;
 

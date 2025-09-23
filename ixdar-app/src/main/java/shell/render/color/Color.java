@@ -45,6 +45,7 @@ public interface Color {
     public static final Color GLSL_VECN = new ColorRGB(0.85f, 0.70f, 0.95f, "GLSL VecN");
     public static final Color GLSL_OPERATOR = new ColorRGB(0.95f, 0.85f, 0.55f, "GLSL Operator");
     public static final Color GLSL_EQUALS = new ColorRGB(0.90f, 0.95f, 0.55f, "GLSL Equals");
+    public static final Color GLSL_BOOLEAN = new ColorRGB(0.70f, 0.90f, 0.60f, "GLSL Boolean");
 
     public Vector3f toVector3f();
 

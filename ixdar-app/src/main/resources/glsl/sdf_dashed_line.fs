@@ -44,8 +44,7 @@ void main() {
     float opacity = smoothstep(edgeDist, edgeDist - edgeSharpness, sigDist);
     fragColor = vec4(mix(vertexColor.rgb, linearGradientColor.rgb, textureCoord.x), 1. * opacity * linearGradientColor.a);
 
-    float blockA = smoothstep(0.5, 0.5 + edgeSharpness, (sin((width * textureCoord.x * PI) / dashLength + dashPhase) + 1.) / 2.);
-    float dashOpac = blockA;
+    float dashOpac = smoothstep(0.5, 0.5 + edgeSharpness, (sin((width * textureCoord.x * PI) / dashLength + dashPhase) + 1.) / 2.);
     float x = (width * textureCoord.x * PI) / dashLength + dashPhase;
 
     float opacA = smoothstep(edgeDist + edgeSharpness, edgeDist, min(distA, distB) / (width));
