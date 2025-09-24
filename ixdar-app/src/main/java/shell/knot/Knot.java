@@ -12,6 +12,7 @@ import shell.exceptions.SegmentBalanceException;
 import shell.point.Point2D;
 import shell.point.PointND;
 import shell.render.color.Color;
+import shell.render.sdf.SDFCircle;
 import shell.render.text.HyperString;
 import shell.shell.Shell;
 import shell.ui.actions.Action;
@@ -19,7 +20,7 @@ import shell.ui.main.Main;
 import shell.ui.tools.Tool;
 import shell.utils.Compat;
 
-public class Knot {
+public class Knot extends SDFCircle {
     public int minMatches;
     public int maxMatches;
     public int matchCount;

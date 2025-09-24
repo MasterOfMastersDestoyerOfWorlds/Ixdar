@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import shell.exceptions.TerminalParseException;
 import shell.terminal.commands.OptionList;
 
-public class Circle extends PointCollection {
+public class Circle implements PointCollection {
     public static String cmd = "circ";
     public static OptionList opts = new OptionList("c", "circ", "circle");
 

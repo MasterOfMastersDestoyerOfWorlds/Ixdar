@@ -18,10 +18,6 @@ public class SDFCircle extends ShaderDrawable {
     }
 
     public void draw(Vector2f pA, float circleRadius, Color c, Camera camera) {
-        draw(pA, circleRadius, c, 0L, camera);
-    }
-
-    public void draw(Vector2f pA, float circleRadius, Color c, long id, Camera camera) {
 
         this.pA = pA;
         this.c = c;
@@ -29,7 +25,7 @@ public class SDFCircle extends ShaderDrawable {
         bottomRight = new Vector2f(pA).add(circleRadius, -circleRadius);
         topLeft = new Vector2f(pA).add(-circleRadius, circleRadius);
         bottomLeft = new Vector2f(pA).add(-circleRadius, -circleRadius);
-        draw(camera, id);
+        draw(camera);
     }
 
     @Override

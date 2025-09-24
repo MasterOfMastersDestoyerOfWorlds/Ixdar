@@ -4,6 +4,8 @@ import shell.cuts.CutInfo;
 import shell.cuts.CutMatchList;
 import shell.knot.Knot;
 import shell.knot.Segment;
+import shell.render.color.Color;
+import shell.render.text.HyperString;
 import shell.shell.Shell;
 
 public class SegmentBalanceException extends Exception {
@@ -16,6 +18,8 @@ public class SegmentBalanceException extends Exception {
     public String cutName;
     public Shell shell;
     public CutInfo c;
+    public HyperString x1;
+    public HyperString x2;
 
     public SegmentBalanceException(CutInfo c) {
         topKnot = c.superKnot;
@@ -51,6 +55,16 @@ public class SegmentBalanceException extends Exception {
     }
 
     public SegmentBalanceException() {
+    }
+
+    public void initDraw() {
+        if(x1 != null){
+            return;
+        }
+        x1 = new HyperString();
+        x1.addWord("X", Color.RED);
+        x2 = new HyperString();
+        x2.addWord("X", Color.ORANGE);
     }
 
     @Override

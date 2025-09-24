@@ -16,7 +16,7 @@ import shell.ui.main.Main;
 
 public class HyperString {
 
-    public ArrayList<Word> words;
+    public ArrayList<HyperWord> words;
     public HashMap<Integer, String> strMap;
     public ArrayList<Integer> lineStartMap;
     public ArrayList<HyperString> children;
@@ -42,7 +42,7 @@ public class HyperString {
 
     public void setFont(Font font) {
         this.font = font;
-        for (Word w : words) {
+        for (HyperWord w : words) {
             w.setFont(font);
         }
     }
@@ -74,7 +74,7 @@ public class HyperString {
     }
 
     public void addDynamicWordClick(Supplier<ColorText<?>> wordAction, Color c, Action clickAction) {
-        words.add(new Word(wordAction, c, () -> {
+        words.add(new HyperWord(wordAction, c, () -> {
         }, () -> {
         }, clickAction, font));
     }
@@ -82,19 +82,19 @@ public class HyperString {
     public void addWord(String word, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         for (String w : word.split(" ")) {
             strMap.computeIfPresent(lines - 1, (key, val) -> val + w + " ");
-            words.add(new Word(w + " ", c, hoverAction, clearHover, clickAction, font));
+            words.add(new HyperWord(w + " ", c, hoverAction, clearHover, clickAction, font));
         }
     }
 
     public void addDynamicWord(Supplier<ColorText<?>> wordAction) {
-        words.add(new Word(wordAction, defaultColor, () -> {
+        words.add(new HyperWord(wordAction, defaultColor, () -> {
         }, () -> {
         }, () -> {
         }, font));
     }
 
     public void addDynamicWord(Supplier<ColorText<?>> wordAction, Color c) {
-        words.add(new Word(wordAction, c, () -> {
+        words.add(new HyperWord(wordAction, c, () -> {
         }, () -> {
         }, () -> {
         }, font));
@@ -102,7 +102,7 @@ public class HyperString {
 
     public void addDynamicWord(Supplier<ColorText<?>> wordAction, Color c, Action hoverAction, Action clearHover,
             Action clickAction) {
-        words.add(new Word(wordAction, c, hoverAction, clearHover, clickAction, font));
+        words.add(new HyperWord(wordAction, c, hoverAction, clearHover, clickAction, font));
     }
 
     public void addLine(String word, Color c) {
@@ -117,14 +117,14 @@ public class HyperString {
 
     public void addTooltip(String word, Color c, HyperString toolTipText, Action clickAction) {
         for (String w : word.split(" ")) {
-            words.add(new Word(w + " ", c, () -> Main.setTooltipText(toolTipText), () -> Main.clearTooltipText(),
+            words.add(new HyperWord(w + " ", c, () -> Main.setTooltipText(toolTipText), () -> Main.clearTooltipText(),
                     clickAction, font));
         }
     }
 
     public void addDynamicTooltip(Supplier<ColorText<?>> wordAction, Color c, HyperString toolTipText,
             Action clickAction) {
-        words.add(new Word(wordAction, c, () -> Main.setTooltipText(toolTipText), () -> Main.clearTooltipText(),
+        words.add(new HyperWord(wordAction, c, () -> Main.setTooltipText(toolTipText), () -> Main.clearTooltipText(),
                 clickAction, font));
     }
 
@@ -133,7 +133,7 @@ public class HyperString {
         children.add(knotText);
         knotText.addWord(hoverKnot.toString() + " FlatID: " + hoverKnot.id, c);
         knotText.setWrap(true, 30);
-        words.add(new Word(word, c, () -> {
+        words.add(new HyperWord(word, c, () -> {
             Main.setHoverKnot(hoverKnot);
             Main.setTooltipText(knotText);
         }, () -> {
@@ -146,7 +146,7 @@ public class HyperString {
         HyperString segmentInfo = new HyperString();
         children.add(segmentInfo);
         segmentInfo.addDistance(segment.distance, c);
-        words.add(new Word(str, c, () -> {
+        words.add(new HyperWord(str, c, () -> {
             Main.setHoverSegment(segment, c);
             Main.setTooltipText(segmentInfo);
         }, () -> {
@@ -164,19 +164,19 @@ public class HyperString {
         charWrap = i;
     }
 
-    public Word getWord(int i) {
-        Word w = words.get(i);
+    public HyperWord getWord(int i) {
+        HyperWord w = words.get(i);
         return w;
     }
 
-    public Word getLastWord() {
-        Word w = words.get(words.size() - 1);
+    public HyperWord getLastWord() {
+        HyperWord w = words.get(words.size() - 1);
         return w;
     }
 
     public void newLine() {
         lines++;
-        words.add(new Word(true, font));
+        words.add(new HyperWord(true, font));
         lineStartMap.add(words.size() - 1);
         strMap.put(lines - 1, "");
     }
@@ -214,8 +214,8 @@ public class HyperString {
         return (int) Drawing.FONT_HEIGHT_PIXELS * (wrap ? (lines + wrappedLines) : lines);
     }
 
-    public ArrayList<Word> getLine(int i) {
-        ArrayList<Word> line = new ArrayList<>();
+    public ArrayList<HyperWord> getLine(int i) {
+        ArrayList<HyperWord> line = new ArrayList<>();
         int idxStart = lineStartMap.get(i);
         int idxEnd = words.size();
         if (i < lines - 1) {
@@ -228,9 +228,9 @@ public class HyperString {
     }
 
     public void calculateClearHover(float normalizedPosX, float normalizedPosY) {
-        for (Word w : words) {
+        for (HyperWord w : words) {
             if (w.subWords != null) {
-                for (Word subWord : w.subWords) {
+                for (HyperWord subWord : w.subWords) {
                     subWord.calculateClearHover(normalizedPosX, normalizedPosY);
                 }
             } else {
@@ -240,9 +240,9 @@ public class HyperString {
     }
 
     public void calculateHover(float normalizedPosX, float normalizedPosY) {
-        for (Word w : words) {
+        for (HyperWord w : words) {
             if (w.subWords != null) {
-                for (Word subWord : w.subWords) {
+                for (HyperWord subWord : w.subWords) {
                     subWord.calculateHover(normalizedPosX, normalizedPosY);
                 }
             } else {
@@ -252,9 +252,9 @@ public class HyperString {
     }
 
     public void click(float normalizedPosX, float normalizedPosY) {
-        for (Word w : words) {
+        for (HyperWord w : words) {
             if (w.subWords != null) {
-                for (Word subWord : w.subWords) {
+                for (HyperWord subWord : w.subWords) {
                     subWord.click(normalizedPosX, normalizedPosY);
                 }
             } else {
@@ -283,16 +283,16 @@ public class HyperString {
         float charLength = 0;
         wrappedLines = 0;
         for (int j = idxStart; j < idxEnd; j++) {
-            Word w = words.get(j);
-            ArrayList<Word> subWords;
+            HyperWord w = words.get(j);
+            ArrayList<HyperWord> subWords;
             if (w.wordAction == null) {
                 subWords = new ArrayList<>();
                 subWords.add(w);
             } else {
                 subWords = w.subWords();
             }
-            for (Word subWord : subWords) {
-                charLength += subWord.text.length();
+            for (HyperWord subWord : subWords) {
+                charLength += subWord.text.size();
                 float wordX = offset;
                 float wordWidth = Drawing.FONT_HEIGHT_PIXELS / font.fontHeight * subWord.width;
 
@@ -306,7 +306,7 @@ public class HyperString {
                 float wordY = camera.getHeight() - ((row + 1) * rowHeight) + scrollOffsetY;
                 if (wordY < 0 || wordY > camera.getHeight()) {
                     subWord.culled = true;
-                }else{
+                } else {
                     subWord.culled = false;
                 }
                 subWord.setBounds(wordX, wordY, camera.getScreenOffsetX() + offset, camera.getScreenOffsetY() + wordY,
@@ -329,22 +329,22 @@ public class HyperString {
         }
         float offset = 0;
         for (int j = idxStart; j < idxEnd; j++) {
-            Word w = words.get(j);
+            HyperWord w = words.get(j);
             if (w.newLine) {
                 continue;
             }
-            ArrayList<Word> subWords;
+            ArrayList<HyperWord> subWords;
             if (w.wordAction == null) {
                 subWords = new ArrayList<>();
                 subWords.add(w);
             } else {
                 subWords = w.subWords();
             }
-            for (Word subWord : subWords) {
+            for (HyperWord subWord : subWords) {
                 float wordX = x + offset - centerX;
                 float wordY = y - centerY;
                 subWord.setBounds(wordX, wordY, camera.getScreenOffsetX() + wordX, camera.getScreenOffsetY() + wordY,
-                        font.getHeight(subWord.text), camera.viewBounds);
+                        font.getHeight(subWord.charSequence), camera.viewBounds);
                 offset += Drawing.FONT_HEIGHT_PIXELS / font.fontHeight * subWord.width;
             }
         }
@@ -356,16 +356,16 @@ public class HyperString {
     }
 
     public void addHyperString(HyperString h) {
-        for (Word w : h.words) {
+        for (HyperWord w : h.words) {
             this.addWord(w);
         }
     }
 
-    private void addWord(Word w) {
+    private void addWord(HyperWord w) {
         if (w.newLine) {
             this.newLine();
         } else {
-            this.addWord((String) w.text, w.color, w.hoverAction, w.clearHover, w.clickAction);
+            this.addWord((String) w.charSequence, w.color, w.hoverAction, w.clearHover, w.clickAction);
         }
 
     }

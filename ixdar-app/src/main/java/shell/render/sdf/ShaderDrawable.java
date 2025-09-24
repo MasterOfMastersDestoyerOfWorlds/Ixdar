@@ -12,6 +12,7 @@ import org.joml.Vector4f;
 import shell.cameras.Camera;
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
+import shell.platform.gl.IxBuffer;
 import shell.platform.gl.Platform;
 import shell.render.Texture;
 import shell.render.color.Color;
@@ -45,6 +46,23 @@ public abstract class ShaderDrawable {
     private final Map<Long, Object> ownerKeyById = new HashMap<>();
     private final Map<Long, ShaderProgram.Allocation> allocationById = new HashMap<>();
     private final Map<Long, Quad> prevQuadById = new HashMap<>();
+    
+    private static final HashMap<Class<?>, Long> counters = new HashMap<>();
+
+    protected static long nextId(Class<?> clazz) {
+        long id = counters.computeIfAbsent(clazz, c -> 0L);
+        return id++;
+    }
+
+    protected final long drawingId;
+
+    protected ShaderDrawable() {
+        this.drawingId = nextId(getClass());
+    }
+
+    public long getDrawingId() {
+        return drawingId;
+    }
 
     private static final class Quad {
         final Vector2f bl, br, tr, tl;
@@ -58,7 +76,7 @@ public abstract class ShaderDrawable {
         }
     }
 
-    public void setup(Camera camera, Long id) {
+    public void setup(Camera camera) {
         this.camera = camera;
         shader.use();
         shader.begin();
@@ -82,13 +100,17 @@ public abstract class ShaderDrawable {
         }
 
         // Prepare or update persistent VBO geometry for this quad
-        ShaderProgram.Allocation alloc = ensureAllocation(id);
-        if (isGeometryDirty(id) || alloc.isDirty() || colorDirty) {
+        ShaderProgram.Allocation alloc = ensureAllocation(drawingId);
+        if (isGeometryDirty(drawingId) || alloc.isDirty() || colorDirty) {
             uploadGeometry(alloc);
             colorDirty = false;
 
         } else {
-            ensureAllocation();
+            if (allocation == null) {
+                allocation = shader.ensureAllocation(this, Quad.VERTEX_COUNT);
+                geometryDirty = true;
+                colorDirty = true;
+            }
             if (allocation.isDirty() || geometryDirty || colorDirty) {
                 uploadGeometry(allocation);
                 geometryDirty = false;
@@ -146,7 +168,7 @@ public abstract class ShaderDrawable {
         return map;
     }
 
-    public void draw(float drawX, float drawY, float width, float height, Color c, Long id, Camera camera) {
+    public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
         if (c != null) {
             this.c = c;
         }
@@ -154,16 +176,10 @@ public abstract class ShaderDrawable {
         this.drawY = drawY;
         this.width = width;
         this.height = height;
-        draw(camera, id);
+        draw(camera);
     }
 
-    // Backwards-compatible overloads (no id provided)
-    public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
-        long id = ShaderProgram.assignId(this);
-        draw(drawX, drawY, width, height, c, id, camera);
-    }
-
-    public void draw(Camera camera, Long id) {
+    public void draw(Camera camera) {
         if (shader == null) {
             platform.log("Shader is null");
             return;
@@ -173,25 +189,19 @@ public abstract class ShaderDrawable {
             return;
         }
         this.camera = camera;
-        setup(camera, id);
+        setup(camera);
         // Queue draw referencing persistent buffer region instead of repacking each
         // frame
-        ShaderProgram.Allocation alloc = allocationById.get(id);
+        ShaderProgram.Allocation alloc = allocationById.get(drawingId);
         if (alloc != null) {
             shader.queueDraw(alloc, Quad.VERTEX_COUNT);
         }
         cleanup(camera);
     }
 
-    // Backwards-compatible overload (no id provided)
-    public void draw(Camera camera) {
-        long id = ShaderProgram.assignId(this);
-        draw(camera, id);
-    }
-
     public void drawFar(Camera camera, Long id) {
         this.camera = camera;
-        setup(camera, id);
+        setup(camera);
         ShaderProgram.Allocation alloc = allocationById.get(id);
         if (alloc != null) {
             shader.queueDraw(alloc, Quad.VERTEX_COUNT);
@@ -206,30 +216,12 @@ public abstract class ShaderDrawable {
         topRight = new Vector2f(bottomLeft).add(width, height);
     }
 
-    public void drawCentered(float drawX, float drawY, float width, float height, Color c, Long id, Camera camera) {
-        draw(drawX - (width / 2), drawY - (height / 2), width, height, c, id, camera);
-    }
-
     public void drawCentered(float drawX, float drawY, float width, float height, Color c, Camera camera) {
-        long id = ShaderProgram.assignId(this);
-        drawCentered(drawX, drawY, width, height, c, id, camera);
-    }
-
-    public void drawRightBound(float drawX, float drawY, float width, float height, Color c, Long id, Camera camera) {
-        draw(drawX - width, drawY, width, height, c, id, camera);
+        draw(drawX - (width / 2), drawY - (height / 2), width, height, c, camera);
     }
 
     public void drawRightBound(float drawX, float drawY, float width, float height, Color c, Camera camera) {
-        long id = ShaderProgram.assignId(this);
-        drawRightBound(drawX, drawY, width, height, c, id, camera);
-    }
-
-    private void ensureAllocation() {
-        if (allocation == null) {
-            allocation = shader.ensureAllocation(this, Quad.VERTEX_COUNT);
-            geometryDirty = true;
-            colorDirty = true;
-        }
+        draw(drawX - width, drawY, width, height, c, camera);
     }
 
     private ShaderProgram.Allocation ensureAllocation(Long id) {
@@ -267,7 +259,7 @@ public abstract class ShaderDrawable {
         if (stride <= 0)
             stride = 9; // default for SDF/Font
         int floatsNeeded = stride * Quad.VERTEX_COUNT;
-        shell.platform.gl.IxBuffer buf = platform.allocateFloats(floatsNeeded);
+        IxBuffer buf = platform.allocateFloats(floatsNeeded);
 
         // Prepare common color and UVs for SDF/Font shaders; Color-only shaders ignore
         // UVs

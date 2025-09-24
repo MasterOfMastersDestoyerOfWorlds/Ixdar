@@ -7,11 +7,12 @@ import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
 import shell.DistanceMatrix;
 import shell.point.PointND;
 import shell.render.color.Color;
+import shell.render.sdf.SDFLine;
 import shell.render.text.HyperString;
 import shell.ui.actions.Action;
 import shell.ui.main.Main;
 
-public class Segment implements Comparable<Segment> {
+public class Segment extends SDFLine implements Comparable<Segment>{
     public Knot first;
     public Knot last;
     public double distance;

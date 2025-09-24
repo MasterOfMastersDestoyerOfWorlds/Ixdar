@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import shell.exceptions.TerminalParseException;
 import shell.terminal.commands.OptionList;
 
-public class Line extends PointCollection {
+public class Line implements PointCollection {
     public static String cmd = "ln";
     public static OptionList opts = new OptionList("l", "ln", "line");
 

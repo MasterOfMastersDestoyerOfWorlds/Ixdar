@@ -23,7 +23,7 @@ public class SDFCircleSimple extends ShaderDrawable {
         this.radius = radius;
         this.center = center;
         this.c = c;
-        draw(camera, id);
+        draw(camera);
     }
 
     @Override

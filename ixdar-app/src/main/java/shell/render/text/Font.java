@@ -32,22 +32,6 @@ public class Font {
     private float descenderPx;
     private Map<Integer, Map<Integer, Float>> kerningEm;
 
-    // Stable ids for text objects used with id-aware setup
-    private final Map<Object, Long> objectIds = new HashMap<>();
-    private long nextObjectId = 1L;
-
-    private long stableId(Object key) {
-        if (key == null) {
-            return 0L;
-        }
-        Long id = objectIds.get(key);
-        if (id == null) {
-            id = Long.valueOf(nextObjectId++);
-            objectIds.put(key, id);
-        }
-        return id.longValue();
-    }
-
     public Font() {
         try {
 
@@ -110,11 +94,6 @@ public class Font {
         return maxWidthPx;
     }
 
-    public float getWidthScaled(CharSequence text, float glyphHeight) {
-        float scale = glyphHeight / fontHeight;
-        return getWidth(text) * scale;
-    }
-
     public int getHeight(CharSequence text) {
         int lines = 1;
         for (int i = 0; i < text.length(); i++) {
@@ -126,7 +105,7 @@ public class Font {
         return Math.round(lines * fontHeight);
     }
 
-    public void drawTextNoSetup(CharSequence text, float x, float y, float glyphHeight,
+    public void drawTextNoSetup(ArrayList<HyperChar> text, float x, float y, float glyphHeight,
             Color c, Camera camera) {
         if (sdfTexture == null) {
             return;
@@ -137,8 +116,8 @@ public class Font {
         float penEm = 0f;
         int prevCodePoint = -1;
 
-        for (int i = 0; i < text.length(); i++) {
-            char ch = text.charAt(i);
+        for (int i = 0; i < text.size(); i++) {
+            char ch = text.get(i).c;
             if (ch == '\n') {
                 baselineY -= fontHeight * scale;
                 penEm = 0f;
@@ -162,7 +141,9 @@ public class Font {
             float glyphHeightPx = (g.planeTop - g.planeBottom) * pxPerEm * scale;
 
             if (glyphWidthPx > 0 && glyphHeightPx > 0) {
-                sdfTexture.drawRegionNoSetup(drawX + glyphLeftPx, baselineY + glyphBottomPx,
+                
+                HyperChar h = text.get(i);
+                h.drawRegionNoSetup(drawX + glyphLeftPx, baselineY + glyphBottomPx,
                         glyphWidthPx, glyphHeightPx,
                         g.x, g.y, g.width, g.height, c, camera);
             }
@@ -171,47 +152,20 @@ public class Font {
         }
     }
 
-    public void drawText(CharSequence text, float x, float y, float glyphHeight,
-            Color c, Camera camera) {
-        if (sdfTexture == null) {
-            return;
-        }
-        sdfTexture.setup(camera, stableId(text));
-        drawTextNoSetup(text, x, y, glyphHeight, c, camera);
-        sdfTexture.cleanup(camera);
-    }
-
     public void dispose() {
         texture.delete();
     }
 
-    public void drawTextCentered(String text, float x, float y, float height, Color c, Camera camera) {
-        if (text.length() > maxTextWidth) {
-
-            text = text.substring(0, maxTextWidth - 1) + "~";
-
-        }
-        float scaleRatio = height / fontHeight;
-        float textWidth = getWidth(text) * scaleRatio;
-        float textHeight = getHeight(text) * scaleRatio;
-        drawText(text, x - textWidth / 2, y - textHeight / 2, height, c, camera);
-    }
-
-    public void drawRow(String string, int row, float yScrollOffset, float height, float rowSpacing, Color c,
-            Camera camera) {
-        drawText(string, 0, camera.getHeight() - ((row + 1) * height) + yScrollOffset, height, c, camera);
-    }
-
     public void drawHyperString(HyperString hyperString, float x, float y, float height, Camera2D camera) {
         hyperString.setLineOffsetCentered(camera, x, y, this, 0);
-        sdfTexture.setup(camera, stableId(hyperString));
+        sdfTexture.setup(camera);
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
             hyperString.draw();
-            ArrayList<Word> words = hyperString.getLine(lineNumber);
+            ArrayList<HyperWord> words = hyperString.getLine(lineNumber);
             for (int i = 0; i < words.size(); i++) {
-                Word word = words.get(i);
+                HyperWord word = words.get(i);
                 if (word.subWords != null) {
-                    for (Word subWord : word.subWords) {
+                    for (HyperWord subWord : word.subWords) {
                         drawTextNoSetup(subWord.text, subWord.x,
                                 subWord.y, height, subWord.color,
                                 camera);
@@ -228,18 +182,18 @@ public class Font {
 
     public void drawHyperStrings(ArrayList<HyperString> hyperStrings, ArrayList<Vector2f> xLoc, float height,
             Camera2D camera) {
-        sdfTexture.setup(camera, 0L);
+        sdfTexture.setup(camera);
         for (int j = 0; j < hyperStrings.size(); j++) {
             Vector2f loc = xLoc.get(j);
             HyperString hyperString = hyperStrings.get(j);
             hyperString.setLineOffsetCentered(camera, loc.x, loc.y, this, 0);
             hyperString.draw();
             for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
-                ArrayList<Word> words = hyperString.getLine(lineNumber);
+                ArrayList<HyperWord> words = hyperString.getLine(lineNumber);
                 for (int i = 0; i < words.size(); i++) {
-                    Word word = words.get(i);
+                    HyperWord word = words.get(i);
                     if (word.subWords != null) {
-                        for (Word subWord : word.subWords) {
+                        for (HyperWord subWord : word.subWords) {
                             drawTextNoSetup(subWord.text, subWord.x,
                                     subWord.y, height, subWord.color,
                                     camera);
@@ -261,13 +215,13 @@ public class Font {
             return;
         }
 
-        sdfTexture.setup(camera, stableId(hyperString));
+        sdfTexture.setup(camera);
         hyperString.setLineOffsetFromTopRow(camera, row, scrollOffsetY, height);
         hyperString.draw();
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
-            ArrayList<Word> words = hyperString.getLine(lineNumber);
+            ArrayList<HyperWord> words = hyperString.getLine(lineNumber);
             for (int i = 0; i < words.size(); i++) {
-                Word word = words.get(i);
+                HyperWord word = words.get(i);
                 if (word.culled) {
                     continue;
                 }
@@ -275,7 +229,7 @@ public class Font {
                     continue;
                 }
                 if (word.subWords != null) {
-                    for (Word subWord : word.subWords) {
+                    for (HyperWord subWord : word.subWords) {
                         drawTextNoSetup(subWord.text, subWord.x,
                                 subWord.y, height, subWord.color,
                                 camera);

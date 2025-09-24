@@ -7,6 +7,7 @@ import org.joml.Vector2f;
 
 import shell.PointSet;
 import shell.exceptions.TerminalParseException;
+import shell.render.sdf.SDFCircle;
 import shell.terminal.commands.OptionList;
 
 /**
@@ -20,7 +21,7 @@ import shell.terminal.commands.OptionList;
  * @author Andrew Wollack
  * 
  */
-public abstract class PointND extends PointCollection implements Cloneable {
+public abstract class PointND extends SDFCircle implements PointCollection, Cloneable {
     public static OptionList opts = new OptionList("p", "pt", "point");
 
     /**

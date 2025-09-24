@@ -51,7 +51,7 @@ public class SDFUnion extends ShaderDrawable {
     public void draw(float drawX, float drawY, float width, float height, Color innerColor,
             Color outerColor, long id, Camera camera) {
         this.outerColor = outerColor;
-        setup(camera, id);
+        setup(camera);
         shader.drawTextureRegion(outerTexture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), 0, 0,
                 outerTexture.width,
                 outerTexture.height, innerColor);

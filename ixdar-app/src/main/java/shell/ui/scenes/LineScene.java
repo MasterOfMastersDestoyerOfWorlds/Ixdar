@@ -39,15 +39,14 @@ public class LineScene extends Scene {
         Knot knot1 = new Knot(point1, shell);
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        line = new SDFLine();
-        initCodePane("Line SDF", line.shader, Drawing.getDrawing().sdfLine);
+        initCodePane("Line SDF", line.shader, lineSegment);
     }
 
 
     @Override
     public void drawScene() {
         super.drawScene();
-        Drawing.getDrawing().sdfLine.setStroke(20*Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false);
+        lineSegment.setStroke(20*Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);

@@ -3,6 +3,7 @@ package shell.ui.menu;
 import java.util.ArrayList;
 
 import shell.cameras.Camera;
+import shell.cameras.Camera2D;
 import shell.cameras.Bounds;
 import shell.file.FileManagement;
 import shell.render.color.Color;
@@ -101,9 +102,8 @@ public class MenuBox implements MouseTrap.ScrollHandler {
                 menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, outerColor, camera);
 
             }
-            Drawing.getDrawing().font.drawTextCentered(menuItems.get(i).itemString(), centerX, itemCenterY + itemHeight * 0.045f,
-                    itemHeight / 2,
-                    Color.BLUE_WHITE, camera);
+            Drawing.getDrawing().font.drawHyperString(menuItems.get(i).itemString(), centerX, itemCenterY + itemHeight * 0.045f,
+                    itemHeight / 2, (Camera2D) camera);
         }
         if (menuItems.size() > 0) {
             float width = Math.max(0, maxRight - minLeft);

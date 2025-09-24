@@ -6,12 +6,12 @@ import shell.exceptions.TerminalParseException;
 import shell.file.FileStringable;
 import shell.terminal.TerminalOption;
 
-public abstract class PointCollection implements FileStringable, TerminalOption {
+public interface PointCollection extends FileStringable, TerminalOption {
 
     public abstract ArrayList<PointND> realizePoints();
 
     @Override
-    public int minArgLength() {
+    public default int minArgLength() {
         return 0;
     }
 

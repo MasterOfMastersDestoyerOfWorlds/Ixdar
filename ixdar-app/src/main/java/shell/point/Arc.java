@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import shell.exceptions.TerminalParseException;
 import shell.terminal.commands.OptionList;
 
-public class Arc extends PointCollection {
+public class Arc implements PointCollection {
     public static String cmd = "arc";
     public static OptionList opts = new OptionList("a", "arc");
 

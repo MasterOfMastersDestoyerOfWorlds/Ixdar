@@ -50,7 +50,7 @@ public class SDFTexture extends ShaderDrawable {
         if (texture == null) {
             return;
         }
-        setup(camera, id);
+        setup(camera);
         shader.drawTextureRegion(texture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), 0, 0,
                 texture.width,
                 texture.height, c);
@@ -85,7 +85,7 @@ public class SDFTexture extends ShaderDrawable {
 
     public void drawRegion(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
             int regHeight, Color c, long id, Camera camera) {
-        setup(camera, id);
+        setup(camera);
         drawRegionNoSetup(drawX, drawY, width, height, regX, regY, regWidth, regHeight, c, camera);
         cleanup(camera);
     }

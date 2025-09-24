@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import shell.exceptions.TerminalParseException;
 import shell.terminal.commands.OptionList;
 
-public class Triangle extends PointCollection {
+public class Triangle implements PointCollection {
 
     public static OptionList opts = new OptionList("t", "tri", "triangle");
 

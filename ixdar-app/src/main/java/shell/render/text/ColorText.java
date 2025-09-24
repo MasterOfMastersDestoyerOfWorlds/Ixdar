@@ -9,7 +9,7 @@ public class ColorText<T> {
     public ArrayList<Color> color;
     public T data;
     public boolean dirty = true;
-    public ArrayList<Word> subWords;
+    public ArrayList<HyperWord> subWords;
 
     public ColorText(String text, Color color, T data) {
         this.text = new ArrayList<>();

@@ -33,6 +33,7 @@ public class SDFLine extends ShaderDrawable {
     public Color c2;
 
     public SDFLine() {
+        super();
         line_shader = ShaderType.LineSDF.getShader();
         dashed_line_shader = ShaderType.DashedLineSDF.getShader();
         shader = line_shader;
@@ -58,11 +59,11 @@ public class SDFLine extends ShaderDrawable {
         return r.x * r.x + r.y * r.y;
     }
 
-    public void draw(Vector2f pA, Vector2f pB, Color c, long id, Camera camera) {
-        draw(pA, pB, c, c, id, camera);
+    public void draw(Vector2f pA, Vector2f pB, Color c, Camera camera) {
+        draw(pA, pB, c, c, camera);
     }
 
-    public void draw(Vector2f pA, Vector2f pB, Color c, Color c2, long id, Camera camera) {
+    public void draw(Vector2f pA, Vector2f pB, Color c, Color c2, Camera camera) {
         this.pA = pA;
         this.pB = pB;
         this.c = c;
@@ -71,7 +72,7 @@ public class SDFLine extends ShaderDrawable {
         if (dashed) {
             shader = dashed_line_shader;
         }
-        draw(camera, id);
+        draw(camera);
     }
 
     public void setBorderDist(float borderDist) {

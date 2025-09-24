@@ -8,7 +8,7 @@ import shell.file.FileManagement;
 import shell.file.PointSetPath;
 import shell.terminal.commands.OptionList;
 
-public class Ix extends PointCollection {
+public class Ix implements PointCollection {
     public static String cmd = "ix";
     public static OptionList opts = new OptionList("i", "ix", "ixdar", "load", "ld");
 

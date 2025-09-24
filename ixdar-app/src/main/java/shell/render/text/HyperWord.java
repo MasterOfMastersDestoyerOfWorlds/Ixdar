@@ -8,9 +8,10 @@ import shell.render.color.Color;
 import shell.ui.Drawing;
 import shell.ui.actions.Action;
 
-public class Word {
+public class HyperWord {
 
-    public CharSequence text;
+    public CharSequence charSequence;
+    public ArrayList<HyperChar> text;
     public Color color;
     public Supplier<ColorText<?>> wordAction;
     public boolean isDynamic = false;
@@ -25,17 +26,19 @@ public class Word {
     public float x;
     public float y;
     public Bounds viewBounds;
-    public ArrayList<Word> subWords;
+    public ArrayList<HyperWord> subWords;
     private Font font;
     public static final String WORD_BOUNDS_ID = "WORD";
     public boolean culled = false;
 
-    public Word(String word, Color c, Action hoverAction, Action clearHover, Action clickAction, Font font) {
-        text = word;
+    public HyperWord(String word, Color c, Action hoverAction, Action clearHover, Action clickAction, Font font) {
+        charSequence = word;
+        this.font = font;
+        text = toHyperChars(word);
         color = c;
         this.hoverAction = hoverAction;
         this.clearHover = clearHover;
-        this.width = Drawing.getDrawing().font.getWidth(text);
+        this.width = Drawing.getDrawing().font.getWidth(charSequence);
         if (clickAction != null) {
             this.clickAction = clickAction;
         } else {
@@ -43,20 +46,33 @@ public class Word {
             };
         }
         viewBounds = new Bounds(0, 0, 0, 0, WORD_BOUNDS_ID);
-        this.font = font;
     }
 
-    public Word(boolean b, Font font) {
+    private ArrayList<HyperChar> toHyperChars(String word) {
+        ArrayList<HyperChar> list = new ArrayList<>();
+        for(int codePoint: word.chars().toArray()){
+            char c = (char)codePoint;
+            list.add(new HyperChar(font, c));
+        }
+        return list;
+    }
+
+    public HyperWord(boolean b, Font font) {
         newLine = b;
-        text = "";
+        this.font = font;
+        charSequence = "";
+        text = toHyperChars("");
         this.width = 0;
         viewBounds = new Bounds(0, 0, 0, 0, WORD_BOUNDS_ID);
-        this.font = font;
     }
 
-    public Word(Supplier<ColorText<?>> wordAction, Color c, Action hoverAction, Action clearHover, Action clickAction,
+    public HyperWord(Supplier<ColorText<?>> wordAction, Color c, Action hoverAction, Action clearHover,
+            Action clickAction,
             Font font) {
-        text = "?MissingWord?";
+        String val ="?MissingWord?";
+        charSequence = val;
+        this.font = font;
+        text = toHyperChars(val);
         color = c;
         this.wordAction = wordAction;
         this.hoverAction = hoverAction;
@@ -69,7 +85,6 @@ public class Word {
         }
         viewBounds = new Bounds(0, 0, 0, 0, WORD_BOUNDS_ID);
         isDynamic = true;
-        this.font = font;
     }
 
     public void setBounds(float x, float y, float xScreen, float yScreen, float height, Bounds viewBounds) {
@@ -84,12 +99,12 @@ public class Word {
     public void setFont(Font font) {
         this.font = font;
         if (isDynamic) {
-            this.width = font.getWidth(text);
+            this.width = font.getWidth(charSequence);
         }
     }
 
     public void setWidth(Font font) {
-        this.width = font.getWidth(text);
+        this.width = font.getWidth(charSequence);
     }
 
     public void setZeroWidth() {
@@ -113,7 +128,7 @@ public class Word {
 
     @Override
     public String toString() {
-        return (String) text;
+        return (String) charSequence;
     }
 
     public void click(float normalizedPosX, float normalizedPosY) {
@@ -124,14 +139,15 @@ public class Word {
         }
     }
 
-    public ArrayList<Word> subWords() {
+    public ArrayList<HyperWord> subWords() {
         ColorText<?> colorText = wordAction.get();
         if (colorText.dirty) {
-            ArrayList<Word> subWords = new ArrayList<>();
+            ArrayList<HyperWord> subWords = new ArrayList<>();
             int i = 0;
             for (String textPart : colorText.text) {
                 subWords.add(
-                        new Word(textPart + " ", colorText.color.get(i), hoverAction, clearHover, clickAction, font));
+                        new HyperWord(textPart + " ", colorText.color.get(i), hoverAction, clearHover, clickAction,
+                                font));
                 i++;
                 if (i >= colorText.color.size()) {
                     i = 0;

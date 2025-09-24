@@ -1,10 +1,15 @@
 package shell.point;
 
+import java.util.ArrayList;
+
 import org.joml.Vector2f;
 
 import shell.Toggle;
 import shell.cameras.Camera2D;
+import shell.knot.Knot;
+import shell.knot.Segment;
 import shell.render.color.Color;
+import shell.shell.Shell;
 import shell.ui.Drawing;
 import shell.ui.main.Main;
 
@@ -36,6 +41,10 @@ public abstract class Grid {
             return new Class[] { PointND.Double.class, PointND.Float.class };
         }
 
+        ArrayList<Segment> segmentsY = new ArrayList<>();
+        ArrayList<Segment> segmentsX = new ArrayList<>();
+        Shell gridShell = new Shell();
+
         @Override
         public void draw(Camera2D camera, float gridLineThickness) {
             double[] hexCoordsTopLeft = new double[] { Main.camera.screenTransformX(0),
@@ -59,8 +68,8 @@ public abstract class Grid {
                 Vector2f top = new Vector2f(camera.pointTransformX(closestMultipleOfMod + (i * mod)),
                         camera.getHeight());
                 Vector2f bot = new Vector2f(top.x, 0);
-
-                Drawing.drawScaledSegment(top, bot, gridColor, gridLineThickness, camera);
+                Segment s = getSegmentPool(segmentsY, gridShell, i, top, bot);
+                Drawing.drawScaledSegment(s, top, bot, gridColor, gridLineThickness, camera);
 
             }
 
@@ -70,11 +79,22 @@ public abstract class Grid {
                         camera.pointTransformY(closestMultipleOfMod + (i * mod)));
                 Vector2f right = new Vector2f(0, left.y);
 
-                Drawing.drawScaledSegment(left, right, gridColor, gridLineThickness, camera);
+                Segment s = getSegmentPool(segmentsY, gridShell, i, left, right);
+                Drawing.drawScaledSegment(s, left, right, gridColor, gridLineThickness, camera);
 
             }
             Drawing.getDrawing().sdfLine.culling = true;
         }
+
+    }
+
+    private static Segment getSegmentPool(ArrayList<Segment> segmentPool, Shell gridShell, int i, Vector2f left,
+            Vector2f right) {
+        if (segmentPool.size() < i + 1) {
+            segmentPool.add(new Segment(new Knot(new PointND.Double(left.x, left.y), gridShell),
+                    new Knot(new PointND.Double(right.x, right.y), gridShell), 0));
+        }
+        return segmentPool.get(i);
     }
 
     public static class HexGrid extends Grid {
@@ -105,6 +125,11 @@ public abstract class Grid {
         public Class<? extends PointCollection>[] allowableTypes() {
             return new Class[] { PointND.Hex.class };
         }
+
+        ArrayList<Segment> segmentsQ = new ArrayList<>();
+        ArrayList<Segment> segmentsR = new ArrayList<>();
+        ArrayList<Segment> segmentsS = new ArrayList<>();
+        Shell gridShell = new Shell();
 
         @Override
         public void draw(Camera2D camera, float gridLineThickness) {
@@ -147,7 +172,8 @@ public abstract class Grid {
                 Vector2f topRight = new Vector2f(rightDiagonal).mul(camera.getWidth()).add(finalBotLeft);
 
                 // drawing rightup diagonal
-                Drawing.drawScaledSegment(finalBotLeft, topRight, gridColor, gridLineThickness, camera);
+                Segment s = getSegmentPool(segmentsQ, gridShell, i, finalBotLeft, topRight);
+                Drawing.drawScaledSegment(s, finalBotLeft, topRight, gridColor, gridLineThickness, camera);
             }
             for (int i = 0; i < gridBucketsS; i++) {
                 Vector2f topLeftPointSpace = PointND.Hex.hexCoordsToPixel((float) Math.floor(hexCoordsTopLeft[0]) + i,
@@ -165,7 +191,8 @@ public abstract class Grid {
                 Vector2f botRight = new Vector2f(leftDiagonal).mul(camera.getWidth()).add(finalTopLeft);
 
                 // drawing leftup diagonal
-                Drawing.drawScaledSegment(finalTopLeft, botRight, gridColor, gridLineThickness, camera);
+                Segment s = getSegmentPool(segmentsS, gridShell, i, finalTopLeft, botRight);
+                Drawing.drawScaledSegment(s, finalTopLeft, botRight, gridColor, gridLineThickness, camera);
 
             }
 
@@ -176,7 +203,8 @@ public abstract class Grid {
                 Vector2f botLeft = new Vector2f(0, botRight.y);
 
                 // drawing horizontals
-                Drawing.drawScaledSegment(botRight, botLeft, gridColor, gridLineThickness, camera);
+                Segment s = getSegmentPool(segmentsR, gridShell, i, botRight, botLeft);
+                Drawing.drawScaledSegment(s, botRight, botLeft, gridColor, gridLineThickness, camera);
 
             }
             Drawing.getDrawing().sdfLine.culling = true;
