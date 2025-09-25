@@ -23,7 +23,7 @@ public class DistanceMatrix {
 
     private double[][] matrix;
     private ArrayList<PointND> points;
-    private HashMap<Integer, Integer> lookup;
+    private HashMap<Integer, Integer> lookup = new HashMap<Integer, Integer>();
     private double maxDist = 0;
     private double minDist = java.lang.Double.MAX_VALUE;
     private double zero = 0;
@@ -57,7 +57,6 @@ public class DistanceMatrix {
     public DistanceMatrix(PointSet pointset) {
         matrix = new double[pointset.size()][pointset.size()];
         points = new ArrayList<PointND>();
-        lookup = new HashMap<Integer, Integer>();
         for (PointND p : pointset) {
             points.add(p);
         }
@@ -79,7 +78,6 @@ public class DistanceMatrix {
     public DistanceMatrix(PointSet ps, DistanceMatrix d) {
         matrix = new double[ps.size()][ps.size()];
         points = new ArrayList<PointND>();
-        lookup = new HashMap<Integer, Integer>();
         this.zero = d.zero;
         this.maxDist = d.maxDist;
         for (PointND p : ps) {
@@ -141,8 +139,11 @@ public class DistanceMatrix {
      * @return the distance
      */
     public double getDistance(PointND i, PointND j) {
-
-        return matrix[lookup.get(i.getID())][lookup.get(j.getID())];
+        try {
+            return matrix[lookup.get(i.getID())][lookup.get(j.getID())];
+        } catch (NullPointerException e) {
+            return 0;
+        }
     }
 
     public double sumDistances(PointND p) {

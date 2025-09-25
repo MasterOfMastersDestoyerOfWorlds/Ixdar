@@ -4,6 +4,7 @@ import org.apache.commons.math3.util.Pair;
 import org.joml.Vector2f;
 
 import shell.cameras.Camera;
+import shell.cameras.Camera2D;
 import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.shaders.SDFShader;
@@ -31,6 +32,10 @@ public class SDFLine extends ShaderDrawable {
     public Vector2f pA;
     public Vector2f pB;
     public Color c2;
+    public Vector2f vAxis;
+    public Vector2f uAxis;
+    public Vector2f pATex;
+    public Vector2f pBTex;
 
     public SDFLine() {
         super();
@@ -95,6 +100,16 @@ public class SDFLine extends ShaderDrawable {
         this.roundCaps = roundCaps;
         this.endCaps = endCaps;
 
+        edgeDist = 0.35f;
+    }
+    public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
+            boolean endCaps, Camera2D camera2d) {
+        this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS);
+        this.dashed = dashed;
+        this.dashLength = dashLength;
+        this.dashRate = dashRate;
+        this.roundCaps = roundCaps;
+        this.endCaps = endCaps;
         edgeDist = 0.35f;
     }
 
@@ -184,19 +199,38 @@ public class SDFLine extends ShaderDrawable {
         bottomLeft = new Vector2f(pA).sub(normalUnitVector).add(lineVectorA);
         topRight = new Vector2f(normalUnitVector).add(pB).sub(lineVectorA);
         bottomRight = new Vector2f(pB).sub(normalUnitVector).sub(lineVectorA);
+        uAxis   = new Vector2f(bottomRight).sub(bottomLeft);
+        vAxis   = new Vector2f(topLeft).sub(bottomLeft);
+
+        pATex = toScaledTextureSpace(pA);
+        pBTex = toScaledTextureSpace(pB);
+    }
+
+    public Vector2f toTextureSpace(Vector2f p){
+
+        Vector2f rel = new Vector2f(p).sub(bottomLeft);
+        float u   = rel.dot(uAxis) / uAxis.dot(uAxis);
+        float v   = rel.dot(vAxis) / vAxis.dot(vAxis);
+        return new Vector2f(u, v);
+    }
+    public Vector2f toScaledTextureSpace(Vector2f p){
+
+        Vector2f rel = new Vector2f(p).sub(bottomLeft);
+        float u   = rel.dot(uAxis) / uAxis.dot(uAxis);
+        float v   = rel.dot(vAxis) / vAxis.dot(vAxis);
+        return new Vector2f(u*texWidth, v*texHeight);
     }
 
     @Override
     protected void setUniforms() {
         shader.setFloat("edgeSharpness", (float) Math.min(1 / (lineWidth * 2), 0.1));
         shader.setFloat("dashPhase", Clock.spin(dashRate));
-        float inverseLineLengthSq = 1 / lengthSq(pA, pB);
-        shader.setFloat("lineLengthSq", lengthSq(pA, pB));
+        float inverseLineLengthSq = 1 / lengthSq(pATex, pBTex);
+        shader.setFloat("lineLengthSq", lengthSq(pATex, pBTex));
         shader.setFloat("inverseLineLengthSq", inverseLineLengthSq);
-        shader.setVec2("pointA", pA);
-        shader.setVec2("pointB", pB);
-        shader.setFloat("width", width);
-        shader.setFloat("height", height);
+        shader.setVec2("pointA", pATex);
+        shader.setVec2("pointB", pBTex);
+        shader.setFloat("widthToHeightRatio", widthToHeightRatio);
         shader.setFloat("dashes", (float) ((Math.PI * height) / (dashLength)));
         shader.setFloat("dashEdgeDist", (float) (Math.PI * width * edgeDist) / (dashLength));
         shader.setVec4("linearGradientColor", c2.toVector4f());

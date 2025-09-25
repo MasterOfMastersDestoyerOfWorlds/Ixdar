@@ -3,8 +3,11 @@ package shell.knot;
 import java.util.ArrayList;
 
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
+import org.joml.Vector2f;
 
 import shell.DistanceMatrix;
+import shell.cameras.Camera2D;
+import shell.point.Point2D;
 import shell.point.PointND;
 import shell.render.color.Color;
 import shell.render.sdf.SDFLine;
@@ -308,4 +311,52 @@ public class Segment extends SDFLine implements Comparable<Segment>{
         return h;
     }
 
+
+    public Vector2f getScreenSpaceVector(Knot k1){
+        Vector2f psV = getPointSpaceVector(k1);
+        return new Vector2f(camera.pointTransformX(psV.x), camera.pointTransformY(psV.y));
+    }
+    public Vector2f toScreenSpace(Vector2f pointSpaceVector){
+        return new Vector2f(camera.pointTransformX(pointSpaceVector.x), camera.pointTransformY(pointSpaceVector.y));
+    }
+
+    public Vector2f getPointSpaceVector(Knot k1){
+        Point2D p1;
+        float[] firstCoords = new float[2];
+
+        if (!k1.isSingleton()) {
+            p1 = (((Knot) k1).knotPoints.get(0)).p.toPoint2D();
+        } else {
+            p1 = (k1).p.toPoint2D();
+        }
+        firstCoords[0] = (float)p1.getX();
+        firstCoords[1] = (float)p1.getY();
+        return new Vector2f(firstCoords);
+    }
+
+
+    @Override
+    public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
+            boolean endCaps, Camera2D camera2d) {
+        if(uAxis == null){
+            this.camera = camera2d;
+            this.pA = getScreenSpaceVector(first);
+            this.pB = getScreenSpaceVector(last);
+            calculateQuad();
+        }
+        Vector2f basePoint = getPointSpaceVector(first);
+        Vector2f dirPoint  = getPointSpaceVector(last).sub(basePoint);
+        Vector2f dashPoint = new Vector2f(dirPoint).normalize().mul(dashLength);
+
+        Vector2f baseScreen = toScreenSpace(basePoint);
+        Vector2f dashEndScreen = toScreenSpace(new Vector2f(basePoint).add(dashPoint));
+        Vector2f screenDir = dashEndScreen.sub(baseScreen);
+
+        float det = uAxis.x * vAxis.y - uAxis.y * vAxis.x;
+        float u = (screenDir.x * vAxis.y - screenDir.y * vAxis.x) / det;
+        float v = (uAxis.x * screenDir.y - uAxis.y * screenDir.x) / det;
+
+        float texLength = (float) Math.sqrt(u * u + v * v) * widthToHeightRatio;
+        super.setStroke(lineWidth, dashed, texLength, dashRate, roundCaps, endCaps);
+    }
 }

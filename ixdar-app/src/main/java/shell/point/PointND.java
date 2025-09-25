@@ -1057,12 +1057,19 @@ public abstract class PointND extends SDFCircle implements PointCollection, Clon
         }
         return getCoord(0);
     }
+    public float getScreenXf() {
+        return (float) getScreenX();
+    }
 
     public double getScreenY() {
         if (this.isDummyNode) {
             return -1000000;
         }
         return getCoord(1);
+    }
+    
+    public float getScreenYf() {
+        return (float) getScreenY();
     }
 
     public String toCoordString() {

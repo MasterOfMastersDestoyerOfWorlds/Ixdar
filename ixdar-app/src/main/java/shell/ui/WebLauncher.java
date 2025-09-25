@@ -77,36 +77,26 @@ public final class WebLauncher {
         Platforms.init(webPlatforms[i], webGLs[i]);
         GL gl = Platforms.gl();
         if (!broken) {
-            try {
-                if (canvas == null)
-                    return;
-                // Skip expensive updates and painting if the canvas is not visible
-                if (!isElementVisible(canvas)) {
-                    Window.requestAnimationFrame(ts -> tick(i));
-                    return;
-                }
-                int w = canvas.getClientWidth();
-                int h = canvas.getClientHeight();
-                if (w <= 0)
-                    w = 800;
-                if (h <= 0)
-                    h = 600;
-                if (canvas.getWidth() != w)
-                    canvas.setWidth(w);
-                if (canvas.getHeight() != h)
-                    canvas.setHeight(h);
-                Canvas3D.frameBufferWidth = w;
-                Canvas3D.frameBufferHeight = h;
-                canvas3d.paintGL();
-            } catch (Exception t) {
-                for (StackTraceElement e : t.getStackTrace()) {
-                    webPlatforms[i]
-                            .log("Multi-scene render error: " + e.getMethodName() + " " + e.getFileName() + " "
-                                    + e.getLineNumber());
-                }
-                webPlatforms[i].log(t.getMessage());
-                broken = true;
+            if (canvas == null)
+                return;
+            // Skip expensive updates and painting if the canvas is not visible
+            if (!isElementVisible(canvas)) {
+                Window.requestAnimationFrame(ts -> tick(i));
+                return;
             }
+            int w = canvas.getClientWidth();
+            int h = canvas.getClientHeight();
+            if (w <= 0)
+                w = 800;
+            if (h <= 0)
+                h = 600;
+            if (canvas.getWidth() != w)
+                canvas.setWidth(w);
+            if (canvas.getHeight() != h)
+                canvas.setHeight(h);
+            Canvas3D.frameBufferWidth = w;
+            Canvas3D.frameBufferHeight = h;
+            canvas3d.paintGL();
         } else {
             if (gl != null) {
                 // Ensure viewport per-canvas before drawing fallback

@@ -3,22 +3,30 @@ package shell.ui;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.IntFunction;
 
 import org.joml.Vector3f;
 
 import shell.cameras.Camera3D;
+import shell.DistanceMatrix;
+import shell.PointSet;
+import shell.cameras.Bounds;
+import shell.cameras.Camera2D;
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
 import shell.platform.gl.Platform;
 import shell.platform.input.KeyActions;
 import shell.platform.input.KeyGuy;
 import shell.platform.input.MouseTrap;
+import shell.point.PointND;
 import shell.render.Clock;
 import shell.render.sdf.SDFCircle;
 import shell.render.sdf.SDFFluid;
 import shell.render.shaders.DiffuseShader;
 import shell.render.shaders.ShaderProgram;
+import shell.shell.Shell;
 import shell.ui.main.Main;
 import shell.ui.menu.MenuBox;
 
@@ -36,11 +44,44 @@ public class Canvas3D {
     public KeyGuy keys = new KeyGuy(camera, this);
     public Platform platform;
     public long checkPaintTime;
+    public Shell shell;
+    
+    public Camera2D camera2D;
+    public Map<String, Bounds> webViews;
+    public Bounds paneBounds;
+
+    public DistanceMatrix distanceMatrix;
+    public PointSet pointSet;
+
+    public static final String DEFAULT_VIEW = "MAIN";
 
     public Canvas3D() {
         activate(true);
         platform = Platforms.get();
         active = true;
+        
+        shell = new Shell();
+    }
+
+    
+    public void initPoints() {
+        shell.clear();
+        shell.add(new PointND.Double(-1.0, -1.0));
+        shell.add(new PointND.Double(1.0, -1.0));
+        shell.add(new PointND.Double(1.0, 1.0));
+        shell.add(new PointND.Double(-1.0, 1.0));
+        pointSet = shell.toPointSet();
+        distanceMatrix = new DistanceMatrix(pointSet);
+        shell.initShell(distanceMatrix);
+        this.camera2D = new Camera2D(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight, 1.0f, 0.0f, 0.0f,
+                pointSet);
+        webViews = new HashMap<>();
+        paneBounds = new Bounds(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight, null, DEFAULT_VIEW);
+        webViews.put(DEFAULT_VIEW, paneBounds);
+        camera2D.initCamera(webViews, DEFAULT_VIEW);
+        camera2D.calculateCameraTransform(pointSet);
+        camera2D.updateView(DEFAULT_VIEW);
+        camera2D.reset();
     }
 
     public void initGL() throws UnsupportedEncodingException, IOException {
@@ -48,27 +89,8 @@ public class Canvas3D {
         gl.createCapabilities(false, (IntFunction) null);
         float start = Clock.time();
         gl.coldStartStack();
-
-        // Set global id provider (mandatory) for persistent VBO allocations
-        shell.render.shaders.ShaderProgram.setGlobalIdProvider(new shell.render.shaders.ShaderProgram.IdProvider() {
-            private final java.util.IdentityHashMap<Object, Long> instanceToId = new java.util.IdentityHashMap<>();
-            private long nextId = 1L;
-
-            @Override
-            public long getId(Object owner) {
-                Long id = instanceToId.get(owner);
-                if (id == null) {
-                    id = Long.valueOf(nextId++);
-                    instanceToId.put(owner, id);
-                }
-                return id.longValue();
-            }
-        });
-
+        
         System.out.println("capabilities: " + (Clock.time() - start));
-
-        menu = new MenuBox();
-        fluid = new SDFFluid();
 
         gl.viewport(0, 0, (int) Platforms.get().getWindowWidth(), (int) Platforms.get().getWindowHeight());
         mouse.setCanvas(this);
@@ -79,6 +101,7 @@ public class Canvas3D {
 
         System.out.println("InitGL: " + (Clock.time() - start));
         System.out.println("Time to First Paint: " + (Clock.time() - Platforms.get().startTime()));
+        initPoints();
     }
 
     public SDFCircle circle;
@@ -89,6 +112,7 @@ public class Canvas3D {
         gl.clearColor(0.07f, 0.07f, 0.07f, 1.0f);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera.resetZIndex();
+        camera2D.resetZIndex();
 
         // Always update input once per frame (centralize input handling here)
         float SHIFT_MOD = 1;
@@ -118,16 +142,20 @@ public class Canvas3D {
     }
 
     public void drawScene() {
+        if(menu == null){
+            menu = new MenuBox();
+            fluid = new SDFFluid();
+        }
         if (MenuBox.menuVisible) {
-            fluid.draw(0, 0, frameBufferWidth, frameBufferHeight, null, camera);
+            fluid.draw(0, 0, frameBufferWidth, frameBufferHeight, null, camera2D);
         }
 
         if (Main.main != null && !MenuBox.menuVisible) {
-            Main.main.draw(camera);
+            Main.main.draw(camera2D);
         }
 
         if (MenuBox.menuVisible) {
-            menu.draw(camera);
+            menu.draw(camera2D);
         }
     }
 

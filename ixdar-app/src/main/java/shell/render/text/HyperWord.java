@@ -50,8 +50,8 @@ public class HyperWord {
 
     private ArrayList<HyperChar> toHyperChars(String word) {
         ArrayList<HyperChar> list = new ArrayList<>();
-        for(int codePoint: word.chars().toArray()){
-            char c = (char)codePoint;
+        for(int i = 0; i < word.length(); i++){
+            char c = word.charAt(i);
             list.add(new HyperChar(font, c));
         }
         return list;

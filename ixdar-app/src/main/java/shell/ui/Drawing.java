@@ -243,7 +243,6 @@ public class Drawing {
     }
 
     public static void drawGradientSegment(Segment s, Color color1, Color color2, Camera2D camera) {
-        Drawing d = getDrawing();
         Point2D first;
         Point2D last;
         if (!s.first.isSingleton()) {

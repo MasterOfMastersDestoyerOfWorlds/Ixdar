@@ -44,7 +44,7 @@ public class DashedLineScene extends Scene {
     @Override
     public void drawScene() {
         super.drawScene();
-        lineSegment.setStroke(20*Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 100f, 0f, true, false);
+        lineSegment.setStroke(20*Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 0f, true, false, camera2D);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         

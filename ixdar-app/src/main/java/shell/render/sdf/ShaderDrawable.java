@@ -10,6 +10,7 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import shell.cameras.Camera;
+import shell.cameras.Camera2D;
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
 import shell.platform.gl.IxBuffer;
@@ -56,6 +57,12 @@ public abstract class ShaderDrawable {
 
     protected final long drawingId;
 
+    public float widthToHeightRatio;
+
+    public float texHeight;
+
+    public float texWidth;
+
     protected ShaderDrawable() {
         this.drawingId = nextId(getClass());
     }
@@ -84,7 +91,9 @@ public abstract class ShaderDrawable {
 
         width = bottomLeft.distance(bottomRight);
         height = bottomLeft.distance(topLeft);
-
+        widthToHeightRatio = width/height;
+        texWidth = widthToHeightRatio;
+        texHeight = 1;
         center = new Vector2f(bottomLeft)
                 .add(bottomRight)
                 .add(topRight)
@@ -92,12 +101,6 @@ public abstract class ShaderDrawable {
                 .div(4f);
 
         setUniforms();
-
-        // Provide default varying-like values for shader preview/evaluator
-        // so expressions like textureCoord.x can be resolved by the parser.
-        if (!shader.uniformMap.containsKey("textureCoord")) {
-            shader.uniformMap.put("textureCoord", new Vector2f(0.5f, 0.5f));
-        }
 
         // Prepare or update persistent VBO geometry for this quad
         ShaderProgram.Allocation alloc = ensureAllocation(drawingId);
@@ -186,7 +189,7 @@ public abstract class ShaderDrawable {
         }
         if (shader.platformId != Platforms.gl().getID()) {
             platform.log("Shader is not for the current platform");
-            return;
+            throw new NullPointerException();
         }
         this.camera = camera;
         setup(camera);
@@ -207,6 +210,11 @@ public abstract class ShaderDrawable {
             shader.queueDraw(alloc, Quad.VERTEX_COUNT);
         }
         cleanupFar(camera);
+    }
+
+    public void calculateQuad(Camera camera2d) {
+        this.camera = camera2d;
+        calculateQuad();
     }
 
     public void calculateQuad() {

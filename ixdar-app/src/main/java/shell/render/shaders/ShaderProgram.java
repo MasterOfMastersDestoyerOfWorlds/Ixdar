@@ -144,33 +144,6 @@ public abstract class ShaderProgram {
     public GL gl;
     public Platform platform;
 
-    // ===== Global ID assignment via callback =====
-    @FunctionalInterface
-    public static interface IdProvider {
-        long getId(Object owner);
-    }
-
-    public static interface HasStableId {
-        long getStableId();
-    }
-
-    private static volatile IdProvider globalIdProvider;
-
-    public static void setGlobalIdProvider(IdProvider provider) {
-        globalIdProvider = provider;
-    }
-
-    public static long assignId(Object owner) {
-        if (owner instanceof HasStableId) {
-            return ((HasStableId) owner).getStableId();
-        }
-        IdProvider p = globalIdProvider;
-        if (p == null) {
-            throw new IllegalStateException("Global IdProvider is not set and owner does not implement HasStableId");
-        }
-        return p.getId(owner);
-    }
-
     // Global id registry (shared across all ShaderProgram instances)
     private static final java.util.Map<Long, Object> GLOBAL_OWNER_KEYS = new java.util.HashMap<>();
     // Instance-level id→allocation lookup for convenience

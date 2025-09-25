@@ -154,8 +154,6 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             return ParseText.BLANK;
         }
         Map<String, ParseText> env = uniformProvider.getUniformMap();
-        // Inject mouse position as a vector `pos` with component aliases `pos_x`,
-        // `pos_y`
         ParseText.put(env, "pos", mx, my, 0f);
         if (uniformProvider.bottomLeft != null) {
             Vector2f m = new Vector2f(mx, my);
@@ -171,6 +169,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             float v = (am.dot(c) / c.lengthSquared());
 
             ParseText.put(env, "textureCoord", Math.clamp(u, 0, 1), Math.clamp(v, 0, 1));
+            ParseText.put(env, "scaledTextureCoord", Math.clamp(u*uniformProvider.widthToHeightRatio, 0, uniformProvider.texWidth), Math.clamp(v, 0, uniformProvider.texHeight));
         }
         // Ensure cache size matches displayed lines
         if (cachedSuffixes.size() != displayedLines.size()) {
