@@ -12,7 +12,6 @@ import shell.PointSet;
 import shell.Toggle;
 import shell.cameras.Camera;
 import shell.cameras.Camera2D;
-import shell.cuts.CutInfo;
 import shell.cuts.CutMatch;
 import shell.cuts.CutMatchList;
 import shell.exceptions.SegmentBalanceException;
@@ -195,12 +194,10 @@ public class Drawing {
 
     public static void drawScaledSegment(Segment s, Vector2f a, Vector2f b, Color c, float thickness, Camera2D camera) {
         s.setStroke(thickness * camera.ScaleFactor, false);
-        s.dashed = false;
         s.draw(a, b, c, camera);
     }
 
     private static void drawSegment(Segment ex1, Color c, Camera2D camera) {
-        Drawing d = getDrawing();
         Point2D first;
         Point2D last;
         if (!ex1.first.isSingleton()) {
@@ -216,12 +213,11 @@ public class Drawing {
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
 
-        ex1.dashed = false;
+        ex1.setStroke(false);
         ex1.draw(firstVec, lastVec, c, camera);
     }
 
     public static void drawDashedSegment(Segment ex1, Color c, Camera2D camera) {
-        Drawing d = getDrawing();
         Point2D first;
         Point2D last;
         if (!ex1.first.isSingleton()) {
@@ -279,7 +275,6 @@ public class Drawing {
      */
     public static void drawGradientSegmentPartial(Segment s, Color color1, Color color2, float length,
             Camera2D camera) {
-        Drawing d = getDrawing();
         Point2D first;
         Point2D last;
         if (!s.first.isSingleton()) {
@@ -385,7 +380,6 @@ public class Drawing {
             if (drawLines) {
                 float lx = camera.pointTransformX(last.getScreenX());
                 float ly = camera.pointTransformY(last.getScreenY());
-                long edgeId = Segment.idTransform(last.getID(), p.getID());
                 d.sdfLine.draw(new Vector2f(lx, ly), new Vector2f(x, y), color, camera);
             }
             last = p;

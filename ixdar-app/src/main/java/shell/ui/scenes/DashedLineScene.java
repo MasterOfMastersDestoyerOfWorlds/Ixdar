@@ -36,7 +36,8 @@ public class DashedLineScene extends Scene {
         Knot knot1 = new Knot(point1, shell);
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        initCodePane("Dashed Line SDF", lineSegment.dashedLineShader, lineSegment);
+        lineSegment.setStroke(20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 0f, false, false, camera2D);
+        initCodePane("Dashed Line SDF", lineSegment.getShader(), lineSegment);
     }
 
     @Override

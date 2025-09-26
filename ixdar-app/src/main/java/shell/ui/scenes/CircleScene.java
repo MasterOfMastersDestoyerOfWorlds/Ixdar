@@ -21,7 +21,7 @@ public class CircleScene extends Scene {
     public void initGL() throws UnsupportedEncodingException, IOException {
         super.initGL();
         circle = new SDFCircleSimple();
-        initCodePane("Circle SDF", circle.shader, circle);
+        initCodePane("Circle SDF", circle.getShader(), circle);
     }
 
     @Override
@@ -32,7 +32,7 @@ public class CircleScene extends Scene {
         float radius = Math.min(cx, cy);
 
         Vector2f center = new Vector2f(cx, cy);
-        circle.draw(center, radius, Color.BLUE_WHITE, 0L, camera2D);
+        circle.draw(center, radius, Color.BLUE_WHITE, camera2D);
     }
 
 }

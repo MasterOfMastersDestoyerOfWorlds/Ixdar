@@ -37,7 +37,8 @@ public class LineScene extends Scene {
         Knot knot1 = new Knot(point1, shell);
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        initCodePane("Line SDF", lineSegment.shader, lineSegment);
+        lineSegment.setStroke(20*Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false);
+        initCodePane("Line SDF", lineSegment.getShader(), lineSegment);
     }
 
 

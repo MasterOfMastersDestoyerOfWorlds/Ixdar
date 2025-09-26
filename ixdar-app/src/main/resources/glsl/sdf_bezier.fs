@@ -1,19 +1,6 @@
 #version 300 es
-// The MIT License
-// Copyright © 2018 Inigo Quilez
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-// Distance to a quadratic bezier segment, which can be solved analyically with a cubic.
-
-// List of some other 2D distances: https://www.shadertoy.com/playlist/MXdSRf
-//
-// and iquilezles.org/articles/distfunctions2d
-
-// 0: exact, using a cubic colver
-// 1: approximated
 
 precision highp float;
-#define METHOD 0
 
 float dot2(vec2 v) {
     return dot(v, v);
@@ -26,7 +13,6 @@ float cos_acos_3(float x) {
     return x * (x * (x * (x * -0.008972 + 0.039071) - 0.107074) + 0.576975) + 0.5;
 } // https://www.shadertoy.com/view/WltSD7
 
-#if METHOD==0
 // signed distance to a quadratic bezier
 float sdBezier(in vec2 pos, in vec2 A, in vec2 B, in vec2 C, out vec2 outQ) {
     vec2 a = B - A;
@@ -107,35 +93,6 @@ float sdBezier(in vec2 pos, in vec2 A, in vec2 B, in vec2 C, out vec2 outQ) {
 
     return sqrt(res) * sign(sgn);
 }
-#else
-
-// This method provides just an approximation, and is only usable in
-// the very close neighborhood of the curve. Taken and adapted from
-// http://research.microsoft.com/en-us/um/people/hoppe/ravg.pdf
-float sdBezier(vec2 p, vec2 v0, vec2 v1, vec2 v2, out vec2 outQ) {
-    vec2 i = v0 - v2;
-    vec2 j = v2 - v1;
-    vec2 k = v1 - v0;
-    vec2 w = j - k;
-
-    v0 -= p;
-    v1 -= p;
-    v2 -= p;
-
-    float x = cro(v0, v2);
-    float y = cro(v1, v0);
-    float z = cro(v2, v1);
-
-    vec2 s = 2.0 * (y * j + z * k) - x * i;
-
-    float r = (y * z - x * x * 0.25) / dot2(s);
-    float t = clamp((0.5 * x + y + r * dot(s, w)) / (x + y + z), 0.0, 1.0);
-
-    vec2 d = v0 + t * (k + k + t * w);
-    outQ = d + p;
-    return length(d);
-}
-#endif
 
 float udSegment(in vec2 p, in vec2 a, in vec2 b) {
     vec2 pa = p - a;
@@ -143,9 +100,12 @@ float udSegment(in vec2 p, in vec2 a, in vec2 b) {
     float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
     return length(pa - ba * h);
 }
-uniform vec3 iResolution; // viewport resolution (in pixels)
+uniform vec2 iResolution; // viewport resolution (in pixels)
 uniform float iTime; // shader playback time (in seconds)
-void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+out vec4 fragColor;
+in vec3 pos;
+void main() {
+    vec2 fragCoord = pos.xy;
     vec2 p = (2.0 * fragCoord - iResolution.xy) / iResolution.y;
 
     vec2 v0 = vec2(1.3, 0.9) * cos(iTime * 0.5 + vec2(0.0, 5.0));

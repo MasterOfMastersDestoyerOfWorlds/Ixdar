@@ -14,30 +14,28 @@ import shell.ui.Drawing;
 
 public class SDFLine extends ShaderDrawable {
 
-    public ShaderProgram lineShader;
-    public ShaderProgram dashedLineShader;
-    public ShaderProgram dashedLineRoundShader;
-    public ShaderProgram dashedLineEndCapsShader;
+    private ShaderProgram lineShader;
+    private ShaderProgram dashedLineShader;
+    private ShaderProgram dashedLineRoundShader;
+    private ShaderProgram dashedLineEndCapsShader;
     private Color borderColor;
     private float borderInner;
     private float borderOuter;
     private float borderOffsetInner;
     private float borderOffsetOuter;
-    public float lineWidth;
-    public float dashLength;
-    public boolean dashed;
-    public boolean roundCaps;
-    public float dashRate;
-    public boolean endCaps;
+    private float lineWidth;
+    private float dashLength;
+    private boolean dashed;
+    private boolean roundCaps;
+    private float dashRate;
+    private boolean endCaps;
     private float edgeDist;
-    public boolean culling = true;
-    public Vector2f pA;
-    public Vector2f pB;
-    public Color c2;
-    public Vector2f vAxis;
-    public Vector2f uAxis;
-    public Vector2f pATex;
-    public Vector2f pBTex;
+    private boolean culling = true;
+    private Vector2f pA;
+    private Vector2f pB;
+    private Color c2;
+    private Vector2f pATex;
+    private Vector2f pBTex;
 
     public SDFLine() {
         super();
@@ -61,6 +59,7 @@ public class SDFLine extends ShaderDrawable {
         this.borderOuter = borderDist;
         this.borderOffsetInner = borderOffset - 0.1f;
         this.borderOffsetOuter = borderOffset;
+        setShader();
     }
 
     float lengthSq(Vector2f a, Vector2f b) {
@@ -77,6 +76,11 @@ public class SDFLine extends ShaderDrawable {
         this.pB = pB;
         this.c = c;
         this.c2 = c2;
+        setShader();
+        draw(camera);
+    }
+
+    public void setShader() {
         shader = lineShader;
         if (dashed) {
             shader = dashedLineShader;
@@ -87,18 +91,23 @@ public class SDFLine extends ShaderDrawable {
                 shader = dashedLineRoundShader;
             } 
         }
-        draw(camera);
     }
 
     public void setBorderDist(float borderDist) {
         this.borderInner = borderDist - 0.1f;
         this.borderOuter = borderDist;
     }
+    public void setStroke(boolean dashed) {
+        this.dashed = dashed;
+        edgeDist = 0.35f;
+        setShader();
+    }
 
     public void setStroke(float lineWidth, boolean dashed) {
         this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS / 3f);
         this.dashed = dashed;
         edgeDist = 0.35f;
+        setShader();
     }
 
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
@@ -111,6 +120,7 @@ public class SDFLine extends ShaderDrawable {
         this.endCaps = endCaps;
 
         edgeDist = 0.35f;
+        setShader();
     }
 
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
@@ -122,6 +132,7 @@ public class SDFLine extends ShaderDrawable {
         this.roundCaps = roundCaps;
         this.endCaps = endCaps;
         edgeDist = 0.35f;
+        setShader();
     }
 
     @Override
@@ -212,25 +223,8 @@ public class SDFLine extends ShaderDrawable {
         bottomRight = new Vector2f(pB).sub(normalUnitVector).sub(lineVectorA);
         uAxis = new Vector2f(bottomRight).sub(bottomLeft);
         vAxis = new Vector2f(topLeft).sub(bottomLeft);
-
         pATex = toScaledTextureSpace(pA);
         pBTex = toScaledTextureSpace(pB);
-    }
-
-    public Vector2f toTextureSpace(Vector2f p) {
-
-        Vector2f rel = new Vector2f(p).sub(bottomLeft);
-        float u = rel.dot(uAxis) / uAxis.dot(uAxis);
-        float v = rel.dot(vAxis) / vAxis.dot(vAxis);
-        return new Vector2f(u, v);
-    }
-
-    public Vector2f toScaledTextureSpace(Vector2f p) {
-
-        Vector2f rel = new Vector2f(p).sub(bottomLeft);
-        float u = rel.dot(uAxis) / uAxis.dot(uAxis);
-        float v = rel.dot(vAxis) / vAxis.dot(vAxis);
-        return new Vector2f(u * texWidth, v * texHeight);
     }
 
     @Override
@@ -278,6 +272,15 @@ public class SDFLine extends ShaderDrawable {
         }
 
         return new Pair<Boolean, Vector2f>(false, null);
+    }
+
+    public void setEndpoints(Camera2D camera2d, Vector2f pA, Vector2f pB) {
+        this.camera = camera2d;
+        this.pA = pA;
+        this.pB = pB;
+    }
+
+    public void setCulling(boolean b) {culling = b;
     }
 
 }

@@ -338,12 +338,14 @@ public class Segment extends SDFLine implements Comparable<Segment>{
     @Override
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
             boolean endCaps, Camera2D camera2d) {
+        
         if(uAxis == null){
             this.camera = camera2d;
-            this.pA = getScreenSpaceVector(first);
-            this.pB = getScreenSpaceVector(last);
+            super.setEndpoints(camera2d, getScreenSpaceVector(first),  getScreenSpaceVector(last));
             calculateQuad();
         }
+        Vector2f uAxis = super.getUAxis();
+        Vector2f vAxis = super.getVAxis();
         Vector2f basePoint = getPointSpaceVector(first);
         Vector2f dirPoint  = getPointSpaceVector(last).sub(basePoint);
         Vector2f dashPoint = new Vector2f(dirPoint).normalize().mul(dashLength);

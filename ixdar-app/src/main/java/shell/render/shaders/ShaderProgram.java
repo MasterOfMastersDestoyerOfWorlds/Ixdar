@@ -47,7 +47,9 @@ public abstract class ShaderProgram {
 
         Font(FontShader.class, "font.vs", "font.fs"),
 
-        Color(ColorShader.class, "color.vs", "color.fs");
+        Color(ColorShader.class, "color.vs", "color.fs"), 
+        
+        BezierSDF(SDFShader.class, "font.vs", "sdf_bezier.fs");
 
         public String vertexShaderLocation;
         public String fragmentShaderLocation;

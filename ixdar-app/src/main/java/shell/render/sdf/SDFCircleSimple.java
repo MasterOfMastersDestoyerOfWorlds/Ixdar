@@ -16,10 +16,6 @@ public class SDFCircleSimple extends ShaderDrawable {
     }
 
     public void draw(Vector2f center, float radius, Color c, Camera camera) {
-        draw(center, radius, c, 0L, camera);
-    }
-
-    public void draw(Vector2f center, float radius, Color c, long id, Camera camera) {
         this.radius = radius;
         this.center = center;
         this.c = c;

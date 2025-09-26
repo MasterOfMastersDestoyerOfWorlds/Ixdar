@@ -41,6 +41,15 @@
         },
         {
             "type": "java",
+            "name": "Bezier",
+            "request": "launch",
+            "mainClass": "shell.ui.IxdarWindow",
+            "args": "bezier-curve-canvas",
+            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+            "cwd": "${workspaceFolder}/ixdar-app"
+        },
+        {
+            "type": "java",
             "name": "Line",
             "request": "launch",
             "mainClass": "shell.ui.IxdarWindow",

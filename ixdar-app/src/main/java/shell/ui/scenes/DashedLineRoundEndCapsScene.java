@@ -36,13 +36,14 @@ public class DashedLineRoundEndCapsScene extends Scene {
         Knot knot1 = new Knot(point1, shell);
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        initCodePane("Dashed Line Round End Caps SDF", lineSegment.dashedLineEndCapsShader, lineSegment);
+        lineSegment.setStroke(7.5f * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 10f, false, true, camera2D);
+        initCodePane("Dashed Line Round End Caps SDF", lineSegment.getShader(), lineSegment);
     }
 
     @Override
     public void drawScene() {
         super.drawScene();
-        lineSegment.setStroke(10 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 10f, false, true, camera2D);
+        lineSegment.setStroke(7.5f * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 10f, false, true, camera2D);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
 

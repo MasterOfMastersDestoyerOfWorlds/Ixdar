@@ -12,6 +12,7 @@ import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.ShaderDrawable;
+import shell.render.sdf.ShaderDrawable.Quad;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 import shell.render.text.ColorText;
@@ -155,13 +156,14 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         }
         Map<String, ParseText> env = uniformProvider.getUniformMap();
         ParseText.put(env, "pos", mx, my, 0f);
-        if (uniformProvider.bottomLeft != null) {
+        Quad q = uniformProvider.getQuad();
+        if (q != null) {
             Vector2f m = new Vector2f(mx, my);
 
-            Vector2f a = new Vector2f(uniformProvider.bottomLeft);
-            Vector2f b = new Vector2f(uniformProvider.bottomRight).sub(new Vector2f(uniformProvider.bottomLeft),
+            Vector2f a = new Vector2f(q.bottomLeft);
+            Vector2f b = new Vector2f(q.bottomRight).sub(new Vector2f(q.bottomLeft),
                     new Vector2f());
-            Vector2f c = new Vector2f(uniformProvider.topLeft).sub(new Vector2f(uniformProvider.bottomLeft),
+            Vector2f c = new Vector2f(q.topLeft).sub(new Vector2f(q.bottomLeft),
                     new Vector2f());
             Vector2f am = m.sub(a, new Vector2f());
 
@@ -169,7 +171,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             float v = (am.dot(c) / c.lengthSquared());
 
             ParseText.put(env, "textureCoord", Math.clamp(u, 0, 1), Math.clamp(v, 0, 1));
-            ParseText.put(env, "scaledTextureCoord", Math.clamp(u*uniformProvider.widthToHeightRatio, 0, uniformProvider.texWidth), Math.clamp(v, 0, uniformProvider.texHeight));
+            ParseText.put(env, "scaledTextureCoord", Math.clamp(u*q.widthToHeightRatio, 0, q.texWidth), Math.clamp(v, 0, q.texHeight));
         }
         // Ensure cache size matches displayed lines
         if (cachedSuffixes.size() != displayedLines.size()) {

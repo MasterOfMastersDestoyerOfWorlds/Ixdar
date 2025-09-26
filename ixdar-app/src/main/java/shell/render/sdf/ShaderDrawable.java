@@ -10,7 +10,6 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import shell.cameras.Camera;
-import shell.cameras.Camera2D;
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
 import shell.platform.gl.IxBuffer;
@@ -22,22 +21,22 @@ import shell.ui.code.ParseText;
 
 public abstract class ShaderDrawable {
 
-    public ShaderProgram shader;
+    protected ShaderProgram shader;
 
-    public GL gl = Platforms.gl();
-    public Platform platform = Platforms.get();
-    public Camera camera;
+    protected GL gl = Platforms.gl();
+    protected Platform platform = Platforms.get();
+    protected Camera camera;
 
-    public float drawX;
-    public float drawY;
-    public float width;
-    public float height;
-    public Vector2f bottomLeft;
-    public Vector2f bottomRight;
-    public Vector2f topRight;
-    public Vector2f topLeft;
-    public Vector2f center;
-    public Color c = Color.PINK;
+    protected float drawX;
+    protected float drawY;
+    protected float width;
+    protected float height;
+    protected Vector2f bottomLeft;
+    protected Vector2f bottomRight;
+    protected Vector2f topRight;
+    protected Vector2f topLeft;
+    protected Vector2f center;
+    protected Color c = Color.PINK;
 
     // Persistent VBO allocation for this drawable's quad geometry
     private ShaderProgram.Allocation allocation;
@@ -57,11 +56,15 @@ public abstract class ShaderDrawable {
 
     protected final long drawingId;
 
-    public float widthToHeightRatio;
+    protected float widthToHeightRatio;
 
-    public float texHeight;
+    protected float texHeight;
 
-    public float texWidth;
+    protected float texWidth;
+
+    protected Vector2f uAxis;
+
+    protected Vector2f vAxis;
 
     protected ShaderDrawable() {
         this.drawingId = nextId(getClass());
@@ -71,15 +74,21 @@ public abstract class ShaderDrawable {
         return drawingId;
     }
 
-    private static final class Quad {
-        final Vector2f bl, br, tr, tl;
+    public static final class Quad {
+        public final Vector2f bottomLeft, bottomRight, topRight, topLeft;
+        public float widthToHeightRatio;
+        public float texWidth;
+        public float texHeight;
         public final static int VERTEX_COUNT = 6;
 
-        Quad(Vector2f bl, Vector2f br, Vector2f tr, Vector2f tl) {
-            this.bl = new Vector2f(bl);
-            this.br = new Vector2f(br);
-            this.tr = new Vector2f(tr);
-            this.tl = new Vector2f(tl);
+        Quad(Vector2f bl, Vector2f br, Vector2f tr, Vector2f tl, float texWidth, float texHeight, float widthToHeightRatio) {
+            this.bottomLeft = new Vector2f(bl);
+            this.bottomRight = new Vector2f(br);
+            this.topRight = new Vector2f(tr);
+            this.topLeft = new Vector2f(tl);
+            this.texWidth = texWidth;
+            this.texHeight = texHeight;
+            this.widthToHeightRatio = widthToHeightRatio;
         }
     }
 
@@ -99,6 +108,8 @@ public abstract class ShaderDrawable {
                 .add(topRight)
                 .add(topLeft)
                 .div(4f);
+
+                
 
         setUniforms();
 
@@ -222,6 +233,8 @@ public abstract class ShaderDrawable {
         bottomRight = new Vector2f(bottomLeft).add(width, 0);
         topLeft = new Vector2f(bottomLeft).add(0, height);
         topRight = new Vector2f(bottomLeft).add(width, height);
+        uAxis = new Vector2f(bottomRight).sub(bottomLeft);
+        vAxis = new Vector2f(topLeft).sub(bottomLeft);
     }
 
     public void drawCentered(float drawX, float drawY, float width, float height, Color c, Camera camera) {
@@ -248,17 +261,20 @@ public abstract class ShaderDrawable {
         if (id == null) {
             return geometryDirty;
         }
-        Quad newQuad = new Quad(bottomLeft, bottomRight, topRight, topLeft);
+        Quad newQuad = new Quad(bottomLeft, bottomRight, topRight, topLeft, texWidth, texHeight, widthToHeightRatio);
         Quad old = prevQuadById.get(id);
         boolean changed = (old == null) || !sameQuad(old, newQuad);
         prevQuadById.put(id, newQuad);
         return changed;
     }
+    public Quad getQuad(){
+        return prevQuadById.get(drawingId);
+    }
 
     private static boolean sameQuad(Quad a, Quad b) {
-        float eps = 0.01f;
-        return a.bl.distance(b.bl) <= eps && a.br.distance(b.br) <= eps && a.tr.distance(b.tr) <= eps
-                && a.tl.distance(b.tl) <= eps;
+        float eps = 0.00001f;
+        return a.bottomLeft.distance(b.bottomLeft) <= eps && a.bottomRight.distance(b.bottomRight) <= eps && a.topRight.distance(b.topRight) <= eps
+                && a.topLeft.distance(b.topLeft) <= eps;
     }
 
     private void uploadGeometry(ShaderProgram.Allocation target) {
@@ -302,4 +318,40 @@ public abstract class ShaderDrawable {
         buf.flip();
         shader.uploadAllocation(target, buf, Quad.VERTEX_COUNT);
     }
+
+    
+    public Vector2f toTextureSpace(Vector2f p) {
+        if(uAxis == null){
+            uAxis = new Vector2f(bottomRight).sub(bottomLeft);
+            vAxis = new Vector2f(topLeft).sub(bottomLeft);
+        }
+        Vector2f rel = new Vector2f(p).sub(bottomLeft);
+        float u = rel.dot(uAxis) / uAxis.dot(uAxis);
+        float v = rel.dot(vAxis) / vAxis.dot(vAxis);
+        return new Vector2f(u, v);
+    }
+
+    public Vector2f toScaledTextureSpace(Vector2f p) {
+        if(uAxis == null){
+            uAxis = new Vector2f(bottomRight).sub(bottomLeft);
+            vAxis = new Vector2f(topLeft).sub(bottomLeft);
+        }
+        Vector2f rel = new Vector2f(p).sub(bottomLeft);
+        float u = rel.dot(uAxis) / uAxis.dot(uAxis);
+        float v = rel.dot(vAxis) / vAxis.dot(vAxis);
+        return new Vector2f(u * texWidth, v * texHeight);
+    }
+
+    public ShaderProgram getShader() {
+        return shader;
+    }
+    
+    public Vector2f getUAxis() {
+        return uAxis;
+    }
+
+    public Vector2f getVAxis() {
+        return vAxis;
+    }
+
 }

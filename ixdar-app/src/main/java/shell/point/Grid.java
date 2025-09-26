@@ -63,7 +63,7 @@ public abstract class Grid {
             int gridBucketsX = (int) Math.ceil(Math.abs(hexCoordsTopLeft[0] - hexCoordsBotRight[0])) / mod + 1;
             int closestMultipleOfMod = (int) (Math.ceil(hexCoordsTopLeft[0] / mod) * mod);
 
-            Drawing.getDrawing().sdfLine.culling = false;
+            Drawing.getDrawing().sdfLine.setCulling(false);
             for (int i = 0; i < gridBucketsX; i++) {
                 Vector2f top = new Vector2f(camera.pointTransformX(closestMultipleOfMod + (i * mod)),
                         camera.getHeight());
@@ -83,7 +83,7 @@ public abstract class Grid {
                 Drawing.drawScaledSegment(s, left, right, gridColor, gridLineThickness, camera);
 
             }
-            Drawing.getDrawing().sdfLine.culling = true;
+            Drawing.getDrawing().sdfLine.setCulling(true);;
         }
 
     }
@@ -154,7 +154,7 @@ public abstract class Grid {
             Vector2f leftDiagonal = PointND.Hex.getRightDownVector();
 
             Vector2f rightDiagonal = PointND.Hex.getRightUpVector();
-            Drawing.getDrawing().sdfLine.culling = false;
+            Drawing.getDrawing().sdfLine.setCulling(false);;
             float midcoord = camera.pointTransformX(PointND.Hex
                     .hexCoordsToPixel((float) Math.floor(hexCoordsBotLeft[0]), (float) hexCoordsMidPoint[1]).x);
             for (int i = 0; i < gridBucketsQ; i++) {
@@ -207,7 +207,7 @@ public abstract class Grid {
                 Drawing.drawScaledSegment(s, botRight, botLeft, gridColor, gridLineThickness, camera);
 
             }
-            Drawing.getDrawing().sdfLine.culling = true;
+            Drawing.getDrawing().sdfLine.setCulling(true);
         }
 
     }
