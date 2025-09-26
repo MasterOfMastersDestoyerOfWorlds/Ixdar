@@ -14,8 +14,10 @@ import shell.ui.Drawing;
 
 public class SDFLine extends ShaderDrawable {
 
-    public ShaderProgram line_shader;
-    public ShaderProgram dashed_line_shader;
+    public ShaderProgram lineShader;
+    public ShaderProgram dashedLineShader;
+    public ShaderProgram dashedLineRoundShader;
+    public ShaderProgram dashedLineEndCapsShader;
     private Color borderColor;
     private float borderInner;
     private float borderOuter;
@@ -39,9 +41,11 @@ public class SDFLine extends ShaderDrawable {
 
     public SDFLine() {
         super();
-        line_shader = ShaderType.LineSDF.getShader();
-        dashed_line_shader = ShaderType.DashedLineSDF.getShader();
-        shader = line_shader;
+        lineShader = ShaderType.LineSDF.getShader();
+        dashedLineShader = ShaderType.DashedLineSDF.getShader();
+        dashedLineRoundShader = ShaderType.DashedLineRoundSDF.getShader();
+        dashedLineEndCapsShader = ShaderType.DashedLineEndCapsSDF.getShader();
+        shader = lineShader;
         this.borderColor = Color.TRANSPARENT;
         this.borderInner = 0;
         this.borderOuter = 0;
@@ -51,7 +55,7 @@ public class SDFLine extends ShaderDrawable {
 
     public SDFLine(SDFShader sdfShader, Color borderColor,
             float borderDist, float borderOffset) {
-        line_shader = sdfShader;
+        lineShader = sdfShader;
         this.borderColor = borderColor;
         this.borderInner = borderDist - 0.1f;
         this.borderOuter = borderDist;
@@ -73,9 +77,15 @@ public class SDFLine extends ShaderDrawable {
         this.pB = pB;
         this.c = c;
         this.c2 = c2;
-        shader = line_shader;
+        shader = lineShader;
         if (dashed) {
-            shader = dashed_line_shader;
+            shader = dashedLineShader;
+            if (endCaps){
+                shader = dashedLineEndCapsShader;
+            }
+            else if(roundCaps){
+                shader = dashedLineRoundShader;
+            } 
         }
         draw(camera);
     }
@@ -102,6 +112,7 @@ public class SDFLine extends ShaderDrawable {
 
         edgeDist = 0.35f;
     }
+
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
             boolean endCaps, Camera2D camera2d) {
         this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS);
@@ -199,26 +210,27 @@ public class SDFLine extends ShaderDrawable {
         bottomLeft = new Vector2f(pA).sub(normalUnitVector).add(lineVectorA);
         topRight = new Vector2f(normalUnitVector).add(pB).sub(lineVectorA);
         bottomRight = new Vector2f(pB).sub(normalUnitVector).sub(lineVectorA);
-        uAxis   = new Vector2f(bottomRight).sub(bottomLeft);
-        vAxis   = new Vector2f(topLeft).sub(bottomLeft);
+        uAxis = new Vector2f(bottomRight).sub(bottomLeft);
+        vAxis = new Vector2f(topLeft).sub(bottomLeft);
 
         pATex = toScaledTextureSpace(pA);
         pBTex = toScaledTextureSpace(pB);
     }
 
-    public Vector2f toTextureSpace(Vector2f p){
+    public Vector2f toTextureSpace(Vector2f p) {
 
         Vector2f rel = new Vector2f(p).sub(bottomLeft);
-        float u   = rel.dot(uAxis) / uAxis.dot(uAxis);
-        float v   = rel.dot(vAxis) / vAxis.dot(vAxis);
+        float u = rel.dot(uAxis) / uAxis.dot(uAxis);
+        float v = rel.dot(vAxis) / vAxis.dot(vAxis);
         return new Vector2f(u, v);
     }
-    public Vector2f toScaledTextureSpace(Vector2f p){
+
+    public Vector2f toScaledTextureSpace(Vector2f p) {
 
         Vector2f rel = new Vector2f(p).sub(bottomLeft);
-        float u   = rel.dot(uAxis) / uAxis.dot(uAxis);
-        float v   = rel.dot(vAxis) / vAxis.dot(vAxis);
-        return new Vector2f(u*texWidth, v*texHeight);
+        float u = rel.dot(uAxis) / uAxis.dot(uAxis);
+        float v = rel.dot(vAxis) / vAxis.dot(vAxis);
+        return new Vector2f(u * texWidth, v * texHeight);
     }
 
     @Override
@@ -231,7 +243,7 @@ public class SDFLine extends ShaderDrawable {
         shader.setVec2("pointA", pATex);
         shader.setVec2("pointB", pBTex);
         shader.setFloat("widthToHeightRatio", widthToHeightRatio);
-        shader.setFloat("dashes", (float) ((Math.PI * height) / (dashLength)));
+        shader.setFloat("dashes", (float) (pATex.distance(pBTex) / (dashLength)));
         shader.setFloat("dashEdgeDist", (float) (Math.PI * width * edgeDist) / (dashLength));
         shader.setVec4("linearGradientColor", c2.toVector4f());
         shader.setFloat("borderInner", borderInner);

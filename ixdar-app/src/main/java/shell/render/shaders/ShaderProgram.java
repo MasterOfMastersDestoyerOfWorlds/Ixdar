@@ -33,6 +33,10 @@ public abstract class ShaderProgram {
 
         DashedLineSDF(SDFShader.class, "font.vs", "sdf_dashed_line.fs"),
 
+        DashedLineRoundSDF(SDFShader.class, "font.vs", "sdf_dashed_line_round.fs"),
+
+        DashedLineEndCapsSDF(SDFShader.class, "font.vs", "sdf_dashed_line_round_end_caps.fs"),
+
         CircleSDF(SDFShader.class, "font.vs", "sdf_circle.fs"),
 
         CircleSDFSimple(SDFShader.class, "font.vs", "sdf_circle_simple.fs"),

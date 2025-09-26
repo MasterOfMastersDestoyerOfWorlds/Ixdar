@@ -16,10 +16,12 @@ uniform vec4 linearGradientColor;
 out vec4 fragColor;
 
 void main() {
+
     float sigDist = -1.;
     float t = max(0., min(1., dot(scaledTextureCoord - pointA, pointB - pointA) * inverseLineLengthSq));
-    vec2 projection = pointA + t * (pointB - pointA); // Projection falls on the segment A-B
+    vec2 projection = pointA + t * (pointB - pointA);
     sigDist = distance(scaledTextureCoord, projection);
     float opacity = smoothstep(edgeDist, edgeDist - edgeSharpness, sigDist);
-    fragColor = vec4(mix(vertexColor.rgb, linearGradientColor.rgb, textureCoord.x), 1. * opacity * linearGradientColor.a);
+    fragColor = vec4(mix(vertexColor.rgb, linearGradientColor.rgb, textureCoord.x), opacity * linearGradientColor.a);
+
 }

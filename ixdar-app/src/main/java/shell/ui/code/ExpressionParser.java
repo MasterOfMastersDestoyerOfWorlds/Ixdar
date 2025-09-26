@@ -271,8 +271,12 @@ public class ExpressionParser {
     }
 
     private ParseText resolveVar(String name) {
+        if ("quarterPI".equalsIgnoreCase(name))
+            return new ParseText("quarterPI", (float) Math.PI/4f);
         if ("pi".equalsIgnoreCase(name))
             return new ParseText("pi", (float) Math.PI);
+        if ("halfpi".equalsIgnoreCase(name))
+            return new ParseText("halfpi", (float) Math.PI/2f);
         if ("TAU".equalsIgnoreCase(name))
             return new ParseText("TAU", (float) (Math.PI * 2.0f));
         if ("e".equalsIgnoreCase(name))
@@ -321,6 +325,8 @@ public class ExpressionParser {
             return applyOneArgFunc((x) -> x - (x.intValue()) < 0.5 ? Math.floor(x) : Math.ceil(x), a);
         case "min":
             return applyTwoArgFunc(Math::min, a);
+        case "mod":
+            return applyTwoArgFunc((x, y) -> x % y, a);
         case "max":
             return applyTwoArgFunc(Math::max, a);
         case "dot":
