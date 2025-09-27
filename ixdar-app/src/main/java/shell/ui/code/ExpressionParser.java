@@ -10,6 +10,8 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.joml.Vector4f;
 
 import shell.render.color.Color;
+import shell.render.color.ColorRGB;
+import shell.render.text.SpecialGlyphs;
 
 public class ExpressionParser {
 
@@ -40,6 +42,19 @@ public class ExpressionParser {
             return null;
         }
 
+        // Handle single-line if/else of the form:
+        // if (cond) <then> else <else>
+        // Both <then> and <else> can be expressions or assignments (optionally wrapped
+        // in braces)
+        String sTrimLower = s.trim().toLowerCase();
+        if (sTrimLower.startsWith("if")) {
+            try {
+                return evaluateIfElse(s.trim(), env);
+            } catch (Exception ignore) {
+                return null;
+            }
+        }
+
         String sl = s.toLowerCase();
         if (s.contains("==") || s.contains("?") || s.contains(":") || s.startsWith("#")
                 || sl.startsWith("in ") || sl.startsWith("out ") || sl.startsWith("uniform ")
@@ -54,6 +69,16 @@ public class ExpressionParser {
             String right = s.substring(eq + 1).trim();
             String var = extractVarName(left);
             if (var != null && !var.isEmpty()) {
+
+                // Support assignment from an inline if-expression: var = if (cond) expr else
+                // expr
+                if (right.toLowerCase().startsWith("if")) {
+                    ParseText ifVal = evaluateIfElse(right, env);
+                    if (ifVal != null && ifVal.data != null) {
+                        env.put(var, ifVal);
+                        return ifVal;
+                    }
+                }
 
                 if (isSwizzle(right)) {
                     String base = right.substring(0, right.indexOf('.'));
@@ -96,6 +121,515 @@ public class ExpressionParser {
             }
         }
         return null;
+    }
+
+    // Evaluate a whole set of code lines with control flow (if/else with braces)
+    // and write per-line suffixes into cachedSuffixes. This avoids evaluating
+    // assignments inside non-taken branches.
+    public static void evaluateAndAssign(List<String> lines, Map<String, ParseText> env,
+            List<ParseText> cachedSuffixes) {
+        if (lines == null || cachedSuffixes == null) {
+            return;
+        }
+        // Execution stack: true means current block is executing. Root is true.
+        ArrayList<Boolean> execStack = new ArrayList<>();
+        execStack.add(Boolean.TRUE);
+        // Track if-blocks to connect an 'else' with the most recent 'if'
+        ArrayList<Boolean> isIfStack = new ArrayList<>();
+        isIfStack.add(Boolean.FALSE);
+        ArrayList<Boolean> elseShouldExecStack = new ArrayList<>();
+        elseShouldExecStack.add(Boolean.FALSE);
+        int braceDepth = 0;
+        boolean awaitingElseExec = false;
+        int awaitingElseDepth = 0;
+
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            String original = line != null ? line : "";
+            ParseText out = ParseText.BLANK;
+
+            String s = original;
+            int cidx = s.indexOf("//");
+            if (cidx >= 0)
+                s = s.substring(0, cidx);
+            String decl = s.trim();
+
+            // Handle closing brace(s): may be '}' alone or start of a line like '} else {'
+            if (!decl.isEmpty() && decl.charAt(0) == '}') {
+                // Pop one or more blocks for each leading '}' but never pop the root
+                while (!decl.isEmpty() && decl.charAt(0) == '}') {
+                    if (execStack.size() > 1) {
+                        boolean poppedIsIf = isIfStack.remove(isIfStack.size() - 1);
+                        boolean poppedElseShouldExec = elseShouldExecStack
+                                .remove(elseShouldExecStack.size() - 1);
+                        execStack.remove(execStack.size() - 1);
+                        braceDepth = Math.max(0, braceDepth - 1);
+                        if (poppedIsIf) {
+                            awaitingElseExec = poppedElseShouldExec;
+                            awaitingElseDepth = braceDepth;
+                        }
+                    }
+                    decl = decl.substring(1).trim();
+                }
+                // Do NOT set suffixes or continue; allow the remainder (e.g. 'else {') to be
+                // processed
+            }
+
+            // if (cond) { ... }
+            IfHeader ifHdr = parseIfHeader(decl);
+            if (ifHdr != null && ifHdr.hasOpenBrace) {
+                boolean parentExec = execStack.get(execStack.size() - 1);
+                boolean thenExec = false;
+                boolean elseExec = false;
+                if (parentExec) {
+                    boolean condVal = evaluateCondition(ifHdr.condition, env);
+                    thenExec = condVal;
+                    elseExec = !condVal;
+                }
+                execStack.add(Boolean.valueOf(parentExec && thenExec));
+                isIfStack.add(Boolean.TRUE);
+                elseShouldExecStack.add(Boolean.valueOf(parentExec && elseExec));
+                braceDepth++;
+
+                boolean doExecThen = parentExec && thenExec;
+                ParseText boolVal = new ParseText(doExecThen ? "true" : "false", Color.GLSL_BOOLEAN);
+                cachedSuffixes.set(i, commentStart(boolVal).join(new ParseText(" = ")).join(boolVal));
+                continue;
+            }
+
+            // else if (cond) { ... }
+            IfHeader elseIfHdr = parseElseIfHeader(decl);
+            if (elseIfHdr != null && elseIfHdr.hasOpenBrace) {
+                boolean parentExec = execStack.get(execStack.size() - 1);
+                boolean eligible = awaitingElseExec && parentExec && (braceDepth == awaitingElseDepth);
+                boolean condVal = false;
+                if (eligible) {
+                    condVal = evaluateCondition(elseIfHdr.condition, env);
+                }
+                boolean doExec = eligible && condVal;
+                execStack.add(Boolean.valueOf(doExec));
+                isIfStack.add(Boolean.FALSE);
+                elseShouldExecStack.add(Boolean.FALSE);
+                braceDepth++;
+                if (doExec) {
+                    awaitingElseExec = false; // else-if taken: no further else
+                }
+                ParseText boolVal = new ParseText(doExec ? "true" : "false", Color.GLSL_BOOLEAN);
+                cachedSuffixes.set(i, commentStart(boolVal).join(new ParseText(" = ")).join(boolVal));
+                continue;
+            }
+
+            // else { ... }
+            if (isElseOpenBrace(decl)) {
+                boolean parentExec = execStack.get(execStack.size() - 1);
+                boolean doExec = awaitingElseExec && parentExec && (braceDepth == awaitingElseDepth);
+                execStack.add(Boolean.valueOf(doExec));
+                isIfStack.add(Boolean.FALSE);
+                elseShouldExecStack.add(Boolean.FALSE);
+                braceDepth++;
+                awaitingElseExec = false; // consumed
+
+                ParseText boolVal = new ParseText(doExec ? "true" : "false", Color.GLSL_BOOLEAN);
+                cachedSuffixes.set(i, commentStart(boolVal).join(new ParseText(" = ")).join(boolVal));
+                continue;
+            }
+
+            // else single-line: else <statement>
+            if (startsWithElse(decl) && !decl.endsWith("{")) {
+                boolean parentExec = execStack.get(execStack.size() - 1);
+                boolean doExec = awaitingElseExec && parentExec && (braceDepth == awaitingElseDepth);
+                String afterElse = decl.substring(decl.toLowerCase().indexOf("else") + 4).trim();
+                if (!afterElse.isEmpty() && afterElse.startsWith("if")) {
+                    // else if (...) single-line
+                    IfHeaderPos posHdr = parseIfHeaderWithPos(afterElse);
+                    boolean condVal = false;
+                    if (doExec && posHdr != null) {
+                        condVal = evaluateCondition(posHdr.condition, env);
+                    }
+                    boolean runThen = doExec && condVal;
+                    if (runThen && posHdr != null) {
+                        String thenStmt = afterElse.substring(posHdr.closeIndex + 1).trim();
+                        if (!thenStmt.isEmpty() && !thenStmt.startsWith("{")) {
+                            ParseText res = evaluateAndAssign(thenStmt, env);
+                            if (res != null) {
+                                out = commentStart(res).join(new ParseText(" = ")).join(res);
+                            }
+                        } else {
+                            out = ParseText.BLANK;
+                        }
+                    } else {
+                        out = ParseText.BLANK;
+                    }
+                    // Only consume else chain if the else-if branch is taken
+                    if (runThen) {
+                        awaitingElseExec = false;
+                    }
+                    // Add boolean suffix for else-if decision
+                    ParseText boolVal = new ParseText(runThen ? "true" : "false", Color.GLSL_BOOLEAN);
+                    if (!runThen) {
+                        ParseText skip = new ParseText("SKIP", Color.GLSL_SKIP);
+                        cachedSuffixes.set(i, commentStart(skip).join(new ParseText(" = ")).join(skip));
+                    } else {
+                        cachedSuffixes.set(i, commentStart(boolVal).join(new ParseText(" = ")).join(boolVal));
+                    }
+                    continue;
+                } else {
+                    if (doExec && !afterElse.isEmpty()) {
+                        ParseText res = evaluateAndAssign(afterElse, env);
+                        if (res != null) {
+                            out = commentStart(res).join(new ParseText(" = ")).join(res);
+                        }
+                    } else if (!afterElse.isEmpty()) {
+                        ParseText skip = new ParseText("SKIP", Color.GLSL_SKIP);
+                        out = commentStart(skip).join(new ParseText(" = ")).join(skip);
+                    } else {
+                        out = ParseText.BLANK;
+                    }
+                    awaitingElseExec = false; // consumed
+                }
+                cachedSuffixes.set(i, out);
+                continue;
+            }
+
+            // Normal line: evaluate only if current block is executing
+            boolean executing = execStack.get(execStack.size() - 1);
+            if (executing && !skipControlOnlyLine(decl)) {
+                if (decl.startsWith("uniform") || decl.startsWith("in")) {
+                    String name = extractUniformName(decl);
+                    if (name != null) {
+                        ParseText v = env.get(name);
+                        if (v != null) {
+                            out = commentStart(v).join(new ParseText(" = ")).join(v);
+                        }
+                    }
+                } else {
+                    ParseText res = evaluateAndAssign(decl, env);
+                    if (res != null) {
+                        out = commentStart(res).join(new ParseText(" = ")).join(res);
+                    }
+                }
+            } else if (!executing && !skipControlOnlyLine(decl)) {
+                ParseText skip = new ParseText("SKIP", Color.GLSL_SKIP);
+                out = commentStart(skip).join(new ParseText(" = ")).join(skip);
+            } else {
+                out = ParseText.BLANK;
+            }
+
+            cachedSuffixes.set(i, out);
+        }
+    }
+
+    private static boolean isClosingBraceOnly(String decl) {
+        return decl.equals("}");
+    }
+
+    private static boolean isElseOpenBrace(String decl) {
+        String t = decl.toLowerCase();
+        return t.equals("else{") || t.equals("else {");
+    }
+
+    private static boolean startsWithElse(String decl) {
+        String t = decl.toLowerCase();
+        return t.startsWith("else");
+    }
+
+    private static class IfHeader {
+        String condition;
+        boolean hasOpenBrace;
+
+        IfHeader(String condition, boolean hasOpenBrace) {
+            this.condition = condition;
+            this.hasOpenBrace = hasOpenBrace;
+        }
+    }
+
+    private static class IfHeaderPos {
+        String condition;
+        boolean hasOpenBrace;
+        int closeIndex;
+
+        IfHeaderPos(String condition, boolean hasOpenBrace, int closeIndex) {
+            this.condition = condition;
+            this.hasOpenBrace = hasOpenBrace;
+            this.closeIndex = closeIndex;
+        }
+    }
+
+    private static IfHeader parseIfHeader(String decl) {
+        String t = decl.trim();
+        if (!t.startsWith("if"))
+            return null;
+        int i = 2;
+        int n = t.length();
+        while (i < n && Character.isWhitespace(t.charAt(i)))
+            i++;
+        if (i >= n || t.charAt(i) != '(')
+            return null;
+        int open = i;
+        int close = findMatchingParen(t, open);
+        if (close < 0)
+            return null;
+        String cond = t.substring(open + 1, close).trim();
+        boolean hasBrace = false;
+        for (int k = close + 1; k < n; k++) {
+            char c = t.charAt(k);
+            if (Character.isWhitespace(c))
+                continue;
+            hasBrace = (c == '{');
+            break;
+        }
+        return new IfHeader(cond, hasBrace);
+    }
+
+    private static IfHeader parseElseIfHeader(String decl) {
+        String t = decl.trim().toLowerCase();
+        if (!t.startsWith("else if") && !t.startsWith("elseif"))
+            return null;
+        // normalize: remove leading 'else'
+        String rest = decl.trim();
+        int idx = rest.toLowerCase().indexOf("if");
+        if (idx < 0)
+            return null;
+        String afterElse = rest.substring(idx);
+        return parseIfHeader(afterElse);
+    }
+
+    private static IfHeaderPos parseIfHeaderWithPos(String decl) {
+        String t = decl.trim();
+        if (!t.startsWith("if"))
+            return null;
+        int i = 2;
+        int n = t.length();
+        while (i < n && Character.isWhitespace(t.charAt(i)))
+            i++;
+        if (i >= n || t.charAt(i) != '(')
+            return null;
+        int open = i;
+        int close = findMatchingParen(t, open);
+        if (close < 0)
+            return null;
+        String cond = t.substring(open + 1, close).trim();
+        boolean hasBrace = false;
+        for (int k = close + 1; k < n; k++) {
+            char c = t.charAt(k);
+            if (Character.isWhitespace(c))
+                continue;
+            hasBrace = (c == '{');
+            break;
+        }
+        return new IfHeaderPos(cond, hasBrace, close);
+    }
+
+    private static boolean skipControlOnlyLine(String decl) {
+        String t = decl.trim();
+        if (t.isEmpty())
+            return true;
+        if (t.equals("{") || t.equals("}"))
+            return true;
+        if (t.equalsIgnoreCase("else") || t.equalsIgnoreCase("else{") || t.equalsIgnoreCase("else {"))
+            return true;
+        // lines like: if (cond) {
+        IfHeader h = parseIfHeader(t);
+        if (h != null && h.hasOpenBrace)
+            return true;
+        return false;
+    }
+
+    private static ParseText commentStart(ParseText res) {
+        if (res.vectorLength == 4) {
+            return new ParseText(SpecialGlyphs.COLOR_TRACKER.getChar() + "",
+                    new ColorRGB(res.data.x, res.data.y, res.data.z, res.data.w));
+        } else {
+            return new ParseText("//");
+        }
+    }
+
+    private static ParseText evaluateIfElse(String s, Map<String, ParseText> env) {
+        // Expect: if (cond) thenPart [else elsePart]
+        if (s == null) {
+            return null;
+        }
+        int i = 0;
+        int n = s.length();
+        // skip leading ws
+        while (i < n && Character.isWhitespace(s.charAt(i)))
+            i++;
+        if (i + 1 >= n || s.charAt(i) != 'i' || s.charAt(i + 1) != 'f') {
+            return null;
+        }
+        i += 2;
+        // next non-ws must be '('
+        while (i < n && Character.isWhitespace(s.charAt(i)))
+            i++;
+        if (i >= n || s.charAt(i) != '(') {
+            return null;
+        }
+        int condStart = i + 1;
+        int condEnd = findMatchingParen(s, i);
+        if (condEnd < 0) {
+            return null;
+        }
+        String condStr = s.substring(condStart, condEnd).trim();
+        // After ')', the then part starts
+        int thenStart = condEnd + 1;
+        // Find top-level 'else' after thenStart
+        int elseIdx = findTopLevelElse(s, thenStart);
+        String thenPart;
+        String elsePart = null;
+        if (elseIdx >= 0) {
+            thenPart = s.substring(thenStart, elseIdx).trim();
+            elsePart = s.substring(elseIdx + 4).trim();
+        } else {
+            thenPart = s.substring(thenStart).trim();
+        }
+        thenPart = stripBracesAndSemicolon(thenPart);
+        if (elsePart != null) {
+            elsePart = stripBracesAndSemicolon(elsePart);
+        }
+
+        boolean cond = evaluateCondition(condStr, env);
+        String chosen = cond ? thenPart : elsePart;
+        if (chosen == null || chosen.isEmpty()) {
+            return null;
+        }
+        // Evaluate chosen branch: allow either assignment or bare expression
+        ParseText res = evaluateAndAssign(chosen, env);
+        if (res != null) {
+            return res;
+        }
+        try {
+            return new ExpressionParser(chosen, env).parse();
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private static boolean evaluateCondition(String cond, Map<String, ParseText> env) {
+        if (cond == null) {
+            return false;
+        }
+        // Find a top-level comparator outside parentheses
+        int[] hit = findTopLevelComparator(cond);
+        try {
+            if (hit != null) {
+                int idx = hit[0];
+                int len = hit[1];
+                String op = cond.substring(idx, idx + len);
+                String left = cond.substring(0, idx).trim();
+                String right = cond.substring(idx + len).trim();
+                ParseText lv = new ExpressionParser(left, env).parse();
+                ParseText rv = new ExpressionParser(right, env).parse();
+                double l = lv.data.x;
+                double r = rv.data.x;
+                switch (op) {
+                case "==":
+                    return l == r;
+                case "!=":
+                    return l != r;
+                case ">=":
+                    return l >= r;
+                case "<=":
+                    return l <= r;
+                case ">":
+                    return l > r;
+                case "<":
+                    return l < r;
+                default:
+                    return false;
+                }
+            } else {
+                // No comparator: non-zero is true
+                ParseText v = new ExpressionParser(cond, env).parse();
+                return Math.abs(v.data.x) > 1e-6;
+            }
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
+    private static int findMatchingParen(String s, int openIdx) {
+        int depth = 0;
+        for (int i = openIdx; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '(')
+                depth++;
+            else if (c == ')') {
+                depth--;
+                if (depth == 0)
+                    return i;
+            }
+        }
+        return -1;
+    }
+
+    private static int[] findTopLevelComparator(String s) {
+        // Returns {index, length} or null
+        int depth = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '(') {
+                depth++;
+                continue;
+            }
+            if (c == ')') {
+                depth--;
+                continue;
+            }
+            if (depth != 0)
+                continue;
+            if (i + 1 < s.length()) {
+                String two = s.substring(i, i + 2);
+                if (two.equals("==") || two.equals("!=") || two.equals(">=") || two.equals("<=")) {
+                    return new int[] { i, 2 };
+                }
+            }
+            if (c == '>' || c == '<') {
+                return new int[] { i, 1 };
+            }
+        }
+        return null;
+    }
+
+    private static int findTopLevelElse(String s, int start) {
+        int depthParen = 0;
+        int depthBrace = 0;
+        for (int i = start; i <= s.length() - 4; i++) {
+            char c = s.charAt(i);
+            if (c == '(')
+                depthParen++;
+            else if (c == ')')
+                depthParen--;
+            else if (c == '{')
+                depthBrace++;
+            else if (c == '}')
+                depthBrace--;
+            if (depthParen == 0 && depthBrace == 0) {
+                // check "else" word at i
+                if ((s.charAt(i) == 'e' || s.charAt(i) == 'E') && s.regionMatches(true, i, "else", 0, 4)) {
+                    // Ensure word boundary before and after
+                    boolean beforeOk = (i == 0) || !Character.isLetterOrDigit(s.charAt(i - 1));
+                    int j = i + 4;
+                    boolean afterOk = (j >= s.length()) || !Character.isLetterOrDigit(s.charAt(j));
+                    if (beforeOk && afterOk) {
+                        return i;
+                    }
+                }
+            }
+        }
+        return -1;
+    }
+
+    private static String stripBracesAndSemicolon(String part) {
+        if (part == null)
+            return null;
+        String t = part.trim();
+        if (t.startsWith("{") && t.endsWith("}")) {
+            t = t.substring(1, t.length() - 1).trim();
+        }
+        if (t.endsWith(";")) {
+            t = t.substring(0, t.length() - 1).trim();
+        }
+        return t;
     }
 
     private static String extractVarName(String left) {
@@ -272,11 +806,11 @@ public class ExpressionParser {
 
     private ParseText resolveVar(String name) {
         if ("quarterPI".equalsIgnoreCase(name))
-            return new ParseText("quarterPI", (float) Math.PI/4f);
+            return new ParseText("quarterPI", (float) Math.PI / 4f);
         if ("pi".equalsIgnoreCase(name))
             return new ParseText("pi", (float) Math.PI);
         if ("halfpi".equalsIgnoreCase(name))
-            return new ParseText("halfpi", (float) Math.PI/2f);
+            return new ParseText("halfpi", (float) Math.PI / 2f);
         if ("TAU".equalsIgnoreCase(name))
             return new ParseText("TAU", (float) (Math.PI * 2.0f));
         if ("e".equalsIgnoreCase(name))

@@ -91,7 +91,9 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         showCodeButton.newLine();
         showCodeButton.addWord("Mouse: ", Color.CYAN);
         showCodeButton.addDynamicWord(() -> mouseText());
-        showCodeButton.addDynamicWord(() -> {return new ColorText<Float>("FPS: " + Clock.fps(), Color.CYAN);});
+        showCodeButton.addDynamicWord(() -> {
+            return new ColorText<Float>("FPS: " + Clock.fps(), Color.CYAN);
+        });
         webViews.put(paneBounds.id, paneBounds);
         loadCode(this.targetShader, this.title);
         camera.updateView(paneBounds.id);
@@ -171,7 +173,8 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             float v = (am.dot(c) / c.lengthSquared());
 
             ParseText.put(env, "textureCoord", Math.clamp(u, 0, 1), Math.clamp(v, 0, 1));
-            ParseText.put(env, "scaledTextureCoord", Math.clamp(u*q.widthToHeightRatio, 0, q.texWidth), Math.clamp(v, 0, q.texHeight));
+            ParseText.put(env, "scaledTextureCoord", Math.clamp(u * q.widthToHeightRatio, 0, q.texWidth),
+                    Math.clamp(v, 0, q.texHeight));
         }
         // Ensure cache size matches displayed lines
         if (cachedSuffixes.size() != displayedLines.size()) {
@@ -180,29 +183,11 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 cachedSuffixes.add(ParseText.BLANK);
         }
         for (int i = 0; i < displayedLines.size(); i++) {
-            String line = displayedLines.get(i);
-            ParseText out = ParseText.BLANK;
-            if (line != null) {
-                // If this line declares a uniform, show its current value
-                String decl = line.trim();
-                if (decl.startsWith("uniform") || decl.startsWith("in")) {
-                    String name = ExpressionParser.extractUniformName(decl);
-                    if (name != null) {
-                        ParseText v = env.get(name);
-                        if (v != null) {
-                            out = commentStart(v).join(new ParseText(" = ")).join(v);
-                        }
-                    }
-                } else {
-                    ParseText res = ExpressionParser.evaluateAndAssign(line, env);
-                    if (res != null) {
-
-                        out = commentStart(res).join(new ParseText(" = ")).join(res);
-                    }
-                }
-            }
-            cachedSuffixes.set(i, out);
+            // placeholder sync to maintain size; actual suffixes will be set below
+            cachedSuffixes.set(i, ParseText.BLANK);
         }
+        // Delegate line-by-line evaluation with control flow to the parser
+        ExpressionParser.evaluateAndAssign(displayedLines, env, cachedSuffixes);
         lastMouseX = mx;
         lastMouseY = my;
         return ParseText.BLANK;
