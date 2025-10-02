@@ -864,7 +864,7 @@ public class ExpressionParser {
         case "max":
             return applyTwoArgFunc(Math::max, a);
         case "dot":
-            return applyTwoArgFunc((x, y) -> x * y, a);
+            return applyTwoArgFuncSum((x, y) -> x * y, a);
         case "distance":
             return distanceFunc(a);
         case "mix": {
@@ -947,6 +947,25 @@ public class ExpressionParser {
         }
         Vector4f resultVec = new Vector4f(result);
         return new ParseText(s, resultVec, len, "");
+    }
+
+    
+    private ParseText applyTwoArgFuncSum(BiFunction<Double, Double, Double> func, List<ParseText> a) {
+        ParseText lhs = a.get(0);
+        ParseText rhs = a.get(1);
+        Vector4f l = lhs.data;
+        Vector4f r = rhs.data;
+        int len = Math.max(lhs.vectorLength, rhs.vectorLength);
+        float sum = 0f;
+        for (int i = 0; i < len; i++) {
+            int li = Math.min(i, Math.max(0, lhs.vectorLength - 1));
+            int ri = Math.min(i, Math.max(0, rhs.vectorLength - 1));
+            sum += func.apply((double) l.get(li), (double) r.get(ri)).floatValue();
+        }
+        float[] result = new float[4];
+        result [0] = sum;
+        Vector4f resultVec = new Vector4f(result);
+        return new ParseText(s, resultVec, 1, "");
     }
 
     private ParseText applyThreeArgFunc(TriFunction<Double, Double, Double, Double> func, List<ParseText> a) {

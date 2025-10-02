@@ -110,7 +110,7 @@ public abstract class ShaderDrawable {
                 .div(4f);
 
                 
-
+        shader.setFloat("widthToHeightRatio", widthToHeightRatio);
         setUniforms();
 
         // Prepare or update persistent VBO geometry for this quad
@@ -335,6 +335,8 @@ public abstract class ShaderDrawable {
         if(uAxis == null){
             uAxis = new Vector2f(bottomRight).sub(bottomLeft);
             vAxis = new Vector2f(topLeft).sub(bottomLeft);
+            texWidth = uAxis.length();
+            texHeight = vAxis.length();
         }
         Vector2f rel = new Vector2f(p).sub(bottomLeft);
         float u = rel.dot(uAxis) / uAxis.dot(uAxis);

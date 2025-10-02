@@ -424,7 +424,7 @@ public class Camera2D implements Camera {
 
     @Override
     public void onScroll(boolean b, double delta) {
-        float deltaRee= (float)delta/100f;
+        float deltaRee = (float) delta / 100f;
         if (b) {
             scale(ZOOM_SPEED * SHIFT_MOD * deltaRee * ScaleFactor);
         } else {
@@ -571,6 +571,15 @@ public class Camera2D implements Camera {
             return true;
         }
         return false;
+    }
+
+    public Vector2f[] pointsToScreenSpace(PointND... points) {
+        Vector2f[] result = new Vector2f[points.length];
+        for (int i = 0; i < points.length; i++) {
+            Point2D p = points[i].toPoint2D();
+            result[i] = new Vector2f(pointTransformX(p.getX()), pointTransformY(p.getY()));
+        }
+        return result;
     }
 
 }

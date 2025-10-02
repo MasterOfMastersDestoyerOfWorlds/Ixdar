@@ -236,7 +236,6 @@ public class SDFLine extends ShaderDrawable {
         shader.setFloat("inverseLineLengthSq", inverseLineLengthSq);
         shader.setVec2("pointA", pATex);
         shader.setVec2("pointB", pBTex);
-        shader.setFloat("widthToHeightRatio", widthToHeightRatio);
         shader.setFloat("dashes", (float) (pATex.distance(pBTex) / (dashLength)));
         shader.setFloat("dashEdgeDist", (float) (Math.PI * width * edgeDist) / (dashLength));
         shader.setVec4("linearGradientColor", c2.toVector4f());
