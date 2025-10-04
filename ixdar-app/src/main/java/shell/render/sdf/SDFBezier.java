@@ -23,7 +23,7 @@ public class SDFBezier extends ShaderDrawable {
     public Vector2f pATex;
     public Vector2f pBTex;
     private Vector2f controlTex;
-    private float edgeDistUnits = 0.15f;
+    private float edgeDistUnits = 0.35f;
 
     public SDFBezier() {
         super();
@@ -60,9 +60,6 @@ public class SDFBezier extends ShaderDrawable {
             ma = new Vector2f(Math.max(ma.x, q.x), Math.max(ma.y, q.y));
         }
 
-        mi = new Vector2f(mi.x - lineWidth, mi.y - lineWidth);
-        ma = new Vector2f(ma.x + lineWidth, ma.y + lineWidth);
-
         Vector2f maRot = new Vector2f(pA).add(rot(new Vector2f(ma).sub(pA), cosB, -sinB));
         Vector2f miRot = new Vector2f(pA).add(rot(new Vector2f(mi).sub(pA), cosB, -sinB));
         float proj = normalizedDirB.dot(new Vector2f(miRot).sub(maRot));
@@ -75,6 +72,26 @@ public class SDFBezier extends ShaderDrawable {
         topRight = maRot;
         topLeft = b;
 
+        uAxis = new Vector2f(bottomRight).sub(bottomLeft);
+        vAxis = new Vector2f(topLeft).sub(bottomLeft);
+        float h0 = vAxis.length();
+        float w0 = uAxis.length();
+
+        
+
+        // Compute final dimensions
+        float hFinal = h0 / (1f - 2f * edgeDistUnits);
+        float wFinal = w0 / (1f - 2f * edgeDistUnits);
+
+        // Compute how much to expand (half per side)
+        float edgeDistV = (hFinal - h0) * 0.5f;
+        float edgeDistU = (wFinal - w0) * 0.5f * (h0/w0);
+        Vector2f edgeDistWorldV = new Vector2f(vAxis).normalize().mul(edgeDistV);
+        Vector2f edgeDistWorldU = new Vector2f(uAxis).normalize().mul(edgeDistU);
+        topLeft = new Vector2f(topLeft).add(edgeDistWorldV).sub(edgeDistWorldU);
+        topRight = new Vector2f(topRight).add(edgeDistWorldV).add(edgeDistWorldU);
+        bottomLeft = new Vector2f(bottomLeft).sub(edgeDistWorldV).sub(edgeDistWorldU);
+        bottomRight = new Vector2f(bottomRight).sub(edgeDistWorldV).add(edgeDistWorldU);
         uAxis = new Vector2f(bottomRight).sub(bottomLeft);
         vAxis = new Vector2f(topLeft).sub(bottomLeft);
 
@@ -100,11 +117,12 @@ public class SDFBezier extends ShaderDrawable {
 
         float inverseLineLengthSq = 1 / lengthSq(pATex, pBTex);
         shader.setFloat("inverseLineLengthSq", inverseLineLengthSq);
+        shader.setVec4("linearGradientColor", c2.toVector4f());
         shader.setVec2("pointA", pATex);
         shader.setVec2("pointB", pBTex);
         shader.setVec2("control", controlTex);
         shader.setFloat("edgeDist", edgeDistUnits);
-        shader.setFloat("edgeSharpness", edgeDistUnits / (100 * edgeDistUnits * camera.getScaleFactor()));
+        shader.setFloat("edgeSharpness", (float) Math.min(1 / (lineWidth * 2), 0.1));
     }
 
     float lengthSq(Vector2f a, Vector2f b) {

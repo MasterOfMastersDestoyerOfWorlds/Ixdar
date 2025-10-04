@@ -18,6 +18,6 @@ void main() {
 
     sigDist = (distA / radius);
 
-    float opacity = smoothstep(1.0, 1.0 - edgeSharpness, sigDist);
+    float opacity = smoothstep(edgeDist, edgeDist - edgeSharpness, sigDist);
     fragColor = vec4(vertexColor.rgb, vertexColor.a * opacity);
 }

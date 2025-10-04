@@ -49,7 +49,7 @@ public abstract class ShaderProgram {
 
         Color(ColorShader.class, "color.vs", "color.fs"), 
         
-        BezierSDF(SDFShader.class, "font.vs", "sdf_bezier.fs");
+        BezierSDF(SDFShader.class, "font.vs", "sdf_bezier_simple.fs");
 
         public String vertexShaderLocation;
         public String fragmentShaderLocation;
@@ -313,7 +313,7 @@ public abstract class ShaderProgram {
             gl.getProgramiv(shader, gl.LINK_STATUS(), success);
             if (success.get(0) == 0) {
                 String infoLog = gl.getShaderInfoLog(shader);
-                System.out.println("ERROR::SHADER::" + type.name() + "::LINK_FAILED\n" + infoLog);
+                System.out.println("ERROR::SHADER::" + type.name() + "::LINK_FAILED: " + location  + "\n" + infoLog);
             }
         }
     }

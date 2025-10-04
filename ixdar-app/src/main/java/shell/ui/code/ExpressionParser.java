@@ -855,6 +855,17 @@ public class ExpressionParser {
             return applyOneArgFunc(Math::floor, a);
         case "ceil":
             return applyOneArgFunc(Math::ceil, a);
+        case "pow":
+            return applyTwoArgFunc(Math::pow, a);
+        case "sign":
+            return applyOneArgFunc((x) -> {
+                if (x < 0) {
+                    return -1.0;
+                } else if (x > 0) {
+                    return 1.0;
+                }
+                return 0.0;
+            }, a);
         case "round":
             return applyOneArgFunc((x) -> x - (x.intValue()) < 0.5 ? Math.floor(x) : Math.ceil(x), a);
         case "min":
@@ -949,7 +960,6 @@ public class ExpressionParser {
         return new ParseText(s, resultVec, len, "");
     }
 
-    
     private ParseText applyTwoArgFuncSum(BiFunction<Double, Double, Double> func, List<ParseText> a) {
         ParseText lhs = a.get(0);
         ParseText rhs = a.get(1);
@@ -963,7 +973,7 @@ public class ExpressionParser {
             sum += func.apply((double) l.get(li), (double) r.get(ri)).floatValue();
         }
         float[] result = new float[4];
-        result [0] = sum;
+        result[0] = sum;
         Vector4f resultVec = new Vector4f(result);
         return new ParseText(s, resultVec, 1, "");
     }
@@ -1204,7 +1214,10 @@ public class ExpressionParser {
         ArrayList<ParseText> list = new ArrayList<>();
         for (int i = 0; i < sw.length(); i++) {
             int component = componentSuffix(sw.charAt(i));
-            ParseText e = new ParseText(env.get(base).getData().get(component));
+            ParseText e = MISSING;
+            if(env.get(base) != null){
+                e = new ParseText(env.get(base).getData().get(component));
+            }
             list.add(e);
         }
         return list;

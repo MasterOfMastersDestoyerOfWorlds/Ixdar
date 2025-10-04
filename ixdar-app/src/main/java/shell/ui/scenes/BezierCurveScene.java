@@ -25,9 +25,9 @@ public class BezierCurveScene extends Scene {
     @Override
     public void initPoints() {
         super.initPoints();
-        point1 = new PointND.Double(-0.8, 0.0);
-        point2 = new PointND.Double(0.8, 0.0);
-        control = new PointND.Double(0.0, -0.5);
+        point1 = new PointND.Double(-0.7, 0.2);
+        point2 = new PointND.Double(0.7, -0.2);
+        control = new PointND.Double(-0.35, -0.5);
         shell.add(point1);
         shell.add(point2);
         shell.add(control);
@@ -50,7 +50,8 @@ public class BezierCurveScene extends Scene {
         bezier.pA = screenSpaceVectors[0];
         bezier.pControl = screenSpaceVectors[1];
         bezier.pB = screenSpaceVectors[2];
-        bezier.lineWidth = 4f;
+        bezier.lineWidth = 1f;
+        bezier.c2 = Color.GREEN;
         bezier.draw(0f, 0f, cx, cy, Color.RED, camera2D);
     }
 
