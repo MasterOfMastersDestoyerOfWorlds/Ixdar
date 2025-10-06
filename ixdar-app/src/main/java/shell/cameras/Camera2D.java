@@ -505,12 +505,23 @@ public class Camera2D implements Camera {
 
     @Override
     public float getNormalizePosX(float xPos) {
+        // Mouse coordinates are already in canvas space (0 to canvas.width/height)
+        // Normalize to frame buffer coordinates (0 to
+        // frameBufferWidth/frameBufferHeight)
+        if (Platforms.get().getWindowWidth() > 0 && Canvas3D.frameBufferWidth > 0) {
+            return (xPos / Platforms.get().getWindowWidth()) * Canvas3D.frameBufferWidth;
+        }
         return xPos;
     }
 
     @Override
     public float getNormalizePosY(float yPos) {
-        return Platforms.get().getWindowHeight() - (yPos);
+        // Mouse coordinates are already in canvas space (0 to canvas.width/height)
+        // Flip Y coordinate and normalize to frame buffer coordinates
+        if (Platforms.get().getWindowHeight() > 0 && Canvas3D.frameBufferHeight > 0) {
+            return (1.0f - (yPos / Platforms.get().getWindowHeight())) * Canvas3D.frameBufferHeight;
+        }
+        return Platforms.get().getWindowHeight() - yPos;
     }
 
     @Override

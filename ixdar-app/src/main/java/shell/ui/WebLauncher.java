@@ -50,6 +50,12 @@ public final class WebLauncher {
 
             int w = canvas.getClientWidth();
             int h = canvas.getClientHeight();
+            if (w <= 0)
+                w = 800;
+            if (h <= 0)
+                h = 600;
+            canvas.setWidth(w);
+            canvas.setHeight(h);
             Canvas3D.frameBufferWidth = w;
             Canvas3D.frameBufferHeight = h;
 

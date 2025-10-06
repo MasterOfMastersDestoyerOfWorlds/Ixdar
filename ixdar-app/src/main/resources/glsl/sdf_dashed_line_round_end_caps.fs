@@ -54,5 +54,4 @@ void main() {
     float distB = distance(scaledTextureCoord, pointB);
     float opacA = smoothstep(edgeDist + edgeSharpness, edgeDist, min(distA, distB));
     fragColor = mix(vec4(fragColor.rgb, fragColor.a * dashOpac), fragColor, opacA);
-
 }
