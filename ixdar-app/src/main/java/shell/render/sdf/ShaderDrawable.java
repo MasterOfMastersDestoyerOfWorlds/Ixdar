@@ -21,7 +21,7 @@ import shell.ui.code.ParseText;
 
 public abstract class ShaderDrawable {
 
-    protected ShaderProgram shader;
+    public ShaderProgram shader;
 
     protected GL gl = Platforms.gl();
     protected Platform platform = Platforms.get();
@@ -29,13 +29,13 @@ public abstract class ShaderDrawable {
 
     protected float drawX;
     protected float drawY;
-    protected float width;
-    protected float height;
-    protected Vector2f bottomLeft;
-    protected Vector2f bottomRight;
-    protected Vector2f topRight;
-    protected Vector2f topLeft;
-    protected Vector2f center;
+    public float width;
+    public float height;
+    public Vector2f bottomLeft;
+    public Vector2f bottomRight;
+    public Vector2f topRight;
+    public Vector2f topLeft;
+    public Vector2f center;
     protected Color c = Color.PINK;
 
     // Persistent VBO allocation for this drawable's quad geometry
@@ -46,7 +46,7 @@ public abstract class ShaderDrawable {
     private final Map<Long, Object> ownerKeyById = new HashMap<>();
     private final Map<Long, ShaderProgram.Allocation> allocationById = new HashMap<>();
     private final Map<Long, Quad> prevQuadById = new HashMap<>();
-    
+
     private static final HashMap<Class<?>, Long> counters = new HashMap<>();
 
     protected static long nextId(Class<?> clazz) {
@@ -56,11 +56,11 @@ public abstract class ShaderDrawable {
 
     protected final long drawingId;
 
-    protected float widthToHeightRatio;
+    public float widthToHeightRatio;
 
-    protected float texHeight;
+    public float texHeight;
 
-    protected float texWidth;
+    public float texWidth;
 
     protected Vector2f uAxis;
 
@@ -81,7 +81,8 @@ public abstract class ShaderDrawable {
         public float texHeight;
         public final static int VERTEX_COUNT = 6;
 
-        Quad(Vector2f bl, Vector2f br, Vector2f tr, Vector2f tl, float texWidth, float texHeight, float widthToHeightRatio) {
+        Quad(Vector2f bl, Vector2f br, Vector2f tr, Vector2f tl, float texWidth, float texHeight,
+                float widthToHeightRatio) {
             this.bottomLeft = new Vector2f(bl);
             this.bottomRight = new Vector2f(br);
             this.topRight = new Vector2f(tr);
@@ -100,7 +101,7 @@ public abstract class ShaderDrawable {
 
         width = bottomLeft.distance(bottomRight);
         height = bottomLeft.distance(topLeft);
-        widthToHeightRatio = width/height;
+        widthToHeightRatio = width / height;
         texWidth = widthToHeightRatio;
         texHeight = 1;
         center = new Vector2f(bottomLeft)
@@ -109,7 +110,7 @@ public abstract class ShaderDrawable {
                 .add(topLeft)
                 .div(4f);
 
-                
+
         shader.setFloat("widthToHeightRatio", widthToHeightRatio);
         setUniforms();
 
@@ -267,13 +268,15 @@ public abstract class ShaderDrawable {
         prevQuadById.put(id, newQuad);
         return changed;
     }
-    public Quad getQuad(){
+
+    public Quad getQuad() {
         return prevQuadById.get(drawingId);
     }
 
     private static boolean sameQuad(Quad a, Quad b) {
         float eps = 0.00001f;
-        return a.bottomLeft.distance(b.bottomLeft) <= eps && a.bottomRight.distance(b.bottomRight) <= eps && a.topRight.distance(b.topRight) <= eps
+        return a.bottomLeft.distance(b.bottomLeft) <= eps && a.bottomRight.distance(b.bottomRight) <= eps
+                && a.topRight.distance(b.topRight) <= eps
                 && a.topLeft.distance(b.topLeft) <= eps;
     }
 
@@ -319,9 +322,9 @@ public abstract class ShaderDrawable {
         shader.uploadAllocation(target, buf, Quad.VERTEX_COUNT);
     }
 
-    
+
     public Vector2f toTextureSpace(Vector2f p) {
-        if(uAxis == null){
+        if (uAxis == null) {
             uAxis = new Vector2f(bottomRight).sub(bottomLeft);
             vAxis = new Vector2f(topLeft).sub(bottomLeft);
         }
@@ -332,7 +335,7 @@ public abstract class ShaderDrawable {
     }
 
     public Vector2f toScaledTextureSpace(Vector2f p) {
-        if(uAxis == null){
+        if (uAxis == null) {
             uAxis = new Vector2f(bottomRight).sub(bottomLeft);
             vAxis = new Vector2f(topLeft).sub(bottomLeft);
             texWidth = uAxis.length();
@@ -347,7 +350,7 @@ public abstract class ShaderDrawable {
     public ShaderProgram getShader() {
         return shader;
     }
-    
+
     public Vector2f getUAxis() {
         return uAxis;
     }

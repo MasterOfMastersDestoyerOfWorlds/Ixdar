@@ -44,4 +44,9 @@ public class DefaultBuffer implements IxBuffer {
     public FloatBuffer getFloatBuffer() {
         return fb;
     }
+    
+    @Override
+    public Float get(int i) {
+        return fb.get(i);
+    }
 }

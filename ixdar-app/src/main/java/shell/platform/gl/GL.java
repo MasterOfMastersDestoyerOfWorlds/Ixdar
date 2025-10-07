@@ -191,4 +191,20 @@ public interface GL {
     void addShader(ShaderProgram shader);
 
     Integer getID();
+
+    void getAttachedShaders(int shader, IntBuffer success);
+
+    void getActiveUniforms(int shader, IntBuffer success);
+
+    int ACTIVE_UNIFORMS();
+
+    String getActiveUniform(int iD, int i, IntBuffer sizeBuffer, IntBuffer typeBuffer);
+
+    int FLOAT_VEC2();
+
+    int FLOAT_VEC4();
+
+    int SAMPLER_2D();
+
+    void getUniformfv(int iD, int location, IxBuffer val);
 }

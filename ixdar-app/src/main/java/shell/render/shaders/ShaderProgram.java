@@ -47,8 +47,8 @@ public abstract class ShaderProgram {
 
         Font(FontShader.class, "font.vs", "font.fs"),
 
-        Color(ColorShader.class, "color.vs", "color.fs"), 
-        
+        Color(ColorShader.class, "color.vs", "color.fs"),
+
         BezierSDF(SDFShader.class, "font.vs", "sdf_bezier_simple.fs");
 
         public String vertexShaderLocation;
@@ -111,9 +111,9 @@ public abstract class ShaderProgram {
     public VertexBufferObject vbo;
     public HashMap<String, Integer> uniformLocations;
 
-    protected int ID = -1;
+    public int ID = -1;
     int vertexShader, fragmentShader;
-    private IxBuffer verteciesBuff;
+    public IxBuffer verteciesBuff;
     private int numVertices;
     private boolean drawing;
 
@@ -313,7 +313,7 @@ public abstract class ShaderProgram {
             gl.getProgramiv(shader, gl.LINK_STATUS(), success);
             if (success.get(0) == 0) {
                 String infoLog = gl.getShaderInfoLog(shader);
-                System.out.println("ERROR::SHADER::" + type.name() + "::LINK_FAILED: " + location  + "\n" + infoLog);
+                System.out.println("ERROR::SHADER::" + type.name() + "::LINK_FAILED: " + location + "\n" + infoLog);
             }
         }
     }
@@ -723,7 +723,7 @@ public abstract class ShaderProgram {
         verteciesBuff.put(x3).put(y3).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t2);
         verteciesBuff.put(x4).put(y4).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t2);
         verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
-
+        
         numVertices += 6;
     }
 
@@ -931,5 +931,47 @@ public abstract class ShaderProgram {
             this.vertexCount = vertexCount;
         }
     }
+
+    public void printCurrentUniformValues() {
+        System.out.println("--- Current Uniform Values for Shader Program ID: " + ID + " ---");
+        int numUniforms = gl.getProgramiv(ID, gl.ACTIVE_UNIFORMS());
+        if (numUniforms == 0) {
+            System.out.println("No active uniforms found.");
+            return;
+        }
+
+        IntBuffer sizeBuffer = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer();
+        IntBuffer typeBuffer = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer();
+
+        for (int i = 0; i < numUniforms; i++) {
+            sizeBuffer.clear();
+            typeBuffer.clear();
+            String name = gl.getActiveUniform(ID, i, sizeBuffer, typeBuffer);
+            int type = typeBuffer.get(0);
+            int location = gl.getUniformLocation(ID, name);
+
+            // We only handle a few common float types for this example.
+            // You could expand this for ints, matrices, etc.
+            if (type == gl.FLOAT()) {
+                IxBuffer val = platform.allocateFloats(1);
+                gl.getUniformfv(ID, location, val);
+                System.out.printf("  '%s' (float): %f%n", name, val.get(0));
+            } else if (type == gl.FLOAT_VEC2()) {
+                IxBuffer val = platform.allocateFloats(2);
+                gl.getUniformfv(ID, location, val);
+                System.out.printf("  '%s' (vec2): (%f, %f)%n", name, val.get(0), val.get(1));
+            } else if (type == gl.FLOAT_VEC4()) {
+                IxBuffer val = platform.allocateFloats(4);
+                gl.getUniformfv(ID, location, val);
+                System.out.printf("  '%s' (vec4): (%f, %f, %f, %f)%n", name, val.get(0), val.get(1), val.get(2), val.get(3));
+            } else if (type == gl.SAMPLER_2D()) {
+                 System.out.printf("  '%s' (sampler2D): [Texture Sampler]%n", name);
+            } else {
+                System.out.printf("  '%s': [Unhandled Type: 0x%X]%n", name, type);
+            }
+        }
+        System.out.println("---------------------------------------------------------");
+    }
+
 
 }

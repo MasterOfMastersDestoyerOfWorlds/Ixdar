@@ -15,6 +15,9 @@ import static org.lwjgl.opengl.GL11.GL_RGBA;
 import static org.lwjgl.opengl.GL11.GL_RGBA8;
 import static org.lwjgl.opengl.GL11.GL_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
+import static org.lwjgl.opengl.GL20.GL_ATTACHED_SHADERS;
+import static org.lwjgl.opengl.GL20.GL_ACTIVE_UNIFORMS;
+import static org.lwjgl.opengl.GL20.GL_LINK_STATUS;
 import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
 import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
 import static org.lwjgl.opengl.GL11.glBindTexture;
@@ -50,7 +53,7 @@ import static org.lwjgl.opengl.GL20.glDetachShader;
 import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
 import static org.lwjgl.opengl.GL20.glGetAttribLocation;
 import static org.lwjgl.opengl.GL20.glGetProgramInfoLog;
-import static org.lwjgl.opengl.GL20.glGetProgramiv;
+import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL20.glGetShaderInfoLog;
 import static org.lwjgl.opengl.GL20.glGetShaderiv;
 import static org.lwjgl.opengl.GL20.glGetUniformLocation;
@@ -523,6 +526,14 @@ public class LwjglGL implements GL {
     }
 
     @Override
+    public void getAttachedShaders(int shader, IntBuffer success) {
+        glGetProgramiv(shader, GL_ATTACHED_SHADERS, success);
+    }
+    @Override
+    public void getActiveUniforms(int shader, IntBuffer success) {
+        glGetProgramiv(shader, GL_INFO_LOG_LENGTH, success);
+    }
+    @Override
     public int COMPILE_STATUS() {
         return GL_COMPILE_STATUS;
     }
@@ -571,6 +582,36 @@ public class LwjglGL implements GL {
             }
         });
         t1.start();
+    }
+
+    @Override
+    public int ACTIVE_UNIFORMS() {
+        return GL_ACTIVE_UNIFORMS;
+    }
+
+    @Override
+    public String getActiveUniform(int iD, int i, IntBuffer sizeBuffer, IntBuffer typeBuffer) {
+        return glGetActiveUniform(iD, i, sizeBuffer, typeBuffer);
+    }
+
+    @Override
+    public int FLOAT_VEC2() {
+        return GL_FLOAT_VEC2;
+    }
+
+    @Override
+    public int FLOAT_VEC4() {
+        return GL_FLOAT_VEC4;
+    }
+
+    @Override
+    public int SAMPLER_2D() {
+        return GL_SAMPLER_2D;
+    }
+
+    @Override
+    public void getUniformfv(int iD, int location, IxBuffer val) {
+        glGetUniformfv(iD, location, ((DefaultBuffer)val).getFloatBuffer());
     }
 
 }

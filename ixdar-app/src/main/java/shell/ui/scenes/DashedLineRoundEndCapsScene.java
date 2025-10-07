@@ -7,7 +7,7 @@ import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.point.PointND;
 import shell.render.color.Color;
-import shell.ui.Canvas3D;
+import shell.render.text.HyperString;
 import shell.ui.Drawing;
 import shell.annotations.SceneAnnotation;
 
@@ -17,6 +17,8 @@ public class DashedLineRoundEndCapsScene extends Scene {
     private Segment lineSegment;
     public PointND point2;
     public PointND point1;
+    
+    private HyperString showCodeButton;
 
     public DashedLineRoundEndCapsScene() {
         super();
@@ -38,13 +40,11 @@ public class DashedLineRoundEndCapsScene extends Scene {
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
         lineSegment.setStroke(7.5f * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 10f, false, true, camera2D);
-        initCodePane("Dashed Line Round End Caps SDF", lineSegment.getShader(), lineSegment);
+        
+        camera2D.initCamera(webViews, DEFAULT_VIEW); 
 
-        //         paneBounds.setUpdateCallback(
-        //         b -> b.update(0, 0, Canvas3D.frameBufferWidth,
-        //                 Canvas3D.frameBufferHeight));
-        // camera2D.updateView(paneBounds.id);
-        // camera2D.initCamera(webViews, DEFAULT_VIEW);
+        showCodeButton = new HyperString();
+        showCodeButton.addWord("", Color.CYAN);
     }
 
     @Override

@@ -89,7 +89,6 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             camera.updateView(parentBounds.id);
         });
         showCodeButton.newLine();
-        showCodeButton.addWord("Mouse: ", Color.CYAN);
         showCodeButton.addDynamicWord(() -> mouseText());
         showCodeButton.addDynamicWord(() -> {
             return new ColorText<Float>("FPS: " + Clock.fps(), Color.CYAN);

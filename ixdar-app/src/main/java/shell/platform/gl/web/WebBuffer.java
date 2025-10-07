@@ -46,4 +46,9 @@ public class WebBuffer implements IxBuffer {
     public Float32Array getFloatBuffer() {
         return fb;
     }
+
+    @Override
+    public Float get(int i) {
+        return fb.get(i);
+    }
 }

@@ -12,4 +12,6 @@ public interface IxBuffer {
     IxBuffer put(float x1);
 
     int capacity();
+
+    Float get(int i);
 }

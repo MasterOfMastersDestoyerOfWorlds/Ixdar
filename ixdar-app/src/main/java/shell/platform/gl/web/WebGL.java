@@ -647,6 +647,20 @@ public class WebGL implements GL {
             success.put(0, val);
         }
     }
+    @Override
+    public void getAttachedShaders(int program, IntBuffer success) {
+        int val = toInt(gl.getProgramParameter(program(program), WebGLRenderingContext.ATTACHED_SHADERS));
+        if (success != null && success.remaining() > 0) {
+            success.put(0, val);
+        }
+    }
+    @Override
+    public void getActiveUniforms(int program, IntBuffer success) {
+        int val = toInt(gl.getProgramParameter(program(program), WebGLRenderingContext.ACTIVE_UNIFORMS));
+        if (success != null && success.remaining() > 0) {
+            success.put(0, val);
+        }
+    }
 
     @Override
     public int COMPILE_STATUS() {
@@ -698,4 +712,33 @@ public class WebGL implements GL {
 
     @JSBody(params = { "gl", "enable" }, script = "if(!gl){return;} try{gl.pixelStorei(0x9240, enable?1:0);}catch(e){}")
     private static native void setUnpackFlipY(WebGLRenderingContext gl, boolean enable);
+
+    @Override
+    public int ACTIVE_UNIFORMS() {
+        return WebGLRenderingContext.ACTIVE_UNIFORMS;
+    }
+
+    @Override
+    public String getActiveUniform(int iD, int i, IntBuffer sizeBuffer, IntBuffer typeBuffer) {
+        return gl.getActiveUniform(program(iD), i).toString();
+    }
+
+    @Override
+    public int FLOAT_VEC2() {
+        return WebGLRenderingContext.FLOAT_VEC2;
+    }
+
+    @Override
+    public int FLOAT_VEC4() {
+        return WebGLRenderingContext.FLOAT_VEC4;
+    }
+
+    @Override
+    public int SAMPLER_2D() {
+        return WebGLRenderingContext.SAMPLER_2D;
+    }
+
+    @Override
+    public void getUniformfv(int iD, int location, IxBuffer val) {
+    }
 }

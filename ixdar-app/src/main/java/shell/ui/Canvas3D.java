@@ -31,7 +31,7 @@ import shell.ui.main.Main;
 import shell.ui.menu.MenuBox;
 
 public class Canvas3D {
-    DiffuseShader shader;
+    protected DiffuseShader shader;
     public static int frameBufferWidth;
     public static int frameBufferHeight;
     public MenuBox menu;
@@ -98,7 +98,8 @@ public class Canvas3D {
         gl.enable(gl.DEPTH_TEST());
 
         gl.clearColor(0.7f, 0.1f, 0.1f, 1.0f);
-
+        gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
+        gl.enable(gl.BLEND());
         System.out.println("InitGL: " + (Clock.time() - start));
         System.out.println("Time to First Paint: " + (Clock.time() - Platforms.get().startTime()));
         initPoints();

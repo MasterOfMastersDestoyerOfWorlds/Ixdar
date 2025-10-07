@@ -15,7 +15,7 @@ import shell.render.text.HyperString;
 import shell.ui.actions.Action;
 import shell.ui.main.Main;
 
-public class Segment extends SDFLine implements Comparable<Segment>{
+public class Segment extends SDFLine implements Comparable<Segment> {
     public Knot first;
     public Knot last;
     public double distance;
@@ -311,16 +311,16 @@ public class Segment extends SDFLine implements Comparable<Segment>{
         return h;
     }
 
-
-    public Vector2f getScreenSpaceVector(Knot k1){
+    public Vector2f getScreenSpaceVector(Knot k1) {
         Vector2f psV = getPointSpaceVector(k1);
         return new Vector2f(camera.pointTransformX(psV.x), camera.pointTransformY(psV.y));
     }
-    public Vector2f toScreenSpace(Vector2f pointSpaceVector){
+
+    public Vector2f toScreenSpace(Vector2f pointSpaceVector) {
         return new Vector2f(camera.pointTransformX(pointSpaceVector.x), camera.pointTransformY(pointSpaceVector.y));
     }
 
-    public Vector2f getPointSpaceVector(Knot k1){
+    public Vector2f getPointSpaceVector(Knot k1) {
         Point2D p1;
         float[] firstCoords = new float[2];
 
@@ -329,25 +329,24 @@ public class Segment extends SDFLine implements Comparable<Segment>{
         } else {
             p1 = (k1).p.toPoint2D();
         }
-        firstCoords[0] = (float)p1.getX();
-        firstCoords[1] = (float)p1.getY();
+        firstCoords[0] = (float) p1.getX();
+        firstCoords[1] = (float) p1.getY();
         return new Vector2f(firstCoords);
     }
-
 
     @Override
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
             boolean endCaps, Camera2D camera2d) {
-        
-        if(uAxis == null){
+
+        if (uAxis == null) {
             this.camera = camera2d;
-            super.setEndpoints(camera2d, getScreenSpaceVector(first),  getScreenSpaceVector(last));
+            super.setEndpoints(camera2d, getScreenSpaceVector(first), getScreenSpaceVector(last));
             calculateQuad();
         }
         Vector2f uAxis = super.getUAxis();
         Vector2f vAxis = super.getVAxis();
         Vector2f basePoint = getPointSpaceVector(first);
-        Vector2f dirPoint  = getPointSpaceVector(last).sub(basePoint);
+        Vector2f dirPoint = getPointSpaceVector(last).sub(basePoint);
         Vector2f dashPoint = new Vector2f(dirPoint).normalize().mul(dashLength);
 
         Vector2f baseScreen = toScreenSpace(basePoint);

@@ -84,12 +84,11 @@ public class SDFLine extends ShaderDrawable {
         shader = lineShader;
         if (dashed) {
             shader = dashedLineShader;
-            if (endCaps){
+            if (endCaps) {
                 shader = dashedLineEndCapsShader;
-            }
-            else if(roundCaps){
+            } else if (roundCaps) {
                 shader = dashedLineRoundShader;
-            } 
+            }
         }
     }
 
@@ -97,6 +96,7 @@ public class SDFLine extends ShaderDrawable {
         this.borderInner = borderDist - 0.1f;
         this.borderOuter = borderDist;
     }
+
     public void setStroke(boolean dashed) {
         this.dashed = dashed;
         edgeDist = 0.35f;
@@ -279,7 +279,8 @@ public class SDFLine extends ShaderDrawable {
         this.pB = pB;
     }
 
-    public void setCulling(boolean b) {culling = b;
+    public void setCulling(boolean b) {
+        culling = b;
     }
 
 }
