@@ -43,7 +43,6 @@ public abstract class ShaderDrawable {
     private boolean geometryDirty = true;
     private boolean colorDirty = true;
 
-    private final Map<Long, Object> ownerKeyById = new HashMap<>();
     private final Map<Long, ShaderProgram.Allocation> allocationById = new HashMap<>();
     private final Map<Long, Quad> prevQuadById = new HashMap<>();
 
@@ -110,7 +109,6 @@ public abstract class ShaderDrawable {
                 .add(topLeft)
                 .div(4f);
 
-
         shader.setFloat("widthToHeightRatio", widthToHeightRatio);
         setUniforms();
 
@@ -121,13 +119,10 @@ public abstract class ShaderDrawable {
             colorDirty = false;
 
         } else {
-            if (allocation == null) {
-                allocation = shader.ensureAllocation(this, Quad.VERTEX_COUNT);
-                geometryDirty = true;
-                colorDirty = true;
-            }
-            if (allocation.isDirty() || geometryDirty || colorDirty) {
-                uploadGeometry(allocation);
+            // Ensure current allocation references the shader's active VBO after any reload
+            ShaderProgram.Allocation a = allocationById.get(drawingId);
+            if (a == null || a.isDirty() || geometryDirty || colorDirty) {
+                uploadGeometry(alloc);
                 geometryDirty = false;
                 colorDirty = false;
             }
@@ -249,12 +244,10 @@ public abstract class ShaderDrawable {
     private ShaderProgram.Allocation ensureAllocation(Long id) {
         if (id == null)
             return null;
-        ShaderProgram.Allocation alloc = allocationById.get(id);
-        if (alloc == null) {
-            Object key = ownerKeyById.computeIfAbsent(id, k -> new Object());
-            alloc = shader.ensureAllocation(key, Quad.VERTEX_COUNT);
-            allocationById.put(id, alloc);
-        }
+        // Always ask the shader to ensure an allocation for this numeric id; this
+        // rebinds to the current VBO after any shader reload.
+        ShaderProgram.Allocation alloc = shader.ensureAllocation(id, Quad.VERTEX_COUNT);
+        allocationById.put(id, alloc);
         return alloc;
     }
 
@@ -321,7 +314,6 @@ public abstract class ShaderDrawable {
         buf.flip();
         shader.uploadAllocation(target, buf, Quad.VERTEX_COUNT);
     }
-
 
     public Vector2f toTextureSpace(Vector2f p) {
         if (uAxis == null) {

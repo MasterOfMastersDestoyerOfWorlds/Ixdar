@@ -150,6 +150,10 @@ public abstract class ShaderProgram {
     public GL gl;
     public Platform platform;
 
+    // Original sources preserved for in-memory reload/restore
+    private String originalVertexSourceStr;
+    private String originalFragmentSourceStr;
+
     // Global id registry (shared across all ShaderProgram instances)
     private static final java.util.Map<Long, Object> GLOBAL_OWNER_KEYS = new java.util.HashMap<>();
     // Instance-level id→allocation lookup for convenience
@@ -173,6 +177,10 @@ public abstract class ShaderProgram {
         String fsrc = shell.platform.Platforms.get().loadShaderSource(fragmentShaderLocation);
         vertexShaderSource = new CharSequence[] { vsrc };
         fragmentShaderSource = new CharSequence[] { fsrc };
+
+        // Preserve originals for restoration
+        originalVertexSourceStr = getVertexSource();
+        originalFragmentSourceStr = getFragmentSource();
 
         // On desktop, set up file watchers for hot reload; on web, these files won't
         // exist
@@ -341,14 +349,7 @@ public abstract class ShaderProgram {
             return;
         }
         try {
-            if (reloadShader) {
-                this.vao = new VertexArrayObject();
-                this.vbo = new VertexBufferObject();
-                this.uniformLocations = new HashMap<>();
-                recompileShaders(vertexShaderLocation, fragmentShaderLocation);
-                init();
-                reloadShader = false;
-            }
+            boolean didChange = false;
             boolean vertexModified = vertexShaderFile != null && vertexShaderFile.exists()
                     && vertexShaderFile.lastModified() != vertexLastModified;
             boolean fragmentModified = fragmentShaderFile != null && fragmentShaderFile.exists()
@@ -356,14 +357,42 @@ public abstract class ShaderProgram {
             if (vertexModified) {
                 vertexShaderSource = readFile(vertexShaderFile);
                 vertexLastModified = vertexShaderFile.lastModified();
+                didChange = true;
             }
             if (fragmentModified) {
                 fragmentShaderSource = readFile(fragmentShaderFile);
                 fragmentLastModified = fragmentShaderFile.lastModified();
+                didChange = true;
             }
-            if (vertexModified || fragmentModified) {
-                deleteShader();
-                reloadShader = true;
+            if (didChange || reloadShader) {
+                // Compile/link new program first; only swap if link succeeds
+                int prevID = ID;
+                recompileShaders(vertexShaderLocation, fragmentShaderLocation);
+                IntBuffer success = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder())
+                        .asIntBuffer();
+                gl.getProgramiv(ID, gl.LINK_STATUS(), success);
+                if (success.get(0) != 0) {
+                    // Swap successful; bind new program immediately so subsequent draws use it
+                    gl.useProgram(ID);
+                    if (prevID >= 0) {
+                        gl.deleteProgram(prevID);
+                    }
+                    // Only re-initialize attribute bindings if vertex shader changed
+                    this.vao = new VertexArrayObject();
+                    this.vbo = new VertexBufferObject();
+                    this.uniformLocations = new HashMap<>();
+                    init();
+                    resetPersistentAllocations();
+                    // Clear cached uniform locations and reapply stored uniform values
+                    reapplyUniforms();
+                    // Ensure projection matrix is up to date for this new program this frame
+                    updateProjectionMatrix(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight, 1f);
+                    reloadShader = false;
+                } else {
+                    // Failed: discard new and keep previous program
+                    gl.deleteProgram(ID);
+                    ID = prevID;
+                }
             }
         } catch (IOException e) {
             Main.terminal.error("Could not Hot Reload: " + e.getMessage());
@@ -394,11 +423,104 @@ public abstract class ShaderProgram {
         ID = gl.createProgram();
         gl.attachShader(ID, vertexShader);
         gl.attachShader(ID, fragmentShader);
+        // Ensure fragment output 0 is bound to 'fragColor' prior to linking
+        gl.bindFragDataLocation(ID, 0, "fragColor");
         gl.linkProgram(ID);
         gl.deleteShader(vertexShader);
         gl.deleteShader(fragmentShader);
         checkCompileErrors(ID, ShaderOperationType.Program, "both", vertexShaderSource);
 
+    }
+
+    /**
+     * Replace the fragment shader source in-memory and immediately rebuild the
+     * program.
+     */
+    public synchronized void reloadWithFragmentSource(String src) {
+        if (src == null) {
+            return;
+        }
+        // Ensure a null-terminated last chunk like file-loaded path
+        CharSequence[] prevFrag = this.fragmentShaderSource;
+        int prevID = ID;
+        this.fragmentShaderSource = new CharSequence[] { src + "\0" };
+        recompileShaders(vertexShaderLocation, fragmentShaderLocation);
+        IntBuffer success = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer();
+        gl.getProgramiv(ID, gl.LINK_STATUS(), success);
+        if (success.get(0) != 0) {
+            // Success: bind new program immediately so subsequent draws use it
+            gl.useProgram(ID);
+            if (prevID >= 0) {
+                gl.deleteProgram(prevID);
+            }
+            // Re-init attributes/uniforms for this program
+            this.vao = new VertexArrayObject();
+            this.vbo = new VertexBufferObject();
+            this.uniformLocations = new HashMap<>();
+            init();
+            resetPersistentAllocations();
+            // Clear cached uniform locations and reapply stored uniform values
+            reapplyUniforms();
+            updateProjectionMatrix(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight, 1f);
+        } else {
+            // Failed: discard new program and restore previous state/sources
+            gl.deleteProgram(ID);
+            ID = prevID;
+            this.fragmentShaderSource = prevFrag;
+        }
+    }
+
+    private void reapplyUniforms() {
+        if (uniformMap == null || uniformMap.isEmpty()) {
+            return;
+        }
+        for (java.util.Map.Entry<String, Object> e : uniformMap.entrySet()) {
+            String name = e.getKey();
+            Object v = e.getValue();
+            try {
+                if (v instanceof Boolean) {
+                    setBool(name, (Boolean) v);
+                } else if (v instanceof Integer) {
+                    setInt(name, (Integer) v);
+                } else if (v instanceof Float) {
+                    setFloat(name, (Float) v);
+                } else if (v instanceof org.joml.Matrix4f) {
+                    setMat4(name, (org.joml.Matrix4f) v);
+                } else if (v instanceof org.joml.Vector2f) {
+                    setVec2(name, (org.joml.Vector2f) v);
+                } else if (v instanceof org.joml.Vector3f) {
+                    setVec3(name, (org.joml.Vector3f) v);
+                } else if (v instanceof org.joml.Vector4f) {
+                    setVec4(name, (org.joml.Vector4f) v);
+                } else if (v instanceof Texture) {
+                    // Rebind texture unit mapping; best-effort default to unit 0
+                    setTexture(name, (Texture) v, gl.TEXTURE0(), 0);
+                }
+            } catch (Exception ignore) {
+            }
+        }
+    }
+
+    /**
+     * After a program or buffer rebuild, invalidate persistent VBO allocation state
+     * so that geometry gets reallocated/re-uploaded on the next frame.
+     */
+    private void resetPersistentAllocations() {
+        // Reset persistent drawing region so ensureAllocation() will reserve fresh
+        // space
+        regionStartVertex = -1;
+        regionCursorVertex = -1;
+        // Drop any prior allocations that point to the old VBO
+        allocations.clear();
+        idToAllocation.clear();
+        queuedRanges.clear();
+    }
+
+    /** Restore the original fragment source captured at startup. */
+    public synchronized void reloadWithOriginalSources() {
+        if (originalFragmentSourceStr != null) {
+            reloadWithFragmentSource(originalFragmentSourceStr);
+        }
     }
 
     public void setTexture(String glslName, Texture tex, int i, int j) {
@@ -459,6 +581,22 @@ public abstract class ShaderProgram {
                     vbo.bind(gl.ARRAY_BUFFER());
                 }
                 use();
+                // Defensive: ensure attribute arrays are enabled after re-link
+                try {
+                    int posAttrib = getAttributeLocation("position");
+                    if (posAttrib >= 0) {
+                        gl.enableVertexAttribArray(posAttrib);
+                    }
+                    int colAttrib = getAttributeLocation("color");
+                    if (colAttrib >= 0) {
+                        gl.enableVertexAttribArray(colAttrib);
+                    }
+                    int texCoordAttrib = getAttributeLocation("texCoord");
+                    if (texCoordAttrib >= 0) {
+                        gl.enableVertexAttribArray(texCoordAttrib);
+                    }
+                } catch (Exception ignore) {
+                }
 
                 vbo.bind(gl.ARRAY_BUFFER());
                 vbo.uploadSubData(gl.ARRAY_BUFFER(), 0, verteciesBuff);
@@ -476,6 +614,22 @@ public abstract class ShaderProgram {
                     vbo.bind(gl.ARRAY_BUFFER());
                 }
                 use();
+                // Defensive: ensure attribute arrays are enabled after re-link
+                try {
+                    int posAttrib = getAttributeLocation("position");
+                    if (posAttrib >= 0) {
+                        gl.enableVertexAttribArray(posAttrib);
+                    }
+                    int colAttrib = getAttributeLocation("color");
+                    if (colAttrib >= 0) {
+                        gl.enableVertexAttribArray(colAttrib);
+                    }
+                    int texCoordAttrib = getAttributeLocation("texCoord");
+                    if (texCoordAttrib >= 0) {
+                        gl.enableVertexAttribArray(texCoordAttrib);
+                    }
+                } catch (Exception ignore) {
+                }
                 for (int i = 0; i < queuedRanges.size(); i++) {
                     DrawRange r = queuedRanges.get(i);
                     gl.drawArrays(gl.TRIANGLES(), r.firstVertex, r.vertexCount);
@@ -723,7 +877,7 @@ public abstract class ShaderProgram {
         verteciesBuff.put(x3).put(y3).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t2);
         verteciesBuff.put(x4).put(y4).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t2);
         verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
-        
+
         numVertices += 6;
     }
 
@@ -864,6 +1018,10 @@ public abstract class ShaderProgram {
         queuedRanges.add(new DrawRange(allocation.firstVertex, vertexCount));
     }
 
+    public void clearQueuedRanges() {
+        queuedRanges.clear();
+    }
+
     private void growBufferIfNeeded(int requiredMaxVertexIndexExclusive) {
         // Buffer was initially created with some size; if our required range would
         // exceed
@@ -940,8 +1098,10 @@ public abstract class ShaderProgram {
             return;
         }
 
-        IntBuffer sizeBuffer = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer();
-        IntBuffer typeBuffer = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer();
+        IntBuffer sizeBuffer = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder())
+                .asIntBuffer();
+        IntBuffer typeBuffer = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder())
+                .asIntBuffer();
 
         for (int i = 0; i < numUniforms; i++) {
             sizeBuffer.clear();
@@ -963,15 +1123,15 @@ public abstract class ShaderProgram {
             } else if (type == gl.FLOAT_VEC4()) {
                 IxBuffer val = platform.allocateFloats(4);
                 gl.getUniformfv(ID, location, val);
-                System.out.printf("  '%s' (vec4): (%f, %f, %f, %f)%n", name, val.get(0), val.get(1), val.get(2), val.get(3));
+                System.out.printf("  '%s' (vec4): (%f, %f, %f, %f)%n", name, val.get(0), val.get(1), val.get(2),
+                        val.get(3));
             } else if (type == gl.SAMPLER_2D()) {
-                 System.out.printf("  '%s' (sampler2D): [Texture Sampler]%n", name);
+                System.out.printf("  '%s' (sampler2D): [Texture Sampler]%n", name);
             } else {
                 System.out.printf("  '%s': [Unhandled Type: 0x%X]%n", name, type);
             }
         }
         System.out.println("---------------------------------------------------------");
     }
-
 
 }

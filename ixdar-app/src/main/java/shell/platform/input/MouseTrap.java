@@ -31,6 +31,21 @@ public class MouseTrap {
     public boolean active = true;
     public static ArrayList<HyperString> hyperStrings = new ArrayList<>();
 
+    // Click subscriptions
+    public interface ClickHandler {
+        void onClick(float xNorm, float yNorm);
+    }
+
+    public static class ClickSubscription {
+        public Bounds bounds;
+        public ClickHandler handler;
+
+        public ClickSubscription(Bounds bounds, ClickHandler handler) {
+            this.bounds = bounds;
+            this.handler = handler;
+        }
+    }
+
     // Scroll subscriptions
     public interface ScrollHandler {
         void onScroll(boolean scrollUp, double deltaSeconds);
@@ -47,10 +62,16 @@ public class MouseTrap {
     }
 
     private static final HashMap<Integer, List<ScrollSubscription>> scrollSubscriptionsByPlatform = new HashMap<>();
+    private static final HashMap<Integer, List<ClickSubscription>> clickSubscriptionsByPlatform = new HashMap<>();
 
     private static List<ScrollSubscription> getSubscriptionsForCurrentPlatform() {
         int id = Platforms.gl().getID();
         return scrollSubscriptionsByPlatform.computeIfAbsent(id, k -> new ArrayList<>());
+    }
+
+    private static List<ClickSubscription> getClickSubscriptionsForCurrentPlatform() {
+        int id = Platforms.gl().getID();
+        return clickSubscriptionsByPlatform.computeIfAbsent(id, k -> new ArrayList<>());
     }
 
     public static void subscribeScrollRegion(Bounds bounds, ScrollHandler handler) {
@@ -59,6 +80,15 @@ public class MouseTrap {
 
     public static void unsubscribeScrollRegion(ScrollHandler handler) {
         List<ScrollSubscription> list = getSubscriptionsForCurrentPlatform();
+        list.removeIf(s -> s.handler == handler);
+    }
+
+    public static void subscribeClickRegion(Bounds bounds, ClickHandler handler) {
+        getClickSubscriptionsForCurrentPlatform().add(new ClickSubscription(bounds, handler));
+    }
+
+    public static void unsubscribeClickRegion(ClickHandler handler) {
+        List<ClickSubscription> list = getClickSubscriptionsForCurrentPlatform();
         list.removeIf(s -> s.handler == handler);
     }
 
@@ -91,6 +121,17 @@ public class MouseTrap {
         if (canvas.menu != null) {
 
             canvas.menu.click(normalizedPosX, normalizedPosY);
+        }
+
+        // Dispatch click-region handlers last
+        List<ClickSubscription> clicks = getClickSubscriptionsForCurrentPlatform();
+        for (ClickSubscription sub : clicks) {
+            if (sub.bounds != null) {
+                sub.bounds.recalc();
+                if (sub.bounds.contains(normalizedPosX, normalizedPosY)) {
+                    sub.handler.onClick(normalizedPosX, normalizedPosY);
+                }
+            }
         }
     }
 
