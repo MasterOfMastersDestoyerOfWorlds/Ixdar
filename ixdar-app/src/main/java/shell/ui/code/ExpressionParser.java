@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.function.TriFunction;
 import org.joml.Vector4f;
@@ -317,6 +319,102 @@ public class ExpressionParser {
 
             cachedSuffixes.set(i, out);
         }
+    }
+
+    /**
+     * Compute, for each line, whether it would execute under the current env,
+     * without mutating env or suffixes. Control-flow only (if/else/braces).
+     */
+    public static java.util.List<Boolean> wouldExecute(List<String> lines, Map<String, ParseText> envSnapshot) {
+        java.util.ArrayList<Boolean> execFlags = new java.util.ArrayList<>();
+        if (lines == null) {
+            return execFlags;
+        }
+        java.util.ArrayList<Boolean> execStack = new java.util.ArrayList<>();
+        execStack.add(Boolean.TRUE);
+        java.util.ArrayList<Boolean> isIfStack = new java.util.ArrayList<>();
+        isIfStack.add(Boolean.FALSE);
+        java.util.ArrayList<Boolean> elseShouldExecStack = new java.util.ArrayList<>();
+        elseShouldExecStack.add(Boolean.FALSE);
+        int braceDepth = 0;
+        boolean awaitingElseExec = false;
+        int awaitingElseDepth = 0;
+
+        for (int i = 0; i < lines.size(); i++) {
+            String decl = stripCommentsAndTrim(lines.get(i));
+            String lower = decl.toLowerCase();
+            if (decl.isEmpty()) {
+                execFlags.add(Boolean.FALSE);
+                continue;
+            }
+            int opens = countChar(decl, '{');
+            int closes = countChar(decl, '}');
+            braceDepth += opens;
+            boolean doExec = execStack.get(execStack.size() - 1);
+            if (lower.startsWith("if")) {
+                String condStr = extractCondition(decl);
+                boolean cond = evaluateCondition(condStr, envSnapshot);
+                isIfStack.add(Boolean.TRUE);
+                elseShouldExecStack.add(Boolean.valueOf(!cond));
+                execStack.add(Boolean.valueOf(cond && doExec));
+                execFlags.add(Boolean.valueOf(cond && doExec));
+            } else if (lower.startsWith("else")) {
+                boolean wasIf = isIfStack.get(isIfStack.size() - 1);
+                if (wasIf) {
+                    execStack.remove(execStack.size() - 1);
+                    boolean elseExec = elseShouldExecStack.get(elseShouldExecStack.size() - 1).booleanValue();
+                    execStack.add(Boolean.valueOf(elseExec && doExec));
+                    isIfStack.remove(isIfStack.size() - 1);
+                    elseShouldExecStack.remove(elseShouldExecStack.size() - 1);
+                }
+                execFlags.add(execStack.get(execStack.size() - 1));
+            } else {
+                execFlags.add(Boolean.valueOf(doExec && !skipControlOnlyLine(decl)));
+            }
+            braceDepth -= closes;
+            while (closes-- > 0 && execStack.size() > 1) {
+                execStack.remove(execStack.size() - 1);
+                isIfStack.remove(isIfStack.size() - 1);
+                elseShouldExecStack.remove(elseShouldExecStack.size() - 1);
+            }
+        }
+        return execFlags;
+    }
+
+    private static String stripCommentsAndTrim(String s) {
+        if (s == null) {
+            return "";
+        }
+        int cidx = s.indexOf("//");
+        if (cidx >= 0) {
+            s = s.substring(0, cidx);
+        }
+        return s.trim();
+    }
+
+    private static int countChar(String s, char c) {
+        if (s == null) {
+            return 0;
+        }
+        int n = 0;
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) == c) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    private static String extractCondition(String decl) {
+        IfHeader ih = parseIfHeader(decl);
+        if (ih != null) {
+            return ih.condition;
+        }
+        IfHeader eih = parseElseIfHeader(decl);
+        if (eih != null) {
+            return eih.condition;
+        }
+        return null;
     }
 
     private static boolean isClosingBraceOnly(String decl) {
@@ -1215,7 +1313,7 @@ public class ExpressionParser {
         for (int i = 0; i < sw.length(); i++) {
             int component = componentSuffix(sw.charAt(i));
             ParseText e = MISSING;
-            if(env.get(base) != null){
+            if (env.get(base) != null) {
                 e = new ParseText(env.get(base).getData().get(component));
             }
             list.add(e);
@@ -1229,5 +1327,55 @@ public class ExpressionParser {
         } catch (Exception e) {
             return MISSING;
         }
+    }
+
+    public static boolean isAssignmentLine(String line) {
+        if (line == null) {
+            return false;
+        }
+        String s = line.trim();
+        if (s.isEmpty())
+            return false;
+        if (s.startsWith("//"))
+            return false;
+        if (s.startsWith("uniform "))
+            return false;
+        if (s.startsWith("out "))
+            return false;
+        if (s.startsWith("in "))
+            return false;
+        if (s.startsWith("void "))
+            return false;
+        if (s.startsWith("precision "))
+            return false;
+        if (s.startsWith("layout "))
+            return false;
+        // Simple assignment detect: has '=' and ends with ';', avoid '==' '>=', '<='
+        // etc.
+        int eq = s.indexOf('=');
+        if (eq < 0)
+            return false;
+        if (eq + 1 < s.length() && s.charAt(eq + 1) == '=')
+            return false;
+        if (!s.endsWith(";"))
+            return false;
+        return true;
+    }
+
+    public static String detectOutName(String[] lines) {
+        String outName = "fragColor";
+        Pattern p = Pattern
+                .compile("(?:layout\\s*\\([^)]*\\)\\s*)?out\\s+vec4\\s+([a-zA-Z_][a-zA-Z0-9_]*)");
+        for (String l : lines) {
+            String s = l.trim();
+            Matcher m = p.matcher(s);
+            if (m.find()) {
+                return m.group(1);
+            }
+        }
+        String src = String.join("\n", lines);
+        if (src.contains("FragColor"))
+            return "FragColor";
+        return outName;
     }
 }

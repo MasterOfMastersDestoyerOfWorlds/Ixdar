@@ -440,10 +440,10 @@ public abstract class ShaderProgram {
         if (src == null) {
             return;
         }
-        // Ensure a null-terminated last chunk like file-loaded path
+        // Build platform-appropriate fragment source
         CharSequence[] prevFrag = this.fragmentShaderSource;
         int prevID = ID;
-        this.fragmentShaderSource = new CharSequence[] { src + "\0" };
+        this.fragmentShaderSource = buildPlatformFragmentSource(src);
         recompileShaders(vertexShaderLocation, fragmentShaderLocation);
         IntBuffer success = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer();
         gl.getProgramiv(ID, gl.LINK_STATUS(), success);
@@ -468,6 +468,23 @@ public abstract class ShaderProgram {
             ID = prevID;
             this.fragmentShaderSource = prevFrag;
         }
+    }
+
+    /**
+     * Build fragment source array in the same form as platform file loading.
+     * Desktop (LWJGL) expects a trailing NUL on the last chunk; Web (WebGL) uses a
+     * plain string without NUL.
+     */
+    private CharSequence[] buildPlatformFragmentSource(String src) {
+        try {
+            String platformName = shell.platform.Platforms.get().getClass().getName();
+            boolean isWeb = platformName != null && platformName.toLowerCase().contains("web");
+            if (isWeb) {
+                return new CharSequence[] { src };
+            }
+        } catch (Exception ignore) {
+        }
+        return new CharSequence[] { src + "\0" };
     }
 
     private void reapplyUniforms() {

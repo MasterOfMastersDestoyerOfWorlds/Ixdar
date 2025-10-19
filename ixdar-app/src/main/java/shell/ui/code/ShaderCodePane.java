@@ -50,9 +50,9 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private int debugLineIndex = -1;
     private int hoverLineIndex = -1;
     private int clickedLineIndex = -1;
-    private String originalFragmentSource;
     private boolean consumedLineClickRecently = false;
     private long lastLineClickMillis = 0L;
+    private ShaderBranchInjector shaderBranchInjector;
 
     // private ExpressionParser expressionParser;
 
@@ -131,12 +131,12 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             displayedLines.clear();
             cachedSuffixes.clear();
             String fs = shader != null ? shader.getFragmentSource() : "";
-            originalFragmentSource = fs;
+            shaderBranchInjector = new ShaderBranchInjector(uniformProvider, fs, shader);
             int gIndex = 0;
             codeText.addDynamicWord(() -> updateCacheIfMouseMoved(), Color.BLUE_WHITE);
             for (String ln : fs.split("\n")) {
                 final int idx = gIndex;
-                final boolean isAssignment = isAssignmentLine(ln);
+                final boolean isAssignment = ExpressionParser.isAssignmentLine(ln);
                 codeText.addDynamicWord(() -> {
                     ColorText<?> dyn = new ColorText<>("");
                     dyn.resetText();
@@ -295,203 +295,15 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         consumedLineClickRecently = true;
         lastLineClickMillis = System.currentTimeMillis();
         clickedLineIndex = idx;
-        injectAndReload(idx);
+        shaderBranchInjector.injectAndReload(idx);
     }
 
     private void restoreOriginal() {
-        if (targetShader != null && originalFragmentSource != null) {
-            targetShader.reloadWithFragmentSource(originalFragmentSource);
+        if (shaderBranchInjector != null && shaderBranchInjector.originalFragmentSource != null) {
+            targetShader.reloadWithFragmentSource(shaderBranchInjector.originalFragmentSource);
         }
         hoverLineIndex = -1;
         clickedLineIndex = -1;
-    }
-
-    private void injectAndReload(int lineIndex) {
-        if (originalFragmentSource == null || originalFragmentSource.isEmpty()) {
-            return;
-        }
-        String[] lines = originalFragmentSource.split("\n", -1);
-        if (lineIndex < 0 || lineIndex >= lines.length) {
-            return;
-        }
-        // Only act on assignment lines inside main()
-        if (!isAssignmentLine(lines[lineIndex])) {
-            return;
-        }
-        // Determine output variable name robustly
-        String outName = detectOutName(lines);
-        // Determine variable name and type on clicked line
-        String clicked = lines[lineIndex];
-        String indent = clicked.replaceAll("^(\\s*).*$", "$1");
-        String type = null;
-        String var = null;
-        String decl = clicked.trim();
-        Pattern pDecl = Pattern
-                .compile(
-                        "^(?:[a-zA-Z_][a-zA-Z0-9_]*\\s+)*((?:float|int|vec[234]))\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*=.*;");
-        Matcher m = pDecl.matcher(decl);
-        if (m.find()) {
-            type = m.group(1);
-            var = m.group(2);
-        } else {
-            Pattern pAssign = Pattern
-                    .compile("^([a-zA-Z_][a-zA-Z0-9_]*)\\s*=.*;");
-            Matcher m2 = pAssign.matcher(decl);
-            if (m2.find()) {
-                var = m2.group(1);
-                // backscan for declaration
-                for (int i = lineIndex; i >= 0; i--) {
-                    String t = lines[i].trim();
-                    Matcher m3 = pDecl.matcher(t);
-                    if (m3.find() && m3.group(2).equals(var)) {
-                        type = m3.group(1);
-                        break;
-                    }
-                    Matcher m4 = Pattern
-                            .compile("^(?:[a-zA-Z_][a-zA-Z0-9_]*\\s+)*((?:float|int|vec[234]))\\s+" + var + "[\\s=;].*")
-                            .matcher(t);
-                    if (m4.find()) {
-                        type = m4.group(1);
-                        break;
-                    }
-                }
-            }
-        }
-        if (var == null) {
-            // If the clicked line is an out assignment already, we'll detect below and just
-            // truncate
-            var = "";
-        }
-        if (type == null) {
-            type = "float"; // fallback
-        }
-        String expr;
-        switch (type) {
-        case "int":
-            expr = "vec4(float(" + var + "), float(" + var + "), float(" + var + "), 1.0)";
-            break;
-        case "float":
-            expr = "vec4(" + var + ", " + var + ", " + var + ", 1.0)";
-            break;
-        case "vec2":
-            expr = "vec4(" + var + ".x, " + var + ".y, 0.0, 1.0)";
-            break;
-        case "vec3":
-            expr = "vec4(" + var + ", 1.0)";
-            break;
-        case "vec4":
-            expr = var;
-            break;
-        default:
-            expr = "vec4(0.0, 0.0, 0.0, 1.0)";
-        }
-        // Locate main() block bounds
-        int mainStart = -1;
-        for (int i = 0; i < lines.length; i++) {
-            if (lines[i].contains("void main")) {
-                mainStart = i;
-                break;
-            }
-        }
-        if (mainStart < 0 || lineIndex < mainStart) {
-            return;
-        }
-        int depth = 0;
-        int mainEnd = -1;
-        for (int i = mainStart; i < lines.length; i++) {
-            String s = lines[i];
-            for (int k = 0; k < s.length(); k++) {
-                char ch = s.charAt(k);
-                if (ch == '{')
-                    depth++;
-                if (ch == '}') {
-                    depth--;
-                    if (depth == 0) {
-                        mainEnd = i;
-                        break;
-                    }
-                }
-            }
-            if (mainEnd >= 0)
-                break;
-        }
-        if (mainEnd < 0) {
-            return;
-        }
-        // Build new source: keep everything up to clicked line, then truncate main
-        // body,
-        // insert our out assignment unless clicked already assigns out, then close
-        // main,
-        // then keep the rest of the file after main.
-        java.util.List<String> newLines = new java.util.ArrayList<>();
-        for (int i = 0; i <= lineIndex; i++) {
-            newLines.add(lines[i]);
-        }
-        boolean clickedAssignsOut = lines[lineIndex].contains(outName + " =");
-        if (!clickedAssignsOut) {
-            String assignment = indent + outName + " = " + expr + ";";
-            newLines.add(assignment);
-        }
-        // Add closing brace of main
-        if (mainEnd >= 0) {
-            newLines.add(lines[mainEnd]);
-            // Append lines after main
-            for (int i = mainEnd + 1; i < lines.length; i++) {
-                newLines.add(lines[i]);
-            }
-        }
-        String newSrc = String.join("\n", newLines);
-        targetShader.reloadWithFragmentSource(newSrc);
-    }
-
-    private String detectOutName(String[] lines) {
-        String outName = "fragColor";
-        Pattern p = Pattern
-                .compile("(?:layout\\s*\\([^)]*\\)\\s*)?out\\s+vec4\\s+([a-zA-Z_][a-zA-Z0-9_]*)");
-        for (String l : lines) {
-            String s = l.trim();
-            Matcher m = p.matcher(s);
-            if (m.find()) {
-                return m.group(1);
-            }
-        }
-        String src = String.join("\n", lines);
-        if (src.contains("FragColor"))
-            return "FragColor";
-        return outName;
-    }
-
-    private boolean isAssignmentLine(String line) {
-        if (line == null) {
-            return false;
-        }
-        String s = line.trim();
-        if (s.isEmpty())
-            return false;
-        if (s.startsWith("//"))
-            return false;
-        if (s.startsWith("uniform "))
-            return false;
-        if (s.startsWith("out "))
-            return false;
-        if (s.startsWith("in "))
-            return false;
-        if (s.startsWith("void "))
-            return false;
-        if (s.startsWith("precision "))
-            return false;
-        if (s.startsWith("layout "))
-            return false;
-        // Simple assignment detect: has '=' and ends with ';', avoid '==' '>=', '<='
-        // etc.
-        int eq = s.indexOf('=');
-        if (eq < 0)
-            return false;
-        if (eq + 1 < s.length() && s.charAt(eq + 1) == '=')
-            return false;
-        if (!s.endsWith(";"))
-            return false;
-        return true;
     }
 
     @Override
