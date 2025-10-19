@@ -7,6 +7,7 @@ import org.joml.Vector2f;
 
 import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
+import shell.platform.Platforms;
 import shell.platform.input.MouseTrap;
 import shell.render.Clock;
 import shell.render.color.Color;
@@ -59,8 +60,8 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
 
         this.canvas = canvas;
         parentBounds.setUpdateCallback(
-                b -> b.update(0, 0, showCode ? Canvas3D.frameBufferWidth / 2 : Canvas3D.frameBufferWidth,
-                        Canvas3D.frameBufferHeight));
+                b -> b.update(0, 0, showCode ? Platforms.get().getFrameBufferWidth() / 2 : Platforms.get().getFrameBufferWidth(),
+                        Platforms.get().getFrameBufferHeight()));
         this.parentBounds = parentBounds;
         this.scrollSpeed = scrollSpeed;
         this.codeText = new HyperString();
@@ -72,12 +73,12 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         this.title = title != null ? title : "Shader";
         this.uniformProvider = provider;
         showCode = true;
-        paneBounds = new Bounds(Canvas3D.frameBufferWidth / 2, 0, 0, Canvas3D.frameBufferHeight,
+        paneBounds = new Bounds(Platforms.get().getFrameBufferWidth() / 2, 0, 0, Platforms.get().getFrameBufferHeight(),
                 b -> b.update(
-                        Canvas3D.frameBufferWidth / 2,
+                        Platforms.get().getFrameBufferWidth() / 2,
                         0,
-                        showCode ? Canvas3D.frameBufferWidth / 2f : 0f,
-                        Canvas3D.frameBufferHeight),
+                        showCode ? Platforms.get().getFrameBufferWidth() / 2f : 0f,
+                        Platforms.get().getFrameBufferHeight()),
                 DEFAULT_VIEW_RIGHT);
 
         showCodeButton = new HyperString();
@@ -88,11 +89,11 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         }, Color.CYAN, () -> {
             showCode = !showCode;
             if (showCode) {
-                paneBounds.viewWidth = Canvas3D.frameBufferWidth / 2f;
-                parentBounds.viewWidth = Canvas3D.frameBufferWidth / 2f;
+                paneBounds.viewWidth = Platforms.get().getFrameBufferWidth() / 2f;
+                parentBounds.viewWidth = Platforms.get().getFrameBufferWidth() / 2f;
             } else {
                 paneBounds.viewWidth = 0f;
-                parentBounds.viewWidth = Canvas3D.frameBufferWidth;
+                parentBounds.viewWidth = Platforms.get().getFrameBufferWidth();
             }
             camera.updateView(paneBounds.id);
             camera.updateView(parentBounds.id);

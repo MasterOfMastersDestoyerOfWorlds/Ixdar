@@ -40,7 +40,8 @@ public class WebPlatform implements Platform {
     private CursorPosCallback cursorPosCallback;
     private MouseButtonCallback mouseButtonCallback;
     private ScrollCallback scrollCallback;
-
+    private float frameBufferSizeX;
+    private float frameBufferSizeY;
     public WebPlatform(HTMLCanvasElement canvas, String id) {
         this.currentCanvasId = id;
         this.canvas = canvas;
@@ -436,6 +437,20 @@ public class WebPlatform implements Platform {
     @Override
     public IxBuffer allocateFloats(int i) {
         return new WebBuffer(i);
+    }
+
+    @Override
+    public void setFrameBufferSize(float f, float g) {
+        frameBufferSizeX = f;
+        frameBufferSizeY = g;
+    }
+    @Override
+    public int getFrameBufferWidth() {
+        return (int) frameBufferSizeX;
+    }
+    @Override
+    public int getFrameBufferHeight() {
+        return (int) frameBufferSizeY;
     }
 }
 

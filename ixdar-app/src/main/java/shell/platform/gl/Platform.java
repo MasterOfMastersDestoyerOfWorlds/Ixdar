@@ -71,4 +71,10 @@ public interface Platform {
     boolean canHotReload();
 
     IxBuffer allocateFloats(int i);
+
+    void setFrameBufferSize(float f, float g);
+
+    int getFrameBufferWidth();
+
+    int getFrameBufferHeight();
 }

@@ -495,12 +495,12 @@ public class Camera2D implements Camera {
 
     @Override
     public float getScreenWidthRatio() {
-        return Canvas3D.frameBufferWidth / ScreenWidth;
+        return Platforms.get().getFrameBufferWidth() / ScreenWidth;
     }
 
     @Override
     public float getScreenHeightRatio() {
-        return Canvas3D.frameBufferHeight / ScreenHeight;
+        return Platforms.get().getFrameBufferHeight() / ScreenHeight;
     }
 
     @Override
@@ -508,8 +508,8 @@ public class Camera2D implements Camera {
         // Mouse coordinates are already in canvas space (0 to canvas.width/height)
         // Normalize to frame buffer coordinates (0 to
         // frameBufferWidth/frameBufferHeight)
-        if (Platforms.get().getWindowWidth() > 0 && Canvas3D.frameBufferWidth > 0) {
-            return (xPos / Platforms.get().getWindowWidth()) * Canvas3D.frameBufferWidth;
+        if (Platforms.get().getWindowWidth() > 0 && Platforms.get().getFrameBufferWidth() > 0) {
+            return (xPos / Platforms.get().getWindowWidth()) * Platforms.get().getFrameBufferWidth();
         }
         return xPos;
     }
@@ -518,8 +518,8 @@ public class Camera2D implements Camera {
     public float getNormalizePosY(float yPos) {
         // Mouse coordinates are already in canvas space (0 to canvas.width/height)
         // Flip Y coordinate and normalize to frame buffer coordinates
-        if (Platforms.get().getWindowHeight() > 0 && Canvas3D.frameBufferHeight > 0) {
-            return (1.0f - (yPos / Platforms.get().getWindowHeight())) * Canvas3D.frameBufferHeight;
+        if (Platforms.get().getWindowHeight() > 0 && Platforms.get().getFrameBufferHeight() > 0) {
+            return (1.0f - (yPos / Platforms.get().getWindowHeight())) * Platforms.get().getFrameBufferHeight();
         }
         return Platforms.get().getWindowHeight() - yPos;
     }
@@ -560,7 +560,7 @@ public class Camera2D implements Camera {
 
     @Override
     public void resetView() {
-        this.updateView(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+        this.updateView(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight());
     }
 
     private void updateViewBounds(int x, int y, int width, int height) {

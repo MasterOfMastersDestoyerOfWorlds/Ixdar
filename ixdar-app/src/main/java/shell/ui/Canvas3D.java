@@ -32,8 +32,6 @@ import shell.ui.menu.MenuBox;
 
 public class Canvas3D {
     protected DiffuseShader shader;
-    public static int frameBufferWidth;
-    public static int frameBufferHeight;
     public MenuBox menu;
     boolean changedSize = false;
     // private SDFTexture logo;
@@ -73,10 +71,10 @@ public class Canvas3D {
         pointSet = shell.toPointSet();
         distanceMatrix = new DistanceMatrix(pointSet);
         shell.initShell(distanceMatrix);
-        this.camera2D = new Camera2D(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight, 1.0f, 0.0f, 0.0f,
+        this.camera2D = new Camera2D(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), 1.0f, 0.0f, 0.0f,
                 pointSet);
         webViews = new HashMap<>();
-        paneBounds = new Bounds(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight, null, DEFAULT_VIEW);
+        paneBounds = new Bounds(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), null, DEFAULT_VIEW);
         webViews.put(DEFAULT_VIEW, paneBounds);
         camera2D.initCamera(webViews, DEFAULT_VIEW);
         camera2D.calculateCameraTransform(pointSet);
@@ -133,7 +131,7 @@ public class Canvas3D {
         gl.viewport(0, 0, (int) Platforms.get().getWindowWidth(), (int) Platforms.get().getWindowHeight());
         ArrayList<ShaderProgram> shaders = gl.getShaders();
         for (ShaderProgram s : shaders) {
-            s.updateProjectionMatrix(frameBufferWidth, frameBufferHeight, 1f);
+            s.updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), 1f);
             s.hotReload();
         }
         for (ShaderProgram s : shaders) {
@@ -148,7 +146,7 @@ public class Canvas3D {
             fluid = new SDFFluid();
         }
         if (MenuBox.menuVisible) {
-            fluid.draw(0, 0, frameBufferWidth, frameBufferHeight, null, camera2D);
+            fluid.draw(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), null, camera2D);
         }
 
         if (Main.main != null && !MenuBox.menuVisible) {

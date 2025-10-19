@@ -174,12 +174,12 @@ public class Camera3D implements Camera {
 
     @Override
     public float getNormalizePosX(float xPos) {
-        return (((((float) xPos) / ((float) Platforms.get().getWindowWidth()) * Canvas3D.frameBufferWidth)));
+        return (((((float) xPos) / ((float) Platforms.get().getWindowWidth()) * Platforms.get().getFrameBufferWidth())));
     }
 
     @Override
     public float getNormalizePosY(float yPos) {
-        return ((1 - (yPos) / ((float) Platforms.get().getWindowHeight())) * Canvas3D.frameBufferHeight);
+        return ((1 - (yPos) / ((float) Platforms.get().getWindowHeight())) * Platforms.get().getFrameBufferHeight());
     }
 
     @Override
@@ -245,12 +245,12 @@ public class Camera3D implements Camera {
 
     @Override
     public float getWidth() {
-        return Canvas3D.frameBufferWidth;
+        return Platforms.get().getFrameBufferWidth();
     }
 
     @Override
     public float getHeight() {
-        return Canvas3D.frameBufferHeight;
+        return Platforms.get().getFrameBufferHeight();
     }
 
     @Override
@@ -293,7 +293,7 @@ public class Camera3D implements Camera {
 
     @Override
     public void resetView() {
-        this.updateView(0, 0, Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+        this.updateView(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight());
     }
 
 }

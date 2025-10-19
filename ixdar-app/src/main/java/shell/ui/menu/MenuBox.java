@@ -14,6 +14,7 @@ import shell.render.sdf.SDFTexture;
 import shell.render.sdf.SDFUnion;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
+import shell.platform.Platforms;
 import shell.platform.input.MouseTrap;
 
 public class MenuBox implements MouseTrap.ScrollHandler {
@@ -59,9 +60,9 @@ public class MenuBox implements MouseTrap.ScrollHandler {
             return;
         }
 
-        float centerX = Canvas3D.frameBufferWidth / 2;
-        float centerY = Canvas3D.frameBufferHeight / 2;
-        int min = Math.min(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+        float centerX = Platforms.get().getFrameBufferWidth() / 2;
+        float centerY = Platforms.get().getFrameBufferHeight() / 2;
+        int min = Math.min(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight());
         int logoWidth = (int) min / 2;
         int halfWidth = logoWidth / 2;
         logo.draw((centerX - halfWidth), (centerY + centerY / 2 - halfWidth), logoWidth, logoWidth, Color.IXDAR,
@@ -125,8 +126,8 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         }
         MenuItem clickedItem = null;
         for (int i = 0; i < menuItems.size(); i++) {
-            float centerX = Canvas3D.frameBufferWidth / 2;
-            float centerY = Canvas3D.frameBufferHeight / 2 - itemHeight - (itemHeight * i * 1.5f) - scrollOffsetY;
+            float centerX = Platforms.get().getFrameBufferWidth() / 2;
+            float centerY = Platforms.get().getFrameBufferHeight() / 2 - itemHeight - (itemHeight * i * 1.5f) - scrollOffsetY;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
             float upBoundX = centerY + itemHeight / 2;
@@ -153,7 +154,7 @@ public class MenuBox implements MouseTrap.ScrollHandler {
     }
 
     public void onScroll(boolean scrollUp, double deltaSeconds) {
-        float menuBottom = Canvas3D.frameBufferHeight / 2 - (itemHeight * menuItems.size() * 1.5f);
+        float menuBottom = Platforms.get().getFrameBufferHeight() / 2 - (itemHeight * menuItems.size() * 1.5f);
 
         if (menuBottom > 0) {
             scrollOffsetY = 0;

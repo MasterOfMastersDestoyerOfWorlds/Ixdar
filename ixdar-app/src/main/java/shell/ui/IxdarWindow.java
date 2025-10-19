@@ -117,8 +117,7 @@ public class IxdarWindow {
                 glfwGetWindowContentScale(windowID, xScale, yScale);
                 IxdarWindow.windowWidth = width;
                 IxdarWindow.windowHeight = height;
-                Canvas3D.frameBufferWidth = (int) (width * xScale.get(0));
-                Canvas3D.frameBufferHeight = (int) (height * yScale.get(0));
+                Platforms.get().setFrameBufferSize(width* xScale.get(0), height* yScale.get(0));
                 canvas.changedSize = true;
 
                 canvas.paintGL();
@@ -165,8 +164,7 @@ public class IxdarWindow {
             FloatBuffer xScale = stack.mallocFloat(1);
             FloatBuffer yScale = stack.mallocFloat(1);
             glfwGetWindowContentScale(window, xScale, yScale);
-            Canvas3D.frameBufferWidth = (int) (windowWidth * xScale.get(0));
-            Canvas3D.frameBufferHeight = (int) (windowHeight * yScale.get(0));
+            Platforms.get().setFrameBufferSize(windowWidth * xScale.get(0), windowHeight * yScale.get(0));
             // Get the resolution of the primary monitor
             GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 

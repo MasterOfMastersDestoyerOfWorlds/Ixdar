@@ -71,7 +71,7 @@ public abstract class ShaderProgram {
                 if (shaderClass.equals(SDFShader.class)) {
                     shader = new SDFShader(vertexShaderLocation, fragmentShaderLocation);
                 } else if (shaderClass.equals(FontShader.class)) {
-                    shader = new FontShader(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight);
+                    shader = new FontShader(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight());
                 } else if (shaderClass.equals(ColorShader.class)) {
                     shader = new ColorShader(vertexShaderLocation, fragmentShaderLocation);
                 }
@@ -384,7 +384,7 @@ public abstract class ShaderProgram {
                     // Clear cached uniform locations and reapply stored uniform values
                     reapplyUniforms();
                     // Ensure projection matrix is up to date for this new program this frame
-                    updateProjectionMatrix(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight, 1f);
+                    updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), 1f);
                     reloadShader = false;
                 } else {
                     // Failed: discard new and keep previous program
@@ -450,7 +450,7 @@ public abstract class ShaderProgram {
             resetPersistentAllocations();
             // Clear cached uniform locations and reapply stored uniform values
             reapplyUniforms();
-            updateProjectionMatrix(Canvas3D.frameBufferWidth, Canvas3D.frameBufferHeight, 1f);
+            updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), 1f);
         } else {
             // Failed: discard new program and restore previous state/sources
             gl.deleteProgram(ID);

@@ -56,8 +56,7 @@ public final class WebLauncher {
                 h = 600;
             canvas.setWidth(w);
             canvas.setHeight(h);
-            Canvas3D.frameBufferWidth = w;
-            Canvas3D.frameBufferHeight = h;
+            Platforms.get().setFrameBufferSize(w, h);
 
             Supplier<? extends Canvas3D> cs = CanvasScene.MAP.get(canvasId);
             if (cs == null) {
@@ -100,8 +99,7 @@ public final class WebLauncher {
                 canvas.setWidth(w);
             if (canvas.getHeight() != h)
                 canvas.setHeight(h);
-            Canvas3D.frameBufferWidth = w;
-            Canvas3D.frameBufferHeight = h;
+            Platforms.get().setFrameBufferSize(w, h);
             canvas3d.paintGL();
         } else {
             if (gl != null) {
