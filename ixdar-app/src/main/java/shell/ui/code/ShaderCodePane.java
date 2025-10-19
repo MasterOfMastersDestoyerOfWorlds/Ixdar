@@ -2,6 +2,8 @@ package shell.ui.code;
 
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.joml.Vector2f;
 
@@ -10,8 +12,8 @@ import shell.cameras.Camera2D;
 import shell.platform.input.MouseTrap;
 import shell.render.Clock;
 import shell.render.color.Color;
-import shell.render.color.ColorRGB;
 import shell.render.color.ColorLerp;
+import shell.render.color.ColorRGB;
 import shell.render.sdf.ShaderDrawable;
 import shell.render.sdf.ShaderDrawable.Quad;
 import shell.render.shaders.ShaderProgram;
@@ -324,28 +326,28 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         String type = null;
         String var = null;
         String decl = clicked.trim();
-        java.util.regex.Pattern pDecl = java.util.regex.Pattern
+        Pattern pDecl = Pattern
                 .compile(
                         "^(?:[a-zA-Z_][a-zA-Z0-9_]*\\s+)*((?:float|int|vec[234]))\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*=.*;");
-        java.util.regex.Matcher m = pDecl.matcher(decl);
+        Matcher m = pDecl.matcher(decl);
         if (m.find()) {
             type = m.group(1);
             var = m.group(2);
         } else {
-            java.util.regex.Pattern pAssign = java.util.regex.Pattern
+            Pattern pAssign = Pattern
                     .compile("^([a-zA-Z_][a-zA-Z0-9_]*)\\s*=.*;");
-            java.util.regex.Matcher m2 = pAssign.matcher(decl);
+            Matcher m2 = pAssign.matcher(decl);
             if (m2.find()) {
                 var = m2.group(1);
                 // backscan for declaration
                 for (int i = lineIndex; i >= 0; i--) {
                     String t = lines[i].trim();
-                    java.util.regex.Matcher m3 = pDecl.matcher(t);
+                    Matcher m3 = pDecl.matcher(t);
                     if (m3.find() && m3.group(2).equals(var)) {
                         type = m3.group(1);
                         break;
                     }
-                    java.util.regex.Matcher m4 = java.util.regex.Pattern
+                    Matcher m4 = Pattern
                             .compile("^(?:[a-zA-Z_][a-zA-Z0-9_]*\\s+)*((?:float|int|vec[234]))\\s+" + var + "[\\s=;].*")
                             .matcher(t);
                     if (m4.find()) {
@@ -444,11 +446,11 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
 
     private String detectOutName(String[] lines) {
         String outName = "fragColor";
-        java.util.regex.Pattern p = java.util.regex.Pattern
+        Pattern p = Pattern
                 .compile("(?:layout\\s*\\([^)]*\\)\\s*)?out\\s+vec4\\s+([a-zA-Z_][a-zA-Z0-9_]*)");
         for (String l : lines) {
             String s = l.trim();
-            java.util.regex.Matcher m = p.matcher(s);
+            Matcher m = p.matcher(s);
             if (m.find()) {
                 return m.group(1);
             }
