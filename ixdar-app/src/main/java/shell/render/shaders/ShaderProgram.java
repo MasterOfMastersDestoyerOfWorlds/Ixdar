@@ -151,7 +151,6 @@ public abstract class ShaderProgram {
     public Platform platform;
 
     // Original sources preserved for in-memory reload/restore
-    private String originalVertexSourceStr;
     private String originalFragmentSourceStr;
 
     // Global id registry (shared across all ShaderProgram instances)
@@ -179,7 +178,6 @@ public abstract class ShaderProgram {
         fragmentShaderSource = new CharSequence[] { fsrc };
 
         // Preserve originals for restoration
-        originalVertexSourceStr = getVertexSource();
         originalFragmentSourceStr = getFragmentSource();
 
         // On desktop, set up file watchers for hot reload; on web, these files won't
@@ -397,15 +395,6 @@ public abstract class ShaderProgram {
         } catch (IOException e) {
             Main.terminal.error("Could not Hot Reload: " + e.getMessage());
         }
-    }
-
-    private void deleteShader() {
-
-        gl.detachShader(ID, vertexShader);
-        gl.deleteShader(vertexShader);
-        gl.detachShader(ID, fragmentShader);
-        gl.deleteShader(fragmentShader);
-        gl.deleteProgram(ID);
     }
 
     private void recompileShaders(String vertexShaderLocation, String fragmentShaderLocation) {

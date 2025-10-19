@@ -336,9 +336,6 @@ public class ExpressionParser {
         isIfStack.add(Boolean.FALSE);
         java.util.ArrayList<Boolean> elseShouldExecStack = new java.util.ArrayList<>();
         elseShouldExecStack.add(Boolean.FALSE);
-        int braceDepth = 0;
-        boolean awaitingElseExec = false;
-        int awaitingElseDepth = 0;
 
         for (int i = 0; i < lines.size(); i++) {
             String decl = stripCommentsAndTrim(lines.get(i));
@@ -347,9 +344,7 @@ public class ExpressionParser {
                 execFlags.add(Boolean.FALSE);
                 continue;
             }
-            int opens = countChar(decl, '{');
             int closes = countChar(decl, '}');
-            braceDepth += opens;
             boolean doExec = execStack.get(execStack.size() - 1);
             if (lower.startsWith("if")) {
                 String condStr = extractCondition(decl);
@@ -371,7 +366,6 @@ public class ExpressionParser {
             } else {
                 execFlags.add(Boolean.valueOf(doExec && !skipControlOnlyLine(decl)));
             }
-            braceDepth -= closes;
             while (closes-- > 0 && execStack.size() > 1) {
                 execStack.remove(execStack.size() - 1);
                 isIfStack.remove(isIfStack.size() - 1);
@@ -417,10 +411,6 @@ public class ExpressionParser {
         return null;
     }
 
-    private static boolean isClosingBraceOnly(String decl) {
-        return decl.equals("}");
-    }
-
     private static boolean isElseOpenBrace(String decl) {
         String t = decl.toLowerCase();
         return t.equals("else{") || t.equals("else {");
@@ -443,12 +433,10 @@ public class ExpressionParser {
 
     private static class IfHeaderPos {
         String condition;
-        boolean hasOpenBrace;
         int closeIndex;
 
         IfHeaderPos(String condition, boolean hasOpenBrace, int closeIndex) {
             this.condition = condition;
-            this.hasOpenBrace = hasOpenBrace;
             this.closeIndex = closeIndex;
         }
     }
@@ -877,18 +865,6 @@ public class ExpressionParser {
             }
         }
         if (!sawDigit) {
-            throw new RuntimeException("Expected number at " + pos);
-        }
-        Float val = Float.parseFloat(s.substring(start, pos));
-        return new ParseText(val);
-    }
-
-    private ParseText parseNumber() {
-        skipWs();
-        int start = pos;
-        while (pos < s.length() && (Character.isDigit(s.charAt(pos)) || s.charAt(pos) == '.'))
-            pos++;
-        if (start == pos) {
             throw new RuntimeException("Expected number at " + pos);
         }
         Float val = Float.parseFloat(s.substring(start, pos));

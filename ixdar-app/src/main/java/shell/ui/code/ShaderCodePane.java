@@ -2,8 +2,6 @@ package shell.ui.code;
 
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.joml.Vector2f;
 
@@ -13,14 +11,12 @@ import shell.platform.input.MouseTrap;
 import shell.render.Clock;
 import shell.render.color.Color;
 import shell.render.color.ColorLerp;
-import shell.render.color.ColorRGB;
 import shell.render.sdf.ShaderDrawable;
 import shell.render.sdf.ShaderDrawable.Quad;
 import shell.render.shaders.ShaderProgram;
 import shell.render.shaders.ShaderProgram.ShaderType;
 import shell.render.text.ColorText;
 import shell.render.text.HyperString;
-import shell.render.text.SpecialGlyphs;
 import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 
@@ -47,7 +43,6 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private final ShaderDrawable uniformProvider;
     private Canvas3D canvas;
 
-    private int debugLineIndex = -1;
     private int hoverLineIndex = -1;
     private int clickedLineIndex = -1;
     private boolean consumedLineClickRecently = false;
@@ -260,16 +255,6 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         lastMouseX = mx;
         lastMouseY = my;
         return ParseText.BLANK;
-    }
-
-    private ParseText commentStart(ParseText res) {
-        if (res.vectorLength == 4) {
-            return new ParseText(SpecialGlyphs.COLOR_TRACKER.getChar() + "",
-                    new ColorRGB(res.data.x, res.data.y, res.data.z, res.data.w));
-        } else {
-            return new ParseText("//");
-        }
-
     }
 
     private ParseText mouseText() {
