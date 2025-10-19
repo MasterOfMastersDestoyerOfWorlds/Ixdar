@@ -42,6 +42,8 @@ public class LwjglPlatform implements Platform {
     private final long window;
     private float frameBufferSizeX;
     private float frameBufferSizeY;
+    private int platformId;
+
     public LwjglPlatform(long window) {
         this.window = window;
     }
@@ -201,16 +203,28 @@ public class LwjglPlatform implements Platform {
     }
 
     @Override
-        public void setFrameBufferSize(float f, float g) {
-            frameBufferSizeX = f;
-            frameBufferSizeY = g;
+    public void setFrameBufferSize(float f, float g) {
+        frameBufferSizeX = f;
+        frameBufferSizeY = g;
     }
+
     @Override
     public int getFrameBufferWidth() {
         return (int) frameBufferSizeX;
     }
+
     @Override
     public int getFrameBufferHeight() {
         return (int) frameBufferSizeY;
+    }
+
+    @Override
+    public int getPlatformID() {
+        return platformId;
+    }
+
+    @Override
+    public void setPlatformID(Integer p) {
+        this.platformId = p;
     }
 }

@@ -26,7 +26,7 @@ public class SDFUnion extends ShaderDrawable {
     public SDFUnion(String sdfInnerLocation, Color innerColor, float innerScale,
             float innerOffsetX, float innerOffsetY, String sdfOuterLocation, Color outerColor, float alpha,
             float numberPinStripes, float showPin) {
-        int id = Platforms.gl().getID();
+        int id = Platforms.gl().getPlatformID();
         Platforms.get().loadTexture(sdfInnerLocation, id, (t) -> {
             this.innerTexture = t;
         });

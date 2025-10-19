@@ -29,7 +29,7 @@ public class SDFTexture extends ShaderDrawable {
 
     public SDFTexture(String sdfLocation, Color borderColor,
             float borderDist, float borderOffset, boolean sharpCorners) {
-        int id = Platforms.gl().getID();
+        int id = Platforms.gl().getPlatformID();
         Platforms.get().loadTexture(sdfLocation, id, (t) -> {
             this.texture = t;
             this.shader = ShaderType.TextureSDF.getShader();
@@ -59,11 +59,12 @@ public class SDFTexture extends ShaderDrawable {
 
     public void drawRegionNoSetup(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
             int regHeight, Color c, Camera camera) {
-        shader.drawTextureRegion(getTexture(), drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), regX, regY,
+        shader.drawTextureRegion(getTexture(), drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), regX,
+                regY,
                 regWidth, regHeight, c);
     }
 
-    public Texture getTexture(){
+    public Texture getTexture() {
         return texture;
     }
 

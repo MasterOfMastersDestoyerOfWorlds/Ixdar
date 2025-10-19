@@ -60,7 +60,8 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
 
         this.canvas = canvas;
         parentBounds.setUpdateCallback(
-                b -> b.update(0, 0, showCode ? Platforms.get().getFrameBufferWidth() / 2 : Platforms.get().getFrameBufferWidth(),
+                b -> b.update(0, 0,
+                        showCode ? Platforms.get().getFrameBufferWidth() / 2 : Platforms.get().getFrameBufferWidth(),
                         Platforms.get().getFrameBufferHeight()));
         this.parentBounds = parentBounds;
         this.scrollSpeed = scrollSpeed;
@@ -108,18 +109,6 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         camera.updateView(paneBounds.id);
         MouseTrap.subscribeScrollRegion(this.paneBounds, this);
 
-        // Subscribe outside-click to restore shader when clicking outside code lines
-        MouseTrap.subscribeClickRegion(parentBounds, (x, y) -> {
-            long now = System.currentTimeMillis();
-            if (consumedLineClickRecently && now - lastLineClickMillis < 100) {
-                // Ignore the parent click triggered in same cycle as a line click
-                consumedLineClickRecently = false;
-                return;
-            }
-            if (clickedLineIndex >= 0) {
-                restoreOriginal();
-            }
-        });
     }
 
     private void loadCode(ShaderProgram shader, String headerTitle) {

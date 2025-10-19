@@ -50,7 +50,7 @@ public class Font {
             this.kerningEm = buildKerning(root);
             this.fontHeight = atlas.derivedLineHeight;
             this.fontWidth = atlas.sizePx;
-            Platforms.get().loadTexture("opensans.png", Platforms.gl().getID(), t -> {
+            Platforms.get().loadTexture("opensans.png", Platforms.gl().getPlatformID(), t -> {
                 this.texture = t;
                 this.shader = ShaderType.TextureSDF.getShader();
                 this.sdfTexture = new SDFTexture(this.texture);
@@ -141,7 +141,7 @@ public class Font {
             float glyphHeightPx = (g.planeTop - g.planeBottom) * pxPerEm * scale;
 
             if (glyphWidthPx > 0 && glyphHeightPx > 0) {
-                
+
                 HyperChar h = text.get(i);
                 h.drawRegionNoSetup(drawX + glyphLeftPx, baselineY + glyphBottomPx,
                         glyphWidthPx, glyphHeightPx,

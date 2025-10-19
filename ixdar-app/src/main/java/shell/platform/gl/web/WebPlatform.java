@@ -42,6 +42,8 @@ public class WebPlatform implements Platform {
     private ScrollCallback scrollCallback;
     private float frameBufferSizeX;
     private float frameBufferSizeY;
+    private Integer platformId;
+
     public WebPlatform(HTMLCanvasElement canvas, String id) {
         this.currentCanvasId = id;
         this.canvas = canvas;
@@ -128,12 +130,12 @@ public class WebPlatform implements Platform {
 
     @Override
     public int getWindowWidth() {
-        return canvas.getWidth();
+        return canvas.getClientWidth();
     }
 
     @Override
     public int getWindowHeight() {
-        return canvas.getHeight();
+        return canvas.getClientHeight();
     }
 
     @Override
@@ -444,13 +446,25 @@ public class WebPlatform implements Platform {
         frameBufferSizeX = f;
         frameBufferSizeY = g;
     }
+
     @Override
     public int getFrameBufferWidth() {
         return (int) frameBufferSizeX;
     }
+
     @Override
     public int getFrameBufferHeight() {
         return (int) frameBufferSizeY;
+    }
+
+    @Override
+    public int getPlatformID() {
+        return platformId;
+    }
+
+    @Override
+    public void setPlatformID(Integer p) {
+        this.platformId = p;
     }
 }
 

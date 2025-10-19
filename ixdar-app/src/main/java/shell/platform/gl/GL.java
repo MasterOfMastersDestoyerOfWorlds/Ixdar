@@ -192,7 +192,7 @@ public interface GL {
 
     void addShader(ShaderProgram shader);
 
-    Integer getID();
+    Integer getPlatformID();
 
     void getAttachedShaders(int shader, IntBuffer success);
 
@@ -209,4 +209,6 @@ public interface GL {
     int SAMPLER_2D();
 
     void getUniformfv(int iD, int location, IxBuffer val);
+
+    void setPlatformID(Integer p);
 }

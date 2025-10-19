@@ -47,8 +47,13 @@ public class WebGL implements GL {
     }
 
     @Override
-    public Integer getID() {
+    public Integer getPlatformID() {
         return id;
+    }
+
+    @Override
+    public void setPlatformID(Integer p) {
+        this.id = p;
     }
 
     @Override
@@ -647,6 +652,7 @@ public class WebGL implements GL {
             success.put(0, val);
         }
     }
+
     @Override
     public void getAttachedShaders(int program, IntBuffer success) {
         int val = toInt(gl.getProgramParameter(program(program), WebGLRenderingContext.ATTACHED_SHADERS));
@@ -654,6 +660,7 @@ public class WebGL implements GL {
             success.put(0, val);
         }
     }
+
     @Override
     public void getActiveUniforms(int program, IntBuffer success) {
         int val = toInt(gl.getProgramParameter(program(program), WebGLRenderingContext.ACTIVE_UNIFORMS));
@@ -741,4 +748,13 @@ public class WebGL implements GL {
     @Override
     public void getUniformfv(int iD, int location, IxBuffer val) {
     }
+
+    public int getDrawingBufferWidth() {
+        return gl.getDrawingBufferWidth();
+    }
+
+    public int getDrawingBufferHeight() {
+        return gl.getDrawingBufferHeight();
+    }
+
 }

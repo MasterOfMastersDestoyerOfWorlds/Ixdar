@@ -194,7 +194,7 @@ public abstract class ShaderDrawable {
             platform.log("Shader is null");
             return;
         }
-        if (shader.platformId != Platforms.gl().getID()) {
+        if (shader.platformId != Platforms.gl().getPlatformID()) {
             platform.log("Shader is not for the current platform");
             throw new NullPointerException();
         }

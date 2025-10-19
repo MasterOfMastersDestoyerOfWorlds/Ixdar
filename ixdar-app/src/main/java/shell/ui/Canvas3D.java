@@ -91,7 +91,7 @@ public class Canvas3D {
         
         System.out.println("capabilities: " + (Clock.time() - start));
 
-        gl.viewport(0, 0, (int) Platforms.get().getWindowWidth(), (int) Platforms.get().getWindowHeight());
+        gl.viewport(0, 0, (int) Platforms.get().getFrameBufferWidth(), (int) Platforms.get().getFrameBufferHeight());
         mouse.setCanvas(this);
 
         gl.enable(gl.DEPTH_TEST());
@@ -114,7 +114,6 @@ public class Canvas3D {
         camera.resetZIndex();
         camera2D.resetZIndex();
 
-        // Always update input once per frame (centralize input handling here)
         float SHIFT_MOD = 1;
         if (keys != null && KeyActions.DoubleSpeed.keyPressed(keys.pressedKeys)) {
             SHIFT_MOD = 2;
@@ -126,10 +125,9 @@ public class Canvas3D {
             mouse.paintUpdate(SHIFT_MOD);
         }
 
-        // Delegate scene drawing to overridable hook
         drawScene();
 
-        gl.viewport(0, 0, (int) Platforms.get().getWindowWidth(), (int) Platforms.get().getWindowHeight());
+        gl.viewport(0, 0, (int) Platforms.get().getFrameBufferWidth(), (int) Platforms.get().getFrameBufferHeight());
         ArrayList<ShaderProgram> shaders = gl.getShaders();
         for (ShaderProgram s : shaders) {
             s.updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), 1f);

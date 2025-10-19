@@ -10,6 +10,7 @@ import java.util.Set;
 
 import shell.Toggle;
 import shell.cameras.Camera;
+import shell.platform.Platforms;
 import shell.render.Clock;
 import shell.terminal.Terminal;
 import shell.terminal.commands.ChangeToolCommand;
@@ -34,7 +35,7 @@ public class KeyGuy {
     boolean shiftMask;
     public boolean active = true;
     public Canvas3D canvas;
-    
+
     public KeyGuy(Camera camera, Canvas3D canvas) {
         this.camera = camera;
         this.canvas = canvas;
@@ -165,10 +166,10 @@ public class KeyGuy {
                 camera.move(Camera.Direction.RIGHT);
             }
             if (KeyActions.ZoomIn.keyPressed(pressedKeys) && !KeyActions.ZoomOut.keyPressed(pressedKeys)) {
-                camera.onScroll(true, (float)Clock.deltaTime());
+                camera.onScroll(true, (float) Clock.deltaTime());
             }
             if (KeyActions.ZoomOut.keyPressed(pressedKeys) && !KeyActions.ZoomIn.keyPressed(pressedKeys)) {
-                camera.onScroll(false, (float)Clock.deltaTime());
+                camera.onScroll(false, (float) Clock.deltaTime());
             }
         }
 
@@ -187,7 +188,7 @@ public class KeyGuy {
     }
 
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
-        
+        Platforms.init(canvas.platform.getPlatformID());
         switch (action) {
         case ACTION_PRESS:
             keyPressed(key, mods, false);
@@ -204,6 +205,7 @@ public class KeyGuy {
     }
 
     public void charCallback(long window, int codepoint) {
+        Platforms.init(canvas.platform.getPlatformID());
         String currentText = "" + (char) codepoint;
         if (Toggle.IsTerminalFocused.value) {
             Main.terminal.type(currentText);

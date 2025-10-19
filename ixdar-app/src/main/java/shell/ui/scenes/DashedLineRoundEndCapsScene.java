@@ -17,8 +17,6 @@ public class DashedLineRoundEndCapsScene extends Scene {
     private Segment lineSegment;
     public PointND point2;
     public PointND point1;
-    
-    private HyperString showCodeButton;
 
     public DashedLineRoundEndCapsScene() {
         super();
@@ -40,11 +38,7 @@ public class DashedLineRoundEndCapsScene extends Scene {
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
         lineSegment.setStroke(7.5f * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 10f, false, true, camera2D);
-        
-        camera2D.initCamera(webViews, DEFAULT_VIEW); 
 
-        showCodeButton = new HyperString();
-        showCodeButton.addWord("", Color.CYAN);
     }
 
     @Override
@@ -53,7 +47,6 @@ public class DashedLineRoundEndCapsScene extends Scene {
         lineSegment.setStroke(7.5f * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 10f, false, true, camera2D);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
-
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);
     }
 

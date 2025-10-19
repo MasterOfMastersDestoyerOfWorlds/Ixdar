@@ -43,9 +43,9 @@ public class DashedLineRoundScene extends Scene {
     @Override
     public void drawScene() {
         super.drawScene();
+        lineSegment.setStroke(10 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 0.0f, true, false, camera2D);        
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
-        lineSegment.setStroke(10 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 0.0f, true, false, camera2D);
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);
     }
 

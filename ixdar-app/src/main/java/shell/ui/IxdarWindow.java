@@ -79,34 +79,26 @@ public class IxdarWindow {
         init();
         loop();
 
-        // Free the window callbacks and destroy the window
         glfwFreeCallbacks(window);
         glfwDestroyWindow(window);
 
-        // Terminate GLFW and free the error callback
         glfwTerminate();
         glfwSetErrorCallback(null).free();
     }
 
     private void init() throws UnsupportedEncodingException, IOException {
-        // Setup an error callback. The default implementation
-        // will print the error message in System.err.
         GLFWErrorCallback.createPrint(System.err).set();
 
-        // Initialize GLFW. Most GLFW functions will not work before doing this.
         if (!glfwInit())
             throw new IllegalStateException("Unable to initialize GLFW");
-        // Configure GLFW
         glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE); // the window will stay hidden after creation
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // the window will be resizable
         System.out.println("glfw init Time: " + (Clock.time() - startTime));
-        // Create the window
         window = glfwCreateWindow(750, 750, "Ixdar", 0, 0);
         if (window == 0)
             throw new RuntimeException("Failed to create the GLFW window");
 
         System.out.println("Window Create Time: " + (Clock.time() - startTime));
-        // Initialize platform abstraction for LWJGL
         Platforms.init(new LwjglPlatform(window), new LwjglGL());
 
 
@@ -125,7 +117,6 @@ public class IxdarWindow {
                 glfwSwapBuffers(window);
             }
         });
-        // Setting the window icon
         IntBuffer w = BufferUtils.createIntBuffer(1);
         IntBuffer h = BufferUtils.createIntBuffer(1);
         IntBuffer channels = BufferUtils.createIntBuffer(1);
@@ -152,12 +143,9 @@ public class IxdarWindow {
         GLFWImage iconGI = GLFWImage.create().set(width, height, iconFlipped);
         gb.put(0, iconGI);
 
-        // Get the thread stack and push a new frame
         try (MemoryStack stack = stackPush()) {
-            IntBuffer pWidth = stack.mallocInt(1); // int*
-            IntBuffer pHeight = stack.mallocInt(1); // int*
-
-            // Get the window size passed to glfwCreateWindow
+            IntBuffer pWidth = stack.mallocInt(1);
+            IntBuffer pHeight = stack.mallocInt(1);
             glfwGetWindowSize(window, pWidth, pHeight);
             windowWidth = pWidth.get(0);
             windowHeight = pHeight.get(0);
@@ -165,19 +153,13 @@ public class IxdarWindow {
             FloatBuffer yScale = stack.mallocFloat(1);
             glfwGetWindowContentScale(window, xScale, yScale);
             Platforms.get().setFrameBufferSize(windowWidth * xScale.get(0), windowHeight * yScale.get(0));
-            // Get the resolution of the primary monitor
             GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-
-            // Center the window
             glfwSetWindowPos(
                     window,
                     (vidmode.width() / 2 - pWidth.get(0)) / 2,
                     (vidmode.height() - pHeight.get(0)) / 2);
-        } // the stack frame is popped automatically
-
-        // Make the OpenGL context current
+        }
         glfwMakeContextCurrent(window);
-        // Enable v-sync
         glfwSwapInterval(1);
 
         System.out.println("Window Time: " + (Clock.time() - startTime));
@@ -193,23 +175,12 @@ public class IxdarWindow {
     }
 
     private void loop() {
-        // This line is critical for LWJGL's interoperation with GLFW's
-        // OpenGL context, or any context that is managed externally.
-        // LWJGL detects the context that is current in the current thread,
-        // creates the GLCapabilities instance and makes the OpenGL
-        // bindings available for use.
         System.out.println("Time to First Paint" + (Clock.time() - startTime));
-        // Set the clear color
-        // canvas.initGL();
 
-        // Run the rendering loop until the user has attempted to close
-        // the window or has pressed the ESCAPE key.
         while (!glfwWindowShouldClose(window)) {
 
             canvas.paintGL();
-            glfwSwapBuffers(window); // swap the color buffers
-            // Poll for window events. The key callback above will only be
-            // invoked during this call.
+            glfwSwapBuffers(window);
             glfwPollEvents();
         }
     }

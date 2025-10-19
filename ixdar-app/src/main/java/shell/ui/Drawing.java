@@ -50,12 +50,12 @@ public class Drawing {
         sdfLine = new SDFLine();
         circle = new SDFCircle();
         font = new Font();
-        platformId = Platforms.gl().getID();
+        platformId = Platforms.gl().getPlatformID();
         drawing.put(platformId, this);
     }
 
     public static Drawing getDrawing() {
-        int id = Platforms.gl().getID();
+        int id = Platforms.gl().getPlatformID();
         if (!drawing.containsKey(id)) {
             drawing.put(id, new Drawing());
         }
@@ -124,12 +124,11 @@ public class Drawing {
         d.font.drawHyperString(sbe.x2, midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, camera);
         // Draw external segment 1
 
-        PointND pND =(ex1.getKnotPoint(topKnot.knotPointsFlattened)).p;
+        PointND pND = (ex1.getKnotPoint(topKnot.knotPointsFlattened)).p;
         Point2D knotPoint1 = pND.toPoint2D();
 
         firstCoords[0] = camera.pointTransformX(knotPoint1.getX());
         firstCoords[1] = camera.pointTransformY(knotPoint1.getY());
-
 
         pND.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN, camera);
 
@@ -138,14 +137,15 @@ public class Drawing {
 
         // Draw external segment 2
 
-        PointND pND2 =(ex2.getKnotPoint(topKnot.knotPointsFlattened)).p;
+        PointND pND2 = (ex2.getKnotPoint(topKnot.knotPointsFlattened)).p;
 
         Point2D knotPoint2 = pND2.toPoint2D();
 
         firstCoords[0] = camera.pointTransformX(knotPoint2.getX());
         firstCoords[1] = camera.pointTransformY(knotPoint2.getY());
 
-        pND2.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN, camera);
+        pND2.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN,
+                camera);
         drawSegment(ex2, Color.GREEN, camera);
 
         // Draw Cuts and Matches

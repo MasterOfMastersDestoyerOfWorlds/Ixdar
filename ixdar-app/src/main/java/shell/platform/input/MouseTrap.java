@@ -30,23 +30,12 @@ public class MouseTrap {
     public Camera camera;
     public boolean active = true;
     public static ArrayList<HyperString> hyperStrings = new ArrayList<>();
+    double startX;
+    double startY;
+    private Canvas3D canvas;
+    public float normalizedPosX;
+    public float normalizedPosY;
 
-    // Click subscriptions
-    public interface ClickHandler {
-        void onClick(float xNorm, float yNorm);
-    }
-
-    public static class ClickSubscription {
-        public Bounds bounds;
-        public ClickHandler handler;
-
-        public ClickSubscription(Bounds bounds, ClickHandler handler) {
-            this.bounds = bounds;
-            this.handler = handler;
-        }
-    }
-
-    // Scroll subscriptions
     public interface ScrollHandler {
         void onScroll(boolean scrollUp, double deltaSeconds);
     }
@@ -62,16 +51,10 @@ public class MouseTrap {
     }
 
     private static final HashMap<Integer, List<ScrollSubscription>> scrollSubscriptionsByPlatform = new HashMap<>();
-    private static final HashMap<Integer, List<ClickSubscription>> clickSubscriptionsByPlatform = new HashMap<>();
 
     private static List<ScrollSubscription> getSubscriptionsForCurrentPlatform() {
-        int id = Platforms.gl().getID();
+        int id = Platforms.gl().getPlatformID();
         return scrollSubscriptionsByPlatform.computeIfAbsent(id, k -> new ArrayList<>());
-    }
-
-    private static List<ClickSubscription> getClickSubscriptionsForCurrentPlatform() {
-        int id = Platforms.gl().getID();
-        return clickSubscriptionsByPlatform.computeIfAbsent(id, k -> new ArrayList<>());
     }
 
     public static void subscribeScrollRegion(Bounds bounds, ScrollHandler handler) {
@@ -80,15 +63,6 @@ public class MouseTrap {
 
     public static void unsubscribeScrollRegion(ScrollHandler handler) {
         List<ScrollSubscription> list = getSubscriptionsForCurrentPlatform();
-        list.removeIf(s -> s.handler == handler);
-    }
-
-    public static void subscribeClickRegion(Bounds bounds, ClickHandler handler) {
-        getClickSubscriptionsForCurrentPlatform().add(new ClickSubscription(bounds, handler));
-    }
-
-    public static void unsubscribeClickRegion(ClickHandler handler) {
-        List<ClickSubscription> list = getClickSubscriptionsForCurrentPlatform();
         list.removeIf(s -> s.handler == handler);
     }
 
@@ -122,24 +96,7 @@ public class MouseTrap {
 
             canvas.menu.click(normalizedPosX, normalizedPosY);
         }
-
-        // Dispatch click-region handlers last
-        List<ClickSubscription> clicks = getClickSubscriptionsForCurrentPlatform();
-        for (ClickSubscription sub : clicks) {
-            if (sub.bounds != null) {
-                sub.bounds.recalc();
-                if (sub.bounds.contains(normalizedPosX, normalizedPosY)) {
-                    sub.handler.onClick(normalizedPosX, normalizedPosY);
-                }
-            }
-        }
     }
-
-    double startX;
-    double startY;
-    private Canvas3D canvas;
-    public float normalizedPosX;
-    public float normalizedPosY;
 
     public void mousePressed(float x, float y) {
         normalizedPosX = camera.getNormalizePosX(x);
@@ -152,7 +109,6 @@ public class MouseTrap {
 
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
-        // update pan x and y to follow the mouse
 
         PanelTypes inMainView = Main.inView((float) leftMouseDownPos.x, (float) leftMouseDownPos.y);
         if (inMainView == PanelTypes.KnotView) {
@@ -175,6 +131,7 @@ public class MouseTrap {
     }
 
     public void scrollCallback(double y) {
+        Platforms.init(canvas.platform.getPlatformID());
         queuedMouseWheelTicks += (int) (4 * y);
         timeLastScroll = System.currentTimeMillis();
     }
@@ -217,12 +174,10 @@ public class MouseTrap {
         }
         PanelTypes view = Main.inView(lastX, lastY);
 
-        // First, allow any custom scroll subscription to consume wheel ticks if the
-        // mouse is over its bounds
         if (queuedMouseWheelTicks != 0) {
             List<ScrollSubscription> subs = getSubscriptionsForCurrentPlatform();
             for (ScrollSubscription sub : subs) {
-                // Ensure subscribed bounds are up-to-date for current frame
+
                 if (sub.bounds != null) {
                     sub.bounds.recalc();
                 }
@@ -268,6 +223,7 @@ public class MouseTrap {
     Vector2f leftMouseDownPos;
 
     public void mouseButton(int button, int action, int mods) {
+        Platforms.init(canvas.platform.getPlatformID());
         float x = lastX;
         float y = lastY;
         if (action == ACTION_PRESS) {
@@ -287,6 +243,7 @@ public class MouseTrap {
     }
 
     public void moveOrDrag(long window, float x, float y) {
+        Platforms.init(canvas.platform.getPlatformID());
         boolean leftDown = Platforms.gl().getMouseButton(window, MouseButtons.MOUSE_BUTTON_LEFT);
         Vector2f mouseReleasePos = new Vector2f((float) x, (float) y);
         if (leftDown && leftMouseDownPos != null && mouseReleasePos.distance(leftMouseDownPos) > 3) {

@@ -2,6 +2,8 @@ package shell.ui.scenes;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+
+import shell.platform.Platforms;
 import shell.render.sdf.ShaderDrawable;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.Canvas3D;
@@ -20,6 +22,10 @@ public abstract class Scene extends Canvas3D {
     public void initGL() throws UnsupportedEncodingException, IOException {
         super.initGL();
         initPoints();
+        paneBounds.setUpdateCallback(
+            b -> b.update(0, 0,Platforms.get().getFrameBufferWidth(),
+                    Platforms.get().getFrameBufferHeight()));
+        camera2D.initCamera(webViews, DEFAULT_VIEW);
     }
 
 

@@ -70,19 +70,20 @@ public abstract class ShaderProgram {
                 if (shaderClass.equals(SDFShader.class)) {
                     shader = new SDFShader(vertexShaderLocation, fragmentShaderLocation);
                 } else if (shaderClass.equals(FontShader.class)) {
-                    shader = new FontShader(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight());
+                    shader = new FontShader(Platforms.get().getFrameBufferWidth(),
+                            Platforms.get().getFrameBufferHeight());
                 } else if (shaderClass.equals(ColorShader.class)) {
                     shader = new ColorShader(vertexShaderLocation, fragmentShaderLocation);
                 }
             } catch (IOException e) {
                 throw new RuntimeException("Failed to load shader resources: " + fragmentShaderLocation, e);
             }
-            this.shaderMap.put(Platforms.gl().getID(), shader);
+            this.shaderMap.put(Platforms.gl().getPlatformID(), shader);
             Platforms.gl().addShader(shader);
         }
 
         public ShaderProgram getShader() {
-            Integer p = Platforms.gl().getID();
+            Integer p = Platforms.gl().getPlatformID();
             if (!shaderMap.containsKey(p)) {
                 createShader();
             }
@@ -167,7 +168,7 @@ public abstract class ShaderProgram {
         this.vbo = vbo;
         this.strideFloats = strideFloats;
         this.useBuffer = useBuffer;
-        this.platformId = Platforms.gl().getID();
+        this.platformId = Platforms.gl().getPlatformID();
         gl = Platforms.gl();
         platform = Platforms.get();
         // Load shader sources via Platform abstraction (supports desktop and web)
@@ -363,36 +364,50 @@ public abstract class ShaderProgram {
             }
             if (didChange || reloadShader) {
                 // Compile/link new program first; only swap if link succeeds
-                int prevID = ID;
-                recompileShaders(vertexShaderLocation, fragmentShaderLocation);
-                IntBuffer success = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder())
-                        .asIntBuffer();
-                gl.getProgramiv(ID, gl.LINK_STATUS(), success);
-                if (success.get(0) != 0) {
-                    // Swap successful; bind new program immediately so subsequent draws use it
-                    gl.useProgram(ID);
-                    if (prevID >= 0) {
-                        gl.deleteProgram(prevID);
-                    }
-                    // Only re-initialize attribute bindings if vertex shader changed
-                    this.vao = new VertexArrayObject();
-                    this.vbo = new VertexBufferObject();
-                    this.uniformLocations = new HashMap<>();
-                    init();
-                    resetPersistentAllocations();
-                    // Clear cached uniform locations and reapply stored uniform values
-                    reapplyUniforms();
-                    // Ensure projection matrix is up to date for this new program this frame
-                    updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), 1f);
+                boolean success = reloadProgram();
+                if (success) {
                     reloadShader = false;
-                } else {
-                    // Failed: discard new and keep previous program
-                    gl.deleteProgram(ID);
-                    ID = prevID;
                 }
             }
         } catch (IOException e) {
             Main.terminal.error("Could not Hot Reload: " + e.getMessage());
+        }
+    }
+
+    public synchronized boolean reloadProgram() {
+        if (this.platformId != Platforms.gl().getPlatformID()) {
+            Platforms.get().log("ShaderProgram: Platform mismatch");
+        }
+        int prevID = ID;
+        recompileShaders(vertexShaderLocation, fragmentShaderLocation);
+        IntBuffer success = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer();
+        gl.getProgramiv(ID, gl.LINK_STATUS(), success);
+        if (success.get(0) != 0) {
+            gl.useProgram(ID);
+            if (prevID >= 0) {
+                gl.deleteProgram(prevID);
+            }
+            this.vao = new VertexArrayObject();
+            this.vbo = new VertexBufferObject();
+            this.uniformLocations = new HashMap<>();
+            init();
+            resetPersistentAllocations();
+            reapplyUniforms();
+            updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), 1f);
+            return true;
+        } else {
+            gl.deleteProgram(ID);
+            ID = prevID;
+            return false;
+        }
+    }
+
+    public synchronized void reloadWithFragmentSource(String src) {
+        CharSequence[] prevFrag = this.fragmentShaderSource;
+        this.fragmentShaderSource = buildPlatformFragmentSource(src);
+        boolean success = reloadProgram();
+        if (success) {
+            this.fragmentShaderSource = prevFrag;
         }
     }
 
@@ -418,44 +433,6 @@ public abstract class ShaderProgram {
         gl.deleteShader(fragmentShader);
         checkCompileErrors(ID, ShaderOperationType.Program, "both", vertexShaderSource);
 
-    }
-
-    /**
-     * Replace the fragment shader source in-memory and immediately rebuild the
-     * program.
-     */
-    public synchronized void reloadWithFragmentSource(String src) {
-        if (src == null) {
-            return;
-        }
-        // Build platform-appropriate fragment source
-        CharSequence[] prevFrag = this.fragmentShaderSource;
-        int prevID = ID;
-        this.fragmentShaderSource = buildPlatformFragmentSource(src);
-        recompileShaders(vertexShaderLocation, fragmentShaderLocation);
-        IntBuffer success = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer();
-        gl.getProgramiv(ID, gl.LINK_STATUS(), success);
-        if (success.get(0) != 0) {
-            // Success: bind new program immediately so subsequent draws use it
-            gl.useProgram(ID);
-            if (prevID >= 0) {
-                gl.deleteProgram(prevID);
-            }
-            // Re-init attributes/uniforms for this program
-            this.vao = new VertexArrayObject();
-            this.vbo = new VertexBufferObject();
-            this.uniformLocations = new HashMap<>();
-            init();
-            resetPersistentAllocations();
-            // Clear cached uniform locations and reapply stored uniform values
-            reapplyUniforms();
-            updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), 1f);
-        } else {
-            // Failed: discard new program and restore previous state/sources
-            gl.deleteProgram(ID);
-            ID = prevID;
-            this.fragmentShaderSource = prevFrag;
-        }
     }
 
     /**
@@ -574,7 +551,9 @@ public abstract class ShaderProgram {
     }
 
     public void flush() {
-
+        if (this.platformId != Platforms.gl().getPlatformID()) {
+            Platforms.get().log("ShaderProgram: Platform mismatch");
+        }
         if (useBuffer) {
             // 1) Immediate/batched path (legacy). Keep supporting existing callers.
             if (verteciesBuff != null && numVertices > 0) {
@@ -1007,6 +986,9 @@ public abstract class ShaderProgram {
     }
 
     public void uploadAllocation(Allocation allocation, IxBuffer data, int verticesToUpload) {
+        if (this.platformId != Platforms.gl().getPlatformID()) {
+            Platforms.get().log("ShaderProgram: Platform mismatch");
+        }
         if (allocation == null || data == null || verticesToUpload <= 0) {
             return;
         }

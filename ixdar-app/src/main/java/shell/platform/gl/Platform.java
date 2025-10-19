@@ -39,7 +39,7 @@ public interface Platform {
     String loadSource(String resourceFolder, String filename) throws UnsupportedEncodingException, IOException;
 
     String loadShaderSource(String filename) throws UnsupportedEncodingException, IOException;
-    
+
     TextFile loadFile(String path) throws IOException;
 
     void writeTextFile(TextFile path, boolean append) throws IOException;
@@ -77,4 +77,8 @@ public interface Platform {
     int getFrameBufferWidth();
 
     int getFrameBufferHeight();
+
+    int getPlatformID();
+
+    void setPlatformID(Integer p);
 }
