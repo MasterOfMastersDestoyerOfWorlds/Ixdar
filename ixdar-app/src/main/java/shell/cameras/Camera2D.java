@@ -9,12 +9,10 @@ import shell.PointSet;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.platform.Platforms;
-import shell.platform.gl.GL;
 import shell.point.Point2D;
 import shell.point.PointND;
 import shell.render.Clock;
 import shell.render.shaders.ShaderProgram;
-import shell.ui.Canvas3D;
 import shell.ui.main.Main;
 import shell.ui.tools.Tool;
 

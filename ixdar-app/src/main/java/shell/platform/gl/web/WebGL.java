@@ -5,6 +5,7 @@ import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.function.IntFunction;
 
+import org.lwjgl.PointerBuffer;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
@@ -19,7 +20,6 @@ import org.teavm.jso.webgl.WebGLUniformLocation;
 
 import shell.platform.gl.GL;
 import shell.platform.gl.IxBuffer;
-import shell.platform.gl.lwjgl.DefaultBuffer;
 import shell.platform.input.MouseButtons;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.WebLauncher;
@@ -515,7 +515,7 @@ public class WebGL implements GL {
     private static native int toInt(Object v);
 
     @Override
-    public void createCapabilities(boolean b, IntFunction intFunction) {
+    public void createCapabilities(boolean b, IntFunction<PointerBuffer> intFunction) {
 
     }
 

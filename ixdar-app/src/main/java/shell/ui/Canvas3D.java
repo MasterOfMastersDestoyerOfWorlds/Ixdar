@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.function.IntFunction;
 
 import org.joml.Vector3f;
+import org.lwjgl.PointerBuffer;
 
 import shell.cameras.Camera3D;
 import shell.DistanceMatrix;
@@ -84,7 +85,7 @@ public class Canvas3D {
 
     public void initGL() throws UnsupportedEncodingException, IOException {
         GL gl = Platforms.gl();
-        gl.createCapabilities(false, (IntFunction) null);
+        gl.createCapabilities(false, (IntFunction<PointerBuffer>) null);
         float start = Clock.time();
         gl.coldStartStack();
         

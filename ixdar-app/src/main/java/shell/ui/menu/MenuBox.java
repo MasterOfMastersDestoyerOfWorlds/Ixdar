@@ -12,7 +12,6 @@ import shell.render.color.ColorLerp;
 import shell.render.color.ColorRGB;
 import shell.render.sdf.SDFTexture;
 import shell.render.sdf.SDFUnion;
-import shell.ui.Canvas3D;
 import shell.ui.Drawing;
 import shell.platform.Platforms;
 import shell.platform.input.MouseTrap;

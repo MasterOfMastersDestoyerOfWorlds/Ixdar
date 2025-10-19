@@ -16,12 +16,11 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import shell.platform.Platforms;
+import shell.platform.gl.GL;
 import shell.platform.gl.IxBuffer;
 import shell.platform.gl.Platform;
-import shell.platform.gl.GL;
 import shell.render.Texture;
 import shell.render.color.Color;
-import shell.ui.Canvas3D;
 import shell.ui.main.Main;
 
 public abstract class ShaderProgram {

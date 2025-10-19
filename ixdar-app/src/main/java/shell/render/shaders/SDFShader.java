@@ -7,7 +7,6 @@ import org.joml.Matrix4f;
 
 import shell.platform.Platforms;
 import shell.platform.gl.GL;
-import shell.ui.Canvas3D;
 
 public class SDFShader extends ShaderProgram {
 

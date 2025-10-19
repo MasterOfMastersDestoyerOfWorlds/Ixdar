@@ -5,6 +5,8 @@ import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.function.IntFunction;
 
+import org.lwjgl.PointerBuffer;
+
 import shell.platform.input.MouseButtons;
 import shell.render.shaders.ShaderProgram;
 
@@ -132,7 +134,7 @@ public interface GL {
 
     void enable(int blend);
 
-    void createCapabilities(boolean b, IntFunction intFunction);
+    void createCapabilities(boolean b, IntFunction<PointerBuffer> intFunction);
 
     int DEPTH_TEST();
 

@@ -43,7 +43,6 @@ import static org.lwjgl.opengl.GL15.glDeleteBuffers;
 import static org.lwjgl.opengl.GL15.glGenBuffers;
 import static org.lwjgl.opengl.GL20.GL_COMPILE_STATUS;
 import static org.lwjgl.opengl.GL20.GL_FRAGMENT_SHADER;
-import static org.lwjgl.opengl.GL20.GL_LINK_STATUS;
 import static org.lwjgl.opengl.GL20.GL_VERTEX_SHADER;
 import static org.lwjgl.opengl.GL20.glAttachShader;
 import static org.lwjgl.opengl.GL20.glCompileShader;
@@ -81,6 +80,7 @@ import java.util.function.IntFunction;
 
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
+import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
@@ -416,7 +416,7 @@ public class LwjglGL implements GL {
     }
 
     @Override
-    public void createCapabilities(boolean b, IntFunction intFunction) {
+    public void createCapabilities(boolean b, IntFunction<PointerBuffer> intFunction) {
         org.lwjgl.opengl.GL.createCapabilities(b, intFunction);
     }
 

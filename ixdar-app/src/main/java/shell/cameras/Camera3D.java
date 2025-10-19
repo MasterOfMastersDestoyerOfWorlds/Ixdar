@@ -6,7 +6,6 @@ import org.joml.Vector3f;
 
 import shell.PointSet;
 import shell.platform.Platforms;
-import shell.platform.gl.GL;
 import shell.render.Clock;
 import shell.render.shaders.ShaderProgram;
 import shell.ui.Canvas3D;

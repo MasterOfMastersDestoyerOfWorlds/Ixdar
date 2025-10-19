@@ -9,10 +9,8 @@ import shell.cameras.Camera2D;
 import shell.knot.Knot;
 import shell.knot.Segment;
 import shell.platform.Platforms;
-import shell.platform.input.MouseTrap;
 import shell.render.Clock;
 import shell.render.text.HyperString;
-import shell.ui.Canvas3D;
 import shell.ui.main.Main;
 
 public abstract class Tool {
