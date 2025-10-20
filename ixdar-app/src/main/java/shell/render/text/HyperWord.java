@@ -50,7 +50,7 @@ public class HyperWord {
 
     private ArrayList<HyperChar> toHyperChars(String word) {
         ArrayList<HyperChar> list = new ArrayList<>();
-        for(int i = 0; i < word.length(); i++){
+        for (int i = 0; i < word.length(); i++) {
             char c = word.charAt(i);
             list.add(new HyperChar(font, c));
         }
@@ -69,7 +69,7 @@ public class HyperWord {
     public HyperWord(Supplier<ColorText<?>> wordAction, Color c, Action hoverAction, Action clearHover,
             Action clickAction,
             Font font) {
-        String val ="?MissingWord?";
+        String val = "?MissingWord?";
         charSequence = val;
         this.font = font;
         text = toHyperChars(val);
@@ -112,6 +112,22 @@ public class HyperWord {
     }
 
     public void calculateClearHover(float normalizedPosX, float normalizedPosY) {
+        if (subWords != null && !subWords.isEmpty()) {
+            boolean insideAny = false;
+            for (HyperWord child : subWords) {
+                if (!child.newLine &&
+                        (normalizedPosX > child.xScreenOffset && normalizedPosX < child.xScreenOffset + child.width) &&
+                        (normalizedPosY > child.yScreenOffset && normalizedPosY < child.yScreenOffset + child.rowHeight)
+                        &&
+                        child.viewBounds.contains(normalizedPosX, normalizedPosY)) {
+                    insideAny = true;
+                    break;
+                }
+            }
+            if (!insideAny) {
+                clearHover.perform();
+            }
+        }
         if (!newLine && !(normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
                 normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight)) {
             clearHover.perform();
@@ -119,6 +135,11 @@ public class HyperWord {
     }
 
     public void calculateHover(float normalizedPosX, float normalizedPosY) {
+        if (subWords != null && !subWords.isEmpty()) {
+            for (HyperWord child : subWords) {
+                child.calculateHover(normalizedPosX, normalizedPosY);
+            }
+        }
         if (!newLine && normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
                 normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight
                 && viewBounds.contains(normalizedPosX, normalizedPosY)) {
@@ -132,6 +153,11 @@ public class HyperWord {
     }
 
     public void click(float normalizedPosX, float normalizedPosY) {
+        if (subWords != null && !subWords.isEmpty()) {
+            for (HyperWord child : subWords) {
+                child.click(normalizedPosX, normalizedPosY);
+            }
+        }
         if (!newLine && normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
                 normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight
                 && viewBounds.contains(normalizedPosX, normalizedPosY)) {

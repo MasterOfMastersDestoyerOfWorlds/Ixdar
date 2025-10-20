@@ -108,6 +108,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         loadCode(this.targetShader, this.title);
         camera.updateView(paneBounds.id);
         MouseTrap.subscribeScrollRegion(this.paneBounds, this);
+        MouseTrap.subscribeClickRegion(parentBounds, () -> restoreOriginal());
 
     }
 

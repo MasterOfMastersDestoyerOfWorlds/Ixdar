@@ -12,11 +12,10 @@ uniform float edgeDist;
 uniform float edgeSharpness;
 
 void main() {
-    float sigDist = -1.;
     vec2 p = pos.xy;
     float distA = distance(p, pointA);
 
-    sigDist = (distA / radius);
+    float sigDist = (distA / radius);
 
     float opacity = smoothstep(edgeDist, edgeDist - edgeSharpness, sigDist);
     fragColor = vec4(vertexColor.rgb, vertexColor.a * opacity);

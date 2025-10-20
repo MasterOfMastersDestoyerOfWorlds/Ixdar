@@ -12,7 +12,7 @@ import shell.ui.code.ShaderCodePane;
 public abstract class Scene extends Canvas3D {
 
     public ShaderCodePane codePane;
-    public float SCROLL_SPEED = 5f;
+    public float SCROLL_SPEED = 10f;
 
     public Scene() {
         super();

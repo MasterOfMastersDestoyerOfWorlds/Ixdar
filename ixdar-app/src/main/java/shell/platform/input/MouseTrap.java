@@ -40,6 +40,11 @@ public class MouseTrap {
         void onScroll(boolean scrollUp, double deltaSeconds);
     }
 
+    @FunctionalInterface
+    public interface ClickHandler {
+        void onClick();
+    }
+
     public static class ScrollSubscription {
         public Bounds bounds;
         public ScrollHandler handler;
@@ -63,6 +68,32 @@ public class MouseTrap {
 
     public static void unsubscribeScrollRegion(ScrollHandler handler) {
         List<ScrollSubscription> list = getSubscriptionsForCurrentPlatform();
+        list.removeIf(s -> s.handler == handler);
+    }
+
+    public static class ClickSubscription {
+        public Bounds bounds;
+        public ClickHandler handler;
+
+        public ClickSubscription(Bounds bounds, ClickHandler handler) {
+            this.bounds = bounds;
+            this.handler = handler;
+        }
+    }
+
+    private static final HashMap<Integer, List<ClickSubscription>> clickSubscriptionsByPlatform = new HashMap<>();
+
+    private static List<ClickSubscription> getClickSubscriptionsForCurrentPlatform() {
+        int id = Platforms.gl().getPlatformID();
+        return clickSubscriptionsByPlatform.computeIfAbsent(id, k -> new ArrayList<>());
+    }
+
+    public static void subscribeClickRegion(Bounds bounds, ClickHandler handler) {
+        getClickSubscriptionsForCurrentPlatform().add(new ClickSubscription(bounds, handler));
+    }
+
+    public static void unsubscribeClickRegion(ClickHandler handler) {
+        List<ClickSubscription> list = getClickSubscriptionsForCurrentPlatform();
         list.removeIf(s -> s.handler == handler);
     }
 
@@ -95,6 +126,27 @@ public class MouseTrap {
         if (canvas.menu != null) {
 
             canvas.menu.click(normalizedPosX, normalizedPosY);
+        }
+
+        // Region click subscriptions
+        List<ClickSubscription> clickSubs = getClickSubscriptionsForCurrentPlatform();
+        if (!clickSubs.isEmpty()) {
+            for (ClickSubscription sub : clickSubs) {
+                if (sub.bounds != null) {
+                    sub.bounds.recalc();
+                }
+                if (sub.bounds != null) {
+                    float windowHeight = (float) Platforms.get().getWindowHeight();
+                    float yFromBottom = windowHeight - yPos;
+                    boolean inside = xPos >= sub.bounds.offsetX && xPos <= sub.bounds.offsetX + sub.bounds.viewWidth
+                            && yFromBottom >= sub.bounds.offsetY
+                            && yFromBottom <= sub.bounds.offsetY + sub.bounds.viewHeight;
+                    if (inside) {
+                        sub.handler.onClick();
+                        return;
+                    }
+                }
+            }
         }
     }
 

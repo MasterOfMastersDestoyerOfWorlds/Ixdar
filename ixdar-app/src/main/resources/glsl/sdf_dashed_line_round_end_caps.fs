@@ -33,21 +33,22 @@ void main() {
     float dashOpac = smoothstep(0.5, 0.5 + edgeSharpness, dashWave);
 
     float dashBucket = (scaledTextureCoord.x) / dashLength + (dashPhase / PI);
-    float rDashHeadPeriod = mod(dashBucket + 1.25, 2.);
+    
+    float rDashHeadOffset = (1. - edgeDist/dashLength);
+    float rDashHeadPeriod = mod(dashBucket - rDashHeadOffset, 2.) * dashLength ;
     vec2 rDashHead = vec2(scaledTextureCoord.x - rDashHeadPeriod, 0.5);
+    float rDistance = distance(scaledTextureCoord, rDashHead);
 
-    float lDashHeadPeriod = mod(dashBucket - 0.25, 2.);
-    float lDashHeadOffset = 2. - lDashHeadPeriod;
-    vec2 lDashHeadCoord = vec2(scaledTextureCoord.x - lDashHeadOffset, 0.5);
+
+    float lDashHeadOffset =  edgeDist/dashLength;
+    float lDashHeadPeriod = (2. - mod(dashBucket - lDashHeadOffset, 2.)) * dashLength;
+    vec2 lDashHeadCoord = vec2(scaledTextureCoord.x - lDashHeadPeriod , 0.5);
+    float lDistance = distance(scaledTextureCoord, lDashHeadCoord);
 
     if(rDashHeadPeriod <= 1.) {
-
-        dashOpac = smoothstep(edgeDist + edgeSharpness, edgeDist, distance(scaledTextureCoord, rDashHead));
-
-    } else if(lDashHeadPeriod >= 1.) {
-
-        dashOpac = smoothstep(edgeDist + edgeSharpness, edgeDist, distance(scaledTextureCoord, lDashHeadCoord));
-        
+        dashOpac = smoothstep(edgeDist, edgeDist - edgeSharpness, rDistance);
+    } else if(lDashHeadPeriod <= 1.) {
+        dashOpac = smoothstep(edgeDist, edgeDist - edgeSharpness, lDistance);
     }
 
     float distA = distance(scaledTextureCoord, pointA);
