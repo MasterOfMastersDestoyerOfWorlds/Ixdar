@@ -41,9 +41,10 @@ public class KeyGuy {
         this.canvas = canvas;
     }
 
-    public KeyGuy(Main main, String fileName, Camera camera) {
+    public KeyGuy(Main main, String fileName, Camera camera, Canvas3D canvas2) {
         this.main = main;
         this.camera = camera;
+        this.canvas = canvas2;
     }
 
     private void keyPressed(int key, int mods, boolean repeated) {

@@ -38,7 +38,6 @@ public abstract class ShaderDrawable {
     public Vector2f center;
     protected Color c = Color.PINK;
 
-    // Persistent VBO allocation for this drawable's quad geometry
     private ShaderProgram.Allocation allocation;
     private boolean geometryDirty = true;
     private boolean colorDirty = true;
@@ -112,14 +111,13 @@ public abstract class ShaderDrawable {
         shader.setFloat("widthToHeightRatio", widthToHeightRatio);
         setUniforms();
 
-        // Prepare or update persistent VBO geometry for this quad
         ShaderProgram.Allocation alloc = ensureAllocation(drawingId);
         if (isGeometryDirty(drawingId) || alloc.isDirty() || colorDirty) {
             uploadGeometry(alloc);
             colorDirty = false;
 
         } else {
-            // Ensure current allocation references the shader's active VBO after any reload
+
             ShaderProgram.Allocation a = allocationById.get(drawingId);
             if (a == null || a.isDirty() || geometryDirty || colorDirty) {
                 uploadGeometry(alloc);
@@ -153,7 +151,7 @@ public abstract class ShaderDrawable {
                 ParseText.put(map, key, f);
             } else if (value instanceof Boolean) {
                 Boolean b = (Boolean) value;
-                // Provide both display text and numeric data (1/0) for evaluation
+
                 map.put(key, new ParseText(b ? "tru" : "false", shell.render.color.Color.GLSL_BOOLEAN,
                         new Vector4f(b ? 1f : 0f, 0f, 0f, 0f), 1, key));
             } else if (value instanceof Vector2f) {
@@ -166,9 +164,9 @@ public abstract class ShaderDrawable {
                 Vector4f vec4 = (Vector4f) value;
                 ParseText.put(map, key, vec4.x, vec4.y, vec4.z, vec4.w);
             } else if (value instanceof FloatBuffer) {
-                // skip
+
             } else if (value instanceof Matrix4f) {
-                // skip
+
             } else if (value instanceof Texture) {
                 Texture texture = (Texture) value;
                 map.put(key, new ParseText(texture.toString(), key));
@@ -200,8 +198,6 @@ public abstract class ShaderDrawable {
         }
         this.camera = camera;
         setup(camera);
-        // Queue draw referencing persistent buffer region instead of repacking each
-        // frame
         ShaderProgram.Allocation alloc = allocationById.get(drawingId);
         if (alloc != null) {
             shader.queueDraw(alloc, Quad.VERTEX_COUNT);
@@ -244,8 +240,6 @@ public abstract class ShaderDrawable {
     private ShaderProgram.Allocation ensureAllocation(Long id) {
         if (id == null)
             return null;
-        // Always ask the shader to ensure an allocation for this numeric id; this
-        // rebinds to the current VBO after any shader reload.
         ShaderProgram.Allocation alloc = shader.ensureAllocation(id, Quad.VERTEX_COUNT);
         allocationById.put(id, alloc);
         return alloc;
@@ -274,34 +268,28 @@ public abstract class ShaderDrawable {
     }
 
     private void uploadGeometry(ShaderProgram.Allocation target) {
-        // Build quad vertex data into a temporary buffer matching the shader's stride
+
         int stride = shader.getStrideFloats();
         if (stride <= 0)
-            stride = 9; // default for SDF/Font
+            stride = 9;
         int floatsNeeded = stride * Quad.VERTEX_COUNT;
         IxBuffer buf = platform.allocateFloats(floatsNeeded);
-
-        // Prepare common color and UVs for SDF/Font shaders; Color-only shaders ignore
-        // UVs
         Vector4f color = c.toVector4f();
-        // Expose vertexColor in the shader's uniform map for the expression parser
         shader.uniformMap.put("vertexColor", color);
         float r = color.x, g = color.y, b = color.z, a = color.w;
         float z = camera != null ? camera.getZIndex() : 0f;
 
-        // Triangle 1: bottomLeft, topLeft, topRight
         if (stride == 9) {
-            // pos3 + color4 + uv2
+
             buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(0f);
             buf.put(topLeft.x).put(topLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(1f);
             buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(1f);
 
-            // Triangle 2: bottomLeft, topRight, bottomRight
             buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(0f);
             buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(1f);
             buf.put(bottomRight.x).put(bottomRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(0f);
         } else if (stride == 7) {
-            // pos3 + color4
+
             buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a);
             buf.put(topLeft.x).put(topLeft.y).put(z).put(r).put(g).put(b).put(a);
             buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a);

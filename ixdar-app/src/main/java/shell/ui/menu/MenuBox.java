@@ -93,16 +93,12 @@ public class MenuBox implements MouseTrap.ScrollHandler {
             if (upBoundX > maxUp)
                 maxUp = upBoundX;
             if (hoverX > leftBoundX && hoverX < rightBoundX && hoverY > downBoundX && hoverY < upBoundX) {
-
                 menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, outerFlash, camera);
-                // boundingBox.drawCoords(leftBoundX, downBoundX, rightBoundX, upBoundX, zIndex
-                // + 0.1f,
-                // new Color(Color.YELLOW, 0.5f));
             } else {
                 menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, outerColor, camera);
 
             }
-            Drawing.getDrawing().font.drawHyperString(menuItems.get(i).itemString(), centerX, itemCenterY + itemHeight * 0.045f,
+            Drawing.getDrawing().font.drawHyperString(menuItems.get(i).itemString(), centerX, itemCenterY + itemHeight * 0.075f,
                     itemHeight / 2, (Camera2D) camera);
         }
         if (menuItems.size() > 0) {

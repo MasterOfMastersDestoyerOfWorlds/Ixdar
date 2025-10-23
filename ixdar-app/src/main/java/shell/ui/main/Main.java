@@ -149,7 +149,7 @@ public class Main {
 
         Toggle.setPanelFocus(PanelTypes.KnotView);
         grid = retTup.grid;
-        keys = new KeyGuy(this, fileName, camera);
+        keys = new KeyGuy(this, fileName, camera, canvas);
         mouse = new MouseTrap(this, camera, canvas);
         activate(true);
         tool = new FreeTool();

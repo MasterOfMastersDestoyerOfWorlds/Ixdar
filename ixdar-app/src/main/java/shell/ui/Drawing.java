@@ -132,7 +132,7 @@ public class Drawing {
 
         pND.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN, camera);
 
-        d.sdfLine.setStroke(lineThickness, false);
+        ex1.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, camera);
         drawSegment(ex1, Color.GREEN, camera);
 
         // Draw external segment 2
@@ -146,6 +146,7 @@ public class Drawing {
 
         pND2.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN,
                 camera);
+        ex2.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, camera);
         drawSegment(ex2, Color.GREEN, camera);
 
         // Draw Cuts and Matches
@@ -154,6 +155,7 @@ public class Drawing {
 
                 if (cutMatch.c != null) {
                     for (Segment s : cutMatch.matchSegments) {
+                        s.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, camera);
                         if (s.id == cutMatch.c.lowerMatchSegment.id || s.id == cutMatch.c.upperMatchSegment.id) {
                             drawSegment(s, Color.GREEN, camera);
                         } else {
@@ -162,8 +164,8 @@ public class Drawing {
                     }
 
                     // Draw Cuts
-                    d.sdfLine.setStroke(2 * lineThickness, false);
                     for (Segment s : cutMatch.cutSegments) {
+                        s.setStroke(2 * lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, camera);
                         if (s.id == cutMatch.c.lowerCutSegment.id || s.id == cutMatch.c.upperCutSegment.id) {
                             drawSegment(s, Color.MAGENTA, camera);
                         } else {
@@ -183,17 +185,17 @@ public class Drawing {
     }
 
     public static void drawSegment(Segment segment, Color c, float thickness, Camera2D camera) {
-        segment.setStroke(thickness, false);
+        segment.setStroke(thickness, false, 1f, 0f, true, false, camera);
         drawSegment(segment, c, camera);
     }
 
     public static void drawScaledSegment(Segment segment, Color c, float thickness, Camera2D camera) {
-        segment.setStroke(thickness * camera.ScaleFactor, false);
+        segment.setStroke(thickness * camera.ScaleFactor, false, 1f, 0f, true, false, camera);
         drawSegment(segment, c, camera);
     }
 
     public static void drawScaledSegment(Segment s, Vector2f a, Vector2f b, Color c, float thickness, Camera2D camera) {
-        s.setStroke(thickness * camera.ScaleFactor, false);
+        s.setStroke(thickness * camera.ScaleFactor, false, 1f, 0f, true, false, camera);
         s.draw(a, b, c, camera);
     }
 
@@ -213,7 +215,6 @@ public class Drawing {
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
 
-        ex1.setStroke(false);
         ex1.draw(firstVec, lastVec, c, camera);
     }
 
@@ -234,7 +235,7 @@ public class Drawing {
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
         ex1.setStroke(Drawing.MIN_THICKNESS * camera.ScaleFactor, true, 20 * camera.ScaleFactor, 1f, true,
-                false);
+                false, camera);
         ex1.draw(firstVec, lastVec, c, camera);
     }
 
@@ -390,11 +391,12 @@ public class Drawing {
     public static void drawGradientPath(Knot k,
             ArrayList<Pair<Long, Long>> lookUpPairs, HashMap<Long, Integer> colorLookup,
             ArrayList<Color> colors, Camera2D camera, float minLineThickness) {
-        Drawing d = getDrawing();
-
-        d.sdfLine.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false);
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
+            if(s.hasPoints(23, 24)){
+                float z = 0;
+            }
+            s.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, camera);
             if (lookUpPairs != null) {
                 Pair<Long, Long> lookUpPair = lookUpPairs.get(i);
 
@@ -417,11 +419,9 @@ public class Drawing {
     public static void drawGradientPath(Knot k, ArrayList<Pair<Long, Long>> lookupPairs,
             HashMap<Long, Color> colorLookup, Camera2D camera, float minLineThickness) {
 
-        Drawing d = getDrawing();
-
-        d.sdfLine.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false);
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
+            s.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, camera);
             if (lookupPairs != null) {
                 Pair<Long, Long> lookUpPair = lookupPairs.get(i);
 
@@ -444,11 +444,10 @@ public class Drawing {
             Segment cutSegment, float lineThickness,
             PointSet ps, Camera2D camera) {
 
-        Drawing d = getDrawing();
-        d.sdfLine.setStroke(lineThickness * camera.ScaleFactor, false);
+        matchSegment.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, camera);
         Drawing.drawSegment(matchSegment, Color.CYAN, camera);
 
-        d.sdfLine.setStroke(2 * lineThickness * camera.ScaleFactor, false);
+        cutSegment.setStroke(2 * lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, camera);
         Drawing.drawSegment(cutSegment, Color.ORANGE, camera);
     }
 
@@ -477,10 +476,9 @@ public class Drawing {
     }
 
     public static void drawKnot(Knot k, Color c, float lineThickness, Camera2D camera) {
-        Drawing d = getDrawing();
-        d.sdfLine.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false);
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
+            s.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, camera);
             Drawing.drawSegment(s, c, camera);
         }
     }

@@ -30,22 +30,20 @@ public class LineScene extends Scene {
         shell.add(point2);
     }
 
-
     @Override
     public void initGL() throws UnsupportedEncodingException, IOException {
         super.initGL();
         Knot knot1 = new Knot(point1, shell);
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        lineSegment.setStroke(20*Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false);
+        lineSegment.setStroke(20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false, camera2D);
         initCodePane("Line SDF", lineSegment.getShader(), lineSegment);
     }
-
 
     @Override
     public void drawScene() {
         super.drawScene();
-        lineSegment.setStroke(20*Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false);
+        lineSegment.setStroke(20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false, camera2D);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);
