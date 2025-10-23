@@ -41,6 +41,7 @@ public abstract class ShaderDrawable {
     private ShaderProgram.Allocation allocation;
     private boolean geometryDirty = true;
     private boolean colorDirty = true;
+    protected boolean culled = false;
 
     private final Map<Long, ShaderProgram.Allocation> allocationById = new HashMap<>();
     private final Map<Long, Quad> prevQuadById = new HashMap<>();
@@ -49,6 +50,7 @@ public abstract class ShaderDrawable {
 
     protected static long nextId(Class<?> clazz) {
         long id = counters.computeIfAbsent(clazz, c -> 0L);
+        counters.put(clazz, id + 1);
         return id++;
     }
 
@@ -96,6 +98,10 @@ public abstract class ShaderDrawable {
         shader.use();
         shader.begin();
         calculateQuad();
+
+        if (culled) {
+            return;
+        }
 
         width = bottomLeft.distance(bottomRight);
         height = bottomLeft.distance(topLeft);
@@ -198,6 +204,10 @@ public abstract class ShaderDrawable {
         }
         this.camera = camera;
         setup(camera);
+        if (culled) {
+            cleanup(camera);
+            return;
+        }
         ShaderProgram.Allocation alloc = allocationById.get(drawingId);
         if (alloc != null) {
             shader.queueDraw(alloc, Quad.VERTEX_COUNT);

@@ -393,9 +393,6 @@ public class Drawing {
             ArrayList<Color> colors, Camera2D camera, float minLineThickness) {
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
-            if(s.hasPoints(23, 24)){
-                float z = 0;
-            }
             s.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, camera);
             if (lookUpPairs != null) {
                 Pair<Long, Long> lookUpPair = lookUpPairs.get(i);

@@ -137,6 +137,7 @@ public class SDFLine extends ShaderDrawable {
 
     @Override
     public void calculateQuad() {
+        culled = false;
         if (culling) {
             boolean containsA = camera.contains(pA);
             boolean containsB = camera.contains(pB);
@@ -205,6 +206,7 @@ public class SDFLine extends ShaderDrawable {
                         }
                     }
                 } else {
+                    culled = true;
                     return;
                 }
             }
