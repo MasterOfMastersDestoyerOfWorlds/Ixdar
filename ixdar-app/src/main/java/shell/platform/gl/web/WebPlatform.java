@@ -1,7 +1,6 @@
 package shell.platform.gl.web;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -79,19 +78,32 @@ public class WebPlatform implements Platform {
             }
         });
 
+        // Prevent context menu on right-click
+        htmlCanvas.addEventListener("contextmenu", (EventListener<MouseEvent>) e -> {
+            e.preventDefault();
+        });
+
         // Mouse buttons
         htmlCanvas.addEventListener("mousedown", (EventListener<MouseEvent>) e -> {
-            WebPlatformHelper.leftDown = true;
-            if (mouseButtonCallback != null) {
-                mouseButtonCallback.onMouseButton(0, Keys.ACTION_PRESS, 0);
+            int button = mapBrowserButtonToAppButton(e.getButton());
+            if (button == 0) {
+                WebPlatformHelper.leftDown = true;
             }
+            if (mouseButtonCallback != null) {
+                mouseButtonCallback.onMouseButton(button, Keys.ACTION_PRESS, 0);
+            }
+            e.preventDefault();
         });
 
         htmlCanvas.addEventListener("mouseup", (EventListener<MouseEvent>) e -> {
-            WebPlatformHelper.leftDown = false;
-            if (mouseButtonCallback != null) {
-                mouseButtonCallback.onMouseButton(0, Keys.ACTION_RELEASE, 0);
+            int button = mapBrowserButtonToAppButton(e.getButton());
+            if (button == 0) {
+                WebPlatformHelper.leftDown = false;
             }
+            if (mouseButtonCallback != null) {
+                mouseButtonCallback.onMouseButton(button, Keys.ACTION_RELEASE, 0);
+            }
+            e.preventDefault();
         });
 
         // Wheel
@@ -357,7 +369,8 @@ public class WebPlatform implements Platform {
     }
 
     @Override
-    public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
+    public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId,
+            Consumer<String> callback) {
         shadersToLoad += 1;
         Consumer<String> callback2 = (text) -> {
             shadersToLoad -= 1;
@@ -365,7 +378,6 @@ public class WebPlatform implements Platform {
         };
         loadSourceAsync(resourceFolder, filename, platformId, callback2);
     }
-
 
     @Override
     public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
@@ -498,6 +510,17 @@ public class WebPlatform implements Platform {
 
     public boolean loadedShaders() {
         return shadersToLoad == 0;
+    }
+
+    private int mapBrowserButtonToAppButton(short browserButton) {
+        switch (browserButton) {
+        case 0:
+            return Keys.MOUSE_BUTTON_LEFT;
+        case 2:
+            return Keys.MOUSE_BUTTON_RIGHT;
+        default:
+            return browserButton;
+        }
     }
 }
 
