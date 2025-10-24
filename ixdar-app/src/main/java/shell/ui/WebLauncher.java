@@ -35,6 +35,7 @@ public final class WebLauncher {
             NoSuchMethodException, SecurityException, UnsupportedEncodingException, IOException {
         startTime = Clock.time();
         System.setProperty("joml.format", "false");
+
         HTMLDocument document = Window.current().getDocument();
         canvasElements = new HTMLCanvasElement[args.length];
         canvas3dScenes = new Canvas3D[args.length];
@@ -77,6 +78,10 @@ public final class WebLauncher {
         HTMLCanvasElement canvas = canvasElements[i];
         Platforms.init(webPlatforms[i], webGLs[i]);
         GL gl = Platforms.gl();
+        if(!webPlatforms[i].loadedShaders()){
+            Window.requestAnimationFrame(ts -> tick(i));
+            return;
+        }
         if (!broken) {
             if (canvas == null)
                 return;

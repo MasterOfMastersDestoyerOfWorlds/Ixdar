@@ -36,9 +36,10 @@ public interface Platform {
 
     void loadTexture(String resourceName, int platformId, Consumer<Texture> callback);
 
-    String loadSource(String resourceFolder, String filename) throws UnsupportedEncodingException, IOException;
 
-    String loadShaderSource(String filename) throws UnsupportedEncodingException, IOException;
+    void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback);
+
+    void loadShaderSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback);
 
     TextFile loadFile(String path) throws IOException;
 

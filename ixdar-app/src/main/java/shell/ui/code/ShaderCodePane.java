@@ -53,6 +53,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private float lockedX = 0f;
     private float lockedY = 0f;
     private Vector2f crosshairScreenPos = null;
+    private boolean loaded = false;
 
     // private ExpressionParser expressionParser;
 
@@ -109,11 +110,8 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             return new ColorText<Float>("FPS: " + Clock.fps(), Color.CYAN);
         });
         webViews.put(paneBounds.id, paneBounds);
-        loadCode(this.targetShader, this.title);
-        camera.updateView(paneBounds.id);
         MouseTrap.subscribeScrollRegion(this.paneBounds, this);
         MouseTrap.subscribeClickRegion(parentBounds, (button) -> handleParentClick(button));
-
     }
 
     private void loadCode(ShaderProgram shader, String headerTitle) {
@@ -192,6 +190,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             // Force recompute on first draw
             lastMouseX = Float.NaN;
             lastMouseY = Float.NaN;
+            loaded = true;
         } catch (Exception e) {
             codeText.addLine("Failed to load shader from program", Color.RED);
         }
@@ -265,11 +264,13 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     }
 
     public void draw(Camera2D camera) {
-        Drawing d = Drawing.getDrawing();
-        if (paneBounds.viewWidth > 0 && showCode) {
-            camera.updateView(paneBounds.id);
-            d.font.drawHyperStringRows(codeText, 0, scrollOffsetY, Drawing.FONT_HEIGHT_PIXELS, camera);
+        if(!loaded) {
+            loadCode(this.targetShader, this.title);
+            loaded = true;
         }
+        camera.updateView(paneBounds.id);
+        Drawing d = Drawing.getDrawing();
+        d.font.drawHyperStringRows(codeText, 0, scrollOffsetY, Drawing.FONT_HEIGHT_PIXELS, camera);
         camera.updateView(parentBounds.id);
         d.font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera);
 

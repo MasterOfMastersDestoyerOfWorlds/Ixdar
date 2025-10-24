@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import org.teavm.jso.JSBody;
@@ -37,12 +40,17 @@ public class WebPlatform implements Platform {
     // Global (document-level) key callbacks shared across canvases
     private static KeyCallback sKeyCallback;
     private static CharCallback sCharCallback;
+
+    private static final Map<String, String> shaderCache = new HashMap<>();
+    private static final Map<String, List<Consumer<String>>> pendingCallbacks = new HashMap<>();
+
     private CursorPosCallback cursorPosCallback;
     private MouseButtonCallback mouseButtonCallback;
     private ScrollCallback scrollCallback;
     private float frameBufferSizeX;
     private float frameBufferSizeY;
     private Integer platformId;
+    private int shadersToLoad;
 
     public WebPlatform(HTMLCanvasElement canvas, String id) {
         this.currentCanvasId = id;
@@ -349,16 +357,26 @@ public class WebPlatform implements Platform {
     }
 
     @Override
-    public String loadShaderSource(String filename) {
-        String rel = "/ixdar/glsl/" + filename;
-        String text = fetchTextSync(rel);
-        return text;
+    public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
+        shadersToLoad += 1;
+        Consumer<String> callback2 = (text) -> {
+            shadersToLoad -= 1;
+            callback.accept(text);
+        };
+        loadSourceAsync(resourceFolder, filename, platformId, callback2);
     }
 
+
     @Override
-    public String loadSource(String resourceFolder, String filename) throws UnsupportedEncodingException, IOException {
-        String rel = "/ixdar/" + resourceFolder + "/" + filename;
-        return fetchTextSync(rel);
+    public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
+        String url = "/ixdar/" + resourceFolder + "/" + filename;
+        fetchTextAsync(url, new TextCallback() {
+            @Override
+            public void onText(String text) {
+                Platforms.init(platformId);
+                callback.accept(text);
+            }
+        });
     }
 
     @Override
@@ -381,6 +399,17 @@ public class WebPlatform implements Platform {
     @JSBody(params = {
             "url" }, script = "try{var xhr=new XMLHttpRequest();xhr.open('GET', url, false);xhr.overrideMimeType('text/plain; charset=utf-8');xhr.send(null);if(xhr.status===0||(xhr.status>=200&&xhr.status<300)){return xhr.responseText||'';}return null;}catch(e){return null;}")
     private static native String fetchTextSync(String url);
+
+    @JSFunctor
+    interface TextCallback extends JSObject {
+        void onText(String text);
+    }
+
+    @JSBody(params = { "url", "callback" }, script = "fetch(url)" +
+            "  .then(function(response) { return response.text(); })" +
+            "  .then(function(text) { callback(text); })" +
+            "  .catch(function(error) { console.error('Failed to load shader:', error); callback(''); });")
+    private static native void fetchTextAsync(String url, TextCallback callback);
 
     private static String normalizePath(String path) {
         if (path == null) {
@@ -465,6 +494,10 @@ public class WebPlatform implements Platform {
     @Override
     public void setPlatformID(Integer p) {
         this.platformId = p;
+    }
+
+    public boolean loadedShaders() {
+        return shadersToLoad == 0;
     }
 }
 

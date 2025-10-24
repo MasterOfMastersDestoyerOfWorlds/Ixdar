@@ -147,7 +147,6 @@ public class LwjglPlatform implements Platform {
         System.exit(code);
     }
 
-    @Override
     public String loadSource(String folder, String filename) throws IOException {
         String path = folder + "/" + filename;
         try (InputStream in = LwjglPlatform.class.getClassLoader().getResourceAsStream(path)) {
@@ -156,8 +155,27 @@ public class LwjglPlatform implements Platform {
     }
 
     @Override
-    public String loadShaderSource(String filename) throws IOException {
-        return loadSource("glsl", filename);
+    public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
+        try {
+            String source = loadSource(resourceFolder, filename);
+            callback.accept(source);
+        } catch (IOException e) {
+            System.err.println("Failed to load source: " + resourceFolder + "/" + filename);
+            e.printStackTrace();
+            callback.accept("");
+        }
+    }
+
+    @Override
+    public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
+        try {
+            String source = loadSource("glsl", filename);
+            callback.accept(source);
+        } catch (IOException e) {
+            System.err.println("Failed to load shader: " + filename);
+            e.printStackTrace();
+            callback.accept("");
+        }
     }
 
     @Override

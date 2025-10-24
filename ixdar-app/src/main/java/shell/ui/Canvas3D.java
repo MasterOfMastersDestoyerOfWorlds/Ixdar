@@ -79,7 +79,6 @@ public class Canvas3D {
         webViews.put(DEFAULT_VIEW, paneBounds);
         camera2D.initCamera(webViews, DEFAULT_VIEW);
         camera2D.calculateCameraTransform(pointSet);
-        camera2D.updateView(DEFAULT_VIEW);
         camera2D.reset();
     }
 

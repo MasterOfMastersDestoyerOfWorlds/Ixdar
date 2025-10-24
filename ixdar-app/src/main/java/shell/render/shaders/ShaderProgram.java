@@ -117,7 +117,6 @@ public abstract class ShaderProgram {
     private int numVertices;
     private boolean drawing;
 
-    // === Persistent VBO region management ===
     /** Number of floats per vertex for this shader's bound attributes. */
     protected int strideFloats = 0;
     /** First vertex index reserved for persistent drawable allocations. */
@@ -150,12 +149,10 @@ public abstract class ShaderProgram {
     public GL gl;
     public Platform platform;
 
-    // Original sources preserved for in-memory reload/restore
     private String originalFragmentSourceStr;
 
-    // Global id registry (shared across all ShaderProgram instances)
     private static final java.util.Map<Long, Object> GLOBAL_OWNER_KEYS = new java.util.HashMap<>();
-    // Instance-level id→allocation lookup for convenience
+
     private final java.util.Map<Long, Allocation> idToAllocation = new java.util.HashMap<>();
 
     public ShaderProgram(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
@@ -171,17 +168,7 @@ public abstract class ShaderProgram {
         this.platformId = Platforms.gl().getPlatformID();
         gl = Platforms.gl();
         platform = Platforms.get();
-        // Load shader sources via Platform abstraction (supports desktop and web)
-        String vsrc = shell.platform.Platforms.get().loadShaderSource(vertexShaderLocation);
-        String fsrc = shell.platform.Platforms.get().loadShaderSource(fragmentShaderLocation);
-        vertexShaderSource = new CharSequence[] { vsrc };
-        fragmentShaderSource = new CharSequence[] { fsrc };
 
-        // Preserve originals for restoration
-        originalFragmentSourceStr = getFragmentSource();
-
-        // On desktop, set up file watchers for hot reload; on web, these files won't
-        // exist
         try {
             fragmentShaderFile = new File("./src/main/resources/glsl/" + fragmentShaderLocation);
             vertexShaderFile = new File("./src/main/resources/glsl/" + vertexShaderLocation);
@@ -194,8 +181,15 @@ public abstract class ShaderProgram {
         } catch (Exception ignore) {
         }
 
-        recompileShaders(vertexShaderLocation, fragmentShaderLocation);
-        init();
+        Platforms.get().loadShaderSourceAsync("glsl", vertexShaderLocation, platformId, vertexShaderSource -> {
+            Platforms.get().loadShaderSourceAsync("glsl", fragmentShaderLocation, platformId, fragmentShaderSource -> {
+                this.vertexShaderSource = new CharSequence[] { vertexShaderSource };
+                this.fragmentShaderSource = new CharSequence[] { fragmentShaderSource };
+                this.originalFragmentSourceStr = fragmentShaderSource;
+                recompileShaders(vertexShaderLocation, fragmentShaderLocation);
+                init();
+            });
+        }); 
     }
 
     public int getAttributeLocation(CharSequence name) {
@@ -241,7 +235,7 @@ public abstract class ShaderProgram {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
         IxBuffer buffer = platform.allocateFloats(16);
-        // Manually pack to avoid JOML MemUtil/Unsafe on TeaVM
+
         buffer.put(mat.m00()).put(mat.m01()).put(mat.m02()).put(mat.m03());
         buffer.put(mat.m10()).put(mat.m11()).put(mat.m12()).put(mat.m13());
         buffer.put(mat.m20()).put(mat.m21()).put(mat.m22()).put(mat.m23());
@@ -363,7 +357,7 @@ public abstract class ShaderProgram {
                 didChange = true;
             }
             if (didChange || reloadShader) {
-                // Compile/link new program first; only swap if link succeeds
+
                 boolean success = reloadProgram();
                 if (success) {
                     reloadShader = false;
@@ -426,7 +420,7 @@ public abstract class ShaderProgram {
         ID = gl.createProgram();
         gl.attachShader(ID, vertexShader);
         gl.attachShader(ID, fragmentShader);
-        // Ensure fragment output 0 is bound to 'fragColor' prior to linking
+
         gl.bindFragDataLocation(ID, 0, "fragColor");
         gl.linkProgram(ID);
         gl.deleteShader(vertexShader);
@@ -475,7 +469,7 @@ public abstract class ShaderProgram {
                 } else if (v instanceof org.joml.Vector4f) {
                     setVec4(name, (org.joml.Vector4f) v);
                 } else if (v instanceof Texture) {
-                    // Rebind texture unit mapping; best-effort default to unit 0
+
                     setTexture(name, (Texture) v, gl.TEXTURE0(), 0);
                 }
             } catch (Exception ignore) {
@@ -488,11 +482,10 @@ public abstract class ShaderProgram {
      * so that geometry gets reallocated/re-uploaded on the next frame.
      */
     private void resetPersistentAllocations() {
-        // Reset persistent drawing region so ensureAllocation() will reserve fresh
-        // space
+
         regionStartVertex = -1;
         regionCursorVertex = -1;
-        // Drop any prior allocations that point to the old VBO
+
         allocations.clear();
         idToAllocation.clear();
         queuedRanges.clear();
@@ -555,7 +548,7 @@ public abstract class ShaderProgram {
             Platforms.get().log("ShaderProgram: Platform mismatch");
         }
         if (useBuffer) {
-            // 1) Immediate/batched path (legacy). Keep supporting existing callers.
+
             if (verteciesBuff != null && numVertices > 0) {
                 verteciesBuff.flip();
 
@@ -565,7 +558,7 @@ public abstract class ShaderProgram {
                     vbo.bind(gl.ARRAY_BUFFER());
                 }
                 use();
-                // Defensive: ensure attribute arrays are enabled after re-link
+
                 try {
                     int posAttrib = getAttributeLocation("position");
                     if (posAttrib >= 0) {
@@ -590,7 +583,6 @@ public abstract class ShaderProgram {
                 numVertices = 0;
             }
 
-            // 2) Persistent draw ranges path. Avoid re-upload when geometry unchanged.
             if (!queuedRanges.isEmpty()) {
                 if (vao != null) {
                     vao.bind();
@@ -598,7 +590,7 @@ public abstract class ShaderProgram {
                     vbo.bind(gl.ARRAY_BUFFER());
                 }
                 use();
-                // Defensive: ensure attribute arrays are enabled after re-link
+
                 try {
                     int posAttrib = getAttributeLocation("position");
                     if (posAttrib >= 0) {
@@ -924,8 +916,7 @@ public abstract class ShaderProgram {
         if (regionStartVertex >= 0) {
             return;
         }
-        // Reserve initial portion of buffer for legacy immediate path so we don't
-        // overlap.
+
         int reservedFloats = stagingReservedFloats;
         int stride = Math.max(1, strideFloats);
         regionStartVertex = reservedFloats / stride;
@@ -946,7 +937,7 @@ public abstract class ShaderProgram {
             alloc = new Allocation(first, capacity);
             allocations.put(owner, alloc);
         } else if (alloc.vertexCapacity < minVertexCapacity) {
-            // Reallocate by moving to the end; simple bump allocator; old space is leaked.
+
             int capacity = nextPowerOfTwo(minVertexCapacity);
             int first = regionCursorVertex;
             regionCursorVertex += capacity;
@@ -1010,17 +1001,14 @@ public abstract class ShaderProgram {
     }
 
     private void growBufferIfNeeded(int requiredMaxVertexIndexExclusive) {
-        // Buffer was initially created with some size; if our required range would
-        // exceed
-        // current size, reallocate with a larger size. Keep it simple: double until big
-        // enough.
+
         int requiredFloats = requiredMaxVertexIndexExclusive * Math.max(1, strideFloats);
         long currentSizeBytes = vboSizeBytes;
         long requiredBytes = (long) requiredFloats * (long) Float.BYTES;
         if (requiredBytes <= currentSizeBytes) {
             return;
         }
-        // Compute new float capacity as next power of two of required floats.
+
         int newFloatCapacity = nextPowerOfTwo(Math.max(stagingReservedFloats, requiredFloats));
         vbo.bind(gl.ARRAY_BUFFER());
         long newSizeBytes = (long) newFloatCapacity * (long) Float.BYTES;
@@ -1097,8 +1085,6 @@ public abstract class ShaderProgram {
             int type = typeBuffer.get(0);
             int location = gl.getUniformLocation(ID, name);
 
-            // We only handle a few common float types for this example.
-            // You could expand this for ints, matrices, etc.
             if (type == gl.FLOAT()) {
                 IxBuffer val = platform.allocateFloats(1);
                 gl.getUniformfv(ID, location, val);

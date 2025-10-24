@@ -31,6 +31,7 @@ public abstract class Scene extends Canvas3D {
 
     public void initCodePane(String title, ShaderProgram shader, ShaderDrawable provider) {
         codePane = new ShaderCodePane(paneBounds, webViews, SCROLL_SPEED, shader, title, provider, camera2D, this);
+        
         camera2D.initCamera(webViews, DEFAULT_VIEW);
     }
 

@@ -33,36 +33,39 @@ public class Font {
     private Map<Integer, Map<Integer, Float>> kerningEm;
 
     public Font() {
-        try {
-
-            String json = Platforms.get().loadSource("res", ATLAS_JSON_PATH);
-            FontAtlasDTO root = Platforms.get().parseFontAtlas(json);
-            FontAtlasData atlas = new FontAtlasData();
-            atlas.width = root.atlas.width;
-            atlas.height = root.atlas.height;
-            atlas.sizePx = (float) root.atlas.size;
-            float lineHeightEm = (float) root.metrics.lineHeight;
-            atlas.derivedLineHeight = (atlas.sizePx > 0f ? atlas.sizePx * lineHeightEm : 32f * lineHeightEm);
-            this.glyphs = buildGlyphs(root);
-            this.pxPerEm = atlas.sizePx;
-            this.ascenderPx = (float) (atlas.sizePx * root.metrics.ascender);
-            this.descenderPx = (float) (atlas.sizePx * root.metrics.descender);
-            this.kerningEm = buildKerning(root);
-            this.fontHeight = atlas.derivedLineHeight;
-            this.fontWidth = atlas.sizePx;
-            Platforms.get().loadTexture("opensans.png", Platforms.gl().getPlatformID(), t -> {
-                this.texture = t;
-                this.shader = ShaderType.TextureSDF.getShader();
-                this.sdfTexture = new SDFTexture(this.texture);
-                this.sdfTexture.setSharpCorners(true);
-            });
-            this.maxTextWidth = 64;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        Platforms.get().loadSourceAsync("res", ATLAS_JSON_PATH,  Platforms.gl().getPlatformID(), json -> {
+            try {
+                FontAtlasDTO root = Platforms.get().parseFontAtlas(json);
+                FontAtlasData atlas = new FontAtlasData();
+                atlas.width = root.atlas.width;
+                atlas.height = root.atlas.height;
+                atlas.sizePx = (float) root.atlas.size;
+                float lineHeightEm = (float) root.metrics.lineHeight;
+                atlas.derivedLineHeight = (atlas.sizePx > 0f ? atlas.sizePx * lineHeightEm : 32f * lineHeightEm);
+                this.glyphs = buildGlyphs(root);
+                this.pxPerEm = atlas.sizePx;
+                this.ascenderPx = (float) (atlas.sizePx * root.metrics.ascender);
+                this.descenderPx = (float) (atlas.sizePx * root.metrics.descender);
+                this.kerningEm = buildKerning(root);
+                this.fontHeight = atlas.derivedLineHeight;
+                this.fontWidth = atlas.sizePx;
+                Platforms.get().loadTexture("opensans.png", Platforms.gl().getPlatformID(), t -> {
+                    this.texture = t;
+                    this.shader = ShaderType.TextureSDF.getShader();
+                    this.sdfTexture = new SDFTexture(this.texture);
+                    this.sdfTexture.setSharpCorners(true);
+                });
+                this.maxTextWidth = 64;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     public float getWidth(CharSequence text) {
+        if (glyphs == null) {
+            return 0f;
+        }
         float maxWidthPx = 0f;
         float lineAdvanceEm = 0f;
         int prevCodePoint = -1;
@@ -95,6 +98,9 @@ public class Font {
     }
 
     public int getHeight(CharSequence text) {
+        if (glyphs == null) {
+            return 0;
+        }
         int lines = 1;
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
@@ -107,7 +113,7 @@ public class Font {
 
     public void drawTextNoSetup(ArrayList<HyperChar> text, float x, float y, float glyphHeight,
             Color c, Camera camera) {
-        if (sdfTexture == null) {
+        if (sdfTexture == null || glyphs == null) {
             return;
         }
         float scale = glyphHeight / fontHeight;
