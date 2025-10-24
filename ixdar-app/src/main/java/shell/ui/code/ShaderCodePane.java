@@ -8,6 +8,7 @@ import org.joml.Vector2f;
 import shell.cameras.Bounds;
 import shell.cameras.Camera2D;
 import shell.platform.Platforms;
+import shell.platform.input.Keys;
 import shell.platform.input.MouseTrap;
 import shell.render.Clock;
 import shell.render.color.Color;
@@ -46,9 +47,12 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
 
     private int hoverLineIndex = -1;
     private int clickedLineIndex = -1;
-    private boolean consumedLineClickRecently = false;
-    private long lastLineClickMillis = 0L;
     private ShaderBranchInjector shaderBranchInjector;
+
+    private boolean crosshairLocked = false;
+    private float lockedX = 0f;
+    private float lockedY = 0f;
+    private Vector2f crosshairScreenPos = null;
 
     // private ExpressionParser expressionParser;
 
@@ -108,7 +112,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         loadCode(this.targetShader, this.title);
         camera.updateView(paneBounds.id);
         MouseTrap.subscribeScrollRegion(this.paneBounds, this);
-        MouseTrap.subscribeClickRegion(parentBounds, () -> restoreOriginal());
+        MouseTrap.subscribeClickRegion(parentBounds, (button) -> handleParentClick(button));
 
     }
 
@@ -204,11 +208,14 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private ParseText updateCacheIfMouseMoved() {
         float mx = 0f;
         float my = 0f;
-        if (canvas.mouse != null) {
+        if (crosshairLocked) {
+            mx = lockedX;
+            my = lockedY;
+        } else if (canvas.mouse != null) {
             mx = canvas.mouse.normalizedPosX;
             my = canvas.mouse.normalizedPosY;
         }
-        if (mx == lastMouseX && my == lastMouseY) {
+        if (!crosshairLocked && mx == lastMouseX && my == lastMouseY) {
             return ParseText.BLANK;
         }
         Map<String, ParseText> env = uniformProvider.getUniformMap();
@@ -265,13 +272,42 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         }
         camera.updateView(parentBounds.id);
         d.font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera);
+
+        if (crosshairLocked && crosshairScreenPos != null) {
+            float crosshairSize = 20f;
+            float cx = crosshairScreenPos.x;
+            float cy = crosshairScreenPos.y;
+
+            d.sdfLine.setStroke(2f, false, 1f, 0f, false, false, camera);
+            d.sdfLine.draw(new Vector2f(cx - crosshairSize, cy), new Vector2f(cx + crosshairSize, cy), Color.CYAN,
+                    camera);
+            d.sdfLine.draw(new Vector2f(cx, cy - crosshairSize), new Vector2f(cx, cy + crosshairSize), Color.CYAN,
+                    camera);
+        }
     }
 
     private void onLineClicked(int idx) {
-        consumedLineClickRecently = true;
-        lastLineClickMillis = System.currentTimeMillis();
         clickedLineIndex = idx;
         shaderBranchInjector.injectAndReload(idx);
+    }
+
+    private void handleParentClick(int button) {
+        if (button == Keys.MOUSE_BUTTON_LEFT) {
+            restoreOriginal();
+            crosshairLocked = false;
+            crosshairScreenPos = null;
+        } else if (button == Keys.MOUSE_BUTTON_RIGHT) {
+            crosshairLocked = !crosshairLocked;
+            if (crosshairLocked) {
+                if (canvas.mouse != null) {
+                    lockedX = canvas.mouse.normalizedPosX;
+                    lockedY = canvas.mouse.normalizedPosY;
+                    crosshairScreenPos = new Vector2f(lockedX, lockedY);
+                }
+            } else {
+                crosshairScreenPos = null;
+            }
+        }
     }
 
     private void restoreOriginal() {

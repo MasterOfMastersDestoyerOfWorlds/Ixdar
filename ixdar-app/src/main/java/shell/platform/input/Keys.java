@@ -11,6 +11,7 @@ public final class Keys {
 
     // Mouse
     public static final int MOUSE_BUTTON_LEFT = 0;
+    public static final int MOUSE_BUTTON_RIGHT = 1;
 
     // Control keys (match GLFW constants)
     public static final int ESCAPE = 256;

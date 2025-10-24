@@ -54,19 +54,19 @@ so if we have the worst case n/3 knots at the bottom layer in the old algorithm 
 l = number of layers - 1
 
 n/3 knots \* 3^2 points per knot + n/9 knots \* 9^2 points per knot + ... + n/3^l \* (3^l)^2
-= 3n + 9n + ... +  +n^2 -> n^3
-all of the points and knots cancel leaving us with n*3^l where log base 3 of n 3^log_3(n) = n so n^2 assuming that ixdar cut takes size(k)^2 time
+= 3n + 9n + ... + +n^2 -> n^3
+all of the points and knots cancel leaving us with n\*3^l where log base 3 of n 3^log_3(n) = n so n^2 assuming that ixdar cut takes size(k)^2 time
 
 in new algorithm we add in the opposite order with less points at each knot cut
 
 n/3^l knots \* (3)^2 + n/3^(l-1) \* (3)^2 + ... + n/3 knots 3^2
 
-= n/3^(l-1) + ... + n/3 +  + n + 3n
+= n/3^(l-1) + ... + n/3 + + n + 3n
 = 9/2 \* (n + ... +n) = 9/2 \* n^2
 
 if we instead thought that cutting algorithm takes n^3 time this is not as big a deal for the top-down algorithm but is quite problematic for the bottom up one
 
-27/2 * n^2 vs ~n^4
+27/2 \* n^2 vs ~n^4
 
 ## Simple Knot Finding
 
@@ -82,7 +82,7 @@ importantly we never actually remove any of our virtual points from consideratio
 
 if that is true then how do we resolve which virtual point we want to connect to? via the connection cost.
 
-the connection cost for a point is simple to calculate and is given to use by the euclidean distance between the points. 
+the connection cost for a point is simple to calculate and is given to use by the euclidean distance between the points.
 
 the connection cost between any two virtual points is harder to calculate, if we have k sub virtual points in the top-level virtual point then connection cost from the virtual point to any other virtual point is the minimum connection to one of its k sub-points minus the connection cost of the sub-point to its lowest cost neighbor. unfortunately we also have to consider the pass through cost as well (see threecircle in tests) such that if we already have on match to the knot connecting to the other side of the cut segment is no longer the distance to the subpoint minus the neighbor distance but the distance to the sub-point and connection to some other segment beside the one already cut is the cost of connecting to both sub-points minus their neighbor costs plus teh connection cost of connecting their neighbors.
 
@@ -134,9 +134,9 @@ I think when matching knots to each other we need ot assume that we are doing th
 
 3. - [ ] number labels disappear and jitter on lines that approach 180 degrees due to floating point error
 
-3. - [ ] line segments have jagged edges.
+4. - [ ] line segments have jagged edges.
 
-4. - [ ] bug on line culling where the colors flip directions when touching multiple sides of the screen
+5. - [ ] bug on line culling where the colors flip directions when touching multiple sides of the screen
 
 ## Features
 

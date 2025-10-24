@@ -42,7 +42,7 @@ public class MouseTrap {
 
     @FunctionalInterface
     public interface ClickHandler {
-        void onClick();
+        void onClick(int button);
     }
 
     public static class ScrollSubscription {
@@ -103,7 +103,7 @@ public class MouseTrap {
         this.canvas = canvas;
     }
 
-    public void mouseClicked(float xPos, float yPos) {
+    public void mouseClicked(float xPos, float yPos, int button) {
         if (!active) {
             return;
         }
@@ -142,7 +142,7 @@ public class MouseTrap {
                             && yFromBottom >= sub.bounds.offsetY
                             && yFromBottom <= sub.bounds.offsetY + sub.bounds.viewHeight;
                     if (inside) {
-                        sub.handler.onClick();
+                        sub.handler.onClick(button);
                         return;
                     }
                 }
@@ -286,7 +286,7 @@ public class MouseTrap {
             if (leftMouseDownPos != null) {
                 Vector2f mouseReleasePos = new Vector2f(x, y);
                 if (mouseReleasePos.distance(leftMouseDownPos) < 3) {
-                    mouseClicked(x, y);
+                    mouseClicked(x, y, button);
                 } else {
                     mouseReleased();
                 }
