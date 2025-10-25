@@ -1,0 +1,146 @@
+  %Generate random distance matrix
+  N = 15;
+  d = N * rand(N,1); % The diagonal value
+  t = triu(bsxfun(@min,d,d.').*rand(N),1); % The upper trianglar random values
+  D = diag(d)+t+t.'; % Put them together in a symmetric matrix
+  
+  %Diagnols are 0
+  for i = 1:N
+    D(i,i) = 0;
+  end
+  
+  %Find max entry
+  max = 0;
+  
+  for i = 1:N
+      for j = 1:N
+          num = D(i,j);
+          if num > max
+              max = num;
+          end
+      end
+  end
+  
+  tri = 0
+%   
+%   %Check triangle inequality
+%   for i = 1:N
+%       for j = 1:N
+%           for k = 1:N
+%               if i ~=j ~= k & D(i,j) + D(j,k) < D(i,k)
+%                   tri = 0
+%                   break
+%               end
+%           end
+%       end
+%   end
+  
+  
+  %Add max entry if triangle inequality failed
+  if tri == 0
+      for i = 1:N
+          for j = 1:N
+              if i ~= j
+                   D(i,j) = (D(i,j) + 2 * max);
+              end
+          end
+      end
+  end
+  
+  %Approach 1 (sqrtm)
+  M = zeros(N);
+  for i = 1:N
+      for j = 1:N
+          M(i,j) = (D(1,j) ^ 2 + D(i,1) ^ 2 - D(i,j) ^ 2) / 2;
+      end
+  end
+  
+  [U,S] = eig(M);
+  X = U * sqrtm(S);
+         
+%Some distance matrixes can pass triangle inequliaty and still be
+%impossible
+%Ex ) 0    2.0023    1.9050
+%     2.0023         0    3.1164
+%     1.9050    3.1164         0
+%     
+%     a = (0,0)
+%     b = ( 2.0023, 0)
+%     c = 
+%     
+%     cx ^ 2 + cy ^ 2 = 1.9050 ^ 2
+%     (cx - 2.0023) ^ 2 + cy ^ 2 = 3.1164 ^ 2
+%     
+%    
+%     cx =  -.518
+%     cy = 1.833
+    
+    
+    disp(X)
+  
+%   %Approach 2 (systems of EQ)
+%   
+%   %Approach 3 (iterative)
+%   syms(sym('p',[1 N]))
+%   syms(sym('v',[1 N - 1]))
+%   
+%   %Only real solutions
+%   assume(v1,'real');
+%   assume(v2,'real');
+%   assume(v3,'real');
+%  
+%   %Point 1 
+%   p1 = zeros(N - 1);
+%   p1 = p1(1,:);
+%   
+%   %Point 2
+%   p2 = zeros(N - 1);
+%   p2 = p2(1,:);
+%   p2(1,1) = D(1,2);
+%   
+%   %Point 3
+%   f = (v1^2 + v2^2 + v3^2 == D(1,3)^2);
+%   g = ((v1 -  p2(1,1))^2 + v2^2 + v3^2 == D(2,3)^2);
+%   
+%   eqs = [f,g];
+%   S = vpasolve(eqs, [v1,v2,v3]);
+%   p3 = [S.v1(1),S.v2(1),S.v3(1)];
+%   
+%   %Point 4
+%   f = (v1^2 + v2^2 + v3^2 == D(1,4)^2);
+%   g = ((v1 -  p2(1,1))^2 + v2^2 + v3^2 == D(2,4)^2);
+%   h = ((v1 -  p3(1,1))^2 + (v2 - p3(1,2))^2 + v3^2 == D(3,4)^2);
+%   
+%   %eq = ((xa - xb) ^ 2 + (ya - yb) ^ 2 + (za - zb) ^ 2 + ... == D(pa,pb))
+%   
+%   eqs = [f,g,h];
+%   S = vpasolve(eqs, [v1,v2,v3]);
+%   p4 = [S.v1(1),S.v2(1),S.v3(1)];
+%   
+%   
+%   %All points
+%   a = [p1;p2;p3;p4];
+%   
+%   
+%  %Check Distances
+%  dist = zeros(N);
+ 
+dist = zeros(N);
+ for i = 1:N
+     for j = 1:N
+         len = X(i,:) - X(j,:);
+         dist(i,j) = norm(len);
+     end
+ end
+ 
+ 
+disp(D-dist);
+
+%Convert to 2n space
+ 
+  
+  
+  
+ 
+
+  

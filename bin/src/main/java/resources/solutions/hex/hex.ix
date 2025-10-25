@@ -1,0 +1,8 @@
+FLAG SHOW_GRID
+HEX 0 0 0
+HEX 1 -1 0
+HEX 2 -1 -1
+HEX 2 0 -2
+HEX 0 1 -1
+HEX 1 1 -2
+ANS 0 4 5 3 2 1 

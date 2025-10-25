@@ -1,0 +1,18 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "teavm-build",
+      "type": "shell",
+      "command": "mvn -Pweb-teavm -DskipTests package",
+      "problemMatcher": []
+    },
+    {
+      "label": "serve-teavm",
+      "type": "shell",
+      "command": "npx -y http-server target/teavm -p 8080 -c-1",
+      "problemMatcher": []
+    }
+  ]
+}
+

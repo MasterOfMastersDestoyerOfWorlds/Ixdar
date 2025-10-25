@@ -1,0 +1,2 @@
+example: cd ../ - changes the terminal directory to the current directory's parent
+example 2: cd ixdar - changes the terminal directory to the current directory + /ixdar/

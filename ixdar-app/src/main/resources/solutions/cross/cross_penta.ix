@@ -1,0 +1,22 @@
+// Pentagon can have a maximum radius of 9 and only have 2 neighbors
+// 10.58 + (63.6×3) + (36×2) = 273.38
+// (63x2) + (36x4) = 334
+// Pentagon can have a maximum radius of 14.35 and only have 4 neighbors
+// 14.10 + (63.6x3) + (33x2) = 270.9
+// (63x2) + (33x4) = 259
+// Pentagon can have a maximum radius of 17.17 and have 6 neighbors
+// Pentagon no longer is a valid knot with a radius of 21
+// In this middle stage 21-117 the pentagon is interlieved with the cross
+// Cross is a valid knot when pentagon radius is 117-120 and the cross has 8 nieghbors
+// Min dist 0 -65
+// Pentagon can have a maximum radius of 120 and the cross has 8 neighbors
+// Min dist 66 - 105
+// Pentagon can have a maximum radius of 160 and the cross 6 neihgbors
+// Min dist 106 - 134
+// Pentagon can have a maximum radius of 189 and the cross has 4 neighbors
+// As we increase the radius from 190 toward infinity the cross remains with 2 neighbors
+CIRCLE -50 0 5 4 0 
+CIRCLE 50 0 5 4 0 
+CIRCLE 0 50 5 4 0 
+CIRCLE 0 -50 5 4 0
+CIRCLE 0 0 130 5 0

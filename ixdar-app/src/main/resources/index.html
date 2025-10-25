@@ -1,0 +1,46 @@
+<p></p><div class="canvas-container">
+    <canvas id="ixdar-canvas" width="1423" height="889"></canvas>
+</div>
+
+<script>
+(function() {
+    
+    var script = document.createElement('script');
+    script.src = '/ixdar/classes.js';
+    script.onload = function() {
+        try {
+            main(["ixdar-canvas"]);
+        } catch (e) {
+            console.error('Error in ixdar-canvas:', e);
+        }
+    };
+    script.onerror = function() {
+        console.error('Failed to load classes.js for ixdar-canvas');
+    };
+    document.head.appendChild(script);
+})();
+</script>
+
+<div class="canvas-container">
+    <canvas id="bouncing-line-canvas" width="1423" height="889"></canvas>
+</div>
+
+<script>
+(function() {
+    
+    var script = document.createElement('script');
+    script.src = '/ixdar/classes.js';
+    script.onload = function() {
+        try {
+            main(["bouncing-line-canvas"]);
+        } catch (e) {
+            console.error('Error in bouncing-line-canvas:', e);
+        }
+    };
+    script.onerror = function() {
+        console.error('Failed to load classes.js for bouncing-line-canvas');
+    };
+    document.head.appendChild(script);
+})();
+</script>
+<p></p>

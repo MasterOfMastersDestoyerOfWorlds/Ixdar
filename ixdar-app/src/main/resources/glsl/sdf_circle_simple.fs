@@ -1,0 +1,22 @@
+#version 300 es
+precision mediump float;
+in vec4 vertexColor;
+in vec2 textureCoord;
+in vec3 pos;
+
+out vec4 fragColor;
+
+uniform vec2 pointA;
+uniform float radius;
+uniform float edgeDist;
+uniform float edgeSharpness;
+
+void main() {
+    vec2 p = pos.xy;
+    float distA = distance(p, pointA);
+
+    float sigDist = (distA / radius);
+
+    float opacity = smoothstep(edgeDist, edgeDist - edgeSharpness, sigDist);
+    fragColor = vec4(vertexColor.rgb, vertexColor.a * opacity);
+}

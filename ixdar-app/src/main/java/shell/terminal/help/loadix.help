@@ -1,0 +1,2 @@
+example: ld ixdar_1-30.ix first checks the folder /solutions/ixdar/ for the file ixdar_1-30.ix and then the current directory. If no file can be 
+found in either of those locations a error will be thrown. 

@@ -1,32 +1,37 @@
 {
-    "java.configuration.updateBuildConfiguration": "interactive",
-    "java.project.sourcePaths": [
-        "src\\shell"
-    ],
-    "java.project.outputPath": "bin",
-    "java.debug.settings.onBuildFailureProceed": true,
-    "java.debug.settings.showToString": true,
-    "java.debug.settings.showStaticVariables": true,
-    "java.debug.settings.showHex": false,
-    "editor.find.autoFindInSelection": "multiline",
-    "terminal.integrated.rightClickCopyPaste": false,
-    "java.debug.settings.showQualifiedNames": true,
-    "editor.links": true,
-    "debug.autoExpandLazyVariables": "on",
-    "window.zoomLevel": -1,
-    "editor.formatOnSave": true,
-    "java.format.settings.url": ".vscode/java-formatter.xml",
-    "java.saveActions.organizeImports": false,
-    "cSpell.words": [
-        "bezier",
-        "cutmatches",
-        "cutpoint",
-        "cutsegments",
-        "Ixdar",
-        "knotpoint",
-        "knotpoints"
-    ],
-    "[java]": {
-        "editor.detectIndentation": false
-    }
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.import.maven.enabled": true,
+  "java.debug.settings.onBuildFailureProceed": true,
+  "java.debug.settings.showToString": true,
+  "java.debug.settings.showStaticVariables": true,
+  "java.debug.settings.showHex": false,
+  "editor.find.autoFindInSelection": "multiline",
+  "terminal.integrated.rightClickCopyPaste": false,
+  "java.debug.settings.showQualifiedNames": true,
+  "editor.links": true,
+  "debug.autoExpandLazyVariables": "on",
+  "window.zoomLevel": -1,
+  "editor.formatOnSave": true,
+  "java.format.settings.url": ".vscode/java-formatter.xml",
+  "java.saveActions.organizeImports": false,
+  "cSpell.words": [
+    "bezier",
+    "cutmatches",
+    "cutpoint",
+    "cutsegments",
+    "Ixdar",
+    "knotpoint",
+    "knotpoints"
+  ],
+  "[java]": {
+    "editor.detectIndentation": false
+  },
+  "github.copilot.chat.agent.autoFix": false,
+  "github.copilot.chat.agent.runTasks": false,
+  "github.copilot.chat.codeGeneration.useInstructionFiles": false,
+  "github.copilot.editor.enableCodeActions": false,
+  "github.copilot.nextEditSuggestions.enabled": false,
+  "github.copilot.nextEditSuggestions.fixes": false,
+  "github.copilot.renameSuggestions.triggerAutomatically": false,
+  "java.compile.nullAnalysis.mode": "disabled"
 }

@@ -32,7 +32,7 @@
 
 ## Reverse Knot Cutting
 
-instead of cutting from the bottom up we should cut from the top down in the knot space instead of the point space. This would be harder to visualize but would lead to lower cutting time. 
+instead of cutting from the bottom up we should cut from the top down in the knot space instead of the point space. This would be harder to visualize but would lead to lower cutting time.
 
 way that the current algorithm works:
 
@@ -42,6 +42,7 @@ way that the current algorithm works:
 4. go to the next level
 
 reversed algorithm:
+
 1. for each point at the current level that is a Knot, cut with each of their neighbors as external points, treat sub Knots of the Knot we are unpacking as regular Points with the distance to any other point in the graph being the lowest segment length of any of their member points
 2. do clockwork algorithm to choose best cut-match list in relation to neighbors and flatten to one loop
 3. if there are still Knots in the loop go to 1
@@ -52,33 +53,58 @@ so if we have the worst case n/3 knots at the bottom layer in the old algorithm 
 
 l = number of layers - 1
 
-n/3 knots * 3^2 points per knot + n/9 knots * 9^2 points per knot + ... + n/3^l * (3^l)^2
-= 3n + 9n + ... +  +n^2 -> n^3
-all of the points and knots cancel leaving us with n*3^l where log base 3 of n 3^log_3(n) = n so n^2 assuming that ixdar cut takes size(k)^2 time
+n/3 knots \* 3^2 points per knot + n/9 knots \* 9^2 points per knot + ... + n/3^l \* (3^l)^2
+= 3n + 9n + ... + +n^2 -> n^3
+all of the points and knots cancel leaving us with n\*3^l where log base 3 of n 3^log_3(n) = n so n^2 assuming that ixdar cut takes size(k)^2 time
 
 in new algorithm we add in the opposite order with less points at each knot cut
 
-n/3^l knots * (3)^2 + n/3^(l-1) * (3)^2 + ... + n/3 knots 3^2
+n/3^l knots \* (3)^2 + n/3^(l-1) \* (3)^2 + ... + n/3 knots 3^2
 
-= n/3^(l-1) + ... + n/3 +  + n + 3n
-= 9/2 * (n + ... +n) = 9/2 * n^2
-
-
-
+= n/3^(l-1) + ... + n/3 + + n + 3n
+= 9/2 \* (n + ... +n) = 9/2 \* n^2
 
 if we instead thought that cutting algorithm takes n^3 time this is not as big a deal for the top-down algorithm but is quite problematic for the bottom up one
 
-27/2 * n^2 vs ~n^4
+27/2 \* n^2 vs ~n^4
+
+## Simple Knot Finding
+
+There is also a question of how we are doing knot finding, right now we are finding knots with partial knowledge that they are knots. Rather we should be finding knots and then throwing away most of the distance information in the knot.
+
+If we think about a point, we have a minimum connection requirement of 2 and a maximum connection allotment of 2. For a Knot we also have a minimum connection requirement of 2 (excluding the top knot) and a maximum connection allotment of k where k is the number of virtual points in the knot.
+
+I think the construction algorithm looks something like this. we still are going through the old method of sorting the segment lists for each point and looking where they agree, but now instead of forming runs and then knots we are simply looking to fulfill the following criteria: all virtual points should have at least 2 matches, assign the matches in acending distance order, a match must include a virtual point that has less than 2 matches.
+
+how will we know that we have a knot if we are not using runs? I think like this we maintain a union find of all points and update their groups as we make matches, merging the groups. with our group information we need to store the number of virtual points that do not have at least 2 matches.
+
+importantly we never actually remove any of our virtual points from consideration unless they have reached their maximum connection allotment.
+
+if that is true then how do we resolve which virtual point we want to connect to? via the connection cost.
+
+the connection cost for a point is simple to calculate and is given to use by the euclidean distance between the points.
+
+the connection cost between any two virtual points is harder to calculate, if we have k sub virtual points in the top-level virtual point then connection cost from the virtual point to any other virtual point is the minimum connection to one of its k sub-points minus the connection cost of the sub-point to its lowest cost neighbor. unfortunately we also have to consider the pass through cost as well (see threecircle in tests) such that if we already have on match to the knot connecting to the other side of the cut segment is no longer the distance to the subpoint minus the neighbor distance but the distance to the sub-point and connection to some other segment beside the one already cut is the cost of connecting to both sub-points minus their neighbor costs plus teh connection cost of connecting their neighbors.
+
+lets just start with lowest connection cost as we program
+
+Alternatively we could, when we add a virtual point to the set store its pairwise lowest cost connection to every other virtual point not contained within the virtual point.
+
+the fundemental problem we have to solve is that we need to be able to handle the hub and spoke case as well as the circle case. Circle is much easier to handle, in the hub and spoke case we have to effectively merge cuts and matches while keeping track of which ones we've cut. so when we cut a knot that is contained in multiple virtual points we need tofind all of the virtual points that contain it before cutting.
+
+I also dont understand the following: with a point it is impossible to match to the same point twice but this is not true with knots
+
+I think when matching knots to each other we need ot assume that we are doing the lowest cost double match until we are at the other side of the circle so to speak and can remove the top half of each double match. So with points matching to other points the cost would just be double the base cost until we are at the other side then we halve the cost.
 
 ## Knot Finding
 
-1. - [ ] If we have a VirtualPoint A that points to two different internal VirtualPoints B and C in the top layer of a Knot, we need to insert A between B and C.
+1. - [ ] If we have a Knot A that points to two different internal Knots B and C in the top layer of a Knot, we need to insert A between B and C.
 
 2. - [ ] Need to Disallow making knots with all internals being knots where the first knot and the last knot do not actually want to match to each other. this is fine when everything is a point, but the correct way to represent this would be : Knot[Knot[Knot[1] Knot[2]] Knot[3]] instead of Knot[Knot[1] Knot[2] Knot[3]]
 
 3. - [ ] Need some rule about joining single points to knots in runs since we are too greedily joining them in 2-knots
 
-4. - [ ] Need to replace "oneOutFlag" in VirtualPoint with a mapping so that we don't trigger over the same point twice. (Do we actually need to remove this?)
+4. - [ ] Need to replace "oneOutFlag" in Knot with a mapping so that we don't trigger over the same point twice. (Do we actually need to remove this?)
 
 5. - [ ] Need to have another method or re-write shouldKnotConsume so that if we see one of our matches instead of quitting we also check to see if that should be consumed, there is a three way check that needs to happen. rather if i am a point and I have am checking if i should be consumed by my neihgbor in the runlist and i run into the oneoutflag break down problems but I break on another knot in the runlist, have to think about what to do there should we form a knot wiht all three? Look at lu634_105-127.ix
 
@@ -108,9 +134,9 @@ if we instead thought that cutting algorithm takes n^3 time this is not as big a
 
 3. - [ ] number labels disappear and jitter on lines that approach 180 degrees due to floating point error
 
-3. - [ ] line segments have jagged edges.
+4. - [ ] line segments have jagged edges.
 
-4. - [ ] bug on line culling where the colors flip directions when touching multiple sides of the screen
+5. - [ ] bug on line culling where the colors flip directions when touching multiple sides of the screen
 
 ## Features
 

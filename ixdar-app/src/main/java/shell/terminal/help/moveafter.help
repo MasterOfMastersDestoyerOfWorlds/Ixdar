@@ -1,0 +1,5 @@
+moveafter - used to move a point in the file after another point
+example: ma 5 1 would move point with id 1 after 5 and wrap to zero if necessary
+exception: no point with id exists
+exception: arguments are not integers
+exception: not enough arguments
