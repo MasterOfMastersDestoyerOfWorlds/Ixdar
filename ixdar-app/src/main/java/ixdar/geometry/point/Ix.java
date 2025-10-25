@@ -4,11 +4,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 import ixdar.annotations.command.OptionList;
+import ixdar.annotations.geometry.Geometry;
+import ixdar.annotations.geometry.GeometryAnnotation;
 import ixdar.common.exceptions.TerminalParseException;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.PointSetPath;
 
-public class Ix implements PointCollection {
+@GeometryAnnotation(id = "ix")
+public class Ix implements Geometry, PointCollection {
     public static String cmd = "ix";
     public static OptionList opts = new OptionList("i", "ix", "ixdar", "load", "ld");
 

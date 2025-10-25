@@ -3,9 +3,12 @@ package ixdar.geometry.point;
 import java.util.ArrayList;
 
 import ixdar.annotations.command.OptionList;
+import ixdar.annotations.geometry.Geometry;
+import ixdar.annotations.geometry.GeometryAnnotation;
 import ixdar.common.exceptions.TerminalParseException;
 
-public class Triangle implements PointCollection {
+@GeometryAnnotation(id = "tri")
+public class Triangle implements Geometry, PointCollection {
 
     public static OptionList opts = new OptionList("t", "tri", "triangle");
 

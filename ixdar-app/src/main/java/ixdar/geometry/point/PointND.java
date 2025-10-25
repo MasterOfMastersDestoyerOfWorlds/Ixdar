@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import org.joml.Vector2f;
 
 import ixdar.annotations.command.OptionList;
+import ixdar.annotations.geometry.Geometry;
+import ixdar.annotations.geometry.GeometryAnnotation;
 import ixdar.common.exceptions.TerminalParseException;
 import ixdar.graphics.render.sdf.SDFCircle;
 
@@ -20,7 +22,7 @@ import ixdar.graphics.render.sdf.SDFCircle;
  * @author Andrew Wollack
  * 
  */
-public abstract class PointND extends SDFCircle implements PointCollection, Cloneable {
+public abstract class PointND extends SDFCircle implements Geometry, PointCollection, Cloneable {
     public static OptionList opts = new OptionList("p", "pt", "point");
 
     /**
@@ -241,6 +243,7 @@ public abstract class PointND extends SDFCircle implements PointCollection, Clon
      * precision.
      * 
      */
+    @GeometryAnnotation(id = "pt")
     public static class Double extends PointND implements Serializable {
         /**
          * The coordinates of this {@code PointND}.

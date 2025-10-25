@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import ixdar.annotations.command.TerminalOption;
+import ixdar.annotations.geometry.Geometry;
+import ixdar.geometry.point.GeometryMap;
 import ixdar.geometry.point.PointCollection;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
@@ -46,12 +48,12 @@ public class Terminal implements MouseTrap.ScrollHandler {
 
     public static ArrayList<TerminalOption> commandList;
     public static HashMap<String, TerminalOption> commandMap = new HashMap<>();
-    public static HashMap<Class<TerminalCommand>, TerminalCommand> commandClassMap = new HashMap<>();
+    public static HashMap<Class<? extends TerminalOption>, TerminalOption> commandClassMap = new HashMap<>();
     public static ArrayList<Tool> tools;
     public static HashMap<String, Tool> toolMap = new HashMap<>();
     public static HashMap<Class<Tool>, Tool> toolClassMap = new HashMap<>();
     public static ArrayList<PointCollection> pointCollectionList;
-    public static HashMap<Class<PointCollection>, PointCollection> pointCollectionClassMap = new HashMap<>();
+    public static HashMap<Class<? extends Geometry>, PointCollection> pointCollectionClassMap = new HashMap<>();
     static {
         if (commandList == null) {
             commandList = new ArrayList<>();
@@ -60,6 +62,7 @@ public class Terminal implements MouseTrap.ScrollHandler {
                 commandList.add(command);
                 commandMap.put(command.fullName(), command);
                 commandMap.put(command.shortName(), command);
+                commandClassMap.put(command.getClass(), command);
             }
         }
         if (tools == null) {
@@ -72,7 +75,12 @@ public class Terminal implements MouseTrap.ScrollHandler {
         }
         if (pointCollectionList == null) {
             pointCollectionList = new ArrayList<>();
-            loadClassType("ixdar.geometry.point", pointCollectionList, pointCollectionClassMap, PointCollection.class);
+            for (Supplier<? extends Geometry> commandSupplier : GeometryMap.MAP.values()) {
+                Geometry geometry = commandSupplier.get();
+                PointCollection command = (PointCollection) commandSupplier.get();
+                pointCollectionList.add(command);
+                pointCollectionClassMap.put(geometry.getClass(), command);
+            }
         }
     }
 
@@ -320,7 +328,7 @@ public class Terminal implements MouseTrap.ScrollHandler {
     }
 
     public static <E extends TerminalCommand> void runNoArgs(Class<E> cmd) {
-        TerminalCommand tc = commandClassMap.get(cmd);
+        TerminalCommand tc = (TerminalCommand) commandClassMap.get(cmd);
         if (tc.argLength() <= 0) {
             tc.run(new String[] {}, 0, MainScene.terminal);
         }

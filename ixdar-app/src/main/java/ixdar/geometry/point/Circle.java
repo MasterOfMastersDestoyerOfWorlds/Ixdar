@@ -3,9 +3,12 @@ package ixdar.geometry.point;
 import java.util.ArrayList;
 
 import ixdar.annotations.command.OptionList;
+import ixdar.annotations.geometry.Geometry;
+import ixdar.annotations.geometry.GeometryAnnotation;
 import ixdar.common.exceptions.TerminalParseException;
 
-public class Circle implements PointCollection {
+@GeometryAnnotation(id = "circ")
+public class Circle implements Geometry, PointCollection {
     public static String cmd = "circ";
     public static OptionList opts = new OptionList("c", "circ", "circle");
 

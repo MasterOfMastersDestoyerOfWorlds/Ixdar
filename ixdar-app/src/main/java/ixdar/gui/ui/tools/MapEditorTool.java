@@ -5,6 +5,7 @@ import java.util.HashMap;
 
 import org.joml.Vector2f;
 
+import ixdar.annotations.geometry.Geometry;
 import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
 import ixdar.geometry.point.Grid;
@@ -48,7 +49,7 @@ public class MapEditorTool extends Tool {
 
     public static ArrayList<Color> colors;
 
-    private static HashMap<Class<PointCollection>, PointCollection> pointCollectionClassMap;
+    private static HashMap<Class<? extends Geometry>, PointCollection> pointCollectionClassMap;
     public static Class<? extends PointCollection> currentCollectionType;
     public static PointCollection currentCollection;
 

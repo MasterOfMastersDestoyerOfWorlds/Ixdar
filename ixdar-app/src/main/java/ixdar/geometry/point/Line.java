@@ -3,9 +3,12 @@ package ixdar.geometry.point;
 import java.util.ArrayList;
 
 import ixdar.annotations.command.OptionList;
+import ixdar.annotations.geometry.Geometry;
+import ixdar.annotations.geometry.GeometryAnnotation;
 import ixdar.common.exceptions.TerminalParseException;
 
-public class Line implements PointCollection {
+@GeometryAnnotation(id = "ln")
+public class Line implements Geometry, PointCollection {
     public static String cmd = "ln";
     public static OptionList opts = new OptionList("l", "ln", "line");
 
