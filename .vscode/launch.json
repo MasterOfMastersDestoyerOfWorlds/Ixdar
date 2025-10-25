@@ -17,7 +17,7 @@
             "type": "java",
             "name": "Ixdar",
             "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
+            "mainClass": "ixdar.canvas.IxdarWindow",
             "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
             "cwd": "${workspaceFolder}/ixdar-app"
         },
@@ -25,7 +25,7 @@
             "type": "java",
             "name": "Bouncing Line",
             "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
+            "mainClass": "ixdar.canvas.IxdarWindow",
             "args": "bouncing-line-canvas",
             "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
             "cwd": "${workspaceFolder}/ixdar-app"
@@ -34,7 +34,7 @@
             "type": "java",
             "name": "Circle",
             "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
+            "mainClass": "ixdar.canvas.IxdarWindow",
             "args": "circle-canvas",
             "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
             "cwd": "${workspaceFolder}/ixdar-app"
@@ -43,7 +43,7 @@
             "type": "java",
             "name": "Bezier",
             "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
+            "mainClass": "ixdar.canvas.IxdarWindow",
             "args": "bezier-curve-canvas",
             "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
             "cwd": "${workspaceFolder}/ixdar-app"
@@ -52,7 +52,7 @@
             "type": "java",
             "name": "Line",
             "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
+            "mainClass": "ixdar.canvas.IxdarWindow",
             "args": "line-canvas",
             "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
             "cwd": "${workspaceFolder}/ixdar-app"
@@ -61,7 +61,7 @@
             "type": "java",
             "name": "Dashed Line",
             "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
+            "mainClass": "ixdar.canvas.IxdarWindow",
             "args": "dashed-line-canvas",
             "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
             "cwd": "${workspaceFolder}/ixdar-app"
@@ -70,7 +70,7 @@
             "type": "java",
             "name": "Dashed Line Round",
             "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
+            "mainClass": "ixdar.canvas.IxdarWindow",
             "args": "dashed-line-round-canvas",
             "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
             "cwd": "${workspaceFolder}/ixdar-app"
@@ -79,7 +79,7 @@
             "type": "java",
             "name": "Dashed Line End Caps",
             "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
+            "mainClass": "ixdar.canvas.IxdarWindow",
             "args": "dashed-line-round-end-caps-canvas",
             "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
             "cwd": "${workspaceFolder}/ixdar-app"
@@ -105,7 +105,7 @@
             "type": "java",
             "name": "Web (TeaVM): build",
             "request": "launch",
-            "mainClass": "shell.ui.WebLauncher",
+            "mainClass": "ixdar.canvas.WebLauncher",
             "preLaunchTask": "teavm-build"
         },
         {

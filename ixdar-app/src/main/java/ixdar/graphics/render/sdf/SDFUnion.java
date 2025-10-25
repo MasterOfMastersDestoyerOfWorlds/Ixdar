@@ -1,0 +1,92 @@
+package ixdar.graphics.render.sdf;
+
+import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
+import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
+
+import ixdar.graphics.cameras.Camera;
+import ixdar.graphics.render.Texture;
+import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.ColorRGB;
+import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
+import ixdar.platform.Platforms;
+
+public class SDFUnion extends ShaderDrawable {
+
+    public Texture outerTexture;
+    public Color outerColor;
+    public float outerScale;
+    public Texture innerTexture;
+    public Color innerColor;
+    public float innerScale;
+    public float innerOffsetX;
+    public float innerOffsetY;
+    public float numberPinStripes;
+    public float showPin;
+
+    public SDFUnion(String sdfInnerLocation, Color innerColor, float innerScale,
+            float innerOffsetX, float innerOffsetY, String sdfOuterLocation, Color outerColor, float alpha,
+            float numberPinStripes, float showPin) {
+        int id = Platforms.gl().getPlatformID();
+        Platforms.get().loadTexture(sdfInnerLocation, id, (t) -> {
+            this.innerTexture = t;
+        });
+        Platforms.get().loadTexture(sdfOuterLocation, id, (t) -> {
+            this.outerTexture = t;
+        });
+        shader = ShaderType.UnionSDF.getShader();
+        this.innerColor = new ColorRGB(innerColor, alpha);
+        this.innerScale = innerScale;
+        this.outerColor = new ColorRGB(outerColor, alpha);
+        this.innerOffsetX = innerOffsetX;
+        this.innerOffsetY = innerOffsetY;
+        this.numberPinStripes = numberPinStripes;
+        this.showPin = showPin;
+    }
+
+    public void draw(float drawX, float drawY, float width, float height, Color innerColor,
+            Color outerColor, Camera camera) {
+        draw(drawX, drawY, width, height, innerColor, outerColor, 0L, camera);
+    }
+
+    public void draw(float drawX, float drawY, float width, float height, Color innerColor,
+            Color outerColor, long id, Camera camera) {
+        this.outerColor = outerColor;
+        setup(camera);
+        shader.drawTextureRegion(outerTexture, drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), 0, 0,
+                outerTexture.width,
+                outerTexture.height, innerColor);
+        cleanup(camera);
+    }
+
+    protected void setUniforms() {
+        if (innerTexture == null || outerTexture == null) {
+            return;
+        }
+        outerTexture.bind();
+        innerTexture.bind();
+        shader.setTexture("outerTexture", outerTexture, GL_TEXTURE0, 0);
+        shader.setTexture("innerTexture", innerTexture, GL_TEXTURE1, 1);
+        shader.setVec4("borderColor", outerColor.toVector4f());
+        float scale = 1 / innerScale;
+        shader.setFloat("innerScaleX", scale);
+        shader.setFloat("innerScaleY", scale);
+        shader.setFloat("innerOffsetX", innerOffsetX);
+        shader.setFloat("innerOffsetY", innerOffsetY);
+        shader.setFloat("numberPinStripes", (float) numberPinStripes);
+        shader.setFloat("showPin", (float) showPin);
+    }
+
+    public void drawCentered(float drawX, float drawY, float scale, Color innerColor, Color outerColor, Camera camera) {
+        float width = (float) (outerTexture.width * scale);
+        float height = (float) (outerTexture.height * scale);
+        draw(drawX - (width / 2f), drawY - (height / 2f), width, height, innerColor, outerColor, camera);
+
+    }
+
+    public void drawCentered(float drawX, float drawY, float scale, Camera camera) {
+        float width = (float) (outerTexture.width * scale);
+        float height = (float) (outerTexture.height * scale);
+        draw(drawX - (width / 2f), drawY - (height / 2f), width, height, innerColor, outerColor, camera);
+    }
+
+}

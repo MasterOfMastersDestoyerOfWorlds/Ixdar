@@ -48,7 +48,7 @@
           <archive>
             <manifest>
               <addClasspath>true</addClasspath>
-              <mainClass>shell.ui.IxdarWindow</mainClass>
+              <mainClass>ixdar.canvas.IxdarWindow</mainClass>
             </manifest>
           </archive>
         </configuration>
@@ -70,7 +70,7 @@
               <archive>
                 <manifest>
                   <addClasspath>true</addClasspath>
-                  <mainClass>shell.ui.IxdarWindow</mainClass>
+                  <mainClass>ixdar.canvas.IxdarWindow</mainClass>
                 </manifest>
               </archive>
             </configuration>
@@ -89,7 +89,7 @@
           <archive>
             <manifest>
               <addClasspath>true</addClasspath>
-              <mainClass>shell.ui.IxdarWindow</mainClass>
+              <mainClass>ixdar.canvas.IxdarWindow</mainClass>
             </manifest>
           </archive>
         </configuration>
@@ -161,7 +161,7 @@
             </executions>
             <configuration>
               <imageName>gvapp</imageName>
-              <mainClass>shell.ui.IxdarWindow</mainClass>
+              <mainClass>ixdar.canvas.IxdarWindow</mainClass>
               <verbose>true</verbose>
             </configuration>
           </plugin>
@@ -302,7 +302,7 @@
               </execution>
             </executions>
             <configuration>
-              <module>shell.web.gwt.WebApp</module>
+              <module>ixdar.web.gwt.WebApp</module>
               <logLevel>INFO</logLevel>
               <draftCompile>true</draftCompile>
               <style>OBF</style>
