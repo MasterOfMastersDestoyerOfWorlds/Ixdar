@@ -1,13 +1,7 @@
 {
-    "MD033": false,
-    "MD013": false,
-    "no-inline-html": {
-        "allowed_elements": [
-          "div",
-          "b",
-          "sup",
-          "sub",
-          "img"
-        ]
-      }
+  "MD033": false,
+  "MD013": false,
+  "no-inline-html": {
+    "allowed_elements": ["div", "b", "sup", "sub", "img"]
+  }
 }

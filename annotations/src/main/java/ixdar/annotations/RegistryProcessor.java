@@ -57,8 +57,8 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                         String annotationName = annotationClass.getName();
                         for (AnnotationMirror mirror : element.getAnnotationMirrors()) {
                             if (mirror.getAnnotationType().toString().equals(annotationName)) {
-                                for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
-                                        mirror.getElementValues().entrySet()) {
+                                for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry : mirror
+                                        .getElementValues().entrySet()) {
                                     String key = entry.getKey().getSimpleName().toString();
                                     if (key.equals("id")) {
                                         Object val = entry.getValue().getValue();

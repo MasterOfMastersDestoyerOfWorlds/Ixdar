@@ -1,4 +1,6 @@
-package ixdar.annotations.command;
+import * as strings from "ixdar-vs/src/utils/strings";
+export function makeTemplate(arg0: string) {
+  return `package ixdar.annotations.command;
 
 import java.util.Set;
 
@@ -15,12 +17,12 @@ import ixdar.annotations.RegistryProcessor;
 
 @AutoService(Processor.class)
 @SupportedSourceVersion(SourceVersion.RELEASE_21)
-@SupportedAnnotationTypes("ixdar.annotations.command.CommandAnnotation")
+@SupportedAnnotationTypes("ixdar.annotations.command.${strings.toPascalCase(arg0)}")
 public class CommandRegistry extends RegistryProcessor {
 
     public CommandRegistry() {
         super(
-                CommandAnnotation.class,
+                ${strings.toPascalCase(arg0)}.class,
                 TerminalOption.class,
                 "Commands");
     }
@@ -31,4 +33,5 @@ public class CommandRegistry extends RegistryProcessor {
         return super.process(annotations, roundEnv);
     }
 
+}`;
 }

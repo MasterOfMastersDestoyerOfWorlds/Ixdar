@@ -18,4 +18,4 @@ Drawing:
 [ ] maybe need to keep track of every cutmatch that has happened to a knot to get to its final form so that we can replay the stack of every knot below the look layer in order to get the manifold
 
 Optimization:
-[ ] need to save all of the calculated moves, if nothing changes then most of the calculation is wasted.  
+[ ] need to save all of the calculated moves, if nothing changes then most of the calculation is wasted.
