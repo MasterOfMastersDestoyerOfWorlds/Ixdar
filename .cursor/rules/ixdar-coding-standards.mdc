@@ -1,0 +1,192 @@
+---
+description: Ixdar codebase coding standards - layout, methods, comments, annotations
+alwaysApply: true
+---
+
+# Ixdar Coding Standards
+
+## Class Types
+
+This codebase has distinct class types, each with different patterns:
+
+### 1. Data Classes
+Classes centered around "I have this data, what can I do with it?"
+- How can I access this data in different ways?
+- How can I display it to the user?
+- How can I tell if the user is interacting with it?
+
+Examples: `CutInfo`, `Segment`, `Knot`, classes in `graphics/render/text/`
+
+With data classes Methods should be short, focused on data access and small manipulations.
+
+### 2. Manager / Metaprogramming Classes
+Classes that discover and coordinate many instances of a type. Expect one instance managing many.
+- Uses annotations or reflection to find classes of a certain type
+- Knows what options it has to work with because of annotations
+
+Examples: `Terminal` (manages commands), annotation processors
+
+### 3. Abstract Data Classes
+Common operations shared by a family of classes. Only create after you see the pattern emerge from 2+ concrete classes with duplicated code.
+
+Examples: `ShaderDrawable` (shared by all SDF classes in its folder)
+
+### 4. Engine / Algorithmic Classes
+Rare. For algorithms that need multiple data pieces or would otherwise take over a data class. Functions should be sized to the task — long is fine if the function does exactly what it says and has minimal inputs/outputs.
+
+Examples: `KnotEngine.findKnots()` — does everything on the tin, 80+ lines is appropriate
+
+### 5. UI / Scene Classes
+Layout directions for composing data classes. Mostly references to other objects to draw, minimal state of its own except what things it is drawing.
+
+Examples: `MainScene`
+
+### 6. Decorated Classes
+Many instances of the same pattern, using annotations for self-registration.
+
+Examples: `AddCommand`, `Circle`, all terminal commands, all geometry types
+
+## Package Organization
+
+Organize code by domain/feature, not by technical layer:
+
+```
+ixdar/
+├── geometry/       # Core domain: points, knots, segments, shells, cuts
+│   ├── point/      # Point primitives (Circle, Arc, Line, PointND, etc.)
+│   ├── knot/       # Knot and Segment classes
+│   ├── shell/      # Shell, DistanceMatrix, Range
+│   └── cuts/       # Cut algorithms and data structures
+├── graphics/       # Rendering: cameras, shaders, SDF primitives
+├── gui/            # User interface
+│   ├── terminal/   # Terminal commands in commands/ subpackage
+│   └── ui/         # UI components, menus, tools
+├── platform/       # Platform abstraction (GL, file I/O, input)
+├── scenes/         # Application scenes
+└── common/         # Shared utilities and exceptions
+    ├── utils/      # Utility classes (static methods only)
+    └── exceptions/ # Custom exceptions
+```
+
+## When to Split Classes
+
+- **One class per file** - each class in its own file
+- **Split by responsibility** - `Segment` handles segment logic, `Knot` handles knot structure
+- **Group related commands** - each terminal command is its own class extending `TerminalCommand`
+- **Separate engines** - algorithm-heavy code goes in `engines/` subpackages (e.g., `KnotEngine`)
+- **Keep enums in `enums/` subpackages** when multiple exist
+
+## Method Length and Splitting
+
+**Data classes:** Short methods focused on access and small manipulations.
+
+**Algorithmic/Engine classes:** Methods sized to the task. A function that does exactly what its name says with minimal return type can be 80+ lines. The splitting point is about inputs and outputs, not arbitrary line counts.
+
+**When to extract a helper function:**
+- When you notice you're doing the same operation repeatedly across larger functions
+- NOT preemptively — prefer one long function that does what it says over a rats nest of small functions you don't need
+
+```java
+// Static factory methods for parsing 
+public static Circle parseCircle(String[] args, int startIdx) throws TerminalParseException {
+    // parsing logic
+}
+// Good: short data class method
+public Knot getOther(Knot vp) {
+    if (vp.equals(first)) return last;
+    if (vp.equals(last)) return first;
+    return null;
+}
+
+// Good: long algorithmic method that does what it says
+public ArrayList<Knot> findKnots(...) {
+    // 80+ lines is fine if it does exactly what the name says
+    // with minimal inputs and a clear return type
+}
+```
+
+## Comments
+
+**Most functions should have zero inline comments.**
+
+**When to comment:**
+- Non-obvious mathematical formulas (>5 operations, or obscure source)
+- Bit shifting operations
+- Mapping structs from unstructured data
+- Algorithm references (link to Wikipedia, paper, etc.)
+- Javadoc should say what the method does, its parameters and return outputs. if we return the same object we put in then we should say in the @return how it has changed
+
+```java
+/**
+ * Get the length of the shell
+ * @return the length of the path between all points in the shell
+ */
+public double getLength() { ... }
+// Algorithm reference
+// https://en.wikipedia.org/wiki/Curve_orientation#Orientation_of_a_simple_polygon
+public WindingOrder DetermineWindingOrder() { ... }
+
+// Cantor pairing function - unique ID from two integers
+id = a >= b ? a * a + a + b : b + a + b * b;
+```
+
+**When NOT to comment:**
+- Self-explanatory methods like `getOther()`, `contains()`, `isSingleton()`
+- Obvious getters/setters
+- Common patterns like modulo wrapping, list operations
+- Comments that restate what the code does
+
+```java
+// ❌ BAD - modulo wrapping is common, no comment needed
+// "+n": Moves (-n..) up to (0..)
+return (i + n) % n;
+
+// ❌ BAD - obvious from code
+// Returns the first element
+return list.get(0);
+```
+
+## Annotations
+
+**Custom annotations for registration:**
+
+```java
+// Terminal commands use @CommandAnnotation for discovery
+@CommandAnnotation(id = "add")
+public class AddCommand extends TerminalCommand { ... }
+
+// Geometry types use @GeometryAnnotation
+@GeometryAnnotation(id = "circ")
+public class Circle implements Geometry, PointCollection { ... }
+```
+
+**When to create annotations:**
+- When you have many classes of the same type (commands, geometry shapes, etc.)
+- When adding a new class would require updating multiple files to register it — use an annotation instead so the new class is self-registering
+- Keep annotations minimal - just the `id` field
+
+**Common interfaces to implement:**
+- `TerminalOption` - for commands with `fullName()`, `shortName()`, `desc()`, `usage()`, `options()`
+- `Geometry` / `PointCollection` - for geometric shapes
+
+## Exception Handling
+
+- Create domain-specific exceptions in `common/exceptions/`
+- Exceptions can hold context objects (e.g., `SegmentBalanceException` holds `CutInfo`)
+- Include debugging helpers like `toString()` and `initDraw()` methods
+- Prefer throwing from constructors when invalid state detected
+- **Almost never catch exceptions** — a caught exception is a bug we're ignoring
+- Only catch exceptions for debugging purposes (to set a breakpoint and inspect the data that caused the exception)
+- Let exceptions propagate; don't swallow them silently
+
+## Field Visibility
+
+- Use `public` fields for data classes and tight domain objects (e.g., `Segment.first`, `Segment.last`)
+- Private fields only when encapsulation provides value
+- Static fields for shared constants and counters (e.g., `static int numCuts`)
+
+## Importing Rules
+
+- Imports ALWAYS belong at the top of the file 
+- The ONLY exception is if there are two classes that are named the same thing that need to be used in the same class
+- Never use package names on classes to get around a failing import or the wrong import at the top of the class unless  there are multiple classes with the same name
