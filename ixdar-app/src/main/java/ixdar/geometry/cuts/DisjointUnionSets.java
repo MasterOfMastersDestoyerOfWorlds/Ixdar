@@ -6,9 +6,11 @@ import java.util.HashMap;
 import ixdar.geometry.knot.Knot;
 
 public class DisjointUnionSets {
-    HashMap<Integer, Integer> rank, parent, unmatched;
-    int countGroups = 0;
-    int totalNumGroups = 0;
+    HashMap<Integer, Integer> rank;
+    public HashMap<Integer, Integer> parent;
+    public HashMap<Integer, Integer> unmatched;
+    public int countGroups = 0;
+    public int totalNumGroups = 0;
 
     // Constructor
     public DisjointUnionSets(ArrayList<Knot> knotPoints) {

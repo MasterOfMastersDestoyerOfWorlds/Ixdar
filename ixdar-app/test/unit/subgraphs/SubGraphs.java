@@ -4,12 +4,12 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Random;
 
-import shell.DistanceMatrix;
-import shell.exceptions.SegmentBalanceException;
-import shell.exceptions.TerminalParseException;
-import shell.file.FileManagement;
-import shell.file.PointSetPath;
-import shell.shell.Shell;
+import ixdar.common.exceptions.SegmentBalanceException;
+import ixdar.common.exceptions.TerminalParseException;
+import ixdar.geometry.shell.DistanceMatrix;
+import ixdar.geometry.shell.Shell;
+import ixdar.platform.file.FileManagement;
+import ixdar.platform.file.PointSetPath;
 
 /**
  * Tests to verify that our tsp solver works as expected

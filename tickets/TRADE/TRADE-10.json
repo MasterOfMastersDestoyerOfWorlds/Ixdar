@@ -1,0 +1,21 @@
+{
+    "id": "TRADE-10",
+    "epic": "TRADE",
+    "title": "Route Operations",
+    "description": "Core operations for route manipulation: Pipe between two points to create a knot, Grow a knot by one point, Pipe between two knots to create a higher-order knot, Grow a knot by another knot (cutting through), Collapse two linked paths into one knot (converting double pipes to single).",
+    "blocked-by": ["TRADE-8"],
+    "blocks": [],
+    "definition-of-done": "All five route operations implemented. Operations update hierarchy correctly. Visual feedback during operations. Undo capability for operations.",
+    "testing-plan": "Test each operation produces correct result. Verify hierarchy updates correctly. Test visual feedback. Verify undo works.",
+    "todos": [
+        "Implement pipe operation (point to point)",
+        "Create grow operation (add point to knot)",
+        "Build knot-to-knot pipe operation",
+        "Implement knot grow by knot",
+        "Create collapse operation"
+    ],
+    "unknowns": [
+        "UI for selecting operation type",
+        "Undo implementation approach"
+    ]
+}
