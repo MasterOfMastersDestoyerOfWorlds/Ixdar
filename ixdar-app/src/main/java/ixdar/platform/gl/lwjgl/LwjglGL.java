@@ -621,4 +621,9 @@ public class LwjglGL implements GL {
         return id;
     }
 
+    @Override
+    public int LINEAR_MIPMAP_LINEAR() {
+        return GL_LINEAR_MIPMAP_LINEAR;
+    }
+
 }

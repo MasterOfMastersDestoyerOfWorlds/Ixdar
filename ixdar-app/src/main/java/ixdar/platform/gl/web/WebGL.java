@@ -757,4 +757,9 @@ public class WebGL implements GL {
         return gl.getDrawingBufferHeight();
     }
 
+    @Override
+    public int LINEAR_MIPMAP_LINEAR() {
+        return WebGLRenderingContext.LINEAR_MIPMAP_LINEAR;
+    }
+
 }

@@ -15,6 +15,7 @@ import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
 import ixdar.platform.Platforms;
+import ixdar.platform.gl.GL;
 
 public class Font {
 
@@ -33,7 +34,7 @@ public class Font {
     private Map<Integer, Map<Integer, Float>> kerningEm;
 
     public Font() {
-        Platforms.get().loadSourceAsync("res", ATLAS_JSON_PATH,  Platforms.gl().getPlatformID(), json -> {
+        Platforms.get().loadSourceAsync("res", ATLAS_JSON_PATH, Platforms.gl().getPlatformID(), json -> {
             try {
                 FontAtlasDTO root = Platforms.get().parseFontAtlas(json);
                 FontAtlasData atlas = new FontAtlasData();
@@ -49,12 +50,14 @@ public class Font {
                 this.kerningEm = buildKerning(root);
                 this.fontHeight = atlas.derivedLineHeight;
                 this.fontWidth = atlas.sizePx;
+                final float distanceRange = (float) root.atlas.distanceRange;
                 Platforms.get().loadTexture("opensans.png", Platforms.gl().getPlatformID(), t -> {
                     this.texture = t;
                     this.shader = ShaderType.TextureSDF.getShader();
                     this.sdfTexture = new SDFTexture(this.texture);
                     this.sdfTexture.setSharpCorners(true);
                     this.sdfTexture.setBorderDist(20f);
+                    this.sdfTexture.setPxRange(distanceRange);
                 });
                 this.maxTextWidth = 64;
             } catch (Exception e) {

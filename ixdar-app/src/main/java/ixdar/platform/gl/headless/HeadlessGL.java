@@ -484,4 +484,9 @@ public class HeadlessGL implements GL {
     public void setPlatformID(Integer p) {
         this.platformId = p;
     }
+
+    @Override
+    public int LINEAR_MIPMAP_LINEAR() {
+        return 0x2703;
+    }
 }

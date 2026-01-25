@@ -16,6 +16,25 @@ public class SDFTexture extends ShaderDrawable {
     private float borderOffsetOuter;
     boolean sharpCorners;
 
+    /**
+     * Distance range from MSDF atlas generation (pxRange parameter). Default is 4.0
+     * which matches the opensans.json distanceRange.
+     */
+    private float pxRange = 4.0f;
+
+    /**
+     * Base edge sharpness (like SDFLine's max of 0.1). Controls the transition
+     * width for anti-aliasing. Smaller values = sharper edges, larger values =
+     * softer/more anti-aliased. Default 0.1 matches SDFLine's maximum for
+     * consistent look.
+     */
+    private float baseEdgeSharpness = 0.8f;
+    /**
+     * Edge distance from the glyph border. Default 0.35f matches SDFLine's default
+     * for consistent look.
+     */
+    private float edgeDist = 0.5f;
+
     public SDFTexture(Texture texture) {
         this.texture = texture;
         this.shader = ShaderType.TextureSDF.getShader();
@@ -81,6 +100,29 @@ public class SDFTexture extends ShaderDrawable {
         shader.setFloat("borderOffsetOuter", borderOffsetOuter);
         shader.setVec4("borderColor", borderColor.toVector4f());
         shader.setBool("sharpCorners", sharpCorners);
+        shader.setFloat("pxRange", pxRange);
+        shader.setFloat("edgeDist", edgeDist);
+        float scaleFactor = camera != null ? camera.getScaleFactor() : 1.0f;
+        float edgeSharpness = Math.max(baseEdgeSharpness / Math.max(scaleFactor, 0.5f), 0.1f);
+        shader.setFloat("edgeSharpness", edgeSharpness);
+    }
+
+    /**
+     * Set the MSDF distance range (pxRange from atlas generation).
+     * 
+     * @param pxRange the distance range, typically 2-8
+     */
+    public void setPxRange(float pxRange) {
+        this.pxRange = pxRange;
+    }
+
+    /**
+     * Set the base edge sharpness before zoom adjustment.
+     * 
+     * @param sharpness 1.0 = default, lower = softer edges, higher = sharper
+     */
+    public void setBaseEdgeSharpness(float sharpness) {
+        this.baseEdgeSharpness = sharpness;
     }
 
     public void drawRegion(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,

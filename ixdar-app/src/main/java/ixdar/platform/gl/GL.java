@@ -211,4 +211,6 @@ public interface GL {
     void getUniformfv(int iD, int location, IxBuffer val);
 
     void setPlatformID(Integer p);
+
+    int LINEAR_MIPMAP_LINEAR();
 }
