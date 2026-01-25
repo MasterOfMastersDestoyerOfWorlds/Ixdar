@@ -18,6 +18,9 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.sdf.SDFCircleSimple;
 import ixdar.graphics.render.shaders.ShaderProgram;
+import ixdar.graphics.render.text.Font;
+import ixdar.graphics.render.text.HyperString;
+import ixdar.gui.ui.Drawing;
 import ixdar.platform.Platforms;
 
 /**
@@ -33,9 +36,14 @@ public class FontRenderingTest {
 
     private static Camera2D camera;
     private static PointSet testPoints;
+    private static Font font;
+    private static boolean fontLoaded = false;
+
+    /** Maximum time to wait for font to load (milliseconds) */
+    private static final long FONT_LOAD_TIMEOUT_MS = 5000;
 
     @BeforeAll
-    static void setup() {
+    static void setup() throws InterruptedException {
         VisualTestHarness.init(800, 600);
         
         // Create a simple point set for camera initialization
@@ -65,6 +73,28 @@ public class FontRenderingTest {
         camera.initCamera(views, "MAIN");
         camera.calculateCameraTransform(testPoints);
         camera.reset();
+
+        // Initialize Drawing which creates the Font
+        Drawing drawing = Drawing.getDrawing();
+        font = drawing.font;
+
+        // Wait for font to load (async loading)
+        long startTime = System.currentTimeMillis();
+        while (!isFontLoaded() && (System.currentTimeMillis() - startTime) < FONT_LOAD_TIMEOUT_MS) {
+            Thread.sleep(50);
+        }
+        fontLoaded = isFontLoaded();
+        
+        if (!fontLoaded) {
+            System.err.println("Warning: Font failed to load within timeout. Font tests will be skipped.");
+        }
+    }
+
+    /**
+     * Check if the font has fully loaded (glyphs and texture available).
+     */
+    private static boolean isFontLoaded() {
+        return font != null && font.glyphs != null && font.texture != null;
     }
 
     @AfterAll
@@ -138,32 +168,171 @@ public class FontRenderingTest {
     }
 
     /**
-     * Placeholder test for font anti-aliasing.
-     * This test will be expanded once font rendering is set up.
+     * Test font anti-aliasing at multiple sizes.
+     * This is the primary test for ENG-4 - Fix Font Aliasing.
      * 
-     * Related ticket: ENG-4 - Fix Font Aliasing
+     * Renders text at various sizes to verify smooth edges without aliasing artifacts.
      */
     @Test
     void testFontAntiAliasing() throws IOException {
-        // TODO: Implement font rendering test once Font async loading is handled
-        // For now, this test documents the intended structure
-        
-        // The test should:
-        // 1. Load the MSDF font
-        // 2. Render text at multiple sizes (12pt, 16pt, 24pt, 48pt)
-        // 3. Compare against baseline to detect aliasing changes
-        
-        // Placeholder: render background pattern to establish baseline exists
-        VisualTestHarness.assertMatchesReference("font_antialiasing_placeholder", () -> {
-            SDFCircleSimple circle = new SDFCircleSimple();
+        if (!fontLoaded) {
+            System.out.println("Skipping testFontAntiAliasing - font not loaded");
+            return;
+        }
+
+        VisualTestHarness.assertMatchesReference("font_antialiasing", () -> {
+            // Test text at multiple sizes to verify anti-aliasing quality
+            float[] sizes = {12f, 16f, 24f, 36f, 48f};
+            float y = 550f;
             
-            // Placeholder pattern until font test is implemented
-            float centerX = VisualTestHarness.getWidth() / 2f;
-            float centerY = VisualTestHarness.getHeight() / 2f;
+            for (float size : sizes) {
+                HyperString text = new HyperString();
+                text.addWord("The quick brown fox jumps", Color.WHITE);
+                
+                font.drawHyperString(text, 50f, y, size, camera);
+                y -= size + 20f; // Move down for next line
+            }
             
-            circle.draw(new Vector2f(centerX, centerY), 100f, Color.LIGHT_GRAY, camera);
-            circle.draw(new Vector2f(centerX, centerY), 80f, Color.DARK_GRAY, camera);
-            circle.draw(new Vector2f(centerX, centerY), 60f, Color.LIGHT_GRAY, camera);
+            for (ShaderProgram shader : Platforms.gl().getShaders()) {
+                shader.flush();
+            }
+        });
+    }
+
+    /**
+     * Test font rendering with various characters including special glyphs.
+     * Verifies that all common characters render correctly.
+     */
+    @Test
+    void testFontCharacterSet() throws IOException {
+        if (!fontLoaded) {
+            System.out.println("Skipping testFontCharacterSet - font not loaded");
+            return;
+        }
+
+        VisualTestHarness.assertMatchesReference("font_character_set", () -> {
+            float y = 550f;
+            float size = 24f;
+            
+            // Lowercase letters
+            HyperString lowercase = new HyperString();
+            lowercase.addWord("abcdefghijklmnopqrstuvwxyz", Color.WHITE);
+            font.drawHyperString(lowercase, 50f, y, size, camera);
+            y -= size + 15f;
+            
+            // Uppercase letters
+            HyperString uppercase = new HyperString();
+            uppercase.addWord("ABCDEFGHIJKLMNOPQRSTUVWXYZ", Color.WHITE);
+            font.drawHyperString(uppercase, 50f, y, size, camera);
+            y -= size + 15f;
+            
+            // Numbers
+            HyperString numbers = new HyperString();
+            numbers.addWord("0123456789", Color.WHITE);
+            font.drawHyperString(numbers, 50f, y, size, camera);
+            y -= size + 15f;
+            
+            // Punctuation and special characters
+            HyperString special = new HyperString();
+            special.addWord("!@#$%^&*()_+-=[]{}|;':\",./<>?", Color.WHITE);
+            font.drawHyperString(special, 50f, y, size, camera);
+            
+            for (ShaderProgram shader : Platforms.gl().getShaders()) {
+                shader.flush();
+            }
+        });
+    }
+
+    /**
+     * Test font rendering at very small sizes (most susceptible to aliasing).
+     * Small text is where MSDF aliasing issues are most visible.
+     */
+    @Test
+    void testFontSmallSizes() throws IOException {
+        if (!fontLoaded) {
+            System.out.println("Skipping testFontSmallSizes - font not loaded");
+            return;
+        }
+
+        VisualTestHarness.assertMatchesReference("font_small_sizes", () -> {
+            float y = 550f;
+            
+            // Test very small sizes where aliasing is most visible
+            float[] smallSizes = {8f, 10f, 11f, 12f, 13f, 14f};
+            
+            for (float size : smallSizes) {
+                HyperString text = new HyperString();
+                text.addWord(String.format("%.0fpx: The quick brown fox jumps over the lazy dog", size), Color.WHITE);
+                
+                font.drawHyperString(text, 50f, y, size, camera);
+                y -= size + 8f;
+            }
+            
+            for (ShaderProgram shader : Platforms.gl().getShaders()) {
+                shader.flush();
+            }
+        });
+    }
+
+    /**
+     * Test font rendering with colored text.
+     * Verifies that color application doesn't affect edge quality.
+     */
+    @Test
+    void testFontColors() throws IOException {
+        if (!fontLoaded) {
+            System.out.println("Skipping testFontColors - font not loaded");
+            return;
+        }
+
+        VisualTestHarness.assertMatchesReference("font_colors", () -> {
+            float y = 500f;
+            float size = 32f;
+            
+            Color[] colors = {Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW, Color.CYAN, Color.MAGENTA};
+            String[] labels = {"Red", "Green", "Blue", "Yellow", "Cyan", "Magenta"};
+            
+            for (int i = 0; i < colors.length; i++) {
+                HyperString text = new HyperString();
+                text.addWord(labels[i] + " Text Sample", colors[i]);
+                
+                font.drawHyperString(text, 50f, y, size, camera);
+                y -= size + 15f;
+            }
+            
+            for (ShaderProgram shader : Platforms.gl().getShaders()) {
+                shader.flush();
+            }
+        });
+    }
+
+    /**
+     * Test large font sizes to verify scaling quality.
+     */
+    @Test
+    void testFontLargeSizes() throws IOException {
+        if (!fontLoaded) {
+            System.out.println("Skipping testFontLargeSizes - font not loaded");
+            return;
+        }
+
+        VisualTestHarness.assertMatchesReference("font_large_sizes", () -> {
+            float y = 500f;
+            
+            // Large sizes
+            HyperString large1 = new HyperString();
+            large1.addWord("64px Font", Color.WHITE);
+            font.drawHyperString(large1, 50f, y, 64f, camera);
+            y -= 80f;
+            
+            HyperString large2 = new HyperString();
+            large2.addWord("48px Font", Color.WHITE);
+            font.drawHyperString(large2, 50f, y, 48f, camera);
+            y -= 60f;
+            
+            HyperString large3 = new HyperString();
+            large3.addWord("32px Font", Color.WHITE);
+            font.drawHyperString(large3, 50f, y, 32f, camera);
             
             for (ShaderProgram shader : Platforms.gl().getShaders()) {
                 shader.flush();

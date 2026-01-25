@@ -1,0 +1,1 @@
+msdf-atlas-gen -font OpenSans_Condensed-SemiBold.ttf -type mtsdf -size 128 -pxrange 4 -imageout atlas.png -json atlas.json

@@ -54,6 +54,7 @@ public class Font {
                     this.shader = ShaderType.TextureSDF.getShader();
                     this.sdfTexture = new SDFTexture(this.texture);
                     this.sdfTexture.setSharpCorners(true);
+                    this.sdfTexture.setBorderDist(20f);
                 });
                 this.maxTextWidth = 64;
             } catch (Exception e) {
