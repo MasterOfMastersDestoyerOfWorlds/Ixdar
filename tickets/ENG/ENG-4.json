@@ -1,0 +1,20 @@
+{
+    "id": "ENG-4",
+    "epic": "ENGINE",
+    "title": "Fix Font Aliasing - Increase Edge Blur",
+    "description": "The default font is showing aliasing artifacts. The MSDF (Multi-channel Signed Distance Field) font rendering needs increased edge blur/smoothing to reduce harsh aliasing on text edges.",
+    "blocked-by": [],
+    "blocks": [],
+    "definition-of-done": "Text renders with smooth anti-aliased edges. No visible aliasing artifacts at normal viewing sizes.",
+    "testing-plan": "Run application and inspect text at various sizes. Compare before/after screenshots. Verify text remains crisp but smooth.",
+    "todos": [
+        "Locate font shader (likely in glsl/ folder)",
+        "Increase the smoothstep range or edge blur parameter",
+        "Adjust MSDF threshold/range values if needed",
+        "Test with different font sizes to ensure quality"
+    ],
+    "unknowns": [
+        "Optimal blur value that balances sharpness and smoothness",
+        "Whether the issue is in shader or font atlas generation"
+    ]
+}

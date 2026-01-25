@@ -41,7 +41,6 @@ import org.lwjgl.glfw.GLFWImage;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
 
 import ixdar.annotations.scene.SceneDrawable;
 import ixdar.graphics.render.Clock;
@@ -122,24 +121,10 @@ public class IxdarWindow {
         File file = new File("src/main/resources/res/decalSmall.png");
         String filePath = file.getAbsolutePath();
         ByteBuffer icon = STBImage.stbi_load(filePath, w, h, channels, 4);
-        int limit = icon.limit();
-        ByteBuffer iconFlipped = MemoryUtil.memAlloc(limit);
-        int hPix = h.get(0);
-        int wPix = w.get(0);
-        for (int i = 0; i < hPix; i++) {
-            for (int j = 0; j < wPix; j++) {
-                int pixelStart = i * (wPix * 4) + j * 4;
-                int flippedPixel = (hPix - 1 - i) * (wPix * 4) + (j) * 4;
-                iconFlipped.put(flippedPixel + 0, icon.get(pixelStart + 0));
-                iconFlipped.put(flippedPixel + 1, icon.get(pixelStart + 1));
-                iconFlipped.put(flippedPixel + 2, icon.get(pixelStart + 2));
-                iconFlipped.put(flippedPixel + 3, icon.get(pixelStart + 3));
-            }
-        }
         GLFWImage.Buffer gb = GLFWImage.create(1);
         int width = w.get(0);
         int height = h.get(0);
-        GLFWImage iconGI = GLFWImage.create().set(width, height, iconFlipped);
+        GLFWImage iconGI = GLFWImage.create().set(width, height, icon);
         gb.put(0, iconGI);
 
         try (MemoryStack stack = stackPush()) {

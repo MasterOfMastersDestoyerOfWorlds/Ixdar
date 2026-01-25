@@ -69,8 +69,8 @@
         {
             "prefix": "ENGINE",
             "name": "Game Engine",
-            "description": "Controllers, Mangagers, Rendering, etc.",
-            "children": ["ENG-1"]
+            "description": "Controllers, Managers, Rendering, etc.",
+            "children": ["ENG-1", "ENG-2", "ENG-3", "ENG-4"]
         },
         {
             "prefix": "CORP",

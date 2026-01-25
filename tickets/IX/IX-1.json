@@ -2,7 +2,7 @@
     "id": "IX-1",
     "title": "Create Tickets from Design Document",
     "description": "Read @IxdarDesignDocument.md and create tickets for every idea in the document",
-    "status": "archived",
+    "status": "complete",
     "blocked-by": [],
     "definition-of-done": "There are tickets for every idea in the design document with descriptions of how we can implement each one, which tickets block which tickets, titles, and unique ids, in ./tickets, each ticket has a definition of done and a testing plan",
     "todos" : [

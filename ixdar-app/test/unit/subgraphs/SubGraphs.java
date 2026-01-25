@@ -8,13 +8,34 @@ import ixdar.common.exceptions.SegmentBalanceException;
 import ixdar.common.exceptions.TerminalParseException;
 import ixdar.geometry.shell.DistanceMatrix;
 import ixdar.geometry.shell.Shell;
+import ixdar.platform.Platforms;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.PointSetPath;
+import ixdar.platform.gl.headless.HeadlessGL;
+import ixdar.platform.gl.headless.HeadlessPlatform;
 
 /**
  * Tests to verify that our tsp solver works as expected
  */
 public class SubGraphs {
+
+    private static boolean platformInitialized = false;
+
+    static {
+        initPlatform();
+    }
+
+    /**
+     * Initialize the headless platform for testing.
+     * Safe to call multiple times - only initializes once.
+     */
+    public static synchronized void initPlatform() {
+        if (!platformInitialized) {
+            Platforms.init(new HeadlessPlatform(), new HeadlessGL());
+            platformInitialized = true;
+        }
+    }
+
     public static void testMethod(String fileName) {
         PointSetPath retTup = null;
         try {
