@@ -3,3 +3,4 @@
 msdfgen-1.12-win64-openmp/msdfgen/*.svg
 msdfgen-1.12-win64-openmp/msdfgen/*.png
 *.mp4
+ixdar-app/test/resources/visual-output/

@@ -5,16 +5,24 @@
     "description": "The default font is showing aliasing artifacts. The MSDF (Multi-channel Signed Distance Field) font rendering needs increased edge blur/smoothing to reduce harsh aliasing on text edges.",
     "blocked-by": [],
     "blocks": [],
-    "definition-of-done": "Text renders with smooth anti-aliased edges. No visible aliasing artifacts at normal viewing sizes.",
-    "testing-plan": "Run application and inspect text at various sizes. Compare before/after screenshots. Verify text remains crisp but smooth.",
+    "status": "IN_PROGRESS",
+    "definition-of-done": "Text renders with smooth anti-aliased edges. No visible aliasing artifacts at normal viewing sizes. Visual regression tests pass.",
+    "testing-plan": "1. Manual Testing: Run application and inspect text at various sizes (12pt, 16pt, 24pt, 48pt). Compare before/after screenshots. 2. Automated Visual Regression: Run FontRenderingTest.java which uses VisualTestHarness to render text and compare against baseline screenshots. The harness captures framebuffer output and performs pixel-diff comparison with configurable tolerance. 3. Regression Prevention: Baseline images stored in test/resources/visual-references/ ensure future changes don't reintroduce aliasing.",
     "todos": [
         "Locate font shader (likely in glsl/ folder)",
         "Increase the smoothstep range or edge blur parameter",
         "Adjust MSDF threshold/range values if needed",
-        "Test with different font sizes to ensure quality"
+        "Test with different font sizes to ensure quality",
+        "Run FontRenderingTest to establish baseline screenshots",
+        "Verify testFontAntiAliasing produces smooth edges in baseline"
     ],
     "unknowns": [
         "Optimal blur value that balances sharpness and smoothness",
         "Whether the issue is in shader or font atlas generation"
+    ],
+    "related-files": [
+        "ixdar-app/test/unit/visual/VisualTestHarness.java",
+        "ixdar-app/test/unit/visual/FontRenderingTest.java",
+        "ixdar-app/test/resources/visual-references/"
     ]
 }

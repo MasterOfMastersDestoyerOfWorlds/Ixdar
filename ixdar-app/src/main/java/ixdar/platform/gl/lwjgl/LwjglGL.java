@@ -554,7 +554,7 @@ public class LwjglGL implements GL {
         int bindex;
         for (int k = 0; k < pixels.length; k++) {
             bindex = k * 4;
-            pixels[i] = ((frameBuffer.get(bindex) << 16)) +
+            pixels[k] = ((frameBuffer.get(bindex) << 16)) +
                     ((frameBuffer.get(bindex + 1) << 8)) +
                     ((frameBuffer.get(bindex + 2) << 0));
         }

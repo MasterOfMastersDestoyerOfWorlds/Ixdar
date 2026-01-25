@@ -1,0 +1,22 @@
+---
+description: Updates JSON tickets in the tickets/ directory when work is completed.
+alwaysApply: false
+---
+# Ticket Lifecycle Management
+
+## Context
+This project is tracked via JSON files in the `tickets/` directory. These files are rendered into a static Hugo site. 
+
+## Automated Rule
+WHEN you perform a task that corresponds to a ticket ID (e.g., `CORP-1`, `ENG-5`):
+
+1.  **Locate**: Find the file `tickets/<CATEGORY>/<ID>.json`.
+2.  **Verify**: Ensure you have the correct file content.
+3.  **Update**:
+    * If you *started* work: Set `"status": "IN_PROGRESS"`.
+    * If you *completed* work: Set `"status": "DONE"`.
+4.  **Silent Save**: Write the change to the JSON file immediately.
+
+## Example
+User: "I fixed the rendering bug in ENG-12."
+Action: You must update `tickets/ENG/ENG-12.json` setting `"status": "DONE"`.
