@@ -1,0 +1,362 @@
+/* Base styles */
+:root {
+    --color-bg: #1a1a2e;
+    --color-surface: #16213e;
+    --color-surface-hover: #1f3460;
+    --color-text: #e8e8e8;
+    --color-text-muted: #a0a0a0;
+    --color-primary: #4a9eff;
+    --color-primary-hover: #6fb3ff;
+    --color-done: #22c55e;
+    --color-in-progress: #eab308;
+    --color-todo: #6b7280;
+    --color-border: #2d3748;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+a {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+a:hover {
+    color: var(--color-primary-hover);
+    text-decoration: underline;
+}
+
+/* Header */
+.site-header {
+    background-color: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    padding: 1rem 2rem;
+}
+
+.site-header nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.site-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.site-title:hover {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.breadcrumb-sep {
+    color: var(--color-text-muted);
+}
+
+/* Main content */
+.content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* Footer */
+.site-footer {
+    background-color: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    padding: 1rem 2rem;
+    text-align: center;
+    color: var(--color-text-muted);
+    margin-top: auto;
+}
+
+/* Epics list (home page) */
+h1 {
+    margin-bottom: 1.5rem;
+    font-size: 2rem;
+}
+
+.epics-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.epic-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    transition: border-color 0.2s;
+}
+
+.epic-card:hover {
+    border-color: var(--color-primary);
+}
+
+.epic-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.epic-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.epic-title:hover {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.epic-prefix {
+    background-color: var(--color-primary);
+    color: var(--color-bg);
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    margin-right: 0.5rem;
+}
+
+.epic-completion {
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+}
+
+.epic-description {
+    color: var(--color-text-muted);
+    margin-bottom: 1rem;
+}
+
+/* Progress bar */
+.progress-bar {
+    height: 8px;
+    background-color: var(--color-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--color-done);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+/* Status badges */
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-done {
+    background-color: rgba(34, 197, 94, 0.2);
+    color: var(--color-done);
+}
+
+.status-in-progress {
+    background-color: rgba(234, 179, 8, 0.2);
+    color: var(--color-in-progress);
+}
+
+.status-todo {
+    background-color: rgba(107, 114, 128, 0.2);
+    color: var(--color-todo);
+}
+
+/* Tickets table */
+.tickets-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.tickets-table th,
+.tickets-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.tickets-table th {
+    background-color: var(--color-surface);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+}
+
+.tickets-table tr:hover {
+    background-color: var(--color-surface-hover);
+}
+
+/* Epic page */
+.epic-page h1 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.epic-summary {
+    margin-top: 2rem;
+    padding: 1rem;
+    background-color: var(--color-surface);
+    border-radius: 8px;
+}
+
+.epic-summary .progress-bar {
+    margin-top: 0.5rem;
+}
+
+/* Ticket page */
+.ticket-page {
+    max-width: 900px;
+}
+
+.ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.ticket-header h1 {
+    margin-bottom: 0;
+}
+
+.ticket-id {
+    background-color: var(--color-primary);
+    color: var(--color-bg);
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    margin-right: 0.5rem;
+}
+
+.ticket-meta {
+    margin-bottom: 2rem;
+    color: var(--color-text-muted);
+}
+
+.ticket-section {
+    margin-bottom: 2rem;
+    padding: 1.25rem;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+}
+
+.ticket-section h2 {
+    font-size: 1.125rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-text);
+}
+
+.ticket-section p {
+    color: var(--color-text-muted);
+}
+
+.ticket-section ul {
+    list-style: disc;
+    margin-left: 1.5rem;
+    color: var(--color-text-muted);
+}
+
+.ticket-section li {
+    margin-bottom: 0.5rem;
+}
+
+/* Todo list styling */
+.todo-list .todo-done {
+    text-decoration: line-through;
+    color: var(--color-done);
+}
+
+/* File list */
+.file-list {
+    list-style: none;
+    margin-left: 0;
+}
+
+.file-list code {
+    background-color: var(--color-bg);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 0.875rem;
+}
+
+/* Ticket links (blocked-by, blocks) */
+.ticket-links {
+    list-style: none;
+    margin-left: 0;
+}
+
+.ticket-links li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.ticket-links li:last-child {
+    border-bottom: none;
+}
+
+.blocking-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .site-header {
+        padding: 1rem;
+    }
+    
+    .content {
+        padding: 1rem;
+    }
+    
+    .ticket-header {
+        flex-direction: column;
+    }
+    
+    .epic-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .tickets-table {
+        font-size: 0.875rem;
+    }
+    
+    .tickets-table th,
+    .tickets-table td {
+        padding: 0.5rem;
+    }
+}

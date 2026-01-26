@@ -1,0 +1,15 @@
+{{ range $prefix, $tickets := .Site.Data.tickets }}
+  {{ if ne $prefix "epics" }}
+    {{ range $key, $ticket := $tickets }}
+      {{ if reflect.IsMap $ticket }}
+        {{ $page := dict
+          "kind" "page"
+          "path" (lower $ticket.id)
+          "title" $ticket.title
+          "params" (dict "id" $ticket.id "epic" $prefix)
+        }}
+        {{ $.AddPage $page }}
+      {{ end }}
+    {{ end }}
+  {{ end }}
+{{ end }}

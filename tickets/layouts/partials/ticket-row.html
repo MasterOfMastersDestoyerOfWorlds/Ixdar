@@ -1,0 +1,11 @@
+{{ $ticket := .ticket }}
+{{ $status := $ticket.status | default "TODO" }}
+<tr>
+    <td>
+        <a href="{{ printf "/tickets/%s/" (lower $ticket.id) | relURL }}">{{ $ticket.id }}</a>
+    </td>
+    <td>{{ $ticket.title }}</td>
+    <td>
+        {{ partial "status-badge.html" (dict "status" $status) }}
+    </td>
+</tr>

@@ -1,0 +1,160 @@
+{{ define "title" }}{{ .Params.id }} - {{ .Site.Title }}{{ end }}
+
+{{ define "main" }}
+{{ $ticketId := .Params.id }}
+{{ $epic := .Params.epic }}
+{{ $ticketsData := .Site.Data.tickets }}
+
+{{/* Get the category data and ticket */}}
+{{ $categoryData := index $ticketsData $epic }}
+{{ $ticket := index $categoryData $ticketId }}
+
+{{ if $ticket }}
+{{ $status := $ticket.status | default "TODO" }}
+
+<div class="ticket-page">
+    <div class="ticket-header">
+        <h1>
+            <span class="ticket-id">{{ $ticket.id }}</span>
+            {{ $ticket.title }}
+        </h1>
+        {{ partial "status-badge.html" (dict "status" $status) }}
+    </div>
+    
+    <div class="ticket-meta">
+        <span class="meta-item">
+            <strong>Epic:</strong> 
+            <a href="{{ printf "/epics/%s/" (lower $epic) | relURL }}">{{ $epic }}</a>
+        </span>
+    </div>
+    
+    <section class="ticket-section">
+        <h2>Description</h2>
+        <p>{{ $ticket.description }}</p>
+    </section>
+    
+    {{ with index $ticket "definition-of-done" }}
+    <section class="ticket-section">
+        <h2>Definition of Done</h2>
+        <p>{{ . }}</p>
+    </section>
+    {{ end }}
+    
+    {{ with index $ticket "testing-plan" }}
+    <section class="ticket-section">
+        <h2>Testing Plan</h2>
+        <p>{{ . }}</p>
+    </section>
+    {{ end }}
+    
+    {{ with $ticket.todos }}
+    {{ if gt (len .) 0 }}
+    <section class="ticket-section">
+        <h2>To-Do Items</h2>
+        <ul class="todo-list">
+        {{ range . }}
+            <li class="{{ if hasPrefix . "[DONE]" }}todo-done{{ end }}">{{ . }}</li>
+        {{ end }}
+        </ul>
+    </section>
+    {{ end }}
+    {{ end }}
+    
+    {{ with $ticket.unknowns }}
+    {{ if gt (len .) 0 }}
+    <section class="ticket-section">
+        <h2>Unknowns</h2>
+        <ul>
+        {{ range . }}
+            <li>{{ . }}</li>
+        {{ end }}
+        </ul>
+    </section>
+    {{ end }}
+    {{ end }}
+    
+    {{ with index $ticket "changes-made" }}
+    {{ if gt (len .) 0 }}
+    <section class="ticket-section">
+        <h2>Changes Made</h2>
+        <ul>
+        {{ range . }}
+            <li>{{ . }}</li>
+        {{ end }}
+        </ul>
+    </section>
+    {{ end }}
+    {{ end }}
+    
+    {{ with index $ticket "related-files" }}
+    {{ if gt (len .) 0 }}
+    <section class="ticket-section">
+        <h2>Related Files</h2>
+        <ul class="file-list">
+        {{ range . }}
+            <li><code>{{ . }}</code></li>
+        {{ end }}
+        </ul>
+    </section>
+    {{ end }}
+    {{ end }}
+    
+    <div class="blocking-section">
+        {{ with index $ticket "blocked-by" }}
+        {{ if gt (len .) 0 }}
+        <section class="ticket-section">
+            <h2>Blocked By</h2>
+            <ul class="ticket-links">
+            {{ range . }}
+                {{ $blockingId := . }}
+                {{ $blockingPrefix := index (split $blockingId "-") 0 }}
+                {{ $blockingCategoryData := index $ticketsData $blockingPrefix }}
+                {{ $blockingTicket := index $blockingCategoryData $blockingId }}
+                {{ if $blockingTicket }}
+                <li>
+                    <a href="{{ printf "/tickets/%s/" (lower $blockingId) | relURL }}">
+                        {{ $blockingId }}: {{ $blockingTicket.title }}
+                    </a>
+                    {{ $blockingStatus := $blockingTicket.status | default "TODO" }}
+                    {{ partial "status-badge.html" (dict "status" $blockingStatus) }}
+                </li>
+                {{ end }}
+            {{ end }}
+            </ul>
+        </section>
+        {{ end }}
+        {{ end }}
+        
+        {{ with $ticket.blocks }}
+        {{ if gt (len .) 0 }}
+        <section class="ticket-section">
+            <h2>Blocks</h2>
+            <ul class="ticket-links">
+            {{ range . }}
+                {{ $blockedId := . }}
+                {{ $blockedPrefix := index (split $blockedId "-") 0 }}
+                {{ $blockedCategoryData := index $ticketsData $blockedPrefix }}
+                {{ $blockedTicket := index $blockedCategoryData $blockedId }}
+                {{ if $blockedTicket }}
+                <li>
+                    <a href="{{ printf "/tickets/%s/" (lower $blockedId) | relURL }}">
+                        {{ $blockedId }}: {{ $blockedTicket.title }}
+                    </a>
+                    {{ $blockedStatus := $blockedTicket.status | default "TODO" }}
+                    {{ partial "status-badge.html" (dict "status" $blockedStatus) }}
+                </li>
+                {{ end }}
+            {{ end }}
+            </ul>
+        </section>
+        {{ end }}
+        {{ end }}
+    </div>
+</div>
+{{ else }}
+<div class="ticket-page">
+    <h1>Ticket Not Found</h1>
+    <p>Could not find ticket {{ $ticketId }} in epic {{ $epic }}</p>
+</div>
+{{ end }}
+{{ end }}

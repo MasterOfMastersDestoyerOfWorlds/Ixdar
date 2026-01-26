@@ -1,0 +1,13 @@
+<div class="epic-card">
+    <div class="epic-header">
+        <a href="{{ printf "/epics/%s/" (lower .epic.prefix) | relURL }}" class="epic-title">
+            <span class="epic-prefix">{{ .epic.prefix }}</span>
+            {{ .epic.name }}
+        </a>
+        <span class="epic-completion">{{ .done }}/{{ .total }} ({{ .percent }}%)</span>
+    </div>
+    <p class="epic-description">{{ .epic.description }}</p>
+    <div class="progress-bar">
+        <div class="progress-fill" style="width: {{ .percent }}%;"></div>
+    </div>
+</div>

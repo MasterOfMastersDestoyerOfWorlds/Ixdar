@@ -1,0 +1,24 @@
+baseURL = '/'
+languageCode = 'en-us'
+title = 'Ixdar Tickets'
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+
+[[module.mounts]]
+source = "content-hugo"
+target = "content"
+
+[[module.mounts]]
+source = "static"
+target = "static"
+
+[[module.mounts]]
+source = "layouts"
+target = "layouts"
+
+[[module.mounts]]
+source = "content"
+target = "data/tickets"

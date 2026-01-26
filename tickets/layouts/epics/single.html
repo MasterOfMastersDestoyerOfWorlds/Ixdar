@@ -1,0 +1,77 @@
+{{ define "title" }}{{ .Params.prefix }} - {{ .Site.Title }}{{ end }}
+
+{{ define "main" }}
+{{ $prefix := .Params.prefix }}
+{{ $ticketsData := .Site.Data.tickets }}
+
+{{/* Find the epic data */}}
+{{ $epic := dict }}
+{{ range $ticketsData.epics.epics }}
+    {{ if eq .prefix $prefix }}
+        {{ $epic = . }}
+    {{ end }}
+{{ end }}
+
+{{/* Get the category data for this prefix */}}
+{{ $categoryData := index $ticketsData $prefix }}
+
+
+<div class="epic-page">
+    <h1>
+        <span class="epic-prefix">{{ $epic.prefix }}</span>
+        {{ $epic.name }}
+    </h1>
+    <p class="epic-description">{{ $epic.description }}</p>
+    
+    {{ $total := len $epic.children }}
+    {{ $done := 0 }}
+    
+    <div class="tickets-list">
+        <h2>Tickets</h2>
+        <table class="tickets-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+            {{ range $epic.children }}
+                {{ $ticketId := . }}
+                {{ $ticket := index $categoryData $ticketId }}
+                
+                {{ if $ticket }}
+                {{ $status := $ticket.status | default "TODO" }}
+                {{ if eq $status "DONE" }}
+                    {{ $done = add $done 1 }}
+                {{ end }}
+                
+                <tr>
+                    <td>
+                        <a href="{{ printf "/tickets/%s/" (lower $ticketId) | relURL }}">{{ $ticketId }}</a>
+                    </td>
+                    <td>{{ $ticket.title }}</td>
+                    <td>
+                        {{ partial "status-badge.html" (dict "status" $status) }}
+                    </td>
+                </tr>
+                {{ end }}
+            {{ end }}
+            </tbody>
+        </table>
+    </div>
+    
+    {{ $percent := 0 }}
+    {{ if gt $total 0 }}
+        {{ $percent = div (mul $done 100) $total }}
+    {{ end }}
+    
+    <div class="epic-summary">
+        <strong>Progress:</strong> {{ $done }}/{{ $total }} tickets complete ({{ $percent }}%)
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {{ $percent }}%;"></div>
+        </div>
+    </div>
+</div>
+{{ end }}
