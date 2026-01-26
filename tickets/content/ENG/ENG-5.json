@@ -1,0 +1,41 @@
+{
+    "id": "ENG-5",
+    "epic": "ENGINE",
+    "title": "Load Meshes into Game Engine",
+    "description": "Implement mesh loading functionality to import 3D models (OBJ, FBX, or other common formats) into the game engine. The system should parse mesh data (vertices, normals, UVs, indices), upload to GPU buffers, and integrate with the existing rendering pipeline. This will enable rendering of 3D models alongside the current geometry-based rendering.",
+    "blocked-by": [],
+    "blocks": [
+        "UI-5",
+        "ENG-6"
+    ],
+    "status": "TODO",
+    "definition-of-done": "1. Mesh loader can parse at least one common 3D model format (OBJ recommended for simplicity). 2. Loaded meshes are stored in GPU vertex/index buffers. 3. Meshes can be rendered using existing shader system (DiffuseShader or new MeshShader). 4. Integration with Camera3D for proper 3D rendering. 5. Basic error handling for invalid/corrupted mesh files. 6. Memory management - meshes can be unloaded/cleaned up.",
+    "testing-plan": "1. Manual Testing: Load various mesh files (simple cube, complex model) and verify correct rendering. Test with different camera angles and zoom levels. 2. Unit Tests: Create MeshLoaderTest.java with tests for: parseOBJFile (valid/invalid files), vertexBufferCreation, indexBufferCreation, normalCalculation (if auto-generated), textureCoordinateHandling. 3. Integration Tests: Verify mesh rendering integrates with existing Camera3D and shader system. Test multiple meshes rendered simultaneously. 4. Performance Testing: Measure load times and memory usage for various mesh complexities.",
+    "todos": [
+        "Research mesh loading library options (ASSIMP, JOML with manual parsing, or lightweight OBJ parser)",
+        "Design Mesh class structure (vertices, normals, UVs, indices, VAO/VBO/IBO references)",
+        "Implement mesh file parser (start with OBJ format)",
+        "Create MeshLoader utility class with loadMesh() method",
+        "Integrate with Platform abstraction for file loading (similar to loadTexture)",
+        "Create or extend shader for mesh rendering (may use existing DiffuseShader)",
+        "Add Mesh to rendering pipeline (draw method that binds VAO and draws)",
+        "Integrate with Camera3D for proper 3D transforms",
+        "Add error handling for invalid files and missing data",
+        "Test with various mesh files and verify rendering quality"
+    ],
+    "unknowns": [
+        "Which mesh format to prioritize (OBJ is simple but limited, FBX/glTF more complex but feature-rich)",
+        "Whether to use ASSIMP library (C++ bindings) or implement lightweight parser",
+        "Shader requirements - can existing DiffuseShader handle meshes or need new MeshShader?",
+        "Memory management strategy - should meshes be cached or reloaded each time?",
+        "Whether to support materials/textures in initial implementation or just geometry"
+    ],
+    "changes-made": [],
+    "related-files": [
+        "ixdar-app/src/main/java/ixdar/graphics/render/",
+        "ixdar-app/src/main/java/ixdar/platform/gl/Platform.java",
+        "ixdar-app/src/main/java/ixdar/graphics/cameras/Camera3D.java",
+        "ixdar-app/src/main/java/ixdar/graphics/render/shaders/DiffuseShader.java",
+        "TODO.md (mentions ASSIMP Model loading)"
+    ]
+}
