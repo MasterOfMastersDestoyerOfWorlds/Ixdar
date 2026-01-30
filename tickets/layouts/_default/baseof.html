@@ -10,6 +10,9 @@
     <header class="site-header">
         <nav>
             <a href="{{ "/" | relURL }}" class="site-title">{{ .Site.Title }}</a>
+            <div class="nav-links">
+                <a href="{{ "/assets/" | relURL }}" class="nav-link">Assets</a>
+            </div>
             {{ if .Params.epic }}
             <span class="breadcrumb-sep">/</span>
             <a href="{{ printf "/epics/%s/" (lower .Params.epic) | relURL }}">{{ .Params.epic }}</a>

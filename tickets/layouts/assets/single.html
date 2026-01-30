@@ -1,0 +1,97 @@
+{{ define "title" }}Game Assets - {{ .Site.Title }}{{ end }}
+
+{{ define "main" }}
+<div class="assets-page">
+    <h1>Game Assets</h1>
+    <p class="assets-intro">Complete list of 2D, 3D, audio, and other assets required for Ixdar, derived from ticket requirements.</p>
+    
+    {{ $csvFile := resources.Get "game_assets.csv" }}
+    {{ if $csvFile }}
+    {{ $csv := $csvFile | transform.Unmarshal (dict "delimiter" ",") }}
+    {{ $rows := after 1 $csv }}
+    
+    {{/* Count assets by type */}}
+    {{ $model3d := 0 }}{{ $art2d := 0 }}{{ $audio := 0 }}{{ $ui := 0 }}{{ $anim := 0 }}{{ $vfx := 0 }}{{ $env := 0 }}
+    {{ range $row := $rows }}
+        {{ $type := index $row 0 }}
+        {{ if eq $type "3D Model" }}{{ $model3d = add $model3d 1 }}{{ end }}
+        {{ if eq $type "2D Art" }}{{ $art2d = add $art2d 1 }}{{ end }}
+        {{ if eq $type "Audio" }}{{ $audio = add $audio 1 }}{{ end }}
+        {{ if eq $type "UI Element" }}{{ $ui = add $ui 1 }}{{ end }}
+        {{ if eq $type "Animation" }}{{ $anim = add $anim 1 }}{{ end }}
+        {{ if eq $type "VFX" }}{{ $vfx = add $vfx 1 }}{{ end }}
+        {{ if eq $type "Environment" }}{{ $env = add $env 1 }}{{ end }}
+    {{ end }}
+    
+    {{/* Summary at top */}}
+    <section class="asset-summary">
+        <h2>Summary</h2>
+        <p><strong>Total Assets:</strong> {{ len $rows }}</p>
+        <ul class="summary-list">
+            <li>3D Model: {{ $model3d }}</li>
+            <li>2D Art: {{ $art2d }}</li>
+            <li>Audio: {{ $audio }}</li>
+            <li>UI Element: {{ $ui }}</li>
+            <li>Animation: {{ $anim }}</li>
+            <li>VFX: {{ $vfx }}</li>
+            <li>Environment: {{ $env }}</li>
+        </ul>
+    </section>
+    
+    {{/* Filter controls */}}
+    <div class="filter-controls">
+        <label>Filter by type:</label>
+        <select id="asset-filter" onchange="filterAssets(this.value)">
+            <option value="all">All Types</option>
+            <option value="3D Model">3D Model ({{ $model3d }})</option>
+            <option value="2D Art">2D Art ({{ $art2d }})</option>
+            <option value="Audio">Audio ({{ $audio }})</option>
+            <option value="UI Element">UI Element ({{ $ui }})</option>
+            <option value="Animation">Animation ({{ $anim }})</option>
+            <option value="VFX">VFX ({{ $vfx }})</option>
+            <option value="Environment">Environment ({{ $env }})</option>
+        </select>
+    </div>
+    
+    {{/* Full asset table */}}
+    <table class="assets-table" id="assets-table">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Source</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range $row := $rows }}
+            <tr data-type="{{ index $row 0 }}">
+                <td class="asset-type-cell">{{ index $row 0 }}</td>
+                <td class="asset-name">{{ index $row 1 }}</td>
+                <td class="asset-desc">{{ index $row 2 }}</td>
+                <td class="asset-source">
+                    {{ $ticketId := index $row 3 }}
+                    <a href="{{ printf "/tickets/%s/" (lower $ticketId) | relURL }}">{{ $ticketId }}</a>
+                </td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+    
+    <script>
+    function filterAssets(type) {
+        const rows = document.querySelectorAll('#assets-table tbody tr');
+        rows.forEach(row => {
+            if (type === 'all' || row.dataset.type === type) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+    </script>
+    {{ else }}
+    <p>Error: Could not load game_assets.csv</p>
+    {{ end }}
+</div>
+{{ end }}

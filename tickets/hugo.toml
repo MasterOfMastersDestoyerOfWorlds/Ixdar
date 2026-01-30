@@ -22,3 +22,7 @@ target = "layouts"
 [[module.mounts]]
 source = "content"
 target = "data/tickets"
+
+[[module.mounts]]
+source = "assets"
+target = "assets"
