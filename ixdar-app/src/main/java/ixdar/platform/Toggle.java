@@ -28,7 +28,8 @@ public enum Toggle {
     CanSwitchTopLayer(true, "topLayer"),
     KnotSurfaceViewSimpleCut(false, "ksvSimpleCut"),
     RecordKnotAnimation(false, "recordKnotAnim"),
-    ScalePath(true, "scalePath");
+    ScalePath(true, "scalePath"),
+    GameMode(true, false, "gameMode");
 
     private boolean initialValue;
     public boolean value;

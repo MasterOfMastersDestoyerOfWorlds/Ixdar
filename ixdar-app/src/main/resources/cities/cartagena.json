@@ -1,0 +1,10 @@
+{
+    "id": "cartagena",
+    "name": "Cartagena",
+    "x": 550.0,
+    "y": 150.0,
+    "population": 18000,
+    "resources": ["gold", "silver", "gems"],
+    "produces": {"gold": 8, "silver": 12},
+    "consumes": {"textiles": 15, "tools": 12, "lumber": 8}
+}

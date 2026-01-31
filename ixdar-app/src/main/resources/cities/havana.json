@@ -1,0 +1,10 @@
+{
+    "id": "havana",
+    "name": "Havana",
+    "x": 120.0,
+    "y": 400.0,
+    "population": 15000,
+    "resources": ["tobacco", "cigars", "sugar"],
+    "produces": {"tobacco": 25, "cigars": 15},
+    "consumes": {"grain": 15, "lumber": 10, "textiles": 8}
+}

@@ -13,6 +13,7 @@ import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.sdf.SDFUnion;
 import ixdar.gui.ui.Drawing;
 import ixdar.platform.Platforms;
+import ixdar.platform.Toggle;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.input.MouseTrap;
 
@@ -37,6 +38,9 @@ public class MenuBox implements MouseTrap.ScrollHandler {
     public SDFTexture logo;
     private Bounds scrollBounds;
 
+    private static Menu debugMenu;
+    private static Menu gameMenu;
+
     public MenuBox() {
         alpha = 0.95f;
 
@@ -48,10 +52,35 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         logo = new SDFTexture("decal_sdf.png", Color.DARK_IXDAR, 0.9f, 0f, true);
         boundingBox = new ColorBox();
         String cachedFileName = FileManagement.getTestFileCache();
-        activeMenu = new Menu.MainMenu(cachedFileName);
+
+        // Create both menus and link them
+        debugMenu = new Menu.MainMenu(cachedFileName);
+        gameMenu = new GameMenu(debugMenu);
+
+        // Select active menu based on GameMode toggle
+        if (Toggle.GameMode.value) {
+            activeMenu = gameMenu;
+        } else {
+            activeMenu = debugMenu;
+        }
         menuItems = activeMenu.loadMenu();
         scrollBounds = new Bounds(0, 0, 0, 0, "MENU_SCROLL");
         MouseTrap.subscribeScrollRegion(scrollBounds, this);
+    }
+
+    /**
+     * Switch between debug and game menus based on Toggle.GameMode
+     */
+    public static void refreshMenuForMode() {
+        if (Toggle.GameMode.value) {
+            if (gameMenu != null) {
+                load(gameMenu);
+            }
+        } else {
+            if (debugMenu != null) {
+                load(debugMenu);
+            }
+        }
     }
 
     public void draw(Camera camera) {

@@ -29,8 +29,11 @@ import ixdar.platform.input.KeyActions;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.scenes.main.MainScene;
+import ixdar.scenes.trade.TradeScene;
 
 public class Canvas3D extends SceneDrawable {
+    public static Canvas3D instance;
+
     protected DiffuseShader shader;
     public MenuBox menu;
     public boolean changedSize = false;
@@ -54,6 +57,7 @@ public class Canvas3D extends SceneDrawable {
     public static final String DEFAULT_VIEW = "MAIN";
 
     public Canvas3D() {
+        instance = this;
         activate(true);
         platform = Platforms.get();
         active = true;
@@ -146,7 +150,9 @@ public class Canvas3D extends SceneDrawable {
             fluid.draw(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), null, camera2D);
         }
 
-        if (MainScene.main != null && !MenuBox.menuVisible) {
+        if (TradeScene.active && TradeScene.instance != null && !MenuBox.menuVisible) {
+            TradeScene.instance.draw(camera2D);
+        } else if (MainScene.main != null && !MenuBox.menuVisible) {
             MainScene.main.draw(camera2D);
         }
 

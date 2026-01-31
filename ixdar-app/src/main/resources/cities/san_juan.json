@@ -1,0 +1,10 @@
+{
+    "id": "san_juan",
+    "name": "San Juan",
+    "x": 600.0,
+    "y": 320.0,
+    "population": 9000,
+    "resources": ["cotton", "textiles", "sugar"],
+    "produces": {"cotton": 18, "textiles": 10},
+    "consumes": {"tools": 7, "grain": 8, "rum": 4}
+}

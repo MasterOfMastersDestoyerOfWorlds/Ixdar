@@ -1,0 +1,10 @@
+{
+    "id": "port_royal",
+    "name": "Port Royal",
+    "x": 150.0,
+    "y": 200.0,
+    "population": 8000,
+    "resources": ["sugar", "rum", "tobacco"],
+    "produces": {"sugar": 15, "rum": 8},
+    "consumes": {"grain": 10, "tools": 5, "textiles": 3}
+}

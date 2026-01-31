@@ -1,0 +1,10 @@
+{
+    "id": "kingston",
+    "name": "Kingston",
+    "x": 250.0,
+    "y": 180.0,
+    "population": 12000,
+    "resources": ["coffee", "spices", "lumber"],
+    "produces": {"coffee": 12, "lumber": 20},
+    "consumes": {"rum": 5, "tools": 8, "textiles": 6}
+}

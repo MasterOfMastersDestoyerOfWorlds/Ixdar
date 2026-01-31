@@ -1,0 +1,10 @@
+{
+    "id": "nassau",
+    "name": "Nassau",
+    "x": 400.0,
+    "y": 350.0,
+    "population": 5000,
+    "resources": ["fish", "salt", "cotton"],
+    "produces": {"fish": 18, "salt": 10},
+    "consumes": {"sugar": 4, "rum": 8, "tools": 3}
+}
