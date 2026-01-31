@@ -275,6 +275,9 @@ public class TradeScene {
         keys.active = false;
         mouse.active = false;
         MenuBox.menuVisible = true;
+        if (canvas != null) {
+            canvas.activate(true);  // Restore menu input handling
+        }
     }
 
     // Static tooltip methods
