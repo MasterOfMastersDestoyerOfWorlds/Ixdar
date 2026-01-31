@@ -1,11 +1,17 @@
-package ixdar.game.data;
+package ixdar.game;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
+
+import org.joml.Vector2f;
 
 import ixdar.geometry.point.PointND;
+import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.sdf.SDFCircleSimple;
 import ixdar.graphics.render.text.HyperString;
+import ixdar.gui.ui.Drawing;
 
 /**
  * Represents a city in the trade game.
@@ -13,6 +19,11 @@ import ixdar.graphics.render.text.HyperString;
  * buy/sell goods, and create trade routes.
  */
 public class City {
+    public static final float CITY_RADIUS = 20f;
+    public static final float CLICK_RADIUS = 20f;
+
+    private static SDFCircleSimple cityCircle = new SDFCircleSimple();
+
     public String id;
     public String name;
     public PointND.Float location;
@@ -140,6 +151,101 @@ public class City {
             nameLabel.addWord(name, Color.WHITE);
         }
         return nameLabel;
+    }
+
+    /**
+     * Calculate the distance from this city to another
+     * @param other the other city
+     * @return euclidean distance between the two cities
+     */
+    public float getDistanceFrom(City other) {
+        float dx = getX() - other.getX();
+        float dy = getY() - other.getY();
+        return (float) Math.sqrt(dx * dx + dy * dy);
+    }
+
+    /**
+     * Draw this city on the screen
+     * @param camera the camera for coordinate transformation
+     * @param isHQ true if this city is the headquarters
+     * @param isHovered true if this city is currently hovered
+     */
+    public void draw(Camera2D camera, boolean isHQ, boolean isHovered) {
+        Color cityColor = Color.CYAN;
+        if (isHQ) {
+            cityColor = Color.YELLOW;
+        } else if (isHovered) {
+            cityColor = Color.GREEN;
+        }
+
+        float screenX = camera.pointTransformX(getX());
+        float screenY = camera.pointTransformY(getY());
+        Vector2f screenPos = new Vector2f(screenX, screenY);
+
+        cityCircle.draw(screenPos, CITY_RADIUS, cityColor, camera);
+
+        float labelScreenY = screenY - CITY_RADIUS - 20;
+        Drawing.getDrawing().font.drawHyperString(getNameLabel(), screenX, labelScreenY, Drawing.FONT_HEIGHT_PIXELS, camera);
+    }
+
+    /**
+     * Build a tooltip HyperString with city information
+     * @param headquartersCity the player's headquarters city, or null if not set
+     * @return HyperString containing city tooltip information
+     */
+    public HyperString buildTooltip(City headquartersCity) {
+        HyperString tip = new HyperString();
+
+        tip.addWord(name, Color.WHITE);
+        tip.newLine();
+
+        tip.addWord("Pop: " + population, Color.LIGHT_GRAY);
+        tip.newLine();
+
+        if (!resources.isEmpty()) {
+            tip.addWord("Resources: ", Color.LIGHT_GRAY);
+            for (int i = 0; i < resources.size(); i++) {
+                String resource = resources.get(i);
+                tip.addWord(resource, Color.CYAN);
+                if (i < resources.size() - 1) {
+                    tip.addWord(", ", Color.LIGHT_GRAY);
+                }
+            }
+            tip.newLine();
+        }
+
+        if (!produces.isEmpty()) {
+            tip.addWord("Produces: ", Color.LIGHT_GRAY);
+            boolean first = true;
+            for (Map.Entry<String, Integer> entry : produces.entrySet()) {
+                if (!first) {
+                    tip.addWord(", ", Color.LIGHT_GRAY);
+                }
+                tip.addWord(entry.getKey() + " (" + entry.getValue() + ")", Color.GREEN);
+                first = false;
+            }
+            tip.newLine();
+        }
+
+        if (!consumes.isEmpty()) {
+            tip.addWord("Consumes: ", Color.LIGHT_GRAY);
+            boolean first = true;
+            for (Map.Entry<String, Integer> entry : consumes.entrySet()) {
+                if (!first) {
+                    tip.addWord(", ", Color.LIGHT_GRAY);
+                }
+                tip.addWord(entry.getKey() + " (" + entry.getValue() + ")", Color.ORANGE);
+                first = false;
+            }
+            tip.newLine();
+        }
+
+        if (headquartersCity != null && headquartersCity != this) {
+            float distance = getDistanceFrom(headquartersCity);
+            tip.addWord("Distance from HQ: " + String.format("%.1f", distance), Color.YELLOW);
+        }
+
+        return tip;
     }
 
     @Override

@@ -135,6 +135,7 @@ id = a >= b ? a * a + a + b : b + a + b * b;
 - Obvious getters/setters
 - Common patterns like modulo wrapping, list operations
 - Comments that restate what the code does
+- MOST METHODS SHOULD HAVE ZERO COMMENTS IN THE BODY
 
 ```java
 // ❌ BAD - modulo wrapping is common, no comment needed

@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Random;
 
 import ixdar.canvas.Canvas3D;
-import ixdar.game.data.City;
+import ixdar.game.City;
 import ixdar.scenes.trade.TradeScene;
 
 /**

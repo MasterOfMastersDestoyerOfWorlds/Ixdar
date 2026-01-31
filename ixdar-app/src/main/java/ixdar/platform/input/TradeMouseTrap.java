@@ -6,7 +6,7 @@ import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import org.joml.Vector2f;
 
 import ixdar.canvas.Canvas3D;
-import ixdar.game.data.City;
+import ixdar.game.City;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Clock;
 import ixdar.platform.Platforms;
