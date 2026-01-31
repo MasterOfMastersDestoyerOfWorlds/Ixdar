@@ -225,6 +225,11 @@ public class SDFLine extends ShaderDrawable {
         bottomRight = new Vector2f(pB).sub(normalUnitVector).sub(lineVectorA);
         uAxis = new Vector2f(bottomRight).sub(bottomLeft);
         vAxis = new Vector2f(topLeft).sub(bottomLeft);
+        width = uAxis.length();
+        height = vAxis.length();
+        widthToHeightRatio = width / height;
+        texWidth = widthToHeightRatio;
+        texHeight = 1;
         pATex = toScaledTextureSpace(pA);
         pBTex = toScaledTextureSpace(pB);
     }

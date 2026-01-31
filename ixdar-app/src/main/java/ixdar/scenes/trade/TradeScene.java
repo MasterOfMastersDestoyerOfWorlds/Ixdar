@@ -28,8 +28,8 @@ import ixdar.platform.input.TradeKeyGuy;
 import ixdar.platform.input.TradeMouseTrap;
 
 /**
- * The main scene for the trade game.
- * Handles rendering cities, camera controls, and player interactions.
+ * The main scene for the trade game. Handles rendering cities, camera controls,
+ * and player interactions.
  */
 public class TradeScene {
 
@@ -80,7 +80,7 @@ public class TradeScene {
         // Create tools
         hqPickerTool = new HeadquartersPickerTool(this, network);
         routePlanningTool = new RoutePlanningTool(this, network);
-        activeTool = hqPickerTool;  // Start with HQ picker
+        activeTool = hqPickerTool; // Start with HQ picker
 
         // Create input handlers
         keys = new TradeKeyGuy(this, camera, canvas);
@@ -202,6 +202,7 @@ public class TradeScene {
 
     /**
      * Find which city is at the given world coordinates
+     * 
      * @param worldX x coordinate in world space
      * @param worldY y coordinate in world space
      * @return the city at that location, or null if none
@@ -212,6 +213,7 @@ public class TradeScene {
 
     /**
      * Handle city click - delegates to the active tool
+     * 
      * @param city the city that was clicked
      */
     public void onCityClick(City city) {
@@ -233,6 +235,7 @@ public class TradeScene {
 
     /**
      * Get the headquarters city
+     * 
      * @return the headquarters city, or null if not set
      */
     public City getHeadquartersCity() {
@@ -241,6 +244,7 @@ public class TradeScene {
 
     /**
      * Update the currently hovered city and tooltip
+     * 
      * @param city the city being hovered, or null if none
      */
     public void updateHoveredCity(City city) {
@@ -287,8 +291,9 @@ public class TradeScene {
 
     /**
      * Start a new trade game with the given city network
+     * 
      * @param network the city network containing cities and roads
-     * @param canvas the 3D canvas
+     * @param canvas  the 3D canvas
      * @return the created TradeScene
      */
     public static TradeScene startNewGame(CityNetwork network, Canvas3D canvas) {
@@ -300,8 +305,9 @@ public class TradeScene {
     }
 
     /**
-     * Start a new trade game with the given cities (convenience method)
-     * Creates a CityNetwork from the cities with proximity-based roads.
+     * Start a new trade game with the given cities (convenience method) Creates a
+     * CityNetwork from the cities with proximity-based roads.
+     * 
      * @param cities list of cities
      * @param canvas the 3D canvas
      * @return the created TradeScene
