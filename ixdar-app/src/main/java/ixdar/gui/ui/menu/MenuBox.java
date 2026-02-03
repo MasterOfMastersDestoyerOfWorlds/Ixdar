@@ -198,4 +198,24 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         }
     }
 
+    /**
+     * Get the calculated item height for menu buttons. Returns 0 if textures are
+     * not yet loaded.
+     * 
+     * @return the height of each menu item in pixels
+     */
+    public float getItemHeight() {
+        return itemHeight;
+    }
+
+    /**
+     * Get the calculated item width for menu buttons. Returns 0 if textures are not
+     * yet loaded.
+     * 
+     * @return the width of each menu item in pixels
+     */
+    public float getItemWidth() {
+        return itemWidth;
+    }
+
 }
