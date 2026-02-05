@@ -217,9 +217,13 @@ public class TradeScene {
      * @param city the city that was clicked
      */
     public void onCityClick(City city) {
+        System.out.println("[TradeScene] onCityClick: " + (city != null ? city.name : "null") +
+                " activeTool=" + activeTool.displayName());
         if (activeTool instanceof HeadquartersPickerTool) {
+            System.out.println("[TradeScene] Forwarding to HeadquartersPickerTool");
             ((HeadquartersPickerTool) activeTool).onCityClick(city);
         } else if (activeTool instanceof RoutePlanningTool) {
+            System.out.println("[TradeScene] Forwarding to RoutePlanningTool");
             ((RoutePlanningTool) activeTool).onCityClick(city);
         }
     }
@@ -276,7 +280,7 @@ public class TradeScene {
         mouse.active = false;
         MenuBox.menuVisible = true;
         if (canvas != null) {
-            canvas.activate(true);  // Restore menu input handling
+            canvas.activate(true); // Restore menu input handling
         }
     }
 

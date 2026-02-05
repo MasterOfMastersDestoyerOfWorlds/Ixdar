@@ -3,17 +3,20 @@ package ixdar.game;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import ixdar.geometry.knot.Knot;
 import ixdar.geometry.point.Grid;
 import ixdar.geometry.point.PointND;
 import ixdar.geometry.point.PointSet;
+import ixdar.geometry.shell.DistanceMatrix;
 import ixdar.geometry.shell.Shell;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.sdf.SDFLine;
 
 /**
- * Represents the network of cities and roads in the trade game world.
- * This is the infrastructure that exists - all possible routes between cities.
- * Distinct from player routes (Knot) which are the actual trade routes built by the player.
+ * Represents the network of cities and roads in the trade game world. This is
+ * the infrastructure that exists - all possible routes between cities. Distinct
+ * from player routes (Knot) which are the actual trade routes built by the
+ * player.
  */
 public class CityNetwork {
 
@@ -25,8 +28,14 @@ public class CityNetwork {
     private HashMap<String, City> cityLookup;
     private SDFLine roadLine = new SDFLine();
 
+    // Trade route infrastructure
+    private Shell tradeShell;
+    private HashMap<City, Knot> cityToKnot = new HashMap<>();
+    private boolean tradeInitialized = false;
+
     /**
      * Create an empty city network with the given grid type
+     * 
      * @param grid the grid for city placement (CartesianGrid or HexGrid)
      */
     public CityNetwork(Grid grid) {
@@ -38,8 +47,9 @@ public class CityNetwork {
 
     /**
      * Create a city network with existing cities
+     * 
      * @param cities list of cities
-     * @param grid the grid for city placement
+     * @param grid   the grid for city placement
      */
     public CityNetwork(ArrayList<City> cities, Grid grid) {
         this.grid = grid;
@@ -53,6 +63,7 @@ public class CityNetwork {
 
     /**
      * Add a city to the network
+     * 
      * @param city the city to add
      */
     public void addCity(City city) {
@@ -62,6 +73,7 @@ public class CityNetwork {
 
     /**
      * Get a city by its ID
+     * 
      * @param id the city ID
      * @return the city, or null if not found
      */
@@ -71,6 +83,7 @@ public class CityNetwork {
 
     /**
      * Find which city is at the given world coordinates
+     * 
      * @param worldX x coordinate in world space
      * @param worldY y coordinate in world space
      * @param radius click radius threshold
@@ -87,8 +100,9 @@ public class CityNetwork {
 
     /**
      * Add a road between two cities
+     * 
      * @param from the first city
-     * @param to the second city
+     * @param to   the second city
      */
     public void addRoad(City from, City to) {
         if (getRoad(from, to) == null) {
@@ -98,6 +112,7 @@ public class CityNetwork {
 
     /**
      * Get the road between two cities
+     * 
      * @param a first city
      * @param b second city
      * @return the road, or null if no direct road exists
@@ -113,6 +128,7 @@ public class CityNetwork {
 
     /**
      * Check if two cities are connected by a road
+     * 
      * @param a first city
      * @param b second city
      * @return true if a road exists between them
@@ -123,6 +139,7 @@ public class CityNetwork {
 
     /**
      * Get all cities connected to a given city by roads
+     * 
      * @param from the city to find connections for
      * @return list of connected cities
      */
@@ -140,6 +157,7 @@ public class CityNetwork {
 
     /**
      * Generate roads between cities based on proximity
+     * 
      * @param maxDistance maximum distance for automatic road creation
      */
     public void generateRoadsFromProximity(float maxDistance) {
@@ -154,9 +172,11 @@ public class CityNetwork {
             }
         }
     }
+
     /**
      * Draw the entire network (cities and roads)
-     * @param camera the camera for coordinate transformation
+     * 
+     * @param camera      the camera for coordinate transformation
      * @param hoveredCity the currently hovered city, or null
      */
     public void draw(Camera2D camera, City hoveredCity) {
@@ -172,6 +192,7 @@ public class CityNetwork {
 
     /**
      * Set the headquarters city
+     * 
      * @param city the city to set as headquarters
      */
     public void setHeadquarters(City city) {
@@ -184,8 +205,79 @@ public class CityNetwork {
         }
     }
 
+    // ==================== TRADE ROUTE SUPPORT ====================
+
+    /**
+     * Initialize the trade route infrastructure. Creates a Shell and wraps each
+     * city as a singleton Knot. Call this before any route operations.
+     */
+    public void initTradeRoutes() {
+        if (tradeInitialized) {
+            return;
+        }
+
+        tradeShell = new Shell();
+        cityToKnot.clear();
+
+        // Create a point for each city and wrap as a Knot
+        int id = 0;
+        for (City city : cities) {
+            PointND.Float point = new PointND.Float(city.getX(), city.getY());
+            point.setID(id);
+            tradeShell.add(point);
+
+            // Create singleton Knot for this city
+            Knot knot = new Knot(point, tradeShell);
+            cityToKnot.put(city, knot);
+            city.setKnot(knot);
+
+            id++;
+        }
+
+        // Initialize distance matrix from point set
+        tradeShell.distanceMatrix = new DistanceMatrix(tradeShell.toPointSet());
+
+        tradeInitialized = true;
+        System.out.println("Trade routes initialized for " + cities.size() + " cities");
+    }
+
+    /**
+     * Get the Knot wrapper for a city.
+     * 
+     * @param city the city
+     * @return the Knot for this city, or null if not initialized
+     */
+    public Knot getKnotForCity(City city) {
+        if (!tradeInitialized) {
+            initTradeRoutes();
+        }
+        return cityToKnot.get(city);
+    }
+
+    /**
+     * Get the trade Shell.
+     * 
+     * @return the Shell used for trade routes
+     */
+    public Shell getTradeShell() {
+        if (!tradeInitialized) {
+            initTradeRoutes();
+        }
+        return tradeShell;
+    }
+
+    /**
+     * Check if trade routes have been initialized.
+     * 
+     * @return true if initialized
+     */
+    public boolean isTradeInitialized() {
+        return tradeInitialized;
+    }
+
     /**
      * Create a PointSet from all cities for camera bounds calculation
+     * 
      * @return PointSet containing all city locations
      */
     public PointSet toPointSet() {

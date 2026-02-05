@@ -6,131 +6,936 @@ import org.joml.Vector2f;
 
 import ixdar.game.City;
 import ixdar.game.CityNetwork;
-import ixdar.game.Road;
+import ixdar.geometry.knot.CollapseRecord;
+import ixdar.geometry.knot.GrowRecord;
+import ixdar.geometry.knot.Knot;
+import ixdar.geometry.knot.OperationRecord;
+import ixdar.geometry.knot.PipeRecord;
+import ixdar.geometry.knot.RouteOperationStack;
+import ixdar.geometry.knot.Segment;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorRGB;
+import ixdar.graphics.render.sdf.SDFCircleSimple;
 import ixdar.graphics.render.sdf.SDFLine;
 import ixdar.graphics.render.text.HyperString;
+import ixdar.platform.Platforms;
 import ixdar.scenes.trade.TradeScene;
 
 /**
- * Tool for planning and building trade routes between cities.
- * Activated after the player selects their headquarters.
+ * Tool for planning and building trade routes between cities. Supports Pipe,
+ * Grow, and Collapse operations with undo/redo. Activated after the player
+ * selects their headquarters.
  */
 public class RoutePlanningTool extends Tool {
 
-    public enum State {
-        SelectStart,   // Pick first city for route (must be HQ or connected to existing route)
-        ExtendRoute,   // Add cities to current route
-        ConfirmRoute   // Review and finalize the route
+    // ==================== ENUMS ====================
+
+    /**
+     * Operation modes for route planning.
+     */
+    public enum Mode {
+        PIPE, // Connect two knots
+        GROW, // Insert city into route edge
+        COLLAPSE // Convert double-pipes to single
     }
+
+    /**
+     * State within an operation.
+     */
+    public enum OperationState {
+        IDLE, // Waiting for first selection
+        KNOT_A_SELECTED, // First knot chosen, waiting for second
+        PREVIEW, // Showing operation preview, can adjust edges
+        CONFIRMED // Operation executed
+    }
+
+    // ==================== FIELDS ====================
 
     private TradeScene tradeScene;
     private CityNetwork network;
-    private State state = State.SelectStart;
-    private ArrayList<City> routeCities = new ArrayList<>();
-    private City hoveredCity;
-    private SDFLine routeLine = new SDFLine();
 
-    private static final Color ROUTE_PREVIEW_COLOR = Color.MAGENTA;
-    private static final Color ROUTE_PREVIEW_HOVER_COLOR = new ColorRGB(1f, 0f, 1f, 0.5f);
+    // Operation state
+    private Mode currentMode = Mode.PIPE;
+    private OperationState state = OperationState.IDLE;
+
+    // Selection state
+    private Knot selectedKnotA;
+    private Knot selectedKnotB;
+    private Segment selectedEdgeA;
+    private Segment selectedEdgeB;
+    private City selectedCityA;
+    private City selectedCityB;
+
+    // Undo/redo
+    private RouteOperationStack operationStack = new RouteOperationStack();
+
+    // Current route (the player's trade route knot)
+    private Knot currentRoute;
+
+    // Hierarchy navigation
+    private Knot currentViewKnot; // Which level of hierarchy we're viewing/editing
+    private ArrayList<Knot> hierarchyPath = new ArrayList<>(); // Breadcrumb path from root to current
+
+    // Hover state
+    private City hoveredCity;
+    private Segment hoveredEdge;
+
+    // Drawing
+    private SDFLine routeLine = new SDFLine();
+    private SDFCircleSimple buttonCircle = new SDFCircleSimple();
+    private SDFCircleSimple highlightCircle = new SDFCircleSimple();
+
+    // Colors
+    private static final Color ROUTE_COLOR = Color.MAGENTA;
+    private static final Color ROUTE_PREVIEW_COLOR = new ColorRGB(1f, 0f, 1f, 0.5f);
+    private static final Color EDGE_REMOVE_COLOR = new ColorRGB(1f, 0.2f, 0.2f, 0.8f);
+    private static final Color EDGE_ADD_COLOR = new ColorRGB(0.2f, 1f, 0.2f, 0.8f);
+    private static final Color CROSSING_COLOR = new ColorRGB(0.2f, 0.5f, 1f, 0.8f);
+    private static final Color BUTTON_COLOR = new ColorRGB(0.3f, 0.3f, 0.3f, 0.9f);
+    private static final Color BUTTON_SELECTED_COLOR = new ColorRGB(0.5f, 0.5f, 0.8f, 0.9f);
+    private static final Color BUTTON_HOVER_COLOR = new ColorRGB(0.4f, 0.4f, 0.5f, 0.9f);
+    private static final Color SELECTED_KNOT_COLOR = new ColorRGB(1f, 1f, 0f, 0.5f);
+
+    // Toolbar layout
+    private static final float TOOLBAR_HEIGHT = 50f;
+    private static final float BUTTON_SIZE = 40f;
+    private static final float BUTTON_PADDING = 10f;
+
+    // Button hover state
+    private int hoveredButton = -1; // -1 = none, 0 = pipe, 1 = grow, 2 = collapse, 3 = undo, 4 = confirm
+
+    // ==================== CONSTRUCTOR ====================
 
     public RoutePlanningTool(TradeScene tradeScene, CityNetwork network) {
         this.tradeScene = tradeScene;
         this.network = network;
     }
 
+    // ==================== DRAWING ====================
+
+    private static boolean drawDebugPrinted = false;
+    private static boolean circleDebugPrinted = false;
+
     @Override
     public void draw(Camera2D camera, float lineThickness) {
-        if (routeCities.isEmpty()) {
+        if (!drawDebugPrinted) {
+            float wWidth = Platforms.get().getWindowWidth();
+            float wHeight = Platforms.get().getWindowHeight();
+            System.out.println("[RoutePlanningTool] draw() called. Screen: " + wWidth + "x" + wHeight);
+            System.out.println(
+                    "[RoutePlanningTool] Toolbar Y = " + (TOOLBAR_HEIGHT / 2) + " (screen coords, y=0 at bottom)");
+            System.out.println("[RoutePlanningTool] State: " + state + ", Mode: " + currentMode);
+            drawDebugPrinted = true;
+        }
+
+        // Draw current route if exists
+        if (currentRoute != null) {
+            drawKnot(camera, currentRoute, ROUTE_COLOR);
+        }
+
+        // Draw selection highlights
+        if (selectedCityA != null) {
+            drawCityHighlight(camera, selectedCityA, SELECTED_KNOT_COLOR);
+        }
+        if (selectedCityB != null) {
+            drawCityHighlight(camera, selectedCityB, SELECTED_KNOT_COLOR);
+        }
+
+        // Draw preview based on mode and state
+        if (state == OperationState.PREVIEW) {
+            drawOperationPreview(camera);
+        } else if (state == OperationState.KNOT_A_SELECTED && hoveredCity != null) {
+            // Draw preview line to hovered city
+            if (selectedCityA != null && hoveredCity != selectedCityA) {
+                drawPreviewLine(camera, selectedCityA, hoveredCity);
+            }
+        }
+
+        // Draw toolbar
+        drawToolbar(camera);
+
+        // DEBUG: Draw test circle using highlightCircle
+        float wWidth = Platforms.get().getWindowWidth();
+        float wHeight = Platforms.get().getWindowHeight();
+
+        if (network.headquartersCity != null) {
+            float hqX = camera.pointTransformX(network.headquartersCity.getX());
+            float hqY = camera.pointTransformY(network.headquartersCity.getY());
+            if (!circleDebugPrinted) {
+                System.out.println(
+                        "[DEBUG] HQ=" + network.headquartersCity.name + " world(" + network.headquartersCity.getX()
+                                + "," + network.headquartersCity.getY() + ") -> screen(" + hqX + "," + hqY + ")");
+                System.out.println("[DEBUG] Cyan circle at (" + (hqX + 50) + ", " + (hqY + 50) + "), Magenta at ("
+                        + (wWidth / 2) + ", " + (wHeight / 2) + ")");
+                circleDebugPrinted = true;
+            }
+            highlightCircle.draw(new Vector2f(hqX + 50, hqY + 50), 40f, Color.CYAN, camera);
+        }
+
+        highlightCircle.draw(new Vector2f(wWidth / 2, wHeight / 2), 50f, Color.MAGENTA, camera);
+    }
+
+    private void drawKnot(Camera2D camera, Knot knot, Color color) {
+        if (knot == null || knot.manifoldSegments == null) {
             return;
         }
 
         routeLine.setStroke(3f, false);
 
-        // Draw the route being planned
-        for (int i = 0; i < routeCities.size() - 1; i++) {
-            City from = routeCities.get(i);
-            City to = routeCities.get(i + 1);
-            drawRouteLine(camera, from, to, ROUTE_PREVIEW_COLOR);
-        }
-
-        // Draw preview line to hovered city if valid connection
-        if (hoveredCity != null && !routeCities.isEmpty()) {
-            City lastCity = routeCities.get(routeCities.size() - 1);
-            if (canConnectTo(hoveredCity)) {
-                drawRouteLine(camera, lastCity, hoveredCity, ROUTE_PREVIEW_HOVER_COLOR);
+        for (Segment seg : knot.manifoldSegments) {
+            if (seg.first.p != null && seg.last.p != null) {
+                float x1 = camera.pointTransformX((float) seg.first.p.getScreenX());
+                float y1 = camera.pointTransformY((float) seg.first.p.getScreenY());
+                float x2 = camera.pointTransformX((float) seg.last.p.getScreenX());
+                float y2 = camera.pointTransformY((float) seg.last.p.getScreenY());
+                routeLine.draw(new Vector2f(x1, y1), new Vector2f(x2, y2), color, camera);
             }
         }
     }
 
-    private void drawRouteLine(Camera2D camera, City from, City to, Color color) {
+    private void drawCityHighlight(Camera2D camera, City city, Color color) {
+        if (city == null) {
+            return;
+        }
+        float x = camera.pointTransformX(city.getX());
+        float y = camera.pointTransformY(city.getY());
+        highlightCircle.draw(new Vector2f(x, y), 25f, color, camera);
+    }
+
+    private void drawPreviewLine(Camera2D camera, City from, City to) {
+        if (from == null || to == null) {
+            return;
+        }
+        routeLine.setStroke(2f, true);
         float x1 = camera.pointTransformX(from.getX());
         float y1 = camera.pointTransformY(from.getY());
         float x2 = camera.pointTransformX(to.getX());
         float y2 = camera.pointTransformY(to.getY());
+
+        // Draw both directions for loop preview
+        routeLine.draw(new Vector2f(x1, y1), new Vector2f(x2, y2), ROUTE_PREVIEW_COLOR, camera);
+        routeLine.draw(new Vector2f(x2, y2), new Vector2f(x1, y1), ROUTE_PREVIEW_COLOR, camera);
+    }
+
+    private void drawOperationPreview(Camera2D camera) {
+        switch (currentMode) {
+        case PIPE:
+            drawPipePreview(camera);
+            break;
+        case GROW:
+            drawGrowPreview(camera);
+            break;
+        case COLLAPSE:
+            drawCollapsePreview(camera);
+            break;
+        }
+    }
+
+    private void drawPipePreview(Camera2D camera) {
+        if (selectedCityA == null || selectedCityB == null) {
+            return;
+        }
+
+        routeLine.setStroke(3f, false);
+
+        // Draw the new connection (green)
+        float x1 = camera.pointTransformX(selectedCityA.getX());
+        float y1 = camera.pointTransformY(selectedCityA.getY());
+        float x2 = camera.pointTransformX(selectedCityB.getX());
+        float y2 = camera.pointTransformY(selectedCityB.getY());
+        routeLine.draw(new Vector2f(x1, y1), new Vector2f(x2, y2), EDGE_ADD_COLOR, camera);
+        routeLine.draw(new Vector2f(x2, y2), new Vector2f(x1, y1), EDGE_ADD_COLOR, camera);
+
+        // Draw edges to cut (red dashed) if applicable
+        if (selectedEdgeA != null) {
+            drawEdgeHighlight(camera, selectedEdgeA, EDGE_REMOVE_COLOR, true);
+        }
+        if (selectedEdgeB != null) {
+            drawEdgeHighlight(camera, selectedEdgeB, EDGE_REMOVE_COLOR, true);
+        }
+    }
+
+    private void drawGrowPreview(Camera2D camera) {
+        if (selectedCityB == null || selectedEdgeA == null) {
+            return;
+        }
+
+        routeLine.setStroke(3f, false);
+
+        // Draw edge being split (red dashed)
+        drawEdgeHighlight(camera, selectedEdgeA, EDGE_REMOVE_COLOR, true);
+
+        // Draw new edges through inserted city (green)
+        if (selectedEdgeA.first.p != null && selectedCityB != null) {
+            float x1 = camera.pointTransformX((float) selectedEdgeA.first.p.getScreenX());
+            float y1 = camera.pointTransformY((float) selectedEdgeA.first.p.getScreenY());
+            float x2 = camera.pointTransformX(selectedCityB.getX());
+            float y2 = camera.pointTransformY(selectedCityB.getY());
+            routeLine.draw(new Vector2f(x1, y1), new Vector2f(x2, y2), EDGE_ADD_COLOR, camera);
+        }
+        if (selectedEdgeA.last.p != null && selectedCityB != null) {
+            float x1 = camera.pointTransformX(selectedCityB.getX());
+            float y1 = camera.pointTransformY(selectedCityB.getY());
+            float x2 = camera.pointTransformX((float) selectedEdgeA.last.p.getScreenX());
+            float y2 = camera.pointTransformY((float) selectedEdgeA.last.p.getScreenY());
+            routeLine.draw(new Vector2f(x1, y1), new Vector2f(x2, y2), EDGE_ADD_COLOR, camera);
+        }
+    }
+
+    private void drawCollapsePreview(Camera2D camera) {
+        // TODO: Draw collapse preview showing pipes becoming single with crossings
+    }
+
+    private void drawEdgeHighlight(Camera2D camera, Segment edge, Color color, boolean dashed) {
+        if (edge == null || edge.first.p == null || edge.last.p == null) {
+            return;
+        }
+
+        routeLine.setStroke(4f, dashed);
+        float x1 = camera.pointTransformX((float) edge.first.p.getScreenX());
+        float y1 = camera.pointTransformY((float) edge.first.p.getScreenY());
+        float x2 = camera.pointTransformX((float) edge.last.p.getScreenX());
+        float y2 = camera.pointTransformY((float) edge.last.p.getScreenY());
         routeLine.draw(new Vector2f(x1, y1), new Vector2f(x2, y2), color, camera);
     }
 
+    private static boolean toolbarDebugPrinted = false;
+
+    private void drawToolbar(Camera2D camera) {
+        float wWidth = Platforms.get().getWindowWidth();
+        float wHeight = Platforms.get().getWindowHeight();
+
+        // Position toolbar at bottom of screen (y=0 is bottom in OpenGL)
+        float toolbarY = TOOLBAR_HEIGHT / 2;
+        float startX = wWidth / 2 - (3 * BUTTON_SIZE + 2 * BUTTON_PADDING) / 2;
+
+        if (!toolbarDebugPrinted) {
+            System.out.println("[RoutePlanningTool] drawToolbar: wWidth=" + wWidth + " wHeight=" + wHeight);
+            System.out.println(
+                    "[RoutePlanningTool] toolbarY=" + toolbarY + " (bottom, OpenGL y=0 at bottom) startX=" + startX);
+            System.out.println("[RoutePlanningTool] BUTTON_SIZE=" + BUTTON_SIZE + " TOOLBAR_HEIGHT=" + TOOLBAR_HEIGHT);
+            toolbarDebugPrinted = true;
+        }
+
+        // Pipe button
+        drawToolbarButton(camera, startX, toolbarY, 0, "P", currentMode == Mode.PIPE);
+
+        // Grow button
+        drawToolbarButton(camera, startX + BUTTON_SIZE + BUTTON_PADDING, toolbarY, 1, "G", currentMode == Mode.GROW);
+
+        // Collapse button
+        drawToolbarButton(camera, startX + 2 * (BUTTON_SIZE + BUTTON_PADDING), toolbarY, 2, "C",
+                currentMode == Mode.COLLAPSE);
+
+        // Undo button (left side)
+        if (operationStack.canUndo()) {
+            drawToolbarButton(camera, BUTTON_PADDING + BUTTON_SIZE / 2, toolbarY, 3, "Z", false);
+        }
+
+        // Confirm button (right side, only in preview state)
+        if (state == OperationState.PREVIEW) {
+            drawToolbarButton(camera, wWidth - BUTTON_PADDING - BUTTON_SIZE / 2, toolbarY, 4, "OK", false);
+        }
+    }
+
+    private void drawToolbarButton(Camera2D camera, float screenX, float screenY, int buttonIndex, String label,
+            boolean selected) {
+        Color bgColor = BUTTON_COLOR;
+        if (selected) {
+            bgColor = BUTTON_SELECTED_COLOR;
+        } else if (hoveredButton == buttonIndex) {
+            bgColor = BUTTON_HOVER_COLOR;
+        }
+
+        // DEBUG: Try drawing at center of screen to verify draw works
+        float debugX = screenX;
+        float debugY = screenY;
+
+        // Print once per button position
+        if (buttonIndex == 0 && !toolbarDebugPrinted) {
+            System.out.println("[RoutePlanningTool] Drawing button at screen(" + debugX + "," + debugY + ")");
+        }
+
+        // SDFCircle expects screen coordinates directly (like highlightCircle.draw
+        // uses)
+        buttonCircle.draw(new Vector2f(debugX, debugY), BUTTON_SIZE / 2, bgColor, camera);
+
+        // Draw label text (simplified - just uses the letter for now)
+        // In a full implementation, this would draw the actual text
+    }
+
+    // ==================== INPUT HANDLING ====================
+
     /**
-     * Handle a city click during route planning
+     * Handle a city click during route planning.
+     * 
      * @param city the city that was clicked
      */
     public void onCityClick(City city) {
+        System.out.println("[RoutePlanningTool] onCityClick: " + (city != null ? city.name : "null") +
+                " state=" + state + " mode=" + currentMode);
+
         if (city == null) {
             return;
         }
 
         switch (state) {
-            case SelectStart:
-                // Must start from headquarters
+        case IDLE:
+            System.out.println("[RoutePlanningTool] Handling IDLE click");
+            handleIdleClick(city);
+            break;
+        case KNOT_A_SELECTED:
+            System.out.println("[RoutePlanningTool] Handling KNOT_A_SELECTED click");
+            handleSecondClick(city);
+            break;
+        case PREVIEW:
+            System.out.println("[RoutePlanningTool] Handling PREVIEW click");
+            handlePreviewClick(city);
+            break;
+        case CONFIRMED:
+            System.out.println("[RoutePlanningTool] Handling CONFIRMED click - resetting");
+            // Reset and start new operation
+            resetOperation();
+            handleIdleClick(city);
+            break;
+        }
+        System.out.println("[RoutePlanningTool] After click: state=" + state);
+    }
+
+    private void handleIdleClick(City city) {
+        switch (currentMode) {
+        case PIPE:
+            // For initial pipe, first click must be HQ
+            if (currentRoute == null) {
                 if (city == network.headquartersCity) {
-                    routeCities.add(city);
-                    state = State.ExtendRoute;
-                    System.out.println("Route started from HQ: " + city.name);
+                    selectedCityA = city;
+                    state = OperationState.KNOT_A_SELECTED;
+                    System.out.println("Selected HQ: " + city.name);
                 } else {
-                    System.out.println("Route must start from headquarters");
+                    System.out.println("First route must start from HQ");
                 }
-                break;
-
-            case ExtendRoute:
-                if (canConnectTo(city)) {
-                    routeCities.add(city);
-                    System.out.println("Added to route: " + city.name);
-                } else if (routeCities.contains(city)) {
-                    // Clicking an existing city in route could complete a loop
-                    System.out.println("City already in route: " + city.name);
+            } else {
+                // Route exists - check if city is already in route
+                Knot cityKnot = network.getKnotForCity(city);
+                if (cityKnot != null && currentRoute.contains(cityKnot)) {
+                    // City is already in route - select it to adjust edges
+                    selectedCityA = city;
+                    state = OperationState.KNOT_A_SELECTED;
+                    System.out.println("Selected route city: " + city.name + " (in route)");
+                } else if (cityKnot != null && cityKnot.isSingleton()) {
+                    // City is a singleton not in route - auto-setup grow preview
+                    selectedCityB = city;
+                    computeDefaultGrowEdge();
+                    state = OperationState.PREVIEW;
+                    System.out.println("Preview: Add " + city.name + " to route (Enter to confirm)");
                 } else {
-                    System.out.println("Cannot connect to: " + city.name + " (no road)");
+                    // Complex knot not in route
+                    selectedCityA = city;
+                    state = OperationState.KNOT_A_SELECTED;
+                    System.out.println("Selected: " + city.name);
                 }
-                break;
+            }
+            break;
 
-            case ConfirmRoute:
-                // In confirm state, clicking anywhere confirms
-                confirm();
-                break;
+        case GROW:
+            // Grow: first click selects the route (any city in it)
+            if (currentRoute != null) {
+                selectedCityA = city;
+                state = OperationState.KNOT_A_SELECTED;
+                System.out.println("Selected route city: " + city.name);
+            } else {
+                System.out.println("No route to grow - create one first with Pipe");
+            }
+            break;
+
+        case COLLAPSE:
+            // Collapse: first click selects start child
+            if (currentRoute != null && !currentRoute.isSingleton()) {
+                selectedCityA = city;
+                state = OperationState.KNOT_A_SELECTED;
+                System.out.println("Collapse start: " + city.name);
+            } else {
+                System.out.println("Need a complex route for collapse");
+            }
+            break;
+        }
+    }
+
+    private void handleSecondClick(City city) {
+        if (city == selectedCityA) {
+            return; // Can't select same city twice
+        }
+
+        switch (currentMode) {
+        case PIPE:
+            selectedCityB = city;
+            // Compute default edges if applicable
+            computeDefaultPipeEdges();
+            state = OperationState.PREVIEW;
+            System.out.println("Pipe preview: " + selectedCityA.name + " <-> " + city.name);
+            break;
+
+        case GROW:
+            selectedCityB = city;
+            // Compute default edge for grow
+            computeDefaultGrowEdge();
+            state = OperationState.PREVIEW;
+            System.out.println("Grow preview: insert " + city.name);
+            break;
+
+        case COLLAPSE:
+            selectedCityB = city;
+            state = OperationState.PREVIEW;
+            System.out.println("Collapse preview: " + selectedCityA.name + " to " + city.name);
+            break;
+        }
+    }
+
+    private void handlePreviewClick(City city) {
+        // In preview, clicking on edges allows adjustment
+        // For now, just confirm if clicking elsewhere
+        // TODO: Implement edge selection for adjustment
+    }
+
+    private void computeDefaultPipeEdges() {
+        // For initial route creation (two singletons), no edges to cut
+        if (currentRoute == null) {
+            selectedEdgeA = null;
+            selectedEdgeB = null;
+            return;
+        }
+
+        // TODO: Use Knot.getLowestCostPipeEdges for existing routes
+        selectedEdgeA = null;
+        selectedEdgeB = null;
+    }
+
+    private void computeDefaultGrowEdge() {
+        if (currentRoute == null || selectedCityB == null) {
+            selectedEdgeA = null;
+            return;
+        }
+
+        // Find the lowest-cost edge using the network's city-to-knot mapping
+        // For now, just use the first edge
+        if (!currentRoute.manifoldSegments.isEmpty()) {
+            selectedEdgeA = currentRoute.manifoldSegments.get(0);
         }
     }
 
     /**
-     * Check if the route can be extended to the given city
-     * @param city the city to check
-     * @return true if a road exists from the last city in the route
+     * Handle keyboard input.
+     * 
+     * @param key the key code
+     * @return true if the key was handled
      */
-    private boolean canConnectTo(City city) {
-        if (routeCities.isEmpty()) {
-            return city == network.headquartersCity;
+    public boolean onKeyPress(int key) {
+        System.out.println("[RoutePlanningTool] onKeyPress: " + key + " state=" + state + " mode=" + currentMode);
+
+        // P = Pipe mode
+        if (key == 80) { // 'P'
+            System.out.println("[RoutePlanningTool] Setting PIPE mode");
+            setMode(Mode.PIPE);
+            return true;
         }
-        if (routeCities.contains(city)) {
+        // G = Grow mode
+        if (key == 71) { // 'G'
+            System.out.println("[RoutePlanningTool] Setting GROW mode");
+            setMode(Mode.GROW);
+            return true;
+        }
+        // C = Collapse mode
+        if (key == 67) { // 'C'
+            System.out.println("[RoutePlanningTool] Setting COLLAPSE mode");
+            setMode(Mode.COLLAPSE);
+            return true;
+        }
+        // Enter = Confirm
+        if (key == 257) { // GLFW_KEY_ENTER
+            System.out.println("[RoutePlanningTool] Enter pressed, state=" + state);
+            if (state == OperationState.PREVIEW) {
+                System.out.println("[RoutePlanningTool] Executing operation");
+                executeOperation();
+                return true;
+            }
+        }
+        // Escape = Cancel
+        if (key == 256) { // GLFW_KEY_ESCAPE
+            System.out.println("[RoutePlanningTool] Escape - cancelling");
+            resetOperation();
+            return true;
+        }
+        // Ctrl+Z = Undo
+        if (key == 90) { // 'Z' (with Ctrl modifier checked elsewhere)
+            System.out.println("[RoutePlanningTool] Undo");
+            undo();
+            return true;
+        }
+        // Ctrl+Y = Redo
+        if (key == 89) { // 'Y'
+            System.out.println("[RoutePlanningTool] Redo");
+            redo();
+            return true;
+        }
+        // Backspace = Navigate up hierarchy
+        if (key == 259) { // GLFW_KEY_BACKSPACE
+            if (navigateUp()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void setMode(Mode mode) {
+        if (currentMode != mode) {
+            currentMode = mode;
+            resetOperation();
+            System.out.println("Mode: " + mode.name());
+        }
+    }
+
+    // ==================== OPERATIONS ====================
+
+    private void executeOperation() {
+        switch (currentMode) {
+        case PIPE:
+            executePipe();
+            break;
+        case GROW:
+            executeGrow();
+            break;
+        case COLLAPSE:
+            executeCollapse();
+            break;
+        }
+
+        state = OperationState.CONFIRMED;
+        resetOperation();
+    }
+
+    private void executePipe() {
+        // Make sure trade routes are initialized
+        if (!network.isTradeInitialized()) {
+            network.initTradeRoutes();
+        }
+
+        // Handle auto-grow case: route exists, cityA is null, cityB is set
+        if (currentRoute != null && selectedCityA == null && selectedCityB != null) {
+            Knot knotB = network.getKnotForCity(selectedCityB);
+            if (knotB != null && knotB.isSingleton()) {
+                Segment lowestCostEdge = selectedEdgeA != null ? selectedEdgeA
+                        : currentRoute.getLowestCostGrowEdge(knotB);
+                if (lowestCostEdge != null) {
+                    GrowRecord record = currentRoute.grow(knotB, lowestCostEdge);
+                    operationStack.push(record);
+                    System.out.println("Added " + selectedCityB.name + " to route. Route now has " +
+                            currentRoute.knotPoints.size() + " cities.");
+                }
+            }
+            return;
+        }
+
+        if (selectedCityA == null || selectedCityB == null) {
+            return;
+        }
+
+        Knot knotA = network.getKnotForCity(selectedCityA);
+        Knot knotB = network.getKnotForCity(selectedCityB);
+
+        if (knotA == null || knotB == null) {
+            System.out.println("Error: Could not get knots for cities");
+            return;
+        }
+
+        if (currentRoute == null) {
+            // Create initial route from two singleton cities
+            System.out.println("Creating initial route: " + selectedCityA.name + " <-> " + selectedCityB.name);
+
+            PipeRecord record = Knot.pipeSimple(knotA, knotB);
+            currentRoute = record.resultKnot;
+            setCurrentRoute(currentRoute);
+
+            operationStack.push(record);
+            System.out.println("Route created! Loop has " + currentRoute.manifoldSegments.size() + " segments");
+        } else {
+            // Pipe to existing route - use grow for singletons
+            System.out.println("Piping " + selectedCityB.name + " to route");
+
+            if (knotB.isSingleton()) {
+                // Grow the route by adding this city
+                Segment lowestCostEdge = currentRoute.getLowestCostGrowEdge(knotB);
+                if (lowestCostEdge != null) {
+                    GrowRecord record = currentRoute.grow(knotB, lowestCostEdge);
+                    operationStack.push(record);
+                    System.out.println("Grew route to include " + selectedCityB.name);
+                }
+            } else {
+                // Full pipe between two multi-point knots
+                PipeRecord record = Knot.pipe(currentRoute, knotB, selectedEdgeA, selectedEdgeB);
+                if (record != null) {
+                    currentRoute = record.resultKnot;
+                    setCurrentRoute(currentRoute);
+                    operationStack.push(record);
+                }
+            }
+        }
+    }
+
+    private void executeGrow() {
+        if (currentRoute == null || selectedCityB == null) {
+            return;
+        }
+
+        // Make sure trade routes are initialized
+        if (!network.isTradeInitialized()) {
+            network.initTradeRoutes();
+        }
+
+        Knot knotB = network.getKnotForCity(selectedCityB);
+        if (knotB == null || !knotB.isSingleton()) {
+            System.out.println("Grow requires a singleton city not already in route");
+            return;
+        }
+
+        // Find the edge to split
+        Segment edgeToSplit = selectedEdgeA;
+        if (edgeToSplit == null) {
+            edgeToSplit = currentRoute.getLowestCostGrowEdge(knotB);
+        }
+
+        if (edgeToSplit == null) {
+            System.out.println("No valid edge to grow into");
+            return;
+        }
+
+        System.out.println("Growing route with: " + selectedCityB.name);
+        GrowRecord record = currentRoute.grow(knotB, edgeToSplit);
+        operationStack.push(record);
+        System.out.println("Route now has " + currentRoute.manifoldSegments.size() + " segments");
+    }
+
+    private void executeCollapse() {
+        if (currentRoute == null || selectedCityA == null || selectedCityB == null) {
+            return;
+        }
+
+        System.out.println("Collapsing from " + selectedCityA.name + " to " + selectedCityB.name);
+
+        // TODO: Execute collapse operation
+        // CollapseRecord record = currentRoute.collapse(startKnot, endKnot);
+        // operationStack.push(record);
+    }
+
+    public void undo() {
+        if (operationStack.canUndo()) {
+            OperationRecord record = operationStack.undo();
+            System.out.println("Undo: " + record.getDescription());
+        }
+    }
+
+    public void redo() {
+        if (operationStack.canRedo()) {
+            OperationRecord record = operationStack.redo();
+            System.out.println("Redo: " + record.getDescription());
+        }
+    }
+
+    // ==================== HIERARCHY NAVIGATION ====================
+
+    /**
+     * Navigate up one level in the knot hierarchy.
+     * 
+     * @return true if navigation occurred
+     */
+    public boolean navigateUp() {
+        if (currentViewKnot == null || currentViewKnot.topGroupKnot == null) {
             return false;
         }
-        City lastCity = routeCities.get(routeCities.size() - 1);
-        return network.canConnect(lastCity, city);
+
+        currentViewKnot = currentViewKnot.topGroupKnot;
+        rebuildHierarchyPath();
+        System.out.println("Navigated up to: " + getHierarchyPathString());
+        return true;
     }
 
     /**
-     * Update the hovered city
+     * Navigate down into a child knot.
+     * 
+     * @param child the child knot to navigate into
+     * @return true if navigation occurred
+     */
+    public boolean navigateDown(Knot child) {
+        if (currentViewKnot == null) {
+            return false;
+        }
+
+        // Check if child is actually a child of current view
+        if (!currentViewKnot.knotPoints.contains(child)) {
+            return false;
+        }
+
+        // Only navigate down into non-singleton knots
+        if (child.isSingleton()) {
+            return false;
+        }
+
+        currentViewKnot = child;
+        rebuildHierarchyPath();
+        System.out.println("Navigated down to: " + getHierarchyPathString());
+        return true;
+    }
+
+    /**
+     * Navigate to a specific level in the hierarchy path.
+     * 
+     * @param index the index in the hierarchy path (0 = root)
+     * @return true if navigation occurred
+     */
+    public boolean navigateToLevel(int index) {
+        if (index < 0 || index >= hierarchyPath.size()) {
+            return false;
+        }
+
+        currentViewKnot = hierarchyPath.get(index);
+        // Trim hierarchy path to this level
+        while (hierarchyPath.size() > index + 1) {
+            hierarchyPath.remove(hierarchyPath.size() - 1);
+        }
+        System.out.println("Navigated to level " + index + ": " + getHierarchyPathString());
+        return true;
+    }
+
+    /**
+     * Set the root route and initialize view at top level.
+     * 
+     * @param route the root route knot
+     */
+    public void setCurrentRoute(Knot route) {
+        this.currentRoute = route;
+        this.currentViewKnot = route;
+        rebuildHierarchyPath();
+    }
+
+    /**
+     * Get the currently viewed knot (current hierarchy level).
+     * 
+     * @return the current view knot
+     */
+    public Knot getCurrentViewKnot() {
+        return currentViewKnot;
+    }
+
+    /**
+     * Get the hierarchy path from root to current view.
+     * 
+     * @return list of knots from root to current
+     */
+    public ArrayList<Knot> getHierarchyPath() {
+        return hierarchyPath;
+    }
+
+    /**
+     * Rebuild the hierarchy path from root to current view.
+     */
+    private void rebuildHierarchyPath() {
+        hierarchyPath.clear();
+
+        if (currentViewKnot == null) {
+            return;
+        }
+
+        // Build path from current back to root
+        ArrayList<Knot> reversePath = new ArrayList<>();
+        Knot node = currentViewKnot;
+        while (node != null) {
+            reversePath.add(node);
+            node = node.topGroupKnot;
+        }
+
+        // Reverse to get root-to-current order
+        for (int i = reversePath.size() - 1; i >= 0; i--) {
+            hierarchyPath.add(reversePath.get(i));
+        }
+    }
+
+    /**
+     * Get a string representation of the current hierarchy path.
+     * 
+     * @return breadcrumb string like "Route > SubRouteA > Circle1"
+     */
+    public String getHierarchyPathString() {
+        if (hierarchyPath.isEmpty()) {
+            return "No route";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < hierarchyPath.size(); i++) {
+            Knot k = hierarchyPath.get(i);
+            if (k.isSingleton()) {
+                sb.append("P").append(k.id);
+            } else {
+                sb.append("K").append(k.id);
+            }
+            if (i < hierarchyPath.size() - 1) {
+                sb.append(" > ");
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Get the depth of the current view in the hierarchy.
+     * 
+     * @return depth (0 = root level)
+     */
+    public int getHierarchyDepth() {
+        return hierarchyPath.size() - 1;
+    }
+
+    /**
+     * Check if we can navigate up from current level.
+     * 
+     * @return true if there's a parent to navigate to
+     */
+    public boolean canNavigateUp() {
+        return currentViewKnot != null && currentViewKnot.topGroupKnot != null;
+    }
+
+    /**
+     * Check if we can navigate down into any child.
+     * 
+     * @return true if current view has non-singleton children
+     */
+    public boolean canNavigateDown() {
+        if (currentViewKnot == null || currentViewKnot.knotPoints == null) {
+            return false;
+        }
+
+        for (Knot child : currentViewKnot.knotPoints) {
+            if (!child.isSingleton()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void resetOperation() {
+        selectedKnotA = null;
+        selectedKnotB = null;
+        selectedEdgeA = null;
+        selectedEdgeB = null;
+        selectedCityA = null;
+        selectedCityB = null;
+        state = OperationState.IDLE;
+    }
+
+    // ==================== HOVER STATE ====================
+
+    /**
+     * Update the hovered city.
+     * 
      * @param city the city being hovered, or null
      */
     public void updateHoveredCity(City city) {
@@ -138,93 +943,195 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
-     * Get the currently hovered city
+     * Get the currently hovered city.
+     * 
      * @return the hovered city, or null
      */
     public City getHoveredCity() {
         return hoveredCity;
     }
 
+    /**
+     * Update hovered button based on mouse position.
+     * 
+     * @param mouseX mouse X in screen coordinates
+     * @param mouseY mouse Y in screen coordinates
+     */
+    public void updateHoveredButton(float mouseX, float mouseY) {
+        float wWidth = Platforms.get().getWindowWidth();
+        float wHeight = Platforms.get().getWindowHeight();
+        // For drawing: y=0 is bottom in OpenGL, toolbar is at low Y
+        float toolbarY = TOOLBAR_HEIGHT / 2; // OpenGL coords for button position
+        float startX = wWidth / 2 - (3 * BUTTON_SIZE + 2 * BUTTON_PADDING) / 2;
+
+        // Convert mouse Y from window coords (y=0 at top) to OpenGL coords (y=0 at
+        // bottom)
+        float mouseYOpenGL = wHeight - mouseY;
+
+        hoveredButton = -1;
+
+        // Check if in toolbar area (low Y in OpenGL coords = bottom of screen)
+        if (mouseYOpenGL < TOOLBAR_HEIGHT) {
+            // Check each button using OpenGL coordinates
+            if (isInButton(mouseX, mouseYOpenGL, startX, toolbarY)) {
+                hoveredButton = 0; // Pipe
+            } else if (isInButton(mouseX, mouseYOpenGL, startX + BUTTON_SIZE + BUTTON_PADDING, toolbarY)) {
+                hoveredButton = 1; // Grow
+            } else if (isInButton(mouseX, mouseYOpenGL, startX + 2 * (BUTTON_SIZE + BUTTON_PADDING), toolbarY)) {
+                hoveredButton = 2; // Collapse
+            } else if (isInButton(mouseX, mouseYOpenGL, BUTTON_PADDING + BUTTON_SIZE / 2, toolbarY)
+                    && operationStack.canUndo()) {
+                hoveredButton = 3; // Undo
+            } else if (isInButton(mouseX, mouseYOpenGL, wWidth - BUTTON_PADDING - BUTTON_SIZE / 2, toolbarY)
+                    && state == OperationState.PREVIEW) {
+                hoveredButton = 4; // Confirm
+            }
+        }
+    }
+
+    private boolean isInButton(float mouseX, float mouseY, float buttonX, float buttonY) {
+        return Math.abs(mouseX - buttonX) < BUTTON_SIZE / 2 && Math.abs(mouseY - buttonY) < BUTTON_SIZE / 2;
+    }
+
+    /**
+     * Handle toolbar button click.
+     * 
+     * @param mouseX mouse X in screen coordinates
+     * @param mouseY mouse Y in screen coordinates
+     * @return true if a button was clicked
+     */
+    public boolean onToolbarClick(float mouseX, float mouseY) {
+        updateHoveredButton(mouseX, mouseY);
+
+        switch (hoveredButton) {
+        case 0:
+            setMode(Mode.PIPE);
+            return true;
+        case 1:
+            setMode(Mode.GROW);
+            return true;
+        case 2:
+            setMode(Mode.COLLAPSE);
+            return true;
+        case 3:
+            undo();
+            return true;
+        case 4:
+            executeOperation();
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    // ==================== TOOL INTERFACE ====================
+
     @Override
     public void reset() {
-        routeCities.clear();
+        resetOperation();
         hoveredCity = null;
-        state = State.SelectStart;
+        hoveredButton = -1;
     }
 
     @Override
     public void confirm() {
-        if (routeCities.size() < 2) {
-            System.out.println("Route needs at least 2 cities");
-            return;
+        if (state == OperationState.PREVIEW) {
+            executeOperation();
         }
-
-        // TODO: Create actual Knot from routeCities for player route
-        System.out.println("Route confirmed with " + routeCities.size() + " cities:");
-        for (City city : routeCities) {
-            System.out.println("  - " + city.name);
-        }
-
-        // Mark roads as discovered
-        for (int i = 0; i < routeCities.size() - 1; i++) {
-            Road road = network.getRoad(routeCities.get(i), routeCities.get(i + 1));
-            if (road != null) {
-                road.discovered = true;
-            }
-        }
-
-        reset();
     }
 
     /**
-     * Cancel the current route and start over
+     * Cancel the current operation.
      */
     public void cancel() {
-        reset();
-        System.out.println("Route cancelled");
+        resetOperation();
+        System.out.println("Operation cancelled");
     }
 
     /**
-     * Get the current route state
+     * Get the current operation state.
+     * 
      * @return the current state
      */
-    public State getState() {
+    public OperationState getOperationState() {
         return state;
     }
 
     /**
-     * Get the cities in the current route
-     * @return list of cities in the route
+     * Get the current mode.
+     * 
+     * @return the current mode
      */
-    public ArrayList<City> getRouteCities() {
-        return routeCities;
+    public Mode getCurrentMode() {
+        return currentMode;
+    }
+
+    /**
+     * Get the current route.
+     * 
+     * @return the current route knot, or null
+     */
+    public Knot getCurrentRoute() {
+        return currentRoute;
     }
 
     @Override
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
 
-        switch (state) {
-            case SelectStart:
-                h.addWord("Click your headquarters to start a route", Color.WHITE);
-                break;
-            case ExtendRoute:
-                h.addWord("Click connected cities to extend the route", Color.WHITE);
-                h.wrap();
-                h.addWord("Route: ", Color.LIGHT_GRAY);
-                for (int i = 0; i < routeCities.size(); i++) {
-                    h.addWord(routeCities.get(i).name, Color.CYAN);
-                    if (i < routeCities.size() - 1) {
-                        h.addWord(" -> ", Color.LIGHT_GRAY);
-                    }
-                }
-                h.wrap();
-                h.addWord("Press Enter to confirm, Escape to cancel", Color.LIGHT_GRAY);
-                break;
-            case ConfirmRoute:
-                h.addWord("Press Enter to confirm route", Color.WHITE);
-                break;
+        // Hierarchy breadcrumb (if we have a route)
+        if (currentRoute != null && !hierarchyPath.isEmpty()) {
+            h.addWord("Route: ", Color.LIGHT_GRAY);
+            h.addWord(getHierarchyPathString(), Color.YELLOW);
+            if (canNavigateUp()) {
+                h.addWord(" [Backspace=Up]", Color.LIGHT_GRAY);
+            }
+            if (canNavigateDown()) {
+                h.addWord(" [Click child=Down]", Color.LIGHT_GRAY);
+            }
+            h.wrap();
         }
+
+        // Mode indicator
+        h.addWord("[" + currentMode.name() + "] ", Color.CYAN);
+
+        switch (state) {
+        case IDLE:
+            switch (currentMode) {
+            case PIPE:
+                if (currentRoute == null) {
+                    h.addWord("Click HQ to start a route", Color.WHITE);
+                } else {
+                    h.addWord("Click a city to pipe", Color.WHITE);
+                }
+                break;
+            case GROW:
+                h.addWord("Click route, then a city to insert", Color.WHITE);
+                break;
+            case COLLAPSE:
+                h.addWord("Click start and end of collapse", Color.WHITE);
+                break;
+            }
+            break;
+
+        case KNOT_A_SELECTED:
+            h.addWord("Selected: " + (selectedCityA != null ? selectedCityA.name : "?"), Color.YELLOW);
+            h.addWord(" - Click second city", Color.WHITE);
+            break;
+
+        case PREVIEW:
+            h.addWord("Preview - ", Color.GREEN);
+            h.addWord("Enter to confirm, Esc to cancel", Color.WHITE);
+            break;
+
+        case CONFIRMED:
+            h.addWord("Operation complete", Color.GREEN);
+            break;
+        }
+
+        // Keybind hints
+        h.wrap();
+        h.addWord("P=Pipe G=Grow C=Collapse | Ctrl+Z=Undo | Backspace=Up", Color.LIGHT_GRAY);
 
         return h;
     }
@@ -246,6 +1153,6 @@ public class RoutePlanningTool extends Tool {
 
     @Override
     public String desc() {
-        return "Plan and build trade routes between cities.";
+        return "Plan and build trade routes using Pipe, Grow, and Collapse operations.";
     }
 }

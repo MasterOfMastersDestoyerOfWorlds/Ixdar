@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.joml.Vector2f;
 
+import ixdar.geometry.knot.Knot;
 import ixdar.geometry.point.PointND;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
@@ -14,9 +15,9 @@ import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
 
 /**
- * Represents a city in the trade game.
- * Cities are locations on the map where the player can establish headquarters,
- * buy/sell goods, and create trade routes.
+ * Represents a city in the trade game. Cities are locations on the map where
+ * the player can establish headquarters, buy/sell goods, and create trade
+ * routes.
  */
 public class City {
     public static final float CITY_RADIUS = 20f;
@@ -33,13 +34,15 @@ public class City {
     public HashMap<String, Integer> consumes;
     public boolean hasHeadquarters;
     private HyperString nameLabel;
+    private Knot knot; // Trade route Knot wrapper for this city
 
     /**
      * Create a city with the given properties
-     * @param id unique identifier for the city
-     * @param name display name of the city
-     * @param x x coordinate on the map
-     * @param y y coordinate on the map
+     * 
+     * @param id         unique identifier for the city
+     * @param name       display name of the city
+     * @param x          x coordinate on the map
+     * @param y          y coordinate on the map
      * @param population city population (affects trade volume)
      */
     public City(String id, String name, float x, float y, int population) {
@@ -55,18 +58,19 @@ public class City {
 
     /**
      * Create a city from JSON-like data
-     * @param id unique identifier
-     * @param name display name
-     * @param x x coordinate
-     * @param y y coordinate
+     * 
+     * @param id         unique identifier
+     * @param name       display name
+     * @param x          x coordinate
+     * @param y          y coordinate
      * @param population city population
-     * @param resources list of resource types available
-     * @param produces map of resource -> quantity produced per turn
-     * @param consumes map of resource -> quantity consumed per turn
+     * @param resources  list of resource types available
+     * @param produces   map of resource -> quantity produced per turn
+     * @param consumes   map of resource -> quantity consumed per turn
      */
     public City(String id, String name, float x, float y, int population,
-                ArrayList<String> resources, HashMap<String, Integer> produces,
-                HashMap<String, Integer> consumes) {
+            ArrayList<String> resources, HashMap<String, Integer> produces,
+            HashMap<String, Integer> consumes) {
         this.id = id;
         this.name = name;
         this.location = new PointND.Float(x, y);
@@ -79,6 +83,7 @@ public class City {
 
     /**
      * Get the x coordinate of the city
+     * 
      * @return x coordinate
      */
     public float getX() {
@@ -87,6 +92,7 @@ public class City {
 
     /**
      * Get the y coordinate of the city
+     * 
      * @return y coordinate
      */
     public float getY() {
@@ -95,8 +101,9 @@ public class City {
 
     /**
      * Check if a point is within click distance of this city
-     * @param x x coordinate to check
-     * @param y y coordinate to check
+     * 
+     * @param x      x coordinate to check
+     * @param y      y coordinate to check
      * @param radius click radius threshold
      * @return true if the point is within the radius
      */
@@ -121,7 +128,26 @@ public class City {
     }
 
     /**
+     * Set the Knot wrapper for this city (used by trade routes).
+     * 
+     * @param knot the Knot to associate with this city
+     */
+    public void setKnot(Knot knot) {
+        this.knot = knot;
+    }
+
+    /**
+     * Get the Knot wrapper for this city.
+     * 
+     * @return the Knot, or null if trade routes not initialized
+     */
+    public Knot getKnot() {
+        return knot;
+    }
+
+    /**
      * Add a resource that this city produces
+     * 
      * @param resource resource type
      * @param quantity quantity produced per turn
      */
@@ -134,6 +160,7 @@ public class City {
 
     /**
      * Add a resource that this city consumes
+     * 
      * @param resource resource type
      * @param quantity quantity consumed per turn
      */
@@ -143,6 +170,7 @@ public class City {
 
     /**
      * Get the cached name label for rendering
+     * 
      * @return HyperString containing the city name
      */
     public HyperString getNameLabel() {
@@ -155,6 +183,7 @@ public class City {
 
     /**
      * Calculate the distance from this city to another
+     * 
      * @param other the other city
      * @return euclidean distance between the two cities
      */
@@ -166,8 +195,9 @@ public class City {
 
     /**
      * Draw this city on the screen
-     * @param camera the camera for coordinate transformation
-     * @param isHQ true if this city is the headquarters
+     * 
+     * @param camera    the camera for coordinate transformation
+     * @param isHQ      true if this city is the headquarters
      * @param isHovered true if this city is currently hovered
      */
     public void draw(Camera2D camera, boolean isHQ, boolean isHovered) {
@@ -185,11 +215,13 @@ public class City {
         cityCircle.draw(screenPos, CITY_RADIUS, cityColor, camera);
 
         float labelScreenY = screenY - CITY_RADIUS - 20;
-        Drawing.getDrawing().font.drawHyperString(getNameLabel(), screenX, labelScreenY, Drawing.FONT_HEIGHT_PIXELS, camera);
+        Drawing.getDrawing().font.drawHyperString(getNameLabel(), screenX, labelScreenY, Drawing.FONT_HEIGHT_PIXELS,
+                camera);
     }
 
     /**
      * Build a tooltip HyperString with city information
+     * 
      * @param headquartersCity the player's headquarters city, or null if not set
      * @return HyperString containing city tooltip information
      */

@@ -13,8 +13,8 @@ import ixdar.platform.Platforms;
 import ixdar.scenes.trade.TradeScene;
 
 /**
- * Mouse input handler for the trade game scene.
- * Extends MouseTrap but replaces MainScene-specific behavior with city interaction.
+ * Mouse input handler for the trade game scene. Extends MouseTrap but replaces
+ * MainScene-specific behavior with city interaction.
  */
 public class TradeMouseTrap extends MouseTrap {
 
@@ -29,7 +29,8 @@ public class TradeMouseTrap extends MouseTrap {
     @Override
     public void mouseButton(int button, int action, int mods) {
         Platforms.init(Platforms.get().getPlatformID());
-        if (!active) return;
+        if (!active)
+            return;
 
         float x = lastX;
         float y = lastY;
@@ -49,7 +50,8 @@ public class TradeMouseTrap extends MouseTrap {
     }
 
     private void handleCityClick(float x, float y, int button) {
-        if (!active) return;
+        if (!active)
+            return;
 
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
@@ -58,7 +60,13 @@ public class TradeMouseTrap extends MouseTrap {
         float worldX = TradeScene.camera.screenTransformX(normalizedPosX);
         float worldY = TradeScene.camera.screenTransformY(normalizedPosY);
 
+        System.out
+                .println("[TradeMouseTrap] Click at screen(" + x + "," + y + ") world(" + worldX + "," + worldY + ")");
+
         City clickedCity = tradeScene.getCityAt(worldX, worldY);
+        System.out.println("[TradeMouseTrap] clickedCity: " + (clickedCity != null ? clickedCity.name : "null"));
+        System.out.println("[TradeMouseTrap] activeTool: " + tradeScene.activeTool.displayName());
+
         if (clickedCity != null) {
             tradeScene.onCityClick(clickedCity);
         }
@@ -67,7 +75,8 @@ public class TradeMouseTrap extends MouseTrap {
     @Override
     public void moveOrDrag(long window, float x, float y) {
         Platforms.init(Platforms.get().getPlatformID());
-        if (!active) return;
+        if (!active)
+            return;
 
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
@@ -109,14 +118,16 @@ public class TradeMouseTrap extends MouseTrap {
     @Override
     public void scrollCallback(double y) {
         Platforms.init(Platforms.get().getPlatformID());
-        if (!active) return;
+        if (!active)
+            return;
         queuedMouseWheelTicks += (int) (4 * y);
         timeLastScroll = System.currentTimeMillis();
     }
 
     @Override
     public void paintUpdate(float SHIFT_MOD) {
-        if (!active) return;
+        if (!active)
+            return;
 
         // Handle scroll for zooming
         if (System.currentTimeMillis() - timeLastScroll > 60) {
