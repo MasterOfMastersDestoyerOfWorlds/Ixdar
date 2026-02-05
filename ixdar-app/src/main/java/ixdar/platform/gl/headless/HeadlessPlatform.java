@@ -19,8 +19,8 @@ import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.gl.Platform;
 
 /**
- * Headless platform for testing without GLFW/OpenGL.
- * Supports file operations needed for unit tests.
+ * Headless platform for testing without GLFW/OpenGL. Supports file operations
+ * needed for unit tests.
  */
 public class HeadlessPlatform implements Platform {
 
@@ -127,7 +127,8 @@ public class HeadlessPlatform implements Platform {
     }
 
     @Override
-    public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
+    public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId,
+            Consumer<String> callback) {
         loadSourceAsync("glsl", filename, platformId, callback);
     }
 
@@ -201,5 +202,10 @@ public class HeadlessPlatform implements Platform {
     @Override
     public void setPlatformID(Integer p) {
         this.platformId = p;
+    }
+
+    @Override
+    public void processInputQueue() {
+        // no-op for headless
     }
 }

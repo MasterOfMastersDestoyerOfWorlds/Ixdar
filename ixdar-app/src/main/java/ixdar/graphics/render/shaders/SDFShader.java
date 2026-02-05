@@ -53,6 +53,9 @@ public class SDFShader extends ShaderProgram {
 
     @Override
     public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float scale) {
+        if (framebufferWidth <= 0 || framebufferHeight <= 0) {
+            return;
+        }
         use();
         Matrix4f projection = new Matrix4f();
         float left = 0f, right = framebufferWidth, bottom = 0f, top = framebufferHeight;

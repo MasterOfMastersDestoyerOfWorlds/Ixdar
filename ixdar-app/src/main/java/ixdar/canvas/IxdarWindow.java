@@ -24,6 +24,7 @@ import static org.lwjgl.glfw.GLFW.glfwTerminate;
 import static org.lwjgl.glfw.GLFW.glfwWindowHint;
 import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
 import static org.lwjgl.system.MemoryStack.stackPush;
+import static org.lwjgl.system.MemoryUtil.NULL;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,6 +40,7 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWImage;
 import org.lwjgl.glfw.GLFWVidMode;
+import org.lwjgl.opengl.GL;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 
@@ -55,7 +57,7 @@ public class IxdarWindow {
     public static float startTime;
     private static String canvasId;
 
-    public static void main(String[] args) throws UnsupportedEncodingException, IOException {
+    public static void main(String[] args) throws UnsupportedEncodingException, IOException, InterruptedException {
         if (args.length == 0) {
             canvasId = "ixdar";
         } else {
@@ -73,7 +75,7 @@ public class IxdarWindow {
     private static int windowWidth;
     private static int windowHeight;
 
-    public void runGLFW() throws UnsupportedEncodingException, IOException {
+    public void runGLFW() throws UnsupportedEncodingException, IOException, InterruptedException {
 
         init();
         loop();
@@ -109,10 +111,6 @@ public class IxdarWindow {
                 IxdarWindow.windowHeight = height;
                 Platforms.get().setFrameBufferSize(width * xScale.get(0), height * yScale.get(0));
                 canvas.changedSize = true;
-
-                canvas.paintGL();
-
-                glfwSwapBuffers(window);
             }
         });
         IntBuffer w = BufferUtils.createIntBuffer(1);
@@ -158,14 +156,23 @@ public class IxdarWindow {
         glfwSetWindowIcon(window, gb);
     }
 
-    private void loop() {
+    private void loop() throws InterruptedException {
         System.out.println("Time to First Paint" + (Clock.time() - startTime));
 
+        glfwMakeContextCurrent(NULL);
+        Thread renderThread = new Thread(() -> {
+            glfwMakeContextCurrent(window);
+            GL.createCapabilities();
+            while (!glfwWindowShouldClose(window)) {
+                Platforms.get().processInputQueue();
+                canvas.paintGL();
+                glfwSwapBuffers(window);
+            }
+        });
+        renderThread.start();
         while (!glfwWindowShouldClose(window)) {
-
-            canvas.paintGL();
-            glfwSwapBuffers(window);
             glfwPollEvents();
+            Thread.sleep(20);
         }
     }
 

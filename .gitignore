@@ -5,3 +5,4 @@ msdfgen-1.12-win64-openmp/msdfgen/*.png
 *.mp4
 ixdar-app/test/resources/visual-output/
 tickets/public
+ixdar-app/hs_err_*.log

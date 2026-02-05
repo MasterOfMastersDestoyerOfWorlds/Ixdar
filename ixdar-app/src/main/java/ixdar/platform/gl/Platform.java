@@ -35,7 +35,6 @@ public interface Platform {
 
     void loadTexture(String resourceName, int platformId, Consumer<Texture> callback);
 
-
     void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback);
 
     void loadShaderSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback);
@@ -81,4 +80,6 @@ public interface Platform {
     int getPlatformID();
 
     void setPlatformID(Integer p);
+
+    void processInputQueue();
 }
