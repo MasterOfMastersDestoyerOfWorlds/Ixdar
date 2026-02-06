@@ -279,7 +279,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             float cx = crosshairScreenPos.x;
             float cy = crosshairScreenPos.y;
 
-            d.sdfLine.setStroke(2f, false, 1f, 0f, false, false, camera);
+            d.sdfLine.setStroke(2f, false, 1f, 0f, false, false, false, camera);
             d.sdfLine.draw(new Vector2f(cx - crosshairSize, cy), new Vector2f(cx + crosshairSize, cy), Color.CYAN,
                     camera);
             d.sdfLine.draw(new Vector2f(cx, cy - crosshairSize), new Vector2f(cx, cy + crosshairSize), Color.CYAN,

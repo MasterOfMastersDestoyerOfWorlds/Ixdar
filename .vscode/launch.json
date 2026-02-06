@@ -59,6 +59,15 @@
     },
     {
       "type": "java",
+      "name": "Arrow Line",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "arrow-line-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
       "name": "Dashed Line",
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",

@@ -54,8 +54,7 @@ public class BouncingLineScene extends Scene {
     public void drawScene() {
         updateBouncingPoints();
         super.drawScene();
-        Drawing.getDrawing().sdfLine.setStroke(Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true,
-                false);
+        Drawing.getDrawing().sdfLine.setStroke(Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false, false);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);

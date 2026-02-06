@@ -18,6 +18,7 @@ public class SDFLine extends ShaderDrawable {
     private ShaderProgram dashedLineShader;
     private ShaderProgram dashedLineRoundShader;
     private ShaderProgram dashedLineEndCapsShader;
+    private ShaderProgram arrowLineShader;
     private Color borderColor;
     private float borderInner;
     private float borderOuter;
@@ -36,13 +37,15 @@ public class SDFLine extends ShaderDrawable {
     private Color c2;
     private Vector2f pATex;
     private Vector2f pBTex;
-
+    private boolean arrow;
+    
     public SDFLine() {
         super();
         lineShader = ShaderType.LineSDF.getShader();
         dashedLineShader = ShaderType.DashedLineSDF.getShader();
         dashedLineRoundShader = ShaderType.DashedLineRoundSDF.getShader();
         dashedLineEndCapsShader = ShaderType.DashedLineEndCapsSDF.getShader();
+        arrowLineShader = ShaderType.ArrowLineSDF.getShader();
         shader = lineShader;
         this.borderColor = Color.TRANSPARENT;
         this.borderInner = 0;
@@ -90,6 +93,9 @@ public class SDFLine extends ShaderDrawable {
                 shader = dashedLineRoundShader;
             }
         }
+        else if (arrow) {
+            shader = arrowLineShader;
+        }
     }
 
     public void setBorderDist(float borderDist) {
@@ -111,26 +117,27 @@ public class SDFLine extends ShaderDrawable {
     }
 
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
-            boolean endCaps) {
+            boolean endCaps, boolean arrow) {
         this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS);
         this.dashed = dashed;
         this.dashLength = dashLength;
         this.dashRate = dashRate;
         this.roundCaps = roundCaps;
         this.endCaps = endCaps;
-
+        this.arrow = arrow;
         edgeDist = 0.35f;
         setShader();
     }
 
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
-            boolean endCaps, Camera2D camera2d) {
+            boolean endCaps, boolean arrow, Camera2D camera2d) {
         this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS);
         this.dashed = dashed;
         this.dashLength = dashLength;
         this.dashRate = dashRate;
         this.roundCaps = roundCaps;
         this.endCaps = endCaps;
+        this.arrow = arrow;
         edgeDist = 0.35f;
         setShader();
     }
