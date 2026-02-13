@@ -41,6 +41,8 @@ public interface Platform {
 
     TextFile loadFile(String path) throws IOException;
 
+    TextFile loadExternalFile(String absolutePath) throws IOException;
+
     void writeTextFile(TextFile path, boolean append) throws IOException;
 
     interface KeyCallback {

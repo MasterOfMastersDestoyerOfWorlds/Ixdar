@@ -7,6 +7,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -149,6 +151,16 @@ public class HeadlessPlatform implements Platform {
         BufferedReader reader = new BufferedReader(new InputStreamReader(in));
         ArrayList<String> lines = new ArrayList<>(reader.lines().collect(Collectors.toList()));
         return new TextFile(path, lines);
+    }
+
+    @Override
+    public TextFile loadExternalFile(String absolutePath) throws IOException {
+        Path path = Path.of(absolutePath);
+        if (!Files.exists(path)) {
+            throw new IOException("External asset file not found: " + absolutePath);
+        }
+        ArrayList<String> lines = new ArrayList<>(Files.readAllLines(path));
+        return new TextFile(path.toString(), lines);
     }
 
     @Override

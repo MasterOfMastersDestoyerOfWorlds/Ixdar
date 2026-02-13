@@ -408,6 +408,11 @@ public class WebPlatform implements Platform {
         throw new IOException(path + " not found");
     }
 
+    @Override
+    public TextFile loadExternalFile(String absolutePath) throws IOException {
+        throw new IOException("External filesystem assets are not available on web platform: " + absolutePath);
+    }
+
     @JSBody(params = {
             "url" }, script = "try{var xhr=new XMLHttpRequest();xhr.open('GET', url, false);xhr.overrideMimeType('text/plain; charset=utf-8');xhr.send(null);if(xhr.status===0||(xhr.status>=200&&xhr.status<300)){return xhr.responseText||'';}return null;}catch(e){return null;}")
     private static native String fetchTextSync(String url);

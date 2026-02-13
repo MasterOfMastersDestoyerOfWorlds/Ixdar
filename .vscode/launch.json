@@ -95,6 +95,18 @@
     },
     {
       "type": "java",
+      "name": "Model Load",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "model-load-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "env": {
+        "IXDAR_ASSET_REPO_ROOT": "C:\\Code\\IxdarAssets"
+      },
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
       "name": "Launch Current File",
       "request": "launch",
       "mainClass": "${file}",

@@ -34,3 +34,9 @@ For non-trivial tasks, follow:
 - Avoid destructive git/shell operations unless explicitly approved.
 - Validate with targeted tests whenever feasible.
 - Record reusable learnings in `docs/ai-learnings/` after significant work.
+
+## Automation Testing Backbone
+
+- Use `tools/ixdar-automation-cli/ixdar_cli.py` as the default backbone for iterative game/UI testing.
+- Prefer CLI-driven checks (`health`, `ui-state`, `start-new-game`, `click`, `record`, `replay`) over ad hoc manual clicking.
+- During automation validation, operate on a single app window/process and verify state transitions through CLI responses.

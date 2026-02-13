@@ -17,6 +17,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
@@ -197,6 +199,16 @@ public class LwjglPlatform implements Platform {
         BufferedReader reader = new BufferedReader(new InputStreamReader(in));
         ArrayList<String> lines = new ArrayList<>(reader.lines().collect(Collectors.toList()));
         return new TextFile(path, lines);
+    }
+
+    @Override
+    public TextFile loadExternalFile(String absolutePath) throws IOException {
+        Path path = Path.of(absolutePath);
+        if (!Files.exists(path)) {
+            throw new IOException("External asset file not found: " + absolutePath);
+        }
+        ArrayList<String> lines = new ArrayList<>(Files.readAllLines(path));
+        return new TextFile(path.toString(), lines);
     }
 
     @Override

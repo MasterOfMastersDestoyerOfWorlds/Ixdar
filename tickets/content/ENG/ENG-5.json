@@ -8,7 +8,7 @@
         "UI-5",
         "ENG-6"
     ],
-    "status": "TODO",
+    "status": "IN_PROGRESS",
     "definition-of-done": "1. Mesh loader can parse at least one common 3D model format (OBJ recommended for simplicity). 2. Loaded meshes are stored in GPU vertex/index buffers. 3. Meshes can be rendered using existing shader system (DiffuseShader or new MeshShader). 4. Integration with Camera3D for proper 3D rendering. 5. Basic error handling for invalid/corrupted mesh files. 6. Memory management - meshes can be unloaded/cleaned up.",
     "testing-plan": "1. Manual Testing: Load various mesh files (simple cube, complex model) and verify correct rendering. Test with different camera angles and zoom levels. 2. Unit Tests: Create MeshLoaderTest.java with tests for: parseOBJFile (valid/invalid files), vertexBufferCreation, indexBufferCreation, normalCalculation (if auto-generated), textureCoordinateHandling. 3. Integration Tests: Verify mesh rendering integrates with existing Camera3D and shader system. Test multiple meshes rendered simultaneously. 4. Performance Testing: Measure load times and memory usage for various mesh complexities.",
     "todos": [
@@ -30,12 +30,19 @@
         "Memory management strategy - should meshes be cached or reloaded each time?",
         "Whether to support materials/textures in initial implementation or just geometry"
     ],
-    "changes-made": [],
+    "changes-made": [
+        "Added environment-variable based external asset repo support via `IXDAR_ASSET_REPO_ROOT` in file and platform loading layers.",
+        "Added `ModelLoadScene` (`model-load-canvas`) that loads and validates OBJ data from external asset repo (`Hand.obj`).",
+        "Documented asset repo environment variable setup in README.",
+        "Updated `ModelLoadScene` to load `Hand.obj` through ASSIMP, compute model bounds, auto-frame `Camera3D`, and render projected mesh points for visibility verification."
+    ],
     "related-files": [
         "ixdar-app/src/main/java/ixdar/graphics/render/",
         "ixdar-app/src/main/java/ixdar/platform/gl/Platform.java",
         "ixdar-app/src/main/java/ixdar/graphics/cameras/Camera3D.java",
         "ixdar-app/src/main/java/ixdar/graphics/render/shaders/DiffuseShader.java",
-        "TODO.md (mentions ASSIMP Model loading)"
+        "TODO.md (mentions ASSIMP Model loading)",
+        "ixdar-app/src/main/java/ixdar/scenes/anatomy/ModelLoadScene.java",
+        "README.md"
     ]
 }

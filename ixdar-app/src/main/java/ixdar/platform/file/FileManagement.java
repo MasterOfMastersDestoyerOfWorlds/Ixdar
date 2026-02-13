@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,9 @@ import ixdar.platform.Toggle;
 
 public class FileManagement {
 
+    public static final String ASSET_REPO_ENV_VAR = "IXDAR_ASSET_REPO_ROOT";
+    public static final String DEFAULT_TEST_MODEL_FILE = "Hand.obj";
+
     public static final String solutionsFolder = "./src/main/resources/solutions/";
 
     public static final String testFileCacheLocation = "./src/test/cache/cache";
@@ -33,6 +37,28 @@ public class FileManagement {
     public static final String cacheFolder = "./src/test/cache/";
 
     public static final String subGraphUnitTestFolder = "./test/unit/subgraphs/";
+
+    public static String getAssetRepoRoot() {
+        String root = System.getenv(ASSET_REPO_ENV_VAR);
+        if (ixdar.common.utils.Compat.isBlank(root)) {
+            return null;
+        }
+        return root;
+    }
+
+    public static String resolveAssetPath(String relativeAssetPath) {
+        String root = getAssetRepoRoot();
+        if (ixdar.common.utils.Compat.isBlank(root)) {
+            throw new IllegalStateException(
+                    "Missing " + ASSET_REPO_ENV_VAR + ". Set it to your local asset repo path (e.g. C:\\Code\\IxdarAssets).");
+        }
+        return Path.of(root, relativeAssetPath).toString();
+    }
+
+    public static TextFile loadAssetFile(String relativeAssetPath) throws IOException {
+        String absolutePath = resolveAssetPath(relativeAssetPath);
+        return Platforms.get().loadExternalFile(absolutePath);
+    }
 
     public static String getTestFile(String fileName) {
         String[] parts = fileName.split("_");
