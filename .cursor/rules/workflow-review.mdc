@@ -1,0 +1,22 @@
+---
+description: Risk-focused review workflow before merge
+alwaysApply: true
+---
+
+# Workflow Review
+
+Run a risk-first review before marking work complete.
+
+## Review Order
+
+1. Correctness and regressions
+2. Threading/concurrency and side effects
+3. Security and dangerous command paths
+4. Test coverage gaps
+5. Maintainability and naming clarity
+
+## Required Review Notes
+
+- Top risks discovered (or "none found").
+- What was tested and what remains untested.
+- Any follow-up work that should become a ticket.

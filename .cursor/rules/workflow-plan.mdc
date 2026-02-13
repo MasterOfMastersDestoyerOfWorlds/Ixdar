@@ -1,0 +1,22 @@
+---
+description: Planning workflow for scoped implementation
+alwaysApply: true
+---
+
+# Workflow Plan
+
+Use this when the task is non-trivial or has multiple implementation paths.
+
+## Required Output
+
+- Problem statement in one paragraph.
+- Constraints and assumptions (explicit).
+- 3-7 concrete implementation steps with file targets.
+- Verification plan (tests/manual checks).
+- Risks and rollback strategy.
+
+## Plan Quality Bar
+
+- Prefer incremental rollout over big-bang rewrites.
+- Define what "done" looks like before editing.
+- Call out decisions that affect APIs, persistence, or threading.

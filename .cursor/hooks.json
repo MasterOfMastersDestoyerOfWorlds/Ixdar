@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "Shell",
+        "command": "python .cursor/hooks/pre_tool_guard.py"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "Write",
+        "command": "python .cursor/hooks/post_write_audit.py"
+      }
+    ],
+    "stop": [
+      {
+        "command": "python .cursor/hooks/stop_compound_reminder.py"
+      }
+    ]
+  }
+}

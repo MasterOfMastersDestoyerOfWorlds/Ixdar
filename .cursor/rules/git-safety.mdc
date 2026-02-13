@@ -1,0 +1,18 @@
+---
+description: Git safety guardrails for AI-assisted changes
+alwaysApply: true
+---
+
+# Git Safety
+
+- Never run destructive git commands unless explicitly asked (`reset --hard`, `checkout --`, force push).
+- Never amend existing commits unless explicitly requested.
+- Never change git config in this repo from agent workflows.
+- Prefer small, reviewable commits grouped by task intent.
+- Do not commit generated artifacts (`target/`, screenshots, logs, cache files).
+
+# Commit Hygiene
+
+- Verify changes with targeted tests before commit when possible.
+- Keep commit message focused on why, not a file-by-file changelog.
+- If hooks/tests fail, fix code before retrying commit.

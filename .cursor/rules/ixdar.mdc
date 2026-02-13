@@ -1,0 +1,36 @@
+---
+description: Foundational Ixdar AI operating context (CLAUDE.md equivalent)
+alwaysApply: true
+---
+
+# Ixdar Foundation
+
+This rule is the canonical project foundation for AI agents, equivalent to a repository-level `CLAUDE.md`.
+
+## Core Intent
+
+- Keep behavior correct first; preserve existing user-facing behavior unless change is explicitly requested.
+- Prefer small, validated increments over large sweeping edits.
+- Make each task compound: leave reusable knowledge and safer defaults behind.
+
+## Source of Truth
+
+- Coding conventions and architecture: `ixdar-coding-standards.mdc`
+- Ticket lifecycle updates: `ticket-lifecycle.mdc`
+- Workflow system: `workflow-plan.mdc`, `workflow-work.mdc`, `workflow-review.mdc`, `workflow-compound.mdc`
+- Git safety: `git-safety.mdc`
+
+## Workflow Contract
+
+For non-trivial tasks, follow:
+
+1. Plan
+2. Work
+3. Review
+4. Compound
+
+## Practical Defaults
+
+- Avoid destructive git/shell operations unless explicitly approved.
+- Validate with targeted tests whenever feasible.
+- Record reusable learnings in `docs/ai-learnings/` after significant work.

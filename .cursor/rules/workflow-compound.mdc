@@ -1,0 +1,22 @@
+---
+description: Capture reusable learnings after significant work
+alwaysApply: true
+---
+
+# Workflow Compound
+
+After non-trivial work, codify what should make future work easier.
+
+## Capture Template
+
+- Context: what problem was solved.
+- Decision: what approach was chosen and why.
+- Evidence: commands/tests/logs that validated the fix.
+- Reuse trigger: when this pattern should be used again.
+- Anti-pattern: what failed and should be avoided.
+
+## Storage
+
+- Add or update entries in `./cursror/docs/ai-learnings/`.
+- Update `./ixdar.mdc` with foundtional knowledge that is needed for every ticket 
+- Prefer concise, searchable notes over long narrative text.
