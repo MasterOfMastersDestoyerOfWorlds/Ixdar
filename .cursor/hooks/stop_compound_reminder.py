@@ -11,13 +11,14 @@ def main() -> int:
     with OUT_PATH.open("a", encoding="utf-8") as f:
         f.write(
             f"{datetime.now(timezone.utc).isoformat()} stop hook: "
-            "capture learnings in docs/ai-learnings/ if work was non-trivial.\n"
+            "capture learnings in docs/ai-learnings/ if work was non-trivial; "
+            "if ticket work was done, update tickets/content status and prefix completed todos with 'DONE : '.\n"
         )
     print(
         json.dumps(
             {
                 "decision": "allow",
-                "message": "Remember to capture reusable learnings in docs/ai-learnings/."
+                "message": "Remember learnings in docs/ai-learnings/, and for ticketed work update ticket status + mark completed todos with 'DONE : '."
             }
         )
     )

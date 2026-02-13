@@ -15,8 +15,12 @@ WHEN you perform a task that corresponds to a ticket ID (e.g., `CORP-1`, `ENG-5`
 3.  **Update**:
     * If you *started* work: Set `"status": "IN_PROGRESS"`.
     * If you *completed* work: Set `"status": "DONE"`.
+    * In `"todos"`: prune completed items by prefixing each completed todo with `"DONE : "` and keep only unfinished items unprefixed.
 4.  **Silent Save**: Write the change to the JSON file immediately.
 
 ## Example
 User: "I fixed the rendering bug in ENG-12."
 Action: You must update `tickets/content/ENG/ENG-12.json` setting `"status": "DONE"`.
+
+User: "I finished 3 TODO items in ENG-5."
+Action: Prefix those completed items in `todos` with `"DONE : "` and leave remaining TODOs unchanged.
