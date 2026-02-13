@@ -60,6 +60,7 @@ public interface GL {
     void bindVertexArray(int vao);
 
     void drawArrays(int mode, int first, int count);
+    void drawElements(int mode, int count, int type, int indicesOffsetBytes);
 
     int getUniformLocation(int program, String name);
 
@@ -93,6 +94,7 @@ public interface GL {
     int TRIANGLES();
 
     int ARRAY_BUFFER();
+    int ELEMENT_ARRAY_BUFFER();
 
     int STATIC_DRAW();
 
@@ -109,6 +111,7 @@ public interface GL {
     int RGBA8();
 
     int UNSIGNED_BYTE();
+    int UNSIGNED_INT();
 
     int TEXTURE_WRAP_S();
 

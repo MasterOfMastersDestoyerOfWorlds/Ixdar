@@ -20,11 +20,13 @@ import static org.lwjgl.opengl.GL20.GL_ACTIVE_UNIFORMS;
 import static org.lwjgl.opengl.GL20.GL_LINK_STATUS;
 import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
 import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
+import static org.lwjgl.opengl.GL11.GL_UNSIGNED_INT;
 import static org.lwjgl.opengl.GL11.glBindTexture;
 import static org.lwjgl.opengl.GL11.glBlendFunc;
 import static org.lwjgl.opengl.GL11.glClear;
 import static org.lwjgl.opengl.GL11.glClearColor;
 import static org.lwjgl.opengl.GL11.glDrawArrays;
+import static org.lwjgl.opengl.GL11.glDrawElements;
 import static org.lwjgl.opengl.GL11.glEnable;
 import static org.lwjgl.opengl.GL11.glGenTextures;
 import static org.lwjgl.opengl.GL11.glReadPixels;
@@ -34,6 +36,7 @@ import static org.lwjgl.opengl.GL11.glViewport;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 import static org.lwjgl.opengl.GL13.glActiveTexture;
 import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
+import static org.lwjgl.opengl.GL15.GL_ELEMENT_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL15.GL_DYNAMIC_DRAW;
 import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
 import static org.lwjgl.opengl.GL15.glBindBuffer;
@@ -234,6 +237,11 @@ public class LwjglGL implements GL {
     }
 
     @Override
+    public void drawElements(int mode, int count, int type, int indicesOffsetBytes) {
+        glDrawElements(mode, count, type, indicesOffsetBytes);
+    }
+
+    @Override
     public int getUniformLocation(int program, String name) {
         return glGetUniformLocation(program, name);
     }
@@ -310,6 +318,11 @@ public class LwjglGL implements GL {
     }
 
     @Override
+    public int ELEMENT_ARRAY_BUFFER() {
+        return GL_ELEMENT_ARRAY_BUFFER;
+    }
+
+    @Override
     public int STATIC_DRAW() {
         return GL_STATIC_DRAW;
     }
@@ -347,6 +360,11 @@ public class LwjglGL implements GL {
     @Override
     public int UNSIGNED_BYTE() {
         return GL_UNSIGNED_BYTE;
+    }
+
+    @Override
+    public int UNSIGNED_INT() {
+        return GL_UNSIGNED_INT;
     }
 
     @Override

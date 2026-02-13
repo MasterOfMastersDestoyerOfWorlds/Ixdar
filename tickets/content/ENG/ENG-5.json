@@ -34,7 +34,10 @@
         "Added environment-variable based external asset repo support via `IXDAR_ASSET_REPO_ROOT` in file and platform loading layers.",
         "Added `ModelLoadScene` (`model-load-canvas`) that loads and validates OBJ data from external asset repo (`Hand.obj`).",
         "Documented asset repo environment variable setup in README.",
-        "Updated `ModelLoadScene` to load `Hand.obj` through ASSIMP, compute model bounds, auto-frame `Camera3D`, and render projected mesh points for visibility verification."
+        "Updated `ModelLoadScene` to load `Hand.obj` through ASSIMP, compute model bounds, and auto-frame `Camera3D`.",
+        "Implemented indexed triangle rendering in `ModelLoadScene` (VAO/VBO/EBO + `drawElements`) with a generated checker texture for textured-poly validation.",
+        "Added mesh rendering shader pipeline (`MeshShader`, `mesh.vs`, `mesh.fs`) and extended GL abstraction with indexed draw support (`drawElements`, `ELEMENT_ARRAY_BUFFER`, `UNSIGNED_INT`).",
+        "Refactored model loading/rendering into reusable runtime interfaces (`ModelRuntime`, `ModelHandle`, `AssimpModelRuntime`) so scenes consume a simple API instead of owning import/GPU plumbing."
     ],
     "related-files": [
         "ixdar-app/src/main/java/ixdar/graphics/render/",
@@ -43,6 +46,12 @@
         "ixdar-app/src/main/java/ixdar/graphics/render/shaders/DiffuseShader.java",
         "TODO.md (mentions ASSIMP Model loading)",
         "ixdar-app/src/main/java/ixdar/scenes/anatomy/ModelLoadScene.java",
+        "ixdar-app/src/main/java/ixdar/graphics/render/model/ModelRuntime.java",
+        "ixdar-app/src/main/java/ixdar/graphics/render/model/ModelHandle.java",
+        "ixdar-app/src/main/java/ixdar/graphics/render/model/AssimpModelRuntime.java",
+        "ixdar-app/src/main/java/ixdar/graphics/render/shaders/MeshShader.java",
+        "ixdar-app/src/main/resources/glsl/mesh.vs",
+        "ixdar-app/src/main/resources/glsl/mesh.fs",
         "README.md"
     ]
 }

@@ -131,6 +131,10 @@ public class HeadlessGL implements GL {
     }
 
     @Override
+    public void drawElements(int mode, int count, int type, int indicesOffsetBytes) {
+    }
+
+    @Override
     public int getUniformLocation(int program, String name) {
         return idCounter++;
     }
@@ -202,6 +206,11 @@ public class HeadlessGL implements GL {
     }
 
     @Override
+    public int ELEMENT_ARRAY_BUFFER() {
+        return 0x8893;
+    }
+
+    @Override
     public int STATIC_DRAW() {
         return 0x88E4;
     }
@@ -239,6 +248,11 @@ public class HeadlessGL implements GL {
     @Override
     public int UNSIGNED_BYTE() {
         return 0x1401;
+    }
+
+    @Override
+    public int UNSIGNED_INT() {
+        return 0x1405;
     }
 
     @Override

@@ -252,6 +252,11 @@ public class WebGL implements GL {
     }
 
     @Override
+    public void drawElements(int mode, int count, int type, int indicesOffsetBytes) {
+        gl.drawElements(mode, count, type, indicesOffsetBytes);
+    }
+
+    @Override
     public int getUniformLocation(int program, String name) {
         WebGLUniformLocation l = gl.getUniformLocation(program(program), name);
         if (l == null)
@@ -342,6 +347,11 @@ public class WebGL implements GL {
     }
 
     @Override
+    public int ELEMENT_ARRAY_BUFFER() {
+        return WebGLRenderingContext.ELEMENT_ARRAY_BUFFER;
+    }
+
+    @Override
     public int STATIC_DRAW() {
         return WebGLRenderingContext.STATIC_DRAW;
     }
@@ -379,6 +389,11 @@ public class WebGL implements GL {
     @Override
     public int UNSIGNED_BYTE() {
         return WebGLRenderingContext.UNSIGNED_BYTE;
+    }
+
+    @Override
+    public int UNSIGNED_INT() {
+        return 0x1405;
     }
 
     @Override

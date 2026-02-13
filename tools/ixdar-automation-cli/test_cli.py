@@ -62,6 +62,17 @@ class CliTest(unittest.TestCase):
         exit_code = ixdar_cli.main(["start-new-game"])
         self.assertEqual(0, exit_code)
 
+    @patch("urllib.request.urlopen")
+    def test_probe_returns_health_state_screenshot(self, urlopen):
+        responses = [
+            {"status": "ok", "port": 47832},
+            {"scene": "main", "menuVisible": False, "windowWidth": 800, "windowHeight": 600},
+            {"path": "out.png", "sha256": "abc123", "width": 800, "height": 600},
+        ]
+        urlopen.side_effect = [FakeResponse(payload) for payload in responses]
+        exit_code = ixdar_cli.main(["probe", "--out", "out.png"])
+        self.assertEqual(0, exit_code)
+
 
 if __name__ == "__main__":
     unittest.main()

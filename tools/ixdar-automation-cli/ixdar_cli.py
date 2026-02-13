@@ -97,6 +97,28 @@ def start_new_game(base_url: str, button: int, fallback_scan: bool) -> dict:
     return {"ok": False, "error": "Start New Game bounds not available"}
 
 
+def probe(base_url: str, screenshot_out: str) -> dict:
+    health = request_json(base_url, "/health")
+    state = request_json(base_url, "/ui/state")
+    screenshot = request_json(base_url, "/ui/screenshot", {"path": screenshot_out, "inline": False})
+    return {
+        "ok": True,
+        "health": health,
+        "uiStateSummary": {
+            "scene": state.get("scene"),
+            "menuVisible": state.get("menuVisible"),
+            "windowWidth": state.get("windowWidth"),
+            "windowHeight": state.get("windowHeight"),
+        },
+        "screenshot": {
+            "path": screenshot.get("path"),
+            "sha256": screenshot.get("sha256"),
+            "width": screenshot.get("width"),
+            "height": screenshot.get("height"),
+        },
+    }
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="ixdar")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
@@ -104,6 +126,8 @@ def main(argv: list[str]) -> int:
 
     subparsers.add_parser("health")
     subparsers.add_parser("ui-state")
+    probe_cmd = subparsers.add_parser("probe")
+    probe_cmd.add_argument("--out", default="")
 
     screenshot = subparsers.add_parser("screenshot")
     screenshot.add_argument("--out", default="")
@@ -163,6 +187,8 @@ def main(argv: list[str]) -> int:
             result = request_json(base, "/health")
         elif args.command == "ui-state":
             result = request_json(base, "/ui/state")
+        elif args.command == "probe":
+            result = probe(base, args.out)
         elif args.command == "screenshot":
             result = request_json(base, "/ui/screenshot", {"path": args.out, "inline": args.inline})
         elif args.command == "click":
