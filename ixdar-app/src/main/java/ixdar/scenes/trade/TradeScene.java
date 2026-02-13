@@ -21,7 +21,7 @@ import ixdar.gui.ui.tools.HeadquartersPickerTool;
 import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.gui.ui.tools.Tool;
 import ixdar.platform.Platforms;
-import ixdar.platform.automation.AutomationRuntime;
+import ixdar.platform.automation.AutomationInputBinder;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyActions;
 import ixdar.platform.input.MouseTrap;
@@ -133,26 +133,7 @@ public class TradeScene {
     public void activate(boolean state) {
         if (state) {
             Platform p = Platforms.get();
-            p.setKeyCallback((key, scancode, action, mods) -> {
-                AutomationRuntime.get().recordRawKey(key, scancode, action, mods);
-                keys.keyCallback(0L, key, scancode, action, mods);
-            });
-            p.setCharCallback(codepoint -> {
-                AutomationRuntime.get().recordRawChar(codepoint);
-                keys.charCallback(0L, codepoint);
-            });
-            p.setMouseButtonCallback((button, action, mods) -> {
-                AutomationRuntime.get().recordRawMouseButton(button, action, mods, mouse.lastX, mouse.lastY);
-                mouse.mouseButton(button, action, mods);
-            });
-            p.setCursorPosCallback((window, x, y) -> {
-                AutomationRuntime.get().recordRawMouseMove((float) x, (float) y);
-                mouse.moveOrDrag(window, (float) x, (float) y);
-            });
-            p.setScrollCallback((xoff, yoff) -> {
-                AutomationRuntime.get().recordRawScroll(yoff);
-                mouse.scrollCallback(yoff);
-            });
+            AutomationInputBinder.bind(p, keys, mouse);
         }
         if (canvas != null) {
             canvas.activate(!state);

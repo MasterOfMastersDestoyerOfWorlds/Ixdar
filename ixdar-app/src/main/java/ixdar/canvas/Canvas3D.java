@@ -25,6 +25,7 @@ import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.Platform;
+import ixdar.platform.automation.AutomationInputBinder;
 import ixdar.platform.automation.AutomationRuntime;
 import ixdar.platform.input.KeyActions;
 import ixdar.platform.input.KeyGuy;
@@ -117,6 +118,7 @@ public class Canvas3D extends SceneDrawable {
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera.resetZIndex();
         camera2D.resetZIndex();
+        AutomationRuntime.get().processMainThreadCommands();
 
         float SHIFT_MOD = 1;
         if (keys != null && KeyActions.DoubleSpeed.keyPressed(keys.pressedKeys)) {
@@ -166,26 +168,7 @@ public class Canvas3D extends SceneDrawable {
     public void activate(boolean state) {
         if (state) {
             Platform p = Platforms.get();
-            p.setKeyCallback((key, scancode, action, mods) -> {
-                AutomationRuntime.get().recordRawKey(key, scancode, action, mods);
-                keys.keyCallback(0L, key, scancode, action, mods);
-            });
-            p.setCharCallback(codepoint -> {
-                AutomationRuntime.get().recordRawChar(codepoint);
-                keys.charCallback(0L, codepoint);
-            });
-            p.setMouseButtonCallback((button, action, mods) -> {
-                AutomationRuntime.get().recordRawMouseButton(button, action, mods, mouse.lastX, mouse.lastY);
-                mouse.mouseButton(button, action, mods);
-            });
-            p.setCursorPosCallback((window, x, y) -> {
-                AutomationRuntime.get().recordRawMouseMove((float) x, (float) y);
-                mouse.moveOrDrag(window, (float) x, (float) y);
-            });
-            p.setScrollCallback((xoff, yoff) -> {
-                AutomationRuntime.get().recordRawScroll(yoff);
-                mouse.scrollCallback(yoff);
-            });
+            AutomationInputBinder.bind(p, keys, mouse);
         }
         keys.active = state;
         mouse.active = state;

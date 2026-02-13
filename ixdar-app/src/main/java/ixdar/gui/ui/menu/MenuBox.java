@@ -1,6 +1,7 @@
 package ixdar.gui.ui.menu;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import com.google.gson.JsonObject;
 
@@ -21,6 +22,16 @@ import ixdar.platform.file.FileManagement;
 import ixdar.platform.input.MouseTrap;
 
 public class MenuBox implements MouseTrap.ScrollHandler {
+    public static class MenuItemBounds {
+        public String label;
+        public float left;
+        public float bottom;
+        public float width;
+        public float height;
+        public float centerX;
+        public float centerY;
+    }
+
     SDFUnion menuOuterBorder;
     int hoverItem = -1;
     float scale = 2f;
@@ -224,6 +235,28 @@ public class MenuBox implements MouseTrap.ScrollHandler {
      */
     public float getItemWidth() {
         return itemWidth;
+    }
+
+    public List<MenuItemBounds> getMenuItemBounds() {
+        ArrayList<MenuItemBounds> bounds = new ArrayList<>();
+        if (menuItems == null || menuItems.isEmpty() || itemWidth <= 0 || itemHeight <= 0) {
+            return bounds;
+        }
+        float centerX = Platforms.get().getFrameBufferWidth() / 2f;
+        float centerY = Platforms.get().getFrameBufferHeight() / 2f;
+        for (int i = 0; i < menuItems.size(); i++) {
+            float itemCenterY = centerY - itemHeight - (itemHeight * i * 1.5f) - scrollOffsetY;
+            MenuItemBounds item = new MenuItemBounds();
+            item.label = menuItems.get(i).getHeading();
+            item.left = centerX - itemWidth / 2f;
+            item.bottom = itemCenterY - itemHeight / 2f;
+            item.width = itemWidth;
+            item.height = itemHeight;
+            item.centerX = centerX;
+            item.centerY = itemCenterY;
+            bounds.add(item);
+        }
+        return bounds;
     }
 
 }

@@ -12,6 +12,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
 
@@ -30,13 +35,23 @@ import ixdar.scenes.main.MainScene;
 import ixdar.scenes.trade.TradeScene;
 
 public class AutomationRuntime {
+    private static final long MAIN_THREAD_WAIT_MS = 3000L;
     private static final AutomationRuntime INSTANCE = new AutomationRuntime();
+
+    private static class PendingMainThreadAction {
+        Callable<JsonObject> action;
+        CountDownLatch latch = new CountDownLatch(1);
+        JsonObject result;
+        Exception error;
+    }
 
     private final AutomationRecorder recorder = new AutomationRecorder();
     private final AutomationReplayEngine replayEngine = new AutomationReplayEngine(this);
+    private final Queue<PendingMainThreadAction> pendingMainThreadActions = new ConcurrentLinkedQueue<>();
     private AutomationApiServer server;
     private boolean started;
     private Canvas3D canvas;
+    private volatile long renderThreadId = -1;
 
     public static AutomationRuntime get() {
         return INSTANCE;
@@ -56,7 +71,6 @@ public class AutomationRuntime {
             server.start();
             started = true;
             String message = "[Automation] Listening on http://127.0.0.1:" + port;
-            System.out.println(message);
             Platforms.get().log(message);
         } catch (IOException e) {
             Platforms.get().log("Automation server failed to start: " + e.getMessage());
@@ -101,19 +115,19 @@ public class AutomationRuntime {
         payload.addProperty("button", button);
         payload.addProperty("action", action);
         payload.addProperty("mods", mods);
-        payload.addProperty("x", x);
-        payload.addProperty("y", y);
-        payload.addProperty("xNormalized", normalizeX(x));
-        payload.addProperty("yNormalized", normalizeY(y));
+        payload.addProperty("xPx", x);
+        payload.addProperty("yPx", y);
+        payload.addProperty("xNorm", normalizeX(x));
+        payload.addProperty("yNorm", normalizeY(y));
         recorder.recordRaw("mouse_button", payload);
     }
 
     public void recordRawMouseMove(float x, float y) {
         JsonObject payload = new JsonObject();
-        payload.addProperty("x", x);
-        payload.addProperty("y", y);
-        payload.addProperty("xNormalized", normalizeX(x));
-        payload.addProperty("yNormalized", normalizeY(y));
+        payload.addProperty("xPx", x);
+        payload.addProperty("yPx", y);
+        payload.addProperty("xNorm", normalizeX(x));
+        payload.addProperty("yNorm", normalizeY(y));
         recorder.recordRaw("mouse_move", payload);
     }
 
@@ -127,41 +141,46 @@ public class AutomationRuntime {
         recorder.recordAbstract(type, payload);
     }
 
-    public JsonObject captureScreenshot(String outputPath) throws Exception {
-        int width = Platforms.get().getFrameBufferWidth();
-        int height = Platforms.get().getFrameBufferHeight();
-        int[] pixels = Platforms.gl().readPixels(0, 0, width, height, Platforms.gl().RGBA(), Platforms.gl().UNSIGNED_BYTE(),
-                width * height * 4);
-        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int srcIndex = (height - 1 - y) * width + x;
-                image.setRGB(x, y, pixels[srcIndex]);
+    public JsonObject captureScreenshot(String outputPath, boolean inlineBase64) throws Exception {
+        return runOnMainThread(() -> {
+            int width = Platforms.get().getFrameBufferWidth();
+            int height = Platforms.get().getFrameBufferHeight();
+            int[] pixels = Platforms.gl().readPixels(0, 0, width, height, Platforms.gl().RGBA(), Platforms.gl().UNSIGNED_BYTE(),
+                    width * height * 4);
+            BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int srcIndex = (height - 1 - y) * width + x;
+                    image.setRGB(x, y, pixels[srcIndex]);
+                }
             }
-        }
-        File out;
-        if (outputPath == null || outputPath.isBlank()) {
-            String filename = "screenshot-" + System.currentTimeMillis() + ".png";
-            out = new File("screenshots/automation", filename);
-        } else {
-            out = new File(outputPath);
-            if (!out.isAbsolute()) {
-                out = new File(System.getProperty("user.dir"), outputPath);
+            File out;
+            if (outputPath == null || outputPath.isBlank()) {
+                String filename = "screenshot-" + System.currentTimeMillis() + ".png";
+                out = new File("screenshots/automation", filename);
+            } else {
+                out = new File(outputPath);
+                if (!out.isAbsolute()) {
+                    out = new File(System.getProperty("user.dir"), outputPath);
+                }
             }
-        }
-        File parent = out.getParentFile();
-        if (parent != null) {
-            parent.mkdirs();
-        }
-        ImageIO.write(image, "PNG", out);
-        byte[] pngBytes = imageBytes(image);
-        JsonObject result = new JsonObject();
-        result.addProperty("path", out.getAbsolutePath());
-        result.addProperty("width", width);
-        result.addProperty("height", height);
-        result.addProperty("sha256", sha256(pngBytes));
-        result.addProperty("base64", Base64.getEncoder().encodeToString(pngBytes));
-        return result;
+            File parent = out.getParentFile();
+            if (parent != null) {
+                parent.mkdirs();
+            }
+            ImageIO.write(image, "PNG", out);
+            byte[] pngBytes = imageBytes(image);
+            JsonObject result = new JsonObject();
+            result.addProperty("path", out.getAbsolutePath());
+            result.addProperty("width", width);
+            result.addProperty("height", height);
+            result.addProperty("sha256", sha256(pngBytes));
+            if (inlineBase64) {
+                result.addProperty("base64", Base64.getEncoder().encodeToString(pngBytes));
+            }
+            result.addProperty("inlineBase64", inlineBase64);
+            return result;
+        });
     }
 
     public JsonObject uiState() {
@@ -188,7 +207,21 @@ public class AutomationRuntime {
         root.add("textElements", textElements);
 
         JsonArray menuItems = new JsonArray();
-        if (MenuBox.menuItems != null) {
+        if (canvas != null && canvas.menu != null) {
+            for (MenuBox.MenuItemBounds itemBounds : canvas.menu.getMenuItemBounds()) {
+                JsonObject menuItem = new JsonObject();
+                menuItem.addProperty("label", itemBounds.label);
+                JsonObject bounds = new JsonObject();
+                bounds.addProperty("xPx", itemBounds.left);
+                bounds.addProperty("yPx", itemBounds.bottom);
+                bounds.addProperty("widthPx", itemBounds.width);
+                bounds.addProperty("heightPx", itemBounds.height);
+                bounds.addProperty("centerXPx", itemBounds.centerX);
+                bounds.addProperty("centerYPx", itemBounds.centerY);
+                menuItem.add("bounds", bounds);
+                menuItems.add(menuItem);
+            }
+        } else if (MenuBox.menuItems != null) {
             for (MenuItem item : MenuBox.menuItems) {
                 JsonObject menuItem = new JsonObject();
                 menuItem.addProperty("label", item.getHeading());
@@ -244,87 +277,125 @@ public class AutomationRuntime {
     }
 
     public JsonObject injectClick(float x, float y, boolean normalized, int button) {
-        MouseTrap mouse = activeMouse();
-        JsonObject result = new JsonObject();
-        if (mouse == null) {
-            result.addProperty("ok", false);
-            result.addProperty("error", "No active mouse handler");
-            return result;
+        try {
+            return runOnMainThread(() -> {
+                MouseTrap mouse = activeMouse();
+                JsonObject result = new JsonObject();
+                if (mouse == null) {
+                    result.addProperty("ok", false);
+                    result.addProperty("error", "No active mouse handler");
+                    return result;
+                }
+                float xPos = normalized ? denormalizeX(x) : x;
+                float yPos = normalized ? denormalizeY(y) : y;
+                mouse.mousePos(xPos, yPos);
+                mouse.mouseButton(button, ACTION_PRESS, 0);
+                mouse.mouseButton(button, ACTION_RELEASE, 0);
+                JsonObject payload = new JsonObject();
+                payload.addProperty("xPx", xPos);
+                payload.addProperty("yPx", yPos);
+                payload.addProperty("xNorm", normalizeX(xPos));
+                payload.addProperty("yNorm", normalizeY(yPos));
+                payload.addProperty("button", button);
+                recorder.recordAbstract("click", payload);
+                result.addProperty("ok", true);
+                result.add("event", payload);
+                return result;
+            });
+        } catch (Exception e) {
+            JsonObject error = new JsonObject();
+            error.addProperty("ok", false);
+            error.addProperty("error", e.getMessage());
+            return error;
         }
-        float xPos = normalized ? denormalizeX(x) : x;
-        float yPos = normalized ? denormalizeY(y) : y;
-        mouse.mousePos(xPos, yPos);
-        mouse.mouseButton(button, ACTION_PRESS, 0);
-        mouse.mouseButton(button, ACTION_RELEASE, 0);
-        JsonObject payload = new JsonObject();
-        payload.addProperty("x", xPos);
-        payload.addProperty("y", yPos);
-        payload.addProperty("xNormalized", normalizeX(xPos));
-        payload.addProperty("yNormalized", normalizeY(yPos));
-        payload.addProperty("button", button);
-        recorder.recordAbstract("click", payload);
-        result.addProperty("ok", true);
-        result.add("event", payload);
-        return result;
     }
 
     public JsonObject injectScroll(double delta) {
-        MouseTrap mouse = activeMouse();
-        JsonObject result = new JsonObject();
-        if (mouse == null) {
-            result.addProperty("ok", false);
-            result.addProperty("error", "No active mouse handler");
-            return result;
+        try {
+            return runOnMainThread(() -> {
+                MouseTrap mouse = activeMouse();
+                JsonObject result = new JsonObject();
+                if (mouse == null) {
+                    result.addProperty("ok", false);
+                    result.addProperty("error", "No active mouse handler");
+                    return result;
+                }
+                mouse.scrollCallback(delta);
+                JsonObject payload = new JsonObject();
+                payload.addProperty("delta", delta);
+                recorder.recordAbstract("scroll", payload);
+                result.addProperty("ok", true);
+                return result;
+            });
+        } catch (Exception e) {
+            JsonObject error = new JsonObject();
+            error.addProperty("ok", false);
+            error.addProperty("error", e.getMessage());
+            return error;
         }
-        mouse.scrollCallback(delta);
-        JsonObject payload = new JsonObject();
-        payload.addProperty("delta", delta);
-        recorder.recordAbstract("scroll", payload);
-        result.addProperty("ok", true);
-        return result;
     }
 
     public JsonObject injectKey(int key, int action, int mods, int scancode) {
-        KeyGuy keys = activeKeys();
-        JsonObject result = new JsonObject();
-        if (keys == null) {
-            result.addProperty("ok", false);
-            result.addProperty("error", "No active key handler");
-            return result;
+        try {
+            return runOnMainThread(() -> {
+                KeyGuy keys = activeKeys();
+                JsonObject result = new JsonObject();
+                if (keys == null) {
+                    result.addProperty("ok", false);
+                    result.addProperty("error", "No active key handler");
+                    return result;
+                }
+                keys.keyCallback(0L, key, scancode, action, mods);
+                JsonObject payload = new JsonObject();
+                payload.addProperty("key", key);
+                payload.addProperty("action", action);
+                payload.addProperty("mods", mods);
+                payload.addProperty("scancode", scancode);
+                recorder.recordAbstract("key", payload);
+                result.addProperty("ok", true);
+                return result;
+            });
+        } catch (Exception e) {
+            JsonObject error = new JsonObject();
+            error.addProperty("ok", false);
+            error.addProperty("error", e.getMessage());
+            return error;
         }
-        keys.keyCallback(0L, key, scancode, action, mods);
-        JsonObject payload = new JsonObject();
-        payload.addProperty("key", key);
-        payload.addProperty("action", action);
-        payload.addProperty("mods", mods);
-        payload.addProperty("scancode", scancode);
-        recorder.recordAbstract("key", payload);
-        result.addProperty("ok", true);
-        return result;
     }
 
     public JsonObject injectType(String text) {
-        KeyGuy keys = activeKeys();
-        JsonObject result = new JsonObject();
-        if (keys == null) {
-            result.addProperty("ok", false);
-            result.addProperty("error", "No active key handler");
-            return result;
+        try {
+            return runOnMainThread(() -> {
+                KeyGuy keys = activeKeys();
+                JsonObject result = new JsonObject();
+                if (keys == null) {
+                    result.addProperty("ok", false);
+                    result.addProperty("error", "No active key handler");
+                    return result;
+                }
+                for (int i = 0; i < text.length(); i++) {
+                    keys.charCallback(0L, text.charAt(i));
+                }
+                JsonObject payload = new JsonObject();
+                payload.addProperty("text", text);
+                recorder.recordAbstract("type", payload);
+                result.addProperty("ok", true);
+                return result;
+            });
+        } catch (Exception e) {
+            JsonObject error = new JsonObject();
+            error.addProperty("ok", false);
+            error.addProperty("error", e.getMessage());
+            return error;
         }
-        for (int i = 0; i < text.length(); i++) {
-            keys.charCallback(0L, text.charAt(i));
-        }
-        JsonObject payload = new JsonObject();
-        payload.addProperty("text", text);
-        recorder.recordAbstract("type", payload);
-        result.addProperty("ok", true);
-        return result;
     }
 
     public void executeReplayEvent(AutomationReplayEngine.ReplayMode mode, String type, JsonObject payload) {
         if (mode == AutomationReplayEngine.ReplayMode.RAW) {
             if ("mouse_move".equals(type)) {
-                activeMouse().moveOrDrag(0L, payload.get("x").getAsFloat(), payload.get("y").getAsFloat());
+                float x = payload.has("xPx") ? payload.get("xPx").getAsFloat() : payload.get("x").getAsFloat();
+                float y = payload.has("yPx") ? payload.get("yPx").getAsFloat() : payload.get("y").getAsFloat();
+                activeMouse().moveOrDrag(0L, x, y);
             } else if ("mouse_button".equals(type)) {
                 activeMouse().mouseButton(payload.get("button").getAsInt(), payload.get("action").getAsInt(),
                         payload.get("mods").getAsInt());
@@ -339,7 +410,9 @@ public class AutomationRuntime {
             return;
         }
         if ("click".equals(type)) {
-            injectClick(payload.get("xNormalized").getAsFloat(), payload.get("yNormalized").getAsFloat(), true,
+            float xNorm = payload.has("xNorm") ? payload.get("xNorm").getAsFloat() : payload.get("xNormalized").getAsFloat();
+            float yNorm = payload.has("yNorm") ? payload.get("yNorm").getAsFloat() : payload.get("yNormalized").getAsFloat();
+            injectClick(xNorm, yNorm, true,
                     payload.get("button").getAsInt());
         } else if ("type".equals(type)) {
             injectType(payload.get("text").getAsString());
@@ -369,6 +442,40 @@ public class AutomationRuntime {
             return MainScene.mouse;
         }
         return canvas == null ? null : canvas.mouse;
+    }
+
+    public void processMainThreadCommands() {
+        if (renderThreadId == -1) {
+            renderThreadId = Thread.currentThread().getId();
+        }
+        PendingMainThreadAction pending = pendingMainThreadActions.poll();
+        while (pending != null) {
+            try {
+                pending.result = pending.action.call();
+            } catch (Exception e) {
+                pending.error = e;
+            } finally {
+                pending.latch.countDown();
+            }
+            pending = pendingMainThreadActions.poll();
+        }
+    }
+
+    private JsonObject runOnMainThread(Callable<JsonObject> action) throws Exception {
+        if (renderThreadId != -1 && Thread.currentThread().getId() == renderThreadId) {
+            return action.call();
+        }
+        PendingMainThreadAction pending = new PendingMainThreadAction();
+        pending.action = action;
+        pendingMainThreadActions.offer(pending);
+        boolean completed = pending.latch.await(MAIN_THREAD_WAIT_MS, TimeUnit.MILLISECONDS);
+        if (!completed) {
+            throw new IllegalStateException("Main-thread action timed out");
+        }
+        if (pending.error != null) {
+            throw pending.error;
+        }
+        return pending.result == null ? new JsonObject() : pending.result;
     }
 
     private float normalizeX(float x) {

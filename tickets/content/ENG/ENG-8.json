@@ -5,7 +5,7 @@
     "description": "Add a local automation interface for agent-driven testing and debugging. The Java app should expose UI state, input injection, screenshot capture, and recording/replay controls over a localhost port. Include demo recording with both raw input events and abstract actions, where abstract actions are the default replay format. Provide a Python CLI for composable agent workflows.",
     "blocked-by": [],
     "blocks": [],
-    "status": "IN_PROGRESS",
+    "status": "DONE",
     "definition-of-done": "1. Localhost automation API available from running app. 2. UI state endpoint exposes visible text/menu metadata. 3. Screenshot endpoint saves PNG files to automation screenshot folder. 4. Input endpoints support click/type/key/scroll injection. 5. Recorder captures both raw events and abstract actions with timestamps. 6. Replay defaults to abstract actions and supports optional raw replay mode. 7. Python CLI supports health/state/screenshot/input/record/replay commands. 8. Basic automated tests cover recorder serialization and CLI contract behavior.",
     "testing-plan": "1. Launch app and confirm health endpoint responds. 2. Capture screenshot and verify file exists in screenshots/automation. 3. Trigger click/type commands through CLI and verify in-app behavior. 4. Start recording, perform interactions, stop recording, and verify demo JSON includes rawEvents and abstractActions. 5. Replay abstract actions and verify deterministic behavior. 6. Run Java unit tests for recorder and Python CLI smoke tests.",
     "todos": [
@@ -24,7 +24,10 @@
     "changes-made": [
         "Added platform automation runtime and HTTP server scaffolding",
         "Hooked input callbacks for raw and abstract recording",
-        "Added Python CLI for agent automation workflows"
+        "Added Python CLI for agent automation workflows",
+        "Moved automation execution onto render-thread queue for safer input/GL operations",
+        "Added deterministic menu bounds in UI state and start-new-game CLI command",
+        "Hardened API methods/errors and added replay pause/resume/cancel endpoints"
     ],
     "related-files": [
         "ixdar-app/src/main/java/ixdar/platform/automation/AutomationApiServer.java",

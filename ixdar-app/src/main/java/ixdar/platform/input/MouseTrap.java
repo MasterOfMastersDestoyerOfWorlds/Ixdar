@@ -119,8 +119,12 @@ public class MouseTrap {
         JsonObject clickPayload = new JsonObject();
         clickPayload.addProperty("button", button);
         clickPayload.addProperty("pane", inMainView.name());
-        clickPayload.addProperty("xNormalized", normalizedPosX);
-        clickPayload.addProperty("yNormalized", normalizedPosY);
+        clickPayload.addProperty("xPx", xPos);
+        clickPayload.addProperty("yPx", yPos);
+        clickPayload.addProperty("xCoord", normalizedPosX);
+        clickPayload.addProperty("yCoord", normalizedPosY);
+        clickPayload.addProperty("xNorm", xPos / Math.max(1f, Platforms.get().getWindowWidth()));
+        clickPayload.addProperty("yNorm", yPos / Math.max(1f, Platforms.get().getWindowHeight()));
         AutomationRuntime.get().recordAbstractAction("mouse_click", clickPayload);
         Toggle.setPanelFocus(inMainView);
         if (MainScene.manifoldKnot != null && MainScene.active) {

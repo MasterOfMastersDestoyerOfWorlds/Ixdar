@@ -71,8 +71,12 @@ public class TradeMouseTrap extends MouseTrap {
         System.out.println("[TradeMouseTrap] activeTool: " + tradeScene.activeTool.displayName());
         JsonObject payload = new JsonObject();
         payload.addProperty("button", button);
-        payload.addProperty("xNormalized", normalizedPosX);
-        payload.addProperty("yNormalized", normalizedPosY);
+        payload.addProperty("xPx", x);
+        payload.addProperty("yPx", y);
+        payload.addProperty("xCoord", normalizedPosX);
+        payload.addProperty("yCoord", normalizedPosY);
+        payload.addProperty("xNorm", x / Math.max(1f, Platforms.get().getWindowWidth()));
+        payload.addProperty("yNorm", y / Math.max(1f, Platforms.get().getWindowHeight()));
         payload.addProperty("tool", tradeScene.activeTool.displayName());
         payload.addProperty("city", clickedCity == null ? "" : clickedCity.name);
         AutomationRuntime.get().recordAbstractAction("trade_city_click", payload);

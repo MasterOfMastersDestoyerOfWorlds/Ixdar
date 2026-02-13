@@ -37,8 +37,18 @@ public class AutomationApiServer {
     }
 
     private void routes() {
-        server.createContext("/health", exchange -> writeJson(exchange, runtime.health()));
-        server.createContext("/ui/state", exchange -> writeJson(exchange, runtime.uiState()));
+        server.createContext("/health", exchange -> {
+            if (!requireMethod(exchange, "GET")) {
+                return;
+            }
+            writeJson(exchange, runtime.health());
+        });
+        server.createContext("/ui/state", exchange -> {
+            if (!requireMethod(exchange, "GET")) {
+                return;
+            }
+            writeJson(exchange, runtime.uiState());
+        });
         server.createContext("/ui/screenshot", this::screenshotHandler);
         server.createContext("/input/click", this::clickHandler);
         server.createContext("/input/scroll", this::scrollHandler);
@@ -46,22 +56,37 @@ public class AutomationApiServer {
         server.createContext("/input/type", this::typeHandler);
         server.createContext("/record/start", this::recordStartHandler);
         server.createContext("/record/stop", this::recordStopHandler);
-        server.createContext("/record/status", exchange -> writeJson(exchange, runtime.recorder().status()));
+        server.createContext("/record/status", exchange -> {
+            if (!requireMethod(exchange, "GET")) {
+                return;
+            }
+            writeJson(exchange, runtime.recorder().status());
+        });
         server.createContext("/replay/start", this::replayStartHandler);
         server.createContext("/replay/status", this::replayStatusHandler);
+        server.createContext("/replay/pause", this::replayPauseHandler);
+        server.createContext("/replay/resume", this::replayResumeHandler);
+        server.createContext("/replay/cancel", this::replayCancelHandler);
     }
 
     private void screenshotHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
         JsonObject body = readBodyJson(exchange);
         String outputPath = body.has("path") ? body.get("path").getAsString() : "";
+        boolean inline = body.has("inline") && body.get("inline").getAsBoolean();
         try {
-            writeJson(exchange, runtime.captureScreenshot(outputPath));
+            writeJson(exchange, runtime.captureScreenshot(outputPath, inline));
         } catch (Exception e) {
             writeError(exchange, 500, e.getMessage());
         }
     }
 
     private void clickHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
         try {
             JsonObject body = readBodyJson(exchange);
             float x = body.has("x") ? body.get("x").getAsFloat() : 0f;
@@ -75,6 +100,9 @@ public class AutomationApiServer {
     }
 
     private void scrollHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
         try {
             JsonObject body = readBodyJson(exchange);
             double delta = body.has("delta") ? body.get("delta").getAsDouble() : 0;
@@ -85,6 +113,9 @@ public class AutomationApiServer {
     }
 
     private void keyHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
         try {
             JsonObject body = readBodyJson(exchange);
             int key = body.has("key") ? body.get("key").getAsInt() : 0;
@@ -98,6 +129,9 @@ public class AutomationApiServer {
     }
 
     private void typeHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
         try {
             JsonObject body = readBodyJson(exchange);
             String text = body.has("text") ? body.get("text").getAsString() : "";
@@ -108,6 +142,9 @@ public class AutomationApiServer {
     }
 
     private void recordStartHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
         runtime.recorder().start();
         JsonObject result = runtime.recorder().status();
         result.addProperty("ok", true);
@@ -115,6 +152,9 @@ public class AutomationApiServer {
     }
 
     private void recordStopHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
         JsonObject body = readBodyJson(exchange);
         String path = body.has("path") ? body.get("path").getAsString() : "";
         try {
@@ -125,6 +165,9 @@ public class AutomationApiServer {
     }
 
     private void replayStartHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
         try {
             JsonObject body = readBodyJson(exchange);
             String file = body.has("file") ? body.get("file").getAsString() : "";
@@ -142,10 +185,46 @@ public class AutomationApiServer {
     }
 
     private void replayStatusHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "GET")) {
+            return;
+        }
         JsonObject result = new JsonObject();
         result.addProperty("replaying", runtime.replayEngine().isReplaying());
         result.addProperty("status", runtime.replayEngine().getLastReplayStatus());
         result.addProperty("file", runtime.replayEngine().getLastReplayFile());
+        result.addProperty("paused", runtime.replayEngine().isPaused());
+        writeJson(exchange, result);
+    }
+
+    private void replayPauseHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        JsonObject result = new JsonObject();
+        runtime.replayEngine().pause();
+        result.addProperty("ok", true);
+        result.addProperty("paused", true);
+        writeJson(exchange, result);
+    }
+
+    private void replayResumeHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        JsonObject result = new JsonObject();
+        runtime.replayEngine().resume();
+        result.addProperty("ok", true);
+        result.addProperty("paused", runtime.replayEngine().isPaused());
+        writeJson(exchange, result);
+    }
+
+    private void replayCancelHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        JsonObject result = new JsonObject();
+        runtime.replayEngine().cancel();
+        result.addProperty("ok", true);
         writeJson(exchange, result);
     }
 
@@ -178,5 +257,13 @@ public class AutomationApiServer {
         exchange.sendResponseHeaders(code, response.length);
         exchange.getResponseBody().write(response);
         exchange.close();
+    }
+
+    private boolean requireMethod(HttpExchange exchange, String expected) throws IOException {
+        if (expected.equalsIgnoreCase(exchange.getRequestMethod())) {
+            return true;
+        }
+        writeError(exchange, 405, "Method not allowed; expected " + expected);
+        return false;
     }
 }

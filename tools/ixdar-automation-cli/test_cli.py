@@ -45,6 +45,23 @@ class CliTest(unittest.TestCase):
         exit_code = ixdar_cli.main(["click-scan", "--x-values", "250", "--y-start", "120", "--y-end", "140", "--y-step", "20"])
         self.assertEqual(0, exit_code)
 
+    @patch("urllib.request.urlopen")
+    def test_start_new_game_uses_menu_bounds(self, urlopen):
+        responses = [
+            {
+                "scene": "menu",
+                "menuVisible": True,
+                "menuItems": [
+                    {"label": "Start New Game", "bounds": {"centerXPx": 250, "centerYPx": 420}},
+                ],
+            },
+            {"ok": True},
+            {"scene": "trade", "menuVisible": False},
+        ]
+        urlopen.side_effect = [FakeResponse(payload) for payload in responses]
+        exit_code = ixdar_cli.main(["start-new-game"])
+        self.assertEqual(0, exit_code)
+
 
 if __name__ == "__main__":
     unittest.main()

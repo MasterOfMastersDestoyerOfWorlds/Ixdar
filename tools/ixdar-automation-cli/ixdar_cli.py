@@ -58,6 +58,45 @@ def click_until_scene_transition(
     return result
 
 
+def start_new_game(base_url: str, button: int, fallback_scan: bool) -> dict:
+    state = request_json(base_url, "/ui/state")
+    if state.get("scene") != "menu" or not state.get("menuVisible", True):
+        return {"ok": True, "message": "Already outside menu", "state": state}
+
+    for item in state.get("menuItems", []):
+        if item.get("label", "").lower() == "start new game":
+            bounds = item.get("bounds")
+            if bounds:
+                x = bounds.get("centerXPx")
+                y = bounds.get("centerYPx")
+                if x is not None and y is not None:
+                    window_height = state.get("windowHeight", 0)
+                    click_y = (window_height - y) if window_height else y
+                    click_result = request_json(base_url, "/input/click", {"x": x, "y": click_y, "normalized": False, "button": button})
+                    post = request_json(base_url, "/ui/state")
+                    return {
+                        "ok": post.get("scene") != "menu" or not post.get("menuVisible", True),
+                        "strategy": "menu_bounds_center",
+                        "target": {"x": x, "y": click_y},
+                        "click": click_result,
+                        "state": post,
+                    }
+
+    if fallback_scan:
+        scan = click_until_scene_transition(
+            base_url=base_url,
+            x_values=[250.0, 300.0, 350.0, 375.0, 400.0, 450.0, 500.0],
+            y_start=120,
+            y_end=620,
+            y_step=20,
+            button=button,
+        )
+        scan["strategy"] = "fallback_click_scan"
+        return scan
+
+    return {"ok": False, "error": "Start New Game bounds not available"}
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="ixdar")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
@@ -68,6 +107,7 @@ def main(argv: list[str]) -> int:
 
     screenshot = subparsers.add_parser("screenshot")
     screenshot.add_argument("--out", default="")
+    screenshot.add_argument("--inline", action="store_true")
 
     click = subparsers.add_parser("click")
     click.add_argument("--x", type=float, required=True)
@@ -81,6 +121,10 @@ def main(argv: list[str]) -> int:
     click_scan.add_argument("--y-end", type=int, default=620)
     click_scan.add_argument("--y-step", type=int, default=20)
     click_scan.add_argument("--button", type=int, default=0)
+
+    start_game = subparsers.add_parser("start-new-game")
+    start_game.add_argument("--button", type=int, default=0)
+    start_game.add_argument("--no-fallback-scan", action="store_true")
 
     scroll = subparsers.add_parser("scroll")
     scroll.add_argument("--delta", type=float, required=True)
@@ -103,10 +147,13 @@ def main(argv: list[str]) -> int:
 
     replay = subparsers.add_parser("replay")
     replay_sub = replay.add_subparsers(dest="replay_command", required=True)
-    replay_status = replay_sub.add_parser("status")
+    replay_sub.add_parser("status")
     replay_start = replay_sub.add_parser("start")
     replay_start.add_argument("--file", required=True)
     replay_start.add_argument("--mode", choices=["abstract", "raw"], default="abstract")
+    replay_sub.add_parser("pause")
+    replay_sub.add_parser("resume")
+    replay_sub.add_parser("cancel")
 
     args = parser.parse_args(argv)
     base = args.base_url
@@ -117,7 +164,7 @@ def main(argv: list[str]) -> int:
         elif args.command == "ui-state":
             result = request_json(base, "/ui/state")
         elif args.command == "screenshot":
-            result = request_json(base, "/ui/screenshot", {"path": args.out})
+            result = request_json(base, "/ui/screenshot", {"path": args.out, "inline": args.inline})
         elif args.command == "click":
             result = request_json(
                 base,
@@ -134,6 +181,8 @@ def main(argv: list[str]) -> int:
                 y_step=args.y_step,
                 button=args.button,
             )
+        elif args.command == "start-new-game":
+            result = start_new_game(base, args.button, not args.no_fallback_scan)
         elif args.command == "scroll":
             result = request_json(base, "/input/scroll", {"delta": args.delta})
         elif args.command == "key":
@@ -154,8 +203,14 @@ def main(argv: list[str]) -> int:
         elif args.command == "replay":
             if args.replay_command == "status":
                 result = request_json(base, "/replay/status")
-            else:
+            elif args.replay_command == "start":
                 result = request_json(base, "/replay/start", {"file": args.file, "mode": args.mode})
+            elif args.replay_command == "pause":
+                result = request_json(base, "/replay/pause", {})
+            elif args.replay_command == "resume":
+                result = request_json(base, "/replay/resume", {})
+            else:
+                result = request_json(base, "/replay/cancel", {})
         else:
             parser.print_help()
             return 1

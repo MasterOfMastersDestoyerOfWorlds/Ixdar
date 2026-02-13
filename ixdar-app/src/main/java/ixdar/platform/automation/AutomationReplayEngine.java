@@ -21,6 +21,8 @@ public class AutomationReplayEngine {
 
     private final AutomationRuntime runtime;
     private volatile boolean replaying;
+    private volatile boolean paused;
+    private volatile boolean cancelRequested;
     private volatile String lastReplayStatus = "idle";
     private volatile String lastReplayFile = "";
 
@@ -30,6 +32,10 @@ public class AutomationReplayEngine {
 
     public boolean isReplaying() {
         return replaying;
+    }
+
+    public boolean isPaused() {
+        return paused;
     }
 
     public String getLastReplayStatus() {
@@ -45,6 +51,8 @@ public class AutomationReplayEngine {
             return false;
         }
         replaying = true;
+        paused = false;
+        cancelRequested = false;
         lastReplayStatus = "running";
         lastReplayFile = filePath;
         Thread thread = new Thread(() -> runReplay(filePath, mode), "ixdar-automation-replay");
@@ -68,6 +76,17 @@ public class AutomationReplayEngine {
             events.sort(Comparator.comparingLong(o -> o.get("timestampMs").getAsLong()));
             long previousTime = 0L;
             for (JsonObject event : events) {
+                if (cancelRequested) {
+                    lastReplayStatus = "cancelled";
+                    return;
+                }
+                while (paused && !cancelRequested) {
+                    Thread.sleep(50);
+                }
+                if (cancelRequested) {
+                    lastReplayStatus = "cancelled";
+                    return;
+                }
                 long currentTime = event.get("timestampMs").getAsLong();
                 long delay = Math.max(0, currentTime - previousTime);
                 if (delay > 0) {
@@ -82,6 +101,27 @@ public class AutomationReplayEngine {
             lastReplayStatus = "failed: " + e.getMessage();
         } finally {
             replaying = false;
+            paused = false;
+        }
+    }
+
+    public void pause() {
+        if (replaying) {
+            paused = true;
+            lastReplayStatus = "paused";
+        }
+    }
+
+    public void resume() {
+        if (replaying) {
+            paused = false;
+            lastReplayStatus = "running";
+        }
+    }
+
+    public void cancel() {
+        if (replaying) {
+            cancelRequested = true;
         }
     }
 }
