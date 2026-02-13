@@ -34,14 +34,14 @@ public class DashedLineRoundEndCapsScene extends Scene {
         Knot knot1 = new Knot(point1, shell);
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        lineSegment.setStroke(7.5f * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 10f, false, true, camera2D);
+        lineSegment.setStroke(7.5f * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 10f, false, true, false, camera2D);
 
     }
 
     @Override
     public void drawScene() {
         super.drawScene();
-        lineSegment.setStroke(7.5f * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 10f, false, true, camera2D);
+        lineSegment.setStroke(7.5f * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, 0.2f, 10f, false, true, false, camera2D);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);

@@ -18,6 +18,7 @@ import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -43,6 +44,7 @@ public class LwjglPlatform implements Platform {
     private float frameBufferSizeX;
     private float frameBufferSizeY;
     private int platformId;
+    private static final ConcurrentLinkedQueue<Runnable> inputQueue = new ConcurrentLinkedQueue<>();
 
     public LwjglPlatform(long window) {
         this.window = window;
@@ -90,27 +92,29 @@ public class LwjglPlatform implements Platform {
 
     @Override
     public void setKeyCallback(KeyCallback callback) {
-        glfwSetKeyCallback(window, (w, key, scancode, action, mods) -> callback.onKey(key, scancode, action, mods));
+        glfwSetKeyCallback(window,
+                (w, key, scancode, action, mods) -> inputQueue.add(() -> callback.onKey(key, scancode, action, mods)));
     }
 
     @Override
     public void setCharCallback(CharCallback callback) {
-        glfwSetCharCallback(window, (w, codepoint) -> callback.onChar(codepoint));
+        glfwSetCharCallback(window, (w, codepoint) -> inputQueue.add(() -> callback.onChar(codepoint)));
     }
 
     @Override
     public void setCursorPosCallback(CursorPosCallback callback) {
-        glfwSetCursorPosCallback(window, (w, x, y) -> callback.onMousePos(window, x, y));
+        glfwSetCursorPosCallback(window, (w, x, y) -> inputQueue.add(() -> callback.onMousePos(window, x, y)));
     }
 
     @Override
     public void setMouseButtonCallback(MouseButtonCallback callback) {
-        glfwSetMouseButtonCallback(window, (w, button, action, mods) -> callback.onMouseButton(button, action, mods));
+        glfwSetMouseButtonCallback(window,
+                (w, button, action, mods) -> inputQueue.add(() -> callback.onMouseButton(button, action, mods)));
     }
 
     @Override
     public void setScrollCallback(ScrollCallback callback) {
-        glfwSetScrollCallback(window, (w, x, y) -> callback.onScroll(x, y));
+        glfwSetScrollCallback(window, (w, x, y) -> inputQueue.add(() -> callback.onScroll(x, y)));
     }
 
     @Override
@@ -167,7 +171,8 @@ public class LwjglPlatform implements Platform {
     }
 
     @Override
-    public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
+    public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId,
+            Consumer<String> callback) {
         try {
             String source = loadSource("glsl", filename);
             callback.accept(source);
@@ -244,5 +249,12 @@ public class LwjglPlatform implements Platform {
     @Override
     public void setPlatformID(Integer p) {
         this.platformId = p;
+    }
+
+    public void processInputQueue() {
+        Runnable runnable;
+        while ((runnable = inputQueue.poll()) != null) {
+            runnable.run();
+        }
     }
 }

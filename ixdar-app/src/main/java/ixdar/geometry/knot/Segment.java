@@ -336,7 +336,7 @@ public class Segment extends SDFLine implements Comparable<Segment> {
 
     @Override
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
-            boolean endCaps, Camera2D camera2d) {
+            boolean endCaps, boolean arrow, Camera2D camera2d) {
 
         if (uAxis == null) {
             this.camera = camera2d;
@@ -358,6 +358,6 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         float v = (uAxis.x * screenDir.y - uAxis.y * screenDir.x) / det;
 
         float texLength = (float) Math.sqrt(u * u + v * v) * widthToHeightRatio;
-        super.setStroke(lineWidth, dashed, texLength, dashRate, roundCaps, endCaps);
+        super.setStroke(lineWidth, dashed, texLength, dashRate, roundCaps, endCaps, arrow);
     }
 }

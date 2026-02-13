@@ -522,6 +522,11 @@ public class WebPlatform implements Platform {
             return browserButton;
         }
     }
+
+    @Override
+    public void processInputQueue() {
+        throw new UnsupportedOperationException("Unimplemented method 'processInputQueue'");
+    }
 }
 
 final class WebPlatformHelper {
