@@ -305,6 +305,14 @@ public class WebGL implements GL {
     }
 
     @Override
+    public void deleteTexture(int id) {
+        WebGLTexture t = textureMap.remove(id);
+        if (t != null) {
+            gl.deleteTexture(t);
+        }
+    }
+
+    @Override
     public void bindTexture2D(int id) {
         gl.bindTexture(WebGLRenderingContext.TEXTURE_2D, texture(id));
     }

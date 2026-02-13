@@ -8,7 +8,7 @@
         "UI-5",
         "ENG-6"
     ],
-    "status": "IN_PROGRESS",
+    "status": "DONE",
     "definition-of-done": "1. Mesh loader can parse at least one common 3D model format (OBJ recommended for simplicity). 2. Loaded meshes are stored in GPU vertex/index buffers. 3. Meshes can be rendered using existing shader system (DiffuseShader or new MeshShader). 4. Integration with Camera3D for proper 3D rendering. 5. Basic error handling for invalid/corrupted mesh files. 6. Memory management - meshes can be unloaded/cleaned up.",
     "testing-plan": "1. Manual Testing: Load various mesh files (simple cube, complex model) and verify correct rendering. Test with different camera angles and zoom levels. 2. Unit Tests: Create MeshLoaderTest.java with tests for: parseOBJFile (valid/invalid files), vertexBufferCreation, indexBufferCreation, normalCalculation (if auto-generated), textureCoordinateHandling. 3. Integration Tests: Verify mesh rendering integrates with existing Camera3D and shader system. Test multiple meshes rendered simultaneously. 4. Performance Testing: Measure load times and memory usage for various mesh complexities.",
     "todos": [
@@ -21,7 +21,8 @@
         "DONE : Add mesh draw pipeline (indexed triangles via `drawElements`).",
         "DONE : Integrate with Camera3D for framing and render transforms.",
         "DONE : Add basic error handling for invalid files and missing data.",
-        "Test with various mesh files and verify rendering quality"
+        "DONE : Add unit/integration/perf-smoke coverage for importer and model scene lifecycle (`AssimpModelImporterTest`, `ModelLoadSceneLifecycleTest`).",
+        "DONE : Test with various mesh files and verify rendering quality"
     ],
     "unknowns": [
         "Which mesh format to prioritize (OBJ is simple but limited, FBX/glTF more complex but feature-rich)",
@@ -37,7 +38,10 @@
         "Updated `ModelLoadScene` to load `Hand.obj` through ASSIMP, compute model bounds, and auto-frame `Camera3D`.",
         "Implemented indexed triangle rendering in `ModelLoadScene` (VAO/VBO/EBO + `drawElements`) with a generated checker texture for textured-poly validation.",
         "Added mesh rendering shader pipeline (`MeshShader`, `mesh.vs`, `mesh.fs`) and extended GL abstraction with indexed draw support (`drawElements`, `ELEMENT_ARRAY_BUFFER`, `UNSIGNED_INT`).",
-        "Refactored model loading/rendering into reusable runtime interfaces (`ModelRuntime`, `ModelHandle`, `AssimpModelRuntime`) so scenes consume a simple API instead of owning import/GPU plumbing."
+        "Refactored model loading/rendering into reusable runtime interfaces (`ModelRuntime`, `ModelHandle`, `AssimpModelRuntime`) so scenes consume a simple API instead of owning import/GPU plumbing.",
+        "Made model resource lifecycle explicit across transitions/shutdown: added `SceneDrawable.shutdown()`, wired app shutdown to call `canvas.shutdown()`, and ensured `ModelLoadScene` disposes model handles idempotently.",
+        "Added explicit texture deletion in GL abstraction (`deleteTexture`) and used it in model disposal to close GPU texture lifecycle.",
+        "Extracted ASSIMP parsing into `AssimpModelImporter`/`ImportedModelData` and added focused tests for parser correctness, lifecycle integration, and import performance smoke checks."
     ],
     "related-files": [
         "ixdar-app/src/main/java/ixdar/graphics/render/",
@@ -49,9 +53,13 @@
         "ixdar-app/src/main/java/ixdar/graphics/render/model/ModelRuntime.java",
         "ixdar-app/src/main/java/ixdar/graphics/render/model/ModelHandle.java",
         "ixdar-app/src/main/java/ixdar/graphics/render/model/AssimpModelRuntime.java",
+        "ixdar-app/src/main/java/ixdar/graphics/render/model/AssimpModelImporter.java",
+        "ixdar-app/src/main/java/ixdar/graphics/render/model/ImportedModelData.java",
         "ixdar-app/src/main/java/ixdar/graphics/render/shaders/MeshShader.java",
         "ixdar-app/src/main/resources/glsl/mesh.vs",
         "ixdar-app/src/main/resources/glsl/mesh.fs",
+        "ixdar-app/test/unit/model/AssimpModelImporterTest.java",
+        "ixdar-app/test/unit/model/ModelLoadSceneLifecycleTest.java",
         "README.md"
     ]
 }

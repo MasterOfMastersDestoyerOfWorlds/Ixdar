@@ -79,6 +79,9 @@ public class IxdarWindow {
 
         init();
         loop();
+        if (canvas != null) {
+            canvas.shutdown();
+        }
 
         glfwFreeCallbacks(window);
         glfwDestroyWindow(window);
@@ -174,6 +177,7 @@ public class IxdarWindow {
             glfwPollEvents();
             Thread.sleep(20);
         }
+        renderThread.join();
     }
 
     public static float getWidth() {

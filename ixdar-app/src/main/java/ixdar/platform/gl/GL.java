@@ -77,6 +77,7 @@ public interface GL {
     void uniformMatrix4fv(int loc, boolean transpose, IxBuffer buffer);
 
     int genTexture();
+    void deleteTexture(int id);
 
     void bindTexture2D(int id);
 

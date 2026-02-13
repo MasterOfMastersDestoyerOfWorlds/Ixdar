@@ -169,6 +169,10 @@ public class HeadlessGL implements GL {
     }
 
     @Override
+    public void deleteTexture(int id) {
+    }
+
+    @Override
     public void bindTexture2D(int id) {
     }
 

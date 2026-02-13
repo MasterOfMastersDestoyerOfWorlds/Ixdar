@@ -11,22 +11,14 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.assimp.AIFace;
-import org.lwjgl.assimp.AIMesh;
-import org.lwjgl.assimp.AIScene;
-import org.lwjgl.assimp.AIVector3D;
-import org.lwjgl.assimp.Assimp;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 
 public class AssimpModelRuntime implements ModelRuntime {
 
     private final MeshShader meshShader;
+    private final AssimpModelImporter importer = new AssimpModelImporter();
     private final Matrix4f modelMatrix = new Matrix4f();
 
     public AssimpModelRuntime() throws Exception {
@@ -37,7 +29,7 @@ public class AssimpModelRuntime implements ModelRuntime {
     @Override
     public ModelHandle loadFromAssetRepo(String modelFileName) throws Exception {
         String absoluteModelPath = FileManagement.resolveAssetPath(modelFileName);
-        ImportedModel imported = importWithAssimp(absoluteModelPath);
+        ImportedModelData imported = importer.importFromFile(absoluteModelPath);
 
         VertexArrayObject vao = new VertexArrayObject();
         VertexBufferObject vbo = new VertexBufferObject();
@@ -115,108 +107,12 @@ public class AssimpModelRuntime implements ModelRuntime {
         if (handle == null) {
             return;
         }
+        if (handle.texture != null) {
+            handle.texture.delete();
+        }
         Platforms.gl().deleteBuffers(handle.ebo);
         handle.vbo.delete();
         handle.vao.delete();
-    }
-
-    private ImportedModel importWithAssimp(String absoluteModelPath) throws IOException {
-        int flags = Assimp.aiProcess_Triangulate
-                | Assimp.aiProcess_JoinIdenticalVertices
-                | Assimp.aiProcess_GenSmoothNormals;
-        AIScene scene = Assimp.aiImportFile(absoluteModelPath, flags);
-        if (scene == null || scene.mMeshes() == null || scene.mNumMeshes() == 0) {
-            throw new IOException("Assimp failed to import model: " + Assimp.aiGetErrorString());
-        }
-
-        List<Float> vertexData = new ArrayList<>();
-        List<Integer> indexData = new ArrayList<>();
-        boolean hasTexCoords = false;
-        int baseVertex = 0;
-        Vector3f min = new Vector3f(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY);
-        Vector3f max = new Vector3f(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY);
-
-        try {
-            for (int meshIndex = 0; meshIndex < scene.mNumMeshes(); meshIndex++) {
-                AIMesh mesh = AIMesh.create(scene.mMeshes().get(meshIndex));
-                AIVector3D.Buffer verts = mesh.mVertices();
-                if (verts == null) {
-                    continue;
-                }
-                AIVector3D.Buffer normals = mesh.mNormals();
-                AIVector3D.Buffer texCoords = mesh.mTextureCoords(0);
-
-                for (int i = 0; i < verts.remaining(); i++) {
-                    AIVector3D p = verts.get(i);
-                    Vector3f v = new Vector3f(p.x(), p.y(), p.z());
-                    vertexData.add(v.x);
-                    vertexData.add(v.y);
-                    vertexData.add(v.z);
-
-                    if (normals != null && i < normals.remaining()) {
-                        AIVector3D n = normals.get(i);
-                        vertexData.add(n.x());
-                        vertexData.add(n.y());
-                        vertexData.add(n.z());
-                    } else {
-                        vertexData.add(0f);
-                        vertexData.add(0f);
-                        vertexData.add(1f);
-                    }
-
-                    if (texCoords != null && i < texCoords.remaining()) {
-                        AIVector3D t = texCoords.get(i);
-                        vertexData.add(t.x());
-                        vertexData.add(t.y());
-                        hasTexCoords = true;
-                    } else {
-                        vertexData.add(0f);
-                        vertexData.add(0f);
-                    }
-
-                    min.min(v);
-                    max.max(v);
-                }
-
-                for (int faceIndex = 0; faceIndex < mesh.mNumFaces(); faceIndex++) {
-                    AIFace face = mesh.mFaces().get(faceIndex);
-                    IntBuffer faceIndices = face.mIndices();
-                    if (faceIndices == null || faceIndices.remaining() < 3) {
-                        continue;
-                    }
-                    indexData.add(baseVertex + faceIndices.get(0));
-                    indexData.add(baseVertex + faceIndices.get(1));
-                    indexData.add(baseVertex + faceIndices.get(2));
-                }
-                baseVertex += verts.remaining();
-            }
-        } finally {
-            Assimp.aiReleaseImport(scene);
-        }
-
-        if (vertexData.isEmpty() || indexData.isEmpty()) {
-            throw new IOException("Imported model has no geometry: " + Path.of(absoluteModelPath).getFileName());
-        }
-
-        float[] verts = new float[vertexData.size()];
-        for (int i = 0; i < vertexData.size(); i++) {
-            verts[i] = vertexData.get(i);
-        }
-        int[] indices = new int[indexData.size()];
-        for (int i = 0; i < indexData.size(); i++) {
-            indices[i] = indexData.get(i);
-        }
-
-        Vector3f center = new Vector3f(min).add(max).mul(0.5f);
-        float radius = 0f;
-        for (int i = 0; i < verts.length; i += 8) {
-            radius = Math.max(radius, new Vector3f(verts[i], verts[i + 1], verts[i + 2]).sub(center).length());
-        }
-        if (radius < 0.001f) {
-            radius = 1f;
-        }
-
-        return new ImportedModel(verts, indices, verts.length / 8, hasTexCoords, center, radius);
     }
 
     private Texture createCheckerTexture(int width, int height, int cellSize) {
@@ -235,23 +131,5 @@ public class AssimpModelRuntime implements ModelRuntime {
         Texture t = new Texture("generated-checker", buf, width, height);
         t.initGL();
         return t;
-    }
-
-    private static class ImportedModel {
-        final float[] vertices;
-        final int[] indices;
-        final int vertexCount;
-        final boolean hasTexCoords;
-        final Vector3f center;
-        final float radius;
-
-        ImportedModel(float[] vertices, int[] indices, int vertexCount, boolean hasTexCoords, Vector3f center, float radius) {
-            this.vertices = vertices;
-            this.indices = indices;
-            this.vertexCount = vertexCount;
-            this.hasTexCoords = hasTexCoords;
-            this.center = center;
-            this.radius = radius;
-        }
     }
 }

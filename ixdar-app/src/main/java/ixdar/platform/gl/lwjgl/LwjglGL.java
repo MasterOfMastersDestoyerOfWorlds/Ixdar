@@ -28,6 +28,7 @@ import static org.lwjgl.opengl.GL11.glClearColor;
 import static org.lwjgl.opengl.GL11.glDrawArrays;
 import static org.lwjgl.opengl.GL11.glDrawElements;
 import static org.lwjgl.opengl.GL11.glEnable;
+import static org.lwjgl.opengl.GL11.glDeleteTextures;
 import static org.lwjgl.opengl.GL11.glGenTextures;
 import static org.lwjgl.opengl.GL11.glReadPixels;
 import static org.lwjgl.opengl.GL11.glTexImage2D;
@@ -279,6 +280,11 @@ public class LwjglGL implements GL {
     @Override
     public int genTexture() {
         return glGenTextures();
+    }
+
+    @Override
+    public void deleteTexture(int id) {
+        glDeleteTextures(id);
     }
 
     @Override

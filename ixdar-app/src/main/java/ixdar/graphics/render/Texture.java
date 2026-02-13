@@ -64,7 +64,11 @@ public class Texture {
     }
 
     public void delete() {
-        // TODO: platform delete
+        if (id >= 0) {
+            Platforms.gl().deleteTexture(id);
+            id = -1;
+            initialized = false;
+        }
     }
 
     public float getWidth() {

@@ -176,4 +176,9 @@ public class Canvas3D extends SceneDrawable {
         active = state;
     }
 
+    @Override
+    public void shutdown() {
+        activate(false);
+    }
+
 }

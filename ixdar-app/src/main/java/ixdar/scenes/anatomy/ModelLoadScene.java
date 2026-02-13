@@ -48,9 +48,22 @@ public class ModelLoadScene extends Scene {
     @Override
     public void activate(boolean state) {
         super.activate(state);
-        if (!state && modelRuntime != null && model != null) {
+        if (!state) {
+            disposeModel();
+        }
+    }
+
+    @Override
+    public void shutdown() {
+        disposeModel();
+        super.shutdown();
+    }
+
+    private void disposeModel() {
+        if (modelRuntime != null && model != null) {
             modelRuntime.dispose(model);
             model = null;
+            modelLoaded = false;
         }
     }
 
