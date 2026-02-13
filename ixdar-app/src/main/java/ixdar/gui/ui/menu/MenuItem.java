@@ -29,4 +29,8 @@ public class MenuItem {
         action.perform();
     }
 
+    public String getHeading() {
+        return heading;
+    }
+
 }

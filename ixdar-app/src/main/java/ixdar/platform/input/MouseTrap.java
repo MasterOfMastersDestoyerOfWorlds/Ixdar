@@ -9,6 +9,7 @@ import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
+import ixdar.platform.automation.AutomationRuntime;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.main.PaneTypes;
 
@@ -19,6 +20,8 @@ import static ixdar.platform.input.Keys.ACTION_RELEASE;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+
+import com.google.gson.JsonObject;
 
 public class MouseTrap {
 
@@ -113,6 +116,12 @@ public class MouseTrap {
         normalizedPosY = camera.getNormalizePosY(yPos);
 
         PaneTypes inMainView = MainScene.inView(xPos, yPos);
+        JsonObject clickPayload = new JsonObject();
+        clickPayload.addProperty("button", button);
+        clickPayload.addProperty("pane", inMainView.name());
+        clickPayload.addProperty("xNormalized", normalizedPosX);
+        clickPayload.addProperty("yNormalized", normalizedPosY);
+        AutomationRuntime.get().recordAbstractAction("mouse_click", clickPayload);
         Toggle.setPanelFocus(inMainView);
         if (MainScene.manifoldKnot != null && MainScene.active) {
             if (inMainView == PaneTypes.KnotView) {
@@ -188,6 +197,9 @@ public class MouseTrap {
         Platforms.init(canvas.platform.getPlatformID());
         queuedMouseWheelTicks += (int) (4 * y);
         timeLastScroll = System.currentTimeMillis();
+        JsonObject scrollPayload = new JsonObject();
+        scrollPayload.addProperty("delta", y);
+        AutomationRuntime.get().recordAbstractAction("mouse_scroll", scrollPayload);
     }
 
     public void setCanvas(Canvas3D canvas3d) {

@@ -5,3 +5,5 @@ msdfgen-1.12-win64-openmp/msdfgen/*.png
 *.mp4
 ixdar-app/test/resources/visual-output/
 tickets/public
+tools/ixdar-automation-cli/__pycache__/ixdar_cli.cpython-314.pyc
+tools/ixdar-automation-cli/__pycache__/test_cli.cpython-314.pyc

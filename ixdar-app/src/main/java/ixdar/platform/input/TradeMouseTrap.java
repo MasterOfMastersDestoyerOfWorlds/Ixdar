@@ -5,11 +5,14 @@ import static ixdar.platform.input.Keys.ACTION_RELEASE;
 
 import org.joml.Vector2f;
 
+import com.google.gson.JsonObject;
+
 import ixdar.canvas.Canvas3D;
 import ixdar.game.City;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Clock;
 import ixdar.platform.Platforms;
+import ixdar.platform.automation.AutomationRuntime;
 import ixdar.scenes.trade.TradeScene;
 
 /**
@@ -66,6 +69,13 @@ public class TradeMouseTrap extends MouseTrap {
         City clickedCity = tradeScene.getCityAt(worldX, worldY);
         System.out.println("[TradeMouseTrap] clickedCity: " + (clickedCity != null ? clickedCity.name : "null"));
         System.out.println("[TradeMouseTrap] activeTool: " + tradeScene.activeTool.displayName());
+        JsonObject payload = new JsonObject();
+        payload.addProperty("button", button);
+        payload.addProperty("xNormalized", normalizedPosX);
+        payload.addProperty("yNormalized", normalizedPosY);
+        payload.addProperty("tool", tradeScene.activeTool.displayName());
+        payload.addProperty("city", clickedCity == null ? "" : clickedCity.name);
+        AutomationRuntime.get().recordAbstractAction("trade_city_click", payload);
 
         if (clickedCity != null) {
             tradeScene.onCityClick(clickedCity);

@@ -47,4 +47,8 @@ public class InfoPane implements MouseTrap.ScrollHandler {
         }
     }
 
+    public HyperString getCachedInfo() {
+        return cachedInfo;
+    }
+
 }

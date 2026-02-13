@@ -2,6 +2,8 @@ package ixdar.gui.ui.menu;
 
 import java.util.ArrayList;
 
+import com.google.gson.JsonObject;
+
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.cameras.Camera2D;
@@ -14,6 +16,7 @@ import ixdar.graphics.render.sdf.SDFUnion;
 import ixdar.gui.ui.Drawing;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
+import ixdar.platform.automation.AutomationRuntime;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.input.MouseTrap;
 
@@ -164,6 +167,11 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         if (clickedItem == null) {
             return;
         }
+        JsonObject payload = new JsonObject();
+        payload.addProperty("label", clickedItem.getHeading());
+        payload.addProperty("xNormalized", x / Platforms.get().getWindowWidth());
+        payload.addProperty("yNormalized", y / Platforms.get().getWindowHeight());
+        AutomationRuntime.get().recordAbstractAction("menu_select", payload);
         clickedItem.performAction();
     }
 

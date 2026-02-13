@@ -40,6 +40,7 @@ import ixdar.gui.ui.tools.FreeTool;
 import ixdar.gui.ui.tools.Tool;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
+import ixdar.platform.automation.AutomationRuntime;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.PointSetPath;
 import ixdar.platform.file.TextFile;
@@ -574,11 +575,26 @@ public class MainScene {
     public static void activate(boolean state) {
         if (state) {
             Platform p = Platforms.get();
-            p.setKeyCallback((key, scancode, action, mods) -> keys.keyCallback(0L, key, scancode, action, mods));
-            p.setCharCallback(codepoint -> keys.charCallback(0L, codepoint));
-            p.setMouseButtonCallback((button, action, mods) -> mouse.mouseButton(button, action, mods));
-            p.setCursorPosCallback((window, x, y) -> mouse.moveOrDrag(window, (float) x, (float) y));
-            p.setScrollCallback((xoff, yoff) -> mouse.scrollCallback(yoff));
+            p.setKeyCallback((key, scancode, action, mods) -> {
+                AutomationRuntime.get().recordRawKey(key, scancode, action, mods);
+                keys.keyCallback(0L, key, scancode, action, mods);
+            });
+            p.setCharCallback(codepoint -> {
+                AutomationRuntime.get().recordRawChar(codepoint);
+                keys.charCallback(0L, codepoint);
+            });
+            p.setMouseButtonCallback((button, action, mods) -> {
+                AutomationRuntime.get().recordRawMouseButton(button, action, mods, mouse.lastX, mouse.lastY);
+                mouse.mouseButton(button, action, mods);
+            });
+            p.setCursorPosCallback((window, x, y) -> {
+                AutomationRuntime.get().recordRawMouseMove((float) x, (float) y);
+                mouse.moveOrDrag(window, (float) x, (float) y);
+            });
+            p.setScrollCallback((xoff, yoff) -> {
+                AutomationRuntime.get().recordRawScroll(yoff);
+                mouse.scrollCallback(yoff);
+            });
         }
         canvas.activate(!state);
         active = state;
@@ -595,6 +611,14 @@ public class MainScene {
     public static void clearTooltipText() {
         toolTip = null;
         showToolTip = false;
+    }
+
+    public static HyperString getToolTip() {
+        return toolTip;
+    }
+
+    public static boolean isToolTipVisible() {
+        return showToolTip;
     }
 
     public static void setHoverSegment(Segment segment, Color c) {

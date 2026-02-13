@@ -1,0 +1,36 @@
+{
+    "id": "ENG-8",
+    "epic": "ENGINE",
+    "title": "AI Automation Port, Screenshot Pipeline, and Input Demo Replay",
+    "description": "Add a local automation interface for agent-driven testing and debugging. The Java app should expose UI state, input injection, screenshot capture, and recording/replay controls over a localhost port. Include demo recording with both raw input events and abstract actions, where abstract actions are the default replay format. Provide a Python CLI for composable agent workflows.",
+    "blocked-by": [],
+    "blocks": [],
+    "status": "IN_PROGRESS",
+    "definition-of-done": "1. Localhost automation API available from running app. 2. UI state endpoint exposes visible text/menu metadata. 3. Screenshot endpoint saves PNG files to automation screenshot folder. 4. Input endpoints support click/type/key/scroll injection. 5. Recorder captures both raw events and abstract actions with timestamps. 6. Replay defaults to abstract actions and supports optional raw replay mode. 7. Python CLI supports health/state/screenshot/input/record/replay commands. 8. Basic automated tests cover recorder serialization and CLI contract behavior.",
+    "testing-plan": "1. Launch app and confirm health endpoint responds. 2. Capture screenshot and verify file exists in screenshots/automation. 3. Trigger click/type commands through CLI and verify in-app behavior. 4. Start recording, perform interactions, stop recording, and verify demo JSON includes rawEvents and abstractActions. 5. Replay abstract actions and verify deterministic behavior. 6. Run Java unit tests for recorder and Python CLI smoke tests.",
+    "todos": [
+        "Implement platform automation API server and runtime wiring",
+        "Add screenshot capture service and metadata response",
+        "Add input injection endpoints for click/type/key/scroll",
+        "Record raw and abstract actions from input flow",
+        "Implement replay engine with abstract-default mode",
+        "Build Python CLI command surface for automation endpoints",
+        "Add Java and Python tests for recorder and CLI behavior"
+    ],
+    "unknowns": [
+        "How strict replay timing should be across slower/faster machines",
+        "Whether to expose binary screenshots separately from base64 payloads in v2"
+    ],
+    "changes-made": [
+        "Added platform automation runtime and HTTP server scaffolding",
+        "Hooked input callbacks for raw and abstract recording",
+        "Added Python CLI for agent automation workflows"
+    ],
+    "related-files": [
+        "ixdar-app/src/main/java/ixdar/platform/automation/AutomationApiServer.java",
+        "ixdar-app/src/main/java/ixdar/platform/automation/AutomationRuntime.java",
+        "ixdar-app/src/main/java/ixdar/platform/automation/AutomationRecorder.java",
+        "ixdar-app/src/main/java/ixdar/platform/automation/AutomationReplayEngine.java",
+        "tools/ixdar-automation-cli/ixdar_cli.py"
+    ]
+}

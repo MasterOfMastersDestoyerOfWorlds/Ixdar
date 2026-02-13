@@ -8,6 +8,8 @@ import static ixdar.platform.input.Keys.LEFT_CONTROL;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.google.gson.JsonObject;
+
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Clock;
@@ -23,6 +25,7 @@ import ixdar.gui.ui.tools.NeighborViewTool;
 import ixdar.gui.ui.tools.Tool;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
+import ixdar.platform.automation.AutomationRuntime;
 import ixdar.scenes.main.MainScene;
 
 public class KeyGuy {
@@ -51,6 +54,11 @@ public class KeyGuy {
         if (!active) {
             return;
         }
+        JsonObject payload = new JsonObject();
+        payload.addProperty("key", key);
+        payload.addProperty("mods", mods);
+        payload.addProperty("repeated", repeated);
+        AutomationRuntime.get().recordAbstractAction("key_press", payload);
         boolean firstPress = !pressedKeys.contains(key);
         pressedKeys.add(key);
 
@@ -129,6 +137,10 @@ public class KeyGuy {
         if (!active) {
             return;
         }
+        JsonObject payload = new JsonObject();
+        payload.addProperty("key", key);
+        payload.addProperty("mask", mask);
+        AutomationRuntime.get().recordAbstractAction("key_release", payload);
         if (main != null && MainScene.active) {
 
         } else if (canvas.active) {
@@ -208,6 +220,10 @@ public class KeyGuy {
     public void charCallback(long window, int codepoint) {
         Platforms.init(canvas.platform.getPlatformID());
         String currentText = "" + (char) codepoint;
+        JsonObject payload = new JsonObject();
+        payload.addProperty("text", currentText);
+        payload.addProperty("codepoint", codepoint);
+        AutomationRuntime.get().recordAbstractAction("char_input", payload);
         if (Toggle.IsTerminalFocused.value) {
             MainScene.terminal.type(currentText);
         }

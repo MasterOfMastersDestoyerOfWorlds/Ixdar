@@ -323,6 +323,10 @@ public class Terminal implements MouseTrap.ScrollHandler {
         this.commandLineInstruct = "";
     }
 
+    public HyperString getCachedInfo() {
+        return cachedInfo;
+    }
+
     public void error(String string) {
         this.history.addLine("EXCEPTION: " + string, Color.RED);
     }
