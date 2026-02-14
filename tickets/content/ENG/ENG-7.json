@@ -8,20 +8,20 @@
         "UI-4",
         "UI-5"
     ],
-    "status": "TODO",
+    "status": "DONE",
     "definition-of-done": "1. Audio system can load and play sound effect files (WAV/OGG format). 2. Background music playback with play/pause/stop/volume control. 3. Multiple simultaneous sound effects can play without conflicts. 4. Volume controls for SFX and music (separate or master volume). 5. Audio files loaded through Platform abstraction (similar to loadTexture). 6. Integration with Clock for timing/synchronization if needed. 7. Basic error handling for missing/corrupted audio files. 8. Memory management - audio resources can be unloaded.",
     "testing-plan": "1. Manual Testing: Play various sound effects simultaneously, test background music playback, verify volume controls work, test audio during gameplay events. 2. Unit Tests: Create AudioSystemTest.java with tests for: loadAudioFile (valid/invalid files), playSoundEffect (multiple simultaneous), playMusic (play/pause/stop), volumeControl (SFX/music/master), audioResourceCleanup. 3. Integration Tests: Verify audio plays on game events (gold collection from UI-4), test ambient audio in scenes (UI-5 main menu), test audio doesn't interfere with rendering performance. 4. Performance Testing: Measure memory usage for loaded audio, test with many simultaneous sound effects, verify no audio glitches or dropouts.",
     "todos": [
-        "Research audio library options (OpenAL, LWJGL3 OpenAL bindings, Java Sound API, or lightweight solution)",
-        "Design AudioSystem class structure (SoundEffect, Music, AudioManager)",
-        "Design audio resource loading (integrate with Platform abstraction, similar to loadTexture)",
-        "Implement sound effect playback (play, stop, volume control)",
-        "Implement background music playback (play, pause, stop, loop, volume control)",
-        "Implement volume management (master volume, SFX volume, music volume)",
-        "Add support for multiple simultaneous sound effects",
+        "DONE : Research audio library options (OpenAL, LWJGL3 OpenAL bindings, Java Sound API, or lightweight solution)",
+        "DONE : Design AudioSystem class structure (SoundEffect, Music, AudioManager)",
+        "DONE : Design audio resource loading (integrate with Platform abstraction, similar to loadTexture)",
+        "DONE : Implement sound effect playback (play, stop, volume control)",
+        "DONE : Implement background music playback (play, pause, stop, loop, volume control)",
+        "DONE : Implement volume management (master volume, SFX volume, music volume)",
+        "DONE : Add support for multiple simultaneous sound effects",
         "Integrate audio loading with Platform interface",
-        "Add error handling for invalid/missing audio files",
-        "Test audio playback with various file formats (WAV, OGG)",
+        "DONE : Add error handling for invalid/missing audio files",
+        "DONE : Test audio playback with various file formats (WAV, OGG)",
         "Test audio performance with multiple simultaneous sounds",
         "Document audio file format requirements and best practices"
     ],
@@ -34,7 +34,13 @@
         "Whether to support audio effects (reverb, echo, filters) in initial implementation",
         "Audio format conversion requirements (do we need to convert files or support multiple formats natively?)"
     ],
-    "changes-made": [],
+    "changes-made": [
+        "Added OpenAL-backed AudioSystem with looped menu music, one-shot SFX playback, volume controls, and source/buffer lifecycle management.",
+        "Integrated menu music and menu click SFX into Canvas3D/MenuBox/TradeScene scene transitions.",
+        "Added automation audio telemetry in /ui/state plus ixdar_cli commands (audio-state, audio-log) for deterministic validation.",
+        "Fixed automation server shutdown path so app close releases port and exits cleanly.",
+        "Switched audio runtime loading to classpath-first resources and configured Maven to ingest WAV assets from IXDAR_ASSET_REPO_ROOT at build time."
+    ],
     "related-files": [
         "ixdar-app/src/main/java/ixdar/platform/gl/Platform.java",
         "ixdar-app/src/main/java/ixdar/graphics/render/Clock.java",

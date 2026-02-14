@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -23,6 +24,7 @@ import javax.imageio.ImageIO;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import ixdar.audio.AudioSystem;
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.graphics.render.text.HyperWord;
@@ -75,6 +77,20 @@ public class AutomationRuntime {
         } catch (IOException e) {
             Platforms.get().log("Automation server failed to start: " + e.getMessage());
         }
+    }
+
+    public synchronized void stop() {
+        if (!started) {
+            return;
+        }
+        replayEngine.cancel();
+        if (server != null) {
+            server.stop();
+            server = null;
+        }
+        started = false;
+        canvas = null;
+        renderThreadId = -1;
     }
 
     public AutomationRecorder recorder() {
@@ -229,6 +245,24 @@ public class AutomationRuntime {
             }
         }
         root.add("menuItems", menuItems);
+
+        JsonObject audio = new JsonObject();
+        AudioSystem audioSystem = AudioSystem.get();
+        audio.addProperty("available", audioSystem.isAvailable());
+        audio.addProperty("menuMusicPlaying", audioSystem.isMenuMusicPlaying());
+        audio.addProperty("menuMusicSourceCount", audioSystem.getMenuMusicSourceCount());
+        audio.addProperty("lastSfxPlayed", audioSystem.getLastSfxPlayed());
+        JsonObject sfxCounts = new JsonObject();
+        for (Map.Entry<String, Integer> entry : audioSystem.getSfxPlayCountSnapshot().entrySet()) {
+            sfxCounts.addProperty(entry.getKey(), entry.getValue());
+        }
+        audio.add("sfxPlayCountById", sfxCounts);
+        JsonArray audioEvents = new JsonArray();
+        for (String event : audioSystem.getEventLogSnapshot()) {
+            audioEvents.add(event);
+        }
+        audio.add("eventLog", audioEvents);
+        root.add("audio", audio);
         return root;
     }
 

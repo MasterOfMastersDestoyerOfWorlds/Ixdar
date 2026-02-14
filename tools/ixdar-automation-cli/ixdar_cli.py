@@ -126,6 +126,9 @@ def main(argv: list[str]) -> int:
 
     subparsers.add_parser("health")
     subparsers.add_parser("ui-state")
+    subparsers.add_parser("audio-state")
+    audio_log = subparsers.add_parser("audio-log")
+    audio_log.add_argument("--tail", type=int, default=20)
     probe_cmd = subparsers.add_parser("probe")
     probe_cmd.add_argument("--out", default="")
 
@@ -187,6 +190,23 @@ def main(argv: list[str]) -> int:
             result = request_json(base, "/health")
         elif args.command == "ui-state":
             result = request_json(base, "/ui/state")
+        elif args.command == "audio-state":
+            ui_state = request_json(base, "/ui/state")
+            result = {
+                "ok": True,
+                "audio": ui_state.get("audio", {}),
+            }
+        elif args.command == "audio-log":
+            ui_state = request_json(base, "/ui/state")
+            audio = ui_state.get("audio", {})
+            events = audio.get("eventLog", [])
+            if args.tail >= 0:
+                events = events[-args.tail:]
+            result = {
+                "ok": True,
+                "count": len(events),
+                "events": events,
+            }
         elif args.command == "probe":
             result = probe(base, args.out)
         elif args.command == "screenshot":

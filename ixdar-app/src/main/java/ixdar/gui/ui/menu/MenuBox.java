@@ -15,6 +15,8 @@ import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.sdf.SDFUnion;
 import ixdar.gui.ui.Drawing;
+import ixdar.audio.AudioAssets;
+import ixdar.audio.AudioSystem;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
 import ixdar.platform.automation.AutomationRuntime;
@@ -183,6 +185,7 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         payload.addProperty("xNormalized", x / Platforms.get().getWindowWidth());
         payload.addProperty("yNormalized", y / Platforms.get().getWindowHeight());
         AutomationRuntime.get().recordAbstractAction("menu_select", payload);
+        AudioSystem.get().playSfxOnce(AudioAssets.MENU_CLICK_SFX);
         clickedItem.performAction();
     }
 

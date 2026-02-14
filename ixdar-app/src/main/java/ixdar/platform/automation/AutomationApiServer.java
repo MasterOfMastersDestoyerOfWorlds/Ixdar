@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import com.google.gson.Gson;
@@ -19,12 +20,14 @@ public class AutomationApiServer {
     private final AutomationRuntime runtime;
     private final int port;
     private final HttpServer server;
+    private final ExecutorService executor;
 
     public AutomationApiServer(AutomationRuntime runtime, int port) throws IOException {
         this.runtime = runtime;
         this.port = port;
         this.server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
-        this.server.setExecutor(Executors.newCachedThreadPool());
+        this.executor = Executors.newCachedThreadPool();
+        this.server.setExecutor(executor);
         routes();
     }
 
@@ -34,6 +37,11 @@ public class AutomationApiServer {
 
     public void start() {
         server.start();
+    }
+
+    public void stop() {
+        server.stop(0);
+        executor.shutdownNow();
     }
 
     private void routes() {

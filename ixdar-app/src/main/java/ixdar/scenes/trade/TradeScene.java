@@ -20,6 +20,8 @@ import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.tools.HeadquartersPickerTool;
 import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.gui.ui.tools.Tool;
+import ixdar.audio.AudioAssets;
+import ixdar.audio.AudioSystem;
 import ixdar.platform.Platforms;
 import ixdar.platform.automation.AutomationInputBinder;
 import ixdar.platform.gl.Platform;
@@ -284,6 +286,7 @@ public class TradeScene {
         keys.active = false;
         mouse.active = false;
         MenuBox.menuVisible = true;
+        AudioSystem.get().playMenuMusicLoop(AudioAssets.MENU_MUSIC);
         if (canvas != null) {
             canvas.activate(true); // Restore menu input handling
         }
@@ -312,6 +315,7 @@ public class TradeScene {
         TradeScene scene = new TradeScene(network, canvas);
         scene.initViews();
         scene.activate(true);
+        AudioSystem.get().pauseMenuMusic();
         MenuBox.menuVisible = false;
         return scene;
     }

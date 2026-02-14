@@ -29,7 +29,22 @@
           <include>**/*.webp</include>
           <include>**/*.ico</include>
           <include>**/*.html</include>
+          <include>**/*.wav</include>
         </includes>
+      </resource>
+      <resource>
+        <directory>${ixdar.asset.repo.root}/Music</directory>
+        <includes>
+          <include>${ixdar.audio.asset.include.pattern}</include>
+        </includes>
+        <targetPath>res/audio/music</targetPath>
+      </resource>
+      <resource>
+        <directory>${ixdar.asset.repo.root}/Sfx</directory>
+        <includes>
+          <include>${ixdar.audio.asset.include.pattern}</include>
+        </includes>
+        <targetPath>res/audio/sfx</targetPath>
       </resource>
     </resources>
     <plugins>
@@ -102,6 +117,8 @@
     <lwjgl.version>3.3.6</lwjgl.version>
     <native.maven.plugin.version>0.9.19</native.maven.plugin.version>
     <teavm.version>0.9.2</teavm.version>
+    <ixdar.audio.asset.include.pattern>**/*.wav</ixdar.audio.asset.include.pattern>
+    <ixdar.asset.repo.root>${project.basedir}/../../IxdarAssets</ixdar.asset.repo.root>
   </properties>
 
   <pluginRepositories>
@@ -139,6 +156,17 @@
       </activation>
       <properties>
         <lwjgl.natives>natives-linux</lwjgl.natives>
+      </properties>
+    </profile>
+    <profile>
+      <id>asset-root-env</id>
+      <activation>
+        <property>
+          <name>env.IXDAR_ASSET_REPO_ROOT</name>
+        </property>
+      </activation>
+      <properties>
+        <ixdar.asset.repo.root>${env.IXDAR_ASSET_REPO_ROOT}</ixdar.asset.repo.root>
       </properties>
     </profile>
     <profile>
@@ -222,6 +250,7 @@
                         <include>**/*.webp</include>
                         <include>**/*.ico</include>
                         <include>**/*.html</include>
+                        <include>**/*.wav</include>
                       </includes>
                     </resource>
                   </resources>
@@ -421,6 +450,10 @@
     </dependency>
     <dependency>
       <groupId>org.lwjgl</groupId>
+      <artifactId>lwjgl-openal</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.lwjgl</groupId>
       <artifactId>lwjgl</artifactId>
       <classifier>${lwjgl.natives}</classifier>
     </dependency>
@@ -447,6 +480,11 @@
     <dependency>
       <groupId>org.lwjgl</groupId>
       <artifactId>lwjgl-stb</artifactId>
+      <classifier>${lwjgl.natives}</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.lwjgl</groupId>
+      <artifactId>lwjgl-openal</artifactId>
       <classifier>${lwjgl.natives}</classifier>
     </dependency>
     <!-- Web (TeaVM) provided dependencies resolved in web-teavm profile -->

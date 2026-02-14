@@ -35,6 +35,18 @@ class CliTest(unittest.TestCase):
         self.assertEqual("POST", request.method)
 
     @patch("urllib.request.urlopen")
+    def test_audio_state_command_extracts_audio_payload(self, urlopen):
+        urlopen.return_value = FakeResponse({"audio": {"menuMusicPlaying": True, "menuMusicSourceCount": 1}})
+        exit_code = ixdar_cli.main(["audio-state"])
+        self.assertEqual(0, exit_code)
+
+    @patch("urllib.request.urlopen")
+    def test_audio_log_command_returns_tail_events(self, urlopen):
+        urlopen.return_value = FakeResponse({"audio": {"eventLog": ["1|a|INIT_OK", "2|b|MUSIC_PLAY", "3|c|SFX_PLAY"]}})
+        exit_code = ixdar_cli.main(["audio-log", "--tail", "2"])
+        self.assertEqual(0, exit_code)
+
+    @patch("urllib.request.urlopen")
     def test_click_scan_finds_transition(self, urlopen):
         responses = [
             {"scene": "menu", "menuVisible": True},

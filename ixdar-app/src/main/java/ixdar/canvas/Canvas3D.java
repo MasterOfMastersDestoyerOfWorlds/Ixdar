@@ -9,6 +9,8 @@ import org.joml.Vector3f;
 import org.lwjgl.PointerBuffer;
 
 import ixdar.annotations.scene.SceneDrawable;
+import ixdar.audio.AudioAssets;
+import ixdar.audio.AudioSystem;
 import ixdar.geometry.point.PointND;
 import ixdar.geometry.point.PointSet;
 import ixdar.geometry.shell.DistanceMatrix;
@@ -104,6 +106,10 @@ public class Canvas3D extends SceneDrawable {
         gl.clearColor(0.7f, 0.1f, 0.1f, 1.0f);
         gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
         gl.enable(gl.BLEND());
+        AudioSystem.get().init();
+        if (MenuBox.menuVisible) {
+            AudioSystem.get().playMenuMusicLoop(AudioAssets.MENU_MUSIC);
+        }
         System.out.println("InitGL: " + (Clock.time() - start));
         System.out.println("Time to First Paint: " + (Clock.time() - Platforms.get().startTime()));
         initPoints();
@@ -169,6 +175,9 @@ public class Canvas3D extends SceneDrawable {
         if (state) {
             Platform p = Platforms.get();
             AutomationInputBinder.bind(p, keys, mouse);
+            AudioSystem.get().playMenuMusicLoop(AudioAssets.MENU_MUSIC);
+        } else {
+            AudioSystem.get().pauseMenuMusic();
         }
         keys.active = state;
         mouse.active = state;
@@ -179,6 +188,8 @@ public class Canvas3D extends SceneDrawable {
     @Override
     public void shutdown() {
         activate(false);
+        AutomationRuntime.get().stop();
+        AudioSystem.get().shutdown();
     }
 
 }
