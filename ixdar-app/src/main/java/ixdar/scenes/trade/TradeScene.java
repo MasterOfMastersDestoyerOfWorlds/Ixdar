@@ -279,6 +279,27 @@ public class TradeScene {
     }
 
     /**
+     * Update hovered toolbar state and tooltip for RoutePlanningTool.
+     *
+     * @param mouseX screen-space mouse x
+     * @param mouseY screen-space mouse y
+     */
+    public void updateHoveredToolbar(float mouseX, float mouseY) {
+        if (!(activeTool instanceof RoutePlanningTool)) {
+            return;
+        }
+
+        RoutePlanningTool routeTool = (RoutePlanningTool) activeTool;
+        routeTool.updateHoveredButton(mouseX, mouseY);
+        HyperString toolbarTip = routeTool.buildHoveredToolbarTooltip();
+        if (toolbarTip != null) {
+            setTooltipText(toolbarTip);
+        } else if (hoveredCity == null) {
+            clearTooltipText();
+        }
+    }
+
+    /**
      * Return to the game menu
      */
     public void returnToMenu() {
@@ -302,6 +323,14 @@ public class TradeScene {
     public static void clearTooltipText() {
         toolTip = null;
         showToolTip = false;
+    }
+
+    public static HyperString getToolTip() {
+        return toolTip;
+    }
+
+    public static boolean isToolTipVisible() {
+        return showToolTip;
     }
 
     /**

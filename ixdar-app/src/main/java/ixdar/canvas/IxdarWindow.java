@@ -17,6 +17,7 @@ import static org.lwjgl.glfw.GLFW.glfwSetErrorCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowIcon;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowPos;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowSizeCallback;
+import static org.lwjgl.glfw.GLFW.glfwSetWindowShouldClose;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowTitle;
 import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 import static org.lwjgl.glfw.GLFW.glfwSwapInterval;
@@ -122,11 +123,16 @@ public class IxdarWindow {
         File file = new File("src/main/resources/res/decalSmall.png");
         String filePath = file.getAbsolutePath();
         ByteBuffer icon = STBImage.stbi_load(filePath, w, h, channels, 4);
-        GLFWImage.Buffer gb = GLFWImage.create(1);
-        int width = w.get(0);
-        int height = h.get(0);
-        GLFWImage iconGI = GLFWImage.create().set(width, height, icon);
-        gb.put(0, iconGI);
+        GLFWImage.Buffer gb = null;
+        if (icon != null && w.get(0) > 0 && h.get(0) > 0) {
+            gb = GLFWImage.create(1);
+            int width = w.get(0);
+            int height = h.get(0);
+            GLFWImage iconGI = GLFWImage.create().set(width, height, icon);
+            gb.put(0, iconGI);
+        } else {
+            System.out.println("[IxdarWindow] Icon load failed, continuing without window icon: " + filePath);
+        }
 
         try (MemoryStack stack = stackPush()) {
             IntBuffer pWidth = stack.mallocInt(1);
@@ -156,7 +162,9 @@ public class IxdarWindow {
         }
         canvas = (Canvas3D) cs.get();
         canvas.initGL();
-        glfwSetWindowIcon(window, gb);
+        if (gb != null) {
+            glfwSetWindowIcon(window, gb);
+        }
     }
 
     private void loop() throws InterruptedException {
@@ -190,6 +198,12 @@ public class IxdarWindow {
 
     public static void setTitle(String title) {
         glfwSetWindowTitle(window, title);
+    }
+
+    public static void requestClose() {
+        if (window != 0) {
+            glfwSetWindowShouldClose(window, true);
+        }
     }
 
 }

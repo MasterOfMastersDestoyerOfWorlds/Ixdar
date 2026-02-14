@@ -11,6 +11,7 @@ import ixdar.canvas.Canvas3D;
 import ixdar.game.City;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Clock;
+import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.platform.Platforms;
 import ixdar.platform.automation.AutomationRuntime;
 import ixdar.scenes.trade.TradeScene;
@@ -23,10 +24,50 @@ public class TradeMouseTrap extends MouseTrap {
 
     private TradeScene tradeScene;
     private Vector2f leftMouseDownPos;
+    private boolean automationHoverLocked = false;
+    private float automationHoverX = 0f;
+    private float automationHoverY = 0f;
+    private boolean automationInputInProgress = false;
 
     public TradeMouseTrap(TradeScene tradeScene, Camera camera, Canvas3D canvas) {
         super(null, camera, canvas);
         this.tradeScene = tradeScene;
+    }
+
+    public void beginAutomationInput() {
+        automationInputInProgress = true;
+    }
+
+    public void endAutomationInput() {
+        automationInputInProgress = false;
+    }
+
+    public void setAutomationHoverLock(float x, float y) {
+        automationHoverLocked = true;
+        automationHoverX = x;
+        automationHoverY = y;
+        applyHoverAt(x, y);
+    }
+
+    public void clearAutomationHoverLock() {
+        automationHoverLocked = false;
+    }
+
+    private void applyHoverAt(float x, float y) {
+        normalizedPosX = camera.getNormalizePosX(x);
+        normalizedPosY = camera.getNormalizePosY(y);
+        lastX = (int) x;
+        lastY = (int) y;
+        updateCityHover();
+    }
+
+    private void clearAutomationLockOnUserMove(float x, float y) {
+        if (!automationHoverLocked || automationInputInProgress) {
+            return;
+        }
+        if (Math.abs(x - automationHoverX) > 2f || Math.abs(y - automationHoverY) > 2f) {
+            automationHoverLocked = false;
+        }
     }
 
     @Override
@@ -55,6 +96,21 @@ public class TradeMouseTrap extends MouseTrap {
     private void handleCityClick(float x, float y, int button) {
         if (!active)
             return;
+
+        if (tradeScene.activeTool instanceof RoutePlanningTool) {
+            RoutePlanningTool routeTool = (RoutePlanningTool) tradeScene.activeTool;
+            if (routeTool.onToolbarClick(x, y)) {
+                JsonObject payload = new JsonObject();
+                payload.addProperty("button", button);
+                payload.addProperty("xPx", x);
+                payload.addProperty("yPx", y);
+                payload.addProperty("tool", tradeScene.activeTool.displayName());
+                payload.addProperty("city", "");
+                payload.addProperty("target", "toolbar");
+                AutomationRuntime.get().recordAbstractAction("trade_city_click", payload);
+                return;
+            }
+        }
 
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
@@ -92,6 +148,8 @@ public class TradeMouseTrap extends MouseTrap {
         if (!active)
             return;
 
+        clearAutomationLockOnUserMove(x, y);
+
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
         lastX = (int) x;
@@ -107,6 +165,16 @@ public class TradeMouseTrap extends MouseTrap {
             // Just moving - update hover
             updateCityHover();
         }
+    }
+
+    @Override
+    public void mousePos(float x, float y) {
+        if (!active) {
+            return;
+        }
+        clearAutomationLockOnUserMove(x, y);
+        super.mousePos(x, y);
+        updateCityHover();
     }
 
     @Override
@@ -127,6 +195,7 @@ public class TradeMouseTrap extends MouseTrap {
 
         City newHover = tradeScene.getCityAt(worldX, worldY);
         tradeScene.updateHoveredCity(newHover);
+        tradeScene.updateHoveredToolbar(lastX, lastY);
     }
 
     @Override
@@ -152,6 +221,10 @@ public class TradeMouseTrap extends MouseTrap {
             boolean zoomIn = queuedMouseWheelTicks < 0;
             camera.onScroll(zoomIn, Clock.deltaTime() * 100f);
             queuedMouseWheelTicks = 0;
+        }
+
+        if (automationHoverLocked) {
+            applyHoverAt(automationHoverX, automationHoverY);
         }
     }
 }

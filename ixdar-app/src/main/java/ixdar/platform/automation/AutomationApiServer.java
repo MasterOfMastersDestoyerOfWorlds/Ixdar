@@ -59,9 +59,12 @@ public class AutomationApiServer {
         });
         server.createContext("/ui/screenshot", this::screenshotHandler);
         server.createContext("/input/click", this::clickHandler);
+        server.createContext("/input/hover", this::hoverHandler);
+        server.createContext("/input/hover/clear", this::hoverClearHandler);
         server.createContext("/input/scroll", this::scrollHandler);
         server.createContext("/input/key", this::keyHandler);
         server.createContext("/input/type", this::typeHandler);
+        server.createContext("/shutdown", this::shutdownHandler);
         server.createContext("/record/start", this::recordStartHandler);
         server.createContext("/record/stop", this::recordStopHandler);
         server.createContext("/record/status", exchange -> {
@@ -118,6 +121,29 @@ public class AutomationApiServer {
         } catch (Exception e) {
             writeError(exchange, 500, e.getMessage());
         }
+    }
+
+    private void hoverHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        try {
+            JsonObject body = readBodyJson(exchange);
+            float x = body.has("x") ? body.get("x").getAsFloat() : 0f;
+            float y = body.has("y") ? body.get("y").getAsFloat() : 0f;
+            boolean normalized = body.has("normalized") && body.get("normalized").getAsBoolean();
+            boolean persistent = !body.has("persistent") || body.get("persistent").getAsBoolean();
+            writeJson(exchange, runtime.injectHover(x, y, normalized, persistent));
+        } catch (Exception e) {
+            writeError(exchange, 500, e.getMessage());
+        }
+    }
+
+    private void hoverClearHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        writeJson(exchange, runtime.clearHoverLock());
     }
 
     private void keyHandler(HttpExchange exchange) throws IOException {
@@ -234,6 +260,13 @@ public class AutomationApiServer {
         runtime.replayEngine().cancel();
         result.addProperty("ok", true);
         writeJson(exchange, result);
+    }
+
+    private void shutdownHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        writeJson(exchange, runtime.requestShutdown());
     }
 
     private JsonObject readBodyJson(HttpExchange exchange) throws IOException {

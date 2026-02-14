@@ -50,7 +50,7 @@ public class Canvas3D extends SceneDrawable {
     public Platform platform;
     public long checkPaintTime;
     public Shell shell;
-    
+
     public Camera2D camera2D;
     public Map<String, Bounds> webViews;
     public Bounds paneBounds;
@@ -66,11 +66,10 @@ public class Canvas3D extends SceneDrawable {
         platform = Platforms.get();
         active = true;
         AutomationRuntime.get().start(this);
-        
+
         shell = new Shell();
     }
 
-    
     public void initPoints() {
         shell.clear();
         shell.add(new PointND.Double(-1.0, -1.0));
@@ -80,10 +79,12 @@ public class Canvas3D extends SceneDrawable {
         pointSet = shell.toPointSet();
         distanceMatrix = new DistanceMatrix(pointSet);
         shell.initShell(distanceMatrix);
-        this.camera2D = new Camera2D(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), 1.0f, 0.0f, 0.0f,
+        this.camera2D = new Camera2D(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(),
+                1.0f, 0.0f, 0.0f,
                 pointSet);
         webViews = new HashMap<>();
-        paneBounds = new Bounds(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), null, DEFAULT_VIEW);
+        paneBounds = new Bounds(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(),
+                null, DEFAULT_VIEW);
         webViews.put(DEFAULT_VIEW, paneBounds);
         camera2D.initCamera(webViews, DEFAULT_VIEW);
         camera2D.calculateCameraTransform(pointSet);
@@ -95,7 +96,7 @@ public class Canvas3D extends SceneDrawable {
         gl.createCapabilities(false, (IntFunction<PointerBuffer>) null);
         float start = Clock.time();
         gl.coldStartStack();
-        
+
         System.out.println("capabilities: " + (Clock.time() - start));
 
         gl.viewport(0, 0, (int) Platforms.get().getFrameBufferWidth(), (int) Platforms.get().getFrameBufferHeight());
@@ -152,12 +153,13 @@ public class Canvas3D extends SceneDrawable {
     }
 
     public void drawScene() {
-        if(menu == null){
+        if (menu == null) {
             menu = new MenuBox();
             fluid = new SDFFluid();
         }
         if (MenuBox.menuVisible) {
-            fluid.draw(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), null, camera2D);
+            fluid.draw(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), null,
+                    camera2D);
         }
 
         if (TradeScene.active && TradeScene.instance != null && !MenuBox.menuVisible) {

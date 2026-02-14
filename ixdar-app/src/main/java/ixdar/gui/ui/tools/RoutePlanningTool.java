@@ -6,7 +6,6 @@ import org.joml.Vector2f;
 
 import ixdar.game.City;
 import ixdar.game.CityNetwork;
-import ixdar.geometry.knot.CollapseRecord;
 import ixdar.geometry.knot.GrowRecord;
 import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.OperationRecord;
@@ -114,21 +113,8 @@ public class RoutePlanningTool extends Tool {
 
     // ==================== DRAWING ====================
 
-    private static boolean drawDebugPrinted = false;
-    private static boolean circleDebugPrinted = false;
-
     @Override
     public void draw(Camera2D camera, float lineThickness) {
-        if (!drawDebugPrinted) {
-            float wWidth = Platforms.get().getWindowWidth();
-            float wHeight = Platforms.get().getWindowHeight();
-            System.out.println("[RoutePlanningTool] draw() called. Screen: " + wWidth + "x" + wHeight);
-            System.out.println(
-                    "[RoutePlanningTool] Toolbar Y = " + (TOOLBAR_HEIGHT / 2) + " (screen coords, y=0 at bottom)");
-            System.out.println("[RoutePlanningTool] State: " + state + ", Mode: " + currentMode);
-            drawDebugPrinted = true;
-        }
-
         // Draw current route if exists
         if (currentRoute != null) {
             drawKnot(camera, currentRoute, ROUTE_COLOR);
@@ -154,26 +140,6 @@ public class RoutePlanningTool extends Tool {
 
         // Draw toolbar
         drawToolbar(camera);
-
-        // DEBUG: Draw test circle using highlightCircle
-        float wWidth = Platforms.get().getWindowWidth();
-        float wHeight = Platforms.get().getWindowHeight();
-
-        if (network.headquartersCity != null) {
-            float hqX = camera.pointTransformX(network.headquartersCity.getX());
-            float hqY = camera.pointTransformY(network.headquartersCity.getY());
-            if (!circleDebugPrinted) {
-                System.out.println(
-                        "[DEBUG] HQ=" + network.headquartersCity.name + " world(" + network.headquartersCity.getX()
-                                + "," + network.headquartersCity.getY() + ") -> screen(" + hqX + "," + hqY + ")");
-                System.out.println("[DEBUG] Cyan circle at (" + (hqX + 50) + ", " + (hqY + 50) + "), Magenta at ("
-                        + (wWidth / 2) + ", " + (wHeight / 2) + ")");
-                circleDebugPrinted = true;
-            }
-            highlightCircle.draw(new Vector2f(hqX + 50, hqY + 50), 40f, Color.CYAN, camera);
-        }
-
-        highlightCircle.draw(new Vector2f(wWidth / 2, wHeight / 2), 50f, Color.MAGENTA, camera);
     }
 
     private void drawKnot(Camera2D camera, Knot knot, Color color) {
@@ -300,23 +266,12 @@ public class RoutePlanningTool extends Tool {
         routeLine.draw(new Vector2f(x1, y1), new Vector2f(x2, y2), color, camera);
     }
 
-    private static boolean toolbarDebugPrinted = false;
-
     private void drawToolbar(Camera2D camera) {
         float wWidth = Platforms.get().getWindowWidth();
-        float wHeight = Platforms.get().getWindowHeight();
 
         // Position toolbar at bottom of screen (y=0 is bottom in OpenGL)
         float toolbarY = TOOLBAR_HEIGHT / 2;
         float startX = wWidth / 2 - (3 * BUTTON_SIZE + 2 * BUTTON_PADDING) / 2;
-
-        if (!toolbarDebugPrinted) {
-            System.out.println("[RoutePlanningTool] drawToolbar: wWidth=" + wWidth + " wHeight=" + wHeight);
-            System.out.println(
-                    "[RoutePlanningTool] toolbarY=" + toolbarY + " (bottom, OpenGL y=0 at bottom) startX=" + startX);
-            System.out.println("[RoutePlanningTool] BUTTON_SIZE=" + BUTTON_SIZE + " TOOLBAR_HEIGHT=" + TOOLBAR_HEIGHT);
-            toolbarDebugPrinted = true;
-        }
 
         // Pipe button
         drawToolbarButton(camera, startX, toolbarY, 0, "P", currentMode == Mode.PIPE);
@@ -348,18 +303,9 @@ public class RoutePlanningTool extends Tool {
             bgColor = BUTTON_HOVER_COLOR;
         }
 
-        // DEBUG: Try drawing at center of screen to verify draw works
-        float debugX = screenX;
-        float debugY = screenY;
-
-        // Print once per button position
-        if (buttonIndex == 0 && !toolbarDebugPrinted) {
-            System.out.println("[RoutePlanningTool] Drawing button at screen(" + debugX + "," + debugY + ")");
-        }
-
         // SDFCircle expects screen coordinates directly (like highlightCircle.draw
         // uses)
-        buttonCircle.draw(new Vector2f(debugX, debugY), BUTTON_SIZE / 2, bgColor, camera);
+        buttonCircle.draw(new Vector2f(screenX, screenY), BUTTON_SIZE / 2, bgColor, camera);
 
         // Draw label text (simplified - just uses the letter for now)
         // In a full implementation, this would draw the actual text
@@ -404,6 +350,7 @@ public class RoutePlanningTool extends Tool {
     }
 
     private void handleIdleClick(City city) {
+        syncRouteReference();
         switch (currentMode) {
         case PIPE:
             // For initial pipe, first click must be HQ
@@ -729,15 +676,19 @@ public class RoutePlanningTool extends Tool {
     }
 
     public void undo() {
+        syncRouteReference();
         if (operationStack.canUndo()) {
             OperationRecord record = operationStack.undo();
+            syncRouteReference();
             System.out.println("Undo: " + record.getDescription());
         }
     }
 
     public void redo() {
+        syncRouteReference();
         if (operationStack.canRedo()) {
             OperationRecord record = operationStack.redo();
+            syncRouteReference();
             System.out.println("Redo: " + record.getDescription());
         }
     }
@@ -931,6 +882,20 @@ public class RoutePlanningTool extends Tool {
         state = OperationState.IDLE;
     }
 
+    private void syncRouteReference() {
+        if (currentRoute == null) {
+            return;
+        }
+        boolean routeCleared = currentRoute.manifoldSegments == null || currentRoute.manifoldSegments.isEmpty();
+        boolean routeMissingPoints = currentRoute.knotPoints == null || currentRoute.knotPoints.isEmpty();
+        if (routeCleared && routeMissingPoints) {
+            currentRoute = null;
+            currentViewKnot = null;
+            hierarchyPath.clear();
+            resetOperation();
+        }
+    }
+
     // ==================== HOVER STATE ====================
 
     /**
@@ -987,6 +952,49 @@ public class RoutePlanningTool extends Tool {
                 hoveredButton = 4; // Confirm
             }
         }
+    }
+
+    /**
+     * Build tooltip text for the currently hovered toolbar button.
+     *
+     * @return tooltip text, or null when no toolbar button is hovered
+     */
+    public HyperString buildHoveredToolbarTooltip() {
+        if (hoveredButton < 0) {
+            return null;
+        }
+
+        HyperString h = new HyperString();
+        switch (hoveredButton) {
+        case 0:
+            h.addWord("Pipe (P)", Color.WHITE);
+            h.wrap();
+            h.addWord("Connect two cities/knots into one loop", Color.LIGHT_GRAY);
+            break;
+        case 1:
+            h.addWord("Grow (G)", Color.WHITE);
+            h.wrap();
+            h.addWord("Insert a city into an existing route edge", Color.LIGHT_GRAY);
+            break;
+        case 2:
+            h.addWord("Collapse (C)", Color.WHITE);
+            h.wrap();
+            h.addWord("Compress a linked chain while preserving one loop", Color.LIGHT_GRAY);
+            break;
+        case 3:
+            h.addWord("Undo (Ctrl+Z)", Color.WHITE);
+            h.wrap();
+            h.addWord("Revert the last route operation", Color.LIGHT_GRAY);
+            break;
+        case 4:
+            h.addWord("Confirm (Enter)", Color.WHITE);
+            h.wrap();
+            h.addWord("Apply the current preview operation", Color.LIGHT_GRAY);
+            break;
+        default:
+            return null;
+        }
+        return h;
     }
 
     private boolean isInButton(float mouseX, float mouseY, float buttonX, float buttonY) {
@@ -1073,6 +1081,22 @@ public class RoutePlanningTool extends Tool {
      */
     public Knot getCurrentRoute() {
         return currentRoute;
+    }
+
+    public String getSelectedCityAName() {
+        return selectedCityA == null ? "" : selectedCityA.name;
+    }
+
+    public String getSelectedCityBName() {
+        return selectedCityB == null ? "" : selectedCityB.name;
+    }
+
+    public boolean canUndoOperation() {
+        return operationStack.canUndo();
+    }
+
+    public boolean canRedoOperation() {
+        return operationStack.canRedo();
     }
 
     @Override

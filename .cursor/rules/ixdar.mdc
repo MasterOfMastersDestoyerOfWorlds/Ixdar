@@ -39,8 +39,9 @@ For non-trivial tasks, follow:
 
 - Use `tools/ixdar-automation-cli/ixdar_cli.py` as the default backbone for iterative game/UI testing.
 - Prefer CLI-driven checks (`health`, `ui-state`, `start-new-game`, `click`, `record`, `replay`) over ad hoc manual clicking.
+- Launch desktop game runs from `ixdar-app/` via `mvn -P game` so runtime flags stay aligned with `.vscode/launch.json` (`-enableassertions`, `sun.awt.noerasebackground`, `org.lwjgl.util.DebugLoader`).
 - During automation validation, operate on a single app window/process and verify state transitions through CLI responses.
 - Enforce one-app-instance-per-workspace while validating automation. Before launching, confirm existing Ixdar processes and stop extras to avoid port collisions and stale state.
-- Treat automation and other background services as lifecycle-managed resources: when wiring startup, also add explicit shutdown so closing the window releases ports and exits cleanly.
+- Treat automation and other background services as lifecycle-managed resources: when wiring startup, also add explicit shutdown so closing the window releases ports and exits cleanly. Prefer `python tools/ixdar-automation-cli/ixdar_cli.py shutdown` for deterministic teardown.
 - For runtime asset loading used by audio/gameplay, prefer Maven-packaged classpath resources included in the jar. Use environment variables only for build-time asset ingestion, not runtime resolution.
 - For build-ingested runtime assets, prefer property-driven Maven glob includes (e.g. `**/*.wav`) over per-file entries so content can grow without repeated POM edits.

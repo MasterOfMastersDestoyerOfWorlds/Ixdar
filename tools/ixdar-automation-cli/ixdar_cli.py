@@ -3,104 +3,22 @@ import argparse
 import json
 import sys
 import urllib.error
-import urllib.request
-
-
-DEFAULT_BASE_URL = "http://127.0.0.1:47832"
-
-
-def request_json(base_url: str, path: str, body: dict | None = None) -> dict:
-    payload = None
-    headers = {"Content-Type": "application/json"}
-    if body is not None:
-        payload = json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(base_url + path, data=payload, headers=headers, method="POST" if body is not None else "GET")
-    with urllib.request.urlopen(req, timeout=10) as response:
-        return json.loads(response.read().decode("utf-8"))
-
-
-def click_until_scene_transition(
-    base_url: str,
-    x_values: list[float],
-    y_start: int,
-    y_end: int,
-    y_step: int,
-    button: int,
-) -> dict:
-    initial = request_json(base_url, "/ui/state")
-    result = {
-        "ok": False,
-        "initial": {
-            "scene": initial.get("scene"),
-            "menuVisible": initial.get("menuVisible", True),
-        },
-        "attempts": 0,
-    }
-    if initial.get("scene") != "menu" or not initial.get("menuVisible", True):
-        result["ok"] = True
-        result["state"] = initial
-        result["message"] = "Already transitioned before scan"
-        return result
-
-    for x in x_values:
-        for y in range(y_start, y_end, y_step):
-            request_json(base_url, "/input/click", {"x": x, "y": y, "normalized": False, "button": button})
-            result["attempts"] += 1
-            state = request_json(base_url, "/ui/state")
-            if state.get("scene") != "menu" or not state.get("menuVisible", True):
-                result["ok"] = True
-                result["found"] = {"x": x, "y": y}
-                result["state"] = state
-                return result
-
-    result["state"] = request_json(base_url, "/ui/state")
-    result["error"] = "No scene transition detected"
-    return result
-
-
-def start_new_game(base_url: str, button: int, fallback_scan: bool) -> dict:
-    state = request_json(base_url, "/ui/state")
-    if state.get("scene") != "menu" or not state.get("menuVisible", True):
-        return {"ok": True, "message": "Already outside menu", "state": state}
-
-    for item in state.get("menuItems", []):
-        if item.get("label", "").lower() == "start new game":
-            bounds = item.get("bounds")
-            if bounds:
-                x = bounds.get("centerXPx")
-                y = bounds.get("centerYPx")
-                if x is not None and y is not None:
-                    window_height = state.get("windowHeight", 0)
-                    click_y = (window_height - y) if window_height else y
-                    click_result = request_json(base_url, "/input/click", {"x": x, "y": click_y, "normalized": False, "button": button})
-                    post = request_json(base_url, "/ui/state")
-                    return {
-                        "ok": post.get("scene") != "menu" or not post.get("menuVisible", True),
-                        "strategy": "menu_bounds_center",
-                        "target": {"x": x, "y": click_y},
-                        "click": click_result,
-                        "state": post,
-                    }
-
-    if fallback_scan:
-        scan = click_until_scene_transition(
-            base_url=base_url,
-            x_values=[250.0, 300.0, 350.0, 375.0, 400.0, 450.0, 500.0],
-            y_start=120,
-            y_end=620,
-            y_step=20,
-            button=button,
-        )
-        scan["strategy"] = "fallback_click_scan"
-        return scan
-
-    return {"ok": False, "error": "Start New Game bounds not available"}
+from automation_client import (
+    DEFAULT_BASE_URL,
+    AutomationClient,
+    collect_tooltip_lines,
+    collect_trade_tooltip_lines,
+    toolbar_button_center,
+)
+from trade_route_ops_validation import run_validation
+from trade_scenarios import click_until_scene_transition, start_new_game
 
 
 def probe(base_url: str, screenshot_out: str) -> dict:
-    health = request_json(base_url, "/health")
-    state = request_json(base_url, "/ui/state")
-    screenshot = request_json(base_url, "/ui/screenshot", {"path": screenshot_out, "inline": False})
+    client = AutomationClient(base_url)
+    health = client.health()
+    state = client.ui_state()
+    screenshot = client.screenshot(screenshot_out, inline=False)
     return {
         "ok": True,
         "health": health,
@@ -119,6 +37,59 @@ def probe(base_url: str, screenshot_out: str) -> dict:
     }
 
 
+def scan_trade_toolbar_tooltip(
+    base_url: str,
+    expected_text: str,
+    toolbar_x: float | None,
+    toolbar_y: float | None,
+    toolbar_button: str,
+    button: int,
+) -> dict:
+    client = AutomationClient(base_url)
+    state = client.ui_state()
+    window_height = float(state.get("windowHeight", 0))
+    window_width = float(state.get("windowWidth", 0))
+    if toolbar_x is None:
+        toolbar_x, _ = toolbar_button_center(window_width, window_height, toolbar_button)
+    if toolbar_y is None:
+        _, toolbar_y = toolbar_button_center(window_width, window_height, toolbar_button)
+    trade = state.get("trade", {})
+    city_clicks: list[tuple[float, float]] = []
+    if isinstance(trade, dict):
+        for city in trade.get("cities", []):
+            x = city.get("xPx")
+            y = city.get("yPx")
+            if x is None or y is None:
+                continue
+            click_y = (window_height - float(y)) if window_height else float(y)
+            city_clicks.append((float(x), click_y))
+
+    if not city_clicks:
+        city_clicks = [(x, y) for x in range(70, 681, 60) for y in range(90, 651, 60)]
+
+    for x, y in city_clicks:
+        client.click(x, y, normalized=False, button=button)
+        client.hover(toolbar_x, toolbar_y, normalized=False, persistent=True)
+        state = client.ui_state()
+        tips = collect_trade_tooltip_lines(state)
+        active_tool = state.get("trade", {}).get("activeTool", "")
+        if any(expected_text in tip for tip in tips):
+            return {
+                "ok": True,
+                "hq_click": {"x": x, "y": y},
+                "activeTool": active_tool,
+                "trade_tooltips": tips,
+            }
+
+    state = client.ui_state()
+    return {
+        "ok": False,
+        "activeTool": state.get("trade", {}).get("activeTool", ""),
+        "textElements": state.get("textElements", []),
+        "error": f"Could not find trade tooltip containing: {expected_text}",
+    }
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="ixdar")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
@@ -131,6 +102,9 @@ def main(argv: list[str]) -> int:
     audio_log.add_argument("--tail", type=int, default=20)
     probe_cmd = subparsers.add_parser("probe")
     probe_cmd.add_argument("--out", default="")
+    tooltip = subparsers.add_parser("assert-tooltip")
+    tooltip.add_argument("--contains", action="append", required=True)
+    tooltip.add_argument("--include-trade", action="store_true")
 
     screenshot = subparsers.add_parser("screenshot")
     screenshot.add_argument("--out", default="")
@@ -142,6 +116,14 @@ def main(argv: list[str]) -> int:
     click.add_argument("--normalized", action="store_true")
     click.add_argument("--button", type=int, default=0)
 
+    hover = subparsers.add_parser("hover")
+    hover.add_argument("--x", type=float, required=True)
+    hover.add_argument("--y", type=float, required=True)
+    hover.add_argument("--normalized", action="store_true")
+    hover.add_argument("--persistent", action="store_true")
+
+    subparsers.add_parser("hover-clear")
+
     click_scan = subparsers.add_parser("click-scan")
     click_scan.add_argument("--x-values", default="250,300,350,375,400,450,500")
     click_scan.add_argument("--y-start", type=int, default=120)
@@ -152,6 +134,17 @@ def main(argv: list[str]) -> int:
     start_game = subparsers.add_parser("start-new-game")
     start_game.add_argument("--button", type=int, default=0)
     start_game.add_argument("--no-fallback-scan", action="store_true")
+
+    trade_hover_scan = subparsers.add_parser("trade-hover-scan")
+    trade_hover_scan.add_argument("--contains", default="Pipe (P)")
+    trade_hover_scan.add_argument("--toolbar-x", type=float, default=-1)
+    trade_hover_scan.add_argument("--toolbar-y", type=float, default=-1)
+    trade_hover_scan.add_argument(
+        "--toolbar-button",
+        choices=["pipe", "grow", "collapse", "undo", "confirm"],
+        default="pipe",
+    )
+    trade_hover_scan.add_argument("--button", type=int, default=0)
 
     scroll = subparsers.add_parser("scroll")
     scroll.add_argument("--delta", type=float, required=True)
@@ -182,22 +175,28 @@ def main(argv: list[str]) -> int:
     replay_sub.add_parser("resume")
     replay_sub.add_parser("cancel")
 
+    subparsers.add_parser("shutdown")
+    validate = subparsers.add_parser("validate")
+    validate_sub = validate.add_subparsers(dest="validate_command", required=True)
+    validate_sub.add_parser("route-ops")
+
     args = parser.parse_args(argv)
     base = args.base_url
+    client = AutomationClient(base)
 
     try:
         if args.command == "health":
-            result = request_json(base, "/health")
+            result = client.health()
         elif args.command == "ui-state":
-            result = request_json(base, "/ui/state")
+            result = client.ui_state()
         elif args.command == "audio-state":
-            ui_state = request_json(base, "/ui/state")
+            ui_state = client.ui_state()
             result = {
                 "ok": True,
                 "audio": ui_state.get("audio", {}),
             }
         elif args.command == "audio-log":
-            ui_state = request_json(base, "/ui/state")
+            ui_state = client.ui_state()
             audio = ui_state.get("audio", {})
             events = audio.get("eventLog", [])
             if args.tail >= 0:
@@ -209,18 +208,31 @@ def main(argv: list[str]) -> int:
             }
         elif args.command == "probe":
             result = probe(base, args.out)
+        elif args.command == "assert-tooltip":
+            ui_state = client.ui_state()
+            lines = collect_tooltip_lines(ui_state, args.include_trade)
+            joined = "\n".join(lines)
+            missing = [needle for needle in args.contains if needle not in joined]
+            result = {
+                "ok": len(missing) == 0,
+                "tooltips": lines,
+                "missing": missing,
+            }
+            if missing:
+                print(json.dumps(result, indent=2))
+                return 4
         elif args.command == "screenshot":
-            result = request_json(base, "/ui/screenshot", {"path": args.out, "inline": args.inline})
+            result = client.screenshot(args.out, inline=args.inline)
         elif args.command == "click":
-            result = request_json(
-                base,
-                "/input/click",
-                {"x": args.x, "y": args.y, "normalized": args.normalized, "button": args.button},
-            )
+            result = client.click(args.x, args.y, normalized=args.normalized, button=args.button)
+        elif args.command == "hover":
+            result = client.hover(args.x, args.y, normalized=args.normalized, persistent=args.persistent)
+        elif args.command == "hover-clear":
+            result = client.clear_hover()
         elif args.command == "click-scan":
             x_values = [float(v) for v in args.x_values.split(",") if v.strip()]
             result = click_until_scene_transition(
-                base_url=base,
+                client=client,
                 x_values=x_values,
                 y_start=args.y_start,
                 y_end=args.y_end,
@@ -228,35 +240,54 @@ def main(argv: list[str]) -> int:
                 button=args.button,
             )
         elif args.command == "start-new-game":
-            result = start_new_game(base, args.button, not args.no_fallback_scan)
-        elif args.command == "scroll":
-            result = request_json(base, "/input/scroll", {"delta": args.delta})
-        elif args.command == "key":
-            result = request_json(
-                base,
-                "/input/key",
-                {"key": args.key, "action": args.action, "mods": args.mods, "scancode": args.scancode},
+            result = start_new_game(client, args.button, not args.no_fallback_scan)
+        elif args.command == "trade-hover-scan":
+            x_arg = None if args.toolbar_x < 0 else args.toolbar_x
+            y_arg = None if args.toolbar_y < 0 else args.toolbar_y
+            result = scan_trade_toolbar_tooltip(
+                base_url=base,
+                expected_text=args.contains,
+                toolbar_x=x_arg,
+                toolbar_y=y_arg,
+                toolbar_button=args.toolbar_button,
+                button=args.button,
             )
+            if not result.get("ok", False):
+                print(json.dumps(result, indent=2))
+                return 5
+        elif args.command == "scroll":
+            result = client.request_json("/input/scroll", {"delta": args.delta})
+        elif args.command == "key":
+            result = client.key(args.key, action=args.action, mods=args.mods, scancode=args.scancode)
         elif args.command == "type":
-            result = request_json(base, "/input/type", {"text": args.text})
+            result = client.request_json("/input/type", {"text": args.text})
         elif args.command == "record":
             if args.record_command == "start":
-                result = request_json(base, "/record/start", {})
+                result = client.request_json("/record/start", {})
             elif args.record_command == "status":
-                result = request_json(base, "/record/status")
+                result = client.request_json("/record/status")
             else:
-                result = request_json(base, "/record/stop", {"path": args.path})
+                result = client.request_json("/record/stop", {"path": args.path})
         elif args.command == "replay":
             if args.replay_command == "status":
-                result = request_json(base, "/replay/status")
+                result = client.request_json("/replay/status")
             elif args.replay_command == "start":
-                result = request_json(base, "/replay/start", {"file": args.file, "mode": args.mode})
+                result = client.request_json("/replay/start", {"file": args.file, "mode": args.mode})
             elif args.replay_command == "pause":
-                result = request_json(base, "/replay/pause", {})
+                result = client.request_json("/replay/pause", {})
             elif args.replay_command == "resume":
-                result = request_json(base, "/replay/resume", {})
+                result = client.request_json("/replay/resume", {})
             else:
-                result = request_json(base, "/replay/cancel", {})
+                result = client.request_json("/replay/cancel", {})
+        elif args.command == "shutdown":
+            result = client.shutdown()
+        elif args.command == "validate":
+            if args.validate_command == "route-ops":
+                exit_code, result = run_validation(base)
+                print(json.dumps(result, indent=2))
+                return exit_code
+            parser.print_help()
+            return 1
         else:
             parser.print_help()
             return 1

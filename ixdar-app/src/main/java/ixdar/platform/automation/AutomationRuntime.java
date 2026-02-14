@@ -26,13 +26,17 @@ import com.google.gson.JsonObject;
 
 import ixdar.audio.AudioSystem;
 import ixdar.canvas.Canvas3D;
+import ixdar.canvas.IxdarWindow;
+import ixdar.game.City;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.graphics.render.text.HyperWord;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.menu.MenuItem;
+import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.TradeMouseTrap;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.trade.TradeScene;
 
@@ -208,6 +212,44 @@ public class AutomationRuntime {
         root.addProperty("framebufferHeight", Platforms.get().getFrameBufferHeight());
         root.addProperty("menuVisible", MenuBox.menuVisible);
         root.addProperty("scene", TradeScene.active ? "trade" : (MainScene.active ? "main" : "menu"));
+        JsonObject trade = new JsonObject();
+        if (TradeScene.active && TradeScene.instance != null) {
+            trade.addProperty("active", true);
+            if (TradeScene.instance.activeTool != null) {
+                trade.addProperty("activeTool", TradeScene.instance.activeTool.displayName());
+            }
+            if (TradeScene.instance.activeTool instanceof RoutePlanningTool) {
+                RoutePlanningTool routeTool = (RoutePlanningTool) TradeScene.instance.activeTool;
+                trade.addProperty("routeMode", routeTool.getCurrentMode().name());
+                trade.addProperty("routeState", routeTool.getOperationState().name());
+                trade.addProperty("selectedCityA", routeTool.getSelectedCityAName());
+                trade.addProperty("selectedCityB", routeTool.getSelectedCityBName());
+                trade.addProperty("hasRoute", routeTool.getCurrentRoute() != null);
+                trade.addProperty("routeSegmentCount",
+                        routeTool.getCurrentRoute() == null ? 0 : routeTool.getCurrentRoute().manifoldSegments.size());
+                trade.addProperty("canUndo", routeTool.canUndoOperation());
+                trade.addProperty("canRedo", routeTool.canRedoOperation());
+                trade.addProperty("inPreview", routeTool.getOperationState() == RoutePlanningTool.OperationState.PREVIEW);
+            }
+            trade.addProperty("headquartersCity", TradeScene.instance.network.headquartersCity == null ? ""
+                    : TradeScene.instance.network.headquartersCity.name);
+            JsonArray tradeCities = new JsonArray();
+            if (TradeScene.instance.network != null && TradeScene.instance.network.cities != null && TradeScene.camera != null) {
+                for (City city : TradeScene.instance.network.cities) {
+                    JsonObject cityJson = new JsonObject();
+                    cityJson.addProperty("name", city.name);
+                    cityJson.addProperty("xWorld", city.getX());
+                    cityJson.addProperty("yWorld", city.getY());
+                    cityJson.addProperty("xPx", TradeScene.camera.pointTransformX(city.getX()));
+                    cityJson.addProperty("yPx", TradeScene.camera.pointTransformY(city.getY()));
+                    tradeCities.add(cityJson);
+                }
+            }
+            trade.add("cities", tradeCities);
+        } else {
+            trade.addProperty("active", false);
+        }
+        root.add("trade", trade);
 
         JsonArray textElements = new JsonArray();
         if (MainScene.terminal != null) {
@@ -219,6 +261,10 @@ public class AutomationRuntime {
         HyperString tooltip = MainScene.getToolTip();
         if (tooltip != null && MainScene.isToolTipVisible()) {
             textElements.add(hyperStringElement("tooltip", "TOOLTIP", tooltip, 0));
+        }
+        HyperString tradeTooltip = TradeScene.getToolTip();
+        if (tradeTooltip != null && TradeScene.isToolTipVisible()) {
+            textElements.add(hyperStringElement("trade_tooltip", "TOOLTIP", tradeTooltip, 0));
         }
         root.add("textElements", textElements);
 
@@ -322,9 +368,18 @@ public class AutomationRuntime {
                 }
                 float xPos = normalized ? denormalizeX(x) : x;
                 float yPos = normalized ? denormalizeY(y) : y;
-                mouse.mousePos(xPos, yPos);
-                mouse.mouseButton(button, ACTION_PRESS, 0);
-                mouse.mouseButton(button, ACTION_RELEASE, 0);
+                if (mouse instanceof TradeMouseTrap) {
+                    ((TradeMouseTrap) mouse).beginAutomationInput();
+                }
+                try {
+                    mouse.mousePos(xPos, yPos);
+                    mouse.mouseButton(button, ACTION_PRESS, 0);
+                    mouse.mouseButton(button, ACTION_RELEASE, 0);
+                } finally {
+                    if (mouse instanceof TradeMouseTrap) {
+                        ((TradeMouseTrap) mouse).endAutomationInput();
+                    }
+                }
                 JsonObject payload = new JsonObject();
                 payload.addProperty("xPx", xPos);
                 payload.addProperty("yPx", yPos);
@@ -342,6 +397,105 @@ public class AutomationRuntime {
             error.addProperty("error", e.getMessage());
             return error;
         }
+    }
+
+    public JsonObject injectHover(float x, float y, boolean normalized, boolean persistent) {
+        try {
+            return runOnMainThread(() -> {
+                MouseTrap mouse = activeMouse();
+                JsonObject result = new JsonObject();
+                if (mouse == null) {
+                    result.addProperty("ok", false);
+                    result.addProperty("error", "No active mouse handler");
+                    return result;
+                }
+                float xPos = normalized ? denormalizeX(x) : x;
+                float yPos = normalized ? denormalizeY(y) : y;
+                if (mouse instanceof TradeMouseTrap) {
+                    TradeMouseTrap tradeMouse = (TradeMouseTrap) mouse;
+                    tradeMouse.beginAutomationInput();
+                    try {
+                        if (persistent) {
+                            tradeMouse.setAutomationHoverLock(xPos, yPos);
+                        } else {
+                            tradeMouse.clearAutomationHoverLock();
+                            tradeMouse.mousePos(xPos, yPos);
+                        }
+                    } finally {
+                        tradeMouse.endAutomationInput();
+                    }
+                } else {
+                    mouse.mousePos(xPos, yPos);
+                }
+                JsonObject payload = new JsonObject();
+                payload.addProperty("xPx", xPos);
+                payload.addProperty("yPx", yPos);
+                payload.addProperty("xNorm", normalizeX(xPos));
+                payload.addProperty("yNorm", normalizeY(yPos));
+                payload.addProperty("persistent", persistent);
+                recorder.recordAbstract("hover", payload);
+                result.addProperty("ok", true);
+                result.add("event", payload);
+                return result;
+            });
+        } catch (Exception e) {
+            JsonObject error = new JsonObject();
+            error.addProperty("ok", false);
+            error.addProperty("error", e.getMessage());
+            return error;
+        }
+    }
+
+    public JsonObject clearHoverLock() {
+        try {
+            return runOnMainThread(() -> {
+                MouseTrap mouse = activeMouse();
+                JsonObject result = new JsonObject();
+                if (mouse instanceof TradeMouseTrap) {
+                    TradeMouseTrap tradeMouse = (TradeMouseTrap) mouse;
+                    tradeMouse.beginAutomationInput();
+                    try {
+                        tradeMouse.clearAutomationHoverLock();
+                    } finally {
+                        tradeMouse.endAutomationInput();
+                    }
+                }
+                result.addProperty("ok", true);
+                return result;
+            });
+        } catch (Exception e) {
+            JsonObject error = new JsonObject();
+            error.addProperty("ok", false);
+            error.addProperty("error", e.getMessage());
+            return error;
+        }
+    }
+
+    public JsonObject requestShutdown() {
+        JsonObject result = new JsonObject();
+        result.addProperty("ok", true);
+        result.addProperty("accepted", true);
+        Thread shutdownThread = new Thread(() -> {
+            try {
+                Thread.sleep(150);
+                runOnMainThread(() -> {
+                    if (canvas != null) {
+                        canvas.shutdown();
+                    } else {
+                        stop();
+                    }
+                    IxdarWindow.requestClose();
+                    return new JsonObject();
+                });
+                Thread.sleep(1200);
+                System.exit(0);
+            } catch (Exception ignored) {
+                // Shutdown is best-effort.
+            }
+        }, "automation-shutdown");
+        shutdownThread.setDaemon(true);
+        shutdownThread.start();
+        return result;
     }
 
     public JsonObject injectScroll(double delta) {
