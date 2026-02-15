@@ -45,9 +45,9 @@ import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.PointSetPath;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.gl.Platform;
-import ixdar.platform.input.KeyActions;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.SceneInputFrameUpdater;
 
 public class MainScene {
 
@@ -333,16 +333,7 @@ public class MainScene {
             MAIN_VIEW_OFFSET_X = 0;
             MAIN_VIEW_OFFSET_Y = BOTTOM_PANEL_SIZE;
             camera.updateView(VIEW_MAIN);
-            float SHIFT_MOD = 1;
-            if (keys != null && KeyActions.DoubleSpeed.keyPressed(keys.pressedKeys)) {
-                SHIFT_MOD = 2;
-            }
-            if (keys != null) {
-                keys.paintUpdate(SHIFT_MOD);
-            }
-            if (mouse != null) {
-                mouse.paintUpdate(SHIFT_MOD);
-            }
+            SceneInputFrameUpdater.update(keys, mouse);
             camera.setZIndex(camera3D);
             camera.calculateCameraTransform(retTup.ps);
 

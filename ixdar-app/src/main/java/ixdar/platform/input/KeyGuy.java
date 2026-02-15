@@ -28,7 +28,7 @@ import ixdar.platform.Toggle;
 import ixdar.platform.automation.AutomationRuntime;
 import ixdar.scenes.main.MainScene;
 
-public class KeyGuy {
+public class KeyGuy extends Camera2DInputController{
 
     public final Set<Integer> pressedKeys = new HashSet<>();
     public MainScene main;
@@ -164,27 +164,7 @@ public class KeyGuy {
         if (!active || Toggle.IsTerminalFocused.value) {
             return;
         }
-        camera.setShiftMod(SHIFT_MOD);
-        if (!pressedKeys.isEmpty()) {
-            if (KeyActions.MoveUp.keyPressed(pressedKeys)) {
-                camera.move(Camera.Direction.FORWARD);
-            }
-            if (KeyActions.MoveLeft.keyPressed(pressedKeys)) {
-                camera.move(Camera.Direction.LEFT);
-            }
-            if (KeyActions.MoveDown.keyPressed(pressedKeys)) {
-                camera.move(Camera.Direction.BACKWARD);
-            }
-            if (KeyActions.MoveRight.keyPressed(pressedKeys)) {
-                camera.move(Camera.Direction.RIGHT);
-            }
-            if (KeyActions.ZoomIn.keyPressed(pressedKeys) && !KeyActions.ZoomOut.keyPressed(pressedKeys)) {
-                camera.onScroll(true, (float) Clock.deltaTime());
-            }
-            if (KeyActions.ZoomOut.keyPressed(pressedKeys) && !KeyActions.ZoomIn.keyPressed(pressedKeys)) {
-                camera.onScroll(false, (float) Clock.deltaTime());
-            }
-        }
+        super.apply(camera, pressedKeys, SHIFT_MOD, Clock.deltaTime());
 
         if (main != null) {
             long timeSinceLastPress = System.currentTimeMillis() - lastPressTime;

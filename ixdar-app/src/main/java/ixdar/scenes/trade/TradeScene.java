@@ -25,8 +25,8 @@ import ixdar.audio.AudioSystem;
 import ixdar.platform.Platforms;
 import ixdar.platform.automation.AutomationInputBinder;
 import ixdar.platform.gl.Platform;
-import ixdar.platform.input.KeyActions;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.platform.input.TradeKeyGuy;
 import ixdar.platform.input.TradeMouseTrap;
 
@@ -154,9 +154,7 @@ public class TradeScene {
             int wHeight = (int) Platforms.get().getWindowHeight();
 
             // Process input
-            float speedMod = KeyActions.DoubleSpeed.keyPressed(keys.pressedKeys) ? 2f : 1f;
-            keys.paintUpdate(speedMod);
-            mouse.paintUpdate(speedMod);
+            SceneInputFrameUpdater.update(keys, mouse);
 
             // Setup camera
             camera.updateView(VIEW_MAIN);

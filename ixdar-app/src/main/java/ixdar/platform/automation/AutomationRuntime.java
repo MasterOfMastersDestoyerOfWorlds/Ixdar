@@ -33,10 +33,12 @@ import ixdar.graphics.render.text.HyperWord;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.menu.MenuItem;
 import ixdar.gui.ui.tools.RoutePlanningTool;
+import ixdar.geometry.point.IrregularQuadGrid;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.TradeMouseTrap;
+import ixdar.scenes.anatomy.IrregularGridScene;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.trade.TradeScene;
 
@@ -165,7 +167,8 @@ public class AutomationRuntime {
         return runOnMainThread(() -> {
             int width = Platforms.get().getFrameBufferWidth();
             int height = Platforms.get().getFrameBufferHeight();
-            int[] pixels = Platforms.gl().readPixels(0, 0, width, height, Platforms.gl().RGBA(), Platforms.gl().UNSIGNED_BYTE(),
+            int[] pixels = Platforms.gl().readPixels(0, 0, width, height, Platforms.gl().RGBA(),
+                    Platforms.gl().UNSIGNED_BYTE(),
                     width * height * 4);
             BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
             for (int y = 0; y < height; y++) {
@@ -211,7 +214,11 @@ public class AutomationRuntime {
         root.addProperty("framebufferWidth", Platforms.get().getFrameBufferWidth());
         root.addProperty("framebufferHeight", Platforms.get().getFrameBufferHeight());
         root.addProperty("menuVisible", MenuBox.menuVisible);
-        root.addProperty("scene", TradeScene.active ? "trade" : (MainScene.active ? "main" : "menu"));
+        String sceneName = TradeScene.active ? "trade" : (MainScene.active ? "main" : "menu");
+        if (canvas instanceof IrregularGridScene) {
+            sceneName = "irregular-grid";
+        }
+        root.addProperty("scene", sceneName);
         JsonObject trade = new JsonObject();
         if (TradeScene.active && TradeScene.instance != null) {
             trade.addProperty("active", true);
@@ -229,12 +236,25 @@ public class AutomationRuntime {
                         routeTool.getCurrentRoute() == null ? 0 : routeTool.getCurrentRoute().manifoldSegments.size());
                 trade.addProperty("canUndo", routeTool.canUndoOperation());
                 trade.addProperty("canRedo", routeTool.canRedoOperation());
-                trade.addProperty("inPreview", routeTool.getOperationState() == RoutePlanningTool.OperationState.PREVIEW);
+                trade.addProperty("inPreview",
+                        routeTool.getOperationState() == RoutePlanningTool.OperationState.PREVIEW);
             }
             trade.addProperty("headquartersCity", TradeScene.instance.network.headquartersCity == null ? ""
                     : TradeScene.instance.network.headquartersCity.name);
+            if (TradeScene.instance.network != null && TradeScene.instance.network.grid != null) {
+                trade.addProperty("gridType", TradeScene.instance.network.grid.getClass().getSimpleName());
+                if (TradeScene.instance.network.grid instanceof IrregularQuadGrid) {
+                    IrregularQuadGrid irregularGrid = (IrregularQuadGrid) TradeScene.instance.network.grid;
+                    trade.addProperty("gridSeed", irregularGrid.seed());
+                    trade.addProperty("gridRelaxIterations", irregularGrid.relaxIterations());
+                    trade.addProperty("gridRows", irregularGrid.rows());
+                    trade.addProperty("gridCols", irregularGrid.cols());
+                    trade.addProperty("gridAnchorCount", irregularGrid.anchorCount());
+                }
+            }
             JsonArray tradeCities = new JsonArray();
-            if (TradeScene.instance.network != null && TradeScene.instance.network.cities != null && TradeScene.camera != null) {
+            if (TradeScene.instance.network != null && TradeScene.instance.network.cities != null
+                    && TradeScene.camera != null) {
                 for (City city : TradeScene.instance.network.cities) {
                     JsonObject cityJson = new JsonObject();
                     cityJson.addProperty("name", city.name);
@@ -251,12 +271,30 @@ public class AutomationRuntime {
         }
         root.add("trade", trade);
 
+        if (canvas instanceof IrregularGridScene) {
+            IrregularGridScene irregularScene = (IrregularGridScene) canvas;
+            JsonObject irregular = new JsonObject();
+            irregular.addProperty("seed", irregularScene.getSeed());
+            irregular.addProperty("relaxIterations", irregularScene.getRelaxIters());
+            irregular.addProperty("jitter", irregularScene.getJitter());
+            irregular.addProperty("primalPointCount", irregularScene.getPrimalPointCount());
+            irregular.addProperty("dualPointCount", irregularScene.getDualPointCount());
+            irregular.addProperty("edgeCount", irregularScene.getEdgeCount());
+            irregular.addProperty("horizontalEdgeMean", irregularScene.getHorizontalEdgeMean());
+            irregular.addProperty("verticalEdgeMean", irregularScene.getVerticalEdgeMean());
+            irregular.addProperty("horizontalEdgeStdDev", irregularScene.getHorizontalEdgeStdDev());
+            irregular.addProperty("verticalEdgeStdDev", irregularScene.getVerticalEdgeStdDev());
+            root.add("irregularGrid", irregular);
+        }
+
         JsonArray textElements = new JsonArray();
         if (MainScene.terminal != null) {
-            textElements.add(hyperStringElement("terminal", "BOTTOM", MainScene.terminal.getCachedInfo(), MainScene.terminal.scrollOffsetY));
+            textElements.add(hyperStringElement("terminal", "BOTTOM", MainScene.terminal.getCachedInfo(),
+                    MainScene.terminal.scrollOffsetY));
         }
         if (MainScene.info != null) {
-            textElements.add(hyperStringElement("info", "RIGHT_TOP", MainScene.info.getCachedInfo(), MainScene.info.scrollOffsetY));
+            textElements.add(hyperStringElement("info", "RIGHT_TOP", MainScene.info.getCachedInfo(),
+                    MainScene.info.scrollOffsetY));
         }
         HyperString tooltip = MainScene.getToolTip();
         if (tooltip != null && MainScene.isToolTipVisible()) {
@@ -598,8 +636,10 @@ public class AutomationRuntime {
             return;
         }
         if ("click".equals(type)) {
-            float xNorm = payload.has("xNorm") ? payload.get("xNorm").getAsFloat() : payload.get("xNormalized").getAsFloat();
-            float yNorm = payload.has("yNorm") ? payload.get("yNorm").getAsFloat() : payload.get("yNormalized").getAsFloat();
+            float xNorm = payload.has("xNorm") ? payload.get("xNorm").getAsFloat()
+                    : payload.get("xNormalized").getAsFloat();
+            float yNorm = payload.has("yNorm") ? payload.get("yNorm").getAsFloat()
+                    : payload.get("yNormalized").getAsFloat();
             injectClick(xNorm, yNorm, true,
                     payload.get("button").getAsInt());
         } else if ("type".equals(type)) {

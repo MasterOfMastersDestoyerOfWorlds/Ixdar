@@ -8,6 +8,7 @@ import com.google.gson.JsonObject;
 
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
+import ixdar.graphics.render.Clock;
 import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.platform.Platforms;
 import ixdar.platform.automation.AutomationRuntime;
@@ -80,29 +81,6 @@ public class TradeKeyGuy extends KeyGuy {
     public void paintUpdate(float SHIFT_MOD) {
         if (!active)
             return;
-
-        camera.setShiftMod(SHIFT_MOD);
-
-        // Camera movement
-        if (KeyActions.MoveUp.keyPressed(pressedKeys)) {
-            camera.move(Camera.Direction.FORWARD);
-        }
-        if (KeyActions.MoveLeft.keyPressed(pressedKeys)) {
-            camera.move(Camera.Direction.LEFT);
-        }
-        if (KeyActions.MoveDown.keyPressed(pressedKeys)) {
-            camera.move(Camera.Direction.BACKWARD);
-        }
-        if (KeyActions.MoveRight.keyPressed(pressedKeys)) {
-            camera.move(Camera.Direction.RIGHT);
-        }
-
-        // Zoom
-        if (KeyActions.ZoomIn.keyPressed(pressedKeys) && !KeyActions.ZoomOut.keyPressed(pressedKeys)) {
-            camera.onScroll(true, ixdar.graphics.render.Clock.deltaTime());
-        }
-        if (KeyActions.ZoomOut.keyPressed(pressedKeys) && !KeyActions.ZoomIn.keyPressed(pressedKeys)) {
-            camera.onScroll(false, ixdar.graphics.render.Clock.deltaTime());
-        }
+        super.apply(camera, pressedKeys, SHIFT_MOD, Clock.deltaTime());
     }
 }

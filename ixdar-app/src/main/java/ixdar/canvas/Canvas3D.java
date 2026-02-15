@@ -29,9 +29,9 @@ import ixdar.platform.gl.GL;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.automation.AutomationInputBinder;
 import ixdar.platform.automation.AutomationRuntime;
-import ixdar.platform.input.KeyActions;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.trade.TradeScene;
 
@@ -127,16 +127,7 @@ public class Canvas3D extends SceneDrawable {
         camera2D.resetZIndex();
         AutomationRuntime.get().processMainThreadCommands();
 
-        float SHIFT_MOD = 1;
-        if (keys != null && KeyActions.DoubleSpeed.keyPressed(keys.pressedKeys)) {
-            SHIFT_MOD = 2;
-        }
-        if (keys != null) {
-            keys.paintUpdate(SHIFT_MOD);
-        }
-        if (mouse != null) {
-            mouse.paintUpdate(SHIFT_MOD);
-        }
+        SceneInputFrameUpdater.update(keys, mouse);
 
         drawScene();
 
