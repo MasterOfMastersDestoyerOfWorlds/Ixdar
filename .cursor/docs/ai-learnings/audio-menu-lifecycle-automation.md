@@ -1,3 +1,13 @@
+---
+title: Audio Menu Lifecycle and Automation Telemetry
+category: automation
+severity: medium
+modules: [platform, audio, automation]
+tags: [audio, openal, lifecycle, automation, telemetry, shutdown]
+---
+
+# Audio Menu Lifecycle and Automation Telemetry
+
 ## Context
 Added initial desktop audio playback for menu loop music and one-shot menu SFX, plus automation-visible audio state for regression checks.
 
@@ -14,10 +24,9 @@ Resource packaging contract: ingest audio from `IXDAR_ASSET_REPO_ROOT` during Ma
   - `audio.menuMusicSourceCount`
   - `audio.lastSfxPlayed`
   - `audio.sfxPlayCountById`
-- Closing the app window can leave port `47832` bound unless automation server shutdown is explicit.
 - Fixed by calling `AutomationRuntime.stop()` in `Canvas3D.shutdown()` and adding `AutomationApiServer.stop()` to close server + executor.
 
-## Reuse trigger
+## Reuse Trigger
 When adding any new scene music/SFX behavior, expose minimal telemetry in `AutomationRuntime.uiState()` first so CLI automation can assert behavior without human listening.
 Also use explicit shutdown hooks for background services (HTTP servers, executors) so window close exits process cleanly.
 

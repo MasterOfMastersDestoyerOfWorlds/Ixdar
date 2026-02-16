@@ -7,10 +7,21 @@ alwaysApply: true
 
 Use this when the task is non-trivial or has multiple implementation paths.
 
+## Step 0: Search Existing Knowledge
+
+Before planning, search `.cursor/docs/ai-learnings/` for learnings related to the task:
+
+1. Grep the YAML frontmatter `tags:` and `title:` lines for keywords matching the task domain.
+2. If relevant learnings exist, read them and factor their decisions/anti-patterns into the plan.
+3. If a learning has `severity: critical`, treat its anti-pattern as a hard constraint.
+
+This is the retrieval step that makes past learnings useful. Do not skip it.
+
 ## Required Output
 
 - Problem statement in one paragraph.
 - Constraints and assumptions (explicit).
+- Relevant learnings found (file names, or "none found").
 - 3-7 concrete implementation steps with file targets.
 - Verification plan (tests/manual checks).
 - Risks and rollback strategy.

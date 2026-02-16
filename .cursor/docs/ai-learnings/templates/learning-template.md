@@ -1,3 +1,12 @@
+---
+title: Learning Title
+category: # performance | architecture | automation | tooling | build | playbook
+severity: # critical | high | medium | low
+modules: [] # e.g. [graphics, platform], [automation, gui]
+tags: [] # searchable keywords, e.g. [rendering, buffers, opengl]
+# promoted_to: # uncomment if promoted to an always-applied rule
+---
+
 # Learning Title
 
 ## Context

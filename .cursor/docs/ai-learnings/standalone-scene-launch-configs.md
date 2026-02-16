@@ -1,3 +1,13 @@
+---
+title: Standalone Scene Launch Configs
+category: tooling
+severity: low
+modules: [scenes, vscode-config]
+tags: [vscode, launch-config, scenes, debugging, env-vars]
+---
+
+# Standalone Scene Launch Configs
+
 ## Context
 - Standalone scene classes are discoverable by scene ID, but debugging them in VS Code is slower unless each scene has an explicit launch profile.
 - The new model-loading standalone scene requires `IXDAR_ASSET_REPO_ROOT` to be present at launch time.

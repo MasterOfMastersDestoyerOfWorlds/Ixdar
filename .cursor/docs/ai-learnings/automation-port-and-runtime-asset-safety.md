@@ -1,3 +1,14 @@
+---
+title: Automation Port and Runtime Asset Safety
+category: automation
+severity: high
+modules: [platform, automation]
+tags: [automation, ports, lifecycle, assets, classpath, maven]
+promoted_to: ixdar.mdc
+---
+
+# Automation Port and Runtime Asset Safety
+
 ## Context
 Audio + automation validation surfaced two recurring failures: stale app instances holding automation port `47832`, and runtime audio load failures when asset-root env vars were unavailable in launch context.
 
@@ -11,7 +22,7 @@ Audio + automation validation surfaced two recurring failures: stale app instanc
 - Window close did not free port until automation server + executor were explicitly stopped.
 - Audio load failure observed when runtime could not resolve `IXDAR_ASSET_REPO_ROOT`; fixed by classpath-first loading of Maven-packaged audio resources and verified with CLI telemetry.
 
-## Reuse trigger
+## Reuse Trigger
 Apply this pattern whenever adding HTTP servers, replay engines, worker pools, or new runtime asset loaders.
 Before trusting CLI validation results, verify automation is pointed at the intended process by checking `health`/`ui-state` and enforcing one running Ixdar instance.
 

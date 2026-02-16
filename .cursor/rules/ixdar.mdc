@@ -33,7 +33,8 @@ For non-trivial tasks, follow:
 
 - Avoid destructive git/shell operations unless explicitly approved.
 - Validate with targeted tests whenever feasible.
-- Record reusable learnings in `docs/ai-learnings/` after significant work.
+- Record reusable learnings in `.cursor/docs/ai-learnings/` after significant work (YAML frontmatter required -- see template).
+- **Rules vs hooks:** Rules are guidance (agents may skip them). Hooks are enforcement (fire at the platform level every time). Use hooks for any side effect that must happen deterministically (e.g. regenerating board after ticket edit). Use rules for patterns you want agents to follow but can tolerate occasional misses.
 
 ## Automation Testing Backbone
 

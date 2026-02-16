@@ -1,3 +1,11 @@
+---
+title: Automation Debug Playbook
+category: playbook
+severity: medium
+modules: [platform, automation]
+tags: [automation, debugging, cli, health-check, troubleshooting]
+---
+
 # Automation Debug Playbook
 
 Use this for `ixdar-app/src/main/java/ixdar/platform/automation/` or CLI regressions.

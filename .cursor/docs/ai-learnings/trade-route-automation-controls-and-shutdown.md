@@ -1,3 +1,13 @@
+---
+title: Trade Route Automation Controls and Shutdown
+category: automation
+severity: high
+modules: [platform, automation, gui]
+tags: [automation, lifecycle, shutdown, trade, hover, endpoints]
+---
+
+# Trade Route Automation Controls and Shutdown
+
 ## Context
 TRADE-10 needed reliable automation for route-planning HUD behavior (toolbar hover/click) plus deterministic app lifecycle shutdown to avoid stale windows/ports between runs.
 
@@ -16,7 +26,7 @@ Use `python tools/ixdar-automation-cli/ixdar_cli.py validate route-ops` as the c
 - `python tools/ixdar-automation-cli/ixdar_cli.py validate route-ops` passes against a live app run.
 - `python tools/ixdar-automation-cli/ixdar_cli.py shutdown` now drops `/health` with connection-refused and process exits.
 
-## Reuse trigger
+## Reuse Trigger
 Use this pattern whenever a scene adds HUD controls that need automated validation:
 1. Add additive scene telemetry to `/ui/state`.
 2. Add durable hover/move primitives to automation input.
@@ -24,6 +34,6 @@ Use this pattern whenever a scene adds HUD controls that need automated validati
 4. Prefer one canonical script/command path; remove superseded paths in the same refactor.
 
 ## Anti-pattern
-Do not rely on transient click-based hover for tooltip assertions; render-loop updates can clear hover state between polling steps.  
+Do not rely on transient click-based hover for tooltip assertions; render-loop updates can clear hover state between polling steps.
 Do not launch multiple app instances without teardown; stale automation listeners on `47832` cause false failures.
 Do not keep compatibility wrapper files for internal automation tooling when no external consumers require them.

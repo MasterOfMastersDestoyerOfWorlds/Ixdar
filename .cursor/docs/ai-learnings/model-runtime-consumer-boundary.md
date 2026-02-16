@@ -1,3 +1,13 @@
+---
+title: Model Runtime Consumer Boundary
+category: architecture
+severity: medium
+modules: [graphics, scenes]
+tags: [architecture, rendering, models, separation-of-concerns, pipeline]
+---
+
+# Model Runtime Consumer Boundary
+
 ## Context
 - We added ASSIMP model loading and triangle rendering for `model-load-canvas`.
 - Initial implementation put import + GPU upload + render logic directly in `ModelLoadScene`.

@@ -186,6 +186,11 @@ public class Circle implements Geometry, PointCollection { ... }
 - Private fields only when encapsulation provides value
 - Static fields for shared constants and counters (e.g., `static int numCuts`)
 
+## Performance Anti-patterns
+
+- **Never allocate direct ByteBuffers per frame.** `ByteBuffer.allocateDirect()` / `platform.allocateFloats()` inside `draw()`, `setup()`, `setUniforms()`, or any per-frame path is a CPU killer. Cache a reusable buffer field, lazy-init once, then `clear()` and reuse each frame.
+- If you see `platform.allocateFloats()` inside a render loop or uniform-upload method, it's a bug -- fix it by hoisting to a cached field.
+
 ## Importing Rules
 
 - Imports ALWAYS belong at the top of the file 
