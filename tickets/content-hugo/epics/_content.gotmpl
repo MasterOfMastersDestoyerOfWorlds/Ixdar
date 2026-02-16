@@ -1,9 +1,0 @@
-{{ range .Site.Data.tickets.epics.epics }}
-  {{ $page := dict
-    "kind" "page"
-    "path" (lower .prefix)
-    "title" .name
-    "params" (dict "prefix" .prefix "description" .description)
-  }}
-  {{ $.AddPage $page }}
-{{ end }}

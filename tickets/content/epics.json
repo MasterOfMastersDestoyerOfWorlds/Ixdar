@@ -4,99 +4,85 @@
             "prefix": "ENG",
             "name": "Game Engine",
             "priority": 1,
-            "description": "Controllers, Managers, Rendering, etc.",
-            "children": ["ENG-1", "ENG-2", "ENG-3", "ENG-4"]
+            "description": "Controllers, Managers, Rendering, etc."
         },
         {
             "prefix": "TRADE",
             "name": "Trade Routes",
             "priority": 2,
-            "description": "Core gameplay loop, route design, caravans, turn order",
-            "children": ["TRADE-1", "TRADE-2", "TRADE-3", "TRADE-4", "TRADE-5", "TRADE-6", "TRADE-7", "TRADE-8", "TRADE-9", "TRADE-10"]
+            "description": "Core gameplay loop, route design, caravans, turn order"
         },
         {
             "prefix": "UI",
             "name": "User Interface",
             "priority": 3,
-            "description": "Treasury view, trade route UI, d-pad controls",
-            "children": ["UI-1", "UI-2", "UI-3", "UI-4"]
+            "description": "Treasury view, trade route UI, d-pad controls"
         },
         {
             "prefix": "ECON",
             "name": "Economy",
             "priority": 10,
-            "description": "Supply/demand, prices, cities as producers/consumers",
-            "children": ["ECON-1", "ECON-2", "ECON-3", "ECON-4", "ECON-5", "ECON-6", "ECON-7", "ECON-8"]
+            "description": "Supply/demand, prices, cities as producers/consumers"
         },
         {
             "prefix": "WORLD",
             "name": "World Building",
             "priority": 11,
-            "description": "Island setting, time fog, colonial companies, and atmosphere",
-            "children": ["WORLD-1", "WORLD-2", "WORLD-3", "WORLD-4", "WORLD-5", "WORLD-6", "WORLD-7", "WORLD-8", "WORLD-9"]
+            "description": "Island setting, time fog, colonial companies, and atmosphere"
         },
         {
             "prefix": "SURV",
             "name": "Survival & Colony",
             "priority": 12,
-            "description": "Outer rim survival, resources, fisheries, base building",
-            "children": ["SURV-1", "SURV-2", "SURV-3", "SURV-4", "SURV-5", "SURV-6", "SURV-7", "SURV-8"]
+            "description": "Outer rim survival, resources, fisheries, base building"
         },
         {
             "prefix": "ROAD",
             "name": "Road Infrastructure",
             "priority": 13,
-            "description": "Road building, quarrying, paving, maintenance, tolls",
-            "children": ["ROAD-1", "ROAD-2", "ROAD-3", "ROAD-4", "ROAD-5", "ROAD-6", "ROAD-7", "ROAD-8"]
+            "description": "Road building, quarrying, paving, maintenance, tolls"
         },
         {
             "prefix": "CORP",
             "name": "Corporate Management",
             "priority": 14,
-            "description": "Managers, motivation, equity, ownership scaling",
-            "children": ["CORP-1", "CORP-2", "CORP-3", "CORP-4", "CORP-5"]
+            "description": "Managers, motivation, equity, ownership scaling"
         },
         {
             "prefix": "INVEST",
             "name": "Investments",
             "priority": 15,
-            "description": "Tech upgrades, fleet expansion, stations",
-            "children": ["INVEST-1", "INVEST-2", "INVEST-3", "INVEST-4", "INVEST-5", "INVEST-6", "INVEST-7", "INVEST-8"]
+            "description": "Tech upgrades, fleet expansion, stations"
         },
         {
             "prefix": "SMUG",
             "name": "Smuggling",
             "priority": 16,
-            "description": "Prohibited goods, risk/reward, police crackdowns",
-            "children": ["SMUG-1", "SMUG-2", "SMUG-3", "SMUG-4", "SMUG-5"]
+            "description": "Prohibited goods, risk/reward, police crackdowns"
         },
         {
             "prefix": "SPY",
             "name": "Espionage",
             "priority": 17,
-            "description": "Spying mechanics, route revelation, counter-intel",
-            "children": ["SPY-1", "SPY-2", "SPY-3", "SPY-4", "SPY-5", "SPY-6", "SPY-7"]
+            "description": "Spying mechanics, route revelation, counter-intel"
         },
         {
             "prefix": "DIPLO",
             "name": "Diplomacy",
             "priority": 18,
-            "description": "Tariffs, lobbying, regulations, bribery, pressure",
-            "children": ["DIPLO-1", "DIPLO-2", "DIPLO-3", "DIPLO-4", "DIPLO-5", "DIPLO-6", "DIPLO-7", "DIPLO-8"]
+            "description": "Tariffs, lobbying, regulations, bribery, pressure"
         },
         {
             "prefix": "PIRATE",
             "name": "Pirates",
             "priority": 19,
-            "description": "Privateers, tribute, hiring pirates",
-            "children": ["PIRATE-1", "PIRATE-2", "PIRATE-3", "PIRATE-4", "PIRATE-5"]
+            "description": "Privateers, tribute, hiring pirates"
         },
         {
             "prefix": "IX",
             "name": "Project Setup",
             "priority": 99,
-            "description": "Internal project bootstrapping",
-            "children": ["IX-1"]
+            "description": "Internal project bootstrapping"
         }
     ]
 }

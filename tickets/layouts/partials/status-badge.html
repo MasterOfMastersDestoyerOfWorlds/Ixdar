@@ -1,5 +1,0 @@
-{{ $status := .status | default "TODO" }}
-{{ $statusClass := $status | lower | replaceRE "_" "-" }}
-<span class="status-badge status-{{ $statusClass }}">
-    {{ $status }}
-</span>
