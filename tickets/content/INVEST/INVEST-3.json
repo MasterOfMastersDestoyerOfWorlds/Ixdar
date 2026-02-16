@@ -16,5 +16,6 @@
     "unknowns": [
         "Train unlock timing",
         "Rail construction costs"
-    ]
+    ],
+    "priority": 3
 }

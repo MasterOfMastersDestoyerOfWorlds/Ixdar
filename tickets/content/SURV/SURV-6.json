@@ -3,7 +3,9 @@
     "epic": "SURV",
     "title": "Fishery Ownership",
     "description": "As players move deeper into the island, they must delegate fishery management. Initially full ownership makes sense, but managers without equity run fisheries poorly. Players must balance equity sharing vs. scaling at worse rates. This creates interesting ownership/management tradeoffs.",
-    "blocked-by": ["SURV-5"],
+    "blocked-by": [
+        "SURV-5"
+    ],
     "blocks": [],
     "definition-of-done": "Manager assignment for fisheries. Manager equity/ownership affects performance. Performance degrades without proper incentive alignment. Players can adjust equity splits.",
     "testing-plan": "Verify managers can be assigned. Test performance under different equity splits. Verify degradation without proper incentives. Test equity adjustment UI.",
@@ -16,5 +18,6 @@
     "unknowns": [
         "Optimal equity split formula",
         "Manager skill variations"
-    ]
+    ],
+    "priority": 6
 }

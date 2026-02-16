@@ -16,5 +16,6 @@
     "unknowns": [
         "Which goods pirates value most",
         "Protection duration"
-    ]
+    ],
+    "priority": 2
 }

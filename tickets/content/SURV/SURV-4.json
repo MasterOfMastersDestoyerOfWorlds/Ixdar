@@ -16,5 +16,6 @@
     "unknowns": [
         "Food spoilage rates",
         "Crew food consumption rates"
-    ]
+    ],
+    "priority": 4
 }

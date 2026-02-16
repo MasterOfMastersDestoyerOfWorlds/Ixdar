@@ -61,5 +61,6 @@
         "ixdar-app/test/unit/model/AssimpModelImporterTest.java",
         "ixdar-app/test/unit/model/ModelLoadSceneLifecycleTest.java",
         "README.md"
-    ]
+    ],
+    "priority": 51
 }

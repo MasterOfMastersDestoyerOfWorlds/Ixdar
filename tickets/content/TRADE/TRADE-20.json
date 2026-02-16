@@ -22,5 +22,6 @@
         "Target generation budget split between startup precompute and runtime updates for map edits",
         "Preferred source of truth for topology data (mesh-first vs adjacency-graph-first) in downstream trade systems",
         "How irregular grid enablement should be surfaced in dev tooling and future player-facing map settings"
-    ]
+    ],
+    "priority": 1
 }

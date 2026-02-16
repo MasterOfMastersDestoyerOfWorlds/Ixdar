@@ -16,5 +16,6 @@
     "unknowns": [
         "How much persists between runs",
         "Storage approach for run history"
-    ]
+    ],
+    "priority": 8
 }

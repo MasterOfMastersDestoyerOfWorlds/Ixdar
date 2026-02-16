@@ -4,7 +4,10 @@
     "title": "Producer/Consumer Cities",
     "description": "Certain cities are producers of goods and some are consumers. This fundamental distinction dictates prices - producer cities have low prices for their goods, consumer cities have high prices. This creates arbitrage opportunities that drive trade routes.",
     "blocked-by": [],
-    "blocks": ["ECON-2", "TRADE-7"],
+    "blocks": [
+        "ECON-2",
+        "TRADE-7"
+    ],
     "definition-of-done": "Cities tagged as producer or consumer for each good type. Producer cities have lower base prices. Consumer cities have higher base prices. City production/consumption visible in UI.",
     "testing-plan": "Verify cities correctly tagged. Test price differences between producer/consumer. Verify UI shows production/consumption status.",
     "todos": [
@@ -16,5 +19,6 @@
     "unknowns": [
         "How many goods types",
         "Can a city be both producer and consumer"
-    ]
+    ],
+    "priority": 1
 }

@@ -46,6 +46,9 @@ public abstract class ShaderDrawable {
     private final Map<Long, ShaderProgram.Allocation> allocationById = new HashMap<>();
     private final Map<Long, Quad> prevQuadById = new HashMap<>();
 
+    /** Reusable buffer for geometry uploads — avoids per-draw ByteBuffer.allocateDirect(). */
+    private IxBuffer geometryBuf;
+
     private static final HashMap<Class<?>, Long> counters = new HashMap<>();
 
     protected static long nextId(Class<?> clazz) {
@@ -283,7 +286,12 @@ public abstract class ShaderDrawable {
         if (stride <= 0)
             stride = 9;
         int floatsNeeded = stride * Quad.VERTEX_COUNT;
-        IxBuffer buf = platform.allocateFloats(floatsNeeded);
+        if (geometryBuf == null || geometryBuf.capacity() < floatsNeeded) {
+            geometryBuf = platform.allocateFloats(floatsNeeded);
+        } else {
+            geometryBuf.clear();
+        }
+        IxBuffer buf = geometryBuf;
         Vector4f color = c.toVector4f();
         shader.uniformMap.put("vertexColor", color);
         float r = color.x, g = color.y, b = color.z, a = color.w;

@@ -4,7 +4,9 @@
     "title": "Public vs Private Roads",
     "description": "Roads can be public, private, or toll. Grants help improve public roads but they remain open to competitors. Players can buy out public roads via bribery or legislation to add tolls. Private roads between unconnected cities can be built. Rivals can use toll roads but not private roads (if patrolled).",
     "blocked-by": [],
-    "blocks": ["ROAD-8"],
+    "blocks": [
+        "ROAD-8"
+    ],
     "definition-of-done": "Three road ownership types implemented. Public roads usable by all. Toll roads charge fees. Private roads restricted. Buyout mechanics for converting public to toll/private.",
     "testing-plan": "Verify all ownership types function correctly. Test toll collection. Verify private road access restriction. Test buyout mechanics.",
     "todos": [
@@ -16,5 +18,6 @@
     "unknowns": [
         "Toll rates",
         "Buyout cost formulas"
-    ]
+    ],
+    "priority": 7
 }

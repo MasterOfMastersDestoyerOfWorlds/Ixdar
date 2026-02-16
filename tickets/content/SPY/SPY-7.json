@@ -16,5 +16,6 @@
     "unknowns": [
         "How automatic vs manual actions are",
         "Integration complexity"
-    ]
+    ],
+    "priority": 7
 }

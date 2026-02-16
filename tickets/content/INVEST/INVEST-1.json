@@ -16,5 +16,6 @@
     "unknowns": [
         "Number of tech tree branches",
         "Upgrade costs and effects"
-    ]
+    ],
+    "priority": 1
 }

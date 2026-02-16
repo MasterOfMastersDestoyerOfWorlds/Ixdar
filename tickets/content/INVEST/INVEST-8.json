@@ -16,5 +16,6 @@
     "unknowns": [
         "Storage capacity tiers",
         "Cross-turn timing granularity"
-    ]
+    ],
+    "priority": 8
 }

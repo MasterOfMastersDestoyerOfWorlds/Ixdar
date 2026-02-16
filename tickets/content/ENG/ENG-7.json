@@ -46,5 +46,6 @@
         "ixdar-app/src/main/java/ixdar/graphics/render/Clock.java",
         "tickets/content/UI/UI-4.json (Audio Stims - gold collection sounds)",
         "tickets/content/UI/UI-5.json (Main Menu Revamp - sea shanties, wind, bird sounds)"
-    ]
+    ],
+    "priority": 52
 }

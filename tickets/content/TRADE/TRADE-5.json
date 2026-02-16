@@ -16,5 +16,6 @@
     "unknowns": [
         "Wage amounts per tier",
         "Quality effects on performance"
-    ]
+    ],
+    "priority": 12
 }

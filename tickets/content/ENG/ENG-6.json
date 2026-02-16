@@ -38,5 +38,6 @@
         "ixdar-app/src/main/java/ixdar/graphics/render/",
         "ixdar-app/src/main/java/ixdar/scenes/anatomy/BouncingLineScene.java",
         "tickets/content/UI/UI-3.json (caravan animation ticket)"
-    ]
+    ],
+    "priority": 7
 }

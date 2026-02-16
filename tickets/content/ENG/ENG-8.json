@@ -32,5 +32,6 @@
         "ixdar-app/src/main/java/ixdar/platform/gl/headless/HeadlessPlatform.java",
         "ixdar-app/src/main/java/ixdar/scenes/anatomy/ModelLoadScene.java",
         "README.md"
-    ]
+    ],
+    "priority": 5
 }

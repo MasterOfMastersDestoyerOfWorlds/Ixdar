@@ -4,7 +4,9 @@
     "title": "Route Operations",
     "description": "Implement loop-first trade route operations using Knot hierarchy. Initial route must be A->B->A, then support Pipe/Grow/Collapse with preview, confirm, and undo. Current backend operation logic and operation records are implemented; current blocker is RoutePlanningTool toolbar and operation overlay rendering visibility in TradeScene.",
     "status": "DONE",
-    "blocked-by": ["TRADE-8"],
+    "blocked-by": [
+        "TRADE-8"
+    ],
     "blocks": [],
     "definition-of-done": "Pipe and Grow produce a single continuous loop and preserve intended hierarchy behavior. RoutePlanningTool shows visible tool UI and operation preview/selection feedback. Undo/redo correctly reverses and reapplies each Pipe/Grow operation record. User can confirm operations via Enter or UI control.",
     "testing-plan": "Create initial route from HQ + city and verify A->B->A loop. Add singleton city via Grow defaults and confirm edge replacement behavior. Pipe two non-singleton knots and verify edge cuts/adds plus hierarchy behavior. Validate undo/redo sequence for Pipe/Grow operations. Verify toolbar/hover/confirm UI visibility and interaction in TradeScene.",
@@ -91,5 +93,6 @@
                 "Validate hierarchy parent/child updates and navigation behavior after collapse and undo."
             ]
         }
-    }
+    },
+    "priority": 50
 }

@@ -16,5 +16,6 @@
     "unknowns": [
         "Bribe cost formulas",
         "What can be bribed for"
-    ]
+    ],
+    "priority": 3
 }

@@ -18,5 +18,6 @@
     "unknowns": [
         "What data needs to be persisted beyond test file cache",
         "Whether to use JSON, Properties, or binary format for settings"
-    ]
+    ],
+    "priority": 9
 }

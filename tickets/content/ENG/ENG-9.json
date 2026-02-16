@@ -26,5 +26,6 @@
         "ixdar-app/src/main/java/ixdar/platform/automation/AutomationRuntime.java",
         "ixdar-app/src/main/java/ixdar/platform/automation/AutomationApiServer.java",
         "ixdar-app/src/main/java/ixdar/platform/automation/AutomationInputBinder.java"
-    ]
+    ],
+    "priority": 4
 }

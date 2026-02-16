@@ -30,5 +30,6 @@
         "ixdar-app/src/main/resources/glsl/mesh.vs",
         "ixdar-app/src/main/resources/glsl/mesh.fs",
         "ixdar-app/src/main/java/ixdar/platform/file/FileManagement.java"
-    ]
+    ],
+    "priority": 6
 }

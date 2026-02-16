@@ -16,5 +16,6 @@
     "unknowns": [
         "Base transport cost per distance unit",
         "Road quality cost multipliers"
-    ]
+    ],
+    "priority": 3
 }

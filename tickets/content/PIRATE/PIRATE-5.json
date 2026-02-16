@@ -16,5 +16,6 @@
     "unknowns": [
         "Good value multipliers",
         "Money discount percentage"
-    ]
+    ],
+    "priority": 5
 }

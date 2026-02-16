@@ -4,7 +4,9 @@
     "title": "Pirate Recruitment",
     "description": "Hire pirates into your organization as negotiators and smugglers. Pirates have high corruption levels but are extremely effective at certain tasks. Put them in positions of power within your company.",
     "blocked-by": [],
-    "blocks": ["PIRATE-4"],
+    "blocks": [
+        "PIRATE-4"
+    ],
     "definition-of-done": "Pirate recruitment action. Pirates assignable to roles. Pirates excel at negotiation and smuggling. Pirates increase organization corruption.",
     "testing-plan": "Verify pirate recruitment works. Test role assignment. Verify effectiveness bonuses. Test corruption increase.",
     "todos": [
@@ -16,5 +18,6 @@
     "unknowns": [
         "Recruitment costs",
         "Corruption increase rates"
-    ]
+    ],
+    "priority": 3
 }

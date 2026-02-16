@@ -33,6 +33,10 @@ public class IrregularGridScene extends Canvas3D {
     private IrregularQuadGrid grid;
     private HyperString fpsText;
 
+    private final Vector2f tmpA = new Vector2f();
+    private final Vector2f tmpB = new Vector2f();
+    private final Vector2f tmpScreen = new Vector2f();
+
     @Override
     public void initGL() {
         super.initGL();
@@ -59,17 +63,17 @@ public class IrregularGridScene extends Canvas3D {
             int[] edge = grid.edgeIndices().get(i);
             Vector2f from = grid.anchorPoints().get(edge[0]);
             Vector2f to = grid.anchorPoints().get(edge[1]);
-            Vector2f a = new Vector2f(camera2D.pointTransformX(from.x), camera2D.pointTransformY(from.y));
-            Vector2f b = new Vector2f(camera2D.pointTransformX(to.x), camera2D.pointTransformY(to.y));
-            Drawing.getDrawing().sdfLine.draw(a, b, Color.LIGHT_GRAY, camera2D);
+            tmpA.set(camera2D.pointTransformX(from.x), camera2D.pointTransformY(from.y));
+            tmpB.set(camera2D.pointTransformX(to.x), camera2D.pointTransformY(to.y));
+            Drawing.getDrawing().sdfLine.draw(tmpA, tmpB, Color.LIGHT_GRAY, camera2D);
         }
         for (Vector2f pt : grid.anchorPoints()) {
-            Vector2f screen = new Vector2f(camera2D.pointTransformX(pt.x), camera2D.pointTransformY(pt.y));
-            Drawing.drawCircle(screen, Color.CYAN, camera2D, 2f);
+            tmpScreen.set(camera2D.pointTransformX(pt.x), camera2D.pointTransformY(pt.y));
+            Drawing.drawCircle(tmpScreen, Color.CYAN, camera2D, 2f);
         }
         for (Vector2f pt : grid.dualPoints()) {
-            Vector2f screen = new Vector2f(camera2D.pointTransformX(pt.x), camera2D.pointTransformY(pt.y));
-            Drawing.drawCircle(screen, Color.ORANGE, camera2D, 3f);
+            tmpScreen.set(camera2D.pointTransformX(pt.x), camera2D.pointTransformY(pt.y));
+            Drawing.drawCircle(tmpScreen, Color.ORANGE, camera2D, 3f);
         }
         fpsText = new HyperString();
         fpsText.addWord("FPS: " + Clock.fps(), Color.CYAN);

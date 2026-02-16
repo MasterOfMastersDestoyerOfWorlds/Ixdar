@@ -17,5 +17,6 @@
     "unknowns": [
         "Which controller library to use (GLFW gamepad API or external)",
         "How to handle controller deadzone and sensitivity"
-    ]
+    ],
+    "priority": 8
 }

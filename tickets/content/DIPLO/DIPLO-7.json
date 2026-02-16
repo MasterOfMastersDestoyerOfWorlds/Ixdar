@@ -16,5 +16,6 @@
     "unknowns": [
         "Detection probabilities",
         "Fine and expulsion durations"
-    ]
+    ],
+    "priority": 7
 }

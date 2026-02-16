@@ -157,6 +157,12 @@ public abstract class ShaderProgram {
 
     private final java.util.Map<Long, Allocation> idToAllocation = new java.util.HashMap<>();
 
+    /** Reusable direct buffers for uniform uploads — avoids per-call ByteBuffer.allocateDirect(). */
+    private IxBuffer vec2Buf;
+    private IxBuffer vec3Buf;
+    private IxBuffer vec4Buf;
+    private IxBuffer mat4Buf;
+
     public ShaderProgram(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
             VertexBufferObject vbo, int strideFloats, boolean useBuffer)
             throws UnsupportedEncodingException, IOException {
@@ -236,14 +242,15 @@ public abstract class ShaderProgram {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        IxBuffer buffer = platform.allocateFloats(16);
+        if (mat4Buf == null) mat4Buf = platform.allocateFloats(16);
+        mat4Buf.clear();
 
-        buffer.put(mat.m00()).put(mat.m01()).put(mat.m02()).put(mat.m03());
-        buffer.put(mat.m10()).put(mat.m11()).put(mat.m12()).put(mat.m13());
-        buffer.put(mat.m20()).put(mat.m21()).put(mat.m22()).put(mat.m23());
-        buffer.put(mat.m30()).put(mat.m31()).put(mat.m32()).put(mat.m33());
-        buffer.flip();
-        gl.uniformMatrix4fv(uniformLocations.get(name), false, buffer);
+        mat4Buf.put(mat.m00()).put(mat.m01()).put(mat.m02()).put(mat.m03());
+        mat4Buf.put(mat.m10()).put(mat.m11()).put(mat.m12()).put(mat.m13());
+        mat4Buf.put(mat.m20()).put(mat.m21()).put(mat.m22()).put(mat.m23());
+        mat4Buf.put(mat.m30()).put(mat.m31()).put(mat.m32()).put(mat.m33());
+        mat4Buf.flip();
+        gl.uniformMatrix4fv(uniformLocations.get(name), false, mat4Buf);
         uniformMap.put(name, mat);
     }
 
@@ -261,9 +268,10 @@ public abstract class ShaderProgram {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        IxBuffer buffer = platform.allocateFloats(2);
-        buffer.put(vec2.x).put(vec2.y).flip();
-        gl.uniform2fv(uniformLocations.get(name), buffer);
+        if (vec2Buf == null) vec2Buf = platform.allocateFloats(2);
+        vec2Buf.clear();
+        vec2Buf.put(vec2.x).put(vec2.y).flip();
+        gl.uniform2fv(uniformLocations.get(name), vec2Buf);
         uniformMap.put(name, vec2);
     }
 
@@ -272,9 +280,10 @@ public abstract class ShaderProgram {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        IxBuffer vec3buf = platform.allocateFloats(3);
-        vec3buf.put(f).put(g).put(h).flip();
-        gl.uniform3fv(uniformLocations.get(name), vec3buf);
+        if (vec3Buf == null) vec3Buf = platform.allocateFloats(3);
+        vec3Buf.clear();
+        vec3Buf.put(f).put(g).put(h).flip();
+        gl.uniform3fv(uniformLocations.get(name), vec3Buf);
         uniformMap.put(name, new Vector3f(f, g, h));
     }
 
@@ -282,9 +291,10 @@ public abstract class ShaderProgram {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        IxBuffer buffer = platform.allocateFloats(3);
-        buffer.put(vec3.x).put(vec3.y).put(vec3.z).flip();
-        gl.uniform3fv(uniformLocations.get(name), buffer);
+        if (vec3Buf == null) vec3Buf = platform.allocateFloats(3);
+        vec3Buf.clear();
+        vec3Buf.put(vec3.x).put(vec3.y).put(vec3.z).flip();
+        gl.uniform3fv(uniformLocations.get(name), vec3Buf);
         uniformMap.put(name, vec3);
     }
 
@@ -293,9 +303,10 @@ public abstract class ShaderProgram {
         if (!uniformLocations.containsKey(name)) {
             uniformLocations.put(name, gl.getUniformLocation(ID, name));
         }
-        IxBuffer buffer = platform.allocateFloats(4);
-        buffer.put(vec4.x).put(vec4.y).put(vec4.z).put(vec4.w).flip();
-        gl.uniform4fv(uniformLocations.get(name), buffer);
+        if (vec4Buf == null) vec4Buf = platform.allocateFloats(4);
+        vec4Buf.clear();
+        vec4Buf.put(vec4.x).put(vec4.y).put(vec4.z).put(vec4.w).flip();
+        gl.uniform4fv(uniformLocations.get(name), vec4Buf);
         uniformMap.put(name, vec4);
     }
 

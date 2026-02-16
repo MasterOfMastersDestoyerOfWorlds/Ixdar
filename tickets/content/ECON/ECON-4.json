@@ -16,5 +16,6 @@
     "unknowns": [
         "Storage cost rates",
         "Capacity limits per location"
-    ]
+    ],
+    "priority": 4
 }

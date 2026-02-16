@@ -3,7 +3,9 @@
     "epic": "ROAD",
     "title": "Road Patrol System",
     "description": "Private roads require patrol to enforce exclusivity. Rivals might use unpatrolled private roads depending on their personality and risk tolerance. Patrolling has ongoing costs but prevents unauthorized use.",
-    "blocked-by": ["ROAD-7"],
+    "blocked-by": [
+        "ROAD-7"
+    ],
     "blocks": [],
     "definition-of-done": "Patrol assignment for private roads. Unpatrolled roads vulnerable to rival use. Rival AI considers risk/personality for using unpatrolled roads. Patrol cost mechanics.",
     "testing-plan": "Verify patrol assignment works. Test rival AI decision making for unpatrolled roads. Verify patrol costs applied correctly.",
@@ -16,5 +18,6 @@
     "unknowns": [
         "Patrol effectiveness rates",
         "Rival personality factors"
-    ]
+    ],
+    "priority": 8
 }

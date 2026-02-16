@@ -32,5 +32,6 @@
         "ixdar-app/src/main/java/ixdar/graphics/render/text/Font.java",
         "ixdar-app/test/unit/visual/VisualTestHarness.java",
         "ixdar-app/test/unit/visual/FontRenderingTest.java"
-    ]
+    ],
+    "priority": 1
 }

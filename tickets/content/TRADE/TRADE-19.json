@@ -21,5 +21,6 @@
         "Exact game-loop invariants collapse must preserve beyond loop topology",
         "How collapse should interact with future turn economics and route upkeep updates",
         "Whether collapse should be limited by hierarchy depth or permit cross-level operations"
-    ]
+    ],
+    "priority": 3
 }

@@ -16,5 +16,6 @@
     "unknowns": [
         "Housing cost ranges",
         "Quality tier effects"
-    ]
+    ],
+    "priority": 13
 }

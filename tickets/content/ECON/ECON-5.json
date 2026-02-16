@@ -16,5 +16,6 @@
     "unknowns": [
         "Decay rates per good type",
         "Quality vs quantity decay approach"
-    ]
+    ],
+    "priority": 5
 }

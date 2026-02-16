@@ -16,5 +16,6 @@
     "unknowns": [
         "Decay extension multiplier",
         "Refrigeration upgrade cost"
-    ]
+    ],
+    "priority": 2
 }

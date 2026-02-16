@@ -16,5 +16,6 @@
     "unknowns": [
         "Number of clothing slots/types",
         "How cold exposure affects gameplay"
-    ]
+    ],
+    "priority": 3
 }

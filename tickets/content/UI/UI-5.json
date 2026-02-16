@@ -39,5 +39,6 @@
         "How to animate the scene in the game engine",
         "How to add the scene to the main menu",
         "How to add the audio to the scene"
-    ]
+    ],
+    "priority": 1
 }
