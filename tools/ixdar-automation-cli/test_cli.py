@@ -145,6 +145,28 @@ class CliTest(unittest.TestCase):
         exit_code = ixdar_cli.main(["validate", "route-ops"])
         self.assertEqual(0, exit_code)
 
+    @patch("ixdar_cli.scaffold_new_scene")
+    def test_new_scene_command_invokes_scaffolder(self, scaffold_new_scene):
+        scaffold_new_scene.return_value = {"ok": True, "dryRun": True}
+        exit_code = ixdar_cli.main(
+            [
+                "new-scene",
+                "--name",
+                "TestScene",
+                "--id",
+                "test-scene-canvas",
+                "--subfolder",
+                "ui",
+                "--display-name",
+                "Test Scene",
+                "--camera",
+                "3d",
+                "--dry-run",
+            ]
+        )
+        self.assertEqual(0, exit_code)
+        scaffold_new_scene.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

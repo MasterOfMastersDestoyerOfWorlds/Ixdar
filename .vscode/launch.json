@@ -145,6 +145,16 @@
       "preLaunchTask": "serve-teavm",
       "url": "http://localhost:8080/",
       "webRoot": "${workspaceFolder}/target/teavm"
+    },
+    {
+      "type": "java",
+      "name": "Icosphere Save Point",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "icosphere-save-point-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
     }
+
   ]
 }

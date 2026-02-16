@@ -10,6 +10,7 @@ from automation_client import (
     collect_trade_tooltip_lines,
     toolbar_button_center,
 )
+from scene_scaffolding import scaffold_new_scene
 from trade_route_ops_validation import run_validation
 from trade_scenarios import click_until_scene_transition, start_new_game
 
@@ -179,6 +180,15 @@ def main(argv: list[str]) -> int:
     validate = subparsers.add_parser("validate")
     validate_sub = validate.add_subparsers(dest="validate_command", required=True)
     validate_sub.add_parser("route-ops")
+    new_scene = subparsers.add_parser("new-scene")
+    new_scene.add_argument("--name", required=True)
+    new_scene.add_argument("--id", required=True)
+    new_scene.add_argument("--subfolder", required=True)
+    new_scene.add_argument("--display-name", required=True)
+    new_scene.add_argument("--base", choices=["Scene", "Canvas3D"], default="Scene")
+    new_scene.add_argument("--camera", choices=["2d", "3d"], default="2d")
+    new_scene.add_argument("--maven-profile", default="")
+    new_scene.add_argument("--dry-run", action="store_true")
 
     args = parser.parse_args(argv)
     base = args.base_url
@@ -288,9 +298,23 @@ def main(argv: list[str]) -> int:
                 return exit_code
             parser.print_help()
             return 1
+        elif args.command == "new-scene":
+            result = scaffold_new_scene(
+                name=args.name,
+                scene_id=args.id,
+                subfolder=args.subfolder,
+                display_name=args.display_name,
+                base=args.base,
+                camera=args.camera,
+                maven_profile=args.maven_profile,
+                dry_run=args.dry_run,
+            )
         else:
             parser.print_help()
             return 1
+    except ValueError as exc:
+        print(json.dumps({"ok": False, "error": str(exc)}))
+        return 6
     except urllib.error.HTTPError as exc:
         print(json.dumps({"ok": False, "error": f"HTTP {exc.code}"}))
         return 2

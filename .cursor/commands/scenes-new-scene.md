@@ -1,46 +1,47 @@
 # scenes-new-scene
 
-Create a new runnable scene under `ixdar-app/src/main/java/ixdar/scenes/` .
+Create a new runnable scene via the automation CLI scaffolder.
 
-## Steps
+## Preferred Path (CLI)
 
-* Create a scene class in the appropriate domain package (for example `ixdar.scenes.trade` or `ixdar.scenes.anatomy`).
-* Add `@SceneAnnotation(id = "your-scene-id")` so annotation processing registers it in `CanvasSceneMap`.
-* Choose a base class:
-  + Extend `Scene` for shader/demo scenes that use `initCodePane` and custom draw flow.
-  + Extend `Canvas3D` for gameplay scene bootstraps that trigger existing flows.
-* Implement lifecycle hooks:
-  + `initPoints()` when custom points/shell data is needed.
-  + `initGL()` for startup setup and one-time initialization.
-  + `drawScene()` for per-frame rendering behavior.
-* Add a VS Code launch config in `.vscode/launch.json`:
-  + `mainClass`: `ixdar.canvas.IxdarWindow`
-  + `args`: your scene id (for example `irregular-grid-canvas`)
-* Add a Maven run profile in `ixdar-app/pom.xml` when the scene needs a named CLI launcher:
-  + Profile should run `compile exec:exec` and pass the scene id argument to `IxdarWindow`.
-* Validate:
-  + `mvn -DskipTests compile`
-  + Launch with VS Code config or `mvn -P <profile-id>`
-  + Confirm no startup errors and expected scene state.
+Run from `tools/ixdar-automation-cli/`:
 
-## Minimal Template
-
-```java
-package ixdar.scenes.example;
-
-import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.scenes.Scene;
-
-@SceneAnnotation(id = "example-canvas")
-public class ExampleScene extends Scene {
-    @Override
-    public void initGL() {
-        super.initGL();
-    }
-
-    @Override
-    public void drawScene() {
-        super.drawScene();
-    }
-}
+```bash
+python ixdar_cli.py new-scene \
+  --name ExampleScene \
+  --id example-canvas \
+  --subfolder anatomy \
+  --display-name "Example Scene" \
+  --base Scene \
+  --camera 2d \
+  --maven-profile example-scene
 ```
+
+### Parameters
+
+- `--name` (required): PascalCase class name, for example `ExampleScene`
+- `--id` (required): kebab-case scene id, for example `example-canvas`
+- `--subfolder` (required): subfolder under `ixdar-app/src/main/java/ixdar/scenes/`, for example `anatomy` or `ui/experimental`
+- `--display-name` (required): VS Code launch config name
+- `--base` (optional): `Scene` or `Canvas3D` (default: `Scene`)
+- `--camera` (optional): `2d` or `3d` (default: `2d`)
+- `--maven-profile` (optional): kebab-case profile id to add to `ixdar-app/pom.xml`
+- `--dry-run` (optional): preview changes without writing files
+
+### Generated Outputs
+
+- Scene class at `ixdar-app/src/main/java/ixdar/scenes/<subfolder>/<Name>.java`
+- Launch config in `.vscode/launch.json`
+- Optional Maven profile in `ixdar-app/pom.xml` when `--maven-profile` is provided
+
+## Validation
+
+- `mvn -DskipTests compile`
+- Launch with VS Code config or `mvn -P <profile-id>`
+- Confirm no startup errors and expected scene state
+
+## Notes
+
+- `@SceneAnnotation(id = "...")` is generated automatically, so annotation processing registers the scene in `SceneRegistry_Scenes`.
+- For existing scenes, rerun with `--dry-run` first to confirm idempotent behavior.
+
