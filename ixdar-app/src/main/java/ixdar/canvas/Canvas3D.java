@@ -125,7 +125,6 @@ public class Canvas3D extends SceneDrawable {
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera.resetZIndex();
         camera2D.resetZIndex();
-        AutomationRuntime.get().processMainThreadCommands();
 
         SceneInputFrameUpdater.update(keys, mouse);
 
@@ -140,6 +139,7 @@ public class Canvas3D extends SceneDrawable {
         for (ShaderProgram s : shaders) {
             s.flush();
         }
+        AutomationRuntime.get().processMainThreadCommands();
         Clock.frameRendered();
     }
 

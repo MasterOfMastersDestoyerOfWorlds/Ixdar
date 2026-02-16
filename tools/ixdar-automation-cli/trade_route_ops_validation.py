@@ -22,7 +22,7 @@ def run_validation(base_url: str) -> tuple[int, dict]:
             time.sleep(0.2)
 
         state = client.ui_state()
-        require(state.get("scene") == "trade", "Did not enter trade scene")
+        require(state.get("mode") == "trade", "Did not enter trade scene")
         trade = state.get("trade", {})
         cities = trade.get("cities", [])
         require(len(cities) >= 3, "Need at least 3 cities for route operations validation")

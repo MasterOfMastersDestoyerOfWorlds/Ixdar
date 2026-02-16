@@ -214,11 +214,11 @@ public class AutomationRuntime {
         root.addProperty("framebufferWidth", Platforms.get().getFrameBufferWidth());
         root.addProperty("framebufferHeight", Platforms.get().getFrameBufferHeight());
         root.addProperty("menuVisible", MenuBox.menuVisible);
-        String sceneName = TradeScene.active ? "trade" : (MainScene.active ? "main" : "menu");
-        if (canvas instanceof IrregularGridScene) {
-            sceneName = "irregular-grid";
-        }
-        root.addProperty("scene", sceneName);
+        String sceneId = IxdarWindow.getCanvasId();
+        root.addProperty("sceneId", sceneId == null ? "" : sceneId);
+        root.addProperty("sceneClass", canvas == null ? "" : canvas.getClass().getSimpleName());
+        String mode = TradeScene.active ? "trade" : (MainScene.active ? "main" : "menu");
+        root.addProperty("mode", mode);
         JsonObject trade = new JsonObject();
         if (TradeScene.active && TradeScene.instance != null) {
             trade.addProperty("active", true);

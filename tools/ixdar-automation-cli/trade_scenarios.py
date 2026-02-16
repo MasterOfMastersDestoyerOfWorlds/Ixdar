@@ -8,7 +8,7 @@ def require(condition: bool, message: str) -> None:
 
 def start_new_game(client: AutomationClient, button: int, fallback_scan: bool) -> dict:
     state = client.ui_state()
-    if state.get("scene") != "menu" or not state.get("menuVisible", True):
+    if state.get("mode") != "menu" or not state.get("menuVisible", True):
         return {"ok": True, "message": "Already outside menu", "state": state}
 
     for item in state.get("menuItems", []):
@@ -23,7 +23,7 @@ def start_new_game(client: AutomationClient, button: int, fallback_scan: bool) -
                     click_result = client.click(x, click_y, normalized=False, button=button)
                     post = client.ui_state()
                     return {
-                        "ok": post.get("scene") != "menu" or not post.get("menuVisible", True),
+                        "ok": post.get("mode") != "menu" or not post.get("menuVisible", True),
                         "strategy": "menu_bounds_center",
                         "target": {"x": x, "y": click_y},
                         "click": click_result,
@@ -57,12 +57,12 @@ def click_until_scene_transition(
     result = {
         "ok": False,
         "initial": {
-            "scene": initial.get("scene"),
+            "mode": initial.get("mode"),
             "menuVisible": initial.get("menuVisible", True),
         },
         "attempts": 0,
     }
-    if initial.get("scene") != "menu" or not initial.get("menuVisible", True):
+    if initial.get("mode") != "menu" or not initial.get("menuVisible", True):
         result["ok"] = True
         result["state"] = initial
         result["message"] = "Already transitioned before scan"
@@ -73,7 +73,7 @@ def click_until_scene_transition(
             client.click(x, y, normalized=False, button=button)
             result["attempts"] += 1
             state = client.ui_state()
-            if state.get("scene") != "menu" or not state.get("menuVisible", True):
+            if state.get("mode") != "menu" or not state.get("menuVisible", True):
                 result["ok"] = True
                 result["found"] = {"x": x, "y": y}
                 result["state"] = state
@@ -86,7 +86,7 @@ def click_until_scene_transition(
 
 def ensure_trade_scene(client: AutomationClient, button: int = 0, fallback_scan: bool = True) -> dict:
     state = client.ui_state()
-    if state.get("scene") == "trade":
+    if state.get("mode") == "trade":
         return {"ok": True, "strategy": "already_trade", "state": state}
     return start_new_game(client, button=button, fallback_scan=fallback_scan)
 

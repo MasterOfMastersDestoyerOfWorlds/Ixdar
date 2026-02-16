@@ -1,8 +1,11 @@
 import json
+import time
 import urllib.request
 
 
 DEFAULT_BASE_URL = "http://127.0.0.1:47832"
+DEFAULT_RETRIES = 3
+DEFAULT_RETRY_DELAY = 1.0
 
 KEY_ENTER = 257
 KEY_G = 71
@@ -58,22 +61,37 @@ def toolbar_button_center(window_width: float, window_height: float, button_name
 
 
 class AutomationClient:
-    def __init__(self, base_url: str = DEFAULT_BASE_URL):
+    def __init__(
+        self,
+        base_url: str = DEFAULT_BASE_URL,
+        retries: int = DEFAULT_RETRIES,
+        retry_delay: float = DEFAULT_RETRY_DELAY,
+    ):
         self.base_url = base_url
+        self.retries = retries
+        self.retry_delay = retry_delay
 
     def request_json(self, path: str, body: dict | None = None) -> dict:
         payload = None
         headers = {"Content-Type": "application/json"}
         if body is not None:
             payload = json.dumps(body).encode("utf-8")
-        req = urllib.request.Request(
-            self.base_url + path,
-            data=payload,
-            headers=headers,
-            method="POST" if body is not None else "GET",
-        )
-        with urllib.request.urlopen(req, timeout=10) as response:
-            return json.loads(response.read().decode("utf-8"))
+        last_exc: Exception | None = None
+        for attempt in range(self.retries):
+            try:
+                req = urllib.request.Request(
+                    self.base_url + path,
+                    data=payload,
+                    headers=headers,
+                    method="POST" if body is not None else "GET",
+                )
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    return json.loads(response.read().decode("utf-8"))
+            except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+                last_exc = exc
+                if attempt < self.retries - 1:
+                    time.sleep(self.retry_delay * (2 ** attempt))
+        raise last_exc
 
     def health(self) -> dict:
         return self.request_json("/health")

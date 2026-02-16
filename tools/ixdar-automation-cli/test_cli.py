@@ -57,9 +57,9 @@ class CliTest(unittest.TestCase):
     @patch("urllib.request.urlopen")
     def test_click_scan_finds_transition(self, urlopen):
         responses = [
-            {"scene": "menu", "menuVisible": True},
+            {"mode": "menu", "menuVisible": True},
             {"ok": True},
-            {"scene": "trade", "menuVisible": False},
+            {"mode": "trade", "menuVisible": False},
         ]
         urlopen.side_effect = [FakeResponse(payload) for payload in responses]
         exit_code = ixdar_cli.main(["click-scan", "--x-values", "250", "--y-start", "120", "--y-end", "140", "--y-step", "20"])
@@ -69,14 +69,14 @@ class CliTest(unittest.TestCase):
     def test_start_new_game_uses_menu_bounds(self, urlopen):
         responses = [
             {
-                "scene": "menu",
+                "mode": "menu",
                 "menuVisible": True,
                 "menuItems": [
                     {"label": "Start New Game", "bounds": {"centerXPx": 250, "centerYPx": 420}},
                 ],
             },
             {"ok": True},
-            {"scene": "trade", "menuVisible": False},
+            {"mode": "trade", "menuVisible": False},
         ]
         urlopen.side_effect = [FakeResponse(payload) for payload in responses]
         exit_code = ixdar_cli.main(["start-new-game"])
@@ -108,7 +108,14 @@ class CliTest(unittest.TestCase):
     def test_probe_returns_health_state_screenshot(self, urlopen):
         responses = [
             {"status": "ok", "port": 47832},
-            {"scene": "main", "menuVisible": False, "windowWidth": 800, "windowHeight": 600},
+            {
+                "sceneId": "ixdar",
+                "sceneClass": "Canvas3D",
+                "mode": "main",
+                "menuVisible": False,
+                "windowWidth": 800,
+                "windowHeight": 600,
+            },
             {"path": "out.png", "sha256": "abc123", "width": 800, "height": 600},
         ]
         urlopen.side_effect = [FakeResponse(payload) for payload in responses]

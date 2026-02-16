@@ -35,10 +35,11 @@ public class SDFLine extends ShaderDrawable {
     private Vector2f pA;
     private Vector2f pB;
     private Color c2;
+    private Color backgroundColor;
     private Vector2f pATex;
     private Vector2f pBTex;
     private boolean arrow;
-    
+
     public SDFLine() {
         super();
         lineShader = ShaderType.LineSDF.getShader();
@@ -48,6 +49,7 @@ public class SDFLine extends ShaderDrawable {
         arrowLineShader = ShaderType.ArrowLineSDF.getShader();
         shader = lineShader;
         this.borderColor = Color.TRANSPARENT;
+        this.backgroundColor = Color.TRANSPARENT;
         this.borderInner = 0;
         this.borderOuter = 0;
         this.borderOffsetInner = 0;
@@ -92,8 +94,7 @@ public class SDFLine extends ShaderDrawable {
             } else if (roundCaps) {
                 shader = dashedLineRoundShader;
             }
-        }
-        else if (arrow) {
+        } else if (arrow) {
             shader = arrowLineShader;
         }
     }
@@ -101,6 +102,28 @@ public class SDFLine extends ShaderDrawable {
     public void setBorderDist(float borderDist) {
         this.borderInner = borderDist - 0.1f;
         this.borderOuter = borderDist;
+    }
+
+    public void setBorderColor(Color borderColor) {
+        this.borderColor = borderColor;
+    }
+
+    public void setBorderOffset(float borderOffset) {
+        this.borderOffsetInner = borderOffset - 0.1f;
+        this.borderOffsetOuter = borderOffset;
+    }
+
+    public void setBackgroundColor(Color backgroundColor) {
+        this.backgroundColor = backgroundColor;
+    }
+
+    public void setBorderBand(float borderWidth) {
+        float clampedWidth = Math.max(0f, borderWidth);
+        float feather = 0.02f;
+        this.borderInner = edgeDist;
+        this.borderOuter = edgeDist + clampedWidth;
+        this.borderOffsetInner = this.borderOuter;
+        this.borderOffsetOuter = this.borderOuter + feather;
     }
 
     public void setStroke(boolean dashed) {
@@ -258,6 +281,7 @@ public class SDFLine extends ShaderDrawable {
         shader.setFloat("borderOffsetInner", borderOffsetInner);
         shader.setFloat("borderOffsetOuter", borderOffsetOuter);
         shader.setVec4("borderColor", borderColor.toVector4f());
+        shader.setVec4("backgroundColor", backgroundColor.toVector4f());
         shader.setBool("dashed", dashed);
         shader.setBool("endCaps", endCaps);
         shader.setBool("roundCaps", roundCaps);

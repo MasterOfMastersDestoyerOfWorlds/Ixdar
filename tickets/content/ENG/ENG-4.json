@@ -5,7 +5,7 @@
     "description": "The default font is showing aliasing artifacts. The MSDF (Multi-channel Signed Distance Field) font rendering needs increased edge blur/smoothing to reduce harsh aliasing on text edges.",
     "blocked-by": [],
     "blocks": [],
-    "status": "IN_PROGRESS",
+    "status": "DONE",
     "definition-of-done": "Text renders with smooth anti-aliased edges. No visible aliasing artifacts at normal viewing sizes. Visual regression tests pass.",
     "testing-plan": "1. Manual Testing: Run application and inspect text at various sizes (12pt, 16pt, 24pt, 48pt). Compare before/after screenshots. 2. Automated Visual Regression: Run FontRenderingTest.java which includes: testFontAntiAliasing (multiple sizes 12-48px), testFontCharacterSet (full alphabet, numbers, punctuation), testFontSmallSizes (8-14px where aliasing is most visible), testFontColors (colored text edge quality), testFontLargeSizes (32-64px). The harness captures framebuffer output and performs pixel-diff comparison with configurable tolerance. 3. Regression Prevention: Baseline images stored in test/resources/visual-references/ ensure future changes don't reintroduce aliasing.",
     "todos": [

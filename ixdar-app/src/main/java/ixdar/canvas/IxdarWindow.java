@@ -196,6 +196,10 @@ public class IxdarWindow {
         return windowHeight;
     }
 
+    public static String getCanvasId() {
+        return canvasId;
+    }
+
     public static void setTitle(String title) {
         glfwSetWindowTitle(window, title);
     }

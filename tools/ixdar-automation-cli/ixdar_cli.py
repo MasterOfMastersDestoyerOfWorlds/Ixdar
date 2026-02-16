@@ -24,7 +24,9 @@ def probe(base_url: str, screenshot_out: str) -> dict:
         "ok": True,
         "health": health,
         "uiStateSummary": {
-            "scene": state.get("scene"),
+            "sceneId": state.get("sceneId"),
+            "sceneClass": state.get("sceneClass"),
+            "mode": state.get("mode"),
             "menuVisible": state.get("menuVisible"),
             "windowWidth": state.get("windowWidth"),
             "windowHeight": state.get("windowHeight"),

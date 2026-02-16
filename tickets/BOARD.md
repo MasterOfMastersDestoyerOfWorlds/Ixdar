@@ -3,10 +3,6 @@
 
 ## Game Engine (12 tickets, priority 1)
 
-### In Progress (1)
-
-- [ENG-4](content/ENG/ENG-4.json) **ENG-4** Fix Font Aliasing - Increase Edge Blur -- The default font is showing aliasing artifacts. The MSDF (Multi-channel Signed Distance Field) font...
-
 ### Todo (8)
 
 - [ENG-12](content/ENG/ENG-12.json) **ENG-12** Fix SDFLine Culling and Re-enable for Grid Scenes -- SDFLine.calculateQuad() has a line-clipping implementation that uses a single if/else-if chain over...
@@ -18,8 +14,9 @@
 - [ENG-1](content/ENG/ENG-1.json) **ENG-1** Controller Manager -- Create a ControllerGuy class (similar to KeyGuy) that handles gamepad/controller input. Detect...
 - [ENG-2](content/ENG/ENG-2.json) **ENG-2** App Data Save System -- Create a save system that stores user data and caches in the appropriate App Data directory (e.g.,...
 
-<details><summary>Done (3)</summary>
+<details><summary>Done (4)</summary>
 
+- ~~[ENG-4](content/ENG/ENG-4.json) **ENG-4** Fix Font Aliasing - Increase Edge Blur~~
 - ~~[ENG-3](content/ENG/ENG-3.json) **ENG-3** Fix Upside Down Window Icon~~
 - ~~[ENG-5](content/ENG/ENG-5.json) **ENG-5** Load Meshes into Game Engine~~
 - ~~[ENG-7](content/ENG/ENG-7.json) **ENG-7** Play Sound Effects and Music~~
@@ -63,7 +60,7 @@
 
 ---
 
-## User Interface (6 tickets, priority 3)
+## User Interface (7 tickets, priority 3)
 
 ### In Progress (1)
 
@@ -76,6 +73,12 @@
 - [UI-3](content/UI/UI-3.json) **UI-3** Caravan Animation -- At end of turn, caravans visually zip around to each city on the route. This provides feedback on...
 - [UI-1](content/UI/UI-1.json) **UI-1** 3D Treasury View -- A 3D view of the player's treasury where coins are stacked relative to how rich the player is. This...
 - [UI-2](content/UI/UI-2.json) **UI-2** Coin Interaction -- Players can pick up and drop coins in the treasury view. This adds tactile satisfaction and...
+
+<details><summary>Done (1)</summary>
+
+- ~~[UI-7](content/UI/UI-7.json) **UI-7** Arrow Line SDF: Background Fill, Border, Chevron Spacing, and Animation Fix~~
+
+</details>
 
 ---
 
@@ -220,7 +223,11 @@
 
 ---
 
-## Project Setup (1 tickets, priority 99)
+## Project Setup (2 tickets, priority 99)
+
+### Todo (1)
+
+- [IX-2](content/IX/IX-2.json) **IX-2** Enforce Shader/Scene Validation via Cursor Hooks -- Add Cursor hooks that enforce screenshot validation whenever shader files (.fs, .vs, .glsl) or...
 
 <details><summary>Done (1)</summary>
 

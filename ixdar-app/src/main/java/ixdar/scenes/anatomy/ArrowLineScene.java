@@ -5,6 +5,7 @@ import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
 import ixdar.geometry.point.PointND;
 import ixdar.graphics.render.color.Color;
+import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.Drawing;
 import ixdar.scenes.Scene;
 
@@ -31,17 +32,26 @@ public class ArrowLineScene extends Scene {
     @Override
     public void initGL() {
         super.initGL();
+        MenuBox.menuVisible = false;
         Knot knot1 = new Knot(point1, shell);
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        lineSegment.setStroke(20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 1f, true, false, true, camera2D);
+        lineSegment.setStroke(20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 1f, true, false, true,
+                camera2D);
+        lineSegment.setBackgroundColor(Color.NAVY);
+        lineSegment.setBorderColor(Color.BLUE_WHITE);
+        lineSegment.setBorderBand(0.0875f);
         initCodePane("Arrow Line SDF", lineSegment.getShader(), lineSegment);
     }
 
     @Override
     public void drawScene() {
         super.drawScene();
-        lineSegment.setStroke(20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 1f, true, false, true, camera2D);
+        lineSegment.setStroke(20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 1f, true, false, true,
+                camera2D);
+        lineSegment.setBackgroundColor(Color.NAVY);
+        lineSegment.setBorderColor(Color.BLUE_WHITE);
+        lineSegment.setBorderBand(0.0875f);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);
