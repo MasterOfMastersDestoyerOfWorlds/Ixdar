@@ -239,3 +239,26 @@ Should be a trade off between cities that have high corruption do not produce as
 cities with high order should produce lots of goods but are harder to act in and produce less research output. Good for entrenching your monopoly once it is established.
 
 Research output should be maximised on slightly corrupt medium order cities
+
+
+
+--- Vampire Theme and Conception of the Game ---
+
+I am finding that it is difficult to design the game around multiple resources and while in the modern world there is a universal resource that is needed everywhere that being oil/electriciy, there seems to be no similar resource in the early modern period. Maybe it could be argued that lighting oil/whale oil provided a similar resource but with that resource the problem would be to go and find whales, oil wells, etc. and bring them directly to market with cities being only sinks and remote areas of geological importance being sole sources, this makes the logisitcs easier and non-loopy, you'd be better off with a spiderweb network than a loop ( reminds me of how ships leave China full and return from America empty). I was thinking that spices could be the missing resource since historically that is what drove trade networks and the global expansion of the VoC and BEIC, but there is a multi-sided marketplace that gets very complex very quickly. 
+
+So I think we want one resource that is both consumed and produced by cities, and I was thinking that an economy of Vampires would work with our protagonist being a blood merchant having set up an organization to extract blood from their home city and transport and sell it to vampires in other cities
+
+https://en.wikipedia.org/wiki/Kensington_Palace
+https://en.wikipedia.org/wiki/Holland_House
+https://en.wikipedia.org/wiki/List_of_vampires
+https://en.wikipedia.org/wiki/Lord_Ruthven_(vampire)
+https://en.wikipedia.org/wiki/Highgate_Cemetery
+https://en.wikipedia.org/wiki/Draugr
+https://en.wikipedia.org/wiki/File:Lilith_(John_Collier_painting).jpg
+https://en.wikipedia.org/wiki/Love_and_Pain_(Munch)
+https://en.wikipedia.org/wiki/The_Fiend
+https://en.wikipedia.org/wiki/Upi%C3%B3r
+https://en.wikipedia.org/wiki/File:Riegersburg_Burg.JPG
+https://en.wikipedia.org/wiki/Carmilla
+https://en.wikipedia.org/wiki/Dracula
+https://en.wikipedia.org/wiki/The_Vampyre
