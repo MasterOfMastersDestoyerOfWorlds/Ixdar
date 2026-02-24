@@ -10,6 +10,8 @@ This project is tracked via JSON files in the `ixdar-tickets/content` directory.
 ## Ticket JSON Schema
 Each ticket has these fields (preserve all when editing):
 - `id`, `title`, `description`, `epic` -- identity fields, do not change
+- `repo` -- which git repository the work belongs to (e.g. `Ixdar`, `Blender-Procedural-Human`, `KriegEterna`, `ixdar-tickets`)
+- `subsystem` -- array of high-level functional areas the ticket touches; valid values defined in `ixdar-tickets/subsystems.json`
 - `status` -- one of `TODO`, `IN_PROGRESS`, `DONE`
 - `priority` -- integer, lower = higher priority; do NOT change unless the user explicitly asks
 - `blocked-by`, `blocks` -- dependency links
@@ -29,7 +31,7 @@ WHEN you perform a task that corresponds to a ticket ID (e.g., `CORP-1`, `ENG-5`
 4.  **Silent Save**: Write the change to the JSON file immediately.
 
 ## Creating New Tickets
-When creating a new ticket, include all schema fields. Set `"priority"` relative to other tickets in the same epic (check existing tickets for reference). The `afterFileEdit` hook will regenerate the board automatically.
+When creating a new ticket, include all schema fields. Set `"repo"` to the target repository name and `"subsystem"` to an array of relevant subsystem IDs from `ixdar-tickets/subsystems.json`. Set `"priority"` relative to other tickets in the same epic (check existing tickets for reference). The `afterFileEdit` hook will regenerate the board automatically.
 
 ## Example
 User: "I fixed the rendering bug in ENG-12."
