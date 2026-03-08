@@ -10,3 +10,4 @@ tools/ixdar-automation-cli/__pycache__/test_cli.cpython-314.pyc
 ixdar-app/hs_err_*.log
 **/__pycache__/
 .cursor/logs/
+ixdar-app/tmp/*.png

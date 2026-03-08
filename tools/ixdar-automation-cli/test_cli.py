@@ -1,8 +1,10 @@
+import io
 import json
 import unittest
 from unittest.mock import patch
 
 import ixdar_cli
+from cli_registry import cli_command, get_registry
 
 
 class FakeResponse:
@@ -20,6 +22,13 @@ class FakeResponse:
 
 
 class CliTest(unittest.TestCase):
+    def test_build_parser_registers_decorated_commands(self):
+        ixdar_cli._build_parser()
+        registry = get_registry()
+        self.assertIn("health", registry)
+        self.assertIn("assert-tooltip", registry)
+        self.assertIn("trade-hover-scan", registry)
+
     @patch("urllib.request.urlopen")
     def test_health_command(self, urlopen):
         urlopen.return_value = FakeResponse({"status": "ok"})
@@ -146,6 +155,18 @@ class CliTest(unittest.TestCase):
         exit_code = ixdar_cli.main(["assert-tooltip", "--contains", "Collapse (C)"])
         self.assertEqual(4, exit_code)
 
+    @patch("urllib.request.urlopen")
+    def test_assert_tooltip_accepts_repeated_contains_flags(self, urlopen):
+        urlopen.return_value = FakeResponse(
+            {
+                "textElements": [
+                    {"type": "tooltip", "lines": ["Pipe (P)", "Collapse (C)"]},
+                ]
+            }
+        )
+        exit_code = ixdar_cli.main(["assert-tooltip", "--contains", "Pipe (P)", "--contains", "Collapse (C)"])
+        self.assertEqual(0, exit_code)
+
     @patch("ixdar_cli.run_validation")
     def test_validate_route_ops_command_invokes_validation(self, run_validation):
         run_validation.return_value = (0, {"ok": True, "report": {"steps": []}})
@@ -173,6 +194,25 @@ class CliTest(unittest.TestCase):
         )
         self.assertEqual(0, exit_code)
         scaffold_new_scene.assert_called_once()
+
+    def test_subcommand_help_is_generated_from_docstrings(self):
+        captured = io.StringIO()
+        with patch("sys.stdout", captured):
+            with self.assertRaises(SystemExit) as raised:
+                ixdar_cli.main(["assert-tooltip", "--help"])
+        self.assertEqual(0, raised.exception.code)
+        help_text = captured.getvalue()
+        self.assertIn("Assert that the visible tooltip text contains the requested strings.", help_text)
+        self.assertIn("--contains", help_text)
+        normalized_help = " ".join(help_text.split())
+        self.assertIn("pass the flag multiple times", normalized_help)
+
+    def test_cli_command_requires_param_docs(self):
+        with self.assertRaisesRegex(ValueError, "missing ':param count:' documentation"):
+            @cli_command(name="test-missing-param-docs")
+            def invalid_command(count: int) -> dict:
+                """Invalid command."""
+                return {"ok": True}
 
 
 if __name__ == "__main__":

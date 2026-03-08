@@ -9,9 +9,6 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-import ixdar.annotations.meshnode.MeshNodeAnnotation;
-
-@MeshNodeAnnotation(id = "icosphere")
 public class Icosphere {
 
     private final ArrayList<Face> faces;

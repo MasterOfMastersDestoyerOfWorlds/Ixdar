@@ -21,6 +21,8 @@ import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
 
+import org.joml.Vector3f;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -40,6 +42,7 @@ import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.TradeMouseTrap;
 import ixdar.scenes.anatomy.IrregularGridScene;
 import ixdar.scenes.main.MainScene;
+import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.trade.TradeScene;
 
 public class AutomationRuntime {
@@ -287,6 +290,16 @@ public class AutomationRuntime {
             root.add("irregularGrid", irregular);
         }
 
+        if (canvas instanceof MeshNodeViewerScene) {
+            MeshNodeViewerScene meshScene = (MeshNodeViewerScene) canvas;
+            JsonObject mesh = new JsonObject();
+            mesh.addProperty("vertexCount", meshScene.getMeshVertexCount());
+            mesh.addProperty("faceCount", meshScene.getMeshFaceCount());
+            mesh.add("boundingBoxMin", vector3Array(meshScene.getBoundingBoxMin()));
+            mesh.add("boundingBoxMax", vector3Array(meshScene.getBoundingBoxMax()));
+            root.add("mesh", mesh);
+        }
+
         JsonArray textElements = new JsonArray();
         if (MainScene.terminal != null) {
             textElements.add(hyperStringElement("terminal", "BOTTOM", MainScene.terminal.getCachedInfo(),
@@ -392,6 +405,14 @@ public class AutomationRuntime {
             lines.add(builder.toString().stripTrailing());
         }
         return lines;
+    }
+
+    private JsonArray vector3Array(Vector3f value) {
+        JsonArray array = new JsonArray();
+        array.add(value.x);
+        array.add(value.y);
+        array.add(value.z);
+        return array;
     }
 
     public JsonObject injectClick(float x, float y, boolean normalized, int button) {

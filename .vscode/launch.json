@@ -155,6 +155,16 @@
       "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     }
+,
+    {
+      "type": "java",
+      "name": "Mesh Node Viewer",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "mesh-viewer",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    }
 
   ]
 }
