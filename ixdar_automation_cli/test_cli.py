@@ -58,6 +58,12 @@ class CliTest(unittest.TestCase):
         self.assertEqual(0, exit_code)
 
     @patch("urllib.request.urlopen")
+    def test_mesh_state_command_extracts_mesh_payload(self, urlopen):
+        urlopen.return_value = FakeResponse({"mesh": {"vertexCount": 8, "faceCount": 12}})
+        exit_code = ixdar_cli.main(["mesh-state"])
+        self.assertEqual(0, exit_code)
+
+    @patch("urllib.request.urlopen")
     def test_audio_log_command_returns_tail_events(self, urlopen):
         urlopen.return_value = FakeResponse({"audio": {"eventLog": ["1|a|INIT_OK", "2|b|MUSIC_PLAY", "3|c|SFX_PLAY"]}})
         exit_code = ixdar_cli.main(["audio-log", "--tail", "2"])

@@ -20,6 +20,16 @@ def ui_state(client: AutomationClient) -> dict:
     return client.ui_state()
 
 
+@cli_command(name="mesh-state")
+def mesh_state(client: AutomationClient) -> dict:
+    """Extract the mesh viewer state from the UI snapshot."""
+    ui_state_payload = client.ui_state()
+    return {
+        "ok": True,
+        "mesh": ui_state_payload.get("mesh", {}),
+    }
+
+
 @cli_command(name="audio-state")
 def audio_state(client: AutomationClient) -> dict:
     """Extract the audio state from the UI snapshot."""

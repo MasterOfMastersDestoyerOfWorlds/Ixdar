@@ -1,0 +1,343 @@
+package ixdar.geometry.mesh;
+
+import java.util.Arrays;
+
+import org.joml.Vector3f;
+
+import ixdar.common.exceptions.InvalidMeshTopologyException;
+import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
+
+public class HalfEdgeMeshEngine {
+
+    public static int addVertex(HalfEdgeMesh mesh, float x, float y, float z) {
+        return mesh.createVertexSlot(x, y, z);
+    }
+
+    public static int addEdge(HalfEdgeMesh mesh, int startVertexId, int endVertexId) {
+        mesh.requireActiveVertex(startVertexId);
+        mesh.requireActiveVertex(endVertexId);
+        validateDistinctVertices(startVertexId, endVertexId);
+        ensureDirectedEdgeAvailable(mesh, startVertexId, endVertexId);
+        return createEdgePair(mesh, startVertexId, endVertexId);
+    }
+
+    public static int addFace(HalfEdgeMesh mesh, int... vertexIds) {
+        return addFaceInternal(mesh, vertexIds, true);
+    }
+
+    public static void removeFace(HalfEdgeMesh mesh, int faceId) {
+        mesh.requireActiveFace(faceId);
+
+        int[] vertices = mesh.faceVertices.get(faceId).toArray();
+        int[] halfEdges = mesh.faceHalfEdges.get(faceId).toArray();
+        int[] edges = mesh.faceEdges.get(faceId).toArray();
+
+        for (int vertexId : vertices) {
+            mesh.vertexFaces.get(vertexId).removeValue(faceId);
+        }
+
+        for (int halfEdgeId : halfEdges) {
+            mesh.halfEdgeFace[halfEdgeId] = MeshTopology.NONE;
+            mesh.halfEdgeNext[halfEdgeId] = MeshTopology.NONE;
+            mesh.halfEdgePrev[halfEdgeId] = MeshTopology.NONE;
+        }
+
+        mesh.deactivateFace(faceId);
+
+        for (int edgeId : edges) {
+            if (mesh.hasEdge(edgeId) && isIsolatedEdge(mesh, edgeId)) {
+                removeEdge(mesh, edgeId);
+            }
+        }
+
+        computeNormals(mesh);
+    }
+
+    public static void removeEdge(HalfEdgeMesh mesh, int edgeId) {
+        mesh.requireActiveEdge(edgeId);
+
+        int firstHalfEdge = mesh.edgeHalfEdge[edgeId];
+        int secondHalfEdge = mesh.halfEdgeTwin[firstHalfEdge];
+        if (firstHalfEdge == MeshTopology.NONE || secondHalfEdge == MeshTopology.NONE) {
+            throw new InvalidMeshTopologyException("Edge " + edgeId + " is incomplete");
+        }
+        if (mesh.halfEdgeFace[firstHalfEdge] != MeshTopology.NONE || mesh.halfEdgeFace[secondHalfEdge] != MeshTopology.NONE) {
+            throw new InvalidMeshTopologyException("Edge " + edgeId + " still belongs to a face");
+        }
+
+        unregisterHalfEdge(mesh, firstHalfEdge);
+        unregisterHalfEdge(mesh, secondHalfEdge);
+        mesh.deactivateEdge(edgeId);
+    }
+
+    public static void removeVertex(HalfEdgeMesh mesh, int vertexId) {
+        mesh.requireActiveVertex(vertexId);
+        if (!mesh.vertexOutgoingHalfEdges.get(vertexId).isEmpty()
+                || !mesh.vertexEdges.get(vertexId).isEmpty()
+                || !mesh.vertexFaces.get(vertexId).isEmpty()) {
+            throw new InvalidMeshTopologyException("Vertex " + vertexId + " is still connected");
+        }
+        mesh.deactivateVertex(vertexId);
+    }
+
+    public static void computeNormals(HalfEdgeMesh mesh) {
+        Vector3f p0 = new Vector3f();
+        Vector3f p1 = new Vector3f();
+        Vector3f p2 = new Vector3f();
+        Vector3f edgeA = new Vector3f();
+        Vector3f edgeB = new Vector3f();
+        Vector3f areaNormal = new Vector3f();
+
+        for (int i = 0; i < mesh.vertexCount(); i++) {
+            int vertexId = mesh.vertexIdAt(i);
+            setVector(mesh.vertexNormals, vertexId, 0f, 0f, 0f);
+        }
+
+        for (int i = 0; i < mesh.faceCount(); i++) {
+            int faceId = mesh.faceIdAt(i);
+            setVector(mesh.faceNormals, faceId, 0f, 0f, 0f);
+            if (mesh.faceVertexCount(faceId) < 3) {
+                continue;
+            }
+
+            mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), p0);
+            mesh.vertexPosition(mesh.faceVertexAt(faceId, 1), p1);
+            mesh.vertexPosition(mesh.faceVertexAt(faceId, 2), p2);
+            edgeA.set(p1).sub(p0);
+            edgeB.set(p2).sub(p0);
+            edgeA.cross(edgeB, areaNormal);
+            if (areaNormal.lengthSquared() == 0f) {
+                continue;
+            }
+
+            Vector3f normalized = new Vector3f(areaNormal).normalize();
+            setVector(mesh.faceNormals, faceId, normalized.x, normalized.y, normalized.z);
+            for (int j = 0; j < mesh.faceVertexCount(faceId); j++) {
+                int vertexId = mesh.faceVertexAt(faceId, j);
+                addVector(mesh.vertexNormals, vertexId, areaNormal.x, areaNormal.y, areaNormal.z);
+            }
+        }
+
+        for (int i = 0; i < mesh.vertexCount(); i++) {
+            int vertexId = mesh.vertexIdAt(i);
+            int offset = mesh.vertexOffset(vertexId);
+            p0.set(mesh.vertexNormals[offset], mesh.vertexNormals[offset + 1], mesh.vertexNormals[offset + 2]);
+            if (p0.lengthSquared() > 0f) {
+                p0.normalize();
+                setVector(mesh.vertexNormals, vertexId, p0.x, p0.y, p0.z);
+            }
+        }
+    }
+
+    public static HalfEdgeMesh buildFromIndexedMesh(float[] positions, int[] faceIndices) {
+        if (positions.length % HalfEdgeMesh.FLOATS_PER_VERTEX != 0) {
+            throw new IllegalArgumentException("Position data must be XYZ triples");
+        }
+        if (faceIndices.length % 3 != 0) {
+            throw new IllegalArgumentException("Face indices must be triangles");
+        }
+
+        HalfEdgeMesh mesh = new HalfEdgeMesh();
+        for (int i = 0; i < positions.length; i += HalfEdgeMesh.FLOATS_PER_VERTEX) {
+            addVertex(mesh, positions[i], positions[i + 1], positions[i + 2]);
+        }
+        for (int i = 0; i < faceIndices.length; i += 3) {
+            addFaceInternal(mesh, new int[] { faceIndices[i], faceIndices[i + 1], faceIndices[i + 2] }, false);
+        }
+        computeNormals(mesh);
+        return mesh;
+    }
+
+    public static HalfEdgeCompiledMeshData compileSurfaceData(HalfEdgeMesh mesh) {
+        int[] vertexRemap = new int[mesh.vertexActive.length];
+        Arrays.fill(vertexRemap, MeshTopology.NONE);
+        float[] vertices = new float[mesh.vertexCount() * 8];
+
+        for (int i = 0; i < mesh.vertexCount(); i++) {
+            int vertexId = mesh.vertexIdAt(i);
+            vertexRemap[vertexId] = i;
+            int sourceOffset = mesh.vertexOffset(vertexId);
+            int targetOffset = i * 8;
+            vertices[targetOffset] = mesh.vertexPositions[sourceOffset];
+            vertices[targetOffset + 1] = mesh.vertexPositions[sourceOffset + 1];
+            vertices[targetOffset + 2] = mesh.vertexPositions[sourceOffset + 2];
+            vertices[targetOffset + 3] = mesh.vertexNormals[sourceOffset];
+            vertices[targetOffset + 4] = mesh.vertexNormals[sourceOffset + 1];
+            vertices[targetOffset + 5] = mesh.vertexNormals[sourceOffset + 2];
+            vertices[targetOffset + 6] = 0f;
+            vertices[targetOffset + 7] = 0f;
+        }
+
+        int triangleCount = 0;
+        for (int i = 0; i < mesh.faceCount(); i++) {
+            int faceId = mesh.faceIdAt(i);
+            triangleCount += Math.max(0, mesh.faceVertexCount(faceId) - 2);
+        }
+
+        int[] indices = new int[triangleCount * 3];
+        int indexCursor = 0;
+        for (int i = 0; i < mesh.faceCount(); i++) {
+            int faceId = mesh.faceIdAt(i);
+            int faceVertexCount = mesh.faceVertexCount(faceId);
+            if (faceVertexCount < 3) {
+                continue;
+            }
+            int anchor = vertexRemap[mesh.faceVertexAt(faceId, 0)];
+            for (int j = 1; j < faceVertexCount - 1; j++) {
+                indices[indexCursor++] = anchor;
+                indices[indexCursor++] = vertexRemap[mesh.faceVertexAt(faceId, j)];
+                indices[indexCursor++] = vertexRemap[mesh.faceVertexAt(faceId, j + 1)];
+            }
+        }
+
+        Vector3f minBounds = mesh.boundsMin(new Vector3f());
+        Vector3f maxBounds = mesh.boundsMax(new Vector3f());
+        Vector3f center = mesh.center(new Vector3f());
+        float radius = mesh.radius();
+        return new HalfEdgeCompiledMeshData(
+                vertices,
+                indices,
+                mesh.vertexCount(),
+                mesh.faceCount(),
+                minBounds,
+                maxBounds,
+                center,
+                radius);
+    }
+
+    static int addFaceInternal(HalfEdgeMesh mesh, int[] vertexIds, boolean recomputeNormals) {
+        if (vertexIds.length < 3) {
+            throw new InvalidMeshTopologyException("A face needs at least three vertices");
+        }
+
+        int faceId = mesh.createFaceSlot();
+        int[] faceHalfEdges = new int[vertexIds.length];
+        for (int i = 0; i < vertexIds.length; i++) {
+            int startVertexId = vertexIds[i];
+            int endVertexId = vertexIds[(i + 1) % vertexIds.length];
+            mesh.requireActiveVertex(startVertexId);
+            mesh.requireActiveVertex(endVertexId);
+            validateDistinctVertices(startVertexId, endVertexId);
+
+            int halfEdgeId = ensureEdgePair(mesh, startVertexId, endVertexId);
+            if (mesh.halfEdgeFace[halfEdgeId] != MeshTopology.NONE) {
+                throw new InvalidMeshTopologyException(
+                        "Non-manifold or duplicate face edge between " + startVertexId + " and " + endVertexId);
+            }
+            faceHalfEdges[i] = halfEdgeId;
+        }
+
+        mesh.faceHalfEdges.get(faceId).clear();
+        mesh.faceVertices.get(faceId).clear();
+        mesh.faceEdges.get(faceId).clear();
+        mesh.faceHalfEdge[faceId] = faceHalfEdges[0];
+
+        for (int i = 0; i < faceHalfEdges.length; i++) {
+            int halfEdgeId = faceHalfEdges[i];
+            int nextHalfEdgeId = faceHalfEdges[(i + 1) % faceHalfEdges.length];
+            int prevHalfEdgeId = faceHalfEdges[(i + faceHalfEdges.length - 1) % faceHalfEdges.length];
+            int vertexId = mesh.halfEdgeVertex[halfEdgeId];
+            int edgeId = mesh.halfEdgeEdge[halfEdgeId];
+
+            mesh.halfEdgeFace[halfEdgeId] = faceId;
+            mesh.halfEdgeNext[halfEdgeId] = nextHalfEdgeId;
+            mesh.halfEdgePrev[halfEdgeId] = prevHalfEdgeId;
+            mesh.faceHalfEdges.get(faceId).add(halfEdgeId);
+            mesh.faceVertices.get(faceId).add(vertexId);
+            mesh.faceEdges.get(faceId).add(edgeId);
+            mesh.vertexFaces.get(vertexId).addUnique(faceId);
+        }
+
+        if (recomputeNormals) {
+            computeNormals(mesh);
+        }
+        return faceId;
+    }
+
+    static int ensureEdgePair(HalfEdgeMesh mesh, int startVertexId, int endVertexId) {
+        Integer existing = mesh.halfEdgesByDirection.get(mesh.directedKey(startVertexId, endVertexId));
+        if (existing != null) {
+            return existing;
+        }
+        ensureDirectedEdgeAvailable(mesh, startVertexId, endVertexId);
+        int edgeId = createEdgePair(mesh, startVertexId, endVertexId);
+        return mesh.edgeHalfEdge[edgeId];
+    }
+
+    static int createEdgePair(HalfEdgeMesh mesh, int startVertexId, int endVertexId) {
+        int edgeId = mesh.createEdgeSlot();
+        int forwardHalfEdgeId = mesh.createHalfEdgeSlot(startVertexId);
+        int backwardHalfEdgeId = mesh.createHalfEdgeSlot(endVertexId);
+
+        mesh.halfEdgeTwin[forwardHalfEdgeId] = backwardHalfEdgeId;
+        mesh.halfEdgeTwin[backwardHalfEdgeId] = forwardHalfEdgeId;
+        mesh.halfEdgeEdge[forwardHalfEdgeId] = edgeId;
+        mesh.halfEdgeEdge[backwardHalfEdgeId] = edgeId;
+        mesh.edgeHalfEdge[edgeId] = forwardHalfEdgeId;
+
+        mesh.vertexOutgoingHalfEdges.get(startVertexId).add(forwardHalfEdgeId);
+        mesh.vertexOutgoingHalfEdges.get(endVertexId).add(backwardHalfEdgeId);
+        mesh.vertexEdges.get(startVertexId).addUnique(edgeId);
+        mesh.vertexEdges.get(endVertexId).addUnique(edgeId);
+        if (mesh.vertexOutgoing[startVertexId] == MeshTopology.NONE) {
+            mesh.vertexOutgoing[startVertexId] = forwardHalfEdgeId;
+        }
+        if (mesh.vertexOutgoing[endVertexId] == MeshTopology.NONE) {
+            mesh.vertexOutgoing[endVertexId] = backwardHalfEdgeId;
+        }
+
+        mesh.halfEdgesByDirection.put(mesh.directedKey(startVertexId, endVertexId), forwardHalfEdgeId);
+        mesh.halfEdgesByDirection.put(mesh.directedKey(endVertexId, startVertexId), backwardHalfEdgeId);
+        return edgeId;
+    }
+
+    static void unregisterHalfEdge(HalfEdgeMesh mesh, int halfEdgeId) {
+        int startVertexId = mesh.halfEdgeVertex[halfEdgeId];
+        int twinHalfEdgeId = mesh.halfEdgeTwin[halfEdgeId];
+        int endVertexId = mesh.halfEdgeVertex[twinHalfEdgeId];
+        int edgeId = mesh.halfEdgeEdge[halfEdgeId];
+
+        mesh.halfEdgesByDirection.remove(mesh.directedKey(startVertexId, endVertexId));
+        mesh.vertexOutgoingHalfEdges.get(startVertexId).removeValue(halfEdgeId);
+        mesh.vertexEdges.get(startVertexId).removeValue(edgeId);
+        if (mesh.vertexOutgoing[startVertexId] == halfEdgeId) {
+            mesh.vertexOutgoing[startVertexId] = mesh.vertexOutgoingHalfEdges.get(startVertexId).isEmpty()
+                    ? MeshTopology.NONE
+                    : mesh.vertexOutgoingHalfEdges.get(startVertexId).get(0);
+        }
+        mesh.deactivateHalfEdge(halfEdgeId);
+    }
+
+    static void ensureDirectedEdgeAvailable(HalfEdgeMesh mesh, int startVertexId, int endVertexId) {
+        if (mesh.halfEdgesByDirection.containsKey(mesh.directedKey(startVertexId, endVertexId))) {
+            throw new InvalidMeshTopologyException(
+                    "Edge between " + startVertexId + " and " + endVertexId + " already exists");
+        }
+    }
+
+    static boolean isIsolatedEdge(HalfEdgeMesh mesh, int edgeId) {
+        int firstHalfEdge = mesh.edgeHalfEdge[edgeId];
+        int secondHalfEdge = mesh.halfEdgeTwin[firstHalfEdge];
+        return mesh.halfEdgeFace[firstHalfEdge] == MeshTopology.NONE && mesh.halfEdgeFace[secondHalfEdge] == MeshTopology.NONE;
+    }
+
+    static void validateDistinctVertices(int startVertexId, int endVertexId) {
+        if (startVertexId == endVertexId) {
+            throw new InvalidMeshTopologyException("Degenerate edge on vertex " + startVertexId);
+        }
+    }
+
+    private static void setVector(float[] target, int id, float x, float y, float z) {
+        int offset = id * HalfEdgeMesh.FLOATS_PER_VERTEX;
+        target[offset] = x;
+        target[offset + 1] = y;
+        target[offset + 2] = z;
+    }
+
+    private static void addVector(float[] target, int id, float x, float y, float z) {
+        int offset = id * HalfEdgeMesh.FLOATS_PER_VERTEX;
+        target[offset] += x;
+        target[offset + 1] += y;
+        target[offset + 2] += z;
+    }
+}
