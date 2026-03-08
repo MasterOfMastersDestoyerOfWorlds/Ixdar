@@ -20,11 +20,11 @@ Each `@SceneAnnotation` standalone scene has a `.vscode/launch.json` entry for I
    mvn -pl ixdar-app -P<scene-profile>   # with block_until_ms: 0
 
    # 2. Wait for startup, then validate
-   python tools/ixdar-automation-cli/ixdar_cli.py health
-   python tools/ixdar-automation-cli/ixdar_cli.py screenshot --out /tmp/scene.png
+   uv run ixdar-cli health
+   uv run ixdar-cli screenshot --out /tmp/scene.png
 
    # 3. Clean shutdown
-   python tools/ixdar-automation-cli/ixdar_cli.py shutdown
+   uv run ixdar-cli shutdown
    ```
 
 3. **CLI retry resilience**: `AutomationClient.request_json()` retries 3 times with exponential backoff (1s, 2s, 4s) on `URLError`, `ConnectionError`, and `TimeoutError`. This handles transient failures during app startup without needing manual sleep-and-retry loops in agent scripts.

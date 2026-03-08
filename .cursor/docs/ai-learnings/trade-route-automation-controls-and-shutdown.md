@@ -19,12 +19,12 @@ Use `mvn -P game` as the canonical desktop launch path for automation runs, expo
 
 Keep hover durable via a lock in `TradeMouseTrap` that remains until cleared by automation or replaced by explicit user mouse movement.
 Refactor automation scripts to share one client layer (`automation_client.py`) and one scenario layer (`trade_scenarios.py`) so CLI commands and validators do not duplicate request/input logic.
-Use `python tools/ixdar-automation-cli/ixdar_cli.py validate route-ops` as the canonical route-ops validation entrypoint.
+Use `uv run ixdar-cli validate route-ops` as the canonical route-ops validation entrypoint.
 
 ## Evidence
 - `python tools/ixdar-automation-cli/test_cli.py` passes with hover/shutdown/trade-hover-scan coverage.
-- `python tools/ixdar-automation-cli/ixdar_cli.py validate route-ops` passes against a live app run.
-- `python tools/ixdar-automation-cli/ixdar_cli.py shutdown` now drops `/health` with connection-refused and process exits.
+- `uv run ixdar-cli validate route-ops` passes against a live app run.
+- `uv run ixdar-cli shutdown` now drops `/health` with connection-refused and process exits.
 
 ## Reuse Trigger
 Use this pattern whenever a scene adds HUD controls that need automated validation:

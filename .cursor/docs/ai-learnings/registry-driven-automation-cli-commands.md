@@ -20,9 +20,9 @@ Move flat and scenario automation commands into explicit command modules decorat
 
 `python -m unittest test_cli.py`
 
-`python ixdar_cli.py --help`
+`uv run ixdar-cli --help`
 
-`python ixdar_cli.py assert-tooltip --help`
+`uv run ixdar-cli assert-tooltip --help`
 
 ## Reuse Trigger
 

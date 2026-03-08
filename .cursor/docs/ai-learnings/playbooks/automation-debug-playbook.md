@@ -20,6 +20,6 @@ Use this for `ixdar-app/src/main/java/ixdar/platform/automation/` or CLI regress
 
 ## Quick Command Set
 
-- `python tools/ixdar-automation-cli/ixdar_cli.py health`
-- `python tools/ixdar-automation-cli/ixdar_cli.py ui-state`
-- `python tools/ixdar-automation-cli/ixdar_cli.py start-new-game`
+- `uv run ixdar-cli health`
+- `uv run ixdar-cli ui-state`
+- `uv run ixdar-cli start-new-game`

@@ -7,7 +7,7 @@ Create a new runnable scene via the automation CLI scaffolder.
 Run from `tools/ixdar-automation-cli/`:
 
 ```bash
-python ixdar_cli.py new-scene \
+uv run ixdar-cli new-scene \
   --name ExampleScene \
   --id example-canvas \
   --subfolder anatomy \
