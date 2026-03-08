@@ -8,7 +8,7 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.geometry.point.IcosphereGeometry;
+import ixdar.geometry.mesh.Icosphere;
 import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.model.IcosphereRuntime;
 import ixdar.scenes.Scene;
@@ -35,7 +35,7 @@ public class IcosphereSavePointScene extends Scene {
     private final Vector3f activeAxis = new Vector3f();
     private final ArrayList<Integer> activeGroup = new ArrayList<>();
 
-    private IcosphereGeometry geometry;
+    private Icosphere geometry;
     private IcosphereRuntime runtime;
     private boolean isHovered;
     private float currentExpansion;
@@ -50,7 +50,7 @@ public class IcosphereSavePointScene extends Scene {
         super.initGL();
         initCameraControls();
         try {
-            geometry = new IcosphereGeometry(ICO_RADIUS);
+            geometry = new Icosphere(ICO_RADIUS);
             runtime = new IcosphereRuntime(geometry);
             runtime.frameCamera(camera);
             runtime.resetToIdeal();

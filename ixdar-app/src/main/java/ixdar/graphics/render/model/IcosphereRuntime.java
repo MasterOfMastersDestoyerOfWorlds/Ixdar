@@ -10,7 +10,9 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 
-import ixdar.geometry.point.IcosphereGeometry;
+import ixdar.geometry.mesh.Face;
+import ixdar.geometry.mesh.Icosphere;
+import ixdar.geometry.mesh.FaceState;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.shaders.MeshShader;
 import ixdar.graphics.render.shaders.VertexArrayObject;
@@ -18,26 +20,6 @@ import ixdar.graphics.render.shaders.VertexBufferObject;
 import ixdar.platform.Platforms;
 
 public class IcosphereRuntime {
-
-    public static class FaceState {
-        public final int index;
-        public final Vector3f normal;
-        public final Vector3f idealPos;
-        public final Quaternionf idealRot;
-        public final Vector3f basePos;
-        public final Quaternionf baseRot;
-        public final Vector3f renderPos;
-
-        public FaceState(int index, Vector3f normal, Vector3f idealPos, Quaternionf idealRot) {
-            this.index = index;
-            this.normal = normal;
-            this.idealPos = idealPos;
-            this.idealRot = idealRot;
-            this.basePos = new Vector3f(idealPos);
-            this.baseRot = new Quaternionf(idealRot);
-            this.renderPos = new Vector3f(idealPos);
-        }
-    }
 
     private static class FaceHandle {
         final VertexArrayObject vao;
@@ -65,13 +47,13 @@ public class IcosphereRuntime {
     private final Vector3f emissiveColor = new Vector3f(0.15f, 0.35f, 1.0f);
     private final float radius;
 
-    public IcosphereRuntime(IcosphereGeometry geometry) throws Exception {
+    public IcosphereRuntime(Icosphere geometry) throws Exception {
         this.meshShader = new MeshShader(new VertexArrayObject(), new VertexBufferObject());
         this.meshShader.init();
         this.faceHandles = new ArrayList<>();
         this.faceStates = new ArrayList<>();
         this.radius = geometry.radius();
-        for (IcosphereGeometry.FaceTemplate template : geometry.faces()) {
+        for (Face template : geometry.faces()) {
             faceHandles.add(createFaceHandle(template));
         }
     }
@@ -94,7 +76,8 @@ public class IcosphereRuntime {
         float aspect = width <= 0 || height <= 0 ? 1f : ((float) width / (float) height);
 
         camera.updateViewFirstPerson();
-        projection.identity().perspective((float) Math.toRadians((float) camera.fov), aspect, 0.01f, Math.max(200f, radius * 30f));
+        projection.identity().perspective((float) Math.toRadians((float) camera.fov), aspect, 0.01f,
+                Math.max(200f, radius * 30f));
         solidColor.set(0.24f + 0.08f * glowStrength, 0.5f + 0.26f * glowStrength, 1.0f, 0.9f);
         Platforms.gl().enable(Platforms.gl().BLEND());
         Platforms.gl().blendFunc(Platforms.gl().SRC_ALPHA(), Platforms.gl().ONE_MINUS_SRC_ALPHA());
@@ -115,7 +98,8 @@ public class IcosphereRuntime {
 
             handle.vao.bind();
             Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), handle.ebo);
-            Platforms.gl().drawElements(Platforms.gl().TRIANGLES(), handle.indexCount, Platforms.gl().UNSIGNED_INT(), 0);
+            Platforms.gl().drawElements(Platforms.gl().TRIANGLES(), handle.indexCount, Platforms.gl().UNSIGNED_INT(),
+                    0);
         }
     }
 
@@ -137,26 +121,26 @@ public class IcosphereRuntime {
 
     public void resetToIdeal() {
         for (FaceState state : faceStates) {
-            state.basePos.set(state.idealPos);
-            state.baseRot.set(state.idealRot);
+            state.basePos.set(state.position);
+            state.baseRot.set(state.rotation);
             state.renderPos.set(state.basePos);
         }
     }
 
-    public void snapToIdeal(List<IcosphereGeometry.IdealFaceState> idealStates) {
+    public void snapToIdeal(List<FaceState> idealStates) {
         for (FaceState state : faceStates) {
             float best = Float.MAX_VALUE;
-            IcosphereGeometry.IdealFaceState winner = null;
-            for (IcosphereGeometry.IdealFaceState ideal : idealStates) {
-                float dist = state.basePos.distanceSquared(ideal.pos);
+            FaceState winner = null;
+            for (FaceState ideal : idealStates) {
+                float dist = state.basePos.distanceSquared(ideal.position);
                 if (dist < best) {
                     best = dist;
                     winner = ideal;
                 }
             }
             if (winner != null) {
-                state.basePos.set(winner.pos);
-                state.baseRot.set(winner.rot);
+                state.basePos.set(winner.position);
+                state.baseRot.set(winner.rotation);
             }
         }
     }
@@ -171,7 +155,7 @@ public class IcosphereRuntime {
         faceStates.clear();
     }
 
-    private FaceHandle createFaceHandle(IcosphereGeometry.FaceTemplate template) {
+    private FaceHandle createFaceHandle(Face template) {
         VertexArrayObject vao = new VertexArrayObject();
         VertexBufferObject vbo = new VertexBufferObject();
         vao.bind();
@@ -179,9 +163,12 @@ public class IcosphereRuntime {
 
         Vector3f localNormal = new Vector3f(0f, 0f, 1f);
         float[] vertices = new float[] {
-                template.localV1.x, template.localV1.y, template.localV1.z, localNormal.x, localNormal.y, localNormal.z, 0f, 0f,
-                template.localV2.x, template.localV2.y, template.localV2.z, localNormal.x, localNormal.y, localNormal.z, 1f, 0f,
-                template.localV3.x, template.localV3.y, template.localV3.z, localNormal.x, localNormal.y, localNormal.z, 0.5f, 1f,
+                template.localV1.x, template.localV1.y, template.localV1.z, localNormal.x, localNormal.y, localNormal.z,
+                0f, 0f,
+                template.localV2.x, template.localV2.y, template.localV2.z, localNormal.x, localNormal.y, localNormal.z,
+                1f, 0f,
+                template.localV3.x, template.localV3.y, template.localV3.z, localNormal.x, localNormal.y, localNormal.z,
+                0.5f, 1f,
         };
         vbo.uploadData(Platforms.gl().ARRAY_BUFFER(), vertices, Platforms.gl().STATIC_DRAW());
 
@@ -202,8 +189,8 @@ public class IcosphereRuntime {
         FaceState state = new FaceState(
                 template.index,
                 new Vector3f(template.normal),
-                new Vector3f(template.idealPos),
-                new Quaternionf(template.idealRot));
+                new Quaternionf(template.rotation),
+                new Vector3f(template.position));
         faceStates.add(state);
         return new FaceHandle(vao, vbo, ebo, indices.length, state);
     }
