@@ -4,11 +4,18 @@ import json
 import sys
 import urllib.error
 
-from automation_client import DEFAULT_BASE_URL, AutomationClient
-from cli_commands.registry_imports import import_all_commands
-from cli_registry import CliCommand, CliCommandResult, CliParameter, get_registry
-from scene_scaffolding import scaffold_new_scene
-from trade_route_ops_validation import run_validation
+try:
+    from .automation_client import DEFAULT_BASE_URL, AutomationClient
+    from .cli_commands.registry_imports import import_all_commands
+    from .cli_registry import CliCommand, CliCommandResult, CliParameter, get_registry
+    from .scene_scaffolding import scaffold_new_scene
+    from .trade_route_ops_validation import run_validation
+except ImportError:
+    from automation_client import DEFAULT_BASE_URL, AutomationClient
+    from cli_commands.registry_imports import import_all_commands
+    from cli_registry import CliCommand, CliCommandResult, CliParameter, get_registry
+    from scene_scaffolding import scaffold_new_scene
+    from trade_route_ops_validation import run_validation
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -194,5 +201,10 @@ def main(argv: list[str]) -> int:
     return command_result.exit_code
 
 
+def cli() -> int:
+    """Console-script entrypoint for installed package execution."""
+    return main(sys.argv[1:])
+
+
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    raise SystemExit(cli())

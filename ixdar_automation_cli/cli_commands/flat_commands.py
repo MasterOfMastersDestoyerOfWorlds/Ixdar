@@ -1,7 +1,11 @@
 """Registry-backed thin wrappers over AutomationClient methods."""
 
-from automation_client import AutomationClient
-from cli_registry import cli_command
+try:
+    from ..automation_client import AutomationClient
+    from ..cli_registry import cli_command
+except ImportError:
+    from automation_client import AutomationClient
+    from cli_registry import cli_command
 
 
 @cli_command

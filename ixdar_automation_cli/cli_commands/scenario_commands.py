@@ -2,14 +2,24 @@
 
 from typing import Literal
 
-from automation_client import (
-    AutomationClient,
-    collect_tooltip_lines,
-    collect_trade_tooltip_lines,
-    toolbar_button_center,
-)
-from cli_registry import CliCommandResult, cli_command
-from trade_scenarios import click_until_scene_transition, start_new_game
+try:
+    from ..automation_client import (
+        AutomationClient,
+        collect_tooltip_lines,
+        collect_trade_tooltip_lines,
+        toolbar_button_center,
+    )
+    from ..cli_registry import CliCommandResult, cli_command
+    from ..trade_scenarios import click_until_scene_transition, start_new_game
+except ImportError:
+    from automation_client import (
+        AutomationClient,
+        collect_tooltip_lines,
+        collect_trade_tooltip_lines,
+        toolbar_button_center,
+    )
+    from cli_registry import CliCommandResult, cli_command
+    from trade_scenarios import click_until_scene_transition, start_new_game
 
 
 def _scan_trade_toolbar_tooltip(

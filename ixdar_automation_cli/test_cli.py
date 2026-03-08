@@ -3,8 +3,8 @@ import json
 import unittest
 from unittest.mock import patch
 
-import ixdar_cli
-from cli_registry import cli_command, get_registry
+from ixdar_automation_cli import ixdar_cli
+from ixdar_automation_cli.cli_registry import cli_command, get_registry
 
 
 class FakeResponse:
@@ -167,13 +167,13 @@ class CliTest(unittest.TestCase):
         exit_code = ixdar_cli.main(["assert-tooltip", "--contains", "Pipe (P)", "--contains", "Collapse (C)"])
         self.assertEqual(0, exit_code)
 
-    @patch("ixdar_cli.run_validation")
+    @patch("ixdar_automation_cli.ixdar_cli.run_validation")
     def test_validate_route_ops_command_invokes_validation(self, run_validation):
         run_validation.return_value = (0, {"ok": True, "report": {"steps": []}})
         exit_code = ixdar_cli.main(["validate", "route-ops"])
         self.assertEqual(0, exit_code)
 
-    @patch("ixdar_cli.scaffold_new_scene")
+    @patch("ixdar_automation_cli.ixdar_cli.scaffold_new_scene")
     def test_new_scene_command_invokes_scaffolder(self, scaffold_new_scene):
         scaffold_new_scene.return_value = {"ok": True, "dryRun": True}
         exit_code = ixdar_cli.main(

@@ -1,4 +1,7 @@
-from automation_client import KEY_ENTER, AutomationClient, opengl_to_click_y
+try:
+    from .automation_client import KEY_ENTER, AutomationClient, opengl_to_click_y
+except ImportError:
+    from automation_client import KEY_ENTER, AutomationClient, opengl_to_click_y
 
 
 def require(condition: bool, message: str) -> None:

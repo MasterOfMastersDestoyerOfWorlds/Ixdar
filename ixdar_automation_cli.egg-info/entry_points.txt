@@ -1,0 +1,2 @@
+[console_scripts]
+ixdar-cli = ixdar_automation_cli.ixdar_cli:cli

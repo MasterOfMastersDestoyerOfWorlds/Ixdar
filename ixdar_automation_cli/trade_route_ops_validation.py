@@ -4,8 +4,12 @@ import json
 import time
 import urllib.error
 
-from automation_client import DEFAULT_BASE_URL, KEY_G, AutomationClient, collect_trade_tooltip_lines, toolbar_button_center
-from trade_scenarios import create_initial_pipe, ensure_trade_scene, place_headquarters, require
+try:
+    from .automation_client import DEFAULT_BASE_URL, KEY_G, AutomationClient, collect_trade_tooltip_lines, toolbar_button_center
+    from .trade_scenarios import create_initial_pipe, ensure_trade_scene, place_headquarters, require
+except ImportError:
+    from automation_client import DEFAULT_BASE_URL, KEY_G, AutomationClient, collect_trade_tooltip_lines, toolbar_button_center
+    from trade_scenarios import create_initial_pipe, ensure_trade_scene, place_headquarters, require
 
 
 def run_validation(base_url: str) -> tuple[int, dict]:
