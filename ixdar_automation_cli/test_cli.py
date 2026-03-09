@@ -59,9 +59,41 @@ class CliTest(unittest.TestCase):
 
     @patch("urllib.request.urlopen")
     def test_mesh_state_command_extracts_mesh_payload(self, urlopen):
-        urlopen.return_value = FakeResponse({"mesh": {"vertexCount": 8, "faceCount": 12}})
+        urlopen.return_value = FakeResponse({"mesh": {"vertexCount": 8, "edgeCount": 18, "faceCount": 12}})
         exit_code = ixdar_cli.main(["mesh-state"])
         self.assertEqual(0, exit_code)
+
+    @patch("urllib.request.urlopen")
+    def test_mesh_validate_command_returns_ok_for_closed_mesh(self, urlopen):
+        urlopen.return_value = FakeResponse(
+            {
+                "mesh": {
+                    "vertexCount": 8,
+                    "edgeCount": 18,
+                    "faceCount": 12,
+                    "boundaryEdgeCount": 0,
+                    "degenerateFaceCount": 0,
+                }
+            }
+        )
+        exit_code = ixdar_cli.main(["mesh-validate"])
+        self.assertEqual(0, exit_code)
+
+    @patch("urllib.request.urlopen")
+    def test_mesh_validate_command_returns_failure_for_open_mesh(self, urlopen):
+        urlopen.return_value = FakeResponse(
+            {
+                "mesh": {
+                    "vertexCount": 4,
+                    "edgeCount": 5,
+                    "faceCount": 2,
+                    "boundaryEdgeCount": 4,
+                    "degenerateFaceCount": 0,
+                }
+            }
+        )
+        exit_code = ixdar_cli.main(["mesh-validate"])
+        self.assertEqual(6, exit_code)
 
     @patch("urllib.request.urlopen")
     def test_audio_log_command_returns_tail_events(self, urlopen):
@@ -135,6 +167,30 @@ class CliTest(unittest.TestCase):
         ]
         urlopen.side_effect = [FakeResponse(payload) for payload in responses]
         exit_code = ixdar_cli.main(["probe", "--out", "out.png"])
+        self.assertEqual(0, exit_code)
+
+    @patch("urllib.request.urlopen")
+    def test_mesh_probe_returns_health_mesh_and_screenshot(self, urlopen):
+        responses = [
+            {"status": "ok", "port": 47832},
+            {
+                "sceneId": "mesh-viewer",
+                "sceneClass": "MeshNodeViewerScene",
+                "mode": "main",
+                "menuVisible": False,
+                "windowWidth": 800,
+                "windowHeight": 600,
+                "mesh": {
+                    "vertexCount": 8,
+                    "edgeCount": 18,
+                    "faceCount": 12,
+                    "boundaryEdgeCount": 0,
+                },
+            },
+            {"path": "mesh.png", "sha256": "mesh123", "width": 800, "height": 600},
+        ]
+        urlopen.side_effect = [FakeResponse(payload) for payload in responses]
+        exit_code = ixdar_cli.main(["mesh-probe", "--out", "mesh.png"])
         self.assertEqual(0, exit_code)
 
     @patch("urllib.request.urlopen")

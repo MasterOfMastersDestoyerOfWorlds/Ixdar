@@ -64,6 +64,70 @@ public class MeshNodeViewerScene extends Scene {
         return mesh == null ? 0 : mesh.faceCount();
     }
 
+    public int getMeshEdgeCount() {
+        return mesh == null ? 0 : mesh.edgeCount();
+    }
+
+    public int getMeshBoundaryEdgeCount() {
+        if (mesh == null) {
+            return 0;
+        }
+        int boundaryEdgeCount = 0;
+        for (int i = 0; i < mesh.edgeCount(); i++) {
+            if (mesh.isBoundaryEdge(mesh.edgeIdAt(i))) {
+                boundaryEdgeCount++;
+            }
+        }
+        return boundaryEdgeCount;
+    }
+
+    public int getMeshEulerCharacteristic() {
+        return mesh == null ? 0 : mesh.vertexCount() - mesh.edgeCount() + mesh.faceCount();
+    }
+
+    public boolean isMeshClosed() {
+        return mesh != null && getMeshBoundaryEdgeCount() == 0;
+    }
+
+    public int getMeshDegenerateFaceCount() {
+        if (mesh == null) {
+            return 0;
+        }
+
+        int degenerateFaceCount = 0;
+        Vector3f p0 = new Vector3f();
+        Vector3f p1 = new Vector3f();
+        Vector3f p2 = new Vector3f();
+        Vector3f edgeA = new Vector3f();
+        Vector3f edgeB = new Vector3f();
+        Vector3f cross = new Vector3f();
+        for (int i = 0; i < mesh.faceCount(); i++) {
+            int faceId = mesh.faceIdAt(i);
+            if (mesh.faceVertexCount(faceId) < 3) {
+                degenerateFaceCount++;
+                continue;
+            }
+            mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), p0);
+            mesh.vertexPosition(mesh.faceVertexAt(faceId, 1), p1);
+            mesh.vertexPosition(mesh.faceVertexAt(faceId, 2), p2);
+            edgeA.set(p1).sub(p0);
+            edgeB.set(p2).sub(p0);
+            edgeA.cross(edgeB, cross);
+            if (cross.lengthSquared() == 0f) {
+                degenerateFaceCount++;
+            }
+        }
+        return degenerateFaceCount;
+    }
+
+    public float getMeshRadius() {
+        return mesh == null ? 0f : mesh.radius();
+    }
+
+    public Vector3f getMeshCenter() {
+        return mesh == null ? new Vector3f() : mesh.center(new Vector3f());
+    }
+
     public Vector3f getBoundingBoxMin() {
         return mesh == null ? new Vector3f(-HALF_EXTENT, -HALF_EXTENT, -HALF_EXTENT) : mesh.boundsMin(new Vector3f());
     }

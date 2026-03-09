@@ -294,7 +294,14 @@ public class AutomationRuntime {
             MeshNodeViewerScene meshScene = (MeshNodeViewerScene) canvas;
             JsonObject mesh = new JsonObject();
             mesh.addProperty("vertexCount", meshScene.getMeshVertexCount());
+            mesh.addProperty("edgeCount", meshScene.getMeshEdgeCount());
             mesh.addProperty("faceCount", meshScene.getMeshFaceCount());
+            mesh.addProperty("boundaryEdgeCount", meshScene.getMeshBoundaryEdgeCount());
+            mesh.addProperty("degenerateFaceCount", meshScene.getMeshDegenerateFaceCount());
+            mesh.addProperty("eulerCharacteristic", meshScene.getMeshEulerCharacteristic());
+            mesh.addProperty("closed", meshScene.isMeshClosed());
+            mesh.addProperty("radius", meshScene.getMeshRadius());
+            mesh.add("center", vector3Array(meshScene.getMeshCenter()));
             mesh.add("boundingBoxMin", vector3Array(meshScene.getBoundingBoxMin()));
             mesh.add("boundingBoxMax", vector3Array(meshScene.getBoundingBoxMax()));
             root.add("mesh", mesh);

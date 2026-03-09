@@ -103,6 +103,37 @@ def probe(client: AutomationClient, out: str = "") -> dict:
     }
 
 
+@cli_command(name="mesh-probe")
+def mesh_probe(client: AutomationClient, out: str = "") -> dict:
+    """Capture the mesh-focused automation probe bundle.
+
+    :param out: Output path for the probe screenshot file, or empty to use the server default.
+    """
+    health_payload = client.health()
+    state = client.ui_state()
+    screenshot = client.screenshot(out, inline=False)
+    mesh = state.get("mesh", {})
+    return {
+        "ok": True,
+        "health": health_payload,
+        "uiStateSummary": {
+            "sceneId": state.get("sceneId"),
+            "sceneClass": state.get("sceneClass"),
+            "mode": state.get("mode"),
+            "menuVisible": state.get("menuVisible"),
+            "windowWidth": state.get("windowWidth"),
+            "windowHeight": state.get("windowHeight"),
+        },
+        "mesh": mesh,
+        "screenshot": {
+            "path": screenshot.get("path"),
+            "sha256": screenshot.get("sha256"),
+            "width": screenshot.get("width"),
+            "height": screenshot.get("height"),
+        },
+    }
+
+
 @cli_command(name="assert-tooltip")
 def assert_tooltip(
     client: AutomationClient,
