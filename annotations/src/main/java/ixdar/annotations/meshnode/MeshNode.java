@@ -1,20 +1,11 @@
 package ixdar.annotations.meshnode;
 
-import ixdar.annotations.command.OptionList;
+import java.util.List;
 
 public interface MeshNode {
+    List<InputPort> inputs();
 
-    public abstract String usage();
+    List<OutputPort> outputs();
 
-    public abstract String desc();
-
-    public abstract String fullName();
-
-    public abstract String shortName();
-
-    public abstract OptionList options();
-
-    public abstract int argLength();
-
-    public abstract int minArgLength();
+    void evaluate(NodeContext ctx);
 }
