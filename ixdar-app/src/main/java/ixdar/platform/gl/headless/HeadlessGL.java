@@ -290,6 +290,15 @@ public class HeadlessGL implements GL {
     }
 
     @Override
+    public int LINES() {
+        return 0x0001;
+    }
+
+    @Override
+    public void lineWidth(float width) {
+    }
+
+    @Override
     public boolean getMouseButton(long window, MouseButtons mouseButtonLeft) {
         return false;
     }
@@ -315,6 +324,9 @@ public class HeadlessGL implements GL {
 
     @Override
     public void enable(int blend) {
+    }
+    @Override
+    public void disable(int depthTest) {
     }
 
     @Override

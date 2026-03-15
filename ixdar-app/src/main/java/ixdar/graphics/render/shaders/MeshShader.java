@@ -8,8 +8,10 @@ import ixdar.platform.gl.GL;
 
 public class MeshShader extends ShaderProgram {
 
-    public MeshShader(VertexArrayObject vao, VertexBufferObject vbo) throws UnsupportedEncodingException, IOException {
-        super("mesh.vs", "mesh.fs", vao, vbo, 8, false);
+    public MeshShader(String vertexShaderLocation, String fragmentShaderLocation)
+            throws UnsupportedEncodingException, IOException {
+        super(vertexShaderLocation, fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
+                8, true);
     }
 
     @Override

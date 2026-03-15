@@ -390,6 +390,16 @@ public class WebGL implements GL {
     }
 
     @Override
+    public int LINES() {
+        return WebGLRenderingContext.LINES;
+    }
+
+    @Override
+    public void lineWidth(float width) {
+        gl.lineWidth(width);
+    }
+
+    @Override
     public int RGBA8() {
         return WebGLRenderingContext.RGBA;
     }
@@ -537,6 +547,11 @@ public class WebGL implements GL {
     @Override
     public void enable(int blend) {
         gl.enable(blend);
+    }
+
+    @Override
+    public void disable(int depthTest) {
+        gl.disable(depthTest);
     }
 
     @JSBody(params = { "v" }, script = "return (v|0);")

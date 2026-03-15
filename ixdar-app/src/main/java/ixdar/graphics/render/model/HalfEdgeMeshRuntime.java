@@ -9,20 +9,20 @@ import org.lwjgl.BufferUtils;
 
 import ixdar.geometry.mesh.HalfEdgeMesh;
 import ixdar.graphics.cameras.Camera3D;
-import ixdar.graphics.render.shaders.MeshShader;
-import ixdar.graphics.render.shaders.VertexArrayObject;
-import ixdar.graphics.render.shaders.VertexBufferObject;
+import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
 
 public class HalfEdgeMeshRuntime {
-    private final MeshShader meshShader;
-    private final VertexArrayObject vao;
-    private final VertexBufferObject vbo;
+    private final ShaderProgram meshShader;
+    private final ShaderProgram meshUnlitShader;
     private final Matrix4f modelMatrix = new Matrix4f();
     private final Matrix4f projectionMatrix = new Matrix4f();
-    private final Vector4f solidColor = new Vector4f(0.7f, 0.85f, 1.0f, 1.0f);
+    private final Vector4f solidColor = Color.BLUE_GRAY.toVector4f();
+    private final Vector4f edgeColor = Color.RED.toVector4f();
+    private final Vector4f edgeFaintColor = Color.RED_FAINT.toVector4f();
     private final Vector3f lightDir = new Vector3f(0.4f, -1.0f, 0.25f);
-    private final Vector3f emissiveColor = new Vector3f(0.25f, 0.34f, 0.48f);
+    private final Vector3f emissiveColor = Color.BLUE_WHITE.toVector3f();
     private final Vector3f minBounds = new Vector3f();
     private final Vector3f maxBounds = new Vector3f();
     private final Vector3f center = new Vector3f();
@@ -30,23 +30,30 @@ public class HalfEdgeMeshRuntime {
     private IntBuffer indexBuffer;
     private HalfEdgeCompiledMeshData compiledMesh;
     private int ebo;
+    private int edgeEbo;
+    private int edgeCount;
+    private boolean wireframe = true;
+    private boolean xray = true;
 
     public HalfEdgeMeshRuntime() throws Exception {
-        this.vao = new VertexArrayObject();
-        this.vbo = new VertexBufferObject();
-        this.meshShader = new MeshShader(vao, vbo);
+        this.meshShader = ShaderProgram.ShaderType.Mesh.getShader();
+        this.meshUnlitShader = ShaderProgram.ShaderType.MeshUnlit.getShader();
         this.meshShader.init();
+        this.meshUnlitShader.init();
         this.ebo = Platforms.gl().genBuffers();
+        this.edgeEbo = Platforms.gl().genBuffers();
     }
 
     public void upload(HalfEdgeMesh mesh) {
         compiledMesh = mesh.compileSurfaceData();
         uploadCompiledMesh(Platforms.gl().STATIC_DRAW());
+        uploadEdgeData(mesh);
     }
 
     public void reupload(HalfEdgeMesh mesh) {
         compiledMesh = mesh.compileSurfaceData();
         uploadCompiledMesh(Platforms.gl().DYNAMIC_DRAW());
+        uploadEdgeData(mesh);
     }
 
     public void frameCamera(Camera3D camera) {
@@ -86,9 +93,12 @@ public class HalfEdgeMeshRuntime {
         meshShader.setFloat("emissiveStrength", 0.08f);
         meshShader.setFloat("rimStrength", 0.16f);
 
-        vao.bind();
+        meshShader.vao.bind();
         Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), ebo);
         Platforms.gl().drawElements(Platforms.gl().TRIANGLES(), compiledMesh.indices.length, Platforms.gl().UNSIGNED_INT(), 0);
+        if (wireframe) {
+            renderEdges(camera);
+        }
     }
 
     public void dispose() {
@@ -96,8 +106,42 @@ public class HalfEdgeMeshRuntime {
             Platforms.gl().deleteBuffers(ebo);
             ebo = 0;
         }
-        vbo.delete();
-        vao.delete();
+        if (edgeEbo != 0) {
+            Platforms.gl().deleteBuffers(edgeEbo);
+            edgeEbo = 0;
+        }
+        meshShader.vbo.delete();
+        meshShader.vao.delete();
+    }
+
+    private void uploadEdgeData(HalfEdgeMesh mesh) {
+        int[] edgeIndices = mesh.getEdgeIndices();
+        Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), edgeEbo);
+        
+        IntBuffer buffer = BufferUtils.createIntBuffer(edgeIndices.length);
+        buffer.put(edgeIndices).flip();
+        Platforms.gl().bufferData(Platforms.gl().ELEMENT_ARRAY_BUFFER(), buffer, Platforms.gl().STATIC_DRAW());
+        edgeCount = edgeIndices.length;
+    }
+
+    public void renderEdges(Camera3D camera) {
+        meshUnlitShader.use();
+        meshUnlitShader.setMat4("model", modelMatrix.identity());
+        meshUnlitShader.setMat4("view", camera.view);
+        meshUnlitShader.setMat4("projection", projectionMatrix);
+        meshShader.vao.bind();
+        meshUnlitShader.setVec4("solidColor", edgeFaintColor);
+        Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), edgeEbo);
+        Platforms.gl().disable(Platforms.gl().DEPTH_TEST());
+        Platforms.gl().lineWidth(1.5f);
+        Platforms.gl().drawElements(Platforms.gl().LINES(), edgeCount, Platforms.gl().UNSIGNED_INT(), 0);
+        Platforms.gl().enable(Platforms.gl().DEPTH_TEST());
+
+        meshUnlitShader.setVec4("solidColor", edgeColor);
+        Platforms.gl().lineWidth(2.0f);
+        Platforms.gl().drawElements(Platforms.gl().LINES(), edgeCount , Platforms.gl().UNSIGNED_INT(), 0);
+        
+
     }
 
     public int getVertexCount() {
@@ -120,14 +164,22 @@ public class HalfEdgeMeshRuntime {
         return compiledMesh == null ? new Vector3f() : new Vector3f(center);
     }
 
+    public boolean isWireframe() {
+        return wireframe;
+    }
+
+    public void setWireframe(boolean wireframe) {
+        this.wireframe = wireframe;
+    }
+
     private void uploadCompiledMesh(int usage) {
         if (compiledMesh == null) {
             return;
         }
 
-        vao.bind();
-        vbo.bind(Platforms.gl().ARRAY_BUFFER());
-        vbo.uploadData(Platforms.gl().ARRAY_BUFFER(), compiledMesh.vertices, usage);
+        meshShader.vao.bind();
+        meshShader.vbo.bind(Platforms.gl().ARRAY_BUFFER());
+        meshShader.vbo.uploadData(Platforms.gl().ARRAY_BUFFER(), compiledMesh.vertices, usage);
 
         Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), ebo);
         IntBuffer uploadBuffer = ensureIndexBufferCapacity(compiledMesh.indices.length);

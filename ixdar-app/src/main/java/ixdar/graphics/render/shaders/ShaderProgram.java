@@ -50,6 +50,10 @@ public abstract class ShaderProgram {
 
         Color(ColorShader.class, "color.vs", "color.fs"),
 
+        Mesh(MeshShader.class, "mesh.vs", "mesh.fs"),
+
+        MeshUnlit(MeshShader.class, "mesh.vs", "mesh_unlit.fs"),
+
         BezierSDF(SDFShader.class, "font.vs", "sdf_bezier_simple.fs");
 
         public String vertexShaderLocation;
@@ -76,6 +80,11 @@ public abstract class ShaderProgram {
                             Platforms.get().getFrameBufferHeight());
                 } else if (shaderClass.equals(ColorShader.class)) {
                     shader = new ColorShader(vertexShaderLocation, fragmentShaderLocation);
+                }else if (shaderClass.equals(MeshShader.class)) {
+                    shader = new MeshShader(vertexShaderLocation, fragmentShaderLocation);
+                }
+                else{
+                    throw new RuntimeException("Unknown shader type: " + shaderClass.getName());
                 }
             } catch (IOException e) {
                 throw new RuntimeException("Failed to load shader resources: " + fragmentShaderLocation, e);

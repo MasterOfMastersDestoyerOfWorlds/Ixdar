@@ -122,6 +122,10 @@ public interface GL {
 
     int TEXTURE_MAG_FILTER();
 
+    int LINES();
+
+    void lineWidth(float width);
+
     int LINEAR();
 
     int REPEAT();
@@ -137,6 +141,8 @@ public interface GL {
     void blendFunc(int SRC_ALPHA, int ONE_MINUS_SRC_ALPHA);
 
     void enable(int blend);
+
+    void disable(int depthTest);
 
     void createCapabilities(boolean b, IntFunction<PointerBuffer> intFunction);
 

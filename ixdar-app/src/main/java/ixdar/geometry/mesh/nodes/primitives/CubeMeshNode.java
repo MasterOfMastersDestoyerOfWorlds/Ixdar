@@ -28,17 +28,17 @@ public class CubeMeshNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         Number sizeInput = ctx.getInput("size", Number.class);
-        float halfExtent = (sizeInput == null ? 1.0f : sizeInput.floatValue()) * 0.5f;
+        float cornerPosition = (sizeInput == null ? 1.0f : sizeInput.floatValue()) * 0.5f;
         HalfEdgeMesh mesh = HalfEdgeMesh.buildFromIndexedMesh(
                 new float[] {
-                        -halfExtent, -halfExtent, -halfExtent,
-                        halfExtent, -halfExtent, -halfExtent,
-                        halfExtent, halfExtent, -halfExtent,
-                        -halfExtent, halfExtent, -halfExtent,
-                        -halfExtent, -halfExtent, halfExtent,
-                        halfExtent, -halfExtent, halfExtent,
-                        halfExtent, halfExtent, halfExtent,
-                        -halfExtent, halfExtent, halfExtent,
+                        -cornerPosition, -cornerPosition, -cornerPosition,
+                        cornerPosition, -cornerPosition, -cornerPosition,
+                        cornerPosition, cornerPosition, -cornerPosition,
+                        -cornerPosition, cornerPosition, -cornerPosition,
+                        -cornerPosition, -cornerPosition, cornerPosition,
+                        cornerPosition, -cornerPosition, cornerPosition,
+                        cornerPosition, cornerPosition, cornerPosition,
+                        -cornerPosition, cornerPosition, cornerPosition,
                 },
                 new int[] {
                         0, 1, 2, 2, 3, 0,

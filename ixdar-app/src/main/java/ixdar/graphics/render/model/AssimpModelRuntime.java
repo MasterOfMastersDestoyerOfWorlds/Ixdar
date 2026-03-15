@@ -3,6 +3,7 @@ package ixdar.graphics.render.model;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.shaders.MeshShader;
+import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.shaders.VertexArrayObject;
 import ixdar.graphics.render.shaders.VertexBufferObject;
 import ixdar.platform.Platforms;
@@ -17,12 +18,12 @@ import java.nio.IntBuffer;
 
 public class AssimpModelRuntime implements ModelRuntime {
 
-    private final MeshShader meshShader;
+    private final ShaderProgram meshShader;
     private final AssimpModelImporter importer = new AssimpModelImporter();
     private final Matrix4f modelMatrix = new Matrix4f();
 
     public AssimpModelRuntime() throws Exception {
-        this.meshShader = new MeshShader(new VertexArrayObject(), new VertexBufferObject());
+        this.meshShader = ShaderProgram.ShaderType.Mesh.getShader();
         this.meshShader.init();
     }
 

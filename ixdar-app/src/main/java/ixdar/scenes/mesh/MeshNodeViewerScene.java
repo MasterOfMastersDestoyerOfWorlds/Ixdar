@@ -3,9 +3,10 @@ package ixdar.scenes.mesh;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.MapNodeContext;
+import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.primitives.CubeMeshNode;
+import ixdar.geometry.mesh.nodes.primitives.UVSphereMeshNode;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Platforms;
@@ -17,7 +18,6 @@ import ixdar.scenes.Scene;
 @SceneAnnotation(id = "mesh-viewer")
 public class MeshNodeViewerScene extends Scene {
     private static final float HALF_EXTENT = 0.5f;
-    private static final float DEFAULT_CUBE_SIZE = HALF_EXTENT * 2.0f;
     private static final float CAMERA_AZIMUTH = (float) Math.toRadians(45.0);
     private static final float CAMERA_ELEVATION = (float) Math.toRadians(24.0);
     private static final float CAMERA_DISTANCE = 3.5f;
@@ -166,10 +166,9 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     private HalfEdgeMesh buildViewerMesh() {
-        CubeMeshNode cubeNode = new CubeMeshNode();
-        MapNodeContext context = new MapNodeContext(cubeNode);
-        context.setInput("size", DEFAULT_CUBE_SIZE);
-        cubeNode.evaluate(context);
+        MeshNode sphereNode = new UVSphereMeshNode();
+        MapNodeContext context = new MapNodeContext(sphereNode);
+        sphereNode.evaluate(context);
         return context.getOutput("mesh", HalfEdgeMesh.class);
     }
 

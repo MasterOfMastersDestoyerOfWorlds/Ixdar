@@ -354,6 +354,16 @@ public class LwjglGL implements GL {
     }
 
     @Override
+    public int LINES() {
+        return GL_LINES;
+    }
+
+    @Override
+    public void lineWidth(float width) {
+        glLineWidth(width);
+    }
+
+    @Override
     public int RGBA() {
         return GL_RGBA;
     }
@@ -432,6 +442,10 @@ public class LwjglGL implements GL {
     @Override
     public void enable(int blend) {
         glEnable(blend);
+    }
+    @Override
+    public void disable(int depthTest) {
+        glDisable(depthTest);
     }
 
     @Override

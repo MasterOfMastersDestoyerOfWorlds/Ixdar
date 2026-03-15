@@ -11,10 +11,11 @@ import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 
 import ixdar.geometry.mesh.Face;
-import ixdar.geometry.mesh.Icosphere;
 import ixdar.geometry.mesh.FaceState;
+import ixdar.geometry.mesh.Icosphere;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.shaders.MeshShader;
+import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.shaders.VertexArrayObject;
 import ixdar.graphics.render.shaders.VertexBufferObject;
 import ixdar.platform.Platforms;
@@ -37,7 +38,7 @@ public class IcosphereRuntime {
         }
     }
 
-    private final MeshShader meshShader;
+    private final ShaderProgram meshShader;
     private final ArrayList<FaceHandle> faceHandles;
     private final ArrayList<FaceState> faceStates;
     private final Matrix4f model = new Matrix4f();
@@ -48,7 +49,7 @@ public class IcosphereRuntime {
     private final float radius;
 
     public IcosphereRuntime(Icosphere geometry) throws Exception {
-        this.meshShader = new MeshShader(new VertexArrayObject(), new VertexBufferObject());
+        this.meshShader = ShaderProgram.ShaderType.Mesh.getShader();
         this.meshShader.init();
         this.faceHandles = new ArrayList<>();
         this.faceStates = new ArrayList<>();

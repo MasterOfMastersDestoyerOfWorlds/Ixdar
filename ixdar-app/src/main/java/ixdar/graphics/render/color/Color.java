@@ -7,6 +7,7 @@ public interface Color {
     public static final Color WHITE = new ColorRGB(1f, 1f, 1f, "White");
     public static final Color BLACK = new ColorRGB(0f, 0f, 0f, "Black");
     public static final Color RED = new ColorRGB(1f, 0f, 0f, "Red");
+    public static final Color RED_FAINT = new ColorRGB(0.25f, 0f, 0f, 0.1f, "Red Faint");
     public static final Color GREEN = new ColorRGB(0f, 1f, 0f, "Green");
     public static final Color BLUE = new ColorRGB(0f, 0f, 1f, "Blue");
     public static final Color LIGHT_NAVY = new ColorRGB(15, 45, 135, "Navy");

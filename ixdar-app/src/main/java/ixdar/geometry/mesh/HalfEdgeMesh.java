@@ -660,4 +660,16 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
             values[i] = NONE;
         }
     }
+    
+    public int[] getEdgeIndices() {
+        int[] indices = new int[activeEdgeIds.size() * 2];
+        for (int i = 0; i < activeEdgeIds.size(); i++) {
+            int edgeId = activeEdgeIds.get(i);
+            int he = edgeHalfEdge[edgeId];
+            
+            indices[i * 2] = halfEdgeVertex[he];
+            indices[i * 2 + 1] = halfEdgeVertex[halfEdgeTwin[he]];
+        }
+        return indices;
+    }
 }
