@@ -18,6 +18,8 @@ import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
 import ixdar.graphics.render.text.ColorText;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
+import ixdar.parsing.glsl.GLSLExpressionParser;
+import ixdar.parsing.glsl.GLSLParseText;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.MouseTrap;
@@ -32,7 +34,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private float scrollOffsetY;
     private final float scrollSpeed;
     private final ArrayList<String> displayedLines = new ArrayList<>();
-    private final ArrayList<ParseText> cachedSuffixes = new ArrayList<>();
+    private final ArrayList<GLSLParseText> cachedSuffixes = new ArrayList<>();
     private float lastMouseX = Float.NaN;
     private float lastMouseY = Float.NaN;
     private final ShaderProgram targetShader;
@@ -124,7 +126,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             codeText.addDynamicWord(() -> updateCacheIfMouseMoved(), Color.BLUE_WHITE);
             for (String ln : fs.split("\n")) {
                 final int idx = gIndex;
-                final boolean isAssignment = ExpressionParser.isAssignmentLine(ln);
+                final boolean isAssignment = GLSLExpressionParser.isAssignmentLine(ln);
                 codeText.addDynamicWord(() -> {
                     ColorText<?> dyn = new ColorText<>("");
                     dyn.resetText();
@@ -185,7 +187,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             codeText.wrap();
             // Initialize cache to correct size
             for (int i = 0; i < displayedLines.size(); i++) {
-                cachedSuffixes.add(ParseText.BLANK);
+                cachedSuffixes.add(GLSLParseText.BLANK);
             }
             // Force recompute on first draw
             lastMouseX = Float.NaN;
@@ -196,15 +198,15 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         }
     }
 
-    private ParseText dynamicSuffix(int lineIndex) {
+    private GLSLParseText dynamicSuffix(int lineIndex) {
         if (lineIndex < 0 || lineIndex >= displayedLines.size()) {
-            return ParseText.BLANK;
+            return GLSLParseText.BLANK;
         }
-        ParseText cached = cachedSuffixes.get(lineIndex);
-        return cached != null ? cached : ParseText.BLANK;
+        GLSLParseText cached = cachedSuffixes.get(lineIndex);
+        return cached != null ? cached : GLSLParseText.BLANK;
     }
 
-    private ParseText updateCacheIfMouseMoved() {
+    private GLSLParseText updateCacheIfMouseMoved() {
         float mx = 0f;
         float my = 0f;
         if (crosshairLocked) {
@@ -215,10 +217,10 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             my = canvas.mouse.normalizedPosY;
         }
         if (!crosshairLocked && mx == lastMouseX && my == lastMouseY) {
-            return ParseText.BLANK;
+            return GLSLParseText.BLANK;
         }
-        Map<String, ParseText> env = uniformProvider.getUniformMap();
-        ParseText.put(env, "pos", mx, my, 0f);
+        Map<String, GLSLParseText> env = uniformProvider.getUniformMap();
+        GLSLParseText.put(env, "pos", mx, my, 0f);
         Quad q = uniformProvider.getQuad();
         if (q != null) {
             Vector2f m = new Vector2f(mx, my);
@@ -233,38 +235,38 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             float u = (am.dot(b) / b.lengthSquared());
             float v = (am.dot(c) / c.lengthSquared());
 
-            ParseText.put(env, "textureCoord", Math.clamp(u, 0, 1), Math.clamp(v, 0, 1));
-            ParseText.put(env, "scaledTextureCoord", Math.clamp(u * q.widthToHeightRatio, 0, q.texWidth),
+            GLSLParseText.put(env, "textureCoord", Math.clamp(u, 0, 1), Math.clamp(v, 0, 1));
+            GLSLParseText.put(env, "scaledTextureCoord", Math.clamp(u * q.widthToHeightRatio, 0, q.texWidth),
                     Math.clamp(v, 0, q.texHeight));
         }
         // Ensure cache size matches displayed lines
         if (cachedSuffixes.size() != displayedLines.size()) {
             cachedSuffixes.clear();
             for (int i = 0; i < displayedLines.size(); i++)
-                cachedSuffixes.add(ParseText.BLANK);
+                cachedSuffixes.add(GLSLParseText.BLANK);
         }
         for (int i = 0; i < displayedLines.size(); i++) {
             // placeholder sync to maintain size; actual suffixes will be set below
-            cachedSuffixes.set(i, ParseText.BLANK);
+            cachedSuffixes.set(i, GLSLParseText.BLANK);
         }
         // Delegate line-by-line evaluation with control flow to the parser
-        ExpressionParser.evaluateAndAssign(displayedLines, env, cachedSuffixes);
+        GLSLExpressionParser.evaluateAndAssign(displayedLines, env, cachedSuffixes);
         lastMouseX = mx;
         lastMouseY = my;
-        return ParseText.BLANK;
+        return GLSLParseText.BLANK;
     }
 
-    private ParseText mouseText() {
+    private GLSLParseText mouseText() {
         float mx = 0f, my = 0f;
         if (canvas.mouse != null) {
             mx = canvas.mouse.normalizedPosX;
             my = canvas.mouse.normalizedPosY;
         }
-        return new ParseText("mx=" + ParseText.formatFixed(mx) + " my=" + ParseText.formatFixed(my));
+        return new GLSLParseText("mx=" + GLSLParseText.formatFixed(mx) + " my=" + GLSLParseText.formatFixed(my));
     }
 
     public void draw(Camera2D camera) {
-        if(!loaded) {
+        if (!loaded) {
             loadCode(this.targetShader, this.title);
             loaded = true;
         }

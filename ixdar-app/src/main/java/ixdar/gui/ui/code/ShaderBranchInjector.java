@@ -5,6 +5,7 @@ import java.util.regex.Pattern;
 
 import ixdar.graphics.render.sdf.ShaderDrawable;
 import ixdar.graphics.render.shaders.ShaderProgram;
+import ixdar.parsing.glsl.GLSLExpressionParser;
 
 /**
  * Handles injection of debug preview assignments into shader source code for
@@ -32,11 +33,11 @@ public class ShaderBranchInjector {
             return;
         }
 
-        if (!ExpressionParser.isAssignmentLine(lines[lineIndex])) {
+        if (!GLSLExpressionParser.isAssignmentLine(lines[lineIndex])) {
             return;
         }
 
-        String outName = ExpressionParser.detectOutName(lines);
+        String outName = GLSLExpressionParser.detectOutName(lines);
 
         String clicked = lines[lineIndex];
         String indent = clicked.replaceAll("^(\\s*).*$", "$1");
@@ -172,7 +173,6 @@ public class ShaderBranchInjector {
 
                     if (k + 4 <= s.length() && s.substring(k, k + 4).equals("else")) {
 
-
                         if (localDepth == baseDepth - 1) {
                             elseHeader = i;
                             foundElse = true;
@@ -185,8 +185,6 @@ public class ShaderBranchInjector {
                 depthScan = localDepth;
             }
         }
-
-
 
         if (ifHeader >= 0 && elseHeader >= 0) {
 
@@ -400,7 +398,7 @@ public class ShaderBranchInjector {
 
     private void simpleTruncate(String[] lines, int lineIndex, int mainStart, int mainEnd, String outName, String expr,
             String indent) {
-        java.util.List<Boolean> execFlags = ExpressionParser.wouldExecute(java.util.Arrays.asList(lines),
+        java.util.List<Boolean> execFlags = GLSLExpressionParser.wouldExecute(java.util.Arrays.asList(lines),
                 uniformProvider.getUniformMap());
         java.util.List<String> newLines = new java.util.ArrayList<>();
         for (int i = 0; i <= lineIndex; i++)

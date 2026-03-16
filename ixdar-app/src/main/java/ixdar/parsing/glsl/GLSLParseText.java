@@ -1,4 +1,4 @@
-package ixdar.gui.ui.code;
+package ixdar.parsing.glsl;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -8,12 +8,12 @@ import org.joml.Vector4f;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.ColorText;
 
-public class ParseText extends ColorText<Vector4f> {
+public class GLSLParseText extends ColorText<Vector4f> {
     String key;
     int vectorLength;
-    public static final ParseText BLANK = new ParseText("", Color.BLUE_WHITE, new Vector4f(), -1, "BLANK");
+    public static final GLSLParseText BLANK = new GLSLParseText("", Color.BLUE_WHITE, new Vector4f(), -1, "BLANK");
 
-    public ParseText(String text, Color color, Vector4f data, int vectorLength, String key) {
+    public GLSLParseText(String text, Color color, Vector4f data, int vectorLength, String key) {
         super(text, color, data);
         transformVecText(data, vectorLength);
         this.vectorLength = vectorLength;
@@ -44,59 +44,59 @@ public class ParseText extends ColorText<Vector4f> {
         }
     }
 
-    public ParseText(String text, Color color, int vectorLength, String key) {
+    public GLSLParseText(String text, Color color, int vectorLength, String key) {
         this(text, color, new Vector4f(), vectorLength, key);
     }
 
-    public ParseText(String text, int vectorLength, String key) {
+    public GLSLParseText(String text, int vectorLength, String key) {
         this(text, Color.BLUE_WHITE, new Vector4f(), vectorLength, key);
     }
 
-    public ParseText(String text, Vector4f data, int vectorLength, String key) {
+    public GLSLParseText(String text, Vector4f data, int vectorLength, String key) {
         this(text, Color.BLUE_WHITE, data, vectorLength, key);
     }
 
-    ParseText(ParseText text, Vector4f data, int vectorLength, String key) {
+    GLSLParseText(GLSLParseText text, Vector4f data, int vectorLength, String key) {
         super(text, data);
         transformVecText(data, vectorLength);
         this.vectorLength = vectorLength;
         this.key = key;
     }
 
-    public ParseText() {
+    public GLSLParseText() {
         super();
     }
 
-    public ParseText(String text, Color color, int vectorLength) {
+    public GLSLParseText(String text, Color color, int vectorLength) {
         this(text, color, new Vector4f(), vectorLength, text);
     }
 
-    public ParseText(String text, Float val) {
+    public GLSLParseText(String text, Float val) {
         this(text, Color.BLUE_WHITE, new Vector4f(val, 0f, 0f, 0f), 1, "");
     }
 
-    public ParseText(Float val) {
+    public GLSLParseText(Float val) {
         this("", Color.BLUE_WHITE, new Vector4f(val, 0f, 0f, 0f), 1, "");
     }
 
-    public ParseText(String text, String key) {
+    public GLSLParseText(String text, String key) {
         this(text, Color.BLUE_WHITE, null, -1, key);
     }
 
-    public ParseText(String text) {
+    public GLSLParseText(String text) {
         this(text, Color.BLUE_WHITE, null, -1, null);
     }
 
-    public ParseText(String text, Color color) {
+    public GLSLParseText(String text, Color color) {
         this(text, color, null, -1, null);
     }
 
-    public ParseText(String text, Vector4f vec, int vectorLength) {
+    public GLSLParseText(String text, Vector4f vec, int vectorLength) {
         this(text, Color.BLUE_WHITE, vec, vectorLength, null);
     }
 
-    public ParseText join(ParseText v) {
-        ParseText result = new ParseText();
+    public GLSLParseText join(GLSLParseText v) {
+        GLSLParseText result = new GLSLParseText();
         result.text = new ArrayList<>(this.text);
         result.color = new ArrayList<>(this.color);
         result.data = this.data;
@@ -133,13 +133,13 @@ public class ParseText extends ColorText<Vector4f> {
         return s;
     }
 
-    public static void put(Map<String, ParseText> env, String var, Float... dv) {
+    public static void put(Map<String, GLSLParseText> env, String var, Float... dv) {
         if (dv == null || dv.length == 0) {
             return;
         }
         if (dv.length == 1) {
             Float value = dv[0];
-            env.put(var, new ParseText("", vecColors[0], new Vector4f(value, 0f, 0f, 0f), 1, var));
+            env.put(var, new GLSLParseText("", vecColors[0], new Vector4f(value, 0f, 0f, 0f), 1, var));
             return;
         }
         float[] xyzw = new float[4];
@@ -147,16 +147,16 @@ public class ParseText extends ColorText<Vector4f> {
             xyzw[i] = dv[i];
         }
         Vector4f result = new Vector4f(xyzw);
-        ParseText vectorString = new ParseText("", Color.PINK, result, dv.length, var);
+        GLSLParseText vectorString = new GLSLParseText("", Color.PINK, result, dv.length, var);
 
         env.put(var, vectorString);
     }
 
-    public static void putVec(Map<String, ParseText> env, String var, ArrayList<ParseText> dv) {
+    public static void putVec(Map<String, GLSLParseText> env, String var, ArrayList<GLSLParseText> dv) {
         Float[] data = new Float[4];
         int vectorLength = 0;
         for (int i = 0; i < dv.size(); i++) {
-            ParseText pt = dv.get(i);
+            GLSLParseText pt = dv.get(i);
             Vector4f vec = dv.get(i).getData();
             for(int k = vectorLength; k < vectorLength + pt.vectorLength; k ++){
                 data[k] = vec.get(k - vectorLength);

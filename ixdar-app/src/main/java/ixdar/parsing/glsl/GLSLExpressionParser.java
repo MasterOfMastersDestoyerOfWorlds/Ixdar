@@ -1,4 +1,4 @@
-package ixdar.gui.ui.code;
+package ixdar.parsing.glsl;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,21 +15,21 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.text.SpecialGlyphs;
 
-public class ExpressionParser {
+public class GLSLExpressionParser {
 
     private final String s;
     private int pos;
-    private final Map<String, ParseText> env;
+    private final Map<String, GLSLParseText> env;
 
-    public static final ParseText MISSING = new ParseText("?Missing?", Color.PINK, -1);
+    public static final GLSLParseText MISSING = new GLSLParseText("?Missing?", Color.PINK, -1);
 
-    ExpressionParser(String s, Map<String, ParseText> env) {
+    GLSLExpressionParser(String s, Map<String, GLSLParseText> env) {
         this.s = s;
         this.env = env;
         this.pos = 0;
     }
 
-    public static ParseText evaluateAndAssign(String line, Map<String, ParseText> env) {
+    public static GLSLParseText evaluateAndAssign(String line, Map<String, GLSLParseText> env) {
 
         String s = line;
         int cidx = s.indexOf("//");
@@ -75,7 +75,7 @@ public class ExpressionParser {
                 // Support assignment from an inline if-expression: var = if (cond) expr else
                 // expr
                 if (right.toLowerCase().startsWith("if")) {
-                    ParseText ifVal = evaluateIfElse(right, env);
+                    GLSLParseText ifVal = evaluateIfElse(right, env);
                     if (ifVal != null && ifVal.data != null) {
                         env.put(var, ifVal);
                         return ifVal;
@@ -85,25 +85,25 @@ public class ExpressionParser {
                 if (isSwizzle(right)) {
                     String base = right.substring(0, right.indexOf('.'));
                     String sw = right.substring(right.indexOf('.') + 1);
-                    ArrayList<ParseText> comps = resolveSwizzleVector(base, sw, env);
+                    ArrayList<GLSLParseText> comps = resolveSwizzleVector(base, sw, env);
                     if (comps != null && comps.size() > 0) {
-                        ParseText.putVec(env, var, comps);
+                        GLSLParseText.putVec(env, var, comps);
                         return env.get(var);
                     }
                 }
 
                 if (right.startsWith("vec") && right.contains("(") && right.endsWith(")")) {
-                    ArrayList<ParseText> vec = parseVec(right, env);
+                    ArrayList<GLSLParseText> vec = parseVec(right, env);
                     if (vec != null && vec.size() > 0) {
-                        ParseText.putVec(env, var, vec);
+                        GLSLParseText.putVec(env, var, vec);
                         return env.get(var);
                     } else {
-                        env.put(var, new ParseText(right, Color.BLUE_WHITE, -1));
+                        env.put(var, new GLSLParseText(right, Color.BLUE_WHITE, -1));
                         return env.get(var);
                     }
                 }
                 try {
-                    ParseText val = new ExpressionParser(right, env).parse();
+                    GLSLParseText val = new GLSLExpressionParser(right, env).parse();
                     if (val != null && val.data != null)
                         env.put(var, val);
                     return val;
@@ -117,7 +117,7 @@ public class ExpressionParser {
                 return null;
             }
             try {
-                return new ExpressionParser(s, env).parse();
+                return new GLSLExpressionParser(s, env).parse();
             } catch (Exception ex) {
                 return null;
             }
@@ -128,8 +128,8 @@ public class ExpressionParser {
     // Evaluate a whole set of code lines with control flow (if/else with braces)
     // and write per-line suffixes into cachedSuffixes. This avoids evaluating
     // assignments inside non-taken branches.
-    public static void evaluateAndAssign(List<String> lines, Map<String, ParseText> env,
-            List<ParseText> cachedSuffixes) {
+    public static void evaluateAndAssign(List<String> lines, Map<String, GLSLParseText> env,
+            List<GLSLParseText> cachedSuffixes) {
         if (lines == null || cachedSuffixes == null) {
             return;
         }
@@ -148,7 +148,7 @@ public class ExpressionParser {
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
             String original = line != null ? line : "";
-            ParseText out = ParseText.BLANK;
+            GLSLParseText out = GLSLParseText.BLANK;
 
             String s = original;
             int cidx = s.indexOf("//");
@@ -194,8 +194,8 @@ public class ExpressionParser {
                 braceDepth++;
 
                 boolean doExecThen = parentExec && thenExec;
-                ParseText boolVal = new ParseText(doExecThen ? "true" : "false", Color.GLSL_BOOLEAN);
-                cachedSuffixes.set(i, commentStart(boolVal).join(new ParseText(" = ")).join(boolVal));
+                GLSLParseText boolVal = new GLSLParseText(doExecThen ? "true" : "false", Color.GLSL_BOOLEAN);
+                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(" = ")).join(boolVal));
                 continue;
             }
 
@@ -216,8 +216,8 @@ public class ExpressionParser {
                 if (doExec) {
                     awaitingElseExec = false; // else-if taken: no further else
                 }
-                ParseText boolVal = new ParseText(doExec ? "true" : "false", Color.GLSL_BOOLEAN);
-                cachedSuffixes.set(i, commentStart(boolVal).join(new ParseText(" = ")).join(boolVal));
+                GLSLParseText boolVal = new GLSLParseText(doExec ? "true" : "false", Color.GLSL_BOOLEAN);
+                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(" = ")).join(boolVal));
                 continue;
             }
 
@@ -231,8 +231,8 @@ public class ExpressionParser {
                 braceDepth++;
                 awaitingElseExec = false; // consumed
 
-                ParseText boolVal = new ParseText(doExec ? "true" : "false", Color.GLSL_BOOLEAN);
-                cachedSuffixes.set(i, commentStart(boolVal).join(new ParseText(" = ")).join(boolVal));
+                GLSLParseText boolVal = new GLSLParseText(doExec ? "true" : "false", Color.GLSL_BOOLEAN);
+                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(" = ")).join(boolVal));
                 continue;
             }
 
@@ -252,40 +252,40 @@ public class ExpressionParser {
                     if (runThen && posHdr != null) {
                         String thenStmt = afterElse.substring(posHdr.closeIndex + 1).trim();
                         if (!thenStmt.isEmpty() && !thenStmt.startsWith("{")) {
-                            ParseText res = evaluateAndAssign(thenStmt, env);
+                            GLSLParseText res = evaluateAndAssign(thenStmt, env);
                             if (res != null) {
-                                out = commentStart(res).join(new ParseText(" = ")).join(res);
+                                out = commentStart(res).join(new GLSLParseText(" = ")).join(res);
                             }
                         } else {
-                            out = ParseText.BLANK;
+                            out = GLSLParseText.BLANK;
                         }
                     } else {
-                        out = ParseText.BLANK;
+                        out = GLSLParseText.BLANK;
                     }
                     // Only consume else chain if the else-if branch is taken
                     if (runThen) {
                         awaitingElseExec = false;
                     }
                     // Add boolean suffix for else-if decision
-                    ParseText boolVal = new ParseText(runThen ? "true" : "false", Color.GLSL_BOOLEAN);
+                    GLSLParseText boolVal = new GLSLParseText(runThen ? "true" : "false", Color.GLSL_BOOLEAN);
                     if (!runThen) {
-                        ParseText skip = new ParseText("SKIP", Color.GLSL_SKIP);
-                        cachedSuffixes.set(i, commentStart(skip).join(new ParseText(" = ")).join(skip));
+                        GLSLParseText skip = new GLSLParseText("SKIP", Color.GLSL_SKIP);
+                        cachedSuffixes.set(i, commentStart(skip).join(new GLSLParseText(" = ")).join(skip));
                     } else {
-                        cachedSuffixes.set(i, commentStart(boolVal).join(new ParseText(" = ")).join(boolVal));
+                        cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(" = ")).join(boolVal));
                     }
                     continue;
                 } else {
                     if (doExec && !afterElse.isEmpty()) {
-                        ParseText res = evaluateAndAssign(afterElse, env);
+                        GLSLParseText res = evaluateAndAssign(afterElse, env);
                         if (res != null) {
-                            out = commentStart(res).join(new ParseText(" = ")).join(res);
+                            out = commentStart(res).join(new GLSLParseText(" = ")).join(res);
                         }
                     } else if (!afterElse.isEmpty()) {
-                        ParseText skip = new ParseText("SKIP", Color.GLSL_SKIP);
-                        out = commentStart(skip).join(new ParseText(" = ")).join(skip);
+                        GLSLParseText skip = new GLSLParseText("SKIP", Color.GLSL_SKIP);
+                        out = commentStart(skip).join(new GLSLParseText(" = ")).join(skip);
                     } else {
-                        out = ParseText.BLANK;
+                        out = GLSLParseText.BLANK;
                     }
                     awaitingElseExec = false; // consumed
                 }
@@ -299,22 +299,22 @@ public class ExpressionParser {
                 if (decl.startsWith("uniform") || decl.startsWith("in")) {
                     String name = extractUniformName(decl);
                     if (name != null) {
-                        ParseText v = env.get(name);
+                        GLSLParseText v = env.get(name);
                         if (v != null) {
-                            out = commentStart(v).join(new ParseText(" = ")).join(v);
+                            out = commentStart(v).join(new GLSLParseText(" = ")).join(v);
                         }
                     }
                 } else {
-                    ParseText res = evaluateAndAssign(decl, env);
+                    GLSLParseText res = evaluateAndAssign(decl, env);
                     if (res != null) {
-                        out = commentStart(res).join(new ParseText(" = ")).join(res);
+                        out = commentStart(res).join(new GLSLParseText(" = ")).join(res);
                     }
                 }
             } else if (!executing && !skipControlOnlyLine(decl)) {
-                ParseText skip = new ParseText("SKIP", Color.GLSL_SKIP);
-                out = commentStart(skip).join(new ParseText(" = ")).join(skip);
+                GLSLParseText skip = new GLSLParseText("SKIP", Color.GLSL_SKIP);
+                out = commentStart(skip).join(new GLSLParseText(" = ")).join(skip);
             } else {
-                out = ParseText.BLANK;
+                out = GLSLParseText.BLANK;
             }
 
             cachedSuffixes.set(i, out);
@@ -325,7 +325,7 @@ public class ExpressionParser {
      * Compute, for each line, whether it would execute under the current env,
      * without mutating env or suffixes. Control-flow only (if/else/braces).
      */
-    public static java.util.List<Boolean> wouldExecute(List<String> lines, Map<String, ParseText> envSnapshot) {
+    public static java.util.List<Boolean> wouldExecute(List<String> lines, Map<String, GLSLParseText> envSnapshot) {
         java.util.ArrayList<Boolean> execFlags = new java.util.ArrayList<>();
         if (lines == null) {
             return execFlags;
@@ -521,16 +521,16 @@ public class ExpressionParser {
         return false;
     }
 
-    private static ParseText commentStart(ParseText res) {
+    private static GLSLParseText commentStart(GLSLParseText res) {
         if (res.vectorLength == 4) {
-            return new ParseText(SpecialGlyphs.COLOR_TRACKER.getChar() + "",
+            return new GLSLParseText(SpecialGlyphs.COLOR_TRACKER.getChar() + "",
                     new ColorRGB(res.data.x, res.data.y, res.data.z, res.data.w));
         } else {
-            return new ParseText("//");
+            return new GLSLParseText("//");
         }
     }
 
-    private static ParseText evaluateIfElse(String s, Map<String, ParseText> env) {
+    private static GLSLParseText evaluateIfElse(String s, Map<String, GLSLParseText> env) {
         // Expect: if (cond) thenPart [else elsePart]
         if (s == null) {
             return null;
@@ -579,18 +579,18 @@ public class ExpressionParser {
             return null;
         }
         // Evaluate chosen branch: allow either assignment or bare expression
-        ParseText res = evaluateAndAssign(chosen, env);
+        GLSLParseText res = evaluateAndAssign(chosen, env);
         if (res != null) {
             return res;
         }
         try {
-            return new ExpressionParser(chosen, env).parse();
+            return new GLSLExpressionParser(chosen, env).parse();
         } catch (Exception ex) {
             return null;
         }
     }
 
-    private static boolean evaluateCondition(String cond, Map<String, ParseText> env) {
+    private static boolean evaluateCondition(String cond, Map<String, GLSLParseText> env) {
         if (cond == null) {
             return false;
         }
@@ -603,8 +603,8 @@ public class ExpressionParser {
                 String op = cond.substring(idx, idx + len);
                 String left = cond.substring(0, idx).trim();
                 String right = cond.substring(idx + len).trim();
-                ParseText lv = new ExpressionParser(left, env).parse();
-                ParseText rv = new ExpressionParser(right, env).parse();
+                GLSLParseText lv = new GLSLExpressionParser(left, env).parse();
+                GLSLParseText rv = new GLSLExpressionParser(right, env).parse();
                 double l = lv.data.x;
                 double r = rv.data.x;
                 switch (op) {
@@ -625,7 +625,7 @@ public class ExpressionParser {
                 }
             } else {
                 // No comparator: non-zero is true
-                ParseText v = new ExpressionParser(cond, env).parse();
+                GLSLParseText v = new GLSLExpressionParser(cond, env).parse();
                 return Math.abs(v.data.x) > 1e-6;
             }
         } catch (Exception ex) {
@@ -746,25 +746,25 @@ public class ExpressionParser {
         return null;
     }
 
-    ParseText parse() {
-        ParseText v = parseExpr();
+    GLSLParseText parse() {
+        GLSLParseText v = parseExpr();
         skipWs();
         return v;
     }
 
-    private ParseText parseExpr() {
-        ParseText v = parseTerm();
+    private GLSLParseText parseExpr() {
+        GLSLParseText v = parseTerm();
         while (true) {
             skipWs();
             if (match('+')) {
-                ParseText r = parseTerm();
-                List<ParseText> list = new ArrayList<>();
+                GLSLParseText r = parseTerm();
+                List<GLSLParseText> list = new ArrayList<>();
                 list.add(v);
                 list.add(r);
                 v = applyTwoArgFunc((x, y) -> x + y, list);
             } else if (match('-')) {
-                ParseText r = parseTerm();
-                List<ParseText> list = new ArrayList<>();
+                GLSLParseText r = parseTerm();
+                List<GLSLParseText> list = new ArrayList<>();
                 list.add(v);
                 list.add(r);
                 v = applyTwoArgFunc((x, y) -> x - y, list);
@@ -774,19 +774,19 @@ public class ExpressionParser {
         }
     }
 
-    private ParseText parseTerm() {
-        ParseText v = parseFactor();
+    private GLSLParseText parseTerm() {
+        GLSLParseText v = parseFactor();
         while (true) {
             skipWs();
             if (match('*')) {
-                ParseText r = parseFactor();
-                List<ParseText> list = new ArrayList<>();
+                GLSLParseText r = parseFactor();
+                List<GLSLParseText> list = new ArrayList<>();
                 list.add(v);
                 list.add(r);
                 v = applyTwoArgFunc((x, y) -> x * y, list);
             } else if (match('/')) {
-                ParseText r = parseFactor();
-                List<ParseText> list = new ArrayList<>();
+                GLSLParseText r = parseFactor();
+                List<GLSLParseText> list = new ArrayList<>();
                 list.add(v);
                 list.add(r);
                 v = applyTwoArgFunc((x, y) -> x / y, list);
@@ -796,18 +796,18 @@ public class ExpressionParser {
         }
     }
 
-    private ParseText parseFactor() {
+    private GLSLParseText parseFactor() {
         skipWs();
         if (match('+')) {
             return parseFactor();
         }
         if (match('-')) {
-            ParseText f = parseFactor();
+            GLSLParseText f = parseFactor();
             Vector4f out = new Vector4f(f.data).negate();
-            return new ParseText("", Color.GLSL_FLOAT, out, f.vectorLength, "");
+            return new GLSLParseText("", Color.GLSL_FLOAT, out, f.vectorLength, "");
         }
         if (match('(')) {
-            ParseText v = parseExpr();
+            GLSLParseText v = parseExpr();
             expect(')');
             return v;
         }
@@ -815,7 +815,7 @@ public class ExpressionParser {
             String ident = parseIdent();
             skipWs();
             if (match('(')) {
-                List<ParseText> args = new ArrayList<>();
+                List<GLSLParseText> args = new ArrayList<>();
                 skipWs();
                 if (!peekIs(')')) {
                     do {
@@ -845,12 +845,12 @@ public class ExpressionParser {
         return parseNumberOrParenExpr();
     }
 
-    private ParseText parseNumberOrParenExpr() {
+    private GLSLParseText parseNumberOrParenExpr() {
         skipWs();
         int start = pos;
         // Allow nested parenthesis and unary before numbers
         if (match('(')) {
-            ParseText inner = parseExpr();
+            GLSLParseText inner = parseExpr();
             expect(')');
             return inner;
         }
@@ -868,7 +868,7 @@ public class ExpressionParser {
             throw new RuntimeException("Expected number at " + pos);
         }
         Float val = Float.parseFloat(s.substring(start, pos));
-        return new ParseText(val);
+        return new GLSLParseText(val);
     }
 
     private String parseIdent() {
@@ -878,17 +878,17 @@ public class ExpressionParser {
         return s.substring(start, pos);
     }
 
-    private ParseText resolveVar(String name) {
+    private GLSLParseText resolveVar(String name) {
         if ("quarterPI".equalsIgnoreCase(name))
-            return new ParseText("quarterPI", (float) Math.PI / 4f);
+            return new GLSLParseText("quarterPI", (float) Math.PI / 4f);
         if ("pi".equalsIgnoreCase(name))
-            return new ParseText("pi", (float) Math.PI);
+            return new GLSLParseText("pi", (float) Math.PI);
         if ("halfpi".equalsIgnoreCase(name))
-            return new ParseText("halfpi", (float) Math.PI / 2f);
+            return new GLSLParseText("halfpi", (float) Math.PI / 2f);
         if ("TAU".equalsIgnoreCase(name))
-            return new ParseText("TAU", (float) (Math.PI * 2.0f));
+            return new GLSLParseText("TAU", (float) (Math.PI * 2.0f));
         if ("e".equalsIgnoreCase(name))
-            return new ParseText("e", (float) Math.E);
+            return new GLSLParseText("e", (float) Math.E);
 
         int dotIdx = name.indexOf('.');
         if (dotIdx > 0 && dotIdx == name.lastIndexOf('.')) {
@@ -903,17 +903,17 @@ public class ExpressionParser {
                     xyzw[i] = org.get(component);
                 }
                 Vector4f vec = new Vector4f(xyzw);
-                return new ParseText(name, vec, vectorLength);
+                return new GLSLParseText(name, vec, vectorLength);
             }
         }
-        ParseText v = env.get(name);
+        GLSLParseText v = env.get(name);
         if (v == null) {
             throw new RuntimeException("Unknown variable: " + name);
         }
         return v;
     }
 
-    private ParseText applyFunc(String name, List<ParseText> a) {
+    private GLSLParseText applyFunc(String name, List<GLSLParseText> a) {
         switch (name) {
         case "sin":
             return applyOneArgFunc(Math::sin, a);
@@ -957,10 +957,10 @@ public class ExpressionParser {
         }
         case "float": {
             // GLSL float(x): cast to float; we just forward the value (use first component)
-            ParseText arg = a.get(0);
+            GLSLParseText arg = a.get(0);
             Vector4f v = arg.data;
             Vector4f res = new Vector4f(v.x, 0f, 0f, 0f);
-            return new ParseText(s, res, 1, "");
+            return new GLSLParseText(s, res, 1, "");
         }
         case "smoothstep": {
             return applyThreeArgFunc((edge0, edge1, x) -> {
@@ -985,15 +985,15 @@ public class ExpressionParser {
         case "vec4":
             return constructVecN(4, a);
         default:
-            return ParseText.BLANK;
+            return GLSLParseText.BLANK;
         }
     }
 
-    private ParseText constructVecN(int n, List<ParseText> args) {
+    private GLSLParseText constructVecN(int n, List<GLSLParseText> args) {
         float[] out = new float[4];
         int filled = 0;
         for (int i = 0; i < args.size() && filled < n; i++) {
-            ParseText a = args.get(i);
+            GLSLParseText a = args.get(i);
             int len = Math.max(1, a.vectorLength);
             for (int k = 0; k < len && filled < n; k++) {
                 out[filled++] = a.data.get(Math.min(k, len - 1));
@@ -1002,23 +1002,23 @@ public class ExpressionParser {
         while (filled < n)
             out[filled++] = 0f;
         Vector4f result = new Vector4f(out);
-        return new ParseText(s, result, n, "");
+        return new GLSLParseText(s, result, n, "");
     }
 
-    private ParseText applyOneArgFunc(Function<Double, Double> func, List<ParseText> a) {
-        ParseText arg = a.get(0);
+    private GLSLParseText applyOneArgFunc(Function<Double, Double> func, List<GLSLParseText> a) {
+        GLSLParseText arg = a.get(0);
         Vector4f data = arg.data;
         float[] result = new float[4];
         for (int i = 0; i < arg.vectorLength; i++) {
             result[i] = func.apply((double) data.get(i)).floatValue();
         }
         Vector4f resultVec = new Vector4f(result);
-        return new ParseText(s, resultVec, arg.vectorLength, "");
+        return new GLSLParseText(s, resultVec, arg.vectorLength, "");
     }
 
-    private ParseText applyTwoArgFunc(BiFunction<Double, Double, Double> func, List<ParseText> a) {
-        ParseText lhs = a.get(0);
-        ParseText rhs = a.get(1);
+    private GLSLParseText applyTwoArgFunc(BiFunction<Double, Double, Double> func, List<GLSLParseText> a) {
+        GLSLParseText lhs = a.get(0);
+        GLSLParseText rhs = a.get(1);
         Vector4f l = lhs.data;
         Vector4f r = rhs.data;
         int len = Math.max(lhs.vectorLength, rhs.vectorLength);
@@ -1031,12 +1031,12 @@ public class ExpressionParser {
             result[i] = func.apply((double) l.get(li), (double) r.get(ri)).floatValue();
         }
         Vector4f resultVec = new Vector4f(result);
-        return new ParseText(s, resultVec, len, "");
+        return new GLSLParseText(s, resultVec, len, "");
     }
 
-    private ParseText applyTwoArgFuncSum(BiFunction<Double, Double, Double> func, List<ParseText> a) {
-        ParseText lhs = a.get(0);
-        ParseText rhs = a.get(1);
+    private GLSLParseText applyTwoArgFuncSum(BiFunction<Double, Double, Double> func, List<GLSLParseText> a) {
+        GLSLParseText lhs = a.get(0);
+        GLSLParseText rhs = a.get(1);
         Vector4f l = lhs.data;
         Vector4f r = rhs.data;
         int len = Math.max(lhs.vectorLength, rhs.vectorLength);
@@ -1049,28 +1049,28 @@ public class ExpressionParser {
         float[] result = new float[4];
         result[0] = sum;
         Vector4f resultVec = new Vector4f(result);
-        return new ParseText(s, resultVec, 1, "");
+        return new GLSLParseText(s, resultVec, 1, "");
     }
 
-    private ParseText applyThreeArgFunc(TriFunction<Double, Double, Double, Double> func, List<ParseText> a) {
-        ParseText arg = a.get(0);
+    private GLSLParseText applyThreeArgFunc(TriFunction<Double, Double, Double, Double> func, List<GLSLParseText> a) {
+        GLSLParseText arg = a.get(0);
         Vector4f data = arg.data;
-        ParseText arg2 = a.get(1);
+        GLSLParseText arg2 = a.get(1);
         Vector4f data2 = arg2.data;
-        ParseText arg3 = a.get(2);
+        GLSLParseText arg3 = a.get(2);
         Vector4f data3 = arg3.data;
         float[] result = new float[4];
         for (int i = 0; i < arg.vectorLength; i++) {
             result[i] = func.apply((double) data.get(i), (double) data2.get(i), (double) data3.get(i)).floatValue();
         }
         Vector4f resultVec = new Vector4f(result);
-        return new ParseText(s, resultVec, arg.vectorLength, "");
+        return new GLSLParseText(s, resultVec, arg.vectorLength, "");
     }
 
-    private ParseText mixFunc(List<ParseText> a) {
-        ParseText x = a.get(0);
-        ParseText y = a.get(1);
-        ParseText t = a.get(2);
+    private GLSLParseText mixFunc(List<GLSLParseText> a) {
+        GLSLParseText x = a.get(0);
+        GLSLParseText y = a.get(1);
+        GLSLParseText t = a.get(2);
         Vector4f xv = x.data;
         Vector4f yv = y.data;
         Vector4f tv = t.data;
@@ -1087,13 +1087,13 @@ public class ExpressionParser {
             result[i] = (float) (xv.get(xi) * (1.0 - tt) + yv.get(yi) * tt);
         }
         Vector4f resultVec = new Vector4f(result);
-        return new ParseText(s, resultVec, len, "");
+        return new GLSLParseText(s, resultVec, len, "");
     }
 
-    private ParseText distanceFunc(List<ParseText> a) {
-        ParseText arg = a.get(0);
+    private GLSLParseText distanceFunc(List<GLSLParseText> a) {
+        GLSLParseText arg = a.get(0);
         Vector4f data = arg.data;
-        ParseText arg2 = a.get(1);
+        GLSLParseText arg2 = a.get(1);
         Vector4f data2 = arg2.data;
         float result = 0.0f;
         for (int i = 0; i < arg.vectorLength; i++) {
@@ -1101,7 +1101,7 @@ public class ExpressionParser {
         }
 
         Vector4f resultVec = new Vector4f((float) Math.sqrt(result), 0f, 0f, 0f);
-        return new ParseText(s, resultVec, 1, "");
+        return new GLSLParseText(s, resultVec, 1, "");
     }
 
     private void skipWs() {
@@ -1155,7 +1155,7 @@ public class ExpressionParser {
         return null;
     }
 
-    private static ArrayList<ParseText> parseVec(String expr, Map<String, ParseText> env) {
+    private static ArrayList<GLSLParseText> parseVec(String expr, Map<String, GLSLParseText> env) {
         int l = expr.indexOf('(');
         int r = expr.lastIndexOf(')');
         if (l < 0 || r < 0 || r <= l + 1)
@@ -1176,9 +1176,9 @@ public class ExpressionParser {
                 expanded.add(t);
             }
         }
-        ArrayList<ParseText> vals = new ArrayList<>();
+        ArrayList<GLSLParseText> vals = new ArrayList<>();
         for (String p : expanded) {
-            ParseText v = evalSimple(p.trim(), env);
+            GLSLParseText v = evalSimple(p.trim(), env);
             if (v == null) {
                 return null;
             }
@@ -1281,25 +1281,25 @@ public class ExpressionParser {
         }
     }
 
-    private static ArrayList<ParseText> resolveSwizzleVector(String base, String sw,
-            Map<String, ParseText> env) {
+    private static ArrayList<GLSLParseText> resolveSwizzleVector(String base, String sw,
+            Map<String, GLSLParseText> env) {
         if (!isValidSwizzle(sw))
             return null;
-        ArrayList<ParseText> list = new ArrayList<>();
+        ArrayList<GLSLParseText> list = new ArrayList<>();
         for (int i = 0; i < sw.length(); i++) {
             int component = componentSuffix(sw.charAt(i));
-            ParseText e = MISSING;
+            GLSLParseText e = MISSING;
             if (env.get(base) != null) {
-                e = new ParseText(env.get(base).getData().get(component));
+                e = new GLSLParseText(env.get(base).getData().get(component));
             }
             list.add(e);
         }
         return list;
     }
 
-    private static ParseText evalSimple(String token, Map<String, ParseText> env) {
+    private static GLSLParseText evalSimple(String token, Map<String, GLSLParseText> env) {
         try {
-            return new ExpressionParser(token, env).parse();
+            return new GLSLExpressionParser(token, env).parse();
         } catch (Exception e) {
             return MISSING;
         }

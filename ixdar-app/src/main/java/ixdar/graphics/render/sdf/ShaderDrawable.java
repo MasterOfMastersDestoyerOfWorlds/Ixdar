@@ -13,7 +13,7 @@ import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;
-import ixdar.gui.ui.code.ParseText;
+import ixdar.parsing.glsl.GLSLParseText;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.IxBuffer;
@@ -150,35 +150,35 @@ public abstract class ShaderDrawable {
         throw new UnsupportedOperationException("Unimplemented method");
     }
 
-    public Map<String, ParseText> getUniformMap() {
-        Map<String, ParseText> map = new HashMap<>();
+    public Map<String, GLSLParseText> getUniformMap() {
+        Map<String, GLSLParseText> map = new HashMap<>();
         Map<String, Object> uniformMap = shader.uniformMap;
         for (String key : uniformMap.keySet()) {
             Object value = uniformMap.get(key);
             if (value instanceof Float) {
                 Float f = (Float) value;
-                ParseText.put(map, key, f);
+                GLSLParseText.put(map, key, f);
             } else if (value instanceof Boolean) {
                 Boolean b = (Boolean) value;
 
-                map.put(key, new ParseText(b ? "tru" : "false", ixdar.graphics.render.color.Color.GLSL_BOOLEAN,
+                map.put(key, new GLSLParseText(b ? "tru" : "false", ixdar.graphics.render.color.Color.GLSL_BOOLEAN,
                         new Vector4f(b ? 1f : 0f, 0f, 0f, 0f), 1, key));
             } else if (value instanceof Vector2f) {
                 Vector2f vec2 = (Vector2f) value;
-                ParseText.put(map, key, vec2.x, vec2.y);
+                GLSLParseText.put(map, key, vec2.x, vec2.y);
             } else if (value instanceof Vector3f) {
                 Vector3f vec3 = (Vector3f) value;
-                ParseText.put(map, key, vec3.x, vec3.y, vec3.z);
+                GLSLParseText.put(map, key, vec3.x, vec3.y, vec3.z);
             } else if (value instanceof Vector4f) {
                 Vector4f vec4 = (Vector4f) value;
-                ParseText.put(map, key, vec4.x, vec4.y, vec4.z, vec4.w);
+                GLSLParseText.put(map, key, vec4.x, vec4.y, vec4.z, vec4.w);
             } else if (value instanceof FloatBuffer) {
 
             } else if (value instanceof Matrix4f) {
 
             } else if (value instanceof Texture) {
                 Texture texture = (Texture) value;
-                map.put(key, new ParseText(texture.toString(), key));
+                map.put(key, new GLSLParseText(texture.toString(), key));
             }
 
         }
