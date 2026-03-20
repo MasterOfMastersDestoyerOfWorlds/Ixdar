@@ -176,7 +176,7 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     private HalfEdgeMesh buildViewerMesh() {
-        MeshNode sphereNode = new UVSphereMeshNode();
+        MeshNode sphereNode = new IcosphereMeshNode();
         MapNodeContext context = new MapNodeContext(sphereNode);
         sphereNode.evaluate(context);
         return context.getOutput("mesh", HalfEdgeMesh.class);
