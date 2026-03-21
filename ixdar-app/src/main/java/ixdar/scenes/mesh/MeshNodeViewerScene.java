@@ -180,6 +180,11 @@ public class MeshNodeViewerScene extends Scene {
         return mesh == null ? new Vector3f(HALF_EXTENT, HALF_EXTENT, HALF_EXTENT) : mesh.boundsMax(new Vector3f());
     }
 
+    /** Current mesh from the DSL graph, or null before async load completes. */
+    public HalfEdgeMesh getMesh() {
+        return mesh;
+    }
+
     private void disposeMeshRuntime() {
         if (meshRuntime != null) {
             meshRuntime.dispose();

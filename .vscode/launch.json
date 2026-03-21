@@ -154,8 +154,7 @@
       "args": "icosphere-save-point-canvas",
       "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
-    }
-,
+    },
     {
       "type": "java",
       "name": "Mesh Node Viewer",

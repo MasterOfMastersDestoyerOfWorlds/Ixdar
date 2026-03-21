@@ -57,6 +57,12 @@ public class AutomationApiServer {
             }
             writeJson(exchange, runtime.uiState());
         });
+        server.createContext("/ui/mesh/fingerprint", exchange -> {
+            if (!requireMethod(exchange, "GET")) {
+                return;
+            }
+            writeJson(exchange, runtime.meshFingerprint());
+        });
         server.createContext("/ui/screenshot", this::screenshotHandler);
         server.createContext("/input/click", this::clickHandler);
         server.createContext("/input/hover", this::hoverHandler);

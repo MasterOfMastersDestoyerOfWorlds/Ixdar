@@ -1,5 +1,6 @@
 """Registry-backed scenario helpers for higher-level automation flows."""
 
+import os
 from typing import Literal
 
 try:
@@ -10,6 +11,7 @@ try:
         toolbar_button_center,
     )
     from ..cli_registry import CliCommandResult, cli_command
+    from ..quilt_mesh_fingerprint import ALGORITHM_ID, sha256_hex_from_obj_path
     from ..trade_scenarios import click_until_scene_transition, start_new_game
 except ImportError:
     from automation_client import (
@@ -19,6 +21,7 @@ except ImportError:
         toolbar_button_center,
     )
     from cli_registry import CliCommandResult, cli_command
+    from quilt_mesh_fingerprint import ALGORITHM_ID, sha256_hex_from_obj_path
     from trade_scenarios import click_until_scene_transition, start_new_game
 
 
@@ -132,6 +135,60 @@ def mesh_probe(client: AutomationClient, out: str = "") -> dict:
             "height": screenshot.get("height"),
         },
     }
+
+
+def _default_quilt_reference_obj() -> str:
+    return os.path.normpath(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "ixdar-app",
+            "test",
+            "resources",
+            "test-meshes",
+            "quilting_cube.obj",
+        )
+    )
+
+
+@cli_command(name="quilt-mesh-compare")
+def quilt_mesh_compare(client: AutomationClient, reference: str = "") -> CliCommandResult:
+    """Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as Java).
+
+    :param reference: Path to reference OBJ, or empty to use ixdar-app/test/resources/test-meshes/quilting_cube.obj relative to the Ixdar repo root.
+    """
+    ref_path = reference.strip() or _default_quilt_reference_obj()
+    if not os.path.isfile(ref_path):
+        return CliCommandResult(
+            payload={"ok": False, "error": f"Reference OBJ not found: {ref_path}"},
+            exit_code=6,
+        )
+    live = client.mesh_fingerprint()
+    if not live.get("ok", False):
+        return CliCommandResult(
+            payload={
+                "ok": False,
+                "error": live.get("error", "mesh fingerprint failed"),
+                "live": live,
+            },
+            exit_code=6,
+        )
+    ref_sha = sha256_hex_from_obj_path(ref_path)
+    live_sha = str(live.get("sha256", ""))
+    match = ref_sha == live_sha and live.get("algorithm") == ALGORITHM_ID
+    payload = {
+        "ok": match,
+        "algorithm": ALGORITHM_ID,
+        "liveSha256": live_sha,
+        "referenceSha256": ref_sha,
+        "referencePath": os.path.abspath(ref_path),
+        "vertexCount": live.get("vertexCount"),
+        "triangleCount": live.get("triangleCount"),
+    }
+    if not match:
+        return CliCommandResult(payload=payload, exit_code=7)
+    return CliCommandResult(payload=payload)
 
 
 @cli_command(name="assert-tooltip")

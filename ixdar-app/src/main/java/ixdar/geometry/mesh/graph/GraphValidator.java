@@ -130,6 +130,9 @@ public final class GraphValidator {
         if (from == PortType.GEOMETRY_BUNDLE && to == PortType.MESH) {
             return true;
         }
+        if (from == PortType.CLOSURE && to == PortType.CLOSURE) {
+            return true;
+        }
         return false;
     }
 

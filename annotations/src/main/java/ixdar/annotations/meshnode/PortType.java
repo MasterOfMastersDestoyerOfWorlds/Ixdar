@@ -8,7 +8,9 @@ public enum PortType {
     BOOLEAN(Boolean.class),
     VECTOR3(Vector3Value.class),
     STRING(String.class),
-    ROTATION(RotationValue.class);
+    ROTATION(RotationValue.class),
+    /** Float curve / closure payload (runtime object, e.g. FloatCurveKernel). */
+    CLOSURE(Object.class);
 
     private final Class<?> valueType;
 

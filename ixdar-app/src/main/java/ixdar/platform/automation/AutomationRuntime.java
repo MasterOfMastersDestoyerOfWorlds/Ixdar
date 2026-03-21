@@ -35,6 +35,8 @@ import ixdar.graphics.render.text.HyperWord;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.menu.MenuItem;
 import ixdar.gui.ui.tools.RoutePlanningTool;
+import ixdar.geometry.mesh.MeshCanonicalFingerprint;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.point.IrregularQuadGrid;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.KeyGuy;
@@ -164,6 +166,38 @@ public class AutomationRuntime {
 
     public void recordAbstractAction(String type, JsonObject payload) {
         recorder.recordAbstract(type, payload);
+    }
+
+    public JsonObject meshFingerprint() {
+        try {
+            return runOnMainThread(() -> {
+                JsonObject result = new JsonObject();
+                result.addProperty("algorithm", MeshCanonicalFingerprint.ALGORITHM_ID);
+                if (!(canvas instanceof MeshNodeViewerScene)) {
+                    result.addProperty("ok", false);
+                    result.addProperty("error", "MeshNodeViewerScene is not active");
+                    return result;
+                }
+                MeshNodeViewerScene mvs = (MeshNodeViewerScene) canvas;
+                HalfEdgeMesh mesh = mvs.getMesh();
+                if (mesh == null) {
+                    result.addProperty("ok", false);
+                    result.addProperty("error", "Mesh not loaded yet");
+                    return result;
+                }
+                result.addProperty("ok", true);
+                result.addProperty("sha256", MeshCanonicalFingerprint.sha256Hex(mesh));
+                result.addProperty("vertexCount", mesh.vertexCount());
+                result.addProperty("faceCount", mesh.faceCount());
+                result.addProperty("triangleCount", MeshCanonicalFingerprint.triangleCount(mesh));
+                return result;
+            });
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", e.getMessage() == null ? "" : e.getMessage());
+            return err;
+        }
     }
 
     public JsonObject captureScreenshot(String outputPath, boolean inlineBase64) throws Exception {

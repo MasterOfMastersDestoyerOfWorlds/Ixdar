@@ -1,9 +1,12 @@
 import io
 import json
+import os
+import tempfile
 import unittest
 from unittest.mock import patch
 
 from ixdar_automation_cli import ixdar_cli
+from ixdar_automation_cli import quilt_mesh_fingerprint
 from ixdar_automation_cli.cli_registry import cli_command, get_registry
 
 
@@ -28,6 +31,7 @@ class CliTest(unittest.TestCase):
         self.assertIn("health", registry)
         self.assertIn("assert-tooltip", registry)
         self.assertIn("trade-hover-scan", registry)
+        self.assertIn("quilt-mesh-compare", registry)
 
     @patch("urllib.request.urlopen")
     def test_health_command(self, urlopen):
@@ -192,6 +196,51 @@ class CliTest(unittest.TestCase):
         urlopen.side_effect = [FakeResponse(payload) for payload in responses]
         exit_code = ixdar_cli.main(["mesh-probe", "--out", "mesh.png"])
         self.assertEqual(0, exit_code)
+
+    @patch("urllib.request.urlopen")
+    def test_quilt_mesh_compare_matches_when_hashes_equal(self, urlopen):
+        obj = "v 0 0 0\nv 1 0 0\nv 1 1 0\nf 1 2 3\n"
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".obj", delete=False, encoding="utf-8") as f:
+            f.write(obj)
+            path = f.name
+        try:
+            ref = quilt_mesh_fingerprint.sha256_hex_from_obj_path(path)
+            urlopen.return_value = FakeResponse(
+                {
+                    "ok": True,
+                    "algorithm": quilt_mesh_fingerprint.ALGORITHM_ID,
+                    "sha256": ref,
+                    "vertexCount": 3,
+                    "triangleCount": 1,
+                }
+            )
+            exit_code = ixdar_cli.main(["quilt-mesh-compare", "--reference", path])
+            self.assertEqual(0, exit_code)
+            request = urlopen.call_args.args[0]
+            self.assertEqual("GET", request.method)
+        finally:
+            os.unlink(path)
+
+    @patch("urllib.request.urlopen")
+    def test_quilt_mesh_compare_fails_on_hash_mismatch(self, urlopen):
+        obj = "v 0 0 0\nv 1 0 0\nv 1 1 0\nf 1 2 3\n"
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".obj", delete=False, encoding="utf-8") as f:
+            f.write(obj)
+            path = f.name
+        try:
+            urlopen.return_value = FakeResponse(
+                {
+                    "ok": True,
+                    "algorithm": quilt_mesh_fingerprint.ALGORITHM_ID,
+                    "sha256": "0" * 64,
+                    "vertexCount": 3,
+                    "triangleCount": 1,
+                }
+            )
+            exit_code = ixdar_cli.main(["quilt-mesh-compare", "--reference", path])
+            self.assertEqual(7, exit_code)
+        finally:
+            os.unlink(path)
 
     @patch("urllib.request.urlopen")
     def test_assert_tooltip_includes_trade_tooltip_when_enabled(self, urlopen):

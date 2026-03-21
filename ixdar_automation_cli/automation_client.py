@@ -99,6 +99,10 @@ class AutomationClient:
     def ui_state(self) -> dict:
         return self.request_json("/ui/state")
 
+    def mesh_fingerprint(self) -> dict:
+        """Return canonical mesh SHA-256 from the mesh viewer (GET /ui/mesh/fingerprint)."""
+        return self.request_json("/ui/mesh/fingerprint")
+
     def screenshot(self, out_path: str = "", inline: bool = False) -> dict:
         return self.request_json("/ui/screenshot", {"path": out_path, "inline": inline})
 

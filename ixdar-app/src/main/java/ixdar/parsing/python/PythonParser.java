@@ -93,6 +93,10 @@ public class PythonParser {
             float val = Float.parseFloat(current.value);
             advance();
             return val;
+        } else if (current.type == TokenType.STRING) {
+            String val = current.value;
+            advance();
+            return val;
         } else if (current.type == TokenType.IDENTIFIER) {
             String id = consume(TokenType.IDENTIFIER, "Expected identifier").value;
             if (current.type == TokenType.DOT) {

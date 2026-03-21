@@ -2,7 +2,7 @@ package ixdar.parsing.python;
 
 public class PythonLexer {
     public enum TokenType {
-        IDENTIFIER, NUMBER, EQUALS, LPAREN, RPAREN, COMMA, DOT, EOF
+        IDENTIFIER, NUMBER, STRING, EQUALS, LPAREN, RPAREN, COMMA, DOT, EOF
     }
 
     public static class Token {
@@ -33,6 +33,9 @@ public class PythonLexer {
             return readIdentifier();
         if (Character.isDigit(c) || c == '-')
             return readNumber();
+        if (c == '"') {
+            return readString();
+        }
 
         pos++;
         switch (c) {
@@ -83,5 +86,37 @@ public class PythonLexer {
             pos++;
         }
         return new Token(TokenType.NUMBER, input.substring(start, pos));
+    }
+
+    private Token readString() {
+        pos++; // opening "
+        StringBuilder sb = new StringBuilder();
+        while (pos < input.length()) {
+            char c = input.charAt(pos);
+            if (c == '"') {
+                pos++;
+                return new Token(TokenType.STRING, sb.toString());
+            }
+            if (c == '\\' && pos + 1 < input.length()) {
+                pos++;
+                char c2 = input.charAt(pos++);
+                sb.append(switch (c2) {
+                    case 'n' -> '\n';
+                    case 'r' -> '\r';
+                    case 't' -> '\t';
+                    case '\\' -> '\\';
+                    case '"' -> '"';
+                    default -> c2;
+                });
+                continue;
+            }
+            sb.append(c);
+            pos++;
+        }
+        throw new RuntimeException("Unterminated string literal at " + startPosDebug());
+    }
+
+    private int startPosDebug() {
+        return Math.max(0, pos - 1);
     }
 }
