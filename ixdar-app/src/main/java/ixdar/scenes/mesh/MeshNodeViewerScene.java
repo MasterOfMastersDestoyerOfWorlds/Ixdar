@@ -22,8 +22,8 @@ import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "mesh-viewer")
 public class MeshNodeViewerScene extends Scene {
-    /** Classpath resource (under {@code src/main/resources/}), same layout as {@code glsl/} for shaders. */
-    private static final String DSL_RESOURCE = "dsl/tool_quilt_mock.dsl";
+    private static final String DSL_FOLDER = "dsl";
+    private static final String DSL_RESOURCE = "tool_quilt_mock.dsl";
     private static final String DSL_FINAL_NODE = "quilt_out";
     private static final String DSL_FINAL_PORT = "geometry";
 
@@ -42,8 +42,39 @@ public class MeshNodeViewerScene extends Scene {
     public void initGL() {
         super.initGL();
         Platforms.gl().setWindowTitle("Ixdar : Mesh Node Viewer");
-        initCameraControls();
-        initMeshRuntime();
+        MenuBox.menuVisible = false;
+        keys = new KeyGuy(camera, this);
+        orbitMouse = new OrbitMouseTrap(camera, this);
+        orbitMouse.setTarget(meshCenter);
+        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
+        mouse = orbitMouse;
+        AutomationInputBinder.bind(Platforms.get(), keys, mouse);
+        try {
+            Platforms.get().loadSourceAsync(DSL_FOLDER, DSL_RESOURCE, Platforms.gl().getPlatformID(), dslCode -> {
+                PythonLexer lexer = new PythonLexer(dslCode);
+                PythonParser parser = new PythonParser(lexer);
+                List<PythonParser.ParsedNode> ast = parser.parseGraph();
+        
+                NodeGraphRuntime runtime = new NodeGraphRuntime();
+                runtime.registerAllFromAnnotationRegistry();
+                try {
+                    mesh = runtime.executeGraphToMesh(ast, DSL_FINAL_NODE, DSL_FINAL_PORT);
+                    meshRuntime = new HalfEdgeMeshRuntime();
+                } catch (Exception e) {
+                    throw new IllegalStateException("Failed to execute graph", e);
+                }
+                meshRuntime.upload(mesh);
+                meshRuntime.frameCamera(camera);
+                meshCenter.set(mesh.center(new Vector3f()));
+                if (orbitMouse != null) {
+                    orbitMouse.setTarget(meshCenter);
+                    orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
+                }
+            });
+
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to initialize mesh viewer runtime", e);
+        }
     }
 
     @Override
@@ -147,76 +178,6 @@ public class MeshNodeViewerScene extends Scene {
 
     public Vector3f getBoundingBoxMax() {
         return mesh == null ? new Vector3f(HALF_EXTENT, HALF_EXTENT, HALF_EXTENT) : mesh.boundsMax(new Vector3f());
-    }
-
-    private void initCameraControls() {
-        MenuBox.menuVisible = false;
-        keys = new KeyGuy(camera, this);
-        orbitMouse = new OrbitMouseTrap(camera, this);
-        orbitMouse.setTarget(meshCenter);
-        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
-        mouse = orbitMouse;
-        AutomationInputBinder.bind(Platforms.get(), keys, mouse);
-    }
-
-    private void initMeshRuntime() {
-        try {
-            mesh = buildViewerMesh();
-            meshRuntime = new HalfEdgeMeshRuntime();
-            meshRuntime.upload(mesh);
-            meshRuntime.frameCamera(camera);
-            meshCenter.set(mesh.center(new Vector3f()));
-            if (orbitMouse != null) {
-                orbitMouse.setTarget(meshCenter);
-                orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
-            }
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to initialize mesh viewer runtime", e);
-        }
-    }
-
-    private HalfEdgeMesh buildViewerMesh() throws Exception {
-        String dslCode = readClasspathResourceUtf8(DSL_RESOURCE);
-        PythonLexer lexer = new PythonLexer(dslCode);
-        PythonParser parser = new PythonParser(lexer);
-        List<PythonParser.ParsedNode> ast = parser.parseGraph();
-
-        NodeGraphRuntime runtime = new NodeGraphRuntime();
-        runtime.registerAllFromAnnotationRegistry();
-
-        return runtime.executeGraphToMesh(ast, DSL_FINAL_NODE, DSL_FINAL_PORT);
-    }
-
-    /**
-     * Loads DSL text from the classpath (e.g. {@code dsl/tool_quilt_mock.dsl}).
-     * Mirrors {@link ixdar.platform.gl.lwjgl.LwjglPlatform#loadSource(String, String)} ({@code folder/filename}).
-     */
-    public static String readClasspathResourceUtf8(String classpathPath) throws IOException {
-        ClassLoader cl = MeshNodeViewerScene.class.getClassLoader();
-        try (InputStream in = cl.getResourceAsStream(classpathPath)) {
-            if (in == null) {
-                throw new IOException("Classpath resource not found: " + classpathPath);
-            }
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        }
-    }
-
-    /**
-     * Example graph using the embedded quad-sphere chain; tests and tools can call this directly.
-     */
-    public HalfEdgeMesh buildQuadSphereFromPythonDSL() throws Exception {
-        String dslCode = "base_cube = cube(size=2.0)\n"
-                + "smooth_cube = subdivision_surface(mesh=base_cube.mesh, levels=3)\n"
-                + "quad_sphere = spherize(mesh=smooth_cube.mesh, factor=1.0)\n";
-
-        PythonLexer lexer = new PythonLexer(dslCode);
-        PythonParser parser = new PythonParser(lexer);
-        List<PythonParser.ParsedNode> ast = parser.parseGraph();
-
-        NodeGraphRuntime runtime = new NodeGraphRuntime();
-        runtime.registerAllFromAnnotationRegistry();
-
-        return runtime.executeGraph(ast, "quad_sphere");
     }
 
     private void disposeMeshRuntime() {
