@@ -20,7 +20,9 @@ public class CompareNode implements MeshNode {
             Map.of(
                     "EQ", "EQUAL",
                     "LT", "LESS",
-                    "GT", "GREATER"));
+                    "GT", "GREATER",
+                    "LESS_THAN", "LESS",
+                    "GREATER_THAN", "GREATER"));
 
     public enum Mode {
         EQUAL,

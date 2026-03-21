@@ -121,7 +121,16 @@ public final class GraphValidator {
         if (from == to) {
             return true;
         }
-        return from == PortType.FLOAT && to == PortType.INT;
+        if (from == PortType.FLOAT && to == PortType.INT) {
+            return true;
+        }
+        if (from == PortType.MESH && to == PortType.GEOMETRY_BUNDLE) {
+            return true;
+        }
+        if (from == PortType.GEOMETRY_BUNDLE && to == PortType.MESH) {
+            return true;
+        }
+        return false;
     }
 
     private static InputPort findInput(MeshNodeSchema schema, String name) {

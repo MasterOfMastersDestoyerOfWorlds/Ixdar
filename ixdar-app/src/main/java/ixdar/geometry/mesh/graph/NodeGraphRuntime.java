@@ -1,71 +1,119 @@
 package ixdar.geometry.mesh.graph;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNode;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.parsing.python.PythonParser;
 
 public class NodeGraphRuntime {
-    // Maps the DSL string type to a constructor
     private final Map<String, Class<? extends MeshNode>> nodeRegistry = new HashMap<>();
-    
-    // Stores the execution state and outputs of every node that has run
+
     private final Map<String, GraphNodeContext> evaluatedNodes = new HashMap<>();
 
     public void registerNode(String type, Class<? extends MeshNode> nodeClass) {
         nodeRegistry.put(type, nodeClass);
     }
 
+    /**
+     * Map of DSL id → node class from the generated {@code MeshNodeRegistry_MeshNodes.MAP}.
+     */
+    public static Map<String, Class<? extends MeshNode>> annotationRegistryClasses() {
+        try {
+            Class<?> registryClass = Class.forName("ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes");
+            @SuppressWarnings("unchecked")
+            Map<String, java.util.function.Supplier<? extends MeshNode>> map = (Map<String, java.util.function.Supplier<? extends MeshNode>>) registryClass
+                    .getField("MAP")
+                    .get(null);
+            Map<String, Class<? extends MeshNode>> out = new HashMap<>();
+            for (Map.Entry<String, java.util.function.Supplier<? extends MeshNode>> e : map.entrySet()) {
+                MeshNode probe = e.getValue().get();
+                out.put(e.getKey(), probe.getClass());
+            }
+            return Collections.unmodifiableMap(out);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Failed to load MeshNodeRegistry_MeshNodes", e);
+        }
+    }
+
+    /**
+     * Registers every {@link ixdar.annotations.meshnode.MeshNodeAnnotation} id from the generated
+     * {@code MeshNodeRegistry_MeshNodes.MAP}.
+     */
+    public void registerAllFromAnnotationRegistry() {
+        for (Map.Entry<String, Class<? extends MeshNode>> e : annotationRegistryClasses().entrySet()) {
+            registerNode(e.getKey(), e.getValue());
+        }
+    }
+
+    /**
+     * Runs the graph and returns the final node's {@code mesh} output (backward compatible).
+     */
     public HalfEdgeMesh executeGraph(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId) throws Exception {
+        return executeGraphToMesh(parsedStatements, finalOutputId, "mesh");
+    }
+
+    /**
+     * Runs the graph and returns the final value on the given output port.
+     */
+    public Object executeGraphResult(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
+            String outputPortName) throws Exception {
         evaluatedNodes.clear();
 
         for (PythonParser.ParsedNode parsedData : parsedStatements) {
-            // 1. Instantiate the Node
             Class<? extends MeshNode> clazz = nodeRegistry.get(parsedData.type);
             if (clazz == null) {
                 throw new IllegalArgumentException("Unknown node type: " + parsedData.type);
             }
             MeshNode activeNode = clazz.getDeclaredConstructor().newInstance();
 
-            // 2. Prepare the Execution Context
             GraphNodeContext context = new GraphNodeContext();
 
-            // 3. Resolve Inputs (Links and Values)
             for (Map.Entry<String, Object> arg : parsedData.arguments.entrySet()) {
                 String portName = arg.getKey();
                 Object rawValue = arg.getValue();
 
-                if (rawValue instanceof PythonParser.NodeReference) {
-                    // This is a Link! Pull the output from a previously evaluated node.
-                    PythonParser.NodeReference ref = (PythonParser.NodeReference) rawValue;
+                if (rawValue instanceof PythonParser.NodeReference ref) {
                     GraphNodeContext sourceContext = evaluatedNodes.get(ref.nodeId);
-                    
+
                     if (sourceContext == null) {
                         throw new RuntimeException("Node '" + ref.nodeId + "' was referenced before it was evaluated!");
                     }
-                    
+
                     Object incomingData = sourceContext.getOutput(ref.portName);
                     context.setInputValue(portName, incomingData);
                 } else {
-                    // This is a static value (e.g., Number, String)
                     context.setInputValue(portName, rawValue);
                 }
             }
 
-            // 4. Evaluate the Node
             activeNode.evaluate(context);
 
-            // 5. Store the results for the next nodes to use
             evaluatedNodes.put(parsedData.id, context);
         }
 
-        // Return the final mesh from the designated output node
         GraphNodeContext finalContext = evaluatedNodes.get(finalOutputId);
         if (finalContext != null) {
-            return (HalfEdgeMesh) finalContext.getOutput("mesh");
+            return finalContext.getOutput(outputPortName);
+        }
+        return null;
+    }
+
+    /**
+     * Returns a {@link HalfEdgeMesh} from the final port, unwrapping {@link GeometryBundle} if needed.
+     */
+    public HalfEdgeMesh executeGraphToMesh(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
+            String outputPortName) throws Exception {
+        Object result = executeGraphResult(parsedStatements, finalOutputId, outputPortName);
+        if (result instanceof HalfEdgeMesh m) {
+            return m;
+        }
+        if (result instanceof GeometryBundle g) {
+            return g.mesh();
         }
         return null;
     }

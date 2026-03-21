@@ -30,6 +30,7 @@
           <include>**/*.ico</include>
           <include>**/*.html</include>
           <include>**/*.wav</include>
+          <include>**/*.dsl</include>
         </includes>
       </resource>
       <resource>

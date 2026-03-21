@@ -87,23 +87,27 @@ public class PythonParser {
         args.put(portName, parseValue());
     }
 
-    // Value -> Number | Reference
+    // Value -> Number | Reference | Identifier (string/boolean literal)
     private Object parseValue() {
         if (current.type == TokenType.NUMBER) {
             float val = Float.parseFloat(current.value);
             advance();
             return val;
         } else if (current.type == TokenType.IDENTIFIER) {
-            return parseReference();
+            String id = consume(TokenType.IDENTIFIER, "Expected identifier").value;
+            if (current.type == TokenType.DOT) {
+                advance();
+                String port = consume(TokenType.IDENTIFIER, "Expected port name after '.'").value;
+                return new NodeReference(id, port);
+            }
+            if ("true".equalsIgnoreCase(id)) {
+                return Boolean.TRUE;
+            }
+            if ("false".equalsIgnoreCase(id)) {
+                return Boolean.FALSE;
+            }
+            return id;
         }
         throw new RuntimeException("Expected Number or Node Reference, found '" + current.value + "'");
-    }
-
-    // Reference -> Identifier "." Identifier
-    private NodeReference parseReference() {
-        String targetNodeId = consume(TokenType.IDENTIFIER, "Expected target node ID").value;
-        consume(TokenType.DOT, "Expected '.' for port reference");
-        String targetPortName = consume(TokenType.IDENTIFIER, "Expected target port name").value;
-        return new NodeReference(targetNodeId, targetPortName);
     }
 }

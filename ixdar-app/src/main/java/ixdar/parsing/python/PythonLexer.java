@@ -52,8 +52,19 @@ public class PythonLexer {
     }
 
     private void skipWhitespace() {
-        while (pos < input.length() && Character.isWhitespace(input.charAt(pos))) {
-            pos++;
+        while (pos < input.length()) {
+            char c = input.charAt(pos);
+            if (Character.isWhitespace(c)) {
+                pos++;
+                continue;
+            }
+            if (c == '#') {
+                while (pos < input.length() && input.charAt(pos) != '\n' && input.charAt(pos) != '\r') {
+                    pos++;
+                }
+                continue;
+            }
+            break;
         }
     }
 

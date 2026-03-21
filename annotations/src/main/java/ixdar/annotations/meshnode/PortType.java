@@ -2,6 +2,7 @@ package ixdar.annotations.meshnode;
 
 public enum PortType {
     MESH(MeshValue.class),
+    GEOMETRY_BUNDLE(GeometryBundleValue.class),
     FLOAT(Number.class),
     INT(Integer.class),
     BOOLEAN(Boolean.class),
