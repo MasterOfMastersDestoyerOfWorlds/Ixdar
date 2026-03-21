@@ -11,3 +11,4 @@ ixdar-app/hs_err_*.log
 **/__pycache__/
 .cursor/logs/
 ixdar-app/tmp/*.png
+*.obj

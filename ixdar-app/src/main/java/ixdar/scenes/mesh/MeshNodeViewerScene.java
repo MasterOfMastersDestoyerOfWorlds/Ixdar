@@ -23,7 +23,7 @@ import ixdar.scenes.Scene;
 @SceneAnnotation(id = "mesh-viewer")
 public class MeshNodeViewerScene extends Scene {
     private static final String DSL_FOLDER = "dsl";
-    private static final String DSL_RESOURCE = "tool_quilt_mock.dsl";
+    private static final String DSL_RESOURCE = "tool_quilt.dsl";
     private static final String DSL_FINAL_NODE = "quilt_out";
     private static final String DSL_FINAL_PORT = "geometry";
 
