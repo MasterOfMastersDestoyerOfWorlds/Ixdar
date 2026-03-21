@@ -9,7 +9,7 @@ import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.GeometryBundles;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 
 @MeshNodeAnnotation(id = "realize_instances")
 public class RealizeInstancesNode implements MeshNode {
@@ -29,7 +29,7 @@ public class RealizeInstancesNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        HalfEdgeMesh m = GeometryBundles.meshPart(ctx.getInput("geometry", Object.class));
+        MeshTopology m = GeometryBundles.meshPart(ctx.getInput("geometry", Object.class));
         ctx.setOutput("mesh", m);
     }
 }

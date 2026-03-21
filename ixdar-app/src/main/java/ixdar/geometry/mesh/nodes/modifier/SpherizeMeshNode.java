@@ -13,6 +13,7 @@ import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 
 @MeshNodeAnnotation(id = "spherize")
 public class SpherizeMeshNode implements MeshNode {
@@ -32,7 +33,7 @@ public class SpherizeMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        HalfEdgeMesh inputMesh = ctx.getInput("mesh", HalfEdgeMesh.class);
+        MeshTopology inputMesh = ctx.getInput("mesh", MeshTopology.class);
         Number factorInput = ctx.getInput("factor", Number.class);
 
         // Clamp the factor strictly between 0.0 and 1.0

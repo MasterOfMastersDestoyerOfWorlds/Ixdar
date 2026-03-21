@@ -7,7 +7,9 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 
+import ixdar.geometry.mesh.data.ArrayMesh;
 import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;
@@ -32,7 +34,7 @@ public class HalfEdgeMeshRuntime {
     private int ebo;
     private int edgeEbo;
     private int edgeCount;
-    private boolean wireframe = true;
+    private boolean wireframe = false;
     private boolean xray = true;
 
     public HalfEdgeMeshRuntime() throws Exception {
@@ -44,16 +46,26 @@ public class HalfEdgeMeshRuntime {
         this.edgeEbo = Platforms.gl().genBuffers();
     }
 
-    public void upload(HalfEdgeMesh mesh) {
-        compiledMesh = mesh.compileSurfaceData();
+    public void upload(MeshTopology mesh) {
+        compiledMesh = compileSurface(mesh);
         uploadCompiledMesh(Platforms.gl().STATIC_DRAW());
         uploadEdgeData(mesh);
     }
 
-    public void reupload(HalfEdgeMesh mesh) {
-        compiledMesh = mesh.compileSurfaceData();
+    public void reupload(MeshTopology mesh) {
+        compiledMesh = compileSurface(mesh);
         uploadCompiledMesh(Platforms.gl().DYNAMIC_DRAW());
         uploadEdgeData(mesh);
+    }
+
+    private static HalfEdgeCompiledMeshData compileSurface(MeshTopology mesh) {
+        if (mesh instanceof ArrayMesh am) {
+            return am.compileSurfaceData();
+        }
+        if (mesh instanceof HalfEdgeMesh hem) {
+            return hem.compileSurfaceData();
+        }
+        throw new IllegalArgumentException("Unsupported mesh for rendering: " + mesh.getClass().getName());
     }
 
     public void frameCamera(Camera3D camera) {
@@ -114,14 +126,24 @@ public class HalfEdgeMeshRuntime {
         meshShader.vao.delete();
     }
 
-    private void uploadEdgeData(HalfEdgeMesh mesh) {
-        int[] edgeIndices = mesh.getEdgeIndices();
+    private void uploadEdgeData(MeshTopology mesh) {
+        int[] edgeIndices = edgeIndices(mesh);
         Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), edgeEbo);
         
         IntBuffer buffer = BufferUtils.createIntBuffer(edgeIndices.length);
         buffer.put(edgeIndices).flip();
         Platforms.gl().bufferData(Platforms.gl().ELEMENT_ARRAY_BUFFER(), buffer, Platforms.gl().STATIC_DRAW());
         edgeCount = edgeIndices.length;
+    }
+
+    private static int[] edgeIndices(MeshTopology mesh) {
+        if (mesh instanceof ArrayMesh am) {
+            return am.getEdgeIndices();
+        }
+        if (mesh instanceof HalfEdgeMesh hem) {
+            return hem.getEdgeIndices();
+        }
+        throw new IllegalArgumentException("Unsupported mesh for edge indices: " + mesh.getClass().getName());
     }
 
     public void renderEdges(Camera3D camera) {

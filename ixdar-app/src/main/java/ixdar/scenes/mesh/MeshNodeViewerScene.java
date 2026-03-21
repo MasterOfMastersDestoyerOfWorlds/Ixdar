@@ -8,7 +8,7 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
@@ -35,7 +35,7 @@ public class MeshNodeViewerScene extends Scene {
     private final Vector3f meshCenter = new Vector3f();
 
     private OrbitMouseTrap orbitMouse;
-    private HalfEdgeMesh mesh;
+    private MeshTopology mesh;
     private HalfEdgeMeshRuntime meshRuntime;
 
     @Override
@@ -181,7 +181,7 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /** Current mesh from the DSL graph, or null before async load completes. */
-    public HalfEdgeMesh getMesh() {
+    public MeshTopology getMesh() {
         return mesh;
     }
 

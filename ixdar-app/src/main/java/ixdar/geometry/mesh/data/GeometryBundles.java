@@ -5,8 +5,8 @@ public final class GeometryBundles {
     private GeometryBundles() {
     }
 
-    public static HalfEdgeMesh meshPart(Object o) {
-        if (o instanceof HalfEdgeMesh m) {
+    public static MeshTopology meshPart(Object o) {
+        if (o instanceof MeshTopology m) {
             return m;
         }
         if (o instanceof GeometryBundle b) {
@@ -19,7 +19,7 @@ public final class GeometryBundles {
         if (o instanceof GeometryBundle b) {
             return b;
         }
-        if (o instanceof HalfEdgeMesh m) {
+        if (o instanceof MeshTopology m) {
             return GeometryBundle.ofMesh(m);
         }
         return null;

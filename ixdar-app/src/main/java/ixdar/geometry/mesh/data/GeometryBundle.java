@@ -11,15 +11,15 @@ import ixdar.annotations.meshnode.GeometryBundleValue;
  */
 public final class GeometryBundle implements GeometryBundleValue {
 
-    private final HalfEdgeMesh mesh;
+    private final MeshTopology mesh;
     private final Map<String, Object> slots;
 
-    public GeometryBundle(HalfEdgeMesh mesh, Map<String, Object> slots) {
+    public GeometryBundle(MeshTopology mesh, Map<String, Object> slots) {
         this.mesh = mesh;
         this.slots = Map.copyOf(slots);
     }
 
-    public static GeometryBundle ofMesh(HalfEdgeMesh mesh) {
+    public static GeometryBundle ofMesh(MeshTopology mesh) {
         Objects.requireNonNull(mesh, "mesh");
         return new GeometryBundle(mesh, Map.of());
     }
@@ -28,8 +28,15 @@ public final class GeometryBundle implements GeometryBundleValue {
         return new GeometryBundle(new HalfEdgeMesh(), Map.of());
     }
 
-    public HalfEdgeMesh mesh() {
+    public MeshTopology mesh() {
         return mesh;
+    }
+
+    /**
+     * When the bundle holds a {@link HalfEdgeMesh} (mutable topology), returns it; otherwise null.
+     */
+    public HalfEdgeMesh mutableMesh() {
+        return mesh instanceof HalfEdgeMesh h ? h : null;
     }
 
     public Map<String, Object> slots() {
@@ -42,7 +49,7 @@ public final class GeometryBundle implements GeometryBundleValue {
         return new GeometryBundle(mesh, next);
     }
 
-    public GeometryBundle withMesh(HalfEdgeMesh newMesh) {
+    public GeometryBundle withMesh(MeshTopology newMesh) {
         return new GeometryBundle(newMesh, slots);
     }
 }

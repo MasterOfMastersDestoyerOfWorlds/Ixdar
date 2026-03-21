@@ -34,8 +34,8 @@ public class CubeMeshNodeTest {
 
         HalfEdgeMesh mesh = context.getOutput("mesh", HalfEdgeMesh.class);
         assertEquals(8, mesh.vertexCount());
-        assertEquals(18, mesh.edgeCount());
-        assertEquals(12, mesh.faceCount());
+        assertEquals(12, mesh.edgeCount());
+        assertEquals(6, mesh.faceCount());
         assertEquals(-1.0f, mesh.boundsMin(new Vector3f()).x, 0.0001f);
         assertEquals(1.0f, mesh.boundsMax(new Vector3f()).x, 0.0001f);
     }

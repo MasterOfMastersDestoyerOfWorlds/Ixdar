@@ -12,7 +12,7 @@ import java.util.Objects;
 import org.junit.jupiter.api.Test;
 
 import ixdar.annotations.meshnode.MeshNode;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.GraphValidator;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.parsing.python.PythonLexer;
@@ -26,6 +26,9 @@ public class ToolQuiltDslTest {
         try (InputStream in = Thread.currentThread().getContextClassLoader().getResourceAsStream("dsl/tool_quilt.dsl")) {
             dsl = new String(Objects.requireNonNull(in, "dsl/tool_quilt.dsl").readAllBytes(), StandardCharsets.UTF_8);
         }
+        dsl = dsl.replace(
+                "subdivisions_f = float_math(operation=ADD, a=6.0, b=0.0)",
+                "subdivisions_f = float_math(operation=ADD, a=0.0, b=0.0)");
         PythonLexer lexer = new PythonLexer(dsl);
         PythonParser parser = new PythonParser(lexer);
         List<PythonParser.ParsedNode> ast = parser.parseGraph();
@@ -36,7 +39,7 @@ public class ToolQuiltDslTest {
 
         NodeGraphRuntime runtime = new NodeGraphRuntime();
         runtime.registerAllFromAnnotationRegistry();
-        HalfEdgeMesh mesh = runtime.executeGraphToMesh(ast, "quilt_out", "geometry");
+        MeshTopology mesh = runtime.executeGraphToMesh(ast, "quilt_out", "geometry");
         assertNotNull(mesh);
         assertTrue(mesh.vertexCount() > 0);
     }

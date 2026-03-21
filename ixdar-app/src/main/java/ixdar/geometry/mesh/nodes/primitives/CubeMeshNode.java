@@ -28,26 +28,21 @@ public class CubeMeshNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         Number sizeInput = ctx.getInput("size", Number.class);
-        float cornerPosition = (sizeInput == null ? 1.0f : sizeInput.floatValue()) * 0.5f;
-        HalfEdgeMesh mesh = HalfEdgeMesh.buildFromIndexedMesh(
-                new float[] {
-                        -cornerPosition, -cornerPosition, -cornerPosition,
-                        cornerPosition, -cornerPosition, -cornerPosition,
-                        cornerPosition, cornerPosition, -cornerPosition,
-                        -cornerPosition, cornerPosition, -cornerPosition,
-                        -cornerPosition, -cornerPosition, cornerPosition,
-                        cornerPosition, -cornerPosition, cornerPosition,
-                        cornerPosition, cornerPosition, cornerPosition,
-                        -cornerPosition, cornerPosition, cornerPosition,
-                },
-                new int[] {
-                        0, 1, 2, 2, 3, 0,
-                        4, 7, 6, 6, 5, 4,
-                        0, 4, 5, 5, 1, 0,
-                        3, 2, 6, 6, 7, 3,
-                        1, 5, 6, 6, 2, 1,
-                        0, 3, 7, 7, 4, 0,
-                });
+        float c = (sizeInput == null ? 1.0f : sizeInput.floatValue()) * 0.5f;
+        float[] positions = {
+                -c, -c, -c,  c, -c, -c,  c,  c, -c, -c,  c, -c,
+                -c, -c,  c,  c, -c,  c,  c,  c,  c, -c,  c,  c,
+        };
+        int[] quads = {
+                0, 1, 2, 3,
+                4, 7, 6, 5,
+                0, 4, 5, 1,
+                3, 2, 6, 7,
+                1, 5, 6, 2,
+                0, 3, 7, 4,
+        };
+        HalfEdgeMesh mesh = HalfEdgeMesh.bulkAllocate(positions, quads, 4);
+        mesh.computeNormals();
         ctx.setOutput("mesh", mesh);
     }
 }

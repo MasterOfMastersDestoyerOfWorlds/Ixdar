@@ -161,7 +161,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "mesh-viewer",
-      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -Xmx1g -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     }
 

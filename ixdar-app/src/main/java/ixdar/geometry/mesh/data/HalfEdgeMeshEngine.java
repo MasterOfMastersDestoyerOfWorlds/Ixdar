@@ -21,8 +21,9 @@ public class HalfEdgeMeshEngine {
         return createEdgePair(mesh, startVertexId, endVertexId);
     }
 
+    /** Adds a face without recomputing normals; call {@link #computeNormals} when the mesh is complete. */
     public static int addFace(HalfEdgeMesh mesh, int... vertexIds) {
-        return addFaceInternal(mesh, vertexIds, true);
+        return addFaceInternal(mesh, vertexIds, false);
     }
 
     public static void removeFace(HalfEdgeMesh mesh, int faceId) {
@@ -148,6 +149,41 @@ public class HalfEdgeMeshEngine {
         return mesh;
     }
 
+    /**
+     * Pre-sized mesh build for faces of uniform vertex count (3 for triangles, 4 for quads).
+     * For closed manifolds the edge/half-edge counts are derived exactly from total face vertices.
+     * Does not compute normals — caller must call {@link HalfEdgeMesh#computeNormals()} when ready.
+     *
+     * @param positions    xyz triples
+     * @param faceIndices  flat array of vertex indices, grouped by {@code vertsPerFace}
+     * @param vertsPerFace vertices per face (3 or 4)
+     */
+    public static HalfEdgeMesh bulkAllocate(float[] positions, int[] faceIndices, int vertsPerFace) {
+        if (positions.length % HalfEdgeMesh.FLOATS_PER_VERTEX != 0) {
+            throw new IllegalArgumentException("Position data must be XYZ triples");
+        }
+        if (faceIndices.length % vertsPerFace != 0) {
+            throw new IllegalArgumentException("Face indices must be groups of " + vertsPerFace);
+        }
+        int v = positions.length / HalfEdgeMesh.FLOATS_PER_VERTEX;
+        int f = faceIndices.length / vertsPerFace;
+        int totalFaceVerts = faceIndices.length;
+        int e = totalFaceVerts / 2;
+        int he = totalFaceVerts;
+        int mapCap = he + 16;
+        HalfEdgeMesh mesh = new HalfEdgeMesh(v, e, f, he, mapCap);
+        for (int i = 0; i < v; i++) {
+            int o = i * HalfEdgeMesh.FLOATS_PER_VERTEX;
+            mesh.createVertexSlot(positions[o], positions[o + 1], positions[o + 2]);
+        }
+        int[] face = new int[vertsPerFace];
+        for (int q = 0; q < faceIndices.length; q += vertsPerFace) {
+            System.arraycopy(faceIndices, q, face, 0, vertsPerFace);
+            addFaceInternal(mesh, face, false);
+        }
+        return mesh;
+    }
+
     public static HalfEdgeCompiledMeshData compileSurfaceData(HalfEdgeMesh mesh) {
         int[] vertexRemap = new int[mesh.vertexActive.length];
         Arrays.fill(vertexRemap, MeshTopology.NONE);
@@ -245,7 +281,7 @@ public class HalfEdgeMeshEngine {
             mesh.faceHalfEdges.get(faceId).add(halfEdgeId);
             mesh.faceVertices.get(faceId).add(vertexId);
             mesh.faceEdges.get(faceId).add(edgeId);
-            mesh.vertexFaces.get(vertexId).addUnique(faceId);
+            mesh.vertexFaces.get(vertexId).add(faceId);
         }
 
         if (recomputeNormals) {

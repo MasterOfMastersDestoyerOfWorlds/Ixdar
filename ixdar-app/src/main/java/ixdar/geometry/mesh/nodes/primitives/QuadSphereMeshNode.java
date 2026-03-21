@@ -72,6 +72,7 @@ public class QuadSphereMeshNode implements MeshNode {
             }
         }
 
+        mesh.computeNormals();
         ctx.setOutput("mesh", mesh);
     }
 

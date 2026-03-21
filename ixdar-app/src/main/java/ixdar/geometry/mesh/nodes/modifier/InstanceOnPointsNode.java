@@ -11,7 +11,7 @@ import ixdar.annotations.meshnode.PortType;
 import ixdar.annotations.meshnode.RotationValue;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 
 @MeshNodeAnnotation(id = "instance_on_points")
 public class InstanceOnPointsNode implements MeshNode {
@@ -34,7 +34,7 @@ public class InstanceOnPointsNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle pts = GeometryBundles.bundlePart(ctx.getInput("points", Object.class));
-        HalfEdgeMesh inst = ctx.getInput("instance", HalfEdgeMesh.class);
+        MeshTopology inst = ctx.getInput("instance", MeshTopology.class);
         if (pts == null) {
             ctx.setOutput("geometry", GeometryBundle.empty());
             return;

@@ -7,7 +7,7 @@ import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.parsing.python.PythonParser;
 
 public class NodeGraphRuntime {
@@ -53,7 +53,7 @@ public class NodeGraphRuntime {
     /**
      * Runs the graph and returns the final node's {@code mesh} output (backward compatible).
      */
-    public HalfEdgeMesh executeGraph(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId) throws Exception {
+    public MeshTopology executeGraph(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId) throws Exception {
         return executeGraphToMesh(parsedStatements, finalOutputId, "mesh");
     }
 
@@ -104,12 +104,12 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * Returns a {@link HalfEdgeMesh} from the final port, unwrapping {@link GeometryBundle} if needed.
+     * Returns a {@link MeshTopology} from the final port, unwrapping {@link GeometryBundle} if needed.
      */
-    public HalfEdgeMesh executeGraphToMesh(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
+    public MeshTopology executeGraphToMesh(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName) throws Exception {
         Object result = executeGraphResult(parsedStatements, finalOutputId, outputPortName);
-        if (result instanceof HalfEdgeMesh m) {
+        if (result instanceof MeshTopology m) {
             return m;
         }
         if (result instanceof GeometryBundle g) {

@@ -12,7 +12,7 @@ import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.annotations.meshnode.Vector3Value;
 import ixdar.geometry.mesh.data.GeometryBundles;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 
 @MeshNodeAnnotation(id = "bound_box")
 public class BoundBoxNode implements MeshNode {
@@ -33,7 +33,7 @@ public class BoundBoxNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        HalfEdgeMesh mesh = GeometryBundles.meshPart(ctx.getInput("geometry", Object.class));
+        MeshTopology mesh = GeometryBundles.meshPart(ctx.getInput("geometry", Object.class));
         if (mesh == null || mesh.vertexCount() == 0) {
             ctx.setOutput("min", new Vector3Value(0f, 0f, 0f));
             ctx.setOutput("max", new Vector3Value(0f, 0f, 0f));

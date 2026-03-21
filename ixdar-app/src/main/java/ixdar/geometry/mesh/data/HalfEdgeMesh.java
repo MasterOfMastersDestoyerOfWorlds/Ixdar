@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.data;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -94,6 +95,63 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         fillWithNone(halfEdgeEdge);
     }
 
+    /**
+     * Pre-sized topology for bulk quad construction (e.g. Catmull–Clark). Avoids array growth and
+     * HashMap rehash during {@link HalfEdgeMeshEngine#addFaceInternal}.
+     */
+    HalfEdgeMesh(int maxV, int maxE, int maxF, int maxHe, int mapCapacity) {
+        this.halfEdgesByDirection = new HashMap<>(mapCapacity, 1.0f);
+        this.activeVertexIds = new IntIdList(Math.max(4, maxV));
+        this.activeEdgeIds = new IntIdList(Math.max(4, maxE));
+        this.activeFaceIds = new IntIdList(Math.max(4, maxF));
+        this.activeHalfEdgeIds = new IntIdList(Math.max(4, maxHe));
+        this.vertexOutgoingHalfEdges = new ArrayList<>(maxV);
+        this.vertexEdges = new ArrayList<>(maxV);
+        this.vertexFaces = new ArrayList<>(maxV);
+        for (int i = 0; i < maxV; i++) {
+            this.vertexOutgoingHalfEdges.add(new IntIdList(8));
+            this.vertexEdges.add(new IntIdList(8));
+            this.vertexFaces.add(new IntIdList(8));
+        }
+        this.faceHalfEdges = new ArrayList<>(maxF);
+        this.faceVertices = new ArrayList<>(maxF);
+        this.faceEdges = new ArrayList<>(maxF);
+        for (int i = 0; i < maxF; i++) {
+            this.faceHalfEdges.add(new IntIdList(4));
+            this.faceVertices.add(new IntIdList(4));
+            this.faceEdges.add(new IntIdList(4));
+        }
+        this.vertexPositions = new float[maxV * FLOATS_PER_VERTEX];
+        this.vertexNormals = new float[maxV * FLOATS_PER_VERTEX];
+        this.vertexOutgoing = new int[maxV];
+        Arrays.fill(this.vertexOutgoing, MeshTopology.NONE);
+        this.vertexActive = new boolean[maxV];
+        this.edgeHalfEdge = new int[maxE];
+        Arrays.fill(this.edgeHalfEdge, MeshTopology.NONE);
+        this.edgeActive = new boolean[maxE];
+        this.faceHalfEdge = new int[maxF];
+        Arrays.fill(this.faceHalfEdge, MeshTopology.NONE);
+        this.faceNormals = new float[maxF * FLOATS_PER_VERTEX];
+        this.faceActive = new boolean[maxF];
+        this.halfEdgeTwin = new int[maxHe];
+        this.halfEdgeNext = new int[maxHe];
+        this.halfEdgePrev = new int[maxHe];
+        this.halfEdgeVertex = new int[maxHe];
+        this.halfEdgeFace = new int[maxHe];
+        this.halfEdgeEdge = new int[maxHe];
+        Arrays.fill(this.halfEdgeTwin, MeshTopology.NONE);
+        Arrays.fill(this.halfEdgeNext, MeshTopology.NONE);
+        Arrays.fill(this.halfEdgePrev, MeshTopology.NONE);
+        Arrays.fill(this.halfEdgeVertex, MeshTopology.NONE);
+        Arrays.fill(this.halfEdgeFace, MeshTopology.NONE);
+        Arrays.fill(this.halfEdgeEdge, MeshTopology.NONE);
+        this.halfEdgeActive = new boolean[maxHe];
+        this.nextVertexId = 0;
+        this.nextEdgeId = 0;
+        this.nextFaceId = 0;
+        this.nextHalfEdgeId = 0;
+    }
+
     public int addVertex(float x, float y, float z) {
         return HalfEdgeMeshEngine.addVertex(this, x, y, z);
     }
@@ -106,6 +164,10 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return HalfEdgeMeshEngine.addEdge(this, startVertexId, endVertexId);
     }
 
+    /**
+     * Adds a face without updating normals. Call {@link #computeNormals()} when the mesh is finished
+     * (or after edits that should refresh shading).
+     */
     public int addFace(int... vertexIds) {
         return HalfEdgeMeshEngine.addFace(this, vertexIds);
     }
@@ -132,6 +194,14 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
 
     public static HalfEdgeMesh buildFromIndexedMesh(float[] positions, int[] faceIndices) {
         return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faceIndices);
+    }
+
+    /**
+     * Pre-sized mesh build for uniform face sizes (3 for triangles, 4 for quads). Does not compute
+     * normals — call {@link #computeNormals()} when the mesh is ready for rendering.
+     */
+    public static HalfEdgeMesh bulkAllocate(float[] positions, int[] faceIndices, int vertsPerFace) {
+        return HalfEdgeMeshEngine.bulkAllocate(positions, faceIndices, vertsPerFace);
     }
 
     @Override
@@ -656,9 +726,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     private static void fillWithNone(int[] values) {
-        for (int i = 0; i < values.length; i++) {
-            values[i] = NONE;
-        }
+        Arrays.fill(values, NONE);
     }
     
     public int[] getEdgeIndices() {
