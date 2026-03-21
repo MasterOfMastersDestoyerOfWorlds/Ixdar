@@ -11,10 +11,8 @@ import ixdar.geometry.mesh.HalfEdgeMesh;
 import ixdar.geometry.mesh.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.modifier.SpherizeMeshNode;
 import ixdar.geometry.mesh.nodes.modifier.SubdivisionMeshNode;
-import ixdar.geometry.mesh.nodes.primitives.ConeMeshNode;
 import ixdar.geometry.mesh.nodes.primitives.CubeMeshNode;
-import ixdar.geometry.mesh.nodes.primitives.IcosphereMeshNode;
-import ixdar.geometry.mesh.nodes.primitives.UVSphereMeshNode;
+import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.parsing.python.PythonLexer;
@@ -176,7 +174,7 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     private HalfEdgeMesh buildViewerMesh() {
-        MeshNode sphereNode = new IcosphereMeshNode();
+        MeshNode sphereNode = new GridMeshNode();
         MapNodeContext context = new MapNodeContext(sphereNode);
         sphereNode.evaluate(context);
         return context.getOutput("mesh", HalfEdgeMesh.class);
