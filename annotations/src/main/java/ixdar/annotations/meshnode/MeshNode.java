@@ -8,4 +8,8 @@ public interface MeshNode {
     List<OutputPort> outputs();
 
     void evaluate(NodeContext ctx);
+
+    default MeshNodeSchema schema() {
+        return MeshNodeSchema.from(this);
+    }
 }

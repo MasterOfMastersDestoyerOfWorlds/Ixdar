@@ -9,8 +9,8 @@ import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.common.exceptions.InvalidMeshTopologyException;
-import ixdar.geometry.mesh.HalfEdgeMesh;
-import ixdar.geometry.mesh.MeshTopology;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
 public class HalfEdgeMeshTest {

@@ -12,8 +12,8 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
-import ixdar.geometry.mesh.HalfEdgeMesh;
-import ixdar.geometry.mesh.MeshTopology;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 
 @MeshNodeAnnotation(id = "subdivision_surface")
 public class SubdivisionMeshNode implements MeshNode {

@@ -19,7 +19,7 @@ import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
-import ixdar.geometry.mesh.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.CubeMeshNode;
 
 public class CubeMeshNodeTest {

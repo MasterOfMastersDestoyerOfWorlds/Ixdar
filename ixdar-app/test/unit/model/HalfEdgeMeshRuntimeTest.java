@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.platform.Platforms;

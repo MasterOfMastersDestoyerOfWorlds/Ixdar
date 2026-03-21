@@ -1,12 +1,13 @@
 package ixdar.geometry.mesh.nodes.math;
 
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 import java.util.Random;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.ModeConstraint;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
@@ -14,10 +15,31 @@ import ixdar.annotations.meshnode.Vector3Value;
 
 @MeshNodeAnnotation(id = "random_value")
 public class RandomValueNode implements MeshNode {
+
+    public static final ModeConstraint MODE_CONSTRAINT = new ModeConstraint(
+            "FLOAT",
+            List.of("FLOAT", "INT", "VECTOR"),
+            Map.of());
+
+    public enum Mode {
+        FLOAT,
+        INT,
+        VECTOR;
+
+        public static Mode parse(String raw) {
+            return Mode.valueOf(MODE_CONSTRAINT.normalize(raw));
+        }
+    }
+
+    public static final Map<String, List<String>> OUTPUT_ACTIVATION_BY_MODE = Map.of(
+            "FLOAT", List.of("float_out"),
+            "INT", List.of("int_out"),
+            "VECTOR", List.of("vector_out"));
+
     private static final InputPort SEED = new InputPort("seed", PortType.INT, 0);
     private static final InputPort MIN = new InputPort("min", PortType.FLOAT, 0.0f);
     private static final InputPort MAX = new InputPort("max", PortType.FLOAT, 1.0f);
-    private static final InputPort MODE = new InputPort("mode", PortType.STRING, "FLOAT");
+    private static final InputPort MODE = new InputPort("mode", PortType.STRING, "FLOAT", MODE_CONSTRAINT);
     private static final OutputPort OUT_FLOAT = new OutputPort("float_out", PortType.FLOAT);
     private static final OutputPort OUT_INT = new OutputPort("int_out", PortType.INT);
     private static final OutputPort OUT_VECTOR = new OutputPort("vector_out", PortType.VECTOR3);
@@ -37,11 +59,11 @@ public class RandomValueNode implements MeshNode {
         Number seedNum = ctx.getInput("seed", Number.class);
         Number minNum = ctx.getInput("min", Number.class);
         Number maxNum = ctx.getInput("max", Number.class);
-        String modeIn = ctx.getInput("mode", String.class);
+        String modeStr = ctx.getInput("mode", String.class);
         long seed = seedNum == null ? 0L : seedNum.longValue();
         float min = minNum == null ? 0f : minNum.floatValue();
         float max = maxNum == null ? 1f : maxNum.floatValue();
-        String mode = modeIn == null ? "FLOAT" : modeIn.trim().toUpperCase(Locale.ROOT);
+        Mode mode = Mode.parse(modeStr);
 
         Random rnd = new Random(seed);
 
@@ -53,11 +75,11 @@ public class RandomValueNode implements MeshNode {
         ctx.setOutput("vector_out", null);
 
         switch (mode) {
-            case "FLOAT" -> {
+            case FLOAT -> {
                 float f = lo + rnd.nextFloat() * (hi - lo);
                 ctx.setOutput("float_out", f);
             }
-            case "INT" -> {
+            case INT -> {
                 int ilo = (int) Math.floor(lo);
                 int ihi = (int) Math.floor(hi);
                 if (ihi < ilo) {
@@ -69,13 +91,12 @@ public class RandomValueNode implements MeshNode {
                 int k = span > 0 ? ilo + rnd.nextInt(span) : ilo;
                 ctx.setOutput("int_out", k);
             }
-            case "VECTOR" -> {
+            case VECTOR -> {
                 float x = lo + rnd.nextFloat() * (hi - lo);
                 float y = lo + rnd.nextFloat() * (hi - lo);
                 float z = lo + rnd.nextFloat() * (hi - lo);
                 ctx.setOutput("vector_out", new Vector3Value(x, y, z));
             }
-            default -> throw new IllegalArgumentException("random_value: unknown mode '" + modeIn + "'");
         }
     }
 }

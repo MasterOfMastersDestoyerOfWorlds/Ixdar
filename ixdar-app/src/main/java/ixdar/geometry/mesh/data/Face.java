@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh;
+package ixdar.geometry.mesh.data;
 
 import org.joml.Quaternionf;
 import org.joml.Vector3f;

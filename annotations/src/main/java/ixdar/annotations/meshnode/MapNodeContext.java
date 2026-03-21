@@ -26,7 +26,11 @@ public class MapNodeContext implements NodeContext {
     public void setInput(String name, Object value) {
         InputPort inputPort = requireInputPort(name);
         inputPort.type().validate(name, value);
-        inputs.put(name, value);
+        Object stored = value;
+        if (inputPort.modes() != null && value instanceof String s) {
+            stored = inputPort.modes().normalize(s);
+        }
+        inputs.put(name, stored);
     }
 
     @Override

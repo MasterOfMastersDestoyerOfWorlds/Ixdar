@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.annotations.meshnode.MapNodeContext;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.Vector3Value;
+import ixdar.geometry.mesh.documentation.MeshNodeCatalog;
 import ixdar.geometry.mesh.nodes.math.BooleanMathNode;
 import ixdar.geometry.mesh.nodes.math.CompareNode;
 import ixdar.geometry.mesh.nodes.math.FloatToIntNode;
@@ -78,6 +79,7 @@ public class MathNodesTest {
         assertEquals(2, evalFloatToInt(node, 2.7f, "FLOOR"));
         assertEquals(3, evalFloatToInt(node, 2.2f, "CEIL"));
         assertEquals(2, evalFloatToInt(node, 2.7f, "TRUNCATE"));
+        assertEquals(2, evalFloatToInt(node, 2.7f, "TRUNC"));
         assertEquals(-2, evalFloatToInt(node, -2.7f, "TRUNCATE"));
     }
 
@@ -113,6 +115,13 @@ public class MathNodesTest {
         ctx.setInput("mode", "LESS");
         node.evaluate(ctx);
         assertFalse(ctx.getOutput("result", Boolean.class));
+
+        ctx.setInput("a", 0.5f);
+        ctx.setInput("b", 1.0f);
+        ctx.setInput("epsilon", 1e-6f);
+        ctx.setInput("mode", "LT");
+        node.evaluate(ctx);
+        assertTrue(ctx.getOutput("result", Boolean.class));
     }
 
     @Test
@@ -170,13 +179,26 @@ public class MathNodesTest {
     }
 
     @Test
-    public void unknownModeThrows() {
+    public void unknownModeThrowsOnSetInput() {
         BooleanMathNode b = new BooleanMathNode();
         MapNodeContext ctx = new MapNodeContext(b);
         ctx.setInput("a", true);
         ctx.setInput("b", false);
-        ctx.setInput("mode", "NAND");
-        assertThrows(IllegalArgumentException.class, () -> b.evaluate(ctx));
+        assertThrows(IllegalArgumentException.class, () -> ctx.setInput("mode", "NAND"));
+    }
+
+    @Test
+    public void integerMathModeAliasSubNormalizesToSubtract() {
+        IntegerMathNode node = new IntegerMathNode();
+        assertEquals(-1, evalInt(node, 3, 4, "SUB"));
+    }
+
+    @Test
+    public void meshNodeCatalogJsonIncludesModesForBooleanMath() {
+        String json = MeshNodeCatalog.toJsonFromAnnotationRegistry();
+        assertTrue(json.contains("boolean_math"));
+        assertTrue(json.contains("canonicalModes"));
+        assertTrue(json.contains("AND"));
     }
 
     @Test

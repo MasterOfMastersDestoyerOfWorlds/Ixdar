@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh;
+package ixdar.geometry.mesh.graph;
 
 import java.util.HashMap;
 import java.util.Map;

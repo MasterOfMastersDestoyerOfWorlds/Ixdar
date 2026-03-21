@@ -8,7 +8,7 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.geometry.mesh.Icosphere;
+import ixdar.geometry.mesh.standalone.Icosphere;
 import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.model.IcosphereRuntime;
 import ixdar.scenes.Scene;

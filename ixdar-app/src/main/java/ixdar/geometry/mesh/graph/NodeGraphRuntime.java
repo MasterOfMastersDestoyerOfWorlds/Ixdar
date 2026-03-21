@@ -1,10 +1,11 @@
-package ixdar.geometry.mesh;
+package ixdar.geometry.mesh.graph;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNode;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.parsing.python.PythonParser;
 
 public class NodeGraphRuntime {

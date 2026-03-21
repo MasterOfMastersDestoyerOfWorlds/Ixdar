@@ -8,7 +8,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
-import ixdar.geometry.mesh.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "cylinder")
 public class CylinderMeshNode implements MeshNode {

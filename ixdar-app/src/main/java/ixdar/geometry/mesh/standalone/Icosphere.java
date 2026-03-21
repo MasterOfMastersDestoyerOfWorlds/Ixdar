@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh;
+package ixdar.geometry.mesh.standalone;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -8,6 +8,9 @@ import java.util.Random;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
+
+import ixdar.geometry.mesh.data.Face;
+import ixdar.geometry.mesh.data.FaceState;
 
 public class Icosphere {
 
