@@ -2,12 +2,14 @@ package ixdar.geometry.mesh.nodes.math;
 
 import java.util.List;
 
+import ixdar.annotations.meshnode.FloatField;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
+import ixdar.annotations.meshnode.Vec3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 
 @MeshNodeAnnotation(id = "combine_xyz")
@@ -30,14 +32,25 @@ public class CombineXyzNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        float x = num(ctx, "x");
-        float y = num(ctx, "y");
-        float z = num(ctx, "z");
-        ctx.setOutput("vector", new Vector3Value(x, y, z));
-    }
+        Object xo = FieldBroadcast.getInputOrDefault(ctx, "x", X.defaultValue());
+        Object yo = FieldBroadcast.getInputOrDefault(ctx, "y", Y.defaultValue());
+        Object zo = FieldBroadcast.getInputOrDefault(ctx, "z", Z.defaultValue());
 
-    private static float num(NodeContext ctx, String name) {
-        Number n = ctx.getInput(name, Number.class);
-        return n == null ? 0f : n.floatValue();
+        if (xo instanceof FloatField || yo instanceof FloatField || zo instanceof FloatField) {
+            int n = FieldBroadcast.floatFieldLength3(xo, yo, zo);
+            float[] d = new float[n * 3];
+            for (int i = 0; i < n; i++) {
+                d[3 * i] = FieldBroadcast.floatAt(xo, i, 0f);
+                d[3 * i + 1] = FieldBroadcast.floatAt(yo, i, 0f);
+                d[3 * i + 2] = FieldBroadcast.floatAt(zo, i, 0f);
+            }
+            ctx.setOutput("vector", new Vec3Field(d));
+            return;
+        }
+
+        float x = FieldBroadcast.floatScalarOrDefault(xo, 0f);
+        float y = FieldBroadcast.floatScalarOrDefault(yo, 0f);
+        float z = FieldBroadcast.floatScalarOrDefault(zo, 0f);
+        ctx.setOutput("vector", new Vector3Value(x, y, z));
     }
 }

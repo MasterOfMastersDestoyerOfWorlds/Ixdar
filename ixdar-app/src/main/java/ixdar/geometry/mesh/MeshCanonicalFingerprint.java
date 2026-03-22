@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
 /**
@@ -26,19 +27,19 @@ public final class MeshCanonicalFingerprint {
     private MeshCanonicalFingerprint() {
     }
 
-    public static int triangleCount(HalfEdgeMesh mesh) {
+    public static int triangleCount(MeshTopology mesh) {
         if (mesh == null) {
             return 0;
         }
-        HalfEdgeCompiledMeshData data = mesh.compileSurfaceData();
+        HalfEdgeCompiledMeshData data = ((HalfEdgeMesh) mesh).compileSurfaceData();
         return data.indices.length / 3;
     }
 
-    public static String sha256Hex(HalfEdgeMesh mesh) {
+    public static String sha256Hex(MeshTopology mesh) {
         if (mesh == null) {
             return sha256HexEmpty();
         }
-        HalfEdgeCompiledMeshData data = mesh.compileSurfaceData();
+        HalfEdgeCompiledMeshData data = ((HalfEdgeMesh) mesh).compileSurfaceData();
         return sha256HexFromCompiled(data);
     }
 

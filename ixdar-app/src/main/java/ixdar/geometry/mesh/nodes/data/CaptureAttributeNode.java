@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.nodes.data;
 
 import java.util.List;
 
+import ixdar.annotations.meshnode.FloatField;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -10,8 +11,8 @@ import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
+import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
-/** Stub: stores scalar in bundle slots under {@code name}. */
 @MeshNodeAnnotation(id = "capture_attribute")
 public class CaptureAttributeNode implements MeshNode {
 
@@ -37,8 +38,13 @@ public class CaptureAttributeNode implements MeshNode {
         if (name == null || name.isBlank()) {
             name = "attr";
         }
-        Number v = ctx.getInput("value", Number.class);
-        float f = v == null ? 0f : v.floatValue();
-        ctx.setOutput("geometry", base.withSlot(name, f));
+        Object vo = FieldBroadcast.getInputOrDefault(ctx, "value", VALUE.defaultValue());
+        if (vo instanceof FloatField ff) {
+            ctx.setOutput("geometry", base.withSlot(name, ff));
+            return;
+        }
+        float f = FieldBroadcast.floatScalarOrDefault(vo, 0f);
+        int n = base.mesh() == null ? 0 : base.mesh().vertexCount();
+        ctx.setOutput("geometry", base.withSlot(name, FloatField.constant(f, Math.max(1, n))));
     }
 }

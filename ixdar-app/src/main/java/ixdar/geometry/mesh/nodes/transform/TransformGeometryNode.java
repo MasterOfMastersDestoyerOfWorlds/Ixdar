@@ -9,7 +9,10 @@ import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.annotations.meshnode.Vector3Value;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
+import ixdar.geometry.mesh.data.MeshScale;
+import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "transform_geometry")
 public class TransformGeometryNode implements MeshNode {
@@ -30,6 +33,9 @@ public class TransformGeometryNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        ctx.setOutput("geometry", GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class)));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
+        Object sc = FieldBroadcast.getInputOrDefault(ctx, "scale", SCALE.defaultValue());
+        var outMesh = MeshScale.apply(base.mesh(), sc);
+        ctx.setOutput("geometry", base.withMesh(outMesh));
     }
 }

@@ -2,12 +2,14 @@ package ixdar.geometry.mesh.nodes.math;
 
 import java.util.List;
 
+import ixdar.annotations.meshnode.FloatField;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
+import ixdar.annotations.meshnode.Vec3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 
 @MeshNodeAnnotation(id = "separate_xyz")
@@ -30,12 +32,25 @@ public class SeparateXyzNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Vector3Value v = ctx.getInput("vector", Vector3Value.class);
-        if (v == null) {
-            v = new Vector3Value(0f, 0f, 0f);
+        Object vo = FieldBroadcast.getInputOrDefault(ctx, "vector", VECTOR.defaultValue());
+        if (vo instanceof Vec3Field v) {
+            int n = v.length();
+            float[] x = new float[n];
+            float[] y = new float[n];
+            float[] z = new float[n];
+            for (int i = 0; i < n; i++) {
+                x[i] = v.getX(i);
+                y[i] = v.getY(i);
+                z[i] = v.getZ(i);
+            }
+            ctx.setOutput("x", new FloatField(x));
+            ctx.setOutput("y", new FloatField(y));
+            ctx.setOutput("z", new FloatField(z));
+            return;
         }
-        ctx.setOutput("x", v.x());
-        ctx.setOutput("y", v.y());
-        ctx.setOutput("z", v.z());
+        Vector3Value vec = vo instanceof Vector3Value vv ? vv : new Vector3Value(0f, 0f, 0f);
+        ctx.setOutput("x", vec.x());
+        ctx.setOutput("y", vec.y());
+        ctx.setOutput("z", vec.z());
     }
 }

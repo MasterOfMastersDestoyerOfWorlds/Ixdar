@@ -1,15 +1,33 @@
 package ixdar.geometry.mesh.graph;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+
+import ixdar.annotations.meshnode.FieldContext;
 import ixdar.annotations.meshnode.NodeContext;
 
 public class GraphNodeContext implements NodeContext {
     private final Map<String, Object> inputs = new HashMap<>();
     private final Map<String, Object> outputs = new HashMap<>();
+    private FieldContext fieldContext;
 
     public void setInputValue(String portName, Object value) {
         inputs.put(portName, value);
+    }
+
+    @Override
+    public Object getInputValue(String name) {
+        return inputs.get(name);
+    }
+
+    public void setFieldContext(FieldContext ctx) {
+        this.fieldContext = ctx;
+    }
+
+    @Override
+    public FieldContext fieldContext() {
+        return fieldContext;
     }
 
     @Override
@@ -28,6 +46,11 @@ public class GraphNodeContext implements NodeContext {
 
     public Object getOutput(String portName) {
         return outputs.get(portName);
+    }
+
+    /** For runtime introspection (e.g. implicit field context after evaluate). */
+    public Map<String, Object> getOutputsSnapshot() {
+        return Collections.unmodifiableMap(outputs);
     }
 
     @Override

@@ -52,33 +52,48 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     int nextHalfEdgeId;
 
     public HalfEdgeMesh() {
-        this.halfEdgesByDirection = new HashMap<>();
-        this.activeVertexIds = new IntIdList();
-        this.activeEdgeIds = new IntIdList();
-        this.activeFaceIds = new IntIdList();
-        this.activeHalfEdgeIds = new IntIdList();
-        this.vertexOutgoingHalfEdges = new ArrayList<>();
-        this.vertexEdges = new ArrayList<>();
-        this.vertexFaces = new ArrayList<>();
-        this.faceHalfEdges = new ArrayList<>();
-        this.faceVertices = new ArrayList<>();
-        this.faceEdges = new ArrayList<>();
-        this.vertexPositions = new float[12];
-        this.vertexNormals = new float[12];
-        this.vertexOutgoing = new int[4];
-        this.vertexActive = new boolean[4];
-        this.edgeHalfEdge = new int[4];
-        this.edgeActive = new boolean[4];
-        this.faceHalfEdge = new int[4];
-        this.faceNormals = new float[12];
-        this.faceActive = new boolean[4];
-        this.halfEdgeTwin = new int[8];
-        this.halfEdgeNext = new int[8];
-        this.halfEdgePrev = new int[8];
-        this.halfEdgeVertex = new int[8];
-        this.halfEdgeFace = new int[8];
-        this.halfEdgeEdge = new int[8];
-        this.halfEdgeActive = new boolean[8];
+        this(4, 4, 4, 8);
+    }
+
+    /**
+     * @param vertexCapacity expected number of vertices
+     * @param edgeCapacity   expected number of edges
+     * @param faceCapacity   expected number of faces
+     * @param halfEdgeCapacity expected number of half-edges
+     */
+    public HalfEdgeMesh(int vertexCapacity, int edgeCapacity, int faceCapacity, int halfEdgeCapacity) {
+        int vc = Math.max(4, vertexCapacity);
+        int ec = Math.max(4, edgeCapacity);
+        int fc = Math.max(4, faceCapacity);
+        int hc = Math.max(8, halfEdgeCapacity);
+
+        this.halfEdgesByDirection = new HashMap<>(hc * 4 / 3 + 1);
+        this.activeVertexIds = new IntIdList(vc);
+        this.activeEdgeIds = new IntIdList(ec);
+        this.activeFaceIds = new IntIdList(fc);
+        this.activeHalfEdgeIds = new IntIdList(hc);
+        this.vertexOutgoingHalfEdges = new ArrayList<>(vc);
+        this.vertexEdges = new ArrayList<>(vc);
+        this.vertexFaces = new ArrayList<>(vc);
+        this.faceHalfEdges = new ArrayList<>(fc);
+        this.faceVertices = new ArrayList<>(fc);
+        this.faceEdges = new ArrayList<>(fc);
+        this.vertexPositions = new float[vc * FLOATS_PER_VERTEX];
+        this.vertexNormals = new float[vc * FLOATS_PER_VERTEX];
+        this.vertexOutgoing = new int[vc];
+        this.vertexActive = new boolean[vc];
+        this.edgeHalfEdge = new int[ec];
+        this.edgeActive = new boolean[ec];
+        this.faceHalfEdge = new int[fc];
+        this.faceNormals = new float[fc * FLOATS_PER_VERTEX];
+        this.faceActive = new boolean[fc];
+        this.halfEdgeTwin = new int[hc];
+        this.halfEdgeNext = new int[hc];
+        this.halfEdgePrev = new int[hc];
+        this.halfEdgeVertex = new int[hc];
+        this.halfEdgeFace = new int[hc];
+        this.halfEdgeEdge = new int[hc];
+        this.halfEdgeActive = new boolean[hc];
         this.nextVertexId = 0;
         this.nextEdgeId = 0;
         this.nextFaceId = 0;

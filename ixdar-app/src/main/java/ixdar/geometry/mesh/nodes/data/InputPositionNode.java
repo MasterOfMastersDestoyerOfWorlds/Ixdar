@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.nodes.data;
 
 import java.util.List;
 
+import ixdar.annotations.meshnode.FieldContext;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -10,7 +11,6 @@ import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.annotations.meshnode.Vector3Value;
 
-/** Stub: single vector (field evaluation not wired). */
 @MeshNodeAnnotation(id = "input_position")
 public class InputPositionNode implements MeshNode {
 
@@ -28,6 +28,11 @@ public class InputPositionNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        ctx.setOutput("vector", new Vector3Value(0f, 0f, 0f));
+        FieldContext fc = ctx.fieldContext();
+        if (fc == null || fc.elementCount() == 0) {
+            ctx.setOutput("vector", new Vector3Value(0f, 0f, 0f));
+            return;
+        }
+        ctx.setOutput("vector", fc.positions());
     }
 }

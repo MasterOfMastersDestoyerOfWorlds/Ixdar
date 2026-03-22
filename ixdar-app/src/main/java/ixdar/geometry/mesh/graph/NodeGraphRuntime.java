@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ixdar.annotations.meshnode.FieldContext;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -64,6 +65,8 @@ public class NodeGraphRuntime {
             String outputPortName) throws Exception {
         evaluatedNodes.clear();
 
+        FieldContext currentFieldContext = null;
+
         for (PythonParser.ParsedNode parsedData : parsedStatements) {
             Class<? extends MeshNode> clazz = nodeRegistry.get(parsedData.type);
             if (clazz == null) {
@@ -72,6 +75,7 @@ public class NodeGraphRuntime {
             MeshNode activeNode = clazz.getDeclaredConstructor().newInstance();
 
             GraphNodeContext context = new GraphNodeContext();
+            context.setFieldContext(currentFieldContext);
 
             for (Map.Entry<String, Object> arg : parsedData.arguments.entrySet()) {
                 String portName = arg.getKey();
@@ -93,12 +97,37 @@ public class NodeGraphRuntime {
 
             activeNode.evaluate(context);
 
+            MeshTopology meshOut = meshFromNodeOutputs(context);
+            if (meshOut != null && meshOut.vertexCount() > 0) {
+                currentFieldContext = new FieldContextImpl(meshOut);
+            }
+
             evaluatedNodes.put(parsedData.id, context);
         }
 
         GraphNodeContext finalContext = evaluatedNodes.get(finalOutputId);
         if (finalContext != null) {
             return finalContext.getOutput(outputPortName);
+        }
+        return null;
+    }
+
+    private static MeshTopology meshFromNodeOutputs(GraphNodeContext context) {
+        for (Object v : context.getOutputsSnapshot().values()) {
+            MeshTopology m = meshFromValue(v);
+            if (m != null) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    private static MeshTopology meshFromValue(Object v) {
+        if (v instanceof MeshTopology m) {
+            return m;
+        }
+        if (v instanceof GeometryBundle g) {
+            return g.mesh();
         }
         return null;
     }

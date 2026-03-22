@@ -2,13 +2,16 @@ package ixdar.geometry.mesh.nodes.control;
 
 import java.util.List;
 
+import ixdar.annotations.meshnode.BoolField;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
+import ixdar.annotations.meshnode.Vec3Field;
 import ixdar.annotations.meshnode.Vector3Value;
+import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "switch_vector")
 public class SwitchVectorNode implements MeshNode {
@@ -32,16 +35,40 @@ public class SwitchVectorNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Boolean sw = ctx.getInput("switch", Boolean.class);
-        Vector3Value fa = ctx.getInput("false", Vector3Value.class);
-        Vector3Value tr = ctx.getInput("true", Vector3Value.class);
-        if (fa == null) {
-            fa = ZERO;
+        Object so = FieldBroadcast.getInputOrDefault(ctx, "switch", SWITCH.defaultValue());
+        Object fa = FieldBroadcast.getInputOrDefault(ctx, "false", FALSE_VAL.defaultValue());
+        Object tr = FieldBroadcast.getInputOrDefault(ctx, "true", TRUE_VAL.defaultValue());
+
+        if (so instanceof BoolField || fa instanceof Vec3Field || tr instanceof Vec3Field) {
+            int n = 0;
+            if (so instanceof BoolField bf) {
+                n = Math.max(n, bf.length());
+            }
+            if (fa instanceof Vec3Field vf) {
+                n = Math.max(n, vf.length());
+            }
+            if (tr instanceof Vec3Field vt) {
+                n = Math.max(n, vt.length());
+            }
+            float[] out = new float[n * 3];
+            org.joml.Vector3f a = new org.joml.Vector3f();
+            org.joml.Vector3f b = new org.joml.Vector3f();
+            for (int i = 0; i < n; i++) {
+                boolean on = FieldBroadcast.boolAt(so, i, false);
+                FieldBroadcast.vec3At(fa, i, ZERO, a);
+                FieldBroadcast.vec3At(tr, i, ZERO, b);
+                org.joml.Vector3f pick = on ? b : a;
+                out[3 * i] = pick.x;
+                out[3 * i + 1] = pick.y;
+                out[3 * i + 2] = pick.z;
+            }
+            ctx.setOutput("result", new Vec3Field(out));
+            return;
         }
-        if (tr == null) {
-            tr = ZERO;
-        }
-        boolean on = sw != null && sw;
-        ctx.setOutput("result", on ? tr : fa);
+
+        Vector3Value fvv = FieldBroadcast.vector3ValueOrDefault(fa, ZERO);
+        Vector3Value tvv = FieldBroadcast.vector3ValueOrDefault(tr, ZERO);
+        boolean on = so instanceof Boolean bb && bb;
+        ctx.setOutput("result", on ? tvv : fvv);
     }
 }

@@ -10,6 +10,8 @@ import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
+import ixdar.geometry.mesh.data.MeshAppend;
+import ixdar.geometry.mesh.data.MeshTopology;
 
 @MeshNodeAnnotation(id = "join_geometry")
 public class JoinGeometryNode implements MeshNode {
@@ -32,12 +34,21 @@ public class JoinGeometryNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         GeometryBundle ga = GeometryBundles.bundlePart(ctx.getInput("a", Object.class));
         GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput("b", Object.class));
-        if (ga != null && ga.mesh() != null && ga.mesh().vertexCount() > 0) {
-            ctx.setOutput("geometry", ga);
-        } else if (gb != null) {
-            ctx.setOutput("geometry", gb);
-        } else {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+        MeshTopology ma = ga == null ? null : ga.mesh();
+        MeshTopology mb = gb == null ? null : gb.mesh();
+        if (ma == null || ma.vertexCount() == 0) {
+            if (gb != null) {
+                ctx.setOutput("geometry", gb);
+            } else {
+                ctx.setOutput("geometry", GeometryBundle.empty());
+            }
+            return;
         }
+        if (mb == null || mb.vertexCount() == 0) {
+            ctx.setOutput("geometry", ga);
+            return;
+        }
+        var joined = MeshAppend.join(ma, mb);
+        ctx.setOutput("geometry", GeometryBundle.ofMesh(joined));
     }
 }

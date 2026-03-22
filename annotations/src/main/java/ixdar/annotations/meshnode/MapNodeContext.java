@@ -41,6 +41,12 @@ public class MapNodeContext implements NodeContext {
     }
 
     @Override
+    public Object getInputValue(String name) {
+        InputPort inputPort = requireInputPort(name);
+        return inputs.containsKey(name) ? inputs.get(name) : inputPort.defaultValue();
+    }
+
+    @Override
     public <T> T getOutput(String name, Class<T> type) {
         requireOutputPort(name);
         return castValue(name, outputs.get(name), type);

@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.nodes.math;
 
 import java.util.List;
 
+import ixdar.annotations.meshnode.FloatField;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -38,12 +39,28 @@ public class FloatMathNode implements MeshNode {
         } else {
             op = op.trim().toUpperCase();
         }
-        Number aNum = ctx.getInput("a", Number.class);
-        Number bNum = ctx.getInput("b", Number.class);
-        float a = aNum == null ? 0f : aNum.floatValue();
-        float b = bNum == null ? 0f : bNum.floatValue();
+        Object ao = FieldBroadcast.getInputOrDefault(ctx, "a", A.defaultValue());
+        Object bo = FieldBroadcast.getInputOrDefault(ctx, "b", B.defaultValue());
 
-        float out = switch (op) {
+        if (ao instanceof FloatField || bo instanceof FloatField) {
+            int n = FieldBroadcast.floatFieldLength(ao, bo);
+            float[] out = new float[n];
+            for (int i = 0; i < n; i++) {
+                float a = FieldBroadcast.floatAt(ao, i, 0f);
+                float b = FieldBroadcast.floatAt(bo, i, 0f);
+                out[i] = evalOp(op, a, b);
+            }
+            ctx.setOutput("result", new FloatField(out));
+            return;
+        }
+
+        float a = FieldBroadcast.floatScalarOrDefault(ao, 0f);
+        float b = FieldBroadcast.floatScalarOrDefault(bo, 0f);
+        ctx.setOutput("result", evalOp(op, a, b));
+    }
+
+    private static float evalOp(String op, float a, float b) {
+        return switch (op) {
             case "ADD" -> a + b;
             case "SUBTRACT" -> a - b;
             case "MULTIPLY" -> a * b;
@@ -59,6 +76,5 @@ public class FloatMathNode implements MeshNode {
             case "NEGATE" -> -a;
             default -> a + b;
         };
-        ctx.setOutput("result", out);
     }
 }

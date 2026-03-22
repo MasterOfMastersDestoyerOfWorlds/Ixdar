@@ -23,7 +23,19 @@ public enum PortType {
             return true;
         }
         if (this == INT) {
-            return value instanceof Integer;
+            return value instanceof Integer || value instanceof IntField;
+        }
+        if (this == FLOAT) {
+            return value instanceof Number || value instanceof FloatField;
+        }
+        if (this == BOOLEAN) {
+            return value instanceof Boolean || value instanceof BoolField;
+        }
+        if (this == VECTOR3) {
+            return value instanceof Vector3Value || value instanceof Vec3Field;
+        }
+        if (this == ROTATION) {
+            return value instanceof RotationValue || value instanceof RotationField;
         }
         return valueType.isInstance(value);
     }

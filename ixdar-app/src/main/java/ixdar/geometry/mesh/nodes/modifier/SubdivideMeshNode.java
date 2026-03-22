@@ -1,0 +1,132 @@
+package ixdar.geometry.mesh.nodes.modifier;
+
+import java.util.HashMap;
+import java.util.List;
+
+import org.joml.Vector3f;
+
+import ixdar.annotations.meshnode.InputPort;
+import ixdar.annotations.meshnode.MeshNode;
+import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeContext;
+import ixdar.annotations.meshnode.OutputPort;
+import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
+
+/**
+ * Linear face subdivision: splits each face by inserting edge midpoints and a face centroid,
+ * without moving original vertices (unlike Catmull-Clark).
+ */
+@MeshNodeAnnotation(id = "subdivide_mesh")
+public class SubdivideMeshNode implements MeshNode {
+
+    private static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
+    private static final InputPort LEVELS = new InputPort("levels", PortType.INT, 1);
+    private static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
+    private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+
+    @Override
+    public List<InputPort> inputs() {
+        return List.of(MESH_IN, LEVELS);
+    }
+
+    @Override
+    public List<OutputPort> outputs() {
+        return List.of(MESH_OUT, GEOMETRY);
+    }
+
+    @Override
+    public void evaluate(NodeContext ctx) {
+        MeshTopology mesh = ctx.getInput("mesh", MeshTopology.class);
+        Number levelsInput = ctx.getInput("levels", Number.class);
+        int levels = levelsInput == null ? 1 : Math.max(0, levelsInput.intValue());
+
+        if (mesh == null) {
+            ctx.setOutput("mesh", null);
+            ctx.setOutput("geometry", GeometryBundle.empty());
+            return;
+        }
+        if (levels == 0) {
+            ctx.setOutput("mesh", mesh);
+            ctx.setOutput("geometry", GeometryBundle.ofMesh(mesh));
+            return;
+        }
+
+        MeshTopology current = mesh;
+        for (int l = 0; l < levels; l++) {
+            current = subdivideOnce(current);
+        }
+        ((HalfEdgeMesh) current).computeNormals();
+        ctx.setOutput("mesh", current);
+        ctx.setOutput("geometry", GeometryBundle.ofMesh(current));
+    }
+
+    private static HalfEdgeMesh subdivideOnce(MeshTopology src) {
+        int srcV = src.vertexCount();
+        int srcE = src.edgeCount();
+        int srcF = src.faceCount();
+        int outV = srcV + srcE + srcF;
+        int outF = srcF * 4;
+        int outE = srcE * 2 + srcF * 4;
+        int outHE = outE * 2;
+
+        HalfEdgeMesh out = new HalfEdgeMesh(outV, outE, outF, outHE);
+        Vector3f p = new Vector3f();
+        Vector3f q = new Vector3f();
+
+        HashMap<Integer, Integer> vertMap = new HashMap<>(srcV * 4 / 3 + 1);
+        for (int vi = 0; vi < src.vertexCount(); vi++) {
+            int vid = src.vertexIdAt(vi);
+            src.vertexPosition(vid, p);
+            int nid = out.addVertex(p);
+            vertMap.put(vid, nid);
+        }
+
+        HashMap<Long, Integer> edgeMidMap = new HashMap<>(srcE * 4 / 3 + 1);
+        for (int ei = 0; ei < src.edgeCount(); ei++) {
+            int eid = src.edgeIdAt(ei);
+            int he = src.edgeHalfEdge(eid);
+            int va = src.halfEdgeVertex(he);
+            int vb = src.halfEdgeEndVertex(he);
+            src.vertexPosition(va, p);
+            src.vertexPosition(vb, q);
+            p.add(q).mul(0.5f);
+            int mid = out.addVertex(p);
+            long key = edgeKey(va, vb);
+            edgeMidMap.put(key, mid);
+        }
+
+        for (int fi = 0; fi < src.faceCount(); fi++) {
+            int fid = src.faceIdAt(fi);
+            int fc = src.faceVertexCount(fid);
+            p.set(0f, 0f, 0f);
+            int[] faceVerts = new int[fc];
+            for (int k = 0; k < fc; k++) {
+                faceVerts[k] = src.faceVertexAt(fid, k);
+                src.vertexPosition(faceVerts[k], q);
+                p.add(q);
+            }
+            p.mul(1f / fc);
+            int centroid = out.addVertex(p);
+
+            for (int k = 0; k < fc; k++) {
+                int va = faceVerts[k];
+                int vb = faceVerts[(k + 1) % fc];
+                int vc = faceVerts[(k + fc - 1) % fc];
+                int nva = vertMap.get(va);
+                int midAB = edgeMidMap.get(edgeKey(va, vb));
+                int midCA = edgeMidMap.get(edgeKey(vc, va));
+                out.addFace(nva, midAB, centroid, midCA);
+            }
+        }
+        return out;
+    }
+
+    private static long edgeKey(int a, int b) {
+        int lo = Math.min(a, b);
+        int hi = Math.max(a, b);
+        return ((long) lo << 32) | (hi & 0xffffffffL);
+    }
+}

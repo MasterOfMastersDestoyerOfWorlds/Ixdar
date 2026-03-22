@@ -8,7 +8,10 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
+import ixdar.geometry.mesh.data.MeshMergeByDistance;
+import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "merge_by_distance")
 public class MergeByDistanceNode implements MeshNode {
@@ -29,6 +32,10 @@ public class MergeByDistanceNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        ctx.setOutput("geometry", GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class)));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
+        Object d = FieldBroadcast.getInputOrDefault(ctx, "distance", DISTANCE.defaultValue());
+        float dist = FieldBroadcast.floatScalarOrDefault(d, 0.001f);
+        var outMesh = MeshMergeByDistance.merge(base.mesh(), dist);
+        ctx.setOutput("geometry", base.withMesh(outMesh));
     }
 }

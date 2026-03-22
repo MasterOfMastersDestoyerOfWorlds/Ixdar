@@ -11,8 +11,10 @@ import ixdar.annotations.meshnode.PortType;
 import ixdar.annotations.meshnode.Vector3Value;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
+import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.MeshVertexOffset;
+import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
-/** Stub: pass-through bundle (no displacement yet). */
 @MeshNodeAnnotation(id = "set_position")
 public class SetPositionNode implements MeshNode {
 
@@ -33,6 +35,13 @@ public class SetPositionNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
-        ctx.setOutput("geometry", base);
+        Object off = FieldBroadcast.getInputOrDefault(ctx, "offset", OFFSET.defaultValue());
+        MeshTopology mesh = base.mesh();
+        if (mesh == null || mesh.vertexCount() == 0) {
+            ctx.setOutput("geometry", base);
+            return;
+        }
+        var outMesh = MeshVertexOffset.apply(mesh, off);
+        ctx.setOutput("geometry", base.withMesh(outMesh));
     }
 }

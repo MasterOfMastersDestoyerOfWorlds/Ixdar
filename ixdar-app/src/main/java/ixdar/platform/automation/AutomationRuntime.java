@@ -37,6 +37,7 @@ import ixdar.gui.ui.menu.MenuItem;
 import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.geometry.mesh.MeshCanonicalFingerprint;
 import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.point.IrregularQuadGrid;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.KeyGuy;
@@ -179,7 +180,7 @@ public class AutomationRuntime {
                     return result;
                 }
                 MeshNodeViewerScene mvs = (MeshNodeViewerScene) canvas;
-                HalfEdgeMesh mesh = mvs.getMesh();
+                MeshTopology mesh = mvs.getMesh();
                 if (mesh == null) {
                     result.addProperty("ok", false);
                     result.addProperty("error", "Mesh not loaded yet");

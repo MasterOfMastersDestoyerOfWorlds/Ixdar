@@ -2,12 +2,17 @@ package ixdar.geometry.mesh.nodes.selection;
 
 import java.util.List;
 
+import ixdar.annotations.meshnode.BoolField;
 import ixdar.annotations.meshnode.InputPort;
+import ixdar.annotations.meshnode.IntField;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.graph.MeshFieldContext;
+import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "edge_paths_to_selection")
 public class EdgePathsToSelectionNode implements MeshNode {
@@ -28,6 +33,45 @@ public class EdgePathsToSelectionNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        ctx.setOutput("selection", false);
+        Object no = FieldBroadcast.getInputOrDefault(ctx, "next_vertex", NEXT_VERTEX.defaultValue());
+        var fc = ctx.fieldContext();
+        if (fc == null || !(fc instanceof MeshFieldContext mfc) || !(no instanceof IntField next)) {
+            ctx.setOutput("selection", false);
+            return;
+        }
+        MeshTopology mesh = mfc.mesh();
+        if (mesh == null || next.length() != mesh.vertexCount()) {
+            ctx.setOutput("selection", false);
+            return;
+        }
+
+        int ne = mesh.edgeCount();
+        boolean[] sel = new boolean[ne];
+        for (int ei = 0; ei < ne; ei++) {
+            int eid = mesh.edgeIdAt(ei);
+            int he = mesh.edgeHalfEdge(eid);
+            int va = mesh.halfEdgeVertex(he);
+            int vb = mesh.halfEdgeEndVertex(he);
+            int ia = vertexActiveIndex(mesh, va);
+            int ib = vertexActiveIndex(mesh, vb);
+            if (ia < 0 || ib < 0) {
+                sel[ei] = false;
+                continue;
+            }
+            int na = next.get(ia);
+            int nb = next.get(ib);
+            sel[ei] = na == ib || nb == ia;
+        }
+        ctx.setOutput("selection", new BoolField(sel));
+    }
+
+    private static int vertexActiveIndex(MeshTopology mesh, int vertexId) {
+        int n = mesh.vertexCount();
+        for (int i = 0; i < n; i++) {
+            if (mesh.vertexIdAt(i) == vertexId) {
+                return i;
+            }
+        }
+        return -1;
     }
 }
