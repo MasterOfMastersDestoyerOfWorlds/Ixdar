@@ -1,5 +1,6 @@
 package unit.mesh;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -13,6 +14,7 @@ import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.annotations.meshnode.MeshNode;
+import ixdar.geometry.mesh.MeshCanonicalFingerprint;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.GraphValidator;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
@@ -25,8 +27,8 @@ public class ToolQuiltDslTest {
     public void toolQuiltDslValidatesAndExecutes() throws Exception {
         String dsl = loadDsl();
         dsl = dsl.replace(
-                "subdivisions_f = float_math(operation=ADD, a=6.0, b=0.0)",
-                "subdivisions_f = float_math(operation=ADD, a=0.0, b=0.0)");
+                "subdivisions_f = input_float(name=\"subdivisions\", default=6.0, min=0.0, max=12.0)",
+                "subdivisions_f = input_float(name=\"subdivisions\", default=0.0, min=0.0, max=12.0)");
 
         List<PythonParser.ParsedNode> ast = parseDsl(dsl);
         Map<String, Class<? extends MeshNode>> registry = NodeGraphRuntime.annotationRegistryClasses();
@@ -44,11 +46,11 @@ public class ToolQuiltDslTest {
     public void quiltDisplacesVerticesAlongNormals() throws Exception {
         String dsl = loadDsl();
         dsl = dsl.replace(
-                "subdivisions_f = float_math(operation=ADD, a=6.0, b=0.0)",
-                "subdivisions_f = float_math(operation=ADD, a=1.0, b=0.0)");
+                "subdivisions_f = input_float(name=\"subdivisions\", default=6.0, min=0.0, max=12.0)",
+                "subdivisions_f = input_float(name=\"subdivisions\", default=1.0, min=0.0, max=12.0)");
         dsl = dsl.replace(
-                "stitches = compare(a=0.0, b=1.0, mode=EQUAL)",
-                "stitches = compare(a=0.0, b=0.0, mode=EQUAL)");
+                "stitches = input_boolean(name=\"stitches\", default=false)",
+                "stitches = input_boolean(name=\"stitches\", default=true)");
 
         NodeGraphRuntime runtime = new NodeGraphRuntime();
         runtime.registerAllFromAnnotationRegistry();
@@ -78,26 +80,45 @@ public class ToolQuiltDslTest {
     public void subdivisionLevelAffectsVertexCount() throws Exception {
         String baseDsl = loadDsl();
         baseDsl = baseDsl.replace(
-                "stitches = compare(a=0.0, b=1.0, mode=EQUAL)",
-                "stitches = compare(a=0.0, b=0.0, mode=EQUAL)");
+                "stitches = input_boolean(name=\"stitches\", default=false)",
+                "stitches = input_boolean(name=\"stitches\", default=true)");
 
         NodeGraphRuntime rt0 = new NodeGraphRuntime();
         rt0.registerAllFromAnnotationRegistry();
         String dsl0 = baseDsl.replace(
-                "subdivisions_f = float_math(operation=ADD, a=6.0, b=0.0)",
-                "subdivisions_f = float_math(operation=ADD, a=0.0, b=0.0)");
+                "subdivisions_f = input_float(name=\"subdivisions\", default=6.0, min=0.0, max=12.0)",
+                "subdivisions_f = input_float(name=\"subdivisions\", default=0.0, min=0.0, max=12.0)");
         MeshTopology mesh0 = rt0.executeGraphToMesh(parseDsl(dsl0), "quilt_out", "geometry");
 
         NodeGraphRuntime rt1 = new NodeGraphRuntime();
         rt1.registerAllFromAnnotationRegistry();
         String dsl1 = baseDsl.replace(
-                "subdivisions_f = float_math(operation=ADD, a=6.0, b=0.0)",
-                "subdivisions_f = float_math(operation=ADD, a=1.0, b=0.0)");
+                "subdivisions_f = input_float(name=\"subdivisions\", default=6.0, min=0.0, max=12.0)",
+                "subdivisions_f = input_float(name=\"subdivisions\", default=1.0, min=0.0, max=12.0)");
         MeshTopology mesh1 = rt1.executeGraphToMesh(parseDsl(dsl1), "quilt_out", "geometry");
 
         assertTrue(mesh1.vertexCount() > mesh0.vertexCount(),
                 "subdivisions=1 (" + mesh1.vertexCount()
                         + ") should have more verts than subdivisions=0 (" + mesh0.vertexCount() + ")");
+    }
+
+    /**
+     * Regression: {@code cube(size=2.0)} matches Blender's default 2m cube (-1..1), fixing absolute
+     * displacement vs a 1m cube; fingerprint locks output for subdivisions=0 and default curves.
+     */
+    @Test
+    public void quiltParityFingerprintAtDefaultQuiltParameters() throws Exception {
+        String dsl = loadDsl();
+        dsl = dsl.replace(
+                "subdivisions_f = input_float(name=\"subdivisions\", default=6.0, min=0.0, max=12.0)",
+                "subdivisions_f = input_float(name=\"subdivisions\", default=0.0, min=0.0, max=12.0)");
+
+        NodeGraphRuntime runtime = new NodeGraphRuntime();
+        runtime.registerAllFromAnnotationRegistry();
+        MeshTopology mesh = runtime.executeGraphToMesh(parseDsl(dsl), "quilt_out", "geometry");
+        assertNotNull(mesh);
+        String fp = MeshCanonicalFingerprint.sha256Hex(mesh);
+        assertEquals("fdb11fd22217fc24a18b6b44f25e75fcb55fe57318e6e7a1a7b8c968b3a4cb3a", fp);
     }
 
     private static String loadDsl() throws Exception {

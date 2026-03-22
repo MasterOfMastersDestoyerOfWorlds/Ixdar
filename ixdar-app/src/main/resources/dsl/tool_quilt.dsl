@@ -1,22 +1,18 @@
 # Quilting group — faithful port of Blender tool_quilt.py
-# Inputs (defaults match create_quilting_group)
-scale_x = float_math(operation=ADD, a=0.3, b=0.0)
-scale_y = float_math(operation=ADD, a=0.3, b=0.0)
-depth = float_math(operation=ADD, a=0.05, b=0.0)
-rotation = float_math(operation=ADD, a=1.3089969, b=0.0)
-subdivisions_f = float_math(operation=ADD, a=6.0, b=0.0)
+# Inputs (defaults match create_quilting_group); user-editable via input_* nodes
+scale_x = input_float(name="scale_x", default=0.3, min=0.001, max=10.0)
+scale_y = input_float(name="scale_y", default=0.3, min=0.001, max=10.0)
+depth = input_float(name="depth", default=0.05, min=0.0, max=1.0)
+rotation = input_float(name="rotation", default=1.3089969, min=0.0, max=6.2832)
+subdivisions_f = input_float(name="subdivisions", default=6.0, min=0.0, max=12.0)
 subdivisions = float_to_int(value=subdivisions_f.result, mode=ROUND)
-stitch_size = float_math(operation=ADD, a=0.003, b=0.0)
-custom_depth_profile = compare(a=0.0, b=1.0, mode=EQUAL)
-custom_edge_profile = compare(a=0.0, b=1.0, mode=EQUAL)
-stitches = compare(a=0.0, b=1.0, mode=EQUAL)
-depth_curve_default = float_curve(points="0,0,1,0.775,0.423,0.537")
-edge_curve_default = float_curve(points="0.005,1,1,1,0.505,0.512")
-depth_curve_custom = float_curve(points="0,0,1,1")
-edge_curve_custom = float_curve(points="0,0,1,1")
+stitch_size = input_float(name="stitch_size", default=0.003, min=0.0001, max=0.1)
+stitches = input_boolean(name="stitches", default=false)
+depth_profile = float_curve(points="0,0,1,0.775,0.423,0.537")
+edge_profile = float_curve(points="0.005,1,1,1,0.505,0.512")
 
-# --- Base mesh: cube -> Catmull-Clark sphere -> linear subdivide ---
-base_cube = cube(size=1.0)
+# --- Base mesh: Blender default cube is 2m; size=2 matches -1..1 per axis ---
+base_cube = cube(size=2.0)
 subdivided = subdivide_mesh(mesh=base_cube.mesh, levels=subdivisions.result)
 
 # --- Tangent frame ---
@@ -73,15 +69,9 @@ pos_along = switch_float(switch=nearest_vert.result, false=cell_x.result, true=c
 capture_dist = capture_attribute(geometry=subdivided.geometry, name=Distance, value=dist.result)
 capture_pos = capture_attribute(geometry=capture_dist.geometry, name=PosAlong, value=pos_along.result)
 
-# --- Depth profile ---
-depth_internal = evaluate_closure(closure=depth_curve_default.closure, value=dist.result)
-depth_external = evaluate_closure(closure=depth_curve_custom.closure, value=dist.result)
-profile = switch_float(switch=custom_depth_profile.result, false=depth_internal.result, true=depth_external.result)
-
-# --- Edge profile ---
-edge_internal = evaluate_closure(closure=edge_curve_default.closure, value=pos_along.result)
-edge_external = evaluate_closure(closure=edge_curve_custom.closure, value=pos_along.result)
-edge_factor = switch_float(switch=custom_edge_profile.result, false=edge_internal.result, true=edge_external.result)
+# --- Depth and edge profiles (single curve each; edit float_curve control points directly) ---
+profile = evaluate_closure(closure=depth_profile.closure, value=dist.result)
+edge_factor = evaluate_closure(closure=edge_profile.closure, value=pos_along.result)
 
 # --- Displacement: depth * (1 - (1-profile) * edge_factor) ---
 inv_profile = float_math(operation=SUBTRACT, a=1.0, b=profile.result)

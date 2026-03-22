@@ -9,13 +9,13 @@ import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 
-@MeshNodeAnnotation(id = "input_int")
-public class InputIntNode implements MeshNode {
+@MeshNodeAnnotation(id = "input_float")
+public class InputFloatNode implements MeshNode {
     private static final InputPort NAME = new InputPort("name", PortType.STRING, "");
-    private static final InputPort DEFAULT = new InputPort("default", PortType.INT, 0);
-    private static final InputPort MIN = new InputPort("min", PortType.INT, null);
-    private static final InputPort MAX = new InputPort("max", PortType.INT, null);
-    private static final OutputPort RESULT = new OutputPort("result", PortType.INT);
+    private static final InputPort DEFAULT = new InputPort("default", PortType.FLOAT, 0.0f);
+    private static final InputPort MIN = new InputPort("min", PortType.FLOAT, null);
+    private static final InputPort MAX = new InputPort("max", PortType.FLOAT, null);
+    private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override
     public List<InputPort> inputs() {
@@ -30,11 +30,11 @@ public class InputIntNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         Number valueNum = ctx.getInput("default", Number.class);
-        int v = valueNum == null ? 0 : valueNum.intValue();
+        float v = valueNum == null ? 0f : valueNum.floatValue();
         Number minNum = ctx.getInput("min", Number.class);
         Number maxNum = ctx.getInput("max", Number.class);
-        int min = minNum == null ? Integer.MIN_VALUE : minNum.intValue();
-        int max = maxNum == null ? Integer.MAX_VALUE : maxNum.intValue();
+        float min = minNum == null ? Float.NEGATIVE_INFINITY : minNum.floatValue();
+        float max = maxNum == null ? Float.POSITIVE_INFINITY : maxNum.floatValue();
         if (v < min) {
             v = min;
         }

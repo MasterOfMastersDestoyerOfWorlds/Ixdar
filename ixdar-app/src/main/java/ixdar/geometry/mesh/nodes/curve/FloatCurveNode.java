@@ -12,6 +12,10 @@ import ixdar.geometry.mesh.curve.FloatCurveKernel;
 
 /**
  * Builds a float curve closure from comma-separated control points: {@code "x0,y0,x1,y1,..."}.
+ * <p>
+ * Same “user-editable input” family as {@code input_float} / {@code input_int} / {@code input_boolean}:
+ * {@link ixdar.geometry.mesh.graph.InputParameterDescriptor} lists {@code float_curve} nodes as
+ * {@link ixdar.geometry.mesh.graph.InputParameterDescriptor.InputParameterKind#CURVE} parameters for UI panels.
  */
 @MeshNodeAnnotation(id = "float_curve")
 public class FloatCurveNode implements MeshNode {

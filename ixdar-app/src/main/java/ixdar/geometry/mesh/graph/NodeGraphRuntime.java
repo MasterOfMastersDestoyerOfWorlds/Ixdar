@@ -52,6 +52,13 @@ public class NodeGraphRuntime {
     }
 
     /**
+     * User-editable inputs and curve parameters in a parsed graph (literal metadata for UI).
+     */
+    public static List<InputParameterDescriptor> collectInputParameters(List<PythonParser.ParsedNode> parsedStatements) {
+        return InputParameterDescriptor.collect(parsedStatements);
+    }
+
+    /**
      * Runs the graph and returns the final node's {@code mesh} output (backward compatible).
      */
     public MeshTopology executeGraph(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId) throws Exception {
@@ -63,9 +70,19 @@ public class NodeGraphRuntime {
      */
     public Object executeGraphResult(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName) throws Exception {
+        return executeGraphResult(parsedStatements, finalOutputId, outputPortName, Map.of());
+    }
+
+    /**
+     * Runs the graph; {@code overridesByNodeId} replaces the {@code default} port value for
+     * {@code input_float}, {@code input_int}, and {@code input_boolean} nodes (key = DSL assignment id).
+     */
+    public Object executeGraphResult(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
+            String outputPortName, Map<String, Object> overridesByNodeId) throws Exception {
         evaluatedNodes.clear();
 
         FieldContext currentFieldContext = null;
+        Map<String, Object> overrides = overridesByNodeId == null ? Map.of() : overridesByNodeId;
 
         for (PythonParser.ParsedNode parsedData : parsedStatements) {
             Class<? extends MeshNode> clazz = nodeRegistry.get(parsedData.type);
@@ -95,6 +112,10 @@ public class NodeGraphRuntime {
                 }
             }
 
+            if (overrides.containsKey(parsedData.id) && isInputParameterNode(parsedData.type)) {
+                context.setInputValue("default", overrides.get(parsedData.id));
+            }
+
             activeNode.evaluate(context);
 
             MeshTopology meshOut = meshFromNodeOutputs(context);
@@ -110,6 +131,10 @@ public class NodeGraphRuntime {
             return finalContext.getOutput(outputPortName);
         }
         return null;
+    }
+
+    private static boolean isInputParameterNode(String type) {
+        return "input_float".equals(type) || "input_int".equals(type) || "input_boolean".equals(type);
     }
 
     private static MeshTopology meshFromNodeOutputs(GraphNodeContext context) {
@@ -137,7 +162,12 @@ public class NodeGraphRuntime {
      */
     public MeshTopology executeGraphToMesh(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName) throws Exception {
-        Object result = executeGraphResult(parsedStatements, finalOutputId, outputPortName);
+        return executeGraphToMesh(parsedStatements, finalOutputId, outputPortName, Map.of());
+    }
+
+    public MeshTopology executeGraphToMesh(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
+            String outputPortName, Map<String, Object> overridesByNodeId) throws Exception {
+        Object result = executeGraphResult(parsedStatements, finalOutputId, outputPortName, overridesByNodeId);
         if (result instanceof MeshTopology m) {
             return m;
         }

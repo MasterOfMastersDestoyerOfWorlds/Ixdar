@@ -156,12 +156,15 @@ public class MathNodesTest {
     }
 
     @Test
-    public void inputIntPassthrough() {
+    public void inputIntParameterClamps() {
         InputIntNode node = new InputIntNode();
         MapNodeContext ctx = new MapNodeContext(node);
-        ctx.setInput("value", 99);
+        ctx.setInput("name", "test");
+        ctx.setInput("default", 5);
+        ctx.setInput("min", 0);
+        ctx.setInput("max", 4);
         node.evaluate(ctx);
-        assertEquals(99, ctx.getOutput("output", Integer.class));
+        assertEquals(4, ctx.getOutput("result", Integer.class));
     }
 
     @Test
