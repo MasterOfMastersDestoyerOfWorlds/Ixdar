@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "startedAtIso": "2026-02-13T00:02:43.439Z",
+  "savedAtIso": "2026-02-13T00:02:44.275479100Z",
+  "windowWidth": 750,
+  "windowHeight": 750,
+  "framebufferWidth": 750,
+  "framebufferHeight": 750,
+  "rawEvents": [],
+  "abstractActions": [
+    {
+      "timestampMs": 154,
+      "type": "mouse_click",
+      "payload": {
+        "button": 0,
+        "pane": "None",
+        "xNormalized": 375.0,
+        "yNormalized": 420.0
+      }
+    },
+    {
+      "timestampMs": 154,
+      "type": "click",
+      "payload": {
+        "x": 375.0,
+        "y": 330.0,
+        "xNormalized": 0.5,
+        "yNormalized": 0.44,
+        "button": 0
+      }
+    },
+    {
+      "timestampMs": 284,
+      "type": "mouse_click",
+      "payload": {
+        "button": 0,
+        "pane": "None",
+        "xNormalized": 375.0,
+        "yNormalized": 450.00003
+      }
+    },
+    {
+      "timestampMs": 284,
+      "type": "click",
+      "payload": {
+        "x": 375.0,
+        "y": 300.0,
+        "xNormalized": 0.5,
+        "yNormalized": 0.4,
+        "button": 0
+      }
+    },
+    {
+      "timestampMs": 423,
+      "type": "mouse_click",
+      "payload": {
+        "button": 0,
+        "pane": "None",
+        "xNormalized": 375.0,
+        "yNormalized": 489.99997
+      }
+    },
+    {
+      "timestampMs": 423,
+      "type": "click",
+      "payload": {
+        "x": 375.0,
+        "y": 260.0,
+        "xNormalized": 0.5,
+        "yNormalized": 0.34666666,
+        "button": 0
+      }
+    },
+    {
+      "timestampMs": 564,
+      "type": "mouse_click",
+      "payload": {
+        "button": 0,
+        "pane": "None",
+        "xNormalized": 375.0,
+        "yNormalized": 530.00006
+      }
+    },
+    {
+      "timestampMs": 564,
+      "type": "click",
+      "payload": {
+        "x": 375.0,
+        "y": 220.0,
+        "xNormalized": 0.5,
+        "yNormalized": 0.29333332,
+        "button": 0
+      }
+    },
+    {
+      "timestampMs": 694,
+      "type": "mouse_click",
+      "payload": {
+        "button": 0,
+        "pane": "None",
+        "xNormalized": 375.0,
+        "yNormalized": 570.0
+      }
+    },
+    {
+      "timestampMs": 694,
+      "type": "click",
+      "payload": {
+        "x": 375.0,
+        "y": 180.0,
+        "xNormalized": 0.5,
+        "yNormalized": 0.24,
+        "button": 0
+      }
+    }
+  ]
+}

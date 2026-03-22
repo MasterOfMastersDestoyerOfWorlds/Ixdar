@@ -20,7 +20,9 @@ void main() {
     float t = max(0., min(1., dot(scaledTextureCoord - pointA, pointB - pointA) * inverseLineLengthSq));
     vec2 projection = pointA + t * (pointB - pointA);
     float sigDist = distance(scaledTextureCoord, projection);
-    float opacity = smoothstep(edgeDist, edgeDist - edgeSharpness, sigDist);
+    
+    float w = fwidth(sigDist); 
+    float opacity = smoothstep(edgeDist + w, edgeDist - w, sigDist);
     fragColor = vec4(mix(vertexColor.rgb, linearGradientColor.rgb, textureCoord.x), opacity * linearGradientColor.a);
 
 }

@@ -1,0 +1,188 @@
+package ixdar.canvas;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.IntFunction;
+
+import org.joml.Vector3f;
+import org.lwjgl.PointerBuffer;
+
+import ixdar.annotations.scene.SceneDrawable;
+import ixdar.audio.AudioAssets;
+import ixdar.audio.AudioSystem;
+import ixdar.geometry.point.PointND;
+import ixdar.geometry.point.PointSet;
+import ixdar.geometry.shell.DistanceMatrix;
+import ixdar.geometry.shell.Shell;
+import ixdar.graphics.cameras.Bounds;
+import ixdar.graphics.cameras.Camera2D;
+import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.render.Clock;
+import ixdar.graphics.render.sdf.SDFCircle;
+import ixdar.graphics.render.sdf.SDFFluid;
+import ixdar.graphics.render.shaders.DiffuseShader;
+import ixdar.graphics.render.shaders.ShaderProgram;
+import ixdar.gui.ui.menu.MenuBox;
+import ixdar.platform.Platforms;
+import ixdar.platform.gl.GL;
+import ixdar.platform.gl.Platform;
+import ixdar.platform.automation.AutomationInputBinder;
+import ixdar.platform.automation.AutomationRuntime;
+import ixdar.platform.input.KeyGuy;
+import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.SceneInputFrameUpdater;
+import ixdar.scenes.main.MainScene;
+import ixdar.scenes.trade.TradeScene;
+
+public class Canvas3D extends SceneDrawable {
+    public static Canvas3D instance;
+
+    protected DiffuseShader shader;
+    public MenuBox menu;
+    public boolean changedSize = false;
+    // private SDFTexture logo;
+    public boolean active;
+
+    public Camera3D camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f, this);
+    public MouseTrap mouse = new MouseTrap(null, camera, this);
+    public KeyGuy keys = new KeyGuy(camera, this);
+    public Platform platform;
+    public long checkPaintTime;
+    public Shell shell;
+
+    public Camera2D camera2D;
+    public Map<String, Bounds> webViews;
+    public Bounds paneBounds;
+
+    public DistanceMatrix distanceMatrix;
+    public PointSet pointSet;
+
+    public static final String DEFAULT_VIEW = "MAIN";
+
+    public Canvas3D() {
+        instance = this;
+        activate(true);
+        platform = Platforms.get();
+        active = true;
+        AutomationRuntime.get().start(this);
+
+        shell = new Shell();
+    }
+
+    public void initPoints() {
+        shell.clear();
+        shell.add(new PointND.Double(-1.0, -1.0));
+        shell.add(new PointND.Double(1.0, -1.0));
+        shell.add(new PointND.Double(1.0, 1.0));
+        shell.add(new PointND.Double(-1.0, 1.0));
+        pointSet = shell.toPointSet();
+        distanceMatrix = new DistanceMatrix(pointSet);
+        shell.initShell(distanceMatrix);
+        this.camera2D = new Camera2D(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(),
+                1.0f, 0.0f, 0.0f,
+                pointSet);
+        webViews = new HashMap<>();
+        paneBounds = new Bounds(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(),
+                null, DEFAULT_VIEW);
+        webViews.put(DEFAULT_VIEW, paneBounds);
+        camera2D.initCamera(webViews, DEFAULT_VIEW);
+        camera2D.calculateCameraTransform(pointSet);
+        camera2D.reset();
+    }
+
+    public void initGL() {
+        GL gl = Platforms.gl();
+        gl.createCapabilities(false, (IntFunction<PointerBuffer>) null);
+        float start = Clock.time();
+        gl.coldStartStack();
+
+        System.out.println("capabilities: " + (Clock.time() - start));
+
+        gl.viewport(0, 0, (int) Platforms.get().getFrameBufferWidth(), (int) Platforms.get().getFrameBufferHeight());
+        mouse.setCanvas(this);
+
+        gl.enable(gl.DEPTH_TEST());
+
+        gl.clearColor(0.7f, 0.1f, 0.1f, 1.0f);
+        gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
+        gl.enable(gl.BLEND());
+        AudioSystem.get().init();
+        if (MenuBox.menuVisible) {
+            AudioSystem.get().playMenuMusicLoop(AudioAssets.MENU_MUSIC);
+        }
+        System.out.println("InitGL: " + (Clock.time() - start));
+        System.out.println("Time to First Paint: " + (Clock.time() - Platforms.get().startTime()));
+        initPoints();
+    }
+
+    public SDFCircle circle;
+    public SDFFluid fluid;
+
+    public void paintGL() {
+        GL gl = Platforms.gl();
+        gl.clearColor(0.07f, 0.07f, 0.07f, 1.0f);
+        gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
+        camera.resetZIndex();
+        camera2D.resetZIndex();
+
+        SceneInputFrameUpdater.update(keys, mouse);
+
+        drawScene();
+
+        gl.viewport(0, 0, (int) Platforms.get().getFrameBufferWidth(), (int) Platforms.get().getFrameBufferHeight());
+        ArrayList<ShaderProgram> shaders = gl.getShaders();
+        for (ShaderProgram s : shaders) {
+            s.updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), 1f);
+            s.hotReload();
+        }
+        for (ShaderProgram s : shaders) {
+            s.flush();
+        }
+        AutomationRuntime.get().processMainThreadCommands();
+        Clock.frameRendered();
+    }
+
+    public void drawScene() {
+        if (menu == null) {
+            menu = new MenuBox();
+            fluid = new SDFFluid();
+        }
+        if (MenuBox.menuVisible) {
+            fluid.draw(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), null,
+                    camera2D);
+        }
+
+        if (TradeScene.active && TradeScene.instance != null && !MenuBox.menuVisible) {
+            TradeScene.instance.draw(camera2D);
+        } else if (MainScene.main != null && !MenuBox.menuVisible) {
+            MainScene.main.draw(camera2D);
+        }
+
+        if (MenuBox.menuVisible) {
+            menu.draw(camera2D);
+        }
+    }
+
+    public void activate(boolean state) {
+        if (state) {
+            Platform p = Platforms.get();
+            AutomationInputBinder.bind(p, keys, mouse);
+            AudioSystem.get().playMenuMusicLoop(AudioAssets.MENU_MUSIC);
+        } else {
+            AudioSystem.get().pauseMenuMusic();
+        }
+        keys.active = state;
+        mouse.active = state;
+        MenuBox.menuVisible = state;
+        active = state;
+    }
+
+    @Override
+    public void shutdown() {
+        activate(false);
+        AutomationRuntime.get().stop();
+        AudioSystem.get().shutdown();
+    }
+
+}

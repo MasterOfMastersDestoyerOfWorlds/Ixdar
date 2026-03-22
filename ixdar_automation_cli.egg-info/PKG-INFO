@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: ixdar-automation-cli
+Version: 0.1.0
+Summary: Automation CLI utilities for the Ixdar project
+Requires-Python: >=3.11

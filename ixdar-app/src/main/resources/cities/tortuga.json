@@ -1,0 +1,10 @@
+{
+    "id": "tortuga",
+    "name": "Tortuga",
+    "x": 320.0,
+    "y": 280.0,
+    "population": 3000,
+    "resources": ["rum", "weapons", "contraband"],
+    "produces": {"rum": 20, "weapons": 5},
+    "consumes": {"sugar": 12, "grain": 6, "tools": 4}
+}

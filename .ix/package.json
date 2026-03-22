@@ -1,0 +1,7 @@
+{
+  "name": "ix-templates",
+  "private": true,
+  "dependencies": {
+    "ixdar-vs": "latest"
+  }
+}

@@ -1,120 +1,169 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "java",
-            "name": "Launch Main",
-            "request": "launch",
-            "mainClass": "shell.ui.main.Main",
-            "args": "djbouti",
-            "vmArgs": "-enableassertions",
-            "cwd": "${workspaceFolder}/ixdar-app"
-        },
-        {
-            "type": "java",
-            "name": "Ixdar",
-            "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
-            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
-            "cwd": "${workspaceFolder}/ixdar-app"
-        },
-        {
-            "type": "java",
-            "name": "Bouncing Line",
-            "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
-            "args": "bouncing-line-canvas",
-            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
-            "cwd": "${workspaceFolder}/ixdar-app"
-        },
-        {
-            "type": "java",
-            "name": "Circle",
-            "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
-            "args": "circle-canvas",
-            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
-            "cwd": "${workspaceFolder}/ixdar-app"
-        },
-        {
-            "type": "java",
-            "name": "Bezier",
-            "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
-            "args": "bezier-curve-canvas",
-            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
-            "cwd": "${workspaceFolder}/ixdar-app"
-        },
-        {
-            "type": "java",
-            "name": "Line",
-            "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
-            "args": "line-canvas",
-            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
-            "cwd": "${workspaceFolder}/ixdar-app"
-        },
-        {
-            "type": "java",
-            "name": "Dashed Line",
-            "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
-            "args": "dashed-line-canvas",
-            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
-            "cwd": "${workspaceFolder}/ixdar-app"
-        },
-        {
-            "type": "java",
-            "name": "Dashed Line Round",
-            "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
-            "args": "dashed-line-round-canvas",
-            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
-            "cwd": "${workspaceFolder}/ixdar-app"
-        },
-        {
-            "type": "java",
-            "name": "Dashed Line End Caps",
-            "request": "launch",
-            "mainClass": "shell.ui.IxdarWindow",
-            "args": "dashed-line-round-end-caps-canvas",
-            "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
-            "cwd": "${workspaceFolder}/ixdar-app"
-        },
-        {
-            "type": "java",
-            "name": "Launch Current File",
-            "request": "launch",
-            "mainClass": "${file}",
-            "vmArgs": "-enableassertions",
-            "console": "internalConsole",
-            "cwd": "${workspaceFolder}/ixdar-app"
-        },
-        {
-            "type": "java",
-            "name": "Launch Profile",
-            "request": "launch",
-            "mainClass": "shell.Main",
-            "vmArgs": "-enableassertions -agentpath:Z:/VisualVM/visualvm_219/visualvm/lib/deployed/jdk16/windows-amd64/profilerinterface.dll=Z:\\VisualVM\\visualvm_219\\visualvm\\lib,5140",
-            "cwd": "${workspaceFolder}/ixdar-app"
-        },
-        {
-            "type": "java",
-            "name": "Web (TeaVM): build",
-            "request": "launch",
-            "mainClass": "shell.ui.WebLauncher",
-            "preLaunchTask": "teavm-build"
-        },
-        {
-            "type": "pwa-msedge",
-            "request": "launch",
-            "name": "Web (TeaVM): open dev server",
-            "preLaunchTask": "serve-teavm",
-            "url": "http://localhost:8080/",
-            "webRoot": "${workspaceFolder}/target/teavm"
-        }
-    ]
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Launch Main",
+      "request": "launch",
+      "mainClass": "shell.ui.main.Main",
+      "args": "djbouti",
+      "vmArgs": "-enableassertions",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Ixdar",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Trade Irregular Grid Scene",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "irregular-grid-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Bouncing Line",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "bouncing-line-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Circle",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "circle-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Bezier",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "bezier-curve-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Line",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "line-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Arrow Line",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "arrow-line-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Dashed Line",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "dashed-line-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Dashed Line Round",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "dashed-line-round-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Dashed Line End Caps",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "dashed-line-round-end-caps-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Model Load",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "model-load-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "env": {
+        "IXDAR_ASSET_REPO_ROOT": "C:\\Code\\IxdarAssets"
+      },
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Launch Current File",
+      "request": "launch",
+      "mainClass": "${file}",
+      "vmArgs": "-enableassertions",
+      "console": "internalConsole",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Launch Profile",
+      "request": "launch",
+      "mainClass": "shell.Main",
+      "vmArgs": "-enableassertions -agentpath:Z:/VisualVM/visualvm_219/visualvm/lib/deployed/jdk16/windows-amd64/profilerinterface.dll=Z:\\VisualVM\\visualvm_219\\visualvm\\lib,5140",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Web (TeaVM): build",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.WebLauncher",
+      "preLaunchTask": "teavm-build"
+    },
+    {
+      "type": "pwa-msedge",
+      "request": "launch",
+      "name": "Web (TeaVM): open dev server",
+      "preLaunchTask": "serve-teavm",
+      "url": "http://localhost:8080/",
+      "webRoot": "${workspaceFolder}/target/teavm"
+    },
+    {
+      "type": "java",
+      "name": "Icosphere Save Point",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "icosphere-save-point-canvas",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Mesh Node Viewer",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "mesh-viewer",
+      "vmArgs": "-enableassertions -Xmx4g -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    }
+
+  ]
 }

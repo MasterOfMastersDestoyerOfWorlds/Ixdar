@@ -1,0 +1,3 @@
+[submodule "ixdar-tickets"]
+	path = ixdar-tickets
+	url = https://github.com/MasterOfMastersDestoyerOfWorlds/ixdar-tickets.git

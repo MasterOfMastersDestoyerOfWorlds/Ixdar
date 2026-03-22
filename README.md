@@ -14,6 +14,15 @@
 
 [Links and References](#links)
 
+## Development Setup
+
+Large 3D assets are intentionally kept outside this git repository.
+
+Set the environment variable `IXDAR_ASSET_REPO_ROOT` to your local asset repo folder:
+
+- Windows (PowerShell): `$env:IXDAR_ASSET_REPO_ROOT = "C:\\Code\\IxdarAssets"`
+- Example test model path used by the model-load scene: `C:\\Code\\IxdarAssets\\Hand.obj`
+
 ## Preface
 
 <div width="50%" style="text-align:center"><i>Programming forces one to be precise and formal without being excessively rigorous. The computer does not tolerate vague descriptions or incomplete constructions. Thus the act of programming makes one keenly aware of one's errors of reasoning or unsupported conclusions.</i></div>

@@ -85,7 +85,7 @@ In computer graphics, a similar technique is used to preform Ray-Tracing and Ray
 
 <p style="text-align:center"> Dragon Mesh Subdivided into Oct-Tree for Ray Tracing</p>
 
-For example, if we split the mesh into eight subregions, we can check each one and if the ray does not pass through one of the subregions, it cannot pass through any of that region's children! So in a number of checks roughly equivalent to 8*N Log(N) we can determine wether the light ray hits our object or not. This let's us tell whether the light ray should bounce off of our mesh and this technique is partly why ray tracing is possible on modern hardware (Insert Coding Adventure Video Link).
+For example, if we split the mesh into eight subregions, we can check each one and if the ray does not pass through one of the subregions, it cannot pass through any of that region's children! So in a number of checks roughly equivalent to 8\*N Log(N) we can determine wether the light ray hits our object or not. This let's us tell whether the light ray should bounce off of our mesh and this technique is partly why ray tracing is possible on modern hardware (Insert Coding Adventure Video Link).
 
 Plane splitting has been one of the approximation algorithms used for attempting to solve the Traveling Salesman Problem as well, but what can be gained from splitting the plane when attacking graph cycles? If you split the plane enough so that you have a number of points that you can easily solve (i.e. they form a convex hull in 2D), then you have gained some information. But I see two problems with this route: First the neighboring quadrants don't tell you as much as in the N-body Simulation or the Ray Collision Detection examples, Also as the problem goes to a N-Dimensions, the number of subregions you can split space into approaches 2^N, so no new information is gained by splitting space into sub regions! These flaw do not mean we should throw out the idea of grouping and group summation entirely, just that creating an abstraction by splitting space into subregions does not form a natural abstraction.
 
@@ -112,7 +112,7 @@ In the Match Twice and Stitch paper, an algorithm for finding m distinct cycles 
 
 How can you know that when you stitch two cycles together, that they will form the correct minimal cycle of the two sets? Even in the example seen above this is unlikely to be the correct cycle and to actually check the correct cycle under this scheme you'd need to check 2^k possible cycles where k is the number of elements in the union of the two combining cycles. I think the causal reason why this is hard is that this is an unnatural abstraction, if you think about the case where you have two cycles that are circles in the plane and their boundaries are close to each other, the cycles formed will be two circles, but along the boundary between the two midpoints of the circles, those points will want to match more closely with points from the opposite circle than with all of the points in their own circle.
 
-The problem with many similar algorithms (greedy match, any colony, minimum spanning tree transformation, etc.) is that you can know that an answer is within some bound of the correct one, but there is no framework for causal reasoning on why a given solution is wrong, we simply say that the algorithm didn't work for this set and then use some form of k-opt segment swap to minimize the answer (look ma it is getting shorter!). This is the general problem with using heuristics  rather than looking for root causes, iteration is at the heart of scientific thought and if you have no theoretical framework to wrap around a problem, then there is no place to iterate your theory when you find an exception to it. It is the difference between engineering and science. *WARNING BASELESS RANT INCOMING* I think for all of its sins, the greatest one in Computer Science is that we often rely too much on engineering efforts rather than the scientific and mathematical efforts of our fields namesake. We as a field seek short term gain in fitness functions (wether the fitness function is path length in TSP research or benchmark success in Machine Learning) instead of long term understanding of deeper truths. If we continually throw aside understanding at the feet of greater compute power then we do not deserve to be called scientists. The opposite tendency, to only rely on proofs is similarly flawed and I find many of the claims of Complexity theory to fall into this category of never really saying anything of use and building no intuition(which is inherently unprovable), except what is directly derivable from previously shown results. If an answer to P vs NP exists, I expect that it will be a leap of logic unlike what we have seen before not a neatly built bridge of small results from P vs NP to P=NP or P!=NP. Since most Complexity theorists are trying to prove P!=NP because of a series of reductio ad absurdum (which as Schrodinger found out in the quantum realm, the world is often more absurd than the limits of human imagination), there is a dirth of academic research trying to use the structure of relationships to map out what NP problems can be solved in P. As far as I can tell, the notion that Optimal tours might behave and change in the same ways that a precision watch would change to a replacement of gears, is lost on most people. We as a field either jump to statistical arguments or quasi-mathematical arguments neither of which seem to build actual understandable models of what is going on in a perfect circuit. (I say quasi here since very little of complexity theory deals with the actual nature of programs, geometrical structures and the like, instead falling back to the most broad of arguments, making it closer to the philosophy of old than the mathematics and science of the early 20th century, [GTC](http://ramakrishnadas.cs.uchicago.edu/gctcacm.pdf) seems promising on the P!=NP front and I need to read more about it).
+The problem with many similar algorithms (greedy match, any colony, minimum spanning tree transformation, etc.) is that you can know that an answer is within some bound of the correct one, but there is no framework for causal reasoning on why a given solution is wrong, we simply say that the algorithm didn't work for this set and then use some form of k-opt segment swap to minimize the answer (look ma it is getting shorter!). This is the general problem with using heuristics rather than looking for root causes, iteration is at the heart of scientific thought and if you have no theoretical framework to wrap around a problem, then there is no place to iterate your theory when you find an exception to it. It is the difference between engineering and science. _WARNING BASELESS RANT INCOMING_ I think for all of its sins, the greatest one in Computer Science is that we often rely too much on engineering efforts rather than the scientific and mathematical efforts of our fields namesake. We as a field seek short term gain in fitness functions (wether the fitness function is path length in TSP research or benchmark success in Machine Learning) instead of long term understanding of deeper truths. If we continually throw aside understanding at the feet of greater compute power then we do not deserve to be called scientists. The opposite tendency, to only rely on proofs is similarly flawed and I find many of the claims of Complexity theory to fall into this category of never really saying anything of use and building no intuition(which is inherently unprovable), except what is directly derivable from previously shown results. If an answer to P vs NP exists, I expect that it will be a leap of logic unlike what we have seen before not a neatly built bridge of small results from P vs NP to P=NP or P!=NP. Since most Complexity theorists are trying to prove P!=NP because of a series of reductio ad absurdum (which as Schrodinger found out in the quantum realm, the world is often more absurd than the limits of human imagination), there is a dirth of academic research trying to use the structure of relationships to map out what NP problems can be solved in P. As far as I can tell, the notion that Optimal tours might behave and change in the same ways that a precision watch would change to a replacement of gears, is lost on most people. We as a field either jump to statistical arguments or quasi-mathematical arguments neither of which seem to build actual understandable models of what is going on in a perfect circuit. (I say quasi here since very little of complexity theory deals with the actual nature of programs, geometrical structures and the like, instead falling back to the most broad of arguments, making it closer to the philosophy of old than the mathematics and science of the early 20th century, [GTC](http://ramakrishnadas.cs.uchicago.edu/gctcacm.pdf) seems promising on the P!=NP front and I need to read more about it).
 
 Why not clusters? There is a lot of literature on how to find clusters in graphs and they sort of have the property we are looking for that an ideal k-clustering of a graph is a natural abstraction. Two problems arise when considering clusters, first is how do we choose k, i.e. how do we know how many clusters there are in the graph? This is not a trivial problem and in general we can show that there is no correct answer by the simple fact that if we choose k to be n then we have n natural abstractions one for each point and if we choose k to be 1 then we have one natural abstraction in the whole set, both of these are perfectly valid and easy to compute natural abstracts, but non-useful. Ok so maybe instead of using something like k means we use a hierarchical clustering algorithm like the [nearest-neighbor chain algorithm](https://en.wikipedia.org/wiki/Nearest-neighbor_chain_algorithm). This method would work better since we don't have to divine the number of clusters in the graph, but there is still a pretty serious problem with an approach like this. Since clusters have no ordering except points are either in the cluster or out of it, how would we form a cycle out of a cluster? If our smallest cluster in the hierarchy is some size m where m < n, then we'd still have 2^m possible cycles to choose from in order to find the optimal, and if we add up all of our k smallest clusters where k clusters consume the entire set, then we'd have 2^m_1 + 2^m_2 + ... + 2^m_k cycles to choose from. one we had all of these cycles, were is still no guarantee that we could combine them in any easy way so we'd have to also do a pairwise 2^m_a + 2^m_b combination step (where a and ba are two of the cycles found in the previous step) to get the final correct cycle. So is there any clustering method that could lead use to a natural abstraction that is easy to find, and useful in solving our problem? If we want to have a good natural abstraction, it would be useful if the abstraction had the correct cycle for the subset be incidental to the formation of the abstraction, much like in the plane the correct cycle of a convex hull subset is found simply by finding the convex hull. I don't know of any clustering algorithm that has that property (doesn't mean one doesn't exist) since clusters are mainly concerned with membership rather than ordering, so let's focus our efforts elsewhere.
 
@@ -140,8 +140,8 @@ Even this is not quite a true description of the structure, since what we are re
     Knot(flattens to: {6 5 4 3 2 1 0 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7})[
         Knot(flattens to: {21 22 23 24 25 26 27 28 2 0 1 5 6 4 3 20})[
             Knot(flattens to: {22 23 24 21})[
-                Knot[22 23 24 ] 
-                21 
+                Knot[22 23 24 ]
+                21
             ],
             Knot(flattens to: {3 4 6 5 1 0 2 28 27 26 25})[
                 Knot(flattens to: {3 2 28 0 1 5 6 4})[
@@ -153,34 +153,34 @@ Even this is not quite a true description of the structure, since what we are re
                             4,
                             Knot(flattens to: {2 1 0 28})[
                                 Knot[0 2 1 ],
-                                28 
-                            ] 
-                        ] 
-                    ] 
+                                28
+                            ]
+                        ]
+                    ]
                 ],
-                Knot[27 26 25 ] 
+                Knot[27 26 25 ]
             ],
-            20 
+            20
         ],
         Knot(flattens to: {9 8 7 19 18 17 16 15 14 13 12 11 10})[
             Knot(flattens to: {7 19 18 17 16 15 13 14 9 8})[
                 Knot(flattens to: {19 7 14 13 15 16 17 18})[
-                    19, 
-                    7, 
+                    19,
+                    7,
                     Knot(flattens to: {14 13 15 16 17 18})[
                         Knot(flattens to: {14 13 15 16 17})[
-                            Knot[13 15 14 ], 
-                            16, 
+                            Knot[13 15 14 ],
+                            16,
                             17
-                        ], 
-                        18 
-                    ] 
+                        ],
+                        18
+                    ]
                 ],
-                9, 
-                8 
+                9,
+                8
             ],
-            Knot[10 11 12 ] 
-        ] 
+            Knot[10 11 12 ]
+        ]
     ]
 
 ## Chapter 1
@@ -191,7 +191,7 @@ A long time ago in the pre-internet, there used to be a whole army of american m
 
 "So what? Hasn't my Google Maps app solved this? Simply draw a straight line from A to B and try to follow that line on the roads as close as possible!"
 
-You'd be right if what we were talking about was point to point travel, an algorithm like A* or Dijkstra's has pretty much solved that question. However, the important piece that makes TSP different is we MUST visit every house in our list, in the most optimal order. So instead of looking at all possible paths from A to B through any of the other points C to Z, we are instead looking at all possible paths from A to B to C ... Z in the most optimal ordering of those points. This explodes the problem space to exponential proportions.
+You'd be right if what we were talking about was point to point travel, an algorithm like A\* or Dijkstra's has pretty much solved that question. However, the important piece that makes TSP different is we MUST visit every house in our list, in the most optimal order. So instead of looking at all possible paths from A to B through any of the other points C to Z, we are instead looking at all possible paths from A to B to C ... Z in the most optimal ordering of those points. This explodes the problem space to exponential proportions.
 
 ### A more precise way of stating the problem would be
 
@@ -199,7 +199,7 @@ We have a graph <b>G</b> with a total of N points:
 
 <b>G = [ P<sub>1</sub> , P<sub>2</sub> , ... , P<sub>N-1</sub> , P<sub>N</sub> ]</b>
 
-and we have a cost function <b>C( P<sub>a</sub> , P<sub>b</sub> )</b>  which is defined for all points in G.
+and we have a cost function <b>C( P<sub>a</sub> , P<sub>b</sub> )</b> which is defined for all points in G.
 
 Find the best ordering <b>O</b> of the points in <b>G</b> such that when summing the cost function over the ordering, this sum <b>C<sub>SUM</sub></b> is minimal when compared to all other possible orderings of <b>G</b>.
 
@@ -218,12 +218,12 @@ These classifications aren't too important, but I would be remiss if I didn't at
     Jaded Programmers Note: if you ever hear these arguments in reference to a tough problem:
 
     * "It has been X number of years and no one has solved the problem; its impossible!"
-      
-    * "If we could solve problem A then computers could do unrelated problem B that, currently, only humans can do. So, problem A must be impossible because human brains are magic!" 
 
-    * "I have given up on the problem, so you should too, in order to save my ego!" 
+    * "If we could solve problem A then computers could do unrelated problem B that, currently, only humans can do. So, problem A must be impossible because human brains are magic!"
 
-    * "This problem is too hard to be done classically, so Neural Networks and Big Data must be the only answer!" 
+    * "I have given up on the problem, so you should too, in order to save my ego!"
+
+    * "This problem is too hard to be done classically, so Neural Networks and Big Data must be the only answer!"
 
     likely you should ignore that person as they are toxic to actually solving the problem. There are definitely unsolvable problems, but little time is wasted thinking on an unsolved problem that would help the world.
 
@@ -259,17 +259,17 @@ You should therefore be very skeptical of people who say "We have made a great i
 
 So far I hope I have conveyed/answered the following:
 
-* What is The Traveling Salesman Problem(TSP)?
-* Why should I care about TSP?
-* The solution to TSP, if one exists, lies in building up abstractions like a topographer builds terrain on a map, rather than iterative improvement. The terrain features should be invariants in the graph (for a good starting place look at cycles)
+- What is The Traveling Salesman Problem(TSP)?
+- Why should I care about TSP?
+- The solution to TSP, if one exists, lies in building up abstractions like a topographer builds terrain on a map, rather than iterative improvement. The terrain features should be invariants in the graph (for a good starting place look at cycles)
 
 So the next question would be: <B>What terrain features exist on our map?</b>
 
 Note that in this section I will be defining some of these features in non-traditional ways if you are coming from graph theory. This is so that our data-structures can more readily fit the problem at hand. If there is overlap, I will redefine these terms so that we can distinguish them from their more basic versions you would have seen in algorithms like <b>BFS, DFS</b> and the like.
 
 ### [Segment](.\src\shell\knot\Segment.java)
-  
-  A <b>Segment</b> (also known as an <b>Edge</b> in graph theory), is a connection between two points and a distance provided by the cost function.
+
+A <b>Segment</b> (also known as an <b>Edge</b> in graph theory), is a connection between two points and a distance provided by the cost function.
 
 Segment( P<sub>1</sub> , P<sub>2</sub> ) = struct{
 
@@ -289,13 +289,13 @@ Point(P<sub>1</sub>) = struct{
 
 sortedSegments = [Segment( P<sub>1</sub> , P<sub>2</sub> ) , Segment( P<sub>1</sub> , P<sub>3</sub> ) , ... , Segment( P<sub>1</sub> , P<sub>N</sub> )]
 
-match1 = P<sub>*</sub>
+match1 = P<sub>\*</sub>
 
-match2 = P<sub>*</sub>
+match2 = P<sub>\*</sub>
 
 }
 
-Many of the proceeding algorithms will rely on the fact that sortedSegments is sorted, so  sort it at construction.
+Many of the proceeding algorithms will rely on the fact that sortedSegments is sorted, so sort it at construction.
 
 The "<b>matches</b>" will be our current best guess of what two points should surround P<sub>1</sub> in our final ordering. Right now they will just be pointers to other points, but as we add more terrain features we will need to add more supporting data to prevent recalculation of what the best match is.
 
@@ -311,15 +311,15 @@ So if we have Points 1 and 2 in the problem set and add Wormhole W "between" 1 a
 
 This type of point could arise naturally in any problem set, but here we are calling it out for a specific purpose: testing. These Wormhole points will help us in three scenarios:
 
-* We want to change a problem set in M dimensions (where M < N and N is the size of the problem set) into an N-dimensional one.
-* We want to perturb a problem set in the smallest way possible, without changing the final ordering.
-* We want to break a large problem down into many subsets (of arbitrary size) while still knowing the correct ordering of the subset
+- We want to change a problem set in M dimensions (where M < N and N is the size of the problem set) into an N-dimensional one.
+- We want to perturb a problem set in the smallest way possible, without changing the final ordering.
+- We want to break a large problem down into many subsets (of arbitrary size) while still knowing the correct ordering of the subset
 
 We get the first scenario for free just by adding the Wormhole. (Not sure if this is true in general, but many geometrical arguments/algorithms break down with the addition of Wormholes)
 
 Second, if we add a Wormhole between two points that we know are in the correct ordering, then we can change the ordering of our Sorted Segments (and how points will match with each other) without changing the final correct ordering (aside from the wormhole being added). This is useful in testing as it is the smallest change we can make to a problem set and can illuminate potential problems with our algorithm.
 
-Finally we can take any ordered subset in a correct ordering and add a Wormhole between the two endpoints of the subset. This will allow us to solve the subset in the same way we would have solved the original set. This is the  equivalent of saying we have points A and B with some set P (where P is the points in the original solution set that lie between A and B), find the most optimal path between A and B that also visits all of the points in P.
+Finally we can take any ordered subset in a correct ordering and add a Wormhole between the two endpoints of the subset. This will allow us to solve the subset in the same way we would have solved the original set. This is the equivalent of saying we have points A and B with some set P (where P is the points in the original solution set that lie between A and B), find the most optimal path between A and B that also visits all of the points in P.
 
 W <-> A <-> [ P<sub>1</sub> , P<sub>2</sub>, ... , P<sub>N</sub> ] <-> B <-> W
 
@@ -331,11 +331,11 @@ Below are some links to help you understand a bit more of the math behind what I
 
 General TSP to Metric TSP Reduction:
 
-* <https://cstheory.stackexchange.com/questions/12885/guidelines-to-reduce-general-tsp-to-triangle-tsp>
+- <https://cstheory.stackexchange.com/questions/12885/guidelines-to-reduce-general-tsp-to-triangle-tsp>
 
 TSP with two predetermined endpoints:
 
-* <https://stackoverflow.com/questions/36086406/traveling-salesman-tsp-with-set-start-and-end-point>
+- <https://stackoverflow.com/questions/36086406/traveling-salesman-tsp-with-set-start-and-end-point>
 
 ### Bigger Structures?
 
@@ -363,7 +363,7 @@ You can see that in the above example if each Point "got it's way" and matched w
 
 13 <-> 11
 
-Instantly we see a problem with the naive approach, we have created a loop, so if we wanted to connect to the other 35 points in  the Djibouti dataset we couldn't!
+Instantly we see a problem with the naive approach, we have created a loop, so if we wanted to connect to the other 35 points in the Djibouti dataset we couldn't!
 
 Before we declare defeat, let's try and examine what this loop is telling us:
 
@@ -389,7 +389,7 @@ Let's look at another example to get some more intuition and see some edge cases
 
 So if we match on the first two slots for each point in this set we'd get hte relationships:
 
-20  -> 22
+20 -> 22
 
 20 <-> 21
 
@@ -399,7 +399,7 @@ So if we match on the first two slots for each point in this set we'd get hte re
 
 23 -> 21
 
-So its one isn't a perfect loop  like  [11, 12, 13] was, but it might be prudent to mark this structure in the same way. If you look at the third Segment on 20 and 23, they'd like to match with each our before matching outside points. We could predict that our cut Segment would be Segment[23:20], but it might not be.
+So its one isn't a perfect loop like [11, 12, 13] was, but it might be prudent to mark this structure in the same way. If you look at the third Segment on 20 and 23, they'd like to match with each our before matching outside points. We could predict that our cut Segment would be Segment[23:20], but it might not be.
 
 Ok I think we're ready for our first larger structure
 
@@ -420,9 +420,9 @@ Segment( P<sub>2</sub> , P<sub>M+1</sub> ) , Segment( P<sub>2</sub> , P<sub>M+2<
 Segment( P<sub>M</sub> , P<sub>M+1</sub> ) , Segment( P<sub>M</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>M</sub> , P<sub>N</sub> ),
 ]
 
-match1 = P<sub>*</sub>
+match1 = P<sub>\*</sub>
 
-match2 = P<sub>*</sub>
+match2 = P<sub>\*</sub>
 
 }
 
@@ -437,7 +437,8 @@ Not quite, right now we have our base case (one small Knot), and our final desir
     ...
     13  [Segment[13 : 12], Segment[11 : 13], Segment[14 : 13], Segment[10 : 13], Segment[13 : 15], Segment[9 : 13], ...]
 
--------
+---
+
     14  [Segment[14 : 15], Segment[16 : 14], Segment[14 : 13], ...]
 
     15  [Segment[16 : 15], Segment[14 : 15], Segment[15 : 17], ...]
@@ -449,7 +450,9 @@ Not quite, right now we have our base case (one small Knot), and our final desir
     18  [Segment[18 : 17], Segment[19 : 18], Segment[20 : 18], ...]
 
     19  [Segment[19 : 18], Segment[20 : 19], ...]
--------
+
+---
+
     20  [Segment[20 : 21], Segment[20 : 22], Segment[20 : 23], Segment[20 : 18], Segment[20 : 19], ...]
     ...
 
@@ -490,9 +493,9 @@ sortedSegments = [Segment( P<sub>1</sub> , P<sub>M+1</sub> ) , Segment( P<sub>1<
 Segment( P<sub>M</sub> , P<sub>M+1</sub> ) , Segment( P<sub>M</sub> , P<sub>M+2</sub> ) , ... , Segment( P<sub>M</sub> , P<sub>N</sub> ),
 ]
 
-match1 = P<sub>*</sub>
+match1 = P<sub>\*</sub>
 
-match2 = P<sub>*</sub>
+match2 = P<sub>\*</sub>
 
 }
 
@@ -520,42 +523,40 @@ Main Loop:
 Knot Finding Loop:
 [Shell:createKnots()](.\src\shell\Shell.java#L61)
 
-1. Get a Virtual Point(VP) that we haven't looked at yet
-2. If we have looked at every VP return the KnotList and continue from Main Loop #2
-3. Check what the main VP's best two matches are
-4. Check if the VPs that our main VP wants to match with will match back
+1.  Get a Virtual Point(VP) that we haven't looked at yet
+2.  If we have looked at every VP return the KnotList and continue from Main Loop #2
+3.  Check what the main VP's best two matches are
+4.  Check if the VPs that our main VP wants to match with will match back 5. If so, update the two VPs with their matches and add them to the runList
 
-   5. If so, update the two VPs with their matches and add them to the runList
+             a. If we have found a Knot, (both ends of the runList have two matches)  create the Knot from the runList, add it to our KnotList, and continue from #1
 
-            a. If we have found a Knot, (both ends of the runList have two matches)  create the Knot from the runList, add it to our KnotList, and continue from #1
+             b. If not set the main VP to the matched VP and continue from #2
 
-            b. If not set the main VP to the matched VP and continue from #2
+    6.  If not check if we have already failed once
 
-   6. If not check if we have already failed once
+             c. If we have, make a Run from the runList and continue from #1
 
-            c. If we have, make a Run from the runList and continue from #1
-
-            d.  If we haven't, set the main point to the other end of the runList and continue from #2
+             d.  If we haven't, set the main point to the other end of the runList and continue from #2
 
 After every Main Loop Cycle every <b>Virtual Point</b> should either be part of a new <b>Knot</b>, a new <b>Run</b>, or have no matches yet. After this should roughly halve the number of VPs every cycle and leave us with one large <b>Knot</b> ready to be cut up.
 
 For example here is Djibouti's unvisited list after one cycle (See [Appendix A](#appendix-a) for the full Sorted Segment List, I recommend doing this part by hand to start understanding how the matching works):
 
     unvisited:[
-      Run[0 1 ], 
-      Run[2 3 4 5 ], 
-      Run[6 7 ], 
-      8, 
-      Run[9 10 ], 
-      Knot[11 12 13 ], 
-      Run[14 15 16 17 18 19 ], 
-      Knot[20 21 22 23 ], 
-      Run[24 25 ], 
-      Run[26 27 ], 
-      Knot[28 29 30 ], 
-      31, 
-      Run[32 33 ], 
-      34, 
+      Run[0 1 ],
+      Run[2 3 4 5 ],
+      Run[6 7 ],
+      8,
+      Run[9 10 ],
+      Knot[11 12 13 ],
+      Run[14 15 16 17 18 19 ],
+      Knot[20 21 22 23 ],
+      Run[24 25 ],
+      Run[26 27 ],
+      Knot[28 29 30 ],
+      31,
+      Run[32 33 ],
+      34,
       Knot[35 36 37 ]]
 
 Before we continue we should talk about the desired result of combining <b>Runs</b> and <b>Knots</b>
@@ -575,7 +576,7 @@ If this was a <b>Knot</b> instead of a run then we'd also match <b>7</b> and <b>
 Next what should we do if we have two <b>Knots</b> in a new <b>Knot</b>? For example if we have the Knot:
 
     Knot[
-          Knot[Knot[35 36 37 ] 34 ] 0 1 ], 
+          Knot[Knot[35 36 37 ] 34 ] 0 1 ],
 
           Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ]
     ]
@@ -588,12 +589,13 @@ Ideally we would be able to have the Knot surrounded incorrect context so insert
 
     or
 
-    Knot[Knot[35 36 37 ] 34 ] 0 1 Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ]] 
+    Knot[Knot[35 36 37 ] 34 ] 0 1 Knot[32 33 2 3 4 5 6 7 8 9 10 Knot[11 12 13 ] ]]
 
--------
+---
+
     I think the recursive insertion process should be that if you have a Knot that only points to another Knot then insert and keep going down levels till you are at the base Knot
-  
--------
+
+---
 
 ### Silver into Gold
 
@@ -607,12 +609,12 @@ Finally once we found every Knot and made one large Knot we get:
 
     Knot[
       Knot[
-          Knot[32 Knot[Knot[Knot[28 29 30 ] 31 ] 26 27 ] 
-                Knot[11 12 13 ] 10 9 8 7 6 5 4 3 2 
-                Knot[Knot[Knot[35 36 37 ] 34 ] 0 1 ] 33 
-              ] 
-          24 25 ] 
-      14 15 16 17 18 19 20 21 22 23 
+          Knot[32 Knot[Knot[Knot[28 29 30 ] 31 ] 26 27 ]
+                Knot[11 12 13 ] 10 9 8 7 6 5 4 3 2
+                Knot[Knot[Knot[35 36 37 ] 34 ] 0 1 ] 33
+              ]
+          24 25 ]
+      14 15 16 17 18 19 20 21 22 23
     ]
 
     but really it should be more like
@@ -631,13 +633,13 @@ Our final Knot doesn't have any externals by definition, so we can simply dissol
 
 The general idea will be this:
 
-* Dive into the first Knot in the list until we find a Knot with no sub-Knots.
-* Find the base Knot's external matches.
-* Loop through all segment pairs to cut and figure out the distance changed by picking a particular pair.
-* Figure out which side of each segment to match to based on the distance to the externals (these matched points will be labeled KnotPoints).
-* Figure out how to connect the unmatched points (referred to as CutPoints) to each other.
-* Add the minimal ordering into the list of the sub-Knot's parent.
-* Repeat until we don't have any Knots left in the list.
+- Dive into the first Knot in the list until we find a Knot with no sub-Knots.
+- Find the base Knot's external matches.
+- Loop through all segment pairs to cut and figure out the distance changed by picking a particular pair.
+- Figure out which side of each segment to match to based on the distance to the externals (these matched points will be labeled KnotPoints).
+- Figure out how to connect the unmatched points (referred to as CutPoints) to each other.
+- Add the minimal ordering into the list of the sub-Knot's parent.
+- Repeat until we don't have any Knots left in the list.
 
 Our cutting algorithm will not work on a nested Knot, so if the Knot we are trying to cut has a height greater than 1 we will need to recursively cut it internally.
 
@@ -661,7 +663,7 @@ with two external points ex1 and ex2, then we could have the following path
 
 ... <-> a <-> ex1 <-> ... <-> ex2 <-> b <-> ...
 
-If the two cut segments overlap partially (i.e. Segment [a:b] and Segment [b:c] are the cut segments) then ignore this pair as it would leave one point orphaned (unconnected  to the final path)(Note: that I think it is wrong to ignore this case, but I have not seen a data-set where is matters, likely because of my bias toward the plane).
+If the two cut segments overlap partially (i.e. Segment [a:b] and Segment [b:c] are the cut segments) then ignore this pair as it would leave one point orphaned (unconnected to the final path)(Note: that I think it is wrong to ignore this case, but I have not seen a data-set where is matters, likely because of my bias toward the plane).
 
 If the two cut segments are disjoint (i.e. Segment [a:b] and Segment [c:d] are the cut segments) then we need to figure out which will connect to the externals and which will we attach internally, so if we had
 
@@ -725,15 +727,15 @@ As we flatten the stack we need a way to tell the difference between a Sub Knot 
 
 For a CutMatchList to be Balanced we need for the following conditions to hold (some we will actively calculate and some are implied by others):
 
-* After the CutMatch is applied each Point in the Knot has exactly two matches
-* Each external will have exactly one match, or exactly two matches if external1 == external2
-* After the CutMatch is applied, KnotPoint1 and KnotPoint2 should be connected to each other just by the segments in the Knot
-Implied by above:
-* We should not have matched any Segment that already exists in the Knot's Path
-* We should not have cut any Segment that does not exist in the Knot's Path
-* We should not have matched between KnotPoint1 and KnotPoint2
-* We should not have cut between KnotPoint1 and CutPoint1 or KnotPoint2 and CutPoint2 as it is repetitious
-* We should not have multiple cycles in the Knot
+- After the CutMatch is applied each Point in the Knot has exactly two matches
+- Each external will have exactly one match, or exactly two matches if external1 == external2
+- After the CutMatch is applied, KnotPoint1 and KnotPoint2 should be connected to each other just by the segments in the Knot
+  Implied by above:
+- We should not have matched any Segment that already exists in the Knot's Path
+- We should not have cut any Segment that does not exist in the Knot's Path
+- We should not have matched between KnotPoint1 and KnotPoint2
+- We should not have cut between KnotPoint1 and CutPoint1 or KnotPoint2 and CutPoint2 as it is repetitious
+- We should not have multiple cycles in the Knot
 
 ### The Winds and the Tides
 
@@ -971,17 +973,17 @@ We can get an even lower bound on the path length by considering that the two Cu
 
 A few things to notice:
 
-* Moving from the Left Knot to the Right Knot flips the state from connected to disconnected and visa versa
-* Wether we need to re-connect our path depends on wether we arrive to the Right Knot in the disconnected state, not on our starting state.
-  * Ex2 starts out connected, but becomes disconnected by the time we arrive at the Right Knot.
-  * Ex3 starts out disconnected but becomes connected by the time we arrive at the Right Knot.
-  * Side Note: you can notice the same effect in the rings_4 example, where if we are traversing all four knots we end up disconnected, but if instead our destination was only three knots away from the start (Say CP:23) then we would not need to reconnect the path.
-* There is exactly one segment in each example that straddles the Knot border and will allow us to transfer between knots without forming multiple cycles in the graph.
-  * in Ex1 if we had instead connected from 4 to 0 and cut to 15 we'd form multiple cycles in the graph.
-  * in Ex2 if we had instead connected from 5 to 9 and cut to 16 we'd form multiple cycles in the graph.
-  * in Ex3 if we had instead connected from 4 to 0 and cut to 15 we'd form multiple cycles in the graph.
-  * in Ex4 if we had instead connected from 5 to 9 and cut to 16 we'd form multiple cycles in the graph.
-  * This is a restatement of what we learned in [The Fly in the Ointment](#the-fly-in-the-ointment) with the added knowledge that there is only one cut segment that moves us to the next Knot without breaking the knot contract (that a knot is more tightly coupled to itself than its neighbors).
+- Moving from the Left Knot to the Right Knot flips the state from connected to disconnected and visa versa
+- Wether we need to re-connect our path depends on wether we arrive to the Right Knot in the disconnected state, not on our starting state.
+  - Ex2 starts out connected, but becomes disconnected by the time we arrive at the Right Knot.
+  - Ex3 starts out disconnected but becomes connected by the time we arrive at the Right Knot.
+  - Side Note: you can notice the same effect in the rings_4 example, where if we are traversing all four knots we end up disconnected, but if instead our destination was only three knots away from the start (Say CP:23) then we would not need to reconnect the path.
+- There is exactly one segment in each example that straddles the Knot border and will allow us to transfer between knots without forming multiple cycles in the graph.
+  - in Ex1 if we had instead connected from 4 to 0 and cut to 15 we'd form multiple cycles in the graph.
+  - in Ex2 if we had instead connected from 5 to 9 and cut to 16 we'd form multiple cycles in the graph.
+  - in Ex3 if we had instead connected from 4 to 0 and cut to 15 we'd form multiple cycles in the graph.
+  - in Ex4 if we had instead connected from 5 to 9 and cut to 16 we'd form multiple cycles in the graph.
+  - This is a restatement of what we learned in [The Fly in the Ointment](#the-fly-in-the-ointment) with the added knowledge that there is only one cut segment that moves us to the next Knot without breaking the knot contract (that a knot is more tightly coupled to itself than its neighbors).
 
 ### Traversing from the edge of the border of a Knot
 
@@ -1007,7 +1009,7 @@ You should notice that these paths are essentially the same as the paths in the 
 <img src="readme_img\twocircles_cross_border2.png" alt="circle screenshot"  width="70%" style="max-width: 1000px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center"> Ex10: twocircles with cuts Seg[0:15] and Seg[10:11] starting from CP:16 in the disconnected state</p>
 
-When we are trying to move across the border of a knot it can be be tricky if we start on the opposite end of the border,. in Example 9 we can see that CP9 cannot traverse to 15 without forming multiple cycles in the graph  and matching to 15 while cutting to 0 does not move us toward our goal. So what is the rule here? I think it is this, we need to check all of the moves between 9 and the Right Knot and all of the moves between 9 and its own Knot and then to the right Knot, a n^2 operation. As we can see from Example 10, sometimes the border point CP:0 is the correct point to move to the next Knot from, but sometimes it is not as in Ex9. But most likely if our final answer lies in this border region, then we have se up our Knot structure incorrectly to see what I mean look at the following solution of the same Knot with a wormhole between 15 and 11:
+When we are trying to move across the border of a knot it can be be tricky if we start on the opposite end of the border,. in Example 9 we can see that CP9 cannot traverse to 15 without forming multiple cycles in the graph and matching to 15 while cutting to 0 does not move us toward our goal. So what is the rule here? I think it is this, we need to check all of the moves between 9 and the Right Knot and all of the moves between 9 and its own Knot and then to the right Knot, a n^2 operation. As we can see from Example 10, sometimes the border point CP:0 is the correct point to move to the next Knot from, but sometimes it is not as in Ex9. But most likely if our final answer lies in this border region, then we have se up our Knot structure incorrectly to see what I mean look at the following solution of the same Knot with a wormhole between 15 and 11:
 
 <img src="readme_img\twocircles_WH_15_11.png" alt="circle screenshot"  width="50%" style="max-width: 500px; display: block;margin-left: auto;margin-right: auto; padding: 20px"/>
 <p style="text-align:center">twocircles with a Wormhole between 15 and 11</p>
@@ -1042,7 +1044,7 @@ Ok so we've seen with some consistency and a few caveats that we can traverse re
 
 ### Algorithm Speedup Potential NOTES
 
-The algorithm described in this section is roughly a 4*N^7 operation so what are some areas we can speed it up?
+The algorithm described in this section is roughly a 4\*N^7 operation so what are some areas we can speed it up?
 
 1. &#9745; Remove repeated segment pairs from the main loop (2x speedup)
 2. &#9744; Add worker pool for every dijkstra's call we make (algorithm is somewhat embarrassingly parallel)
@@ -1085,7 +1087,7 @@ So the maxDist for a disconnected segment pair
 
 and for the segment overlap's we know the distance outright and maxDist = minDist
 
-maxDist(S1, S1, EX1, EX2) =  Seg[KP1:EX1] + Seg[KP2:EX2] - S1 = minDist (S1, S1, EX1, EX2)
+maxDist(S1, S1, EX1, EX2) = Seg[KP1:EX1] + Seg[KP2:EX2] - S1 = minDist (S1, S1, EX1, EX2)
 
 given the setup of our data structure the minDist ans
 
@@ -1110,16 +1112,16 @@ what's more is that we only have to look at cut matches in the same minKnot as t
 
 1. Look at Section 4 Minimum Bounding Circle By Megiddo:
 
-* <https://epubs.siam.org/doi/pdf/10.1137/0212052>
+- <https://epubs.siam.org/doi/pdf/10.1137/0212052>
 
 2. Match Twice and Stitch Algorithm:
 
-* <https://vlsicad.ucsd.edu/Publications/Journals/j67.pdf>
+- <https://vlsicad.ucsd.edu/Publications/Journals/j67.pdf>
 
 3. Negative-Weight Single-Source Shortest Paths in Near-linear Time
 
-* <https://arxiv.org/pdf/2203.03456>
+- <https://arxiv.org/pdf/2203.03456>
 
 4. Waterloo TSP Dataset:
 
-* <http://www.math.uwaterloo.ca/tsp/world/countries.html#LU>
+- <http://www.math.uwaterloo.ca/tsp/world/countries.html#LU>

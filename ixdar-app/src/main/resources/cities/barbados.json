@@ -1,0 +1,10 @@
+{
+    "id": "barbados",
+    "name": "Barbados",
+    "x": 700.0,
+    "y": 220.0,
+    "population": 7000,
+    "resources": ["sugar", "molasses", "rum"],
+    "produces": {"sugar": 22, "molasses": 15},
+    "consumes": {"tools": 6, "lumber": 5, "grain": 7}
+}

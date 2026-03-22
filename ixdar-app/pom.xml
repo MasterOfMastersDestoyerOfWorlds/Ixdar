@@ -29,7 +29,23 @@
           <include>**/*.webp</include>
           <include>**/*.ico</include>
           <include>**/*.html</include>
+          <include>**/*.wav</include>
+          <include>**/*.dsl</include>
         </includes>
+      </resource>
+      <resource>
+        <directory>${ixdar.asset.repo.root}/Music</directory>
+        <includes>
+          <include>${ixdar.audio.asset.include.pattern}</include>
+        </includes>
+        <targetPath>res/audio/music</targetPath>
+      </resource>
+      <resource>
+        <directory>${ixdar.asset.repo.root}/Sfx</directory>
+        <includes>
+          <include>${ixdar.audio.asset.include.pattern}</include>
+        </includes>
+        <targetPath>res/audio/sfx</targetPath>
       </resource>
     </resources>
     <plugins>
@@ -48,7 +64,7 @@
           <archive>
             <manifest>
               <addClasspath>true</addClasspath>
-              <mainClass>shell.ui.IxdarWindow</mainClass>
+              <mainClass>ixdar.canvas.IxdarWindow</mainClass>
             </manifest>
           </archive>
         </configuration>
@@ -70,7 +86,7 @@
               <archive>
                 <manifest>
                   <addClasspath>true</addClasspath>
-                  <mainClass>shell.ui.IxdarWindow</mainClass>
+                  <mainClass>ixdar.canvas.IxdarWindow</mainClass>
                 </manifest>
               </archive>
             </configuration>
@@ -89,7 +105,7 @@
           <archive>
             <manifest>
               <addClasspath>true</addClasspath>
-              <mainClass>shell.ui.IxdarWindow</mainClass>
+              <mainClass>ixdar.canvas.IxdarWindow</mainClass>
             </manifest>
           </archive>
         </configuration>
@@ -102,6 +118,8 @@
     <lwjgl.version>3.3.6</lwjgl.version>
     <native.maven.plugin.version>0.9.19</native.maven.plugin.version>
     <teavm.version>0.9.2</teavm.version>
+    <ixdar.audio.asset.include.pattern>**/*.wav</ixdar.audio.asset.include.pattern>
+    <ixdar.asset.repo.root>${project.basedir}/../../IxdarAssets</ixdar.asset.repo.root>
   </properties>
 
   <pluginRepositories>
@@ -142,6 +160,393 @@
       </properties>
     </profile>
     <profile>
+      <id>asset-root-env</id>
+      <activation>
+        <property>
+          <name>env.IXDAR_ASSET_REPO_ROOT</name>
+        </property>
+      </activation>
+      <properties>
+        <ixdar.asset.repo.root>${env.IXDAR_ASSET_REPO_ROOT}</ixdar.asset.repo.root>
+      </properties>
+    </profile>
+    <profile>
+      <id>game</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-Dsun.awt.noerasebackground=true</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.canvas.IxdarWindow</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>trade-irregular-grid-scene</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-Dsun.awt.noerasebackground=true</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.canvas.IxdarWindow</argument>
+                <argument>irregular-grid-canvas</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>icosphere-save-point-scene</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-Dsun.awt.noerasebackground=true</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.canvas.IxdarWindow</argument>
+                <argument>icosphere-save-point-canvas</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>arrow-line-scene</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-Dsun.awt.noerasebackground=true</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.canvas.IxdarWindow</argument>
+                <argument>arrow-line-canvas</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>bouncing-line-scene</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-Dsun.awt.noerasebackground=true</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.canvas.IxdarWindow</argument>
+                <argument>bouncing-line-canvas</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>circle-scene</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-Dsun.awt.noerasebackground=true</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.canvas.IxdarWindow</argument>
+                <argument>circle-canvas</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>bezier-curve-scene</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-Dsun.awt.noerasebackground=true</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.canvas.IxdarWindow</argument>
+                <argument>bezier-curve-canvas</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>line-scene</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-Dsun.awt.noerasebackground=true</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.canvas.IxdarWindow</argument>
+                <argument>line-canvas</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>dashed-line-scene</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-Dsun.awt.noerasebackground=true</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.canvas.IxdarWindow</argument>
+                <argument>dashed-line-canvas</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>dashed-line-round-scene</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-Dsun.awt.noerasebackground=true</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.canvas.IxdarWindow</argument>
+                <argument>dashed-line-round-canvas</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>dashed-line-end-caps-scene</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-Dsun.awt.noerasebackground=true</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.canvas.IxdarWindow</argument>
+                <argument>dashed-line-round-end-caps-canvas</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>model-load-scene</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-Dsun.awt.noerasebackground=true</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.canvas.IxdarWindow</argument>
+                <argument>model-load-canvas</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>mesh-viewer</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-Dsun.awt.noerasebackground=true</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.canvas.IxdarWindow</argument>
+                <argument>mesh-viewer</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
       <id>native</id>
       <build>
         <plugins>
@@ -161,7 +566,7 @@
             </executions>
             <configuration>
               <imageName>gvapp</imageName>
-              <mainClass>shell.ui.IxdarWindow</mainClass>
+              <mainClass>ixdar.canvas.IxdarWindow</mainClass>
               <verbose>true</verbose>
             </configuration>
           </plugin>
@@ -222,6 +627,7 @@
                         <include>**/*.webp</include>
                         <include>**/*.ico</include>
                         <include>**/*.html</include>
+                        <include>**/*.wav</include>
                       </includes>
                     </resource>
                   </resources>
@@ -302,7 +708,7 @@
               </execution>
             </executions>
             <configuration>
-              <module>shell.web.gwt.WebApp</module>
+              <module>ixdar.web.gwt.WebApp</module>
               <logLevel>INFO</logLevel>
               <draftCompile>true</draftCompile>
               <style>OBF</style>
@@ -364,17 +770,19 @@
       <version>4.5.0-M1</version>
     </dependency>
     <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-engine</artifactId>
-      <version>5.4.0</version>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-engine</artifactId>
+        <version>5.10.2</version>
+        <scope>test</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-api</artifactId>
+        <version>5.10.2</version>
+        <scope>test</scope>
     </dependency>
 
-    <dependency>
-      <groupId>org.junit.platform</groupId>
-      <artifactId>junit-platform-runner</artifactId>
-      <version>1.4.0</version>
-      <scope>test</scope>
-    </dependency>
+
     <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
     <dependency>
       <groupId>org.apache.commons</groupId>
@@ -394,13 +802,6 @@
     </dependency>
 
     <dependency>
-      <groupId>org.junit.platform</groupId>
-      <artifactId>junit-platform-launcher</artifactId>
-      <version>1.4.0</version>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
       <groupId>org.lwjgl</groupId>
       <artifactId>lwjgl</artifactId>
     </dependency>
@@ -423,6 +824,10 @@
     <dependency>
       <groupId>org.lwjgl</groupId>
       <artifactId>lwjgl-stb</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.lwjgl</groupId>
+      <artifactId>lwjgl-openal</artifactId>
     </dependency>
     <dependency>
       <groupId>org.lwjgl</groupId>
@@ -452,6 +857,11 @@
     <dependency>
       <groupId>org.lwjgl</groupId>
       <artifactId>lwjgl-stb</artifactId>
+      <classifier>${lwjgl.natives}</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.lwjgl</groupId>
+      <artifactId>lwjgl-openal</artifactId>
       <classifier>${lwjgl.natives}</classifier>
     </dependency>
     <!-- Web (TeaVM) provided dependencies resolved in web-teavm profile -->
