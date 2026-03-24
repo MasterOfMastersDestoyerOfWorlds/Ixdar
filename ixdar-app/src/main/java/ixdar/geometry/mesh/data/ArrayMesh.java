@@ -9,9 +9,9 @@ import ixdar.common.exceptions.InvalidMeshTopologyException;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
 /**
- * Dense, uniform-face mesh backed by flat arrays. Implements {@link MeshTopology} without
- * HashMap-based construction; half-edge connectivity is derived from face indices with lazy
- * twin/edge CSR data.
+ * Dense, uniform-face mesh backed by flat arrays. Implements
+ * {@link MeshTopology} without HashMap-based construction; half-edge
+ * connectivity is derived from face indices with lazy twin/edge CSR data.
  */
 public final class ArrayMesh implements MeshTopology, MeshValue {
 
@@ -62,6 +62,34 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return new ArrayMesh(positions, null, quadIndices, 4);
     }
 
+    /**
+     * One linear quad-subdivision step on dense arrays (see
+     * {@link ArrayMeshEngine#subdivideQuadsOnce}).
+     */
+    public static ArrayMesh subdivideQuads(float[] positions, int[] quadIndices) {
+        return ArrayMeshEngine.subdivideQuadsOnce(fromQuads(positions, quadIndices));
+    }
+
+    public static ArrayMesh subdivideQuadsOnce(ArrayMesh src) {
+        return ArrayMeshEngine.subdivideQuadsOnce(src);
+    }
+
+    public static ArrayMesh deleteVertices(ArrayMesh mesh, boolean[] del) {
+        return ArrayMeshEngine.deleteVertices(mesh, del);
+    }
+
+    public static ArrayMesh deleteEdges(ArrayMesh mesh, boolean[] delEdge) {
+        return ArrayMeshEngine.deleteEdges(mesh, delEdge);
+    }
+
+    public static ArrayMesh mergeByDistance(ArrayMesh mesh, float distance) {
+        return ArrayMeshEngine.mergeByDistance(mesh, distance);
+    }
+
+    public static ArrayMesh join(ArrayMesh a, ArrayMesh b) {
+        return ArrayMeshEngine.join(a, b);
+    }
+
     public int getVertsPerFace() {
         return vertsPerFace;
     }
@@ -72,6 +100,10 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
 
     public int[] copyFaceIndices() {
         return Arrays.copyOf(faceIndices, faceIndices.length);
+    }
+
+    public float[] copyNormals() {
+        return Arrays.copyOf(normals, normals.length);
     }
 
     public void setVertexPosition(int vertexId, float x, float y, float z) {

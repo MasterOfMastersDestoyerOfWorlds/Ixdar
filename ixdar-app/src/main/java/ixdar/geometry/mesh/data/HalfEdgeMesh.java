@@ -12,7 +12,7 @@ import ixdar.common.exceptions.InvalidMeshTopologyException;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
 public class HalfEdgeMesh implements MeshTopology, MeshValue {
-    static final int FLOATS_PER_VERTEX = 3;
+    public static final int FLOATS_PER_VERTEX = 3;
 
     final Map<Long, Integer> halfEdgesByDirection;
     final IntIdList activeVertexIds;

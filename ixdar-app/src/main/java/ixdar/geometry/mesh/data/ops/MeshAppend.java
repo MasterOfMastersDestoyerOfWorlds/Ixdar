@@ -1,11 +1,17 @@
-package ixdar.geometry.mesh.data;
+package ixdar.geometry.mesh.data.ops;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
+
 /**
- * Appends meshes into a single {@link HalfEdgeMesh}.
+ * Appends meshes into a single {@link HalfEdgeMesh}, or joins two
+ * {@link ArrayMesh} meshes without half-edge allocation.
  */
 public final class MeshAppend {
 
@@ -41,7 +47,10 @@ public final class MeshAppend {
         return out;
     }
 
-    public static HalfEdgeMesh join(MeshTopology a, MeshTopology b) {
+    public static MeshTopology join(MeshTopology a, MeshTopology b) {
+        if (a instanceof ArrayMesh aa && b instanceof ArrayMesh ab && aa.getVertsPerFace() == ab.getVertsPerFace()) {
+            return ArrayMeshEngine.join(aa, ab);
+        }
         HalfEdgeMesh out = new HalfEdgeMesh();
         Matrix4f id = new Matrix4f();
         append(out, a, id);

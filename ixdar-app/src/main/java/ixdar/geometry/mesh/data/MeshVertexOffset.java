@@ -6,16 +6,18 @@ import ixdar.annotations.meshnode.Vec3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 
 /**
- * Applies per-vertex offsets to a mesh, producing a new {@link HalfEdgeMesh}.
+ * Applies per-vertex offsets to a mesh, producing a new mesh (dense
+ * {@link ArrayMesh} when the input is {@link ArrayMesh}, otherwise
+ * {@link HalfEdgeMesh}).
  */
 public final class MeshVertexOffset {
 
     private MeshVertexOffset() {
     }
 
-    public static HalfEdgeMesh apply(MeshTopology mesh, Object offsetObj) {
+    public static MeshTopology apply(MeshTopology mesh, Object offsetObj) {
         if (mesh == null || mesh.vertexCount() == 0) {
-            return new HalfEdgeMesh();
+            return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
         }
         int n = mesh.vertexCount();
         Vector3f tmp = new Vector3f();
@@ -30,6 +32,25 @@ public final class MeshVertexOffset {
             uniform = vv;
         } else {
             uniform = new Vector3Value(0f, 0f, 0f);
+        }
+
+        if (mesh instanceof ArrayMesh am) {
+            float[] pos = am.copyPositions();
+            for (int i = 0; i < n; i++) {
+                int o = i * 3;
+                if (field != null) {
+                    pos[o] += field.getX(i);
+                    pos[o + 1] += field.getY(i);
+                    pos[o + 2] += field.getZ(i);
+                } else {
+                    pos[o] += uniform.x();
+                    pos[o + 1] += uniform.y();
+                    pos[o + 2] += uniform.z();
+                }
+            }
+            ArrayMesh out = new ArrayMesh(pos, null, am.copyFaceIndices(), am.getVertsPerFace());
+            out.computeNormals();
+            return out;
         }
 
         HalfEdgeMesh out = new HalfEdgeMesh();

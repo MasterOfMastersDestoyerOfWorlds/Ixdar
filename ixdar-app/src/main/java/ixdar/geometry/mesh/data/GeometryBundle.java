@@ -7,7 +7,8 @@ import java.util.Objects;
 import ixdar.annotations.meshnode.GeometryBundleValue;
 
 /**
- * Mesh plus named slots for stub fields (float arrays, flags, etc.) used by the geometry-node graph.
+ * Mesh plus named slots for stub fields (float arrays, flags, etc.) used by the
+ * geometry-node graph.
  */
 public final class GeometryBundle implements GeometryBundleValue {
 
@@ -25,7 +26,7 @@ public final class GeometryBundle implements GeometryBundleValue {
     }
 
     public static GeometryBundle empty() {
-        return new GeometryBundle(new HalfEdgeMesh(), Map.of());
+        return new GeometryBundle(ArrayMeshEngine.emptyQuads(), Map.of());
     }
 
     public MeshTopology mesh() {
@@ -33,7 +34,9 @@ public final class GeometryBundle implements GeometryBundleValue {
     }
 
     /**
-     * When the bundle holds a {@link HalfEdgeMesh} (mutable topology), returns it; otherwise null.
+     * When the bundle holds a {@link HalfEdgeMesh} (mutable topology), returns it;
+     * otherwise null. Dense {@link ArrayMesh} bundles are not mutable via this
+     * accessor.
      */
     public HalfEdgeMesh mutableMesh() {
         return mesh instanceof HalfEdgeMesh h ? h : null;

@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.data;
+package ixdar.geometry.mesh.data.ops;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -6,19 +6,25 @@ import java.util.HashSet;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.BoolField;
+import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.MeshVertexOffset;
 
 /**
- * Deletes selected edges (and their incident faces), producing a new {@link HalfEdgeMesh}.
- * Isolated vertices left after face removal are also deleted.
+ * Deletes selected edges (and their incident faces), producing a new mesh
+ * (preferring {@link ArrayMesh}). Isolated vertices left after face removal are
+ * also deleted.
  */
 public final class MeshDeleteEdges {
 
     private MeshDeleteEdges() {
     }
 
-    public static HalfEdgeMesh delete(MeshTopology mesh, Object selectionObj) {
+    public static MeshTopology delete(MeshTopology mesh, Object selectionObj) {
         if (mesh == null || mesh.edgeCount() == 0) {
-            return new HalfEdgeMesh();
+            return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
         }
         int ne = mesh.edgeCount();
         boolean deleteAll = false;
@@ -33,15 +39,22 @@ public final class MeshDeleteEdges {
         }
 
         if (deleteAll) {
-            return new HalfEdgeMesh();
+            return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
         }
 
         boolean any = false;
         for (boolean b : delEdge) {
-            if (b) { any = true; break; }
+            if (b) {
+                any = true;
+                break;
+            }
         }
         if (!any) {
             return MeshVertexOffset.apply(mesh, new ixdar.annotations.meshnode.Vector3Value(0f, 0f, 0f));
+        }
+
+        if (mesh instanceof ArrayMesh am) {
+            return ArrayMeshEngine.deleteEdges(am, delEdge);
         }
 
         HashSet<Integer> deadEdgeIds = new HashSet<>();

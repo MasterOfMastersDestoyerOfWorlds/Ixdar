@@ -10,8 +10,8 @@ import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
-import ixdar.geometry.mesh.data.MeshDeleteEdges;
-import ixdar.geometry.mesh.data.MeshDeleteVertices;
+import ixdar.geometry.mesh.data.ops.MeshDeleteEdges;
+import ixdar.geometry.mesh.data.ops.MeshDeleteVertices;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "delete_geometry")

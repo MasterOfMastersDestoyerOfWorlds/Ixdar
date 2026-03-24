@@ -8,7 +8,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.ArrayMesh;
 
 @MeshNodeAnnotation(id = "cube")
 public class CubeMeshNode implements MeshNode {
@@ -41,7 +41,7 @@ public class CubeMeshNode implements MeshNode {
                 1, 5, 6, 2,
                 0, 3, 7, 4,
         };
-        HalfEdgeMesh mesh = HalfEdgeMesh.bulkAllocate(positions, quads, 4);
+        ArrayMesh mesh = ArrayMesh.fromQuads(positions, quads);
         mesh.computeNormals();
         ctx.setOutput("mesh", mesh);
     }

@@ -10,8 +10,8 @@ import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
-import ixdar.geometry.mesh.data.MeshAppend;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.ops.MeshAppend;
 
 @MeshNodeAnnotation(id = "join_geometry")
 public class JoinGeometryNode implements MeshNode {

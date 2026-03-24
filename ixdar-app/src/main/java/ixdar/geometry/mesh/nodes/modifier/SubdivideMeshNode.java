@@ -11,13 +11,15 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
- * Linear face subdivision: splits each face by inserting edge midpoints and a face centroid,
- * without moving original vertices (unlike Catmull-Clark).
+ * Linear face subdivision: splits each face by inserting edge midpoints and a
+ * face centroid, without moving original vertices (unlike Catmull-Clark).
  */
 @MeshNodeAnnotation(id = "subdivide_mesh")
 public class SubdivideMeshNode implements MeshNode {
@@ -51,6 +53,16 @@ public class SubdivideMeshNode implements MeshNode {
         if (levels == 0) {
             ctx.setOutput("mesh", mesh);
             ctx.setOutput("geometry", GeometryBundle.ofMesh(mesh));
+            return;
+        }
+
+        if (ArrayMeshEngine.isUniformQuads(mesh)) {
+            ArrayMesh am = mesh instanceof ArrayMesh m ? m : ArrayMeshEngine.fromUniformMeshTopology(mesh);
+            for (int l = 0; l < levels; l++) {
+                am = ArrayMeshEngine.subdivideQuadsOnce(am);
+            }
+            ctx.setOutput("mesh", am);
+            ctx.setOutput("geometry", GeometryBundle.ofMesh(am));
             return;
         }
 

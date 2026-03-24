@@ -12,3 +12,13 @@ ixdar-app/hs_err_*.log
 .cursor/logs/
 ixdar-app/tmp/*.png
 *.obj
+ixdar_automation_cli.egg-info/dependency_links.txt
+ixdar_automation_cli.egg-info/PKG-INFO
+ixdar_automation_cli.egg-info/SOURCES.txt
+ixdar_automation_cli.egg-info/top_level.txt
+ixdar_automation_cli.egg-info/entry_points.txt
+ixdar_automation_cli.egg-info/PKG-INFO
+ixdar_automation_cli.egg-info/SOURCES.txt
+ixdar_automation_cli.egg-info/top_level.txt
+ixdar_automation_cli.egg-info/entry_points.txt
+ixdar_automation_cli.egg-info/dependency_links.txt

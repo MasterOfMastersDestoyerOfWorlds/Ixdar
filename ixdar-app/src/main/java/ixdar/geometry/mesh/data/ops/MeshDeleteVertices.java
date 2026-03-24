@@ -1,20 +1,26 @@
-package ixdar.geometry.mesh.data;
+package ixdar.geometry.mesh.data.ops;
 
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.BoolField;
+import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.MeshVertexOffset;
 
 /**
- * Deletes selected vertices (where selection is true), producing a new {@link HalfEdgeMesh}.
+ * Deletes selected vertices (where selection is true), producing a new mesh
+ * (preferring {@link ArrayMesh}).
  */
 public final class MeshDeleteVertices {
 
     private MeshDeleteVertices() {
     }
 
-    public static HalfEdgeMesh delete(MeshTopology mesh, Object selectionObj) {
+    public static MeshTopology delete(MeshTopology mesh, Object selectionObj) {
         if (mesh == null || mesh.vertexCount() == 0) {
-            return new HalfEdgeMesh();
+            return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
         }
         int n = mesh.vertexCount();
         boolean deleteAll = false;
@@ -33,7 +39,7 @@ public final class MeshDeleteVertices {
         }
 
         if (deleteAll) {
-            return new HalfEdgeMesh();
+            return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
         }
 
         boolean any = false;
@@ -45,6 +51,10 @@ public final class MeshDeleteVertices {
         }
         if (!any) {
             return copyMesh(mesh);
+        }
+
+        if (mesh instanceof ArrayMesh am) {
+            return ArrayMeshEngine.deleteVertices(am, del);
         }
 
         java.util.HashMap<Integer, Integer> oldToNew = new java.util.HashMap<>();
@@ -92,7 +102,7 @@ public final class MeshDeleteVertices {
         return -1;
     }
 
-    private static HalfEdgeMesh copyMesh(MeshTopology mesh) {
+    private static MeshTopology copyMesh(MeshTopology mesh) {
         return MeshVertexOffset.apply(mesh, new ixdar.annotations.meshnode.Vector3Value(0f, 0f, 0f));
     }
 }
