@@ -40,6 +40,7 @@ public final class MeshNodeCatalog {
             MeshNodeSchema schema = n.schema();
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("id", e.getKey());
+            entry.put("category", categoryFromClass(n.getClass()));
             entry.put("inputs", serializeInputs(schema.inputs()));
             entry.put("outputs", serializeOutputs(schema.outputs()));
             if (n instanceof RandomValueNode) {
@@ -48,6 +49,27 @@ public final class MeshNodeCatalog {
             nodes.add(entry);
         }
         return new GsonBuilder().setPrettyPrinting().serializeNulls().create().toJson(Map.of("nodes", nodes));
+    }
+
+    private static String categoryFromClass(Class<?> clazz) {
+        String pkg = clazz.getPackageName();
+        int lastDot = pkg.lastIndexOf('.');
+        if (lastDot < 0) return "Other";
+        String leaf = pkg.substring(lastDot + 1);
+        return switch (leaf) {
+            case "primitives" -> "Primitives";
+            case "modifier" -> "Modifiers";
+            case "math" -> "Math & Logic";
+            case "data" -> "Field & Data";
+            case "geometry" -> "Geometry Operations";
+            case "curve" -> "Curve Operations";
+            case "control" -> "Control Flow";
+            case "closure" -> "Closure";
+            case "patch" -> "Patch & Surface";
+            case "selection" -> "Selection";
+            case "transform" -> "Transform";
+            default -> "Other";
+        };
     }
 
     private static List<Map<String, Object>> serializeInputs(List<InputPort> inputs) {

@@ -160,6 +160,17 @@
       </properties>
     </profile>
     <profile>
+      <id>macos-aarch64</id>
+      <activation>
+        <os>
+          <family>Mac</family>
+        </os>
+      </activation>
+      <properties>
+        <lwjgl.natives>natives-macos-arm64</lwjgl.natives>
+      </properties>
+    </profile>
+    <profile>
       <id>asset-root-env</id>
       <activation>
         <property>
@@ -547,6 +558,58 @@
       </build>
     </profile>
     <profile>
+      <id>export-mesh-catalog</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.geometry.mesh.documentation.ExportMeshNodeCatalog</argument>
+                <argument>${project.build.directory}/mesh-node-catalog.json</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>validate-dsl</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.geometry.mesh.documentation.ValidateDsl</argument>
+                <argument>${dsl.file}</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
       <id>native</id>
       <build>
         <plugins>
@@ -732,6 +795,33 @@
           <scope>provided</scope>
         </dependency>
       </dependencies>
+    </profile>
+    <profile>
+      <id>test</id>
+      <properties>
+        <maven.test.skip>false</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>test</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <includes>
+                <include>unit/mesh/**</include>
+                <include>unit/model/**</include>
+                <include>unit/automation/**</include>
+              </includes>
+              <excludes>
+                <exclude>unit/ui/**</exclude>
+                <exclude>unit/visual/**</exclude>
+                <exclude>unit/subgraphs/**</exclude>
+              </excludes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
   </profiles>
 
