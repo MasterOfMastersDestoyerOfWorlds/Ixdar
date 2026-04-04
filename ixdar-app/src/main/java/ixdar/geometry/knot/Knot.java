@@ -21,6 +21,11 @@ import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;
 
 public class Knot extends SDFCircle {
+
+    public enum WindingOrder {
+        None, Clockwise, CounterClockwise
+    }
+
     public int minMatches;
     public int maxMatches;
     public int matchCount;
@@ -523,10 +528,6 @@ public class Knot extends SDFCircle {
         // vertices?
         WindingOrder result = detOrient > 0 ? WindingOrder.Clockwise : WindingOrder.CounterClockwise;
         return result;
-    }
-
-    public enum WindingOrder {
-        None, Clockwise, CounterClockwise
     }
 
     // Find vertex along one edge of bounding box.

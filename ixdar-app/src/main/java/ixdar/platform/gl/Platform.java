@@ -37,6 +37,12 @@ public interface Platform {
 
     void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback);
 
+    /**
+     * Desktop/headless: synchronous text from classpath or disk when cheap. Web: always null so callers use
+     * {@link #loadSourceAsync} (no synchronous XHR — browser deprecation and main-thread jank).
+     */
+    String trySyncLoadSource(String resourceFolder, String filename);
+
     void loadShaderSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback);
 
     TextFile loadFile(String path) throws IOException;

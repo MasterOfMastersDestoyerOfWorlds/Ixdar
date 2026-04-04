@@ -34,36 +34,52 @@ public class Font {
     private Map<Integer, Map<Integer, Float>> kerningEm;
 
     public Font() {
-        Platforms.get().loadSourceAsync("res", ATLAS_JSON_PATH, Platforms.gl().getPlatformID(), json -> {
-            try {
-                FontAtlasDTO root = Platforms.get().parseFontAtlas(json);
-                FontAtlasData atlas = new FontAtlasData();
-                atlas.width = root.atlas.width;
-                atlas.height = root.atlas.height;
-                atlas.sizePx = (float) root.atlas.size;
-                float lineHeightEm = (float) root.metrics.lineHeight;
-                atlas.derivedLineHeight = (atlas.sizePx > 0f ? atlas.sizePx * lineHeightEm : 32f * lineHeightEm);
-                this.glyphs = buildGlyphs(root);
-                this.pxPerEm = atlas.sizePx;
-                this.ascenderPx = (float) (atlas.sizePx * root.metrics.ascender);
-                this.descenderPx = (float) (atlas.sizePx * root.metrics.descender);
-                this.kerningEm = buildKerning(root);
-                this.fontHeight = atlas.derivedLineHeight;
-                this.fontWidth = atlas.sizePx;
-                final float distanceRange = (float) root.atlas.distanceRange;
-                Platforms.get().loadTexture("opensans.png", Platforms.gl().getPlatformID(), t -> {
-                    this.texture = t;
-                    this.shader = ShaderType.TextureSDF.getShader();
-                    this.sdfTexture = new SDFTexture(this.texture);
-                    this.sdfTexture.setSharpCorners(true);
-                    this.sdfTexture.setBorderDist(20f);
-                    this.sdfTexture.setPxRange(distanceRange);
-                });
-                this.maxTextWidth = 64;
-            } catch (Exception e) {
-                e.printStackTrace();
+        String json = Platforms.get().trySyncLoadSource("res", ATLAS_JSON_PATH);
+        if (json != null && !json.isEmpty()) {
+            finishFromAtlasJson(json);
+            return;
+        }
+        int platformId = Platforms.gl().getPlatformID();
+        Platforms.get().loadSourceAsync("res", ATLAS_JSON_PATH, platformId, this::finishFromAtlasJson);
+    }
+
+    private void finishFromAtlasJson(String json) {
+        try {
+            if (json == null || json.isEmpty()) {
+                Platforms.get().log("Font atlas init failed");
+                return;
             }
-        });
+            FontAtlasDTO root = Platforms.get().parseFontAtlas(json);
+            if (root == null || root.atlas == null || root.metrics == null) {
+                Platforms.get().log("Font atlas init failed");
+                return;
+            }
+            FontAtlasData atlas = new FontAtlasData();
+            atlas.width = root.atlas.width;
+            atlas.height = root.atlas.height;
+            atlas.sizePx = (float) root.atlas.size;
+            float lineHeightEm = (float) root.metrics.lineHeight;
+            atlas.derivedLineHeight = (atlas.sizePx > 0f ? atlas.sizePx * lineHeightEm : 32f * lineHeightEm);
+            this.glyphs = buildGlyphs(root);
+            this.pxPerEm = atlas.sizePx;
+            this.ascenderPx = (float) (atlas.sizePx * root.metrics.ascender);
+            this.descenderPx = (float) (atlas.sizePx * root.metrics.descender);
+            this.kerningEm = buildKerning(root);
+            this.fontHeight = atlas.derivedLineHeight;
+            this.fontWidth = atlas.sizePx;
+            final float distanceRange = (float) root.atlas.distanceRange;
+            Platforms.get().loadTexture("opensans.png", Platforms.gl().getPlatformID(), t -> {
+                this.texture = t;
+                this.shader = ShaderType.TextureSDF.getShader();
+                this.sdfTexture = new SDFTexture(this.texture);
+                this.sdfTexture.setSharpCorners(true);
+                this.sdfTexture.setBorderDist(20f);
+                this.sdfTexture.setPxRange(distanceRange);
+            });
+            this.maxTextWidth = 64;
+        } catch (Throwable e) {
+            Platforms.get().log("Font atlas init failed");
+        }
     }
 
     public float getWidth(CharSequence text) {

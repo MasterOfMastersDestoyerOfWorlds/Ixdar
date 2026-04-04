@@ -161,6 +161,15 @@ public class LwjglPlatform implements Platform {
     }
 
     @Override
+    public String trySyncLoadSource(String resourceFolder, String filename) {
+        try {
+            return loadSource(resourceFolder, filename);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    @Override
     public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
         try {
             String source = loadSource(resourceFolder, filename);

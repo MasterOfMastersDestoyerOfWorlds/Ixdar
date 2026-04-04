@@ -1,2 +1,3 @@
 [console_scripts]
 ixdar-cli = ixdar_automation_cli.ixdar_cli:cli
+rebuild-krieg-web = ixdar_automation_cli.rebuild_krieg_web:main

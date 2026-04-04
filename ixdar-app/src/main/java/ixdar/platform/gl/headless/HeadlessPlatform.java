@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import com.google.gson.Gson;
+
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.text.FontAtlasDTO;
 import ixdar.platform.file.FileManagement;
@@ -94,7 +96,7 @@ public class HeadlessPlatform implements Platform {
 
     @Override
     public FontAtlasDTO parseFontAtlas(String json) {
-        return null;
+        return new Gson().fromJson(json, FontAtlasDTO.class);
     }
 
     @Override
@@ -113,19 +115,28 @@ public class HeadlessPlatform implements Platform {
     }
 
     @Override
-    public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
+    public String trySyncLoadSource(String resourceFolder, String filename) {
         try {
             String path = resourceFolder + "/" + filename;
             try (InputStream in = HeadlessPlatform.class.getClassLoader().getResourceAsStream(path)) {
-                if (in != null) {
-                    callback.accept(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
-                } else {
-                    callback.accept("");
+                if (in == null) {
+                    return null;
                 }
+                return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
             }
         } catch (IOException e) {
-            callback.accept("");
+            return null;
         }
+    }
+
+    @Override
+    public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
+        String sync = trySyncLoadSource(resourceFolder, filename);
+        if (sync != null) {
+            callback.accept(sync);
+            return;
+        }
+        callback.accept("");
     }
 
     @Override

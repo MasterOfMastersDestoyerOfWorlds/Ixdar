@@ -2,7 +2,6 @@ package ixdar.platform.gl.web;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -245,8 +244,8 @@ public class WebPlatform implements Platform {
         @JSProperty
         int getHeight();
 
-        @JSProperty
-        String getYorigin();
+        @JSProperty("yOrigin")
+        String getYOrigin();
     }
 
     private interface JsMetrics extends JSObject {
@@ -281,12 +280,19 @@ public class WebPlatform implements Platform {
         // kerning omitted for now
     }
 
-    @JSBody(params = { "json" }, script = "return JSON.parse(json);")
+    @JSBody(params = { "json" }, script = "try { return JSON.parse(json); } catch (e) { return null; }")
     private static native JsRoot parseJsonRoot(String json);
 
     @Override
     public FontAtlasDTO parseFontAtlas(String json) {
+        if (json == null || json.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Font atlas JSON missing or empty; deploy /ixdar/res/opensans.json with the TeaVM build.");
+        }
         JsRoot js = parseJsonRoot(json);
+        if (js == null) {
+            throw new IllegalArgumentException("Font atlas JSON parse failed");
+        }
         FontAtlasDTO dto = new FontAtlasDTO();
         // atlas
         FontAtlasDTO.AtlasInfo ai = new FontAtlasDTO.AtlasInfo();
@@ -297,7 +303,7 @@ public class WebPlatform implements Platform {
             ai.size = js.getAtlas().getSize();
             ai.width = js.getAtlas().getWidth();
             ai.height = js.getAtlas().getHeight();
-            ai.yorigin = js.getAtlas().getYorigin();
+            ai.yorigin = js.getAtlas().getYOrigin();
         }
         dto.atlas = ai;
         // metrics
@@ -380,32 +386,26 @@ public class WebPlatform implements Platform {
     }
 
     @Override
+    public String trySyncLoadSource(String resourceFolder, String filename) {
+        return null;
+    }
+
+    @Override
     public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
         String url = "/ixdar/" + resourceFolder + "/" + filename;
         fetchTextAsync(url, new TextCallback() {
             @Override
             public void onText(String text) {
                 Platforms.init(platformId);
-                callback.accept(text);
+                String safe = text == null ? "" : text;
+                callback.accept(safe);
             }
         });
     }
 
     @Override
     public TextFile loadFile(String path) throws IOException {
-        String norm = normalizePath(path);
-        String text = fetchTextSync("/ixdar/" + norm);
-        if (text == null) {
-            text = fetchTextSync("/ixdar/" + norm);
-        }
-        if (text != null) {
-            ArrayList<String> fileContents = new ArrayList<>();
-            for (String s : text.split("\n")) {
-                fileContents.add(s);
-            }
-            return new TextFile(path, fileContents);
-        }
-        throw new IOException(path + " not found");
+        throw new IOException("Synchronous loadFile is not supported on web; use async loading: " + path);
     }
 
     @Override
@@ -413,18 +413,22 @@ public class WebPlatform implements Platform {
         throw new IOException("External filesystem assets are not available on web platform: " + absolutePath);
     }
 
-    @JSBody(params = {
-            "url" }, script = "try{var xhr=new XMLHttpRequest();xhr.open('GET', url, false);xhr.overrideMimeType('text/plain; charset=utf-8');xhr.send(null);if(xhr.status===0||(xhr.status>=200&&xhr.status<300)){return xhr.responseText||'';}return null;}catch(e){return null;}")
-    private static native String fetchTextSync(String url);
-
     @JSFunctor
     interface TextCallback extends JSObject {
         void onText(String text);
     }
 
     @JSBody(params = { "url", "callback" }, script = "fetch(url)" +
-            "  .then(function(response) { return response.text(); })" +
-            "  .then(function(text) { callback(text); })" +
+            "  .then(function(response) {" +
+            "    return response.text().then(function(body) {" +
+            "      if (!response.ok) {" +
+            "        console.error('Fetch failed:', url, response.status, body);" +
+            "        return '';" +
+            "      }" +
+            "      return (body == null || body === undefined) ? '' : ('' + body);" +
+            "    });" +
+            "  })" +
+            "  .then(function(text) { callback((text == null || text === undefined) ? '' : ('' + text)); })" +
             "  .catch(function(error) { console.error('Fetch failed (shader/source):', error); callback(''); });")
     private static native void fetchTextAsync(String url, TextCallback callback);
 
@@ -474,7 +478,7 @@ public class WebPlatform implements Platform {
         WebPlatform.jsLog(msg);
     }
 
-    @JSBody(params = { "msg" }, script = "console.log(msg);")
+    @JSBody(params = { "msg" }, script = "console.log(msg == null ? '(null)' : msg);")
     private static native void jsLog(String msg);
 
     @Override

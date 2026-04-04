@@ -15,6 +15,7 @@ public class FontAtlasDTO {
         public double size;
         public int width;
         public int height;
+        @SerializedName("yOrigin")
         public String yorigin;
     }
 
