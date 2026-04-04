@@ -1,6 +1,5 @@
 package ixdar.geometry.mesh.documentation;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,6 +10,7 @@ import com.google.gson.GsonBuilder;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
+import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
 import ixdar.annotations.meshnode.MeshNodeSchema;
 import ixdar.annotations.meshnode.ModeConstraint;
 import ixdar.annotations.meshnode.OutputPort;
@@ -21,16 +21,8 @@ public final class MeshNodeCatalog {
     private MeshNodeCatalog() {
     }
 
-    @SuppressWarnings("unchecked")
     public static String toJsonFromAnnotationRegistry() {
-        try {
-            Class<?> c = Class.forName("ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes");
-            Field f = c.getField("MAP");
-            Map<String, Supplier<? extends MeshNode>> map = (Map<String, Supplier<? extends MeshNode>>) f.get(null);
-            return toJson(map);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("Mesh node registry not available; ensure annotation processing ran.", e);
-        }
+        return toJson(MeshNodeRegistry_MeshNodes.MAP);
     }
 
     public static String toJson(Map<String, Supplier<? extends MeshNode>> registry) {

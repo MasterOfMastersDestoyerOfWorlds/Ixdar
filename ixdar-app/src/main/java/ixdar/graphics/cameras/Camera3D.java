@@ -286,6 +286,9 @@ public class Camera3D implements Camera {
     public void updateView(int x, int y, int width, int height) {
         Platforms.gl().viewport(x, y, width, height);
         for (ShaderProgram s : Platforms.gl().getShaders()) {
+            if (s.ID < 0) {
+                continue;
+            }
             s.updateProjectionMatrix(width, height, 1f);
         }
     }

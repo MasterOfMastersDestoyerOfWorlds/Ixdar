@@ -15,6 +15,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.web.WebGL;
 import ixdar.platform.gl.web.WebPlatform;
+import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 public final class WebLauncher {
 
@@ -51,15 +52,33 @@ public final class WebLauncher {
 
             int w = canvas.getClientWidth();
             int h = canvas.getClientHeight();
+            if (w < 1) {
+                w = 800;
+            }
+            if (h < 1) {
+                h = 400;
+            }
             canvas.setWidth(w);
             canvas.setHeight(h);
-            Platforms.get().setFrameBufferSize(750, 750);
+            Platforms.get().setFrameBufferSize(w, h);
 
-            Supplier<? extends SceneDrawable> cs = CanvasSceneMap.MAP.get(canvasId);
-            if (cs == null) {
-                Platforms.get().log("Canvas3D not found for " + canvasId);
+            Canvas3D canvas3d;
+            String dataDsl = canvas.getAttribute("data-dsl");
+            if (dataDsl != null && !dataDsl.isEmpty()) {
+                // Canvas specifies a DSL file — create a parameterized mesh viewer
+                String dataNode = canvas.getAttribute("data-node");
+                String dataPort = canvas.getAttribute("data-port");
+                if (dataNode == null || dataNode.isEmpty()) dataNode = "output";
+                if (dataPort == null || dataPort.isEmpty()) dataPort = "geometry";
+                Platforms.get().log("DSL viewer: " + dataDsl + " node=" + dataNode + " port=" + dataPort);
+                canvas3d = new MeshNodeViewerScene(dataDsl, dataNode, dataPort);
+            } else {
+                Supplier<? extends SceneDrawable> cs = CanvasSceneMap.MAP.get(canvasId);
+                if (cs == null) {
+                    Platforms.get().log("Canvas3D not found for " + canvasId);
+                }
+                canvas3d = (Canvas3D) cs.get();
             }
-            Canvas3D canvas3d = (Canvas3D) cs.get();
 
             canvas3d.initGL();
             canvasElements[i] = canvas;
@@ -70,7 +89,7 @@ public final class WebLauncher {
     }
 
     @org.teavm.jso.JSBody(params = {
-            "el" }, script = "if(!el) return false; var style=getComputedStyle(el); if(style.display==='none'||style.visibility==='hidden'||parseFloat(style.opacity)===0) return false; var rect=el.getBoundingClientRect(); var vw=window.innerWidth||document.documentElement.clientWidth; var vh=window.innerHeight||document.documentElement.clientHeight; return rect.bottom>0 && rect.right>0 && rect.top<vh && rect.left<vw;")
+            "el" }, script = "if(!el) return false; var style=getComputedStyle(el); if(style.display==='none'||style.visibility==='hidden'||parseFloat(style.opacity)===0) return false; var rect=el.getBoundingClientRect(); var vw=window.innerWidth||document.documentElement.clientWidth; var vh=window.innerHeight||document.documentElement.clientHeight; var m=600; return !(rect.bottom<=-m || rect.top>=vh+m || rect.right<=-m || rect.left>=vw+m);")
     private static native boolean isElementVisible(HTMLCanvasElement el);
 
     private static void tick(int i) {
@@ -92,6 +111,12 @@ public final class WebLauncher {
             }
             int w = canvas.getClientWidth();
             int h = canvas.getClientHeight();
+            if (w < 1) {
+                w = 800;
+            }
+            if (h < 1) {
+                h = 400;
+            }
             canvas.setWidth(w);
             canvas.setHeight(h);
             Platforms.get().setFrameBufferSize(w, h);

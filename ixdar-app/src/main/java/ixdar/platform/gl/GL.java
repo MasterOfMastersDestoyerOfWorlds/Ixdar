@@ -3,9 +3,6 @@ package ixdar.platform.gl;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
-import java.util.function.IntFunction;
-
-import org.lwjgl.PointerBuffer;
 
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.input.MouseButtons;
@@ -144,7 +141,7 @@ public interface GL {
 
     void disable(int depthTest);
 
-    void createCapabilities(boolean b, IntFunction<PointerBuffer> intFunction);
+    void createCapabilities();
 
     int DEPTH_TEST();
 
@@ -202,7 +199,7 @@ public interface GL {
 
     void addShader(ShaderProgram shader);
 
-    Integer getPlatformID();
+    int getPlatformID();
 
     void getAttachedShaders(int shader, IntBuffer success);
 
@@ -223,4 +220,12 @@ public interface GL {
     void setPlatformID(Integer p);
 
     int LINEAR_MIPMAP_LINEAR();
+
+    /**
+     * When true, shader sources are left as GLSL ES ({@code #version 300 es}). When false, shared
+     * sources are adapted for desktop OpenGL 3.3 core ({@link GlslSource}).
+     */
+    default boolean usesWebGlsl() {
+        return false;
+    }
 }

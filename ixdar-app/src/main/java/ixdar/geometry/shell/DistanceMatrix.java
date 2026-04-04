@@ -140,16 +140,21 @@ public class DistanceMatrix {
      * @return the distance
      */
     public double getDistance(PointND i, PointND j) {
-        try {
-            return matrix[lookup.get(i.getID())][lookup.get(j.getID())];
-        } catch (NullPointerException e) {
-            return 0;
+        Integer ai = lookup.get(i.getID());
+        Integer aj = lookup.get(j.getID());
+        if (ai == null || aj == null) {
+            return 0.0;
         }
+        return matrix[ai.intValue()][aj.intValue()];
     }
 
     public double sumDistances(PointND p) {
+        Integer idx = lookup.get(p.getID());
+        if (idx == null) {
+            return 0.0;
+        }
+        int i = idx.intValue();
         double sum = 0.0;
-        int i = lookup.get(p.getID());
         for (int j = 0; j < matrix.length; j++) {
             sum += matrix[i][j];
         }
@@ -157,13 +162,16 @@ public class DistanceMatrix {
     }
 
     public double sumAngles(PointND p) {
+        Integer idx = lookup.get(p.getID());
+        if (idx == null) {
+            return 0.0;
+        }
+        int i = idx.intValue();
         double sum = 0.0;
-        int i = lookup.get(p.getID());
         for (int j = 0; j < matrix.length; j++) {
             if (i != j) {
-                sum += matrix[lookup.get(p.getID())][j];
+                sum += matrix[i][j];
             }
-
         }
         return sum;
     }
@@ -329,7 +337,11 @@ public class DistanceMatrix {
         this.centroid.setCentroid();
         this.centroidDist = new double[matrix.length];
         for (int i = 0; i < matrix.length; i++) {
-            int index = lookup.get(ps.get(i).getID());
+            Integer indexObj = lookup.get(ps.get(i).getID());
+            if (indexObj == null) {
+                continue;
+            }
+            int index = indexObj.intValue();
             centroidDist[index] = ps.get(i).distance(centroid);
             // System.out.println( ps.get(i).getID()+ " Dist to centroid: " +
             // centroidDist[index]);

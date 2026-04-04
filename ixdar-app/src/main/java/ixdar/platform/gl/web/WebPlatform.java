@@ -48,7 +48,7 @@ public class WebPlatform implements Platform {
     private ScrollCallback scrollCallback;
     private float frameBufferSizeX;
     private float frameBufferSizeY;
-    private Integer platformId;
+    private int platformId = -1;
     private int shadersToLoad;
 
     public WebPlatform(HTMLCanvasElement canvas, String id) {
@@ -425,7 +425,7 @@ public class WebPlatform implements Platform {
     @JSBody(params = { "url", "callback" }, script = "fetch(url)" +
             "  .then(function(response) { return response.text(); })" +
             "  .then(function(text) { callback(text); })" +
-            "  .catch(function(error) { console.error('Failed to load shader:', error); callback(''); });")
+            "  .catch(function(error) { console.error('Fetch failed (shader/source):', error); callback(''); });")
     private static native void fetchTextAsync(String url, TextCallback callback);
 
     private static String normalizePath(String path) {
@@ -510,7 +510,7 @@ public class WebPlatform implements Platform {
 
     @Override
     public void setPlatformID(Integer p) {
-        this.platformId = p;
+        this.platformId = p == null ? -1 : p.intValue();
     }
 
     public boolean loadedShaders() {

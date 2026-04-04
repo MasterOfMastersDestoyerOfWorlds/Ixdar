@@ -3,8 +3,6 @@ package ixdar.geometry.mesh.nodes.modifier;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.IntConsumer;
-import java.util.stream.IntStream;
-
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.InputPort;
@@ -21,10 +19,6 @@ import ixdar.geometry.mesh.data.QuadMeshTopologyHelper;
 
 @MeshNodeAnnotation(id = "subdivision_surface")
 public class SubdivisionMeshNode implements MeshNode {
-
-    private static final int PARALLEL_THRESHOLD = 64;
-
-    private static final ThreadLocal<Vector3f> TL_VEC = ThreadLocal.withInitial(Vector3f::new);
 
     private static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
     private static final InputPort LEVELS = new InputPort("levels", PortType.INT, 1);
@@ -123,7 +117,7 @@ public class SubdivisionMeshNode implements MeshNode {
         int[] oldToDense = new int[maxVid + 1];
         Arrays.fill(oldToDense, MeshTopology.NONE);
         float[] pos = new float[nv * 3];
-        Vector3f p = TL_VEC.get();
+        Vector3f p = new Vector3f();
         for (int i = 0; i < nv; i++) {
             int vid = mesh.vertexIdAt(i);
             oldToDense[vid] = i;
@@ -323,12 +317,8 @@ public class SubdivisionMeshNode implements MeshNode {
     }
 
     private static void parallelRange(int n, IntConsumer body) {
-        if (n >= PARALLEL_THRESHOLD) {
-            IntStream.range(0, n).parallel().forEach(body);
-        } else {
-            for (int i = 0; i < n; i++) {
-                body.accept(i);
-            }
+        for (int i = 0; i < n; i++) {
+            body.accept(i);
         }
     }
 }

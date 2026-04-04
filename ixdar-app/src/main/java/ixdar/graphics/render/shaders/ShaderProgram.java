@@ -18,6 +18,7 @@ import org.joml.Vector4f;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.color.Color;
 import ixdar.platform.Platforms;
+import ixdar.platform.gl.GlslSource;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.gl.Platform;
@@ -94,7 +95,7 @@ public abstract class ShaderProgram {
         }
 
         public ShaderProgram getShader() {
-            Integer p = Platforms.gl().getPlatformID();
+            int p = Platforms.gl().getPlatformID();
             if (!shaderMap.containsKey(p)) {
                 createShader();
             }
@@ -200,13 +201,23 @@ public abstract class ShaderProgram {
 
         Platforms.get().loadShaderSourceAsync("glsl", vertexShaderLocation, platformId, vertexShaderSource -> {
             Platforms.get().loadShaderSourceAsync("glsl", fragmentShaderLocation, platformId, fragmentShaderSource -> {
-                this.vertexShaderSource = new CharSequence[] { vertexShaderSource };
-                this.fragmentShaderSource = new CharSequence[] { fragmentShaderSource };
+                this.vertexShaderSource = normalizeSharedGlslForBackend(new CharSequence[] { vertexShaderSource });
+                this.fragmentShaderSource = normalizeSharedGlslForBackend(new CharSequence[] { fragmentShaderSource });
                 this.originalFragmentSourceStr = fragmentShaderSource;
                 recompileShaders(vertexShaderLocation, fragmentShaderLocation);
                 init();
             });
         }); 
+    }
+
+    private int uniformLocation(String name) {
+        Integer existing = uniformLocations.get(name);
+        if (existing != null) {
+            return existing.intValue();
+        }
+        int loc = ID >= 0 ? gl.getUniformLocation(ID, name) : -1;
+        uniformLocations.put(name, loc);
+        return loc;
     }
 
     public int getAttributeLocation(CharSequence name) {
@@ -215,42 +226,32 @@ public abstract class ShaderProgram {
     }
 
     public void use() {
-
+        if (ID < 0) {
+            return;
+        }
         gl.useProgram(ID);
     }
 
     public void setBool(String name, boolean value) {
 
-        if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, gl.getUniformLocation(ID, name));
-        }
-        gl.uniform1i(uniformLocations.get(name), value ? 1 : 0);
+        gl.uniform1i(uniformLocation(name), value ? 1 : 0);
         uniformMap.put(name, value);
     }
 
     public void setInt(String name, int value) {
 
-        if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, gl.getUniformLocation(ID, name));
-        }
-        gl.uniform1i(uniformLocations.get(name), value);
+        gl.uniform1i(uniformLocation(name), value);
         uniformMap.put(name, value);
     }
 
     public void setFloat(String name, float value) {
 
-        if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, gl.getUniformLocation(ID, name));
-        }
-        gl.uniform1f(uniformLocations.get(name), value);
+        gl.uniform1f(uniformLocation(name), value);
         uniformMap.put(name, value);
     }
 
     public void setMat4(String name, Matrix4f mat) {
 
-        if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, gl.getUniformLocation(ID, name));
-        }
         if (mat4Buf == null) mat4Buf = platform.allocateFloats(16);
         mat4Buf.clear();
 
@@ -259,63 +260,48 @@ public abstract class ShaderProgram {
         mat4Buf.put(mat.m20()).put(mat.m21()).put(mat.m22()).put(mat.m23());
         mat4Buf.put(mat.m30()).put(mat.m31()).put(mat.m32()).put(mat.m33());
         mat4Buf.flip();
-        gl.uniformMatrix4fv(uniformLocations.get(name), false, mat4Buf);
+        gl.uniformMatrix4fv(uniformLocation(name), false, mat4Buf);
         uniformMap.put(name, mat);
     }
 
     public void setMat4(String name, IxBuffer allocatedBuffer) {
 
-        if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, gl.getUniformLocation(ID, name));
-        }
-        gl.uniformMatrix4fv(uniformLocations.get(name), false, allocatedBuffer);
+        gl.uniformMatrix4fv(uniformLocation(name), false, allocatedBuffer);
         uniformMap.put(name, allocatedBuffer);
     }
 
     public void setVec2(String name, Vector2f vec2) {
 
-        if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, gl.getUniformLocation(ID, name));
-        }
         if (vec2Buf == null) vec2Buf = platform.allocateFloats(2);
         vec2Buf.clear();
         vec2Buf.put(vec2.x).put(vec2.y).flip();
-        gl.uniform2fv(uniformLocations.get(name), vec2Buf);
+        gl.uniform2fv(uniformLocation(name), vec2Buf);
         uniformMap.put(name, vec2);
     }
 
     public void setVec3(String name, float f, float g, float h) {
 
-        if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, gl.getUniformLocation(ID, name));
-        }
         if (vec3Buf == null) vec3Buf = platform.allocateFloats(3);
         vec3Buf.clear();
         vec3Buf.put(f).put(g).put(h).flip();
-        gl.uniform3fv(uniformLocations.get(name), vec3Buf);
+        gl.uniform3fv(uniformLocation(name), vec3Buf);
         uniformMap.put(name, new Vector3f(f, g, h));
     }
 
     public void setVec3(String name, Vector3f vec3) {
-        if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, gl.getUniformLocation(ID, name));
-        }
         if (vec3Buf == null) vec3Buf = platform.allocateFloats(3);
         vec3Buf.clear();
         vec3Buf.put(vec3.x).put(vec3.y).put(vec3.z).flip();
-        gl.uniform3fv(uniformLocations.get(name), vec3Buf);
+        gl.uniform3fv(uniformLocation(name), vec3Buf);
         uniformMap.put(name, vec3);
     }
 
     public void setVec4(String name, Vector4f vec4) {
 
-        if (!uniformLocations.containsKey(name)) {
-            uniformLocations.put(name, gl.getUniformLocation(ID, name));
-        }
         if (vec4Buf == null) vec4Buf = platform.allocateFloats(4);
         vec4Buf.clear();
         vec4Buf.put(vec4.x).put(vec4.y).put(vec4.z).put(vec4.w).flip();
-        gl.uniform4fv(uniformLocations.get(name), vec4Buf);
+        gl.uniform4fv(uniformLocation(name), vec4Buf);
         uniformMap.put(name, vec4);
     }
 
@@ -369,12 +355,12 @@ public abstract class ShaderProgram {
             boolean fragmentModified = fragmentShaderFile != null && fragmentShaderFile.exists()
                     && fragmentShaderFile.lastModified() != fragmentLastModified;
             if (vertexModified) {
-                vertexShaderSource = readFile(vertexShaderFile);
+                vertexShaderSource = normalizeSharedGlslForBackend(readFile(vertexShaderFile));
                 vertexLastModified = vertexShaderFile.lastModified();
                 didChange = true;
             }
             if (fragmentModified) {
-                fragmentShaderSource = readFile(fragmentShaderFile);
+                fragmentShaderSource = normalizeSharedGlslForBackend(readFile(fragmentShaderFile));
                 fragmentLastModified = fragmentShaderFile.lastModified();
                 didChange = true;
             }
@@ -457,15 +443,24 @@ public abstract class ShaderProgram {
      * plain string without NUL.
      */
     private CharSequence[] buildPlatformFragmentSource(String src) {
+        String body = gl.usesWebGlsl() ? src : GlslSource.adaptEs300SharedForDesktopCore330(src);
         try {
             String platformName = ixdar.platform.Platforms.get().getClass().getName();
             boolean isWeb = platformName != null && platformName.toLowerCase().contains("web");
             if (isWeb) {
-                return new CharSequence[] { src };
+                return new CharSequence[] { body };
             }
         } catch (Exception ignore) {
         }
-        return new CharSequence[] { src + "\0" };
+        return new CharSequence[] { body + "\0" };
+    }
+
+    private CharSequence[] normalizeSharedGlslForBackend(CharSequence[] raw) {
+        if (raw == null || gl.usesWebGlsl()) {
+            return raw;
+        }
+        String joined = GlslSource.joinChunks(raw);
+        return new CharSequence[] { GlslSource.adaptEs300SharedForDesktopCore330(joined) };
     }
 
     private void reapplyUniforms() {
@@ -566,6 +561,9 @@ public abstract class ShaderProgram {
     }
 
     public void flush() {
+        if (ID < 0) {
+            return;
+        }
         if (this.platformId != Platforms.gl().getPlatformID()) {
             Platforms.get().log("ShaderProgram: Platform mismatch");
         }

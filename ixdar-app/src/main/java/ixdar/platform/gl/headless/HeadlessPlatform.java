@@ -213,7 +213,7 @@ public class HeadlessPlatform implements Platform {
 
     @Override
     public void setPlatformID(Integer p) {
-        this.platformId = p;
+        this.platformId = p == null ? -1 : p.intValue();
     }
 
     @Override

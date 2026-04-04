@@ -1,16 +1,12 @@
 package ixdar.canvas;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.IntFunction;
-
 import org.joml.Vector3f;
-import org.lwjgl.PointerBuffer;
 
 import ixdar.annotations.scene.SceneDrawable;
-import ixdar.audio.AudioAssets;
-import ixdar.audio.AudioSystem;
 import ixdar.geometry.point.PointND;
 import ixdar.geometry.point.PointSet;
 import ixdar.geometry.shell.DistanceMatrix;
@@ -27,8 +23,6 @@ import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.Platform;
-import ixdar.platform.automation.AutomationInputBinder;
-import ixdar.platform.automation.AutomationRuntime;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.SceneInputFrameUpdater;
@@ -36,6 +30,77 @@ import ixdar.scenes.main.MainScene;
 import ixdar.scenes.trade.TradeScene;
 
 public class Canvas3D extends SceneDrawable {
+
+    private static Object audioSystem;
+    private static boolean audioChecked;
+
+    private static Object getAudioSystem() {
+        if (!audioChecked) {
+            audioChecked = true;
+            try {
+                Class<?> cls = Class.forName(
+                        String.join(".", "ixdar", "audio", "AudioSystem"));
+                audioSystem = cls.getMethod("get").invoke(null);
+            } catch (Throwable ignored) {}
+        }
+        return audioSystem;
+    }
+
+    public static void audioInit() {
+        Object audio = getAudioSystem();
+        if (audio == null) return;
+        try { audio.getClass().getMethod("init").invoke(audio); } catch (Throwable ignored) {}
+    }
+
+    public static void audioPlayMenuMusic() {
+        Object audio = getAudioSystem();
+        if (audio == null) return;
+        try {
+            String path = (String) Class.forName(
+                    String.join(".", "ixdar", "audio", "AudioAssets"))
+                    .getField("MENU_MUSIC").get(null);
+            audio.getClass().getMethod("playMenuMusicLoop", String.class).invoke(audio, path);
+        } catch (Throwable ignored) {}
+    }
+
+    public static void audioPauseMenuMusic() {
+        Object audio = getAudioSystem();
+        if (audio == null) return;
+        try { audio.getClass().getMethod("pauseMenuMusic").invoke(audio); } catch (Throwable ignored) {}
+    }
+
+    public static void audioPlaySfx(String fieldName) {
+        Object audio = getAudioSystem();
+        if (audio == null) return;
+        try {
+            String path = (String) Class.forName(
+                    String.join(".", "ixdar", "audio", "AudioAssets"))
+                    .getField(fieldName).get(null);
+            audio.getClass().getMethod("playSfxOnce", String.class).invoke(audio, path);
+        } catch (Throwable ignored) {}
+    }
+
+    public static void audioShutdown() {
+        Object audio = getAudioSystem();
+        if (audio == null) return;
+        try { audio.getClass().getMethod("shutdown").invoke(audio); } catch (Throwable ignored) {}
+    }
+
+    private static Object automationRuntime;
+    private static boolean automationChecked;
+
+    private static Object getAutomationRuntime() {
+        if (!automationChecked) {
+            automationChecked = true;
+            try {
+                Class<?> cls = Class.forName(
+                        String.join(".", "ixdar", "platform", "automation", "AutomationRuntime"));
+                automationRuntime = cls.getMethod("get").invoke(null);
+            } catch (Throwable ignored) {}
+        }
+        return automationRuntime;
+    }
+
     public static Canvas3D instance;
 
     protected DiffuseShader shader;
@@ -65,7 +130,12 @@ public class Canvas3D extends SceneDrawable {
         activate(true);
         platform = Platforms.get();
         active = true;
-        AutomationRuntime.get().start(this);
+        Object rt = getAutomationRuntime();
+        if (rt != null) {
+            try {
+                rt.getClass().getMethod("start", Canvas3D.class).invoke(rt, this);
+            } catch (Throwable ignored) {}
+        }
 
         shell = new Shell();
     }
@@ -93,7 +163,7 @@ public class Canvas3D extends SceneDrawable {
 
     public void initGL() {
         GL gl = Platforms.gl();
-        gl.createCapabilities(false, (IntFunction<PointerBuffer>) null);
+        gl.createCapabilities();
         float start = Clock.time();
         gl.coldStartStack();
 
@@ -107,9 +177,9 @@ public class Canvas3D extends SceneDrawable {
         gl.clearColor(0.7f, 0.1f, 0.1f, 1.0f);
         gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
         gl.enable(gl.BLEND());
-        AudioSystem.get().init();
+        audioInit();
         if (MenuBox.menuVisible) {
-            AudioSystem.get().playMenuMusicLoop(AudioAssets.MENU_MUSIC);
+            audioPlayMenuMusic();
         }
         System.out.println("InitGL: " + (Clock.time() - start));
         System.out.println("Time to First Paint: " + (Clock.time() - Platforms.get().startTime()));
@@ -121,6 +191,11 @@ public class Canvas3D extends SceneDrawable {
 
     public void paintGL() {
         GL gl = Platforms.gl();
+        int fbw = Platforms.get().getFrameBufferWidth();
+        int fbh = Platforms.get().getFrameBufferHeight();
+        if (fbw > 0 && fbh > 0) {
+            gl.viewport(0, 0, fbw, fbh);
+        }
         gl.clearColor(0.07f, 0.07f, 0.07f, 1.0f);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera.resetZIndex();
@@ -130,16 +205,26 @@ public class Canvas3D extends SceneDrawable {
 
         drawScene();
 
-        gl.viewport(0, 0, (int) Platforms.get().getFrameBufferWidth(), (int) Platforms.get().getFrameBufferHeight());
         ArrayList<ShaderProgram> shaders = gl.getShaders();
         for (ShaderProgram s : shaders) {
+            if (s.ID < 0) {
+                continue;
+            }
             s.updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), 1f);
             s.hotReload();
         }
         for (ShaderProgram s : shaders) {
+            if (s.ID < 0) {
+                continue;
+            }
             s.flush();
         }
-        AutomationRuntime.get().processMainThreadCommands();
+        Object rt2 = getAutomationRuntime();
+        if (rt2 != null) {
+            try {
+                rt2.getClass().getMethod("processMainThreadCommands").invoke(rt2);
+            } catch (Throwable ignored) {}
+        }
         Clock.frameRendered();
     }
 
@@ -167,10 +252,10 @@ public class Canvas3D extends SceneDrawable {
     public void activate(boolean state) {
         if (state) {
             Platform p = Platforms.get();
-            AutomationInputBinder.bind(p, keys, mouse);
-            AudioSystem.get().playMenuMusicLoop(AudioAssets.MENU_MUSIC);
+            bindAutomationIfAvailable(p, keys, mouse);
+            audioPlayMenuMusic();
         } else {
-            AudioSystem.get().pauseMenuMusic();
+            audioPauseMenuMusic();
         }
         keys.active = state;
         mouse.active = state;
@@ -181,8 +266,23 @@ public class Canvas3D extends SceneDrawable {
     @Override
     public void shutdown() {
         activate(false);
-        AutomationRuntime.get().stop();
-        AudioSystem.get().shutdown();
+        Object rt3 = getAutomationRuntime();
+        if (rt3 != null) {
+            try {
+                rt3.getClass().getMethod("stop").invoke(rt3);
+            } catch (Throwable ignored) {}
+        }
+        audioShutdown();
+    }
+
+    protected static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
+        try {
+            Class<?> binder = Class.forName(
+                    String.join(".", "ixdar", "platform", "automation", "AutomationInputBinder"));
+            Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
+            bind.invoke(null, platform, keys, mouse);
+        } catch (Throwable ignored) {
+        }
     }
 
 }

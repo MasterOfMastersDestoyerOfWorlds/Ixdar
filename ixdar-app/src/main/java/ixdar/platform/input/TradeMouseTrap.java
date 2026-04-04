@@ -5,15 +5,12 @@ import static ixdar.platform.input.Keys.ACTION_RELEASE;
 
 import org.joml.Vector2f;
 
-import com.google.gson.JsonObject;
-
 import ixdar.canvas.Canvas3D;
 import ixdar.game.City;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Clock;
 import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.platform.Platforms;
-import ixdar.platform.automation.AutomationRuntime;
 import ixdar.scenes.trade.TradeScene;
 
 /**
@@ -100,14 +97,13 @@ public class TradeMouseTrap extends MouseTrap {
         if (tradeScene.activeTool instanceof RoutePlanningTool) {
             RoutePlanningTool routeTool = (RoutePlanningTool) tradeScene.activeTool;
             if (routeTool.onToolbarClick(x, y)) {
-                JsonObject payload = new JsonObject();
-                payload.addProperty("button", button);
-                payload.addProperty("xPx", x);
-                payload.addProperty("yPx", y);
-                payload.addProperty("tool", tradeScene.activeTool.displayName());
-                payload.addProperty("city", "");
-                payload.addProperty("target", "toolbar");
-                AutomationRuntime.get().recordAbstractAction("trade_city_click", payload);
+                recordAbstractAction("trade_city_click",
+                        "button", button,
+                        "xPx", x,
+                        "yPx", y,
+                        "tool", tradeScene.activeTool.displayName(),
+                        "city", "",
+                        "target", "toolbar");
                 return;
             }
         }
@@ -125,17 +121,16 @@ public class TradeMouseTrap extends MouseTrap {
         City clickedCity = tradeScene.getCityAt(worldX, worldY);
         System.out.println("[TradeMouseTrap] clickedCity: " + (clickedCity != null ? clickedCity.name : "null"));
         System.out.println("[TradeMouseTrap] activeTool: " + tradeScene.activeTool.displayName());
-        JsonObject payload = new JsonObject();
-        payload.addProperty("button", button);
-        payload.addProperty("xPx", x);
-        payload.addProperty("yPx", y);
-        payload.addProperty("xCoord", normalizedPosX);
-        payload.addProperty("yCoord", normalizedPosY);
-        payload.addProperty("xNorm", x / Math.max(1f, Platforms.get().getWindowWidth()));
-        payload.addProperty("yNorm", y / Math.max(1f, Platforms.get().getWindowHeight()));
-        payload.addProperty("tool", tradeScene.activeTool.displayName());
-        payload.addProperty("city", clickedCity == null ? "" : clickedCity.name);
-        AutomationRuntime.get().recordAbstractAction("trade_city_click", payload);
+        recordAbstractAction("trade_city_click",
+                "button", button,
+                "xPx", x,
+                "yPx", y,
+                "xCoord", normalizedPosX,
+                "yCoord", normalizedPosY,
+                "xNorm", x / Math.max(1f, Platforms.get().getWindowWidth()),
+                "yNorm", y / Math.max(1f, Platforms.get().getWindowHeight()),
+                "tool", tradeScene.activeTool.displayName(),
+                "city", clickedCity == null ? "" : clickedCity.name);
 
         if (clickedCity != null) {
             tradeScene.onCityClick(clickedCity);

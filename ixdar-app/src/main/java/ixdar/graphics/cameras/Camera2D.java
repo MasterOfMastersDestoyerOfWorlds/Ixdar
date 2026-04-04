@@ -527,6 +527,9 @@ public class Camera2D implements Camera {
         this.updateViewBounds(x, y, width, height);
         Platforms.gl().viewport(x, y, width, height);
         for (ShaderProgram s : Platforms.gl().getShaders()) {
+            if (s.ID < 0) {
+                continue;
+            }
             s.updateProjectionMatrix(width, height, 1f);
         }
     }

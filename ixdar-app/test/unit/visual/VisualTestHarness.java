@@ -88,7 +88,7 @@ public class VisualTestHarness {
 
         // Initialize OpenGL capabilities
         GL glContext = Platforms.gl();
-        glContext.createCapabilities(false, (IntFunction<PointerBuffer>) null);
+        glContext.createCapabilities();
         glContext.viewport(0, 0, width, height);
         glContext.enable(glContext.DEPTH_TEST());
         glContext.blendFunc(glContext.SRC_ALPHA(), glContext.ONE_MINUS_SRC_ALPHA());

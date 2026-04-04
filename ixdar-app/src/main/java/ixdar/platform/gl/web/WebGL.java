@@ -3,9 +3,6 @@ package ixdar.platform.gl.web;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
-import java.util.function.IntFunction;
-
-import org.lwjgl.PointerBuffer;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
@@ -47,13 +44,20 @@ public class WebGL implements GL {
     }
 
     @Override
-    public Integer getPlatformID() {
+    public int getPlatformID() {
         return id;
     }
 
     @Override
+    public boolean usesWebGlsl() {
+        return true;
+    }
+
+    @Override
     public void setPlatformID(Integer p) {
-        this.id = p;
+        if (p != null) {
+            this.id = p.intValue();
+        }
     }
 
     @Override
@@ -558,8 +562,7 @@ public class WebGL implements GL {
     private static native int toInt(Object v);
 
     @Override
-    public void createCapabilities(boolean b, IntFunction<PointerBuffer> intFunction) {
-
+    public void createCapabilities() {
     }
 
     @Override

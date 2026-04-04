@@ -19,7 +19,7 @@ public final class Platforms {
     public static void init(Platform platform, GL gl) {
         instance = platform;
         glInstance = gl;
-        Integer p = gl.getPlatformID();
+        int p = gl.getPlatformID();
         platform.setPlatformID(p);
         gl.setPlatformID(p);
         platformMap.put(p, platform);

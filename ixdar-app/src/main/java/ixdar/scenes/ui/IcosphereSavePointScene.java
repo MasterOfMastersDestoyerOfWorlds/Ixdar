@@ -14,7 +14,6 @@ import ixdar.graphics.render.model.IcosphereRuntime;
 import ixdar.scenes.Scene;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Platforms;
-import ixdar.platform.automation.AutomationInputBinder;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.SceneInputFrameUpdater;
@@ -75,7 +74,7 @@ public class IcosphereSavePointScene extends Scene {
         MenuBox.menuVisible = false;
         keys = new KeyGuy(camera, this);
         mouse = new IcosphereMouseTrap(camera);
-        AutomationInputBinder.bind(Platforms.get(), keys, mouse);
+        bindAutomationIfAvailable(Platforms.get(), keys, mouse);
     }
 
     private void updateCameraControls() {

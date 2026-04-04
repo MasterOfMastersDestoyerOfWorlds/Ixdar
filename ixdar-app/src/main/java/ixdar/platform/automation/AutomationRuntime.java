@@ -169,6 +169,22 @@ public class AutomationRuntime {
         recorder.recordAbstract(type, payload);
     }
 
+    /** Map-based variant for callers that can't reference Gson directly (e.g. TeaVM-compiled code). */
+    public void recordAbstractActionMap(String type, Map<String, Object> payload) {
+        JsonObject json = new JsonObject();
+        for (Map.Entry<String, Object> e : payload.entrySet()) {
+            Object v = e.getValue();
+            if (v instanceof Number) {
+                json.addProperty(e.getKey(), (Number) v);
+            } else if (v instanceof Boolean) {
+                json.addProperty(e.getKey(), (Boolean) v);
+            } else {
+                json.addProperty(e.getKey(), String.valueOf(v));
+            }
+        }
+        recorder.recordAbstract(type, json);
+    }
+
     public JsonObject meshFingerprint() {
         try {
             return runOnMainThread(() -> {

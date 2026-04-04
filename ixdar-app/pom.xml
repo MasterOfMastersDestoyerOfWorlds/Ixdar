@@ -198,6 +198,8 @@
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
                 <argument>-classpath</argument>
@@ -226,6 +228,8 @@
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
                 <argument>-classpath</argument>
@@ -255,6 +259,8 @@
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
                 <argument>-classpath</argument>
@@ -284,6 +290,8 @@
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
                 <argument>-classpath</argument>
@@ -313,6 +321,8 @@
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
                 <argument>-classpath</argument>
@@ -342,6 +352,8 @@
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
                 <argument>-classpath</argument>
@@ -371,6 +383,8 @@
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
                 <argument>-classpath</argument>
@@ -400,6 +414,8 @@
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
                 <argument>-classpath</argument>
@@ -429,6 +445,8 @@
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
                 <argument>-classpath</argument>
@@ -458,6 +476,8 @@
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
                 <argument>-classpath</argument>
@@ -487,6 +507,8 @@
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
                 <argument>-classpath</argument>
@@ -516,6 +538,8 @@
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
                 <argument>-classpath</argument>
@@ -545,6 +569,8 @@
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
                 <argument>-classpath</argument>
@@ -652,14 +678,36 @@
                   <goal>compile</goal>
                 </goals>
                 <configuration>
-                  <mainClass>shell.ui.WebLauncher</mainClass>
+                  <mainClass>ixdar.canvas.WebLauncher</mainClass>
                   <targetDirectory>${project.build.directory}/teavm/ixdar</targetDirectory>
-                  <debugInformation>true</debugInformation>
-                  <sourceMaps>true</sourceMaps>
+                  <debugInformationGenerated>true</debugInformationGenerated>
+                  <sourceMapsGenerated>true</sourceMapsGenerated>
                   <minifying>false</minifying>
                   <incremental>false</incremental>
-                  <strict>true</strict>
-                  <target>javascript</target>
+                  <strict>false</strict>
+                  <stopOnErrors>false</stopOnErrors>
+                  <targetType>JAVASCRIPT</targetType>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.5.0</version>
+            <executions>
+              <execution>
+                <id>patch-teavm-reflection-stubs</id>
+                <phase>package</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>python3</executable>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <arguments>
+                    <argument>${project.parent.basedir}/tools/teavm-inject-reflection-stubs.py</argument>
+                    <argument>${project.build.directory}/teavm/ixdar/classes.js</argument>
+                  </arguments>
                 </configuration>
               </execution>
             </executions>
@@ -691,6 +739,7 @@
                         <include>**/*.ico</include>
                         <include>**/*.html</include>
                         <include>**/*.wav</include>
+                        <include>**/*.dsl</include>
                       </includes>
                     </resource>
                   </resources>
@@ -732,6 +781,61 @@
           <groupId>org.teavm</groupId>
           <artifactId>teavm-platform</artifactId>
           <version>${teavm.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <!-- Exclude desktop-only deps from TeaVM classpath -->
+        <dependency>
+          <groupId>org.lwjgl</groupId>
+          <artifactId>lwjgl</artifactId>
+          <version>${lwjgl.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.lwjgl</groupId>
+          <artifactId>lwjgl-assimp</artifactId>
+          <version>${lwjgl.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.lwjgl</groupId>
+          <artifactId>lwjgl-glfw</artifactId>
+          <version>${lwjgl.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.lwjgl</groupId>
+          <artifactId>lwjgl-opengl</artifactId>
+          <version>${lwjgl.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.lwjgl</groupId>
+          <artifactId>lwjgl-opengles</artifactId>
+          <version>${lwjgl.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.lwjgl</groupId>
+          <artifactId>lwjgl-stb</artifactId>
+          <version>${lwjgl.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.lwjgl</groupId>
+          <artifactId>lwjgl-openal</artifactId>
+          <version>${lwjgl.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>io.humble</groupId>
+          <artifactId>humble-video-all</artifactId>
+          <version>0.3.0</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>com.google.code.gson</groupId>
+          <artifactId>gson</artifactId>
+          <version>2.10.1</version>
           <scope>provided</scope>
         </dependency>
       </dependencies>

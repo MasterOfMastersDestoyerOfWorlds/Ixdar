@@ -3,9 +3,6 @@ package ixdar.platform.gl.headless;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
-import java.util.function.IntFunction;
-
-import org.lwjgl.PointerBuffer;
 
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.gl.GL;
@@ -330,7 +327,7 @@ public class HeadlessGL implements GL {
     }
 
     @Override
-    public void createCapabilities(boolean b, IntFunction<PointerBuffer> intFunction) {
+    public void createCapabilities() {
     }
 
     @Override
@@ -463,7 +460,7 @@ public class HeadlessGL implements GL {
     }
 
     @Override
-    public Integer getPlatformID() {
+    public int getPlatformID() {
         return platformId;
     }
 
@@ -512,7 +509,9 @@ public class HeadlessGL implements GL {
 
     @Override
     public void setPlatformID(Integer p) {
-        this.platformId = p;
+        if (p != null) {
+            this.platformId = p.intValue();
+        }
     }
 
     @Override

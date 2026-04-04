@@ -1,5 +1,6 @@
 package ixdar.scenes.trade;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,11 +21,10 @@ import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.tools.HeadquartersPickerTool;
 import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.gui.ui.tools.Tool;
-import ixdar.audio.AudioAssets;
-import ixdar.audio.AudioSystem;
+import ixdar.canvas.Canvas3D;
 import ixdar.platform.Platforms;
-import ixdar.platform.automation.AutomationInputBinder;
 import ixdar.platform.gl.Platform;
+import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.platform.input.TradeKeyGuy;
@@ -135,7 +135,7 @@ public class TradeScene {
     public void activate(boolean state) {
         if (state) {
             Platform p = Platforms.get();
-            AutomationInputBinder.bind(p, keys, mouse);
+            bindAutomationIfAvailable(p, keys, mouse);
         }
         if (canvas != null) {
             canvas.activate(!state);
@@ -305,7 +305,7 @@ public class TradeScene {
         keys.active = false;
         mouse.active = false;
         MenuBox.menuVisible = true;
-        AudioSystem.get().playMenuMusicLoop(AudioAssets.MENU_MUSIC);
+        Canvas3D.audioPlayMenuMusic();
         if (canvas != null) {
             canvas.activate(true); // Restore menu input handling
         }
@@ -342,7 +342,7 @@ public class TradeScene {
         TradeScene scene = new TradeScene(network, canvas);
         scene.initViews();
         scene.activate(true);
-        AudioSystem.get().pauseMenuMusic();
+        Canvas3D.audioPauseMenuMusic();
         MenuBox.menuVisible = false;
         return scene;
     }
@@ -360,5 +360,15 @@ public class TradeScene {
         // Generate roads based on proximity - cities within 200 units get connected
         network.generateRoadsFromProximity(200f);
         return startNewGame(network, canvas);
+    }
+
+    private static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
+        try {
+            Class<?> binder = Class.forName(
+                    String.join(".", "ixdar", "platform", "automation", "AutomationInputBinder"));
+            Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
+            bind.invoke(null, platform, keys, mouse);
+        } catch (Throwable ignored) {
+        }
     }
 }

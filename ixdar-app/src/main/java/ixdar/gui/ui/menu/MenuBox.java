@@ -3,8 +3,6 @@ package ixdar.gui.ui.menu;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.google.gson.JsonObject;
-
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.cameras.Camera2D;
@@ -15,15 +13,40 @@ import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.sdf.SDFUnion;
 import ixdar.gui.ui.Drawing;
-import ixdar.audio.AudioAssets;
-import ixdar.audio.AudioSystem;
+import ixdar.canvas.Canvas3D;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
-import ixdar.platform.automation.AutomationRuntime;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.input.MouseTrap;
 
 public class MenuBox implements MouseTrap.ScrollHandler {
+
+    private static Object automationRuntime;
+    private static boolean automationChecked;
+
+    private static Object getAutomationRuntime() {
+        if (!automationChecked) {
+            automationChecked = true;
+            try {
+                Class<?> cls = Class.forName(
+                        String.join(".", "ixdar", "platform", "automation", "AutomationRuntime"));
+                automationRuntime = cls.getMethod("get").invoke(null);
+            } catch (Throwable ignored) {}
+        }
+        return automationRuntime;
+    }
+
+    private static void recordAbstractAction(String action, Object... keyValues) {
+        Object rt = getAutomationRuntime();
+        if (rt == null) return;
+        try {
+            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            for (int i = 0; i < keyValues.length; i += 2) {
+                payload.put((String) keyValues[i], keyValues[i + 1]);
+            }
+            rt.getClass().getMethod("recordAbstractActionMap", String.class, java.util.Map.class).invoke(rt, action, payload);
+        } catch (Throwable ignored) {}
+    }
     public static class MenuItemBounds {
         public String label;
         public float left;
@@ -180,12 +203,11 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         if (clickedItem == null) {
             return;
         }
-        JsonObject payload = new JsonObject();
-        payload.addProperty("label", clickedItem.getHeading());
-        payload.addProperty("xNormalized", x / Platforms.get().getWindowWidth());
-        payload.addProperty("yNormalized", y / Platforms.get().getWindowHeight());
-        AutomationRuntime.get().recordAbstractAction("menu_select", payload);
-        AudioSystem.get().playSfxOnce(AudioAssets.MENU_CLICK_SFX);
+        recordAbstractAction("menu_select",
+                "label", clickedItem.getHeading(),
+                "xNormalized", x / Platforms.get().getWindowWidth(),
+                "yNormalized", y / Platforms.get().getWindowHeight());
+        Canvas3D.audioPlaySfx("MENU_CLICK_SFX");
         clickedItem.performAction();
     }
 

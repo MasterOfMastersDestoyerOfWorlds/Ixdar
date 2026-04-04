@@ -1,8 +1,5 @@
 package ixdar.scenes.mesh;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import org.joml.Vector3f;
@@ -15,7 +12,6 @@ import ixdar.gui.ui.menu.MenuBox;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
-import ixdar.platform.automation.AutomationInputBinder;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.Scene;
@@ -23,20 +19,34 @@ import ixdar.scenes.Scene;
 @SceneAnnotation(id = "mesh-viewer")
 public class MeshNodeViewerScene extends Scene {
     private static final String DSL_FOLDER = "dsl";
-    private static final String DSL_RESOURCE = "coons_cube.dsl";
-    private static final String DSL_FINAL_NODE = "patch_out";
-    private static final String DSL_FINAL_PORT = "geometry";
+    private static final String DEFAULT_DSL_RESOURCE = "coons_cube.dsl";
+    private static final String DEFAULT_DSL_FINAL_NODE = "patch_out";
+    private static final String DEFAULT_DSL_FINAL_PORT = "geometry";
 
     private static final float HALF_EXTENT = 0.5f;
     private static final float CAMERA_AZIMUTH = (float) Math.toRadians(45.0);
     private static final float CAMERA_ELEVATION = (float) Math.toRadians(24.0);
     private static final float CAMERA_DISTANCE = 3.5f;
 
+    private final String dslResource;
+    private final String dslFinalNode;
+    private final String dslFinalPort;
+
     private final Vector3f meshCenter = new Vector3f();
 
     private OrbitMouseTrap orbitMouse;
     private MeshTopology mesh;
     private HalfEdgeMeshRuntime meshRuntime;
+
+    public MeshNodeViewerScene() {
+        this(DEFAULT_DSL_RESOURCE, DEFAULT_DSL_FINAL_NODE, DEFAULT_DSL_FINAL_PORT);
+    }
+
+    public MeshNodeViewerScene(String dslResource, String dslFinalNode, String dslFinalPort) {
+        this.dslResource = dslResource;
+        this.dslFinalNode = dslFinalNode;
+        this.dslFinalPort = dslFinalPort;
+    }
 
     @Override
     public void initGL() {
@@ -48,9 +58,9 @@ public class MeshNodeViewerScene extends Scene {
         orbitMouse.setTarget(meshCenter);
         orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
         mouse = orbitMouse;
-        AutomationInputBinder.bind(Platforms.get(), keys, mouse);
+        bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         try {
-            Platforms.get().loadSourceAsync(DSL_FOLDER, DSL_RESOURCE, Platforms.gl().getPlatformID(), dslCode -> {
+            Platforms.get().loadSourceAsync(DSL_FOLDER, dslResource, Platforms.gl().getPlatformID(), dslCode -> {
                 PythonLexer lexer = new PythonLexer(dslCode);
                 PythonParser parser = new PythonParser(lexer);
                 List<PythonParser.ParsedNode> ast = parser.parseGraph();
@@ -58,14 +68,35 @@ public class MeshNodeViewerScene extends Scene {
                 NodeGraphRuntime runtime = new NodeGraphRuntime();
                 runtime.registerAllFromAnnotationRegistry();
                 try {
-                    mesh = runtime.executeGraphToMesh(ast, DSL_FINAL_NODE, DSL_FINAL_PORT);
+                    mesh = runtime.executeGraphToMesh(ast, dslFinalNode, dslFinalPort);
+                } catch (Exception e) {
+                    for (Throwable t = e; t != null; t = t.getCause()) {
+                        Platforms.get().log("[mesh-viewer] " + t.getClass().getName() + ": " + t.getMessage());
+                    }
+                    throw new IllegalStateException(
+                            "Failed to execute graph: dsl=" + dslResource + " finalNode=" + dslFinalNode
+                                    + " port=" + dslFinalPort,
+                            e);
+                }
+                try {
                     meshRuntime = new HalfEdgeMeshRuntime();
                 } catch (Exception e) {
-                    throw new IllegalStateException("Failed to execute graph", e);
+                    throw new IllegalStateException("Failed to create mesh GL runtime", e);
                 }
                 meshRuntime.upload(mesh);
                 meshRuntime.frameCamera(camera);
-                meshCenter.set(mesh.center(new Vector3f()));
+                if (mesh != null) {
+                    Platforms.get().log(
+                            "[mesh-viewer] mesh ready " + dslResource + " verts=" + mesh.vertexCount() + " faces="
+                                    + mesh.faceCount());
+                } else {
+                    Platforms.get().log("[mesh-viewer] mesh is null for " + dslResource);
+                }
+                if (mesh != null) {
+                    meshCenter.set(mesh.center(new Vector3f()));
+                } else {
+                    meshCenter.set(0f, 0f, 0f);
+                }
                 if (orbitMouse != null) {
                     orbitMouse.setTarget(meshCenter);
                     orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);

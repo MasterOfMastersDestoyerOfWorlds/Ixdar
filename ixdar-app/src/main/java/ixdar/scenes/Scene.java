@@ -1,9 +1,15 @@
 package ixdar.scenes;
+
+import java.lang.reflect.Method;
+
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.render.sdf.ShaderDrawable;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.gui.ui.code.ShaderCodePane;
 import ixdar.platform.Platforms;
+import ixdar.platform.gl.Platform;
+import ixdar.platform.input.KeyGuy;
+import ixdar.platform.input.MouseTrap;
 
 public abstract class Scene extends Canvas3D {
 
@@ -41,6 +47,20 @@ public abstract class Scene extends Canvas3D {
     public void drawUI() {
         if (codePane != null) {
             codePane.draw(camera2D);
+        }
+    }
+
+    /**
+     * Bind automation input via reflection to avoid pulling desktop-only classes
+     * into the TeaVM compilation graph. On web, this silently does nothing.
+     */
+    protected static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
+        try {
+            Class<?> binder = Class.forName(
+                    String.join(".", "ixdar", "platform", "automation", "AutomationInputBinder"));
+            Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
+            bind.invoke(null, platform, keys, mouse);
+        } catch (Throwable ignored) {
         }
     }
 }

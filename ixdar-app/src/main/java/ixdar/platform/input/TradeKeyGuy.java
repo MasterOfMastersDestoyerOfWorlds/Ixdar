@@ -4,14 +4,11 @@ import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import static ixdar.platform.input.Keys.ACTION_REPEAT;
 
-import com.google.gson.JsonObject;
-
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Clock;
 import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.platform.Platforms;
-import ixdar.platform.automation.AutomationRuntime;
 import ixdar.scenes.trade.TradeScene;
 
 /**
@@ -32,11 +29,7 @@ public class TradeKeyGuy extends KeyGuy {
         Platforms.init(canvas.platform.getPlatformID());
         if (!active)
             return;
-        JsonObject payload = new JsonObject();
-        payload.addProperty("key", key);
-        payload.addProperty("mods", mods);
-        payload.addProperty("action", action);
-        AutomationRuntime.get().recordAbstractAction("trade_key", payload);
+        recordAbstractAction("trade_key", "key", key, "mods", mods, "action", action);
 
         switch (action) {
         case ACTION_PRESS:
@@ -71,9 +64,7 @@ public class TradeKeyGuy extends KeyGuy {
     @Override
     public void charCallback(long window, int codepoint) {
         Platforms.init(canvas.platform.getPlatformID());
-        JsonObject payload = new JsonObject();
-        payload.addProperty("codepoint", codepoint);
-        AutomationRuntime.get().recordAbstractAction("trade_char", payload);
+        recordAbstractAction("trade_char", "codepoint", codepoint);
         // No terminal in trade scene, so no character input handling needed
     }
 

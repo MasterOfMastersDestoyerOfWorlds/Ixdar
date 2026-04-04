@@ -8,8 +8,6 @@ import static ixdar.platform.input.Keys.LEFT_CONTROL;
 import java.util.HashSet;
 import java.util.Set;
 
-import com.google.gson.JsonObject;
-
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Clock;
@@ -25,10 +23,36 @@ import ixdar.gui.ui.tools.NeighborViewTool;
 import ixdar.gui.ui.tools.Tool;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
-import ixdar.platform.automation.AutomationRuntime;
 import ixdar.scenes.main.MainScene;
 
 public class KeyGuy extends Camera2DInputController{
+
+    private static Object automationRuntime;
+    private static boolean automationChecked;
+
+    private static Object getAutomationRuntime() {
+        if (!automationChecked) {
+            automationChecked = true;
+            try {
+                Class<?> cls = Class.forName(
+                        String.join(".", "ixdar", "platform", "automation", "AutomationRuntime"));
+                automationRuntime = cls.getMethod("get").invoke(null);
+            } catch (Throwable ignored) {}
+        }
+        return automationRuntime;
+    }
+
+    static void recordAbstractAction(String action, Object... keyValues) {
+        Object rt = getAutomationRuntime();
+        if (rt == null) return;
+        try {
+            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            for (int i = 0; i < keyValues.length; i += 2) {
+                payload.put((String) keyValues[i], keyValues[i + 1]);
+            }
+            rt.getClass().getMethod("recordAbstractActionMap", String.class, java.util.Map.class).invoke(rt, action, payload);
+        } catch (Throwable ignored) {}
+    }
 
     public final Set<Integer> pressedKeys = new HashSet<>();
     public MainScene main;
@@ -54,11 +78,7 @@ public class KeyGuy extends Camera2DInputController{
         if (!active) {
             return;
         }
-        JsonObject payload = new JsonObject();
-        payload.addProperty("key", key);
-        payload.addProperty("mods", mods);
-        payload.addProperty("repeated", repeated);
-        AutomationRuntime.get().recordAbstractAction("key_press", payload);
+        recordAbstractAction("key_press", "key", key, "mods", mods, "repeated", String.valueOf(repeated));
         boolean firstPress = !pressedKeys.contains(key);
         pressedKeys.add(key);
 
@@ -137,10 +157,7 @@ public class KeyGuy extends Camera2DInputController{
         if (!active) {
             return;
         }
-        JsonObject payload = new JsonObject();
-        payload.addProperty("key", key);
-        payload.addProperty("mask", mask);
-        AutomationRuntime.get().recordAbstractAction("key_release", payload);
+        recordAbstractAction("key_release", "key", key, "mask", mask);
         if (main != null && MainScene.active) {
 
         } else if (canvas.active) {
@@ -200,10 +217,7 @@ public class KeyGuy extends Camera2DInputController{
     public void charCallback(long window, int codepoint) {
         Platforms.init(canvas.platform.getPlatformID());
         String currentText = "" + (char) codepoint;
-        JsonObject payload = new JsonObject();
-        payload.addProperty("text", currentText);
-        payload.addProperty("codepoint", codepoint);
-        AutomationRuntime.get().recordAbstractAction("char_input", payload);
+        recordAbstractAction("char_input", "text", currentText, "codepoint", codepoint);
         if (Toggle.IsTerminalFocused.value) {
             MainScene.terminal.type(currentText);
         }

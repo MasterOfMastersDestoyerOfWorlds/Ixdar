@@ -18,7 +18,7 @@
       "name": "Ixdar",
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
-      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -27,7 +27,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "irregular-grid-canvas",
-      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -36,7 +36,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "bouncing-line-canvas",
-      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -45,7 +45,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "circle-canvas",
-      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -54,7 +54,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "bezier-curve-canvas",
-      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -63,7 +63,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "line-canvas",
-      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -72,7 +72,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "arrow-line-canvas",
-      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -81,7 +81,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "dashed-line-canvas",
-      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -90,7 +90,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "dashed-line-round-canvas",
-      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -99,7 +99,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "dashed-line-round-end-caps-canvas",
-      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -108,7 +108,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "model-load-canvas",
-      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "env": {
         "IXDAR_ASSET_REPO_ROOT": "C:\\Code\\IxdarAssets"
       },
@@ -152,7 +152,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "icosphere-save-point-canvas",
-      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -161,7 +161,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "mesh-viewer",
-      "vmArgs": "-enableassertions -Xmx4g -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Xmx4g -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     }
 

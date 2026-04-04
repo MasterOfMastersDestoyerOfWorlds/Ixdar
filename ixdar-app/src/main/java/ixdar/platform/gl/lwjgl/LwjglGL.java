@@ -80,11 +80,9 @@ import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
-import java.util.function.IntFunction;
 
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
@@ -449,8 +447,8 @@ public class LwjglGL implements GL {
     }
 
     @Override
-    public void createCapabilities(boolean b, IntFunction<PointerBuffer> intFunction) {
-        org.lwjgl.opengl.GL.createCapabilities(b, intFunction);
+    public void createCapabilities() {
+        org.lwjgl.opengl.GL.createCapabilities();
     }
 
     @Override
@@ -652,11 +650,13 @@ public class LwjglGL implements GL {
 
     @Override
     public void setPlatformID(Integer p) {
-        this.id = p;
+        if (p != null) {
+            this.id = p.intValue();
+        }
     }
 
     @Override
-    public Integer getPlatformID() {
+    public int getPlatformID() {
         return id;
     }
 

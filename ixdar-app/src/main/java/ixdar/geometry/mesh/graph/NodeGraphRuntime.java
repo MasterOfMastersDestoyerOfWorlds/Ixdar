@@ -7,6 +7,7 @@ import java.util.Map;
 
 import ixdar.annotations.meshnode.FieldContext;
 import ixdar.annotations.meshnode.MeshNode;
+import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.parsing.python.PythonParser;
@@ -24,21 +25,13 @@ public class NodeGraphRuntime {
      * Map of DSL id → node class from the generated {@code MeshNodeRegistry_MeshNodes.MAP}.
      */
     public static Map<String, Class<? extends MeshNode>> annotationRegistryClasses() {
-        try {
-            Class<?> registryClass = Class.forName("ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes");
-            @SuppressWarnings("unchecked")
-            Map<String, java.util.function.Supplier<? extends MeshNode>> map = (Map<String, java.util.function.Supplier<? extends MeshNode>>) registryClass
-                    .getField("MAP")
-                    .get(null);
-            Map<String, Class<? extends MeshNode>> out = new HashMap<>();
-            for (Map.Entry<String, java.util.function.Supplier<? extends MeshNode>> e : map.entrySet()) {
-                MeshNode probe = e.getValue().get();
-                out.put(e.getKey(), probe.getClass());
-            }
-            return Collections.unmodifiableMap(out);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("Failed to load MeshNodeRegistry_MeshNodes", e);
+        Map<String, java.util.function.Supplier<? extends MeshNode>> map = MeshNodeRegistry_MeshNodes.MAP;
+        Map<String, Class<? extends MeshNode>> out = new HashMap<>();
+        for (Map.Entry<String, java.util.function.Supplier<? extends MeshNode>> e : map.entrySet()) {
+            MeshNode probe = e.getValue().get();
+            out.put(e.getKey(), probe.getClass());
         }
+        return Collections.unmodifiableMap(out);
     }
 
     /**
@@ -85,11 +78,15 @@ public class NodeGraphRuntime {
         Map<String, Object> overrides = overridesByNodeId == null ? Map.of() : overridesByNodeId;
 
         for (PythonParser.ParsedNode parsedData : parsedStatements) {
-            Class<? extends MeshNode> clazz = nodeRegistry.get(parsedData.type);
-            if (clazz == null) {
+            if (nodeRegistry.get(parsedData.type) == null) {
                 throw new IllegalArgumentException("Unknown node type: " + parsedData.type);
             }
-            MeshNode activeNode = clazz.getDeclaredConstructor().newInstance();
+            java.util.function.Supplier<? extends MeshNode> supplier =
+                    MeshNodeRegistry_MeshNodes.MAP.get(parsedData.type);
+            if (supplier == null) {
+                throw new IllegalStateException("No mesh node supplier for type: " + parsedData.type);
+            }
+            MeshNode activeNode = supplier.get();
 
             GraphNodeContext context = new GraphNodeContext();
             context.setFieldContext(currentFieldContext);
