@@ -38,8 +38,9 @@ For non-trivial tasks, follow:
 
 ## Automation Testing Backbone
 
-- Use `tools/ixdar-automation-cli/ixdar_cli.py` as the default backbone for iterative game/UI testing.
+- Use `uv run ixdar-cli` from the Ixdar repo root (implementation in `ixdar_automation_cli/`) as the default backbone for iterative game/UI testing.
 - Prefer CLI-driven checks (`health`, `ui-state`, `start-new-game`, `click`, `record`, `replay`) over ad hoc manual clicking.
+- **Screenshots for visual truth:** Desktop Ixdar starts the automation HTTP server on `127.0.0.1:47832` (override JVM flag `-Dixdar.automation.port=<port>`). While the app is running, agents can capture the current framebuffer with `uv run ixdar-cli screenshot --out <absolute-or-workspace-path>.png` (JSON response includes `path`, `sha256`, dimensions). For mesh viewer, `uv run ixdar-cli mesh-probe --out ...` bundles `ui-state` mesh fields with the same screenshot. Use `--inline` if the image must be returned base64 in JSON. After capture, **read the PNG** in the workspace to judge 3D silhouette, shading, and regressions — geometry-only tests are not a substitute when the task is “how it looks.”
 - Launch desktop game runs from `ixdar-app/` via `mvn -P game` so runtime flags stay aligned with `.vscode/launch.json` (`-enableassertions`, `sun.awt.noerasebackground`, `org.lwjgl.util.DebugLoader`).
 - During automation validation, operate on a single app window/process and verify state transitions through CLI responses.
 - Enforce one-app-instance-per-workspace while validating automation. Before launching, confirm existing Ixdar processes and stop extras to avoid port collisions and stale state.

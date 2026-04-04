@@ -12,15 +12,14 @@ import ixdar.gui.ui.menu.MenuBox;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
-import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "mesh-viewer")
 public class MeshNodeViewerScene extends Scene {
     private static final String DSL_FOLDER = "dsl";
-    private static final String DEFAULT_DSL_RESOURCE = "coons_cube.dsl";
-    private static final String DEFAULT_DSL_FINAL_NODE = "patch_out";
+    private static final String DEFAULT_DSL_RESOURCE = "petal.dsl";
+    private static final String DEFAULT_DSL_FINAL_NODE = "petal";
     private static final String DEFAULT_DSL_FINAL_PORT = "geometry";
 
     private static final float HALF_EXTENT = 0.5f;
@@ -53,7 +52,7 @@ public class MeshNodeViewerScene extends Scene {
         super.initGL();
         Platforms.gl().setWindowTitle("Ixdar : Mesh Node Viewer");
         MenuBox.menuVisible = false;
-        keys = new KeyGuy(camera, this);
+        keys = new MeshViewerKeyGuy(this, camera, this);
         orbitMouse = new OrbitMouseTrap(camera, this);
         orbitMouse.setTarget(meshCenter);
         orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
@@ -64,7 +63,7 @@ public class MeshNodeViewerScene extends Scene {
                 PythonLexer lexer = new PythonLexer(dslCode);
                 PythonParser parser = new PythonParser(lexer);
                 List<PythonParser.ParsedNode> ast = parser.parseGraph();
-        
+
                 NodeGraphRuntime runtime = new NodeGraphRuntime();
                 runtime.registerAllFromAnnotationRegistry();
                 try {
@@ -214,6 +213,14 @@ public class MeshNodeViewerScene extends Scene {
     /** Current mesh from the DSL graph, or null before async load completes. */
     public MeshTopology getMesh() {
         return mesh;
+    }
+
+    public void toggleMeshWireframe() {
+        if (meshRuntime == null) {
+            return;
+        }
+        meshRuntime.setWireframe(!meshRuntime.isWireframe());
+        Platforms.get().log("[mesh-viewer] wireframe=" + meshRuntime.isWireframe());
     }
 
     private void disposeMeshRuntime() {

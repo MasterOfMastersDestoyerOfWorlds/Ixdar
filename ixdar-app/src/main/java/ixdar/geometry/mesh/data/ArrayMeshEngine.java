@@ -178,6 +178,90 @@ public final class ArrayMeshEngine {
         return out;
     }
 
+    /**
+     * Gives an open quad sheet volumetric thickness by duplicating vertices along
+     * <strong>inward</strong> vertex normals (topology must be uniform quads).
+     * Adds reversed-orientation bottom faces and a side quad per boundary edge.
+     */
+    public static ArrayMesh solidifyUniformQuads(ArrayMesh mesh, float thickness) {
+        if (mesh == null || mesh.vertexCount() == 0) {
+            return emptyQuads();
+        }
+        float t = Math.abs(thickness);
+        if (t == 0f) {
+            return new ArrayMesh(mesh.copyPositions(), mesh.copyNormals(), mesh.copyFaceIndices(), mesh.getVertsPerFace());
+        }
+        if (!isUniformQuads(mesh)) {
+            throw new IllegalArgumentException("solidifyUniformQuads requires uniform quads");
+        }
+        mesh.computeNormals();
+        int n = mesh.vertexCount();
+        int faceCount = mesh.faceCount();
+        float[] top = mesh.copyPositions();
+        float[] nrm = mesh.copyNormals();
+        float[] positions = new float[n * 2 * FP];
+        System.arraycopy(top, 0, positions, 0, n * FP);
+        int off = n * FP;
+        for (int i = 0; i < n; i++) {
+            int b = i * FP;
+            positions[off + b] = top[b] - nrm[b] * t;
+            positions[off + b + 1] = top[b + 1] - nrm[b + 1] * t;
+            positions[off + b + 2] = top[b + 2] - nrm[b + 2] * t;
+        }
+
+        mesh.edgeCount();
+        int boundaryEdges = 0;
+        int ec = mesh.edgeCount();
+        for (int ei = 0; ei < ec; ei++) {
+            if (mesh.isBoundaryEdge(ei)) {
+                boundaryEdges++;
+            }
+        }
+
+        int[] srcFaces = mesh.copyFaceIndices();
+        int quadCount = faceCount * 2 + boundaryEdges;
+        int[] faceIndices = new int[quadCount * 4];
+        System.arraycopy(srcFaces, 0, faceIndices, 0, faceCount * 4);
+        int w = faceCount * 4;
+        for (int fi = 0; fi < faceCount; fi++) {
+            int b = fi * 4;
+            int v0 = srcFaces[b];
+            int v1 = srcFaces[b + 1];
+            int v2 = srcFaces[b + 2];
+            int v3 = srcFaces[b + 3];
+            faceIndices[w++] = v0 + n;
+            faceIndices[w++] = v3 + n;
+            faceIndices[w++] = v2 + n;
+            faceIndices[w++] = v1 + n;
+        }
+        for (int ei = 0; ei < ec; ei++) {
+            if (!mesh.isBoundaryEdge(ei)) {
+                continue;
+            }
+            int he = mesh.edgeHalfEdge(ei);
+            int a = mesh.halfEdgeVertex(he);
+            int b = mesh.halfEdgeEndVertex(he);
+            faceIndices[w++] = a;
+            faceIndices[w++] = a + n;
+            faceIndices[w++] = b + n;
+            faceIndices[w++] = b;
+        }
+        if (w != faceIndices.length) {
+            throw new IllegalStateException("solidifyUniformQuads index fill mismatch: w=" + w + " expected=" + faceIndices.length);
+        }
+        ArrayMesh out = new ArrayMesh(positions, null, faceIndices, 4);
+        out.computeNormals();
+        return out;
+    }
+
+    public static MeshTopology solidifyUniformMeshTopology(MeshTopology mesh, float thickness) {
+        if (mesh == null || mesh.vertexCount() == 0) {
+            return emptyQuads();
+        }
+        ArrayMesh am = mesh instanceof ArrayMesh m ? m : fromUniformMeshTopology(mesh);
+        return solidifyUniformQuads(am, thickness);
+    }
+
     public static ArrayMesh deleteVertices(ArrayMesh mesh, boolean[] del) {
         if (mesh == null || mesh.vertexCount() == 0) {
             return emptyQuads();

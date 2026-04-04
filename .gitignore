@@ -22,3 +22,4 @@ ixdar_automation_cli.egg-info/SOURCES.txt
 ixdar_automation_cli.egg-info/top_level.txt
 ixdar_automation_cli.egg-info/entry_points.txt
 ixdar_automation_cli.egg-info/dependency_links.txt
+tmp/*.png

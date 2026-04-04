@@ -419,7 +419,9 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     @Override
     public int halfEdgeEndVertex(int halfEdgeId) {
         requireActiveHalfEdge(halfEdgeId);
-        return halfEdgeVertex[halfEdgeTwin[halfEdgeId]];
+        int next = halfEdgeNext[halfEdgeId];
+        requireActiveHalfEdge(next);
+        return halfEdgeVertex[next];
     }
 
     @Override
@@ -749,9 +751,9 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         for (int i = 0; i < activeEdgeIds.size(); i++) {
             int edgeId = activeEdgeIds.get(i);
             int he = edgeHalfEdge[edgeId];
-            
+
             indices[i * 2] = halfEdgeVertex[he];
-            indices[i * 2 + 1] = halfEdgeVertex[halfEdgeTwin[he]];
+            indices[i * 2 + 1] = halfEdgeVertex[halfEdgeNext[he]];
         }
         return indices;
     }

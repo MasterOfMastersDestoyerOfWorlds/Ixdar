@@ -39,7 +39,7 @@ public class HalfEdgeMeshRuntime {
     private int ebo;
     private int edgeEbo;
     private int edgeCount;
-    private boolean wireframe = true;
+    private boolean wireframe = false;
     private boolean xray = true;
 
     public HalfEdgeMeshRuntime() throws Exception {

@@ -17,8 +17,10 @@ description: Creates and updates JSON backlog tickets in ixdar-tickets via gener
 Run from repo root (`c:\Code\Ixdar`). All arguments on one line (PowerShell doesn't need line continuations for single-line commands):
 
 ```powershell
-uv run python ixdar-tickets/generate_board.py create --epic DSL --repo Ixdar --title "Short title" --description "Full description of scope and constraints." --subsystem geometry --priority 2 --blocked-by DSL-5 --definition-of-done "1. ... 2. ..." --testing-plan "1. Unit ... 2. Manual ..." --todo "First concrete task" "Second task" --unknown "Optional open question"
+uv run python ixdar-tickets/generate_board.py create --epic DSL --repo Ixdar --title "Short title" --description "Full description of scope and constraints." --subsystem geometry --priority 2 --definition-of-done "1. ... 2. ..." --testing-plan "1. Unit ... 2. Manual ..." --todo "First concrete task" --todo "Second task"
 ```
+
+Repeat `--todo` for each task line. Fields like `blocked-by` are not on `create` yet—extend `generate_board.py` first if you need them.
 
 - **`--epic`**: Prefix matching `ixdar-tickets/content/<EPIC>/` (e.g. `DSL`, `IX`). IDs are auto-assigned.
 - **`--subsystem`**: Use IDs from `ixdar-tickets/subsystems.json` (e.g. `geometry`, `automation`).

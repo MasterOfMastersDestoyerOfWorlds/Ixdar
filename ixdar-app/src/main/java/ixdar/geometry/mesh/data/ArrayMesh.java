@@ -167,7 +167,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         for (int ei = 0; ei < e; ei++) {
             int he = edgeHalfEdge[ei];
             int v0 = halfEdgeVertex(he);
-            int v1 = halfEdgeVertex(halfEdgeTwin(he));
+            int v1 = halfEdgeEndVertex(he);
             out[ei * 2] = v0;
             out[ei * 2 + 1] = v1;
         }
