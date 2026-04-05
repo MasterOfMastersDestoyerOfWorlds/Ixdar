@@ -10,8 +10,8 @@ def import_all_commands() -> None:
         return
 
     try:
-        from . import flat_commands, scenario_commands  # noqa: F401
+        from . import dsl_node_reference, flat_commands, scenario_commands  # noqa: F401
     except ImportError:
-        from cli_commands import flat_commands, scenario_commands  # noqa: F401
+        from cli_commands import dsl_node_reference, flat_commands, scenario_commands  # noqa: F401
 
     _COMMAND_MODULES_IMPORTED = True
