@@ -217,6 +217,79 @@ public class AutomationRuntime {
         }
     }
 
+    public JsonObject meshCompare(String referencePath, String distanceTypeStr, float scale) {
+        try {
+            return runOnMainThread(() -> {
+                JsonObject result = new JsonObject();
+                result.addProperty("ok", false);
+
+                if (!(canvas instanceof MeshNodeViewerScene)) {
+                    result.addProperty("error", "MeshNodeViewerScene is not active");
+                    return result;
+                }
+                MeshNodeViewerScene mvs = (MeshNodeViewerScene) canvas;
+                MeshTopology currentMeshTopology = mvs.getMesh();
+                if (currentMeshTopology == null) {
+                    result.addProperty("error", "Mesh not loaded yet");
+                    return result;
+                }
+
+                // Convert current mesh to ArrayMesh
+                ixdar.geometry.mesh.data.ArrayMesh currentMesh;
+                if (currentMeshTopology instanceof ixdar.geometry.mesh.data.ArrayMesh) {
+                    currentMesh = (ixdar.geometry.mesh.data.ArrayMesh) currentMeshTopology;
+                } else {
+                    currentMesh = ixdar.geometry.mesh.data.ArrayMeshEngine.fromUniformMeshTopology(currentMeshTopology);
+                }
+
+                // Load reference mesh
+                ixdar.geometry.mesh.data.MeshLoader loader = new ixdar.geometry.mesh.data.MeshLoader();
+                ixdar.geometry.mesh.data.ArrayMesh referenceMesh;
+                try {
+                    referenceMesh = loader.load(referencePath);
+                } catch (Exception e) {
+                    result.addProperty("error", "Failed to load reference mesh: " + e.getMessage());
+                    return result;
+                }
+
+                if (referenceMesh.vertexCount() == 0) {
+                    result.addProperty("error", "Reference mesh is empty");
+                    return result;
+                }
+
+                // Compute distance metrics
+                ixdar.geometry.mesh.data.MeshDistance.DistanceType distanceType;
+                try {
+                    distanceType = ixdar.geometry.mesh.data.MeshDistance.DistanceType.valueOf(distanceTypeStr.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    distanceType = ixdar.geometry.mesh.data.MeshDistance.DistanceType.HAUSDORFF;
+                }
+
+                ixdar.geometry.mesh.data.MeshDistance.MeshMetrics metrics;
+                if (Float.isNaN(scale) || scale <= 0f) {
+                    scale = 1.0f;
+                }
+                metrics = ixdar.geometry.mesh.data.MeshDistance.computeAllMetrics(currentMesh, referenceMesh, scale);
+
+                result.addProperty("ok", true);
+                result.addProperty("current_vertices", currentMesh.vertexCount());
+                result.addProperty("reference_vertices", referenceMesh.vertexCount());
+                result.addProperty("hausdorff_distance", metrics.hausdorffDistance);
+                result.addProperty("chamfer_distance", metrics.chamferDistance);
+                result.addProperty("similarity_score", metrics.similarityScore);
+                result.addProperty("distance_type", distanceTypeStr);
+                result.addProperty("scale", scale);
+
+                return result;
+            });
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", e.getMessage() == null ? "" : e.getMessage());
+            return err;
+        }
+    }
+
     public JsonObject captureScreenshot(String outputPath, boolean inlineBase64) throws Exception {
         return runOnMainThread(() -> {
             int width = Platforms.get().getFrameBufferWidth();
