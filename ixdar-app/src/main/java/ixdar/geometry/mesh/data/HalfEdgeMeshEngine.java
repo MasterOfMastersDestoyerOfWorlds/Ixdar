@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.data;
 
 import java.util.Arrays;
+import java.util.HashMap;
 
 import org.joml.Vector3f;
 
@@ -182,6 +183,96 @@ public class HalfEdgeMeshEngine {
             addFaceInternal(mesh, face, false);
         }
         return mesh;
+    }
+
+    /**
+     * One level of linear quad subdivision (edge midpoints + face centroids).
+     * Matches ArrayMeshEngine.subdivideQuadsOnce for uniform quad meshes.
+     */
+    public static HalfEdgeMesh subdivideQuadsOnce(HalfEdgeMesh src) {
+        if (src == null || src.vertexCount() == 0) {
+            return new HalfEdgeMesh();
+        }
+        if (src.faceVertexCount(src.faceIdAt(0)) != 4) {
+            throw new IllegalArgumentException("subdivideQuadsOnce requires all faces to be quads");
+        }
+
+        int srcV = src.vertexCount();
+        int srcE = src.edgeCount();
+        int srcF = src.faceCount();
+        int outV = srcV + srcE + srcF;
+        int outF = srcF * 4;
+
+        HalfEdgeMesh out = new HalfEdgeMesh(outV, srcE * 4, outF, srcE * 4, srcE * 4 + 16);
+
+        // Copy original vertex positions
+        for (int i = 0; i < srcV; i++) {
+            int vid = src.vertexIdAt(i);
+            Vector3f vp = src.vertexPosition(vid, new Vector3f());
+            out.createVertexSlot(vp.x, vp.y, vp.z);
+        }
+
+        // Create edge midpoints
+        HashMap<Long, Integer> edgeMidMap = new HashMap<>(srcE * 4 / 3 + 1);
+        for (int ei = 0; ei < srcE; ei++) {
+            int eid = src.edgeIdAt(ei);
+            int he = src.edgeHalfEdge(eid);
+            int va = src.halfEdgeVertex(he);
+            int vb = src.halfEdgeEndVertex(he);
+            Vector3f p0 = src.vertexPosition(va, new Vector3f());
+            Vector3f p1 = src.vertexPosition(vb, new Vector3f());
+            Vector3f mid = new Vector3f().add(p0).add(p1).mul(0.5f);
+            int midIdx = srcV + ei;
+            out.createVertexSlot(mid.x, mid.y, mid.z);
+            edgeMidMap.put(edgeKey(va, vb), midIdx);
+        }
+
+        // Create face centroids
+        Vector3f p = new Vector3f();
+        for (int fi = 0; fi < srcF; fi++) {
+            int fid = src.faceIdAt(fi);
+            p.set(0f, 0f, 0f);
+            for (int k = 0; k < 4; k++) {
+                int vidx = src.faceVertexAt(fid, k);
+                Vector3f vp = src.vertexPosition(vidx, new Vector3f());
+                p.add(vp);
+            }
+            p.mul(0.25f);
+            int centIdx = srcV + srcE + fi;
+            out.createVertexSlot(p.x, p.y, p.z);
+        }
+
+        // Build new faces from original vertices, edge midpoints, and face centroids
+        Vector3f tmp = new Vector3f();
+        for (int fi = 0; fi < srcF; fi++) {
+            int fid = src.faceIdAt(fi);
+            int[] faceVerts = new int[4];
+            for (int k = 0; k < 4; k++) {
+                faceVerts[k] = src.faceVertexAt(fid, k);
+            }
+            int centroid = srcV + srcE + fi;
+            for (int k = 0; k < 4; k++) {
+                int va = faceVerts[k];
+                int vb = faceVerts[(k + 1) % 4];
+                int vc = faceVerts[(k + 3) % 4];
+                int nva = va;
+                Integer midAB = edgeMidMap.get(edgeKey(va, vb));
+                Integer midCA = edgeMidMap.get(edgeKey(vc, va));
+                if (midAB == null || midCA == null) {
+                    throw new IllegalStateException("missing edge midpoint");
+                }
+                out.addFace(nva, midAB, centroid, midCA);
+            }
+        }
+
+        out.computeNormals();
+        return out;
+    }
+
+    private static long edgeKey(int a, int b) {
+        int lo = Math.min(a, b);
+        int hi = Math.max(a, b);
+        return ((long) lo << 32) | (hi & 0xffffffffL);
     }
 
     public static HalfEdgeCompiledMeshData compileSurfaceData(HalfEdgeMesh mesh) {
