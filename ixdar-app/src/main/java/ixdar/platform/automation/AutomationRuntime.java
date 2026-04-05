@@ -243,10 +243,9 @@ public class AutomationRuntime {
                 }
 
                 // Load reference mesh
-                ixdar.geometry.mesh.data.MeshLoader loader = new ixdar.geometry.mesh.data.MeshLoader();
                 ixdar.geometry.mesh.data.ArrayMesh referenceMesh;
                 try {
-                    referenceMesh = loader.load(referencePath);
+                    referenceMesh = ixdar.geometry.mesh.data.MeshLoader.load(referencePath);
                 } catch (Exception e) {
                     result.addProperty("error", "Failed to load reference mesh: " + e.getMessage());
                     return result;
@@ -258,18 +257,11 @@ public class AutomationRuntime {
                 }
 
                 // Compute distance metrics
-                ixdar.geometry.mesh.data.MeshDistance.DistanceType distanceType;
-                try {
-                    distanceType = ixdar.geometry.mesh.data.MeshDistance.DistanceType.valueOf(distanceTypeStr.toUpperCase());
-                } catch (IllegalArgumentException e) {
-                    distanceType = ixdar.geometry.mesh.data.MeshDistance.DistanceType.HAUSDORFF;
-                }
+                ixdar.geometry.mesh.data.MeshDistance.DistanceType distanceType = parseDistanceType(distanceTypeStr);
 
-                ixdar.geometry.mesh.data.MeshDistance.MeshMetrics metrics;
-                if (Float.isNaN(scale) || scale <= 0f) {
-                    scale = 1.0f;
-                }
-                metrics = ixdar.geometry.mesh.data.MeshDistance.computeAllMetrics(currentMesh, referenceMesh, scale);
+                float effectiveScale = (Float.isNaN(scale) || scale <= 0f) ? 1.0f : scale;
+                ixdar.geometry.mesh.data.MeshDistance.MeshMetrics metrics =
+                    ixdar.geometry.mesh.data.MeshDistance.computeAllMetrics(currentMesh, referenceMesh, effectiveScale);
 
                 result.addProperty("ok", true);
                 result.addProperty("current_vertices", currentMesh.vertexCount());
@@ -278,7 +270,7 @@ public class AutomationRuntime {
                 result.addProperty("chamfer_distance", metrics.chamferDistance);
                 result.addProperty("similarity_score", metrics.similarityScore);
                 result.addProperty("distance_type", distanceTypeStr);
-                result.addProperty("scale", scale);
+                result.addProperty("scale", effectiveScale);
 
                 return result;
             });
@@ -287,6 +279,14 @@ public class AutomationRuntime {
             err.addProperty("ok", false);
             err.addProperty("error", e.getMessage() == null ? "" : e.getMessage());
             return err;
+        }
+    }
+
+    private static ixdar.geometry.mesh.data.MeshDistance.DistanceType parseDistanceType(String str) {
+        try {
+            return ixdar.geometry.mesh.data.MeshDistance.DistanceType.valueOf(str.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return ixdar.geometry.mesh.data.MeshDistance.DistanceType.HAUSDORFF;
         }
     }
 

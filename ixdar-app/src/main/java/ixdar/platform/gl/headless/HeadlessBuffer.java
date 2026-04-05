@@ -1,9 +1,14 @@
 package ixdar.platform.gl.headless;
 
+import java.nio.FloatBuffer;
+
+import org.lwjgl.BufferUtils;
+
 import ixdar.platform.gl.IxBuffer;
 
 /**
  * Simple float buffer for headless testing.
+ * Wraps a float[] for IxBuffer interface and provides a FloatBuffer view for LWJGL GL calls.
  */
 public class HeadlessBuffer implements IxBuffer {
 
@@ -53,5 +58,16 @@ public class HeadlessBuffer implements IxBuffer {
             return data[i];
         }
         return 0f;
+    }
+
+    /**
+     * Returns a FloatBuffer view of the data (position 0 to limit).
+     * Creates a new direct buffer each call — cache externally if needed per-frame.
+     */
+    public FloatBuffer getBuffer() {
+        int len = limit - 0;  // always from start
+        FloatBuffer buf = BufferUtils.createFloatBuffer(len);
+        buf.put(data, 0, len).flip();
+        return buf;
     }
 }

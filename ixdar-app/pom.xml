@@ -636,6 +636,37 @@
       </build>
     </profile>
     <profile>
+      <id>render-dsl</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.cli.RenderDsl</argument>
+                <argument>${dsl.file}</argument>
+                <argument>${render.output}</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
       <id>native</id>
       <build>
         <plugins>

@@ -264,7 +264,7 @@ public final class MeshDistance {
         for (int i = 0; i < mesh.vertexCount(); i++) {
             int o = i * FLOATS_PER_VERTEX;
             v.set(pos[o], pos[o + 1], pos[o + 2]);
-            vertices.add(v.clone());
+            vertices.add(new Vector3f(v));
         }
         return vertices;
     }

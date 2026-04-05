@@ -1,5 +1,6 @@
 package ixdar.platform.gl.headless;
 
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -13,6 +14,8 @@ import java.util.ArrayList;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import javax.imageio.ImageIO;
+
 import com.google.gson.Gson;
 
 import ixdar.graphics.render.Texture;
@@ -23,8 +26,9 @@ import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.gl.Platform;
 
 /**
- * Headless platform for testing without GLFW/OpenGL. Supports file operations
- * needed for unit tests.
+ * Headless platform for offscreen rendering using LWJGL GLFW.
+ * Creates an invisible window for OpenGL rendering.
+ * Works on macOS and Linux (with display server like Xvfb in CI).
  */
 public class HeadlessPlatform implements Platform {
 
@@ -34,9 +38,19 @@ public class HeadlessPlatform implements Platform {
     private int windowHeight = 600;
     private int frameBufferWidth = 800;
     private int frameBufferHeight = 600;
+    private HeadlessGL gl;
 
     public HeadlessPlatform() {
+        this(512, 512);
+    }
+    
+    public HeadlessPlatform(int width, int height) {
         this.startTime = (float) (System.nanoTime() / 1e9);
+        this.windowWidth = width;
+        this.windowHeight = height;
+        this.frameBufferWidth = width;
+        this.frameBufferHeight = height;
+        this.gl = new HeadlessGL(width, height);
     }
 
     @Override
@@ -230,5 +244,70 @@ public class HeadlessPlatform implements Platform {
     @Override
     public void processInputQueue() {
         // no-op for headless
+    }
+
+    /**
+     * Get the headless GL instance.
+     */
+    public HeadlessGL getGL() {
+        return gl;
+    }
+
+    /**
+     * Capture a screenshot and save to PNG file.
+     */
+    public void screenshot(String outputPath) throws IOException {
+        if (gl == null) {
+            throw new IOException("HeadlessGL not initialized");
+        }
+        
+        HeadlessGL headlessGL = gl;
+        int width = headlessGL.getWidth();
+        int height = headlessGL.getHeight();
+        
+        // Read pixels from framebuffer
+        int[] pixels = headlessGL.readPixels(
+            0, 0, width, height,
+            headlessGL.RGBA(),
+            headlessGL.UNSIGNED_BYTE(),
+            0
+        );
+        
+        // Create BufferedImage (AWT uses top-left origin, OpenGL uses bottom-left)
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        
+        // Flip Y and copy pixels
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int pixel = pixels[y * width + x];
+                // Convert from GL format (ABGR in int) to AWT format (ARGB)
+                int a = (pixel >> 24) & 0xFF;
+                int r = (pixel >> 16) & 0xFF;
+                int g = (pixel >> 8) & 0xFF;
+                int b = pixel & 0xFF;
+                int awtPixel = (a << 24) | (r << 16) | (g << 8) | b;
+                image.setRGB(x, height - 1 - y, awtPixel);
+            }
+        }
+        
+        // Write PNG
+        File outputFile = new File(outputPath);
+        File parent = outputFile.getParentFile();
+        if (parent != null) {
+            parent.mkdirs();
+        }
+        ImageIO.write(image, "png", outputFile);
+        
+        log("[HeadlessPlatform] Screenshot saved: " + outputPath);
+    }
+
+    /**
+     * Release all resources.
+     */
+    public void shutdown() {
+        if (gl != null) {
+            gl.shutdown();
+            gl = null;
+        }
     }
 }
