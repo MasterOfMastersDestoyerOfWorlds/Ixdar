@@ -1,5 +1,10 @@
 # Quilting group — faithful port of Blender tool_quilt.py
 # Inputs (defaults match create_quilting_group); user-editable via input_* nodes
+# 
+# ROOT CAUSE OF SCALE MISMATCH: The original implementation used cube(size=2.0), which creates
+# vertices from -1.0 to 1.0 (2m cube). Blender's default cube is 1m with vertices from -0.5 to 0.5.
+# This caused the quilting pattern to be twice as large as Blender's output. Fixed by changing
+# to cube(size=1.0) to match Blender's default cube dimensions.
 scale_x = input_float(name="scale_x", default=0.3, min=0.001, max=10.0)
 scale_y = input_float(name="scale_y", default=0.3, min=0.001, max=10.0)
 depth = input_float(name="depth", default=0.05, min=0.0, max=1.0)
@@ -11,19 +16,19 @@ stitches = input_boolean(name="stitches", default=false)
 depth_profile = float_curve(points="0,0,1,0.775,0.423,0.537")
 edge_profile = float_curve(points="0.005,1,1,1,0.505,0.512")
 
-# --- Base mesh: Blender default cube is 2m; size=2 matches -1..1 per axis ---
-base_cube = cube(size=2.0)
+# --- Base mesh: Blender default cube is 1m; size=1 matches -0.5..0.5 per axis ---
+base_cube = cube(size=1.0)
 subdivided = subdivide_mesh(mesh=base_cube.mesh, levels=subdivisions.result)
 
 # --- Tangent frame ---
 norm = input_normal()
 pos = input_position()
 z_axis = combine_xyz(x=0.0, y=0.0, z=1.0)
-x_axis = combine_xyz(x=1.0, y=0.0, z=0.0)
-n_dot_z = vector_math(operation=DOT_PRODUCT, a=norm.vector, b=z_axis.vector)
-abs_ndz = float_math(operation=ABSOLUTE, a=n_dot_z.value, b=0.0)
-is_z_aligned = compare(a=abs_ndz.result, b=0.99, mode=GREATER_THAN)
-reference = switch_vector(switch=is_z_aligned.result, false=z_axis.vector, true=x_axis.vector)
+y_axis = combine_xyz(x=0.0, y=1.0, z=0.0)
+n_dot_y = vector_math(operation=DOT_PRODUCT, a=norm.vector, b=y_axis.vector)
+abs_ndy = float_math(operation=ABSOLUTE, a=n_dot_y.value, b=0.0)
+is_y_aligned = compare(a=abs_ndy.result, b=0.99, mode=GREATER_THAN)
+reference = switch_vector(switch=is_y_aligned.result, false=z_axis.vector, true=x_axis.vector)
 t1_raw = vector_math(operation=CROSS_PRODUCT, a=norm.vector, b=reference.result)
 t1 = vector_math(operation=NORMALIZE, a=t1_raw.vector)
 t2 = vector_math(operation=CROSS_PRODUCT, a=norm.vector, b=t1.vector)
