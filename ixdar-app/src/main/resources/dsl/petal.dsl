@@ -1,17 +1,17 @@
-# Petal — elliptical XZ silhouette (no rectangular rim), stem rounding, tip crown, cup, solidify.
-# x_shape = clip grid x to petal half-width profile along z; offsets = x_shape - original x after base rounding.
+# Cherry blossom petal — elliptical XZ silhouette, stem rounding, midrib, margin lobes,
+# tip crown, cup, solidify.
+# x_shape = clip grid x to petal half-width profile along z; offsets = x_shape - original x.
 
 petal_width = input_float(name="petal_width", default=0.38, min=0.1, max=1.0)
 petal_length = input_float(name="petal_length", default=0.54, min=0.2, max=2.0)
 cup_amount = input_float(name="cup_amount", default=0.095, min=0.0, max=0.5)
 notch_depth = input_float(name="notch_depth", default=0.028, min=0.0, max=0.1)
+midrib_height = input_float(name="midrib_height", default=0.035, min=0.0, max=0.2)
+margin_lobes = input_float(name="margin_lobes", default=0.06, min=0.0, max=0.3)
 subdivisions = input_int(name="subdivisions", default=4, min=1, max=8)
 half_pi = float_math(operation=MULTIPLY, a=3.14159265, b=0.5)
 
-u_step = float_math(operation=DIVIDE, a=petal_width.result, b=24.0)
-v_step = float_math(operation=DIVIDE, a=petal_length.result, b=24.0)
-
-base_grid = mesh_grid(u_tiles=24, v_tiles=24, u_tile_size=u_step.result, v_tile_size=v_step.result)
+base_grid = mesh_grid(u_tiles=24, v_tiles=24, u_total_size=petal_width.result, v_total_size=petal_length.result)
 subdivided = subdivide_mesh(mesh=base_grid.mesh, levels=subdivisions.result)
 
 pos = input_position()
@@ -81,6 +81,25 @@ heart_mask = float_math(operation=MULTIPLY, a=stem_open_sq.result, b=heart_cente
 heart_lift = float_math(operation=MULTIPLY, a=heart_mask.result, b=petal_length.result)
 heart_y = float_math(operation=MULTIPLY, a=heart_lift.result, b=0.01)
 
+# === Midrib: pronounced ridge along centerline (x=0), fading toward tip ===
+midrib_falloff_raw = float_math(operation=SUBTRACT, a=1.0, b=x_norm_clamped.result)
+midrib_falloff = float_math(operation=MAXIMUM, a=midrib_falloff_raw.result, b=0.0)
+midrib_profile = float_math(operation=POWER, a=midrib_falloff.result, b=3.0)
+midrib_z_fade_raw = float_math(operation=SUBTRACT, a=1.0, b=z_normalized.result)
+midrib_z_fade = float_math(operation=MAXIMUM, a=midrib_z_fade_raw.result, b=0.0)
+midrib_y = float_math(operation=MULTIPLY, a=midrib_profile.result, b=midrib_z_fade.result)
+midrib_y_scaled = float_math(operation=MULTIPLY, a=midrib_y.result, b=midrib_height.result)
+
+# === Margin lobes: float_curve-driven edge undulation ===
+# x_norm_for_curve: map x_normalized [0..1] to [-1..1] for the curve
+x_norm_signed_a = float_math(operation=MULTIPLY, a=x_normalized.result, b=2.0)
+x_norm_signed = float_math(operation=SUBTRACT, a=x_norm_signed_a.result, b=1.0)
+margin_curve = float_curve(points="-1,0,-0.5,0.2,0,0.35,0.5,0.2,1,0")
+margin_eval = evaluate_closure(closure=margin_curve.closure, value=x_norm_signed.result)
+margin_tip_weight = float_math(operation=MULTIPLY, a=z_normalized.result, b=z_normalized.result)
+margin_shaped = float_math(operation=MULTIPLY, a=margin_eval.result, b=margin_tip_weight.result)
+margin_x_disp = float_math(operation=MULTIPLY, a=margin_shaped.result, b=margin_lobes.result)
+
 neg_x = float_math(operation=MULTIPLY, a=x_shape.result, b=-1.0)
 abs_x = float_math(operation=MAXIMUM, a=x_shape.result, b=neg_x.result)
 notch_frac = float_math(operation=DIVIDE, a=abs_x.result, b=half_width.result)
@@ -97,7 +116,8 @@ edge_droop = float_math(operation=MULTIPLY, a=edge_droop_shape.result, b=edge_dr
 
 y_displacement_raw = float_math(operation=SUBTRACT, a=cup_factor.result, b=notch_depth_combined.result)
 y_displacement_mid = float_math(operation=SUBTRACT, a=y_displacement_raw.result, b=edge_droop.result)
-y_displacement = float_math(operation=ADD, a=y_displacement_mid.result, b=heart_y.result)
+y_displacement_with_heart = float_math(operation=ADD, a=y_displacement_mid.result, b=heart_y.result)
+y_displacement = float_math(operation=ADD, a=y_displacement_with_heart.result, b=midrib_y_scaled.result)
 
 arch_strength = float_math(operation=MULTIPLY, a=petal_length.result, b=0.078)
 arch_shape = float_math(operation=MULTIPLY, a=z_sq.result, b=side_variation.result)
@@ -116,7 +136,13 @@ z_body = float_math(operation=ADD, a=z_arch_pull.result, b=z_stem_round.result)
 z_with_flutter = float_math(operation=ADD, a=z_body.result, b=flutter_z_scaled.result)
 z_longitudinal = float_math(operation=ADD, a=z_with_flutter.result, b=tip_crown_z_scaled.result)
 
-xz_pull = combine_xyz(x=x_taper_pull.result, y=0.0, z=z_longitudinal.result)
+# Margin lobes add outward X push at tip (sign-preserving: push away from center)
+margin_x_sign_a = float_math(operation=MULTIPLY, a=separated.x, b=100.0)
+margin_x_sign_b = float_math(operation=MINIMUM, a=margin_x_sign_a.result, b=1.0)
+margin_x_sign = float_math(operation=MAXIMUM, a=margin_x_sign_b.result, b=-1.0)
+margin_x_push = float_math(operation=MULTIPLY, a=margin_x_disp.result, b=margin_x_sign.result)
+x_taper_with_margin = float_math(operation=ADD, a=x_taper_pull.result, b=margin_x_push.result)
+xz_pull = combine_xyz(x=x_taper_with_margin.result, y=0.0, z=z_longitudinal.result)
 y_only = combine_xyz(x=0.0, y=y_displacement.result, z=0.0)
 displacement = vector_math(operation=ADD, a=xz_pull.vector, b=y_only.vector)
 

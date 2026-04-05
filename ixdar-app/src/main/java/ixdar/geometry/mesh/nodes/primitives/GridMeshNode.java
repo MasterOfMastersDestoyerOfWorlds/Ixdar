@@ -16,11 +16,15 @@ public class GridMeshNode implements MeshNode {
     private static final InputPort V_TILES = new InputPort("v_tiles", PortType.INT, 10);
     private static final InputPort U_TILE_SIZE = new InputPort("u_tile_size", PortType.FLOAT, 1.0f);
     private static final InputPort V_TILE_SIZE = new InputPort("v_tile_size", PortType.FLOAT, 1.0f);
+    /** When positive, per-tile U size is {@code u_total_size / u_tiles} and overrides {@code u_tile_size}. */
+    private static final InputPort U_TOTAL_SIZE = new InputPort("u_total_size", PortType.FLOAT, 0.0f);
+    /** When positive, per-tile V size is {@code v_total_size / v_tiles} and overrides {@code v_tile_size}. */
+    private static final InputPort V_TOTAL_SIZE = new InputPort("v_total_size", PortType.FLOAT, 0.0f);
     private static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(U_TILES, V_TILES, U_TILE_SIZE, V_TILE_SIZE);
+        return List.of(U_TILES, V_TILES, U_TILE_SIZE, V_TILE_SIZE, U_TOTAL_SIZE, V_TOTAL_SIZE);
     }
 
     @Override
@@ -41,6 +45,18 @@ public class GridMeshNode implements MeshNode {
 
         uTiles = Math.max(1, uTiles);
         vTiles = Math.max(1, vTiles);
+
+        Number uTotalNum = ctx.getInput("u_total_size", Number.class);
+        Number vTotalNum = ctx.getInput("v_total_size", Number.class);
+        float uTotal = uTotalNum != null ? uTotalNum.floatValue() : 0.0f;
+        float vTotal = vTotalNum != null ? vTotalNum.floatValue() : 0.0f;
+        if (uTotal > 1e-6f) {
+            uTileSize = uTotal / uTiles;
+        }
+        if (vTotal > 1e-6f) {
+            vTileSize = vTotal / vTiles;
+        }
+
         uTileSize = Math.max(1e-6f, uTileSize);
         vTileSize = Math.max(1e-6f, vTileSize);
 
