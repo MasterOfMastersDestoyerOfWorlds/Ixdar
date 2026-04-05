@@ -1,0 +1,55 @@
+# Docker ignore file for Ixdar
+
+# Git
+.git
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Build outputs
+target/
+*.jar
+*.war
+*.ear
+
+# Maven
+.mvn/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+!README.md
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Test files
+test/
+
+# Assets (will be copied separately if needed)
+IxdarAssets/
+
+# Worktrees
+.worktrees/

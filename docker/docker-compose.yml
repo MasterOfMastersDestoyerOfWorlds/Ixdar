@@ -1,0 +1,62 @@
+# Docker Compose for Ixdar - Parallel Agent Development Environment
+# This template allows scaling to N agents, each with their own isolated container
+# and unique automation API port (47832 + container_index)
+
+version: '3.8'
+
+services:
+  ixdar-agent:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ixdar-agent-${AGENT_INDEX:-0}
+    environment:
+      # Unique automation port for each agent (base 47832 + index)
+      - IXDAR_AUTOMATION_PORT=${IXDAR_AUTOMATION_PORT:-47832}
+      # Display for Xvfb
+      - DISPLAY=${DISPLAY:-:99}
+      # Xvfb screen configuration
+      - Xvfb_WIDTH=${XVFB_WIDTH:-1920}
+      - XVFB_HEIGHT=${XVFB_HEIGHT:-1080}
+      - XVFB_DEPTH=${XVFB_DEPTH:-24}
+      # Java options for headless OpenGL
+      - JAVA_OPTS=-Djava.awt.headless=true -Dorg.lwjgl.util.DebugLoader=false
+    ports:
+      # Map unique port to container
+      - "${HOST_PORT:-${IXDAR_AUTOMATION_PORT}}:47832"
+    volumes:
+      # Mount source for development
+      - ../ixdar-app/src:/ixdar/ixdar-app/src
+      - ../annotations:/ixdar/annotations
+      - ../ixdar_automation_cli:/ixdar/ixdar_automation_cli
+      # Shared output directory for renders
+      - ../ixdar-renders:/ixdar/ixdar-renders
+    working_dir: /ixdar
+    command: >
+      /bin/bash -c "
+        /etc/init.d/xvfb start &&
+        sleep 2 &&
+        echo 'Xvfb started on $DISPLAY' &&
+        mvn clean package -P mesh-viewer -DskipTests &&
+        echo 'Build complete' &&
+        java $JAVA_OPTS \
+          -Dixdar.automation.port=\${IXDAR_AUTOMATION_PORT:-47832} \
+          -cp ixdar-app/target/ixdar-app-0.0.1-jar-with-dependencies.jar \
+          ixdar.canvas.IxdarWindow mesh-viewer &
+        sleep 5 &&
+        echo 'Ixdar mesh viewer started' &&
+        echo 'Automation API available at http://localhost:\${IXDAR_AUTOMATION_PORT:-47832}' &&
+        echo 'Container ready for agent development' &&
+        wait
+      "
+
+# Example: Scale to multiple agents
+# docker-compose up --scale ixdar-agent=3
+# This will create 3 containers with ports 47832, 47833, 47834
+
+# Environment file example (.env):
+# AGENT_INDEX=0
+# IXDAR_AUTOMATION_PORT=47832
+# XVFB_WIDTH=1920
+# XVFB_HEIGHT=1080
+# XVFB_DEPTH=24
