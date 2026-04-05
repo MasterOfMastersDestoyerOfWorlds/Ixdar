@@ -1,0 +1,18 @@
+# Charles Crown - Simplified
+crown_radius = input_float(name="crown_radius", default=1.5, min=0.5, max=3.0)
+arch_height = input_float(name="arch_height", default=2.5, min=1.0, max=4.0)
+crown_thickness = input_float(name="crown_thickness", default=0.1, min=0.05, max=0.3)
+
+base_circle = mesh_grid(u_tiles=64, v_tiles=1, u_total_size=9.42, v_total_size=1.5)
+pos = input_position()
+separated = separate_xyz(vector=pos.vector)
+z_normalized = float_math(operation=DIVIDE, a=separated.z, b=1.5)
+z_squared = float_math(operation=MULTIPLY, a=z_normalized.result, b=z_normalized.result)
+arch_profile = float_math(operation=SUBTRACT, a=1.0, b=z_squared.result)
+arch_profile_clamped = float_math(operation=MINIMUM, a=arch_profile.result, b=1.0)
+arch_height_scaled = float_math(operation=MULTIPLY, a=arch_height.result, b=arch_profile_clamped.result)
+z_arch = float_math(operation=MULTIPLY, a=arch_height_scaled.result, b=1.5)
+z_displacement = combine_xyz(x=0.0, y=0.0, z=z_arch.vector)
+crown_band = set_position(geometry=base_circle.mesh, offset=z_displacement.vector)
+crown_band_thick = solidify_mesh(geometry=crown_band.geometry, thickness=crown_thickness.result)
+output = assign_output(geometry=crown_band_thick.geometry, name="crown")
