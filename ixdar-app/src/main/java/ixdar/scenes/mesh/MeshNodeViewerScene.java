@@ -13,6 +13,7 @@ import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.OrbitMouseTrap;
+import ixdar.platform.automation.AutomationVisible;
 import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "mesh-viewer")
@@ -130,18 +131,34 @@ public class MeshNodeViewerScene extends Scene {
         super.shutdown();
     }
 
+    /**
+     * Total number of vertices in the mesh.
+     */
+    @AutomationVisible(description = "Total number of vertices in the mesh")
     public int getMeshVertexCount() {
         return mesh == null ? 0 : mesh.vertexCount();
     }
 
+    /**
+     * Total number of faces in the mesh.
+     */
+    @AutomationVisible(description = "Total number of faces in the mesh")
     public int getMeshFaceCount() {
         return mesh == null ? 0 : mesh.faceCount();
     }
 
+    /**
+     * Total number of edges in the mesh.
+     */
+    @AutomationVisible(description = "Total number of edges in the mesh")
     public int getMeshEdgeCount() {
         return mesh == null ? 0 : mesh.edgeCount();
     }
 
+    /**
+     * Number of boundary edges (edges with only one adjacent face).
+     */
+    @AutomationVisible(description = "Number of boundary edges (edges with only one adjacent face)")
     public int getMeshBoundaryEdgeCount() {
         if (mesh == null) {
             return 0;
@@ -155,14 +172,26 @@ public class MeshNodeViewerScene extends Scene {
         return boundaryEdgeCount;
     }
 
+    /**
+     * Euler characteristic of the mesh (vertices - edges + faces).
+     */
+    @AutomationVisible(description = "Euler characteristic of the mesh (vertices - edges + faces)")
     public int getMeshEulerCharacteristic() {
         return mesh == null ? 0 : mesh.vertexCount() - mesh.edgeCount() + mesh.faceCount();
     }
 
+    /**
+     * Whether the mesh is closed (has no boundary edges).
+     */
+    @AutomationVisible(description = "Whether the mesh is closed (has no boundary edges)")
     public boolean isMeshClosed() {
         return mesh != null && getMeshBoundaryEdgeCount() == 0;
     }
 
+    /**
+     * Number of degenerate faces (faces with fewer than 3 vertices or zero area).
+     */
+    @AutomationVisible(description = "Number of degenerate faces (faces with fewer than 3 vertices or zero area)")
     public int getMeshDegenerateFaceCount() {
         if (mesh == null) {
             return 0;
@@ -194,18 +223,34 @@ public class MeshNodeViewerScene extends Scene {
         return degenerateFaceCount;
     }
 
+    /**
+     * Radius of the mesh (maximum distance from center to any vertex).
+     */
+    @AutomationVisible(description = "Radius of the mesh (maximum distance from center to any vertex)")
     public float getMeshRadius() {
         return mesh == null ? 0f : mesh.radius();
     }
 
+    /**
+     * Center point of the mesh in 3D space.
+     */
+    @AutomationVisible(description = "Center point of the mesh in 3D space")
     public Vector3f getMeshCenter() {
         return mesh == null ? new Vector3f() : mesh.center(new Vector3f());
     }
 
+    /**
+     * Minimum corner of the mesh bounding box.
+     */
+    @AutomationVisible(description = "Minimum corner of the mesh bounding box")
     public Vector3f getBoundingBoxMin() {
         return mesh == null ? new Vector3f(-HALF_EXTENT, -HALF_EXTENT, -HALF_EXTENT) : mesh.boundsMin(new Vector3f());
     }
 
+    /**
+     * Maximum corner of the mesh bounding box.
+     */
+    @AutomationVisible(description = "Maximum corner of the mesh bounding box")
     public Vector3f getBoundingBoxMax() {
         return mesh == null ? new Vector3f(HALF_EXTENT, HALF_EXTENT, HALF_EXTENT) : mesh.boundsMax(new Vector3f());
     }

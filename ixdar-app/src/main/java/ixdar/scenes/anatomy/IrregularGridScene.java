@@ -18,6 +18,7 @@ import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.platform.input.Scene2DMousePanTrap;
+import ixdar.platform.automation.AutomationVisible;
 
 @SceneAnnotation(id = "irregular-grid-canvas")
 public class IrregularGridScene extends Canvas3D {
@@ -80,42 +81,82 @@ public class IrregularGridScene extends Canvas3D {
         Drawing.getDrawing().sdfLine.setCulling(true);
     }
 
+    /**
+     * Random seed used to generate the irregular grid.
+     */
+    @AutomationVisible(description = "Random seed used to generate the irregular grid")
     public long getSeed() {
         return SEED;
     }
 
+    /**
+     * Number of relaxation iterations performed during grid generation.
+     */
+    @AutomationVisible(description = "Number of relaxation iterations performed during grid generation")
     public int getRelaxIters() {
         return RELAX_ITERS;
     }
 
+    /**
+     * Jitter amount applied to grid points.
+     */
+    @AutomationVisible(description = "Jitter amount applied to grid points")
     public float getJitter() {
         return JITTER;
     }
 
+    /**
+     * Number of primal (anchor) points in the grid.
+     */
+    @AutomationVisible(description = "Number of primal (anchor) points in the grid")
     public int getPrimalPointCount() {
         return grid == null ? 0 : grid.anchorCount();
     }
 
+    /**
+     * Number of dual points in the grid.
+     */
+    @AutomationVisible(description = "Number of dual points in the grid")
     public int getDualPointCount() {
         return grid == null ? 0 : grid.dualPointCount();
     }
 
+    /**
+     * Total number of edges in the grid.
+     */
+    @AutomationVisible(description = "Total number of edges in the grid")
     public int getEdgeCount() {
         return grid == null ? 0 : grid.edgeCount();
     }
 
+    /**
+     * Standard deviation of horizontal edge lengths.
+     */
+    @AutomationVisible(description = "Standard deviation of horizontal edge lengths")
     public float getHorizontalEdgeStdDev() {
         return grid == null ? 0f : grid.horizontalEdgeStdDev();
     }
 
+    /**
+     * Standard deviation of vertical edge lengths.
+     */
+    @AutomationVisible(description = "Standard deviation of vertical edge lengths")
     public float getVerticalEdgeStdDev() {
         return grid == null ? 0f : grid.verticalEdgeStdDev();
     }
 
+    /**
+     * Mean horizontal edge length.
+     */
+    @AutomationVisible(description = "Mean horizontal edge length")
     public float getHorizontalEdgeMean() {
         return grid == null ? 0f : grid.horizontalEdgeMean();
     }
 
+    /**
+     * Mean vertical edge length.
+     */
+    @AutomationVisible(description = "Mean vertical edge length")
     public float getVerticalEdgeMean() {
         return grid == null ? 0f : grid.verticalEdgeMean();
     }

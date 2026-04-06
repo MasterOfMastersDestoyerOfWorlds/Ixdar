@@ -47,6 +47,7 @@ import ixdar.scenes.anatomy.IrregularGridScene;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.trade.TradeScene;
+import ixdar.platform.automation.SceneStateExtractor;
 
 public class AutomationRuntime {
     private static final long MAIN_THREAD_WAIT_MS = 3000L;
@@ -346,89 +347,26 @@ public class AutomationRuntime {
         root.addProperty("sceneClass", canvas == null ? "" : canvas.getClass().getSimpleName());
         String mode = TradeScene.active ? "trade" : (MainScene.active ? "main" : "menu");
         root.addProperty("mode", mode);
-        JsonObject trade = new JsonObject();
-        if (TradeScene.active && TradeScene.instance != null) {
-            trade.addProperty("active", true);
-            if (TradeScene.instance.activeTool != null) {
-                trade.addProperty("activeTool", TradeScene.instance.activeTool.displayName());
-            }
-            if (TradeScene.instance.activeTool instanceof RoutePlanningTool) {
-                RoutePlanningTool routeTool = (RoutePlanningTool) TradeScene.instance.activeTool;
-                trade.addProperty("routeMode", routeTool.getCurrentMode().name());
-                trade.addProperty("routeState", routeTool.getOperationState().name());
-                trade.addProperty("selectedCityA", routeTool.getSelectedCityAName());
-                trade.addProperty("selectedCityB", routeTool.getSelectedCityBName());
-                trade.addProperty("hasRoute", routeTool.getCurrentRoute() != null);
-                trade.addProperty("routeSegmentCount",
-                        routeTool.getCurrentRoute() == null ? 0 : routeTool.getCurrentRoute().manifoldSegments.size());
-                trade.addProperty("canUndo", routeTool.canUndoOperation());
-                trade.addProperty("canRedo", routeTool.canRedoOperation());
-                trade.addProperty("inPreview",
-                        routeTool.getOperationState() == RoutePlanningTool.OperationState.PREVIEW);
-            }
-            trade.addProperty("headquartersCity", TradeScene.instance.network.headquartersCity == null ? ""
-                    : TradeScene.instance.network.headquartersCity.name);
-            if (TradeScene.instance.network != null && TradeScene.instance.network.grid != null) {
-                trade.addProperty("gridType", TradeScene.instance.network.grid.getClass().getSimpleName());
-                if (TradeScene.instance.network.grid instanceof IrregularQuadGrid) {
-                    IrregularQuadGrid irregularGrid = (IrregularQuadGrid) TradeScene.instance.network.grid;
-                    trade.addProperty("gridSeed", irregularGrid.seed());
-                    trade.addProperty("gridRelaxIterations", irregularGrid.relaxIterations());
-                    trade.addProperty("gridRows", irregularGrid.rows());
-                    trade.addProperty("gridCols", irregularGrid.cols());
-                    trade.addProperty("gridAnchorCount", irregularGrid.anchorCount());
-                }
-            }
-            JsonArray tradeCities = new JsonArray();
-            if (TradeScene.instance.network != null && TradeScene.instance.network.cities != null
-                    && TradeScene.camera != null) {
-                for (City city : TradeScene.instance.network.cities) {
-                    JsonObject cityJson = new JsonObject();
-                    cityJson.addProperty("name", city.name);
-                    cityJson.addProperty("xWorld", city.getX());
-                    cityJson.addProperty("yWorld", city.getY());
-                    cityJson.addProperty("xPx", TradeScene.camera.pointTransformX(city.getX()));
-                    cityJson.addProperty("yPx", TradeScene.camera.pointTransformY(city.getY()));
-                    tradeCities.add(cityJson);
-                }
-            }
-            trade.add("cities", tradeCities);
+        
+        // Use reflection-based scene state extraction
+        SceneStateExtractor extractor = new SceneStateExtractor();
+        if (canvas != null) {
+            JsonObject sceneState = extractor.extractState(canvas);
+            root.add("sceneState", sceneState);
         } else {
-            trade.addProperty("active", false);
+            JsonObject noSceneState = new JsonObject();
+            noSceneState.addProperty("class", "null");
+            noSceneState.addProperty("id", "unknown");
+            JsonObject state = new JsonObject();
+            state.addProperty("error", "No active scene");
+            noSceneState.add("state", state);
+            root.add("sceneState", noSceneState);
         }
-        root.add("trade", trade);
-
-        if (canvas instanceof IrregularGridScene) {
-            IrregularGridScene irregularScene = (IrregularGridScene) canvas;
-            JsonObject irregular = new JsonObject();
-            irregular.addProperty("seed", irregularScene.getSeed());
-            irregular.addProperty("relaxIterations", irregularScene.getRelaxIters());
-            irregular.addProperty("jitter", irregularScene.getJitter());
-            irregular.addProperty("primalPointCount", irregularScene.getPrimalPointCount());
-            irregular.addProperty("dualPointCount", irregularScene.getDualPointCount());
-            irregular.addProperty("edgeCount", irregularScene.getEdgeCount());
-            irregular.addProperty("horizontalEdgeMean", irregularScene.getHorizontalEdgeMean());
-            irregular.addProperty("verticalEdgeMean", irregularScene.getVerticalEdgeMean());
-            irregular.addProperty("horizontalEdgeStdDev", irregularScene.getHorizontalEdgeStdDev());
-            irregular.addProperty("verticalEdgeStdDev", irregularScene.getVerticalEdgeStdDev());
-            root.add("irregularGrid", irregular);
-        }
-
-        if (canvas instanceof MeshNodeViewerScene) {
-            MeshNodeViewerScene meshScene = (MeshNodeViewerScene) canvas;
-            JsonObject mesh = new JsonObject();
-            mesh.addProperty("vertexCount", meshScene.getMeshVertexCount());
-            mesh.addProperty("edgeCount", meshScene.getMeshEdgeCount());
-            mesh.addProperty("faceCount", meshScene.getMeshFaceCount());
-            mesh.addProperty("boundaryEdgeCount", meshScene.getMeshBoundaryEdgeCount());
-            mesh.addProperty("degenerateFaceCount", meshScene.getMeshDegenerateFaceCount());
-            mesh.addProperty("eulerCharacteristic", meshScene.getMeshEulerCharacteristic());
-            mesh.addProperty("closed", meshScene.isMeshClosed());
-            mesh.addProperty("radius", meshScene.getMeshRadius());
-            mesh.add("center", vector3Array(meshScene.getMeshCenter()));
-            mesh.add("boundingBoxMin", vector3Array(meshScene.getBoundingBoxMin()));
-            mesh.add("boundingBoxMax", vector3Array(meshScene.getBoundingBoxMax()));
-            root.add("mesh", mesh);
+        
+        // Extract TradeScene-specific state (TradeScene is not a Scene subclass)
+        if (TradeScene.active && TradeScene.instance != null) {
+            JsonObject tradeState = extractor.extractState(TradeScene.instance);
+            root.add("tradeState", tradeState);
         }
 
         JsonArray textElements = new JsonArray();

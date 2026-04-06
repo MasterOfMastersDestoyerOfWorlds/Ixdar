@@ -29,6 +29,7 @@ import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.platform.input.TradeKeyGuy;
 import ixdar.platform.input.TradeMouseTrap;
+import ixdar.platform.automation.AutomationVisible;
 
 /**
  * The main scene for the trade game. Handles rendering cities, camera controls,
@@ -41,13 +42,19 @@ public class TradeScene {
     public static boolean active = false;
 
     // Game state
+    @AutomationVisible(description = "The city network containing all cities and roads")
     public CityNetwork network;
+    @AutomationVisible(description = "The city currently under the mouse cursor, or null")
     public City hoveredCity = null;
+    @AutomationVisible(description = "Player's gold balance")
     public int gold = 100;
 
     // Tools
+    @AutomationVisible(description = "The headquarters picker tool instance")
     public HeadquartersPickerTool hqPickerTool;
+    @AutomationVisible(description = "The route planning tool instance")
     public RoutePlanningTool routePlanningTool;
+    @AutomationVisible(description = "The currently active tool")
     public Tool activeTool;
 
     // View constants
@@ -247,6 +254,7 @@ public class TradeScene {
      * 
      * @return the headquarters city, or null if not set
      */
+    @AutomationVisible(description = "The headquarters city for the trade game")
     public City getHeadquartersCity() {
         return network.headquartersCity;
     }
