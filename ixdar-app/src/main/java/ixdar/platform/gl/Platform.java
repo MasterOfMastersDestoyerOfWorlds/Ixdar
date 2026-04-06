@@ -79,6 +79,17 @@ public interface Platform {
 
     IxBuffer allocateFloats(int i);
 
+    /**
+     * Set the framebuffer size in pixels.
+     * <p>
+     * On macOS with AppleMetalOpenGLRenderer, framebuffer dimensions exceeding 8192
+     * will be clamped to prevent SIGSEGV crashes in GLRResourceList::addResource during
+     * aggressive window resizing (IX-10).
+     * </p>
+     * 
+     * @param f width in pixels
+     * @param g height in pixels
+     */
     void setFrameBufferSize(float f, float g);
 
     int getFrameBufferWidth();

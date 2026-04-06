@@ -122,6 +122,8 @@ public class IxdarWindow {
                 glfwGetWindowContentScale(windowID, xScale, yScale);
                 IxdarWindow.windowWidth = width;
                 IxdarWindow.windowHeight = height;
+                // Framebuffer size is clamped to MAX_FRAMEBUFFER_DIMENSION (8192) on macOS
+                // to prevent SIGSEGV in GLRResourceList::addResource (IX-10)
                 Platforms.get().setFrameBufferSize(width * xScale.get(0), height * yScale.get(0));
                 canvas.changedSize = true;
             }
@@ -152,6 +154,8 @@ public class IxdarWindow {
             FloatBuffer xScale = stack.mallocFloat(1);
             FloatBuffer yScale = stack.mallocFloat(1);
             glfwGetWindowContentScale(window, xScale, yScale);
+            // Framebuffer size is clamped to MAX_FRAMEBUFFER_DIMENSION (8192) on macOS
+            // to prevent SIGSEGV in GLRResourceList::addResource (IX-10)
             Platforms.get().setFrameBufferSize(windowWidth * xScale.get(0), windowHeight * yScale.get(0));
             GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
             glfwSetWindowPos(

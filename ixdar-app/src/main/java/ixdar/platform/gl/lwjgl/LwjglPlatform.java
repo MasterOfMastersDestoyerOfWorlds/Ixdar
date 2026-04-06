@@ -48,6 +48,14 @@ public class LwjglPlatform implements Platform {
     private int platformId;
     private static final ConcurrentLinkedQueue<Runnable> inputQueue = new ConcurrentLinkedQueue<>();
 
+    /**
+     * Maximum framebuffer dimensions to prevent GL resource allocation failures.
+     * Apple Metal OpenGL renderer (GLRResourceList::addResource) crashes with SIGSEGV
+     * when framebuffer exceeds this limit during aggressive window resizing.
+     * This mitigates the macOS SIGSEGV issue (IX-10).
+     */
+    private static final int MAX_FRAMEBUFFER_DIMENSION = 8192;
+
     public LwjglPlatform(long window) {
         this.window = window;
     }
@@ -248,8 +256,13 @@ public class LwjglPlatform implements Platform {
 
     @Override
     public void setFrameBufferSize(float f, float g) {
-        frameBufferSizeX = f;
-        frameBufferSizeY = g;
+        // Clamp framebuffer dimensions to prevent GL resource allocation failures
+        // on macOS with AppleMetalOpenGLRenderer (IX-10). The native GLRResourceList::addResource
+        // crashes with SIGSEGV when framebuffer exceeds MAX_FRAMEBUFFER_DIMENSION.
+        float clampedX = Math.min(f, MAX_FRAMEBUFFER_DIMENSION);
+        float clampedY = Math.min(g, MAX_FRAMEBUFFER_DIMENSION);
+        frameBufferSizeX = clampedX;
+        frameBufferSizeY = clampedY;
     }
 
     @Override
