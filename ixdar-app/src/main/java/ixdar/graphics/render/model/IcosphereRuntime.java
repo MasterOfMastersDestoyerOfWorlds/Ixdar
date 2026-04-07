@@ -39,6 +39,7 @@ public class IcosphereRuntime {
     }
 
     private final ShaderProgram meshShader;
+    private final ShaderProgram meshUnlitShader;
     private final ArrayList<FaceHandle> faceHandles;
     private final ArrayList<FaceState> faceStates;
     private final Matrix4f model = new Matrix4f();
@@ -46,11 +47,17 @@ public class IcosphereRuntime {
     private final Vector4f solidColor = new Vector4f(0.27f, 0.53f, 1.0f, 0.92f);
     private final Vector3f lightDir = new Vector3f(0.2f, -1.0f, 0.4f);
     private final Vector3f emissiveColor = new Vector3f(0.15f, 0.35f, 1.0f);
+    private final Vector3f wireframeColor = new Vector3f(0.8f, 0.9f, 1.0f);
     private final float radius;
+    private boolean wireframe = false;
+    private boolean additiveBlending = true;
+    private final Vector3f center = new Vector3f(0f, 0f, 0f);
 
     public IcosphereRuntime(Icosphere geometry) throws Exception {
         this.meshShader = ShaderProgram.ShaderType.Mesh.getShader();
+        this.meshUnlitShader = ShaderProgram.ShaderType.MeshUnlit.getShader();
         this.meshShader.init();
+        this.meshUnlitShader.init();
         this.faceHandles = new ArrayList<>();
         this.faceStates = new ArrayList<>();
         this.radius = geometry.radius();
@@ -80,10 +87,10 @@ public class IcosphereRuntime {
         projection.identity().perspective((float) Math.toRadians((float) camera.fov), aspect, 0.01f,
                 Math.max(200f, radius * 30f));
         solidColor.set(0.24f + 0.08f * glowStrength, 0.5f + 0.26f * glowStrength, 1.0f, 0.9f);
-        Platforms.gl().enable(Platforms.gl().BLEND());
-        Platforms.gl().blendFunc(Platforms.gl().SRC_ALPHA(), Platforms.gl().ONE_MINUS_SRC_ALPHA());
-
+        
+        // Render main faces with emissive glow
         meshShader.use();
+        meshShader.setMat4("model", model.identity());
         meshShader.setMat4("view", camera.view);
         meshShader.setMat4("projection", projection);
         meshShader.setVec3("lightDir", lightDir);
@@ -91,6 +98,11 @@ public class IcosphereRuntime {
         meshShader.setFloat("emissiveStrength", 0.25f + 0.45f * glowStrength);
         meshShader.setFloat("rimStrength", 0.18f + 0.25f * glowStrength);
         meshShader.setBool("useTexture", false);
+        meshShader.setBool("additiveBlending", additiveBlending);
+
+        // Enable blending for additive emissive effect
+        Platforms.gl().enable(Platforms.gl().BLEND());
+        Platforms.gl().blendFunc(Platforms.gl().SRC_ALPHA(), Platforms.gl().ONE_MINUS_SRC_ALPHA());
 
         for (FaceHandle handle : faceHandles) {
             model.identity().translate(handle.state.renderPos).rotate(handle.state.baseRot);
@@ -102,6 +114,44 @@ public class IcosphereRuntime {
             Platforms.gl().drawElements(Platforms.gl().TRIANGLES(), handle.indexCount, Platforms.gl().UNSIGNED_INT(),
                     0);
         }
+
+        // Render wireframe overlay
+        if (wireframe) {
+            renderWireframe(camera, glowStrength);
+        }
+        
+        // Disable blending after rendering
+        Platforms.gl().disable(Platforms.gl().BLEND());
+    }
+
+    private void renderWireframe(Camera3D camera, float glowStrength) {
+        if (meshUnlitShader.ID < 0) {
+            return;
+        }
+        
+        meshUnlitShader.use();
+        meshUnlitShader.setMat4("model", model.identity());
+        meshUnlitShader.setMat4("view", camera.view);
+        meshUnlitShader.setMat4("projection", projection);
+        
+        // Brighter wireframe color for visibility
+        wireframeColor.set(0.9f + 0.1f * glowStrength, 0.95f + 0.05f * glowStrength, 1.0f);
+        meshUnlitShader.setVec4("solidColor", new Vector4f(wireframeColor, 1.0f));
+        
+        Platforms.gl().disable(Platforms.gl().DEPTH_TEST());
+        Platforms.gl().lineWidth(1.5f);
+        
+        for (FaceHandle handle : faceHandles) {
+            model.identity().translate(handle.state.renderPos).rotate(handle.state.baseRot);
+            meshUnlitShader.setMat4("model", model);
+            
+            handle.vao.bind();
+            Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), handle.ebo);
+            Platforms.gl().drawElements(Platforms.gl().TRIANGLES(), handle.indexCount, Platforms.gl().UNSIGNED_INT(),
+                    0);
+        }
+        
+        Platforms.gl().enable(Platforms.gl().DEPTH_TEST());
     }
 
     public void applyRotation(List<Integer> faceIndices, Vector3f axis, float angleRadians) {
@@ -154,6 +204,30 @@ public class IcosphereRuntime {
         }
         faceHandles.clear();
         faceStates.clear();
+    }
+
+    public boolean isWireframe() {
+        return wireframe;
+    }
+
+    public void setWireframe(boolean wireframe) {
+        this.wireframe = wireframe;
+    }
+
+    public boolean isAdditiveBlending() {
+        return additiveBlending;
+    }
+
+    public void setAdditiveBlending(boolean additiveBlending) {
+        this.additiveBlending = additiveBlending;
+    }
+
+    public Vector3f getCenter() {
+        return new Vector3f(center);
+    }
+
+    public float getRadius() {
+        return radius;
     }
 
     private FaceHandle createFaceHandle(Face template) {

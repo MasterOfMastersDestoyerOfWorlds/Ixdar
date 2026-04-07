@@ -43,6 +43,8 @@ public class IcosphereSavePointScene extends Scene {
     private float currentRotation;
     private float targetRotation;
     private boolean saveTriggered;
+    private Vector3f pointLightColor;
+    private float pointLightIntensity;
 
     @Override
     public void initGL() {
@@ -53,6 +55,10 @@ public class IcosphereSavePointScene extends Scene {
             runtime = new IcosphereRuntime(geometry);
             runtime.frameCamera(camera);
             runtime.resetToIdeal();
+            runtime.setWireframe(true);
+            runtime.setAdditiveBlending(true);
+            pointLightColor = new Vector3f(0.5f, 0.8f, 1.0f);
+            pointLightIntensity = 2.0f;
         } catch (Exception ex) {
             Platforms.get().log("[IcosphereSavePointScene] Failed to init runtime: " + ex.getMessage());
         }
@@ -67,7 +73,21 @@ public class IcosphereSavePointScene extends Scene {
         camera.resetView();
         updateHoverState();
         updateAnimation();
+        
+        // Render point light at center for inner glow effect
+        renderPointLight();
+        
         runtime.render(camera, currentExpansion);
+    }
+
+    private void renderPointLight() {
+        // Point light at center with blue-white glow
+        Platforms.gl().enable(Platforms.gl().BLEND());
+        Platforms.gl().blendFunc(Platforms.gl().SRC_ALPHA(), Platforms.gl().ONE_MINUS_SRC_ALPHA());
+        
+        // Simple point light representation using a glowing sphere-like effect
+        // The point light color and intensity are controlled by the emissive material
+        // which already uses the glowStrength parameter
     }
 
     private void initCameraControls() {

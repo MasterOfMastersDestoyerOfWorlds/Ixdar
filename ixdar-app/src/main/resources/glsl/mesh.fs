@@ -12,6 +12,7 @@ uniform vec3 lightDir;
 uniform vec3 emissiveColor;
 uniform float emissiveStrength;
 uniform float rimStrength;
+uniform bool additiveBlending;
 
 void main() {
     vec3 n = normalize(Normal);
@@ -19,5 +20,12 @@ void main() {
     vec4 base = useTexture ? texture(albedoTex, TexCoords) : solidColor;
     float rim = pow(max(1.0 - n.z, 0.0), 2.0);
     vec3 emissive = emissiveColor * (emissiveStrength + rim * rimStrength);
-    FragColor = vec4(base.rgb * diffuse + emissive, base.a);
+    
+    vec4 color = vec4(base.rgb * diffuse + emissive, base.a);
+    
+    if (additiveBlending) {
+        FragColor = vec4(color.rgb, 1.0);
+    } else {
+        FragColor = color;
+    }
 }
