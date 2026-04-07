@@ -20,7 +20,13 @@ import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class MouseTrap {
+/**
+ * Legacy mouse input handler for MainScene.
+ * 
+ * This class is now a wrapper around the new InputHandler abstraction,
+ * preserving the existing API for backward compatibility.
+ */
+public class MouseTrap extends InputHandler {
 
     private static Object automationRuntime;
     private static boolean automationChecked;
@@ -49,6 +55,7 @@ public class MouseTrap {
         } catch (Throwable ignored) {}
     }
 
+    // Legacy public fields for backward compatibility
     public int queuedMouseWheelTicks = 0;
     MainScene main;
     long timeLastScroll;
@@ -65,6 +72,7 @@ public class MouseTrap {
     public float normalizedPosX;
     public float normalizedPosY;
 
+    // Legacy subscription types (for backward compatibility)
     public interface ScrollHandler {
         void onScroll(boolean scrollUp, double deltaSeconds);
     }
@@ -127,11 +135,94 @@ public class MouseTrap {
     }
 
     public MouseTrap(MainScene main, Camera camera, Canvas3D canvas) {
+        super(new Builder("main-scene")
+            .camera(camera)
+            .canvas(canvas)
+            .mouseHandler(createMainSceneMouseHandler(main))
+            .hyperStrings(hyperStrings));
         this.main = main;
         this.camera = camera;
         this.canvas = canvas;
+        // Copy state from parent to legacy fields
+        this.queuedMouseWheelTicks = super.queuedMouseWheelTicks;
+        this.timeLastScroll = super.timeLastScroll;
+        this.lastX = super.lastX;
+        this.lastY = super.lastY;
+        this.width = 0;
+        this.height = 0;
+        this.active = super.active;
+        this.startX = super.startX;
+        this.startY = super.startY;
+        this.normalizedPosX = super.normalizedPosX;
+        this.normalizedPosY = super.normalizedPosY;
     }
 
+    private MouseHandler createMainSceneMouseHandler(MainScene main) {
+        return new MouseHandler() {
+            @Override
+            public boolean onMousePress(int button, float x, float y) {
+                normalizedPosX = camera.getNormalizePosX(x);
+                normalizedPosY = camera.getNormalizePosY(y);
+                startX = normalizedPosX;
+                startY = normalizedPosY;
+                return false;
+            }
+
+            @Override
+            public void onMouseDrag(float x, float y) {
+                normalizedPosX = camera.getNormalizePosX(x);
+                normalizedPosY = camera.getNormalizePosY(y);
+
+                PaneTypes inMainView = MainScene.inView((float) leftMouseDownPos.x, (float) leftMouseDownPos.y);
+                if (inMainView == PaneTypes.KnotView) {
+                    camera.drag((float) (normalizedPosX - startX), (float) (normalizedPosY - startY));
+                    startX = normalizedPosX;
+                    startY = normalizedPosY;
+                }
+            }
+
+            @Override
+            public void onMouseMove(float x, float y) {
+                if (!active) {
+                    return;
+                }
+                normalizedPosX = camera.getNormalizePosX(x);
+                normalizedPosY = camera.getNormalizePosY(y);
+                lastX = (int) x;
+                lastY = (int) y;
+
+                camera.mouseMove(lastX, lastY, x, y);
+                if (canvas.menu != null && !(MouseTrap.this.canvas == null)) {
+                    canvas.menu.setHover(normalizedPosX, normalizedPosY);
+                }
+
+                PaneTypes inMainView = MainScene.inView(x, y);
+                if (main != null && MainScene.active) {
+                    if (inMainView == PaneTypes.KnotView) {
+                        MainScene.tool.calculateHover(normalizedPosX, normalizedPosY);
+                    } else {
+                        MainScene.tool.clearHover();
+                    }
+                }
+                updateHyperStrings();
+            }
+
+            @Override
+            public void onScroll(double delta) {
+                Platforms.init(canvas.platform.getPlatformID());
+                queuedMouseWheelTicks += (int) (4 * delta);
+                timeLastScroll = System.currentTimeMillis();
+                recordAbstractAction("mouse_scroll", "delta", delta);
+            }
+
+            @Override
+            public void onUpdate(float shiftMod, double deltaTime) {
+                // No additional update needed
+            }
+        };
+    }
+
+    // Legacy methods for backward compatibility
     public void mouseClicked(float xPos, float yPos, int button) {
         if (!active) {
             return;
@@ -162,11 +253,10 @@ public class MouseTrap {
             h.click(normalizedPosX, normalizedPosY);
         }
         if (canvas.menu != null) {
-
             canvas.menu.click(normalizedPosX, normalizedPosY);
         }
 
-        // Region click subscriptions
+        // Region click subscriptions (legacy API)
         List<ClickSubscription> clickSubs = getClickSubscriptionsForCurrentPlatform();
         if (!clickSubs.isEmpty()) {
             for (ClickSubscription sub : clickSubs) {
@@ -196,7 +286,6 @@ public class MouseTrap {
     }
 
     public void mouseDragged(float x, float y) {
-
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
 
@@ -220,43 +309,8 @@ public class MouseTrap {
         }
     }
 
-    public void scrollCallback(double y) {
-        Platforms.init(canvas.platform.getPlatformID());
-        queuedMouseWheelTicks += (int) (4 * y);
-        timeLastScroll = System.currentTimeMillis();
-        recordAbstractAction("mouse_scroll", "delta", y);
-    }
-
     public void setCanvas(Canvas3D canvas3d) {
         this.canvas = canvas3d;
-    }
-
-    public void mousePos(float x, float y) {
-        if (!active) {
-            return;
-        }
-        normalizedPosX = camera.getNormalizePosX(x);
-        normalizedPosY = camera.getNormalizePosY(y);
-        lastX = (int) x;
-        lastY = (int) y;
-
-        camera.mouseMove(lastX, lastY, x, y);
-        if (canvas.menu != null && !(this.canvas == null)) {
-
-            canvas.menu.setHover(normalizedPosX, normalizedPosY);
-        }
-
-        PaneTypes inMainView = MainScene.inView(x, y);
-        if (main != null && MainScene.active) {
-            if (inMainView == PaneTypes.KnotView) {
-                MainScene.tool.calculateHover(normalizedPosX, normalizedPosY);
-            } else {
-                MainScene.tool.clearHover();
-            }
-        }
-        updateHyperStrings();
-
-        hyperStrings = new ArrayList<>();
     }
 
     public void paintUpdate(float SHIFT_MOD) {
@@ -268,7 +322,6 @@ public class MouseTrap {
         if (queuedMouseWheelTicks != 0) {
             List<ScrollSubscription> subs = getSubscriptionsForCurrentPlatform();
             for (ScrollSubscription sub : subs) {
-
                 if (sub.bounds != null) {
                     sub.bounds.recalc();
                 }
@@ -313,6 +366,8 @@ public class MouseTrap {
     float leftMouseDown = -1;
     Vector2f leftMouseDownPos;
 
+    // Override mouseButton to handle legacy click detection
+    @Override
     public void mouseButton(int button, int action, int mods) {
         Platforms.init(canvas.platform.getPlatformID());
         float x = lastX;
@@ -333,6 +388,8 @@ public class MouseTrap {
         }
     }
 
+    // Override moveOrDrag for legacy drag detection
+    @Override
     public void moveOrDrag(long window, float x, float y) {
         Platforms.init(canvas.platform.getPlatformID());
         boolean leftDown = Platforms.gl().getMouseButton(window, MouseButtons.MOUSE_BUTTON_LEFT);
@@ -344,4 +401,31 @@ public class MouseTrap {
         }
     }
 
+    // Expose mousePos as public for backward compatibility
+    public void mousePos(float x, float y) {
+        if (!active) {
+            return;
+        }
+        normalizedPosX = camera.getNormalizePosX(x);
+        normalizedPosY = camera.getNormalizePosY(y);
+        lastX = (int) x;
+        lastY = (int) y;
+
+        camera.mouseMove(lastX, lastY, x, y);
+        if (canvas.menu != null && !(this.canvas == null)) {
+            canvas.menu.setHover(normalizedPosX, normalizedPosY);
+        }
+
+        PaneTypes inMainView = MainScene.inView(x, y);
+        if (main != null && MainScene.active) {
+            if (inMainView == PaneTypes.KnotView) {
+                MainScene.tool.calculateHover(normalizedPosX, normalizedPosY);
+            } else {
+                MainScene.tool.clearHover();
+            }
+        }
+        updateHyperStrings();
+
+        hyperStrings = new ArrayList<>();
+    }
 }

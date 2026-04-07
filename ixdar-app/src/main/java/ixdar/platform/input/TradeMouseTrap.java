@@ -14,10 +14,12 @@ import ixdar.platform.Platforms;
 import ixdar.scenes.trade.TradeScene;
 
 /**
- * Mouse input handler for the trade game scene. Extends MouseTrap but replaces
- * MainScene-specific behavior with city interaction.
+ * Mouse input handler for the trade game scene.
+ * 
+ * Uses the new InputHandler abstraction with scene-specific city interaction
+ * configured via composition rather than inheritance.
  */
-public class TradeMouseTrap extends MouseTrap {
+public class TradeMouseTrap extends InputHandler {
 
     private TradeScene tradeScene;
     private Vector2f leftMouseDownPos;
@@ -27,8 +29,13 @@ public class TradeMouseTrap extends MouseTrap {
     private boolean automationInputInProgress = false;
 
     public TradeMouseTrap(TradeScene tradeScene, Camera camera, Canvas3D canvas) {
-        super(null, camera, canvas);
+        super(new Builder("trade-scene")
+            .camera(camera)
+            .canvas(canvas)
+            .mouseHandler(createTradeSceneMouseHandler()));
         this.tradeScene = tradeScene;
+        // Copy state from parent to legacy fields
+        this.leftMouseDownPos = super.leftMouseDownPos;
     }
 
     public void beginAutomationInput() {
@@ -43,7 +50,6 @@ public class TradeMouseTrap extends MouseTrap {
         automationHoverLocked = true;
         automationHoverX = x;
         automationHoverY = y;
-        applyHoverAt(x, y);
     }
 
     public void clearAutomationHoverLock() {
@@ -67,12 +73,92 @@ public class TradeMouseTrap extends MouseTrap {
         }
     }
 
-    @Override
+    private InputHandler.MouseHandler createTradeSceneMouseHandler() {
+        return new InputHandler.MouseHandler() {
+            @Override
+            public boolean onMousePress(int button, float x, float y) {
+                if (!active) {
+                    return false;
+                }
+                leftMouseDownPos = new Vector2f(x, y);
+                normalizedPosX = camera.getNormalizePosX(x);
+                normalizedPosY = camera.getNormalizePosY(y);
+                startX = normalizedPosX;
+                startY = normalizedPosY;
+                return false;
+            }
+
+            @Override
+            public void onMouseDrag(float x, float y) {
+                if (!active) {
+                    return;
+                }
+                clearAutomationLockOnUserMove(x, y);
+
+                normalizedPosX = camera.getNormalizePosX(x);
+                normalizedPosY = camera.getNormalizePosY(y);
+                lastX = (int) x;
+                lastY = (int) y;
+
+                // Pan the camera
+                camera.drag((float) (normalizedPosX - startX), (float) (normalizedPosY - startY));
+                startX = normalizedPosX;
+                startY = normalizedPosY;
+            }
+
+            @Override
+            public void onMouseMove(float x, float y) {
+                if (!active) {
+                    return;
+                }
+                clearAutomationLockOnUserMove(x, y);
+                normalizedPosX = camera.getNormalizePosX(x);
+                normalizedPosY = camera.getNormalizePosY(y);
+                lastX = (int) x;
+                lastY = (int) y;
+
+                updateCityHover();
+            }
+
+            @Override
+            public void onScroll(double delta) {
+                if (!active) {
+                    return;
+                }
+                queuedMouseWheelTicks += (int) (4 * delta);
+                timeLastScroll = System.currentTimeMillis();
+            }
+
+            @Override
+            public void onUpdate(float shiftMod, double deltaTime) {
+                if (!active) {
+                    return;
+                }
+
+                // Handle scroll for zooming
+                if (System.currentTimeMillis() - timeLastScroll > 60) {
+                    queuedMouseWheelTicks = 0;
+                }
+
+                if (queuedMouseWheelTicks != 0) {
+                    boolean zoomIn = queuedMouseWheelTicks < 0;
+                    camera.onScroll(zoomIn, Clock.deltaTime() * 100f);
+                    queuedMouseWheelTicks = 0;
+                }
+
+                if (automationHoverLocked) {
+                    applyHoverAt(automationHoverX, automationHoverY);
+                }
+            }
+        };
+    }
+
+    // Expose mouseButton as public for backward compatibility
     public void mouseButton(int button, int action, int mods) {
-        Platforms.init(Platforms.get().getPlatformID());
         if (!active)
             return;
 
+        Platforms.init(Platforms.get().getPlatformID());
         float x = lastX;
         float y = lastY;
 
@@ -137,19 +223,18 @@ public class TradeMouseTrap extends MouseTrap {
         }
     }
 
-    @Override
+    // Expose moveOrDrag as public for backward compatibility
     public void moveOrDrag(long window, float x, float y) {
-        Platforms.init(Platforms.get().getPlatformID());
         if (!active)
             return;
 
+        Platforms.init(Platforms.get().getPlatformID());
         clearAutomationLockOnUserMove(x, y);
 
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
         lastX = (int) x;
         lastY = (int) y;
-
         boolean leftDown = Platforms.gl().getMouseButton(window, MouseButtons.MOUSE_BUTTON_LEFT);
         Vector2f currentPos = new Vector2f(x, y);
 
@@ -158,22 +243,27 @@ public class TradeMouseTrap extends MouseTrap {
             mouseDragged(x, y);
         } else {
             // Just moving - update hover
-            updateCityHover();
+            mousePos(x, y);
         }
     }
 
-    @Override
+    // Expose mousePos as public for backward compatibility
     public void mousePos(float x, float y) {
         if (!active) {
             return;
         }
         clearAutomationLockOnUserMove(x, y);
-        super.mousePos(x, y);
-        updateCityHover();
+        normalizedPosX = camera.getNormalizePosX(x);
+        normalizedPosY = camera.getNormalizePosY(y);
+        lastX = (int) x;
+        lastY = (int) y;
     }
 
-    @Override
+    // Expose mouseDragged as public for backward compatibility
     public void mouseDragged(float x, float y) {
+        if (!active) {
+            return;
+        }
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
 
@@ -193,16 +283,16 @@ public class TradeMouseTrap extends MouseTrap {
         tradeScene.updateHoveredToolbar(lastX, lastY);
     }
 
-    @Override
+    // Expose scrollCallback as public for backward compatibility
     public void scrollCallback(double y) {
-        Platforms.init(Platforms.get().getPlatformID());
         if (!active)
             return;
+        Platforms.init(Platforms.get().getPlatformID());
         queuedMouseWheelTicks += (int) (4 * y);
         timeLastScroll = System.currentTimeMillis();
     }
 
-    @Override
+    // Expose paintUpdate as public for backward compatibility
     public void paintUpdate(float SHIFT_MOD) {
         if (!active)
             return;
@@ -222,4 +312,13 @@ public class TradeMouseTrap extends MouseTrap {
             applyHoverAt(automationHoverX, automationHoverY);
         }
     }
+
+    // Expose mousePressed as public for backward compatibility
+    public void mousePressed(float x, float y) {
+        normalizedPosX = camera.getNormalizePosX(x);
+        normalizedPosY = camera.getNormalizePosY(y);
+        startX = normalizedPosX;
+        startY = normalizedPosY;
+    }
+}
 }

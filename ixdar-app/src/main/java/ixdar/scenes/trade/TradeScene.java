@@ -24,8 +24,7 @@ import ixdar.gui.ui.tools.Tool;
 import ixdar.canvas.Canvas3D;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.Platform;
-import ixdar.platform.input.KeyGuy;
-import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.InputHandler;
 import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.platform.input.TradeKeyGuy;
 import ixdar.platform.input.TradeMouseTrap;
@@ -33,6 +32,9 @@ import ixdar.platform.input.TradeMouseTrap;
 /**
  * The main scene for the trade game. Handles rendering cities, camera controls,
  * and player interactions.
+ * 
+ * Uses the new InputHandler abstraction with TradeKeyGuy and TradeMouseTrap
+ * configured via composition.
  */
 public class TradeScene {
 
@@ -63,7 +65,7 @@ public class TradeScene {
     private Canvas3D canvas;
     private PointSet pointSet;
 
-    // Input handlers
+    // Input handlers (using new InputHandler abstraction)
     private TradeKeyGuy keys;
     private TradeMouseTrap mouse;
 
@@ -85,7 +87,7 @@ public class TradeScene {
         routePlanningTool = new RoutePlanningTool(this, network);
         activeTool = hqPickerTool; // Start with HQ picker
 
-        // Create input handlers
+        // Create input handlers using new InputHandler abstraction
         keys = new TradeKeyGuy(this, camera, canvas);
         mouse = new TradeMouseTrap(this, camera, canvas);
 
@@ -126,7 +128,7 @@ public class TradeScene {
         }, VIEW_TOOLTIP));
 
         camera.initCamera(views, VIEW_MAIN);
-        MouseTrap.subscribeScrollRegion(views.get(VIEW_MAIN), camera);
+        InputHandler.subscribeScrollRegion(views.get(VIEW_MAIN), camera);
     }
 
     /**

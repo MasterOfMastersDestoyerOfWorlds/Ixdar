@@ -8,6 +8,12 @@ import ixdar.platform.Platforms;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
 
+/**
+ * Keyboard input handler for the mesh viewer scene.
+ * 
+ * Extends KeyGuy to maintain backward compatibility while providing
+ * scene-specific Z key for wireframe toggle.
+ */
 public class MeshViewerKeyGuy extends KeyGuy {
 
     private final MeshNodeViewerScene meshScene;

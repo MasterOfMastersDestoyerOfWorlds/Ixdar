@@ -14,10 +14,9 @@ import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Platforms;
-import ixdar.platform.input.KeyGuy;
-import ixdar.platform.input.MouseTrap;
-import ixdar.platform.input.SceneInputFrameUpdater;
+import ixdar.platform.input.InputHandler;
 import ixdar.platform.input.Scene2DMousePanTrap;
+import ixdar.platform.input.SceneInputFrameUpdater;
 
 @SceneAnnotation(id = "irregular-grid-canvas")
 public class IrregularGridScene extends Canvas3D {
@@ -40,13 +39,13 @@ public class IrregularGridScene extends Canvas3D {
     public void initGL() {
         super.initGL();
         MenuBox.menuVisible = false;
-        keys = new KeyGuy(camera2D, this);
+        keys = new ixdar.platform.input.KeyGuy(camera2D, this);
         mouse = new Scene2DMousePanTrap(camera2D, this);
         bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         buildGrid();
         centerCameraOnGrid();
         fpsText = new HyperString();
-        MouseTrap.subscribeScrollRegion(camera2D.getBounds(),
+        InputHandler.subscribeScrollRegion(camera2D.getBounds(),
                 (scrollUp, deltaSeconds) -> camera2D.onScroll(scrollUp, deltaSeconds));
     }
 

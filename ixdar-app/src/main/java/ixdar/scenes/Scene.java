@@ -8,9 +8,16 @@ import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.gui.ui.code.ShaderCodePane;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.Platform;
+import ixdar.platform.input.InputHandler;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 
+/**
+ * Base class for all scenes.
+ * 
+ * Supports both the legacy KeyGuy/MouseTrap pattern and the new InputHandler abstraction.
+ * Scenes can choose which pattern to use via the abstract inputHandler() method.
+ */
 public abstract class Scene extends Canvas3D {
 
     public ShaderCodePane codePane;
@@ -51,8 +58,20 @@ public abstract class Scene extends Canvas3D {
     }
 
     /**
+     * Get the input handler for this scene.
+     * 
+     * Scenes can override this to return a new InputHandler instance using the
+     * new declarative API, or return null to use the legacy keys/mouse fields.
+     */
+    protected InputHandler getInputHandler() {
+        return null; // Default: use legacy fields
+    }
+
+    /**
      * Bind automation input via reflection to avoid pulling desktop-only classes
      * into the TeaVM compilation graph. On web, this silently does nothing.
+     * 
+     * Supports both legacy (KeyGuy/MouseTrap) and new (InputHandler) patterns.
      */
     protected static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
         try {
@@ -60,6 +79,19 @@ public abstract class Scene extends Canvas3D {
                     String.join(".", "ixdar", "platform", "automation", "AutomationInputBinder"));
             Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
             bind.invoke(null, platform, keys, mouse);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /**
+     * Bind automation input for the new InputHandler abstraction.
+     */
+    protected static void bindAutomationIfAvailable(Platform platform, InputHandler handler) {
+        try {
+            Class<?> binder = Class.forName(
+                    String.join(".", "ixdar", "platform", "automation", "AutomationInputBinder"));
+            Method bind = binder.getMethod("bind", Platform.class, InputHandler.class);
+            bind.invoke(null, platform, handler);
         } catch (Throwable ignored) {
         }
     }

@@ -1,12 +1,13 @@
 package ixdar.scenes.main;
 
+package ixdar.scenes.main;
+
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Random;
 
@@ -19,7 +20,6 @@ import ixdar.common.exceptions.TerminalParseException;
 import ixdar.common.utils.Compat;
 import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
-import ixdar.geometry.point.Grid;
 import ixdar.geometry.point.PointND;
 import ixdar.geometry.shell.DistanceMatrix;
 import ixdar.geometry.shell.Shell;
@@ -45,6 +45,7 @@ import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.PointSetPath;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.gl.Platform;
+import ixdar.platform.input.InputHandler;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.SceneInputFrameUpdater;
@@ -668,6 +669,16 @@ public class MainScene {
                     String.join(".", "ixdar", "platform", "automation", "AutomationInputBinder"));
             Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
             bind.invoke(null, platform, keys, mouse);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void bindAutomationIfAvailable(Platform platform, InputHandler handler) {
+        try {
+            Class<?> binder = Class.forName(
+                    String.join(".", "ixdar", "platform", "automation", "AutomationInputBinder"));
+            Method bind = binder.getMethod("bind", Platform.class, InputHandler.class);
+            bind.invoke(null, platform, handler);
         } catch (Throwable ignored) {
         }
     }

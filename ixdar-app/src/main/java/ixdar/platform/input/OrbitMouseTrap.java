@@ -9,8 +9,15 @@ import org.joml.Vector3f;
 
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.render.Clock;
 import ixdar.platform.Platforms;
 
+/**
+ * 3D orbit camera mouse handler for the mesh viewer scene.
+ * 
+ * Extends MouseTrap to maintain backward compatibility while providing
+ * orbit-specific camera behavior.
+ */
 public class OrbitMouseTrap extends MouseTrap {
     private static final float DRAG_RADIANS_PER_PIXEL = 0.01f;
     private static final float MIN_ELEVATION = (float) Math.toRadians(-85.0);
@@ -22,14 +29,13 @@ public class OrbitMouseTrap extends MouseTrap {
     private final Camera3D orbitCamera;
     private final Vector3f orbitTarget = new Vector3f();
 
-    private Vector2f leftMouseDownPos;
     private float azimuth = (float) Math.toRadians(90.0);
     private float elevation = (float) Math.toRadians(20.0);
     private float distance = 3.5f;
 
     public OrbitMouseTrap(Camera3D camera, Canvas3D canvas) {
         super(null, camera, canvas);
-        this.orbitCamera = camera;
+        this.orbitCamera = (Camera3D) camera;
         applyOrbit();
     }
 
@@ -47,10 +53,10 @@ public class OrbitMouseTrap extends MouseTrap {
 
     @Override
     public void mouseButton(int button, int action, int mods) {
-        Platforms.init(Platforms.get().getPlatformID());
         if (!active) {
             return;
         }
+        Platforms.init(Platforms.get().getPlatformID());
         float x = lastX;
         float y = lastY;
         if (action == ACTION_PRESS && button == MOUSE_BUTTON_LEFT) {
@@ -63,10 +69,10 @@ public class OrbitMouseTrap extends MouseTrap {
 
     @Override
     public void moveOrDrag(long window, float x, float y) {
-        Platforms.init(Platforms.get().getPlatformID());
         if (!active) {
             return;
         }
+        Platforms.init(Platforms.get().getPlatformID());
         boolean leftDown = Platforms.gl().getMouseButton(window, MouseButtons.MOUSE_BUTTON_LEFT);
         Vector2f currentPos = new Vector2f(x, y);
         if (leftDown && leftMouseDownPos != null && currentPos.distance(leftMouseDownPos) > 3f) {
@@ -109,7 +115,9 @@ public class OrbitMouseTrap extends MouseTrap {
         if (!active) {
             return;
         }
-        super.scrollCallback(y);
+        Platforms.init(Platforms.get().getPlatformID());
+        queuedMouseWheelTicks += (int) (4 * y);
+        timeLastScroll = System.currentTimeMillis();
     }
 
     @Override
