@@ -56,7 +56,7 @@ public class IrregularGridScene extends Canvas3D {
         SceneInputFrameUpdater.update(keys, mouse);
         camera2D.setZIndex(camera);
         camera2D.calculateCameraTransform(camera2D.ps);
-        Drawing.getDrawing().sdfLine.setCulling(false);
+        Drawing.getDrawing().sdfLine.setCulling(true);
         Drawing.getDrawing().sdfLine.setStroke(2f * camera2D.ScaleFactor, false, 1f, 0f, true, false, false);
         for (int i = 0; i < grid.edgeIndices().size(); i++) {
             int[] edge = grid.edgeIndices().get(i);

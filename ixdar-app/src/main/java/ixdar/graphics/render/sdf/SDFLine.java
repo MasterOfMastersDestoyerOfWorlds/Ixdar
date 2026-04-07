@@ -40,6 +40,12 @@ public class SDFLine extends ShaderDrawable {
     private Vector2f pBTex;
     private boolean arrow;
 
+    // Reusable fields for clipping to avoid per-call allocations
+    private final Vector2f[] edgeCorners = new Vector2f[4];
+    private final Vector2f[] intersections = new Vector2f[4];
+    private final Vector2f dir = new Vector2f();
+    private final Vector2f temp = new Vector2f();
+
     public SDFLine() {
         super();
         lineShader = ShaderType.LineSDF.getShader();
@@ -54,6 +60,15 @@ public class SDFLine extends ShaderDrawable {
         this.borderOuter = 0;
         this.borderOffsetInner = 0;
         this.borderOffsetOuter = 0;
+        // Initialize reusable clipping fields
+        edgeCorners[0] = new Vector2f();
+        edgeCorners[1] = new Vector2f();
+        edgeCorners[2] = new Vector2f();
+        edgeCorners[3] = new Vector2f();
+        intersections[0] = new Vector2f();
+        intersections[1] = new Vector2f();
+        intersections[2] = new Vector2f();
+        intersections[3] = new Vector2f();
     }
 
     public SDFLine(SDFShader sdfShader, Color borderColor,
@@ -171,75 +186,86 @@ public class SDFLine extends ShaderDrawable {
         if (culling) {
             boolean containsA = camera.contains(pA);
             boolean containsB = camera.contains(pB);
-            if (!containsA || !containsB) {
-                // Test square intersection
+            
+            if (!containsA && !containsB) {
+                // Both endpoints outside - need to find all intersections
                 float width = camera.getWidth();
                 float height = camera.getHeight();
-                Vector2f botLeft = new Vector2f(0, 0);
-                Vector2f topLeft = new Vector2f(0, height);
-                Vector2f topRight = new Vector2f(width, height);
-                Vector2f botRight = new Vector2f(width, 0);
-                Pair<Boolean, Vector2f> right = get_line_intersection(pA, pB, topRight, botRight);
-                Pair<Boolean, Vector2f> left = get_line_intersection(pA, pB, topLeft, botLeft);
-                Pair<Boolean, Vector2f> up = get_line_intersection(pA, pB, topLeft, topRight);
-                Pair<Boolean, Vector2f> down = get_line_intersection(pA, pB, botLeft, botRight);
-                float diagonalDistance = botLeft.distance(topRight);
-                Vector2f dir = new Vector2f(pA).sub(pB).normalize().mul(diagonalDistance);
-
-                if (right.getFirst()) {
-                    if (containsA) {
-                        pB = right.getSecond();
-                    } else if (containsB) {
-                        pA = right.getSecond();
-                    } else {
-                        pA = right.getSecond();
-                        pB = new Vector2f(pA).add(dir);
-                        if (pB.x > width) {
-                            pB = new Vector2f(pA).add(dir.negate());
-                        }
+                
+                // Initialize edge corners (reuse field)
+                edgeCorners[0].set(0, 0);  // botLeft
+                edgeCorners[1].set(width, 0);  // botRight
+                edgeCorners[2].set(width, height);  // topRight
+                edgeCorners[3].set(0, height);  // topLeft
+                
+                // Collect all intersection points
+                int numIntersections = 0;
+                
+                // Check each edge of the viewport
+                for (int i = 0; i < 4; i++) {
+                    int next = (i + 1) % 4;
+                    Pair<Boolean, Vector2f> result = get_line_intersection(pA, pB, edgeCorners[i], edgeCorners[next]);
+                    if (result.getFirst() && result.getSecond() != null) {
+                        // Store intersection in reusable field
+                        intersections[numIntersections].set(result.getSecond());
+                        numIntersections++;
                     }
-                } else if (left.getFirst()) {
-                    if (containsA) {
-                        pB = left.getSecond();
-                    } else if (containsB) {
-                        pA = left.getSecond();
-                    } else {
-                        pA = left.getSecond();
-                        pB = new Vector2f(pA).add(dir);
-                        if (pB.x < 0) {
-                            pB = new Vector2f(pA).add(dir.negate());
-                        }
-                    }
-                } else if (up.getFirst()) {
-
-                    if (containsA) {
-                        pB = up.getSecond();
-                    } else if (containsB) {
-                        pA = up.getSecond();
-                    } else {
-                        pA = up.getSecond();
-                        pB = new Vector2f(pA).add(dir);
-                        if (pB.y > height) {
-                            pB = new Vector2f(pA).add(dir.negate());
-                        }
-                    }
-                } else if (down.getFirst()) {
-                    if (containsA) {
-                        pB = down.getSecond();
-                    } else if (containsB) {
-                        pA = down.getSecond();
-                    } else {
-                        pA = down.getSecond();
-                        pB = new Vector2f(pA).add(dir);
-                        if (pB.y < 0) {
-                            pB = new Vector2f(pA).add(dir.negate());
-                        }
-                    }
-                } else {
+                }
+                
+                if (numIntersections == 0) {
+                    // No intersections - line is completely outside
                     culled = true;
                     return;
+                } else if (numIntersections == 1) {
+                    // Tangent case - line touches but doesn't cross
+                    culled = true;
+                    return;
+                } else if (numIntersections >= 2) {
+                    // Line crosses viewport - use first two intersections
+                    // These are the entry and exit points
+                    Vector2f newA = intersections[0];
+                    Vector2f newB = intersections[1];
+                    
+                    // Update pA and pB with the clipped segment
+                    pA.x = newA.x;
+                    pA.y = newA.y;
+                    pB.x = newB.x;
+                    pB.y = newB.y;
+                    
+                    return;
+                }
+            } else if (!containsA || !containsB) {
+                // One endpoint inside, one outside - find the single intersection
+                float width = camera.getWidth();
+                float height = camera.getHeight();
+                
+                // Initialize edge corners
+                edgeCorners[0].set(0, 0);  // botLeft
+                edgeCorners[1].set(width, 0);  // botRight
+                edgeCorners[2].set(width, height);  // topRight
+                edgeCorners[3].set(0, height);  // topLeft
+                
+                // Find the intersection with the viewport boundary
+                for (int i = 0; i < 4; i++) {
+                    int next = (i + 1) % 4;
+                    Pair<Boolean, Vector2f> result = get_line_intersection(pA, pB, edgeCorners[i], edgeCorners[next]);
+                    if (result.getFirst() && result.getSecond() != null) {
+                        Vector2f intersection = intersections[0];
+                        intersection.set(result.getSecond());
+                        
+                        // Update the endpoint that was outside
+                        if (!containsA) {
+                            pA.x = intersection.x;
+                            pA.y = intersection.y;
+                        } else {
+                            pB.x = intersection.x;
+                            pB.y = intersection.y;
+                        }
+                        return;
+                    }
                 }
             }
+            // Both endpoints inside - no clipping needed
         }
         float dx = pB.x - pA.x;
         float dy = pB.y - pA.y;
