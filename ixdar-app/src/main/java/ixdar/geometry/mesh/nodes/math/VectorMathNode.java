@@ -15,7 +15,7 @@ import ixdar.annotations.meshnode.Vec3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 
 /**
- * Blender ShaderNodeVectorMath-style ops (subset).
+ * Element-wise vector math operations (subset).
  */
 @MeshNodeAnnotation(id = "vector_math")
 public class VectorMathNode implements MeshNode {

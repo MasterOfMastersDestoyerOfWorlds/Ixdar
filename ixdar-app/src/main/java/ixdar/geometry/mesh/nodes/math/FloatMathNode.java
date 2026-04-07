@@ -11,7 +11,7 @@ import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 
 /**
- * Blender ShaderNodeMath-style float ops (subset used by geometry graphs).
+ * Element-wise float math operations (subset used by geometry graphs).
  */
 @MeshNodeAnnotation(id = "float_math")
 public class FloatMathNode implements MeshNode {

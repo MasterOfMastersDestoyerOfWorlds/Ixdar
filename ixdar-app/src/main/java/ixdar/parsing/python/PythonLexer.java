@@ -2,7 +2,7 @@ package ixdar.parsing.python;
 
 public class PythonLexer {
     public enum TokenType {
-        IDENTIFIER, NUMBER, STRING, EQUALS, LPAREN, RPAREN, COMMA, DOT, EOF
+        IDENTIFIER, NUMBER, STRING, EQUALS, LPAREN, RPAREN, COMMA, DOT, LANGLE, RANGLE, EOF
     }
 
     public static class Token {
@@ -49,6 +49,10 @@ public class PythonLexer {
             return new Token(TokenType.COMMA, ",");
         case '.':
             return new Token(TokenType.DOT, ".");
+        case '<':
+            return new Token(TokenType.LANGLE, "<");
+        case '>':
+            return new Token(TokenType.RANGLE, ">");
         default:
             throw new RuntimeException("Unexpected character at " + (pos - 1) + ": " + c);
         }

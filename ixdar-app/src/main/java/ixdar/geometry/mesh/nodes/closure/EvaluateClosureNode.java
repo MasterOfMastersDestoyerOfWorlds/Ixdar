@@ -12,7 +12,7 @@ import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.curve.FloatCurveKernel;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
-/** Evaluates a {@link FloatCurveKernel} closure at a scalar coordinate (Blender NodeEvaluateClosure subset). */
+/** Evaluates a {@link FloatCurveKernel} closure at a scalar coordinate. */
 @MeshNodeAnnotation(id = "evaluate_closure")
 public class EvaluateClosureNode implements MeshNode {
 

@@ -50,6 +50,25 @@ public class SubdivideMeshNode implements MeshNode {
             ctx.setOutput("geometry", GeometryBundle.empty());
             return;
         }
+
+        // OOM guard: estimate output face count and cap levels to prevent downstream OOM
+        int inputFaces = mesh.faceCount();
+        if (inputFaces > 0 && levels > 0) {
+            long estimated = inputFaces;
+            int safe = 0;
+            for (int i = 0; i < levels; i++) {
+                estimated *= 4;
+                if (estimated > 600_000) break;
+                safe++;
+            }
+            if (safe < levels) {
+                System.err.println("[subdivide_mesh] Capped levels from " + levels + " to " + safe
+                        + " (" + inputFaces + " input faces × 4^" + levels + " = "
+                        + (inputFaces * (long) Math.pow(4, levels)) + " would exceed 600k limit)");
+                levels = safe;
+            }
+        }
+
         if (levels == 0) {
             ctx.setOutput("mesh", mesh);
             ctx.setOutput("geometry", GeometryBundle.ofMesh(mesh));

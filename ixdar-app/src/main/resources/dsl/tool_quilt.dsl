@@ -1,4 +1,4 @@
-# Quilting group — faithful port of Blender tool_quilt.py
+# Quilting group — procedural quilt displacement pattern
 # Inputs (defaults match create_quilting_group); user-editable via input_* nodes
 scale_x = input_float(name="scale_x", default=0.3, min=0.001, max=10.0)
 scale_y = input_float(name="scale_y", default=0.3, min=0.001, max=10.0)
@@ -11,7 +11,7 @@ stitches = input_boolean(name="stitches", default=false)
 depth_profile = float_curve(points="0,0,1,0.775,0.423,0.537")
 edge_profile = float_curve(points="0.005,1,1,1,0.505,0.512")
 
-# --- Base mesh: Blender default cube is 2m; size=2 matches -1..1 per axis ---
+# --- Base mesh: size=2 spans -1..1 per axis ---
 base_cube = cube(size=2.0)
 subdivided = subdivide_mesh(mesh=base_cube.mesh, levels=subdivisions.result)
 

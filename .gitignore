@@ -23,3 +23,5 @@ ixdar_automation_cli.egg-info/top_level.txt
 ixdar_automation_cli.egg-info/entry_points.txt
 ixdar_automation_cli.egg-info/dependency_links.txt
 tmp/*.png
+ixdar-app/${dsl.export}
+ixdar-app/cp.txt

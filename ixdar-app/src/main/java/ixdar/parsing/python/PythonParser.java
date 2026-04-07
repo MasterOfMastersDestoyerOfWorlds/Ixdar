@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ixdar.annotations.meshnode.Vector3Value;
 import ixdar.parsing.python.PythonLexer.Token;
 import ixdar.parsing.python.PythonLexer.TokenType;
 
@@ -87,12 +88,15 @@ public class PythonParser {
         args.put(portName, parseValue());
     }
 
-    // Value -> Number | Reference | Identifier (string/boolean literal)
+    // Value -> Number | VectorLiteral | Reference | Identifier (string/boolean literal)
+    // VectorLiteral -> "<" Number "," Number "," Number ">"
     private Object parseValue() {
         if (current.type == TokenType.NUMBER) {
             float val = Float.parseFloat(current.value);
             advance();
             return val;
+        } else if (current.type == TokenType.LANGLE) {
+            return parseVectorLiteral();
         } else if (current.type == TokenType.STRING) {
             String val = current.value;
             advance();
@@ -112,6 +116,18 @@ public class PythonParser {
             }
             return id;
         }
-        throw new RuntimeException("Expected Number or Node Reference, found '" + current.value + "'");
+        throw new RuntimeException("Expected Number, Vector, or Node Reference, found '" + current.value + "'");
+    }
+
+    // VectorLiteral -> "<" Number "," Number "," Number ">"
+    private Vector3Value parseVectorLiteral() {
+        consume(TokenType.LANGLE, "Expected '<'");
+        float x = Float.parseFloat(consume(TokenType.NUMBER, "Expected X component").value);
+        consume(TokenType.COMMA, "Expected ',' after X component");
+        float y = Float.parseFloat(consume(TokenType.NUMBER, "Expected Y component").value);
+        consume(TokenType.COMMA, "Expected ',' after Y component");
+        float z = Float.parseFloat(consume(TokenType.NUMBER, "Expected Z component").value);
+        consume(TokenType.RANGLE, "Expected '>' to close vector literal");
+        return new Vector3Value(x, y, z);
     }
 }

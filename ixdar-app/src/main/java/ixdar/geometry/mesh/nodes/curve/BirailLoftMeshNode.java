@@ -20,8 +20,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * Ruled bi-rail loft: the first polyline in {@code rail_a} and {@code rail_b} are resampled to
  * {@code u_segments} points by arc length, then meshed with {@code v_segments} steps of linear
  * interpolation between corresponding pairs (uniform across the span). Both rails must match
- * open vs closed topology. This matches the common "loft between two rails" case; Blender's
- * full multi-profile birail adds profile duplication and UV blur on top.
+ * open vs closed topology.
  */
 @MeshNodeAnnotation(id = "birail_loft")
 public class BirailLoftMeshNode implements MeshNode {

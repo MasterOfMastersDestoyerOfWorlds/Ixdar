@@ -20,8 +20,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * by edge id: {@code _bezier_handles_start} / {@code _bezier_handles_end} (3
  * floats per edge id slot).
  * <p>
- * Defaults match Blender loft auto-handles
- * ({@code calculate_auto_handles_bmesh}): length
+ * Default handle length formula: length
  * {@code edgeLength * QUARTER_CIRCLE_RATIO * weight}, direction opposite the
  * average of other incident edge directions at each endpoint (outward bias).
  */

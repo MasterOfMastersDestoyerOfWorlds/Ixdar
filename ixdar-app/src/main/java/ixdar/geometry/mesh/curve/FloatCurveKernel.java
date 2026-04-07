@@ -58,7 +58,7 @@ public final class FloatCurveKernel {
     }
 
     /**
-     * Map {@code factor} along curve x-axis to y (Blender float curve evaluation at factor).
+     * Map {@code factor} along curve x-axis to y (float curve evaluation at a given factor).
      */
     public float evaluate(float factor) {
         if (factor <= xs[0]) {

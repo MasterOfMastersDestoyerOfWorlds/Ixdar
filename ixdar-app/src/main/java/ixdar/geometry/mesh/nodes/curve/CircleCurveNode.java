@@ -15,8 +15,7 @@ import ixdar.geometry.mesh.data.GeometryBundles;
 
 /**
  * Circle curve primitive: generates a closed circular polyline as a CurveGeometry.
- * Points are evenly spaced on a circle in the XZ plane, matching Blender's
- * CurvePrimitiveCircle behavior.
+ * Points are evenly spaced on a circle in the XZ plane.
  * <p>
  * Useful as a direct rail input for {@code birail_loft} and {@code curve_sweep}
  * without needing to construct a thin mesh strip first.
