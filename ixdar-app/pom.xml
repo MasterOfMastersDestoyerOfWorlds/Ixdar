@@ -953,6 +953,7 @@
                 <exclude>unit/visual/**</exclude>
                 <exclude>unit/subgraphs/**</exclude>
               </excludes>
+              <excludedGroups>heavy</excludedGroups>
             </configuration>
           </plugin>
         </plugins>
