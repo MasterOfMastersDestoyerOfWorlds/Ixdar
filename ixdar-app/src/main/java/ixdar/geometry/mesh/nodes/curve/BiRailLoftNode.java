@@ -8,6 +8,7 @@ import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
+import ixdar.geometry.mesh.curve.FloatCurveKernel;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.CurveGeometry;
@@ -35,18 +36,25 @@ public class BiRailLoftNode implements MeshNode {
     private static final InputPort RAIL_A = new InputPort("rail_a", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort RAIL_B = new InputPort("rail_b", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort PROFILE = new InputPort("profile", PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort PROFILE_B = new InputPort("profile_b", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort X_RESOLUTION = new InputPort("x_resolution", PortType.INT, 32);
     private static final InputPort Y_RESOLUTION = new InputPort("y_resolution", PortType.INT, 16);
+    private static final InputPort BLEND_CLOSURE = new InputPort("blend_closure", PortType.CLOSURE, null);
+    private static final InputPort DEPTH_SCALE = new InputPort("depth_scale", PortType.FLOAT, 1f);
+    private static final InputPort ISO_CURVE_T = new InputPort("iso_curve_t", PortType.FLOAT, -1f);
     private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final OutputPort ISO_CURVE = new OutputPort("iso_curve", PortType.GEOMETRY_BUNDLE);
+    private static final OutputPort BOUNDARY_A = new OutputPort("boundary_a", PortType.GEOMETRY_BUNDLE);
+    private static final OutputPort BOUNDARY_B = new OutputPort("boundary_b", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(RAIL_A, RAIL_B, PROFILE, X_RESOLUTION, Y_RESOLUTION);
+        return List.of(RAIL_A, RAIL_B, PROFILE, PROFILE_B, X_RESOLUTION, Y_RESOLUTION, BLEND_CLOSURE, DEPTH_SCALE, ISO_CURVE_T);
     }
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(GEOMETRY);
+        return List.of(GEOMETRY, ISO_CURVE, BOUNDARY_A, BOUNDARY_B);
     }
 
     @Override
@@ -54,6 +62,7 @@ public class BiRailLoftNode implements MeshNode {
         GeometryBundle railAGb = GeometryBundles.bundlePart(ctx.getInput("rail_a", Object.class));
         GeometryBundle railBGb = GeometryBundles.bundlePart(ctx.getInput("rail_b", Object.class));
         GeometryBundle profileGb = GeometryBundles.bundlePart(ctx.getInput("profile", Object.class));
+        GeometryBundle profileBGb = GeometryBundles.bundlePart(ctx.getInput("profile_b", Object.class));
 
         if (railAGb == null || railBGb == null || profileGb == null) {
             ctx.setOutput("geometry", GeometryBundle.empty());
@@ -69,6 +78,9 @@ public class BiRailLoftNode implements MeshNode {
             return;
         }
 
+        // Optional second profile for blending
+        CurveGeometry profileBCg = (profileBGb != null) ? extractCurve(profileBGb) : null;
+
         int xRes = FieldBroadcast.intAt(
                 FieldBroadcast.getInputOrDefault(ctx, "x_resolution", X_RESOLUTION.defaultValue()), 0, 32);
         int yRes = FieldBroadcast.intAt(
@@ -80,27 +92,81 @@ public class BiRailLoftNode implements MeshNode {
         float[] railA = resampleToUniform(railACg, xRes);
         float[] railB = resampleToUniform(railBCg, xRes);
 
-        // Extract profile points (use first polyline, normalized to unit scale)
-        float[] profile = extractProfilePoints(profileCg);
-        int profileN = profile.length / 3;
+        // Extract and normalize profile A
+        float[] profileA = extractProfilePoints(profileCg);
+        int profileAN = profileA.length / 3;
+        if (profileAN != yRes) {
+            profileA = resampleArray(profileA, profileAN, yRes);
+        }
+        float[] profileAU = new float[yRes];
+        float[] profileAV = new float[yRes];
+        normalizeProfile(profileA, yRes, profileAU, profileAV);
 
-        // Resample profile if different from yRes
-        if (profileN != yRes) {
-            profile = resampleArray(profile, profileN, yRes);
-            profileN = yRes;
+        // Extract and normalize profile B (or reuse A if not provided)
+        float[] profileBU;
+        float[] profileBV;
+        if (profileBCg != null) {
+            float[] profileB = extractProfilePoints(profileBCg);
+            int profileBN = profileB.length / 3;
+            if (profileBN != yRes) {
+                profileB = resampleArray(profileB, profileBN, yRes);
+            }
+            profileBU = new float[yRes];
+            profileBV = new float[yRes];
+            normalizeProfile(profileB, yRes, profileBU, profileBV);
+        } else {
+            profileBU = profileAU;
+            profileBV = profileAV;
         }
 
-        // Normalize profile to [0,1] range in local 2D space
-        // Profile XY defines the cross-section shape
-        float[] profileU = new float[profileN]; // local U (across)
-        float[] profileV = new float[profileN]; // local V (up)
-        normalizeProfile(profile, profileN, profileU, profileV);
+        // Optional blend closure for per-station blending along the rail
+        Object closureObj = ctx.getInput("blend_closure", Object.class);
+        FloatCurveKernel blendKernel = (closureObj instanceof FloatCurveKernel k) ? k : null;
 
-        // Build loft mesh
-        HalfEdgeMesh mesh = buildLoftMesh(railA, railB, xRes, profileU, profileV, profileN);
+        float depthScale = FieldBroadcast.floatAt(
+                FieldBroadcast.getInputOrDefault(ctx, "depth_scale", DEPTH_SCALE.defaultValue()), 0, 1f);
+
+        float isoCurveT = FieldBroadcast.floatAt(
+                FieldBroadcast.getInputOrDefault(ctx, "iso_curve_t", ISO_CURVE_T.defaultValue()), 0, -1f);
+
+        // Build loft mesh with two-profile blending
+        // If iso_curve_t >= 0, also extract the iso-parameter curve at that profile fraction
+        float[] isoCurvePositions = (isoCurveT >= 0f && isoCurveT <= 1f) ? new float[xRes * 3] : null;
+        int isoRow = (isoCurvePositions != null) ? Math.round(isoCurveT * (yRes - 1)) : -1;
+
+        // Always extract boundary curves (yi=0 → boundary_a, yi=yRes-1 → boundary_b)
+        float[] boundaryAPositions = new float[xRes * 3];
+        float[] boundaryBPositions = new float[xRes * 3];
+
+        HalfEdgeMesh mesh = buildLoftMesh(railA, railB, xRes,
+                profileAU, profileAV, profileBU, profileBV, yRes, blendKernel, depthScale,
+                isoRow, isoCurvePositions, boundaryAPositions, boundaryBPositions);
         mesh.computeNormals();
 
-        ctx.setOutput("geometry", GeometryBundle.empty().withMesh(mesh));
+        GeometryBundle outBundle = GeometryBundle.empty().withMesh(mesh);
+        ctx.setOutput("geometry", outBundle);
+
+        // Output iso-curve if requested
+        if (isoCurvePositions != null) {
+            ctx.setOutput("iso_curve", makeClosedCurveBundle(isoCurvePositions));
+        } else {
+            ctx.setOutput("iso_curve", GeometryBundle.empty());
+        }
+
+        // Output boundary curves (always available — these are the actual surface edges)
+        ctx.setOutput("boundary_a", makeClosedCurveBundle(boundaryAPositions));
+        ctx.setOutput("boundary_b", makeClosedCurveBundle(boundaryBPositions));
+    }
+
+    /** Close a polyline loop and wrap in a GeometryBundle with _curve slot. */
+    private static GeometryBundle makeClosedCurveBundle(float[] positions) {
+        float[] closed = new float[positions.length + 3];
+        System.arraycopy(positions, 0, closed, 0, positions.length);
+        closed[closed.length - 3] = positions[0];
+        closed[closed.length - 2] = positions[1];
+        closed[closed.length - 1] = positions[2];
+        CurveGeometry curve = CurveGeometry.singlePolyline(closed);
+        return GeometryBundle.empty().withSlot("_curve", curve);
     }
 
     private static CurveGeometry extractCurve(GeometryBundle gb) {
@@ -193,8 +259,10 @@ public class BiRailLoftNode implements MeshNode {
 
     /**
      * Normalize profile to local 2D coordinates (U=across, V=up).
-     * Centers the profile and scales so the extent maps to [-0.5, 0.5].
-     * This ensures the profile fills the gap between the two rails.
+     * Centers the profile and scales U (across) to fill [-0.5, 0.5] so the
+     * cross-section spans the gap between rails. V (up/depth) is scaled by
+     * the same factor, preserving aspect ratio — this allows the collar
+     * to extend beyond the rail spacing when the profile is taller than wide.
      */
     private static void normalizeProfile(float[] profile, int n, float[] outU, float[] outV) {
         float cx = 0, cy = 0;
@@ -205,14 +273,12 @@ public class BiRailLoftNode implements MeshNode {
         cx /= n;
         cy /= n;
 
-        // Find max extent for normalization
-        float maxExt = 0;
+        // Scale based on U (across) extent only, so cross-section fills the rail gap
+        float maxU = 0;
         for (int i = 0; i < n; i++) {
-            float dx = Math.abs(profile[i * 3] - cx);
-            float dy = Math.abs(profile[i * 3 + 1] - cy);
-            maxExt = Math.max(maxExt, Math.max(dx, dy));
+            maxU = Math.max(maxU, Math.abs(profile[i * 3] - cx));
         }
-        float scale = maxExt > 1e-10f ? 0.5f / maxExt : 1f;
+        float scale = maxU > 1e-10f ? 0.5f / maxU : 1f;
 
         for (int i = 0; i < n; i++) {
             outU[i] = (profile[i * 3] - cx) * scale;
@@ -222,9 +288,15 @@ public class BiRailLoftNode implements MeshNode {
 
     /**
      * Build the loft mesh by placing profile cross-sections at each station along the rails.
+     * When two profiles are provided, linearly interpolates between them across the cross-section:
+     * profile A dominates near the start of the cross-section, profile B near the end.
      */
-    private static HalfEdgeMesh buildLoftMesh(float[] railA, float[] railB,
-                                               int xRes, float[] profileU, float[] profileV, int yRes) {
+    private static HalfEdgeMesh buildLoftMesh(float[] railA, float[] railB, int xRes,
+                                               float[] profileAU, float[] profileAV,
+                                               float[] profileBU, float[] profileBV, int yRes,
+                                               FloatCurveKernel blendKernel, float depthScale,
+                                               int isoRow, float[] isoCurveOut,
+                                               float[] boundaryAOut, float[] boundaryBOut) {
         HalfEdgeMesh mesh = new HalfEdgeMesh(xRes * yRes, 0, (xRes - 1) * (yRes - 1), 0);
 
         Vector3f pA = new Vector3f();
@@ -270,22 +342,67 @@ public class BiRailLoftNode implements MeshNode {
             across.normalize();
 
             // Up: perpendicular to tangent and across
-            up.set(tangent).cross(across).normalize();
+            up.set(tangent).cross(across);
+            if (up.lengthSquared() < 1e-8f) {
+                // Tangent nearly parallel to across — use world-up fallback
+                // Pick the axis least aligned with across as the reference direction
+                float ax = Math.abs(across.x), ay = Math.abs(across.y), az = Math.abs(across.z);
+                if (ay <= ax && ay <= az) {
+                    up.set(0, 1, 0);
+                } else if (ax <= az) {
+                    up.set(1, 0, 0);
+                } else {
+                    up.set(0, 0, 1);
+                }
+                // Orthogonalize: up = up - (up·across)*across, then normalize
+                float dot = up.dot(across);
+                up.x -= dot * across.x;
+                up.y -= dot * across.y;
+                up.z -= dot * across.z;
+            }
+            up.normalize();
 
             // Center point between rails
             float cx = (pA.x + pB.x) * 0.5f;
             float cy = (pA.y + pB.y) * 0.5f;
             float cz = (pA.z + pB.z) * 0.5f;
 
-            // Place profile at this station
+            // Place profile at this station, blending between profile A and B.
+            // When blendKernel is provided, blend varies per-station (along rail, xi direction).
+            // When null, blend varies per-point (across cross-section, yi direction).
+            float stationBlend = (blendKernel != null)
+                    ? blendKernel.evaluate((xRes > 1) ? (float) xi / (xRes - 1) : 0.5f)
+                    : Float.NaN; // sentinel: use per-yi blend
+
             for (int yi = 0; yi < yRes; yi++) {
-                float u = profileU[yi] * railSpacing; // scale profile across to match rail spacing
-                float v = profileV[yi] * railSpacing; // scale profile up proportionally
+                float blend = Float.isNaN(stationBlend)
+                        ? ((yRes > 1) ? (float) yi / (yRes - 1) : 0.5f)
+                        : stationBlend;
+                float u = (profileAU[yi] * (1f - blend) + profileBU[yi] * blend) * railSpacing;
+                float v = (profileAV[yi] * (1f - blend) + profileBV[yi] * blend) * railSpacing * depthScale;
 
                 float px = cx + across.x * u + up.x * v;
                 float py = cy + across.y * u + up.y * v;
                 float pz = cz + across.z * u + up.z * v;
                 vid[xi][yi] = mesh.addVertex(px, py, pz);
+
+                // Record iso-curve point if this is the target row
+                if (isoCurveOut != null && yi == isoRow) {
+                    isoCurveOut[xi * 3] = px;
+                    isoCurveOut[xi * 3 + 1] = py;
+                    isoCurveOut[xi * 3 + 2] = pz;
+                }
+                // Record boundary curves (first and last profile rows)
+                if (yi == 0 && boundaryAOut != null) {
+                    boundaryAOut[xi * 3] = px;
+                    boundaryAOut[xi * 3 + 1] = py;
+                    boundaryAOut[xi * 3 + 2] = pz;
+                }
+                if (yi == yRes - 1 && boundaryBOut != null) {
+                    boundaryBOut[xi * 3] = px;
+                    boundaryBOut[xi * 3 + 1] = py;
+                    boundaryBOut[xi * 3 + 2] = pz;
+                }
             }
         }
 

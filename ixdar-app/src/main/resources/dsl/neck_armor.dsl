@@ -1,44 +1,77 @@
 # Neck Armor Collar (Gorget)
-# Procedurally generates a neck collar using bi-rail loft over two circular rails.
-#
-# Geometry:
-#   Rail A: circle r=0.13 at (0,0,0.37), Rail B: r=0.08 at (0,-0.02,0.48)
-#   Centre profile: Béziers (0,-0.14,0.35)→(0,-0.09,0.45)
-#   Bi-rail loft 42×24, trim to left half (X<=0), add pipes + rivets
+# Vertex-for-vertex reproduction of Blender reference using exact parameters from
+# Blender-Procedural-Human/procedural_human/geo_node_groups/armor/neck/
 
-# ── Parameters ────────────────────────────────────────────────────────
-collar_thickness = input_float(name="collar_thickness", default=0.008, min=0.002, max=0.05)
-pipe_radius = input_float(name="pipe_radius", default=0.003, min=0.001, max=0.01)
+# ── Rail A (lower, larger) ────────────────────────────────────────────
+# Blender: circle r=0.13 in XY → rotZ=π/2 → translate(0,0,0.37) rotX=0.156 scale(1.26,1,1)
+# → set_position Z offset from float_curve on Y
+# Ixdar circle is in XZ, so equivalent rotX = π/2 - 0.156 = 1.4148
+rail_a_circle = circle_curve(radius=0.13, resolution=73)
+rail_a_xf = transform_geometry(geometry=rail_a_circle.curve, translation=<0.0, 0.0, 0.37>, rotation=<1.4148, 0.0, 0.0>, scale=<1.26, 1.0, 1.0>)
+rail_a_fc = float_curve(points="0,0,0.645,0.058,1,0")
+rail_a = curve_deform(curve=rail_a_xf.geometry, closure=rail_a_fc.closure, source_axis=Y, target_axis=Z, from_min=-0.14, from_max=0.14)
 
-# ── Rails ─────────────────────────────────────────────────────────────
-rail_a = circle_curve(radius=0.13, resolution=73, center=<0.0, 0.0, 0.37>)
-rail_b = circle_curve(radius=0.08, resolution=73, center=<0.0, -0.02, 0.48>)
+# ── Rail B (upper, smaller) ──────────────────────────────────────────
+# Blender: circle r=0.08 in XY → rotZ=π/2 → translate(0,-0.02,0.48) rotX=0.407
+# Equivalent rotX = π/2 - 0.407 = 1.1638
+rail_b_circle = circle_curve(radius=0.08, resolution=73)
+rail_b = transform_geometry(geometry=rail_b_circle.curve, translation=<0.0, -0.02, 0.48>, rotation=<1.1638, 0.0, 0.0>)
 
-# ── Profile (collar cross-section) ───────────────────────────────────
-profile = curve_bezier(resolution=24, start=<0.0, -0.05, 0.0>, handle_start=<0.035, -0.03, 0.0>, handle_end=<0.025, 0.03, 0.0>, end=<0.0, 0.05, 0.0>, mode=CUBIC)
+# ── Centre profile ───────────────────────────────────────────────────
+# Two quadratic Béziers joined at shared point (0, -0.09, 0.42), then rotate Y=π/2
+# Bézier A: (0,-0.14,0.35) → mid(0,-0.10,0.395) → (0,-0.09,0.42)
+# Bézier B: (0,-0.09,0.42) → mid(0,-0.08,0.44) → (0,-0.09,0.45)
+cp_a = curve_bezier(resolution=40, start=<0.0, -0.14, 0.35>, handle_start=<0.0, -0.10, 0.395>, end=<0.0, -0.09, 0.42>, mode=QUADRATIC)
+cp_b = curve_bezier(resolution=40, start=<0.0, -0.09, 0.42>, handle_start=<0.0, -0.08, 0.44>, end=<0.0, -0.09, 0.45>, mode=QUADRATIC)
+cp_joined = join_curves(curve_a=cp_a.curve, curve_b=cp_b.curve)
+centre_profile = transform_geometry(geometry=cp_joined.curve, rotation=<0.0, 1.5708, 0.0>)
 
-# ── Bi-rail loft → solidify ──────────────────────────────────────────
-collar_surface = bi_rail_loft(rail_a=rail_a.curve, rail_b=rail_b.curve, profile=profile.curve, x_resolution=42, y_resolution=24)
-collar_solid = solidify_mesh(geometry=collar_surface.geometry, thickness=collar_thickness.result)
+# ── Side profile ─────────────────────────────────────────────────────
+# Two quadratic Béziers joined at shared point (-0.085, 0, 0.47), then rotate X=1.5446
+# Bézier A: (-0.15,0,0.43) → mid(-0.10,0,0.45) → (-0.085,0,0.47)
+# Bézier B: (-0.085,0,0.47) → mid(-0.065,0,0.49) → (-0.075,0,0.50)
+sp_a = curve_bezier(resolution=40, start=<-0.15, 0.0, 0.43>, handle_start=<-0.10, 0.0, 0.45>, end=<-0.085, 0.0, 0.47>, mode=QUADRATIC)
+sp_b = curve_bezier(resolution=40, start=<-0.085, 0.0, 0.47>, handle_start=<-0.065, 0.0, 0.49>, end=<-0.075, 0.0, 0.50>, mode=QUADRATIC)
+sp_joined = join_curves(curve_a=sp_a.curve, curve_b=sp_b.curve)
+side_profile = transform_geometry(geometry=sp_joined.curve, rotation=<1.5446, 0.0, 0.0>)
 
-# ── Trim collar: delete X > 0 (keep left half) ───────────────────────
+# ── PingPong blend closure (centre→side→centre→side around collar) ───
+blend_fc = float_curve(points="0,0,0.25,1,0.5,0,0.75,1,1,0")
+
+# ── Bi-rail loft with per-station closure blending ───────────────────
+# Blender: X Resolution=42 (profile cross-section), Y Resolution=148 (rail stations)
+# Ixdar: x_resolution = stations along rail, y_resolution = cross-section points
+# So swap: x_resolution=148 (stations), y_resolution=42 (profile)
+# depth_scale=0.50 compensates for Ixdar's profile normalization vs Blender's
+# inter-profile-based normalization (see BiRailLoftNode javadoc)
+collar_surface = bi_rail_loft(rail_a=rail_a.geometry, rail_b=rail_b.geometry, profile=centre_profile.geometry, profile_b=side_profile.geometry, blend_closure=blend_fc.closure, x_resolution=148, y_resolution=42, depth_scale=0.50, iso_curve_t=0.88)
+
+# ── Pipes (2 rings: bottom boundary + inner at 88%) ─────────────────
+# Blender reference analysis: 2 pipe features only (no top/rail B pipe)
+# Cluster 0: Z≈0.37 = bottom pipe along rail A boundary (on actual surface)
+# Cluster 1: Z≈0.42 = inner pipe ring at UV X≈0.88
+# boundary_a/boundary_b are extracted from the loft surface vertices (yi=0 / yi=yRes-1)
+# so they follow the actual surface contour including profile blending + depth_scale
+pipe_bottom = curve_to_mesh(curve=collar_surface.boundary_a, radius=0.002, resolution=10)
+pipe_inner = curve_to_mesh(curve=collar_surface.iso_curve, radius=0.002, resolution=10)
+
+# ── Rivets (icospheres along both surface boundary curves) ───────────
+# Use boundary_a and boundary_b from the loft surface (not raw rail curves)
+# so rivets sit exactly on the surface edges
+rivet_pts_a = resample_curve(curve=collar_surface.boundary_a, length=0.035)
+rivet_pts_b = resample_curve(curve=collar_surface.boundary_b, length=0.035)
+rivet_ball = icosphere(radius=0.001, subdivisions=1)
+rivets_a = instance_on_points(points=rivet_pts_a.curve, instance=rivet_ball.mesh)
+rivets_b = instance_on_points(points=rivet_pts_b.curve, instance=rivet_ball.mesh)
+
+# ── Assembly (collar + 2 pipes + 2 rivet rows) ──────────────────────
+j1 = join_geometry(a=collar_surface.geometry, b=pipe_bottom.geometry)
+j2 = join_geometry(a=j1.geometry, b=pipe_inner.geometry)
+j3 = join_geometry(a=j2.geometry, b=rivets_a.geometry)
+j4 = join_geometry(a=j3.geometry, b=rivets_b.geometry)
+
+# ── Trim to left half (X ≤ 0) to match Blender output ───────────────
 pos = input_position()
 pos_xyz = separate_xyz(vector=pos.vector)
-trim_sel = compare(a=pos_xyz.x, b=-0.001, mode=GREATER)
-collar_trimmed = delete_geometry(geometry=collar_solid.geometry, selection=trim_sel.result, domain=POINT)
-
-# ── Pipes along trimmed collar boundary ───────────────────────────────
-boundary = mesh_to_curve(geometry=collar_trimmed.geometry, source=BOUNDARY)
-pipe_smooth = resample_curve(curve=boundary.curve, length=0.006)
-pipes = curve_to_mesh(curve=pipe_smooth.curve, radius=pipe_radius.result, resolution=6, fill_caps=true)
-
-# ── Rivet accents ─────────────────────────────────────────────────────
-rivet_ball = uv_sphere(radius=0.004, segments=6, rings=4)
-rivet_curve = resample_curve(curve=boundary.curve, length=0.04)
-rivet_scaffold = curve_to_mesh(curve=rivet_curve.curve, radius=0.001, resolution=3, fill_caps=false)
-rivets_inst = instance_on_points(points=rivet_scaffold.geometry, instance=rivet_ball.mesh)
-rivets = realize_instances(geometry=rivets_inst.geometry)
-
-# ── Final assembly ────────────────────────────────────────────────────
-collar_pipes = join_geometry(a=collar_trimmed.geometry, b=pipes.geometry)
-neck_armor = join_geometry(a=collar_pipes.geometry, b=rivets.mesh)
+x_positive = compare(a=pos_xyz.x, b=0.0, mode=GREATER)
+collar_trimmed = delete_geometry(geometry=j4.geometry, selection=x_positive.result, domain=POINT)
