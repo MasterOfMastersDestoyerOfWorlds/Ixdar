@@ -12,6 +12,8 @@ import ixdar.parsing.python.PythonLexer.TokenType;
 public class PythonParser {
     private final PythonLexer lexer;
     private Token current;
+    private int inlineCounter = 0;
+    private final List<ParsedNode> pendingInlineNodes = new ArrayList<>();
 
     // Temporary AST structures to hold parsed data
     public static class ParsedNode {
@@ -48,7 +50,9 @@ public class PythonParser {
     public List<ParsedNode> parseGraph() {
         List<ParsedNode> nodes = new ArrayList<>();
         while (current.type != TokenType.EOF) {
+            pendingInlineNodes.clear();
             ParsedNode node = parseStatement();
+            nodes.addAll(pendingInlineNodes);
             nodes.add(node);
         }
         return nodes;
@@ -103,6 +107,9 @@ public class PythonParser {
             return val;
         } else if (current.type == TokenType.IDENTIFIER) {
             String id = consume(TokenType.IDENTIFIER, "Expected identifier").value;
+            if (current.type == TokenType.LPAREN) {
+                return parseInlineCall(id);
+            }
             if (current.type == TokenType.DOT) {
                 advance();
                 String port = consume(TokenType.IDENTIFIER, "Expected port name after '.'").value;
@@ -117,6 +124,26 @@ public class PythonParser {
             return id;
         }
         throw new RuntimeException("Expected Number, Vector, or Node Reference, found '" + current.value + "'");
+    }
+
+    // InlineCall -> Identifier "(" Arguments ")" ("." Identifier)?
+    private NodeReference parseInlineCall(String type) {
+        String syntheticId = "__inline_" + (inlineCounter++);
+        consume(TokenType.LPAREN, "Expected '(' for inline call");
+        ParsedNode node = new ParsedNode();
+        node.id = syntheticId;
+        node.type = type;
+        if (current.type != TokenType.RPAREN) {
+            parseArguments(node.arguments);
+        }
+        consume(TokenType.RPAREN, "Expected ')' to close inline call");
+        pendingInlineNodes.add(node);
+        if (current.type == TokenType.DOT) {
+            advance();
+            String port = consume(TokenType.IDENTIFIER, "Expected port name after '.'").value;
+            return new NodeReference(syntheticId, port);
+        }
+        return new NodeReference(syntheticId, "result");
     }
 
     // VectorLiteral -> "<" Number "," Number "," Number ">"

@@ -18,8 +18,8 @@ import ixdar.scenes.Scene;
 @SceneAnnotation(id = "mesh-viewer")
 public class MeshNodeViewerScene extends Scene {
     private static final String DSL_FOLDER = "dsl";
-    private static final String DEFAULT_DSL_RESOURCE = "neck_armor.dsl";
-    private static final String DEFAULT_DSL_FINAL_NODE = "collar_trimmed";
+    private static final String DEFAULT_DSL_RESOURCE = "skull.dsl";
+    private static final String DEFAULT_DSL_FINAL_NODE = "skull_carved";
     private static final String DEFAULT_DSL_FINAL_PORT = "geometry";
 
     private static final float HALF_EXTENT = 0.5f;
