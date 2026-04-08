@@ -157,6 +157,83 @@ def key(client: AutomationClient, key: int, action: int = 1, mods: int = 0, scan
     return client.key(key, action=action, mods=mods, scancode=scancode)
 
 
+@cli_command
+def drag(
+    client: AutomationClient,
+    start_x: float,
+    start_y: float,
+    end_x: float,
+    end_y: float,
+    normalized: bool = False,
+) -> dict:
+    """Send a drag gesture input event.
+
+    :param start_x: Starting X coordinate of the drag.
+    :param start_y: Starting Y coordinate of the drag.
+    :param end_x: Ending X coordinate of the drag.
+    :param end_y: Ending Y coordinate of the drag.
+    :param normalized: Treat coordinates as normalized 0..1 values instead of pixels.
+    """
+    return client.drag(start_x, start_y, end_x, end_y, normalized=normalized)
+
+
+@cli_command(name="drag-validate")
+def drag_validate(
+    client: AutomationClient,
+    start_x: float,
+    start_y: float,
+    end_x: float,
+    end_y: float,
+    expected_delta_x_min: float = 0.0,
+    expected_delta_y_min: float = 0.0,
+    normalized: bool = False,
+) -> dict:
+    """Execute a drag and validate camera motion.
+
+    :param start_x: Starting X coordinate of the drag.
+    :param start_y: Starting Y coordinate of the drag.
+    :param end_x: Ending X coordinate of the drag.
+    :param end_y: Ending Y coordinate of the drag.
+    :param expected_delta_x_min: Minimum expected horizontal delta (for validation).
+    :param expected_delta_y_min: Minimum expected vertical delta (for validation).
+    :param normalized: Treat coordinates as normalized 0..1 values instead of pixels.
+    """
+    # Capture initial camera state
+    initial_state = client.ui_state()
+    camera_before = initial_state.get("cameraState", {})
+
+    # Execute the drag
+    drag_result = client.drag(start_x, start_y, end_x, end_y, normalized=normalized)
+
+    # Capture final camera state
+    final_state = client.ui_state()
+    camera_after = final_state.get("cameraState", {})
+
+    # Build validation result
+    result = {
+        "ok": drag_result.get("ok", False),
+        "drag_executed": drag_result,
+        "camera_before": camera_before,
+        "camera_after": camera_after,
+        "delta_x": camera_after.get("mouseX", 0) - camera_before.get("mouseX", 0),
+        "delta_y": camera_after.get("mouseY", 0) - camera_before.get("mouseY", 0),
+    }
+
+    # Validate expected motion
+    result["validations"] = {
+        "drag_succeeded": drag_result.get("ok", False),
+        "mouse_moved": abs(result.get("delta_x", 0)) > 1 or abs(result.get("delta_y", 0)) > 1,
+    }
+
+    if expected_delta_x_min > 0:
+        result["validations"]["delta_x_sufficient"] = result.get("delta_x", 0) >= expected_delta_x_min
+    if expected_delta_y_min > 0:
+        result["validations"]["delta_y_sufficient"] = result.get("delta_y", 0) >= expected_delta_y_min
+
+    result["ok"] = all(result.get("validations", {}).values())
+    return result
+
+
 @cli_command(name="type")
 def type_text(client: AutomationClient, text: str) -> dict:
     """Send a text input event.

@@ -70,6 +70,7 @@ public class AutomationApiServer {
         server.createContext("/input/scroll", this::scrollHandler);
         server.createContext("/input/key", this::keyHandler);
         server.createContext("/input/type", this::typeHandler);
+        server.createContext("/input/drag", this::dragHandler);
         server.createContext("/shutdown", this::shutdownHandler);
         server.createContext("/record/start", this::recordStartHandler);
         server.createContext("/record/stop", this::recordStopHandler);
@@ -151,6 +152,23 @@ public class AutomationApiServer {
             return;
         }
         writeJson(exchange, runtime.clearHoverLock());
+    }
+
+    private void dragHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        try {
+            JsonObject body = readBodyJson(exchange);
+            float startX = body.has("startX") ? body.get("startX").getAsFloat() : 0f;
+            float startY = body.has("startY") ? body.get("startY").getAsFloat() : 0f;
+            float endX = body.has("endX") ? body.get("endX").getAsFloat() : 0f;
+            float endY = body.has("endY") ? body.get("endY").getAsFloat() : 0f;
+            boolean normalized = body.has("normalized") && body.get("normalized").getAsBoolean();
+            writeJson(exchange, runtime.injectDrag(startX, startY, endX, endY, normalized));
+        } catch (Exception e) {
+            writeError(exchange, 500, e.getMessage());
+        }
     }
 
     private void keyHandler(HttpExchange exchange) throws IOException {

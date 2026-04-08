@@ -45,6 +45,21 @@ public class OrbitMouseTrap extends MouseTrap {
         applyOrbit();
     }
 
+    /** Get current azimuth in radians for telemetry. */
+    public float getAzimuth() {
+        return azimuth;
+    }
+
+    /** Get current elevation in radians for telemetry. */
+    public float getElevation() {
+        return elevation;
+    }
+
+    /** Get current orbit distance for telemetry. */
+    public float getDistance() {
+        return distance;
+    }
+
     @Override
     public void mouseButton(int button, int action, int mods) {
         Platforms.init(Platforms.get().getPlatformID());

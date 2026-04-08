@@ -124,5 +124,25 @@ class AutomationClient:
             {"key": key_code, "action": action, "mods": mods, "scancode": scancode},
         )
 
+    def drag(self, start_x: float, start_y: float, end_x: float, end_y: float, normalized: bool = False) -> dict:
+        """Send a drag gesture input event.
+
+        :param start_x: Starting X coordinate of the drag.
+        :param start_y: Starting Y coordinate of the drag.
+        :param end_x: Ending X coordinate of the drag.
+        :param end_y: Ending Y coordinate of the drag.
+        :param normalized: Treat coordinates as normalized 0..1 values instead of pixels.
+        """
+        return self.request_json(
+            "/input/drag",
+            {
+                "startX": start_x,
+                "startY": start_y,
+                "endX": end_x,
+                "endY": end_y,
+                "normalized": normalized,
+            },
+        )
+
     def shutdown(self) -> dict:
         return self.request_json("/shutdown", {})

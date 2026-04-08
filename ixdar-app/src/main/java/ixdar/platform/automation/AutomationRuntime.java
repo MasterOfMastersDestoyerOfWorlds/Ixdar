@@ -42,6 +42,7 @@ import ixdar.geometry.point.IrregularQuadGrid;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.platform.input.TradeMouseTrap;
 import ixdar.scenes.anatomy.IrregularGridScene;
 import ixdar.scenes.main.MainScene;
@@ -344,6 +345,8 @@ public class AutomationRuntime {
         String sceneId = IxdarWindow.getCanvasId();
         root.addProperty("sceneId", sceneId == null ? "" : sceneId);
         root.addProperty("sceneClass", canvas == null ? "" : canvas.getClass().getSimpleName());
+        // Add camera state telemetry for viewport interaction validation
+        root.add("cameraState", getCameraState());
         String mode = TradeScene.active ? "trade" : (MainScene.active ? "main" : "menu");
         root.addProperty("mode", mode);
         JsonObject trade = new JsonObject();
@@ -713,6 +716,65 @@ public class AutomationRuntime {
         }
     }
 
+    public JsonObject injectDrag(float startX, float startY, float endX, float endY, boolean normalized) {
+        try {
+            return runOnMainThread(() -> {
+                MouseTrap mouse = activeMouse();
+                JsonObject result = new JsonObject();
+                if (mouse == null) {
+                    result.addProperty("ok", false);
+                    result.addProperty("error", "No active mouse handler");
+                    return result;
+                }
+                float finalStartX = normalized ? denormalizeX(startX) : startX;
+                float finalStartY = normalized ? denormalizeY(startY) : startY;
+                float finalEndX = normalized ? denormalizeX(endX) : endX;
+                float finalEndY = normalized ? denormalizeY(endY) : endY;
+
+                // Record drag telemetry
+                JsonObject payload = new JsonObject();
+                payload.addProperty("startX", finalStartX);
+                payload.addProperty("startY", finalStartY);
+                payload.addProperty("endX", finalEndX);
+                payload.addProperty("endY", finalEndY);
+                payload.addProperty("deltaX", finalEndX - finalStartX);
+                payload.addProperty("deltaY", finalEndY - finalStartY);
+                payload.addProperty("startXNorm", normalizeX(finalStartX));
+                payload.addProperty("startYNorm", normalizeY(finalStartY));
+                payload.addProperty("endXNorm", normalizeX(finalEndX));
+                payload.addProperty("endYNorm", normalizeY(finalEndY));
+
+                // Simulate press-drag-release sequence
+                if (mouse instanceof TradeMouseTrap) {
+                    ((TradeMouseTrap) mouse).beginAutomationInput();
+                }
+                try {
+                    // Press at start position
+                    mouse.mousePos(finalStartX, finalStartY);
+                    mouse.mouseButton(0, ACTION_PRESS, 0);
+                    // Drag to end position
+                    mouse.moveOrDrag(0L, finalEndX, finalEndY);
+                    // Release
+                    mouse.mouseButton(0, ACTION_RELEASE, 0);
+                } finally {
+                    if (mouse instanceof TradeMouseTrap) {
+                        ((TradeMouseTrap) mouse).endAutomationInput();
+                    }
+                }
+
+                recorder.recordAbstract("drag", payload);
+                result.addProperty("ok", true);
+                result.add("event", payload);
+                return result;
+            });
+        } catch (Exception e) {
+            JsonObject error = new JsonObject();
+            error.addProperty("ok", false);
+            error.addProperty("error", e.getMessage());
+            return error;
+        }
+    }
+
     public JsonObject injectKey(int key, int action, int mods, int scancode) {
         try {
             return runOnMainThread(() -> {
@@ -890,5 +952,41 @@ public class AutomationRuntime {
             result.append(String.format("%02x", b));
         }
         return result.toString();
+    }
+
+    /** Get camera state telemetry for viewport interaction validation. */
+    public JsonObject getCameraState() {
+        return runOnMainThread(() -> {
+            JsonObject cameraState = new JsonObject();
+            if (canvas == null) {
+                cameraState.addProperty("ok", false);
+                cameraState.addProperty("error", "No canvas active");
+                return cameraState;
+            }
+
+            // Try to get orbit-specific state from OrbitMouseTrap
+            if (canvas.mouse instanceof OrbitMouseTrap) {
+                OrbitMouseTrap orbitTrap = (OrbitMouseTrap) canvas.mouse;
+                cameraState.addProperty("ok", true);
+                cameraState.addProperty("type", "orbit");
+                cameraState.addProperty("azimuthRadians", orbitTrap.getAzimuth());
+                cameraState.addProperty("elevationRadians", orbitTrap.getElevation());
+                cameraState.addProperty("distance", orbitTrap.getDistance());
+            } else if (canvas.mouse != null) {
+                cameraState.addProperty("ok", true);
+                cameraState.addProperty("type", "generic");
+            } else {
+                cameraState.addProperty("ok", false);
+                cameraState.addProperty("error", "No mouse trap active");
+            }
+
+            // Always record mouse position for tracking drag effects
+            if (canvas.mouse != null) {
+                cameraState.addProperty("mouseX", canvas.mouse.lastX);
+                cameraState.addProperty("mouseY", canvas.mouse.lastY);
+            }
+
+            return cameraState;
+        });
     }
 }
