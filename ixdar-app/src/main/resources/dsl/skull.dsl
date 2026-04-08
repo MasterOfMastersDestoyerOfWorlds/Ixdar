@@ -100,6 +100,5 @@ nose_ball = uv_sphere(radius=0.15, segments=16, rings=12)
 nose_shape = transform_geometry(geometry=nose_ball.mesh, translation=<0.0, -0.25, 1.0>, scale=<0.7, 1.3, 1.0>)
 skull_carved = mesh_boolean(mesh_a=skull_minus_eyes.geometry, mesh_b=nose_shape.geometry, operation=DIFFERENCE)
 
-# ── Final output ──────────────────────────────────────────────────────
-# Note: solidify_mesh requires quad meshes; boolean ops produce triangles.
-# The carved skull is already a closed solid from the boolean operations.
+# ── Tag regions for per-region quality metrics ────────────────────────
+skull_tagged = tag_geometry(geometry=skull_carved.geometry, tags="skull,cranium,face")

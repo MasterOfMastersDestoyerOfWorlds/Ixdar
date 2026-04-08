@@ -1,6 +1,8 @@
 package ixdar.geometry.mesh.nodes.geometry;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -12,6 +14,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshAppend;
+import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 
 @MeshNodeAnnotation(id = "join_geometry")
 public class JoinGeometryNode implements MeshNode {
@@ -49,6 +52,45 @@ public class JoinGeometryNode implements MeshNode {
             return;
         }
         var joined = MeshAppend.join(ma, mb);
-        ctx.setOutput("geometry", GeometryBundle.ofMesh(joined));
+        GeometryBundle result = GeometryBundle.ofMesh(joined);
+
+        // Merge tags from both inputs — offset B's vertex indices by A's count
+        Map<String, boolean[]> tagsA = TagGeometryNode.getTags(ga);
+        Map<String, boolean[]> tagsB = TagGeometryNode.getTags(gb);
+        if (tagsA != null || tagsB != null) {
+            int countA = ma.vertexCount();
+            int countB = mb.vertexCount();
+            int total = joined.vertexCount();
+            Map<String, boolean[]> merged = new HashMap<>();
+
+            // Copy A's tags (first countA vertices)
+            if (tagsA != null) {
+                for (var entry : tagsA.entrySet()) {
+                    boolean[] mask = new boolean[total];
+                    boolean[] src = entry.getValue();
+                    System.arraycopy(src, 0, mask, 0, Math.min(src.length, countA));
+                    merged.put(entry.getKey(), mask);
+                }
+            }
+
+            // Merge B's tags (offset by countA)
+            if (tagsB != null) {
+                for (var entry : tagsB.entrySet()) {
+                    boolean[] mask = merged.get(entry.getKey());
+                    if (mask == null) {
+                        mask = new boolean[total];
+                        merged.put(entry.getKey(), mask);
+                    }
+                    boolean[] src = entry.getValue();
+                    for (int i = 0; i < Math.min(src.length, countB); i++) {
+                        mask[countA + i] = src[i];
+                    }
+                }
+            }
+
+            result = result.withSlot(TagGeometryNode.TAGS_SLOT, merged);
+        }
+
+        ctx.setOutput("geometry", result);
     }
 }

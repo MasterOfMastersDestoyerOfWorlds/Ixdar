@@ -23,6 +23,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.GraphValidator;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
 
@@ -84,12 +85,19 @@ public final class ValidateDsl {
             if (exportPath != null && !exportPath.isEmpty()
                     && Boolean.TRUE.equals(probe.get("ok"))) {
                 try {
-                    MeshTopology mesh = executeMeshForExport(parsed, registry);
-                    if (mesh != null) {
+                    ExportResult er = executeForExport(parsed, registry);
+                    if (er != null && er.mesh != null) {
                         Path out = Path.of(exportPath);
                         if (out.getParent() != null) Files.createDirectories(out.getParent());
-                        writeObj(mesh, out);
+                        writeObj(er.mesh, out);
                         probe.put("exportedObj", exportPath);
+
+                        // Write .tags.json sidecar if tags are present
+                        if (er.tags != null && !er.tags.isEmpty()) {
+                            Path tagsPath = Path.of(exportPath.replaceAll("\\.obj$", "") + ".tags.json");
+                            writeTagsJson(er.tags, er.mesh.vertexCount(), tagsPath);
+                            probe.put("exportedTags", tagsPath.toString());
+                        }
                     }
                 } catch (Exception e) {
                     probe.put("exportError", e.getMessage());
@@ -218,7 +226,9 @@ public final class ValidateDsl {
         return Float.isFinite(f) ? Double.valueOf(f) : null;
     }
 
-    private static MeshTopology executeMeshForExport(List<PythonParser.ParsedNode> parsed,
+    private record ExportResult(MeshTopology mesh, Map<String, boolean[]> tags) {}
+
+    private static ExportResult executeForExport(List<PythonParser.ParsedNode> parsed,
             Map<String, Class<? extends MeshNode>> registry) {
         PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
         List<String> ports = candidateMeshPorts(last, registry);
@@ -226,12 +236,40 @@ public final class ValidateDsl {
         runtime.registerAllFromAnnotationRegistry();
         for (String port : ports) {
             try {
-                MeshTopology mesh = runtime.executeGraphToMesh(parsed, last.id, port);
-                if (mesh != null && mesh.vertexCount() > 0) return mesh;
+                Object raw = runtime.executeGraphResult(parsed, last.id, port);
+                MeshTopology mesh = null;
+                Map<String, boolean[]> tags = null;
+                if (raw instanceof GeometryBundle gb) {
+                    mesh = gb.mesh();
+                    tags = TagGeometryNode.getTags(gb);
+                } else if (raw instanceof MeshTopology mt) {
+                    mesh = mt;
+                }
+                if (mesh != null && mesh.vertexCount() > 0) {
+                    return new ExportResult(mesh, tags);
+                }
             } catch (Exception ignored) {
             }
         }
         return null;
+    }
+
+    private static void writeTagsJson(Map<String, boolean[]> tags, int vertexCount, Path out) throws IOException {
+        Map<String, Object> doc = new LinkedHashMap<>();
+        Map<String, List<Integer>> tagIndices = new LinkedHashMap<>();
+        for (Map.Entry<String, boolean[]> e : tags.entrySet()) {
+            boolean[] mask = e.getValue();
+            List<Integer> indices = new ArrayList<>();
+            for (int i = 0; i < mask.length && i < vertexCount; i++) {
+                if (mask[i]) {
+                    indices.add(i);
+                }
+            }
+            tagIndices.put(e.getKey(), indices);
+        }
+        doc.put("tags", tagIndices);
+        doc.put("vertex_count", vertexCount);
+        Files.writeString(out, new GsonBuilder().setPrettyPrinting().create().toJson(doc));
     }
 
     private static void writeObj(MeshTopology mesh, Path out) throws IOException {
