@@ -52,6 +52,11 @@ public class AutomationRuntime {
     private static final long MAIN_THREAD_WAIT_MS = 3000L;
     private static final AutomationRuntime INSTANCE = new AutomationRuntime();
 
+    // Port binding configuration
+    private static final int DEFAULT_PORT = 47832;
+    private static final int FALLBACK_PORT_START = 47833;
+    private static final int FALLBACK_PORT_END = 47932;
+
     private static class PendingMainThreadAction {
         Callable<JsonObject> action;
         CountDownLatch latch = new CountDownLatch(1);
@@ -79,13 +84,28 @@ public class AutomationRuntime {
             return;
         }
         this.canvas = canvas3D;
-        int port = Integer.getInteger("ixdar.automation.port", 47832);
+        
+        // Get configured port or use default
+        int configuredPort = Integer.getInteger("ixdar.automation.port", DEFAULT_PORT);
+        
+        // Use port probing strategy: configured -> fallback range -> ephemeral
+        int boundPort;
         try {
-            server = new AutomationApiServer(this, port);
+            boundPort = PortProber.findAvailablePort(configuredPort, FALLBACK_PORT_START, FALLBACK_PORT_END);
+        } catch (IOException e) {
+            Platforms.get().log("Automation server failed to start: " + e.getMessage());
+            return;
+        }
+        
+        try {
+            server = new AutomationApiServer(this, boundPort);
             server.start();
             started = true;
-            String message = "[Automation] Listening on http://127.0.0.1:" + port;
+            String message = "[Automation] Listening on http://127.0.0.1:" + boundPort;
             Platforms.get().log(message);
+            if (boundPort != configuredPort) {
+                Platforms.get().log("[Automation] Note: Bound to fallback port " + boundPort + " (configured port " + configuredPort + " was in use)");
+            }
         } catch (IOException e) {
             Platforms.get().log("Automation server failed to start: " + e.getMessage());
         }
@@ -111,6 +131,10 @@ public class AutomationRuntime {
 
     public AutomationReplayEngine replayEngine() {
         return replayEngine;
+    }
+
+    public int getBoundPort() {
+        return server == null ? -1 : server.port();
     }
 
     public JsonObject health() {
