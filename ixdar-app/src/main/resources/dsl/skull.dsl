@@ -6,9 +6,9 @@
 subdivisions = input_int(name="subdivisions", default=6, min=4, max=8)
 
 # ── Base cranium: UV sphere stretched to ellipsoid ────────────────────
-# Cranium roughly semi-axes: X=1.05, Y=1.3 (taller), Z=1.1
+# Cranium roughly semi-axes: X=1.06, Y=1.47, Z=1.5 (deeper to match reference)
 base = uv_sphere(radius=1.0, segments=64, rings=48)
-cranium = transform_geometry(geometry=base.mesh, translation=<0.0, -0.12, 0.0>, scale=<1.05, 1.35, 1.2>)
+cranium = transform_geometry(geometry=base.mesh, translation=<0.0, -0.12, 0.0>, scale=<1.06, 1.47, 1.50>)
 
 # ── Displacement: shape the skull profile ─────────────────────────────
 pos = input_position()
@@ -18,12 +18,12 @@ nrm = input_normal()
 # Normalize coordinates to [-1, 1] range relative to skull center
 nx = float_math(operation=DIVIDE, a=pos_xyz.x, b=1.1)
 ny_off = float_math(operation=ADD, a=pos_xyz.y, b=0.12)
-ny = float_math(operation=DIVIDE, a=ny_off.result, b=1.4)
+ny = float_math(operation=DIVIDE, a=ny_off.result, b=1.7)
 nz_off = float_math(operation=SUBTRACT, a=pos_xyz.z, b=0.17)
-nz = float_math(operation=DIVIDE, a=nz_off.result, b=1.3)
+nz = float_math(operation=DIVIDE, a=nz_off.result, b=1.6)
 
-# --- Jaw extension: push downward for vertices below Y=-0.5 ---
-jaw_gate_raw = float_math(operation=SUBTRACT, a=-0.5, b=ny.result)
+# --- Jaw extension: push downward for vertices below Y=-0.45 ---
+jaw_gate_raw = float_math(operation=SUBTRACT, a=-0.45, b=ny.result)
 jaw_gate = float_math(operation=MAXIMUM, a=jaw_gate_raw.result, b=0.0)
 # Jaw narrows in X and tapers in Z (front-heavy)
 jaw_nx_abs = float_math(operation=ABSOLUTE, a=nx.result)
@@ -35,7 +35,7 @@ jaw_z_bias = float_math(operation=ADD, a=0.5, b=jaw_nz_scaled.result)
 jaw_z_bias_c = float_math(operation=MAXIMUM, a=jaw_z_bias.result, b=0.0)
 jaw_xz = float_math(operation=MULTIPLY, a=jaw_x_taper_c.result, b=jaw_z_bias_c.result)
 jaw_push = float_math(operation=MULTIPLY, a=jaw_gate.result, b=jaw_xz.result)
-jaw_push_scaled = float_math(operation=MULTIPLY, a=jaw_push.result, b=-0.8)
+jaw_push_scaled = float_math(operation=MULTIPLY, a=jaw_push.result, b=-0.05)
 
 # --- Brow ridge: slight forward bulge above eyes ---
 brow_y_gate_raw = float_math(operation=SUBTRACT, a=ny.result, b=0.15)
@@ -88,17 +88,30 @@ disp_z = float_math(operation=MULTIPLY, a=nrm_xyz.z, b=feature_disp.result)
 displacement = combine_xyz(x=disp_x.result, y=disp_y.result, z=disp_z.result)
 shaped_skull = set_position(geometry=cranium.geometry, offset=displacement.vector)
 
-# ── Boolean carving: eye sockets ──────────────────────────────────────
-eye_ball = uv_sphere(radius=0.28, segments=24, rings=16)
-left_eye = transform_geometry(geometry=eye_ball.mesh, translation=<-0.38, 0.0, 0.95>)
-right_eye = transform_geometry(geometry=eye_ball.mesh, translation=<0.38, 0.0, 0.95>)
-skull_minus_left = mesh_boolean(mesh_a=shaped_skull.geometry, mesh_b=left_eye.geometry, operation=DIFFERENCE)
-skull_minus_eyes = mesh_boolean(mesh_a=skull_minus_left.geometry, mesh_b=right_eye.geometry, operation=DIFFERENCE)
+# ── Displacement carving: eye sockets and nasal cavity ────────────────
+# Eye socket indentations
+eye_radius_sq = float_math(operation=ADD, a=float_math(operation=MULTIPLY, a=nx.result, b=nx.result), b=float_math(operation=MULTIPLY, a=nz.result, b=nz.result))
+eye_radius = float_math(operation=SQRT, a=eye_radius_sq.result)
+eye_gate_raw = float_math(operation=SUBTRACT, a=0.5, b=eye_radius.result)
+eye_gate = float_math(operation=MAXIMUM, a=eye_gate_raw.result, b=0.0)
+eye_socket_disp = float_math(operation=MULTIPLY, a=eye_gate.result, b=-0.35)
 
-# ── Boolean carving: nasal cavity ─────────────────────────────────────
-nose_ball = uv_sphere(radius=0.15, segments=16, rings=12)
-nose_shape = transform_geometry(geometry=nose_ball.mesh, translation=<0.0, -0.25, 1.0>, scale=<0.7, 1.3, 1.0>)
-skull_carved = mesh_boolean(mesh_a=skull_minus_eyes.geometry, mesh_b=nose_shape.geometry, operation=DIFFERENCE)
+# Nasal cavity indentation
+nose_y_gate_raw = float_math(operation=SUBTRACT, a=ny.result, b=-0.35)
+nose_y_gate = float_math(operation=MAXIMUM, a=nose_y_gate_raw.result, b=0.0)
+nose_z_gate_raw = float_math(operation=SUBTRACT, a=0.0, b=nz.result)
+nose_z_gate = float_math(operation=MAXIMUM, a=nose_z_gate_raw.result, b=0.0)
+nose_x_gate_raw = float_math(operation=SUBTRACT, a=0.25, b=float_math(operation=ABSOLUTE, a=nx.result))
+nose_x_gate = float_math(operation=MAXIMUM, a=nose_x_gate_raw.result, b=0.0)
+nose_gate_raw = float_math(operation=MULTIPLY, a=nose_y_gate.result, b=nose_z_gate.result)
+nose_gate = float_math(operation=MULTIPLY, a=nose_gate_raw.result, b=nose_x_gate.result)
+nose_disp = float_math(operation=MULTIPLY, a=nose_gate.result, b=-0.3)
+
+# Combine all displacement
+final_disp_y_raw = float_math(operation=ADD, a=disp_y.result, b=eye_socket_disp.result)
+final_disp_y = float_math(operation=ADD, a=final_disp_y_raw.result, b=nose_disp.result)
+final_displacement = combine_xyz(x=disp_x.result, y=final_disp_y.result, z=disp_z.result)
+skull_carved = set_position(geometry=shaped_skull.geometry, offset=final_displacement.vector)
 
 # ── Tag regions for per-region quality metrics ────────────────────────
 skull_tagged = tag_geometry(geometry=skull_carved.geometry, tags="skull,cranium,face")
