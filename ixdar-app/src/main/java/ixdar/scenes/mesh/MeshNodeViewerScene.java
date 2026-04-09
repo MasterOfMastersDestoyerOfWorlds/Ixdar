@@ -5,6 +5,7 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.annotations.scene.SceneAnnotation;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
@@ -19,7 +20,7 @@ import ixdar.scenes.Scene;
 public class MeshNodeViewerScene extends Scene {
     private static final String DSL_FOLDER = "dsl";
     private static final String DEFAULT_DSL_RESOURCE = "skull.dsl";
-    private static final String DEFAULT_DSL_FINAL_NODE = "skull_carved";
+    private static final String DEFAULT_DSL_FINAL_NODE = "skull_tagged";
     private static final String DEFAULT_DSL_FINAL_PORT = "geometry";
 
     private static final float HALF_EXTENT = 0.5f;
@@ -35,6 +36,7 @@ public class MeshNodeViewerScene extends Scene {
 
     private OrbitMouseTrap orbitMouse;
     private MeshTopology mesh;
+    private GeometryBundle geometryBundle;
     private HalfEdgeMeshRuntime meshRuntime;
 
     public MeshNodeViewerScene() {
@@ -67,7 +69,17 @@ public class MeshNodeViewerScene extends Scene {
                 NodeGraphRuntime runtime = new NodeGraphRuntime();
                 runtime.registerAllFromAnnotationRegistry();
                 try {
-                    mesh = runtime.executeGraphToMesh(ast, dslFinalNode, dslFinalPort);
+                    Object result = runtime.executeGraphResult(ast, dslFinalNode, dslFinalPort);
+                    if (result instanceof GeometryBundle gb) {
+                        geometryBundle = gb;
+                        mesh = gb.mesh();
+                    } else if (result instanceof MeshTopology mt) {
+                        mesh = mt;
+                        geometryBundle = null;
+                    } else {
+                        mesh = null;
+                        geometryBundle = null;
+                    }
                 } catch (Exception e) {
                     for (Throwable t = e; t != null; t = t.getCause()) {
                         Platforms.get().log("[mesh-viewer] " + t.getClass().getName() + ": " + t.getMessage());
@@ -82,7 +94,7 @@ public class MeshNodeViewerScene extends Scene {
                 } catch (Exception e) {
                     throw new IllegalStateException("Failed to create mesh GL runtime", e);
                 }
-                meshRuntime.upload(mesh);
+                meshRuntime.upload(mesh, geometryBundle);
                 meshRuntime.frameCamera(camera);
                 if (mesh != null) {
                     Platforms.get().log(
@@ -229,6 +241,7 @@ public class MeshNodeViewerScene extends Scene {
             meshRuntime = null;
         }
         mesh = null;
+        geometryBundle = null;
     }
 
 }

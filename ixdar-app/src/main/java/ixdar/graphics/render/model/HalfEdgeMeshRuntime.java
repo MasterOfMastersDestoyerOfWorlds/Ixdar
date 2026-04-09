@@ -10,11 +10,14 @@ import org.lwjgl.BufferUtils;
 import ixdar.geometry.mesh.data.ArrayMesh;
 import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.shaders.VertexArrayObject;
 import ixdar.graphics.render.shaders.VertexBufferObject;
+import ixdar.graphics.render.tag.TagColorMapper;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 
@@ -41,6 +44,9 @@ public class HalfEdgeMeshRuntime {
     private int edgeCount;
     private boolean wireframe = false;
     private boolean xray = true;
+    private boolean useVertexColors = false;
+    private float[] vertexColors;
+    private TagColorMapper tagColorMapper;
 
     public HalfEdgeMeshRuntime() throws Exception {
         this.meshShader = ShaderProgram.ShaderType.Mesh.getShader();
@@ -60,6 +66,32 @@ public class HalfEdgeMeshRuntime {
             return;
         }
         compiledMesh = compileSurface(mesh);
+        uploadCompiledMesh(Platforms.gl().STATIC_DRAW());
+        uploadEdgeData(mesh);
+    }
+
+    public void upload(MeshTopology mesh, GeometryBundle bundle) {
+        if (mesh == null) {
+            compiledMesh = null;
+            edgeCount = 0;
+            useVertexColors = false;
+            return;
+        }
+        compiledMesh = compileSurface(mesh);
+        
+        // Extract tags and compute vertex colors if available
+        useVertexColors = false;
+        if (bundle != null) {
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, boolean[]> tags = (java.util.Map<String, boolean[]>) bundle.slots().get(TagGeometryNode.TAGS_SLOT);
+            if (tags != null && !tags.isEmpty()) {
+                tagColorMapper = new TagColorMapper();
+                tagColorMapper.registerTags(tags);
+                vertexColors = tagColorMapper.computeVertexColors(tags, mesh.vertexCount());
+                useVertexColors = true;
+            }
+        }
+        
         uploadCompiledMesh(Platforms.gl().STATIC_DRAW());
         uploadEdgeData(mesh);
     }
@@ -236,12 +268,18 @@ public class HalfEdgeMeshRuntime {
         meshVao.bind();
         meshVbo.bind(gl.ARRAY_BUFFER());
         meshVbo.uploadData(gl.ARRAY_BUFFER(), compiledMesh.vertices, usage);
-        gl.vertexAttribPointer(0, 3, gl.FLOAT(), false, 8 * Float.BYTES, 0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT(), false, 12 * Float.BYTES, 0);
         gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(1, 3, gl.FLOAT(), false, 8 * Float.BYTES, 3 * Float.BYTES);
+        gl.vertexAttribPointer(1, 3, gl.FLOAT(), false, 12 * Float.BYTES, 3 * Float.BYTES);
         gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, 8 * Float.BYTES, 6 * Float.BYTES);
+        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, 12 * Float.BYTES, 6 * Float.BYTES);
         gl.enableVertexAttribArray(2);
+
+        // Upload vertex colors if available
+        if (useVertexColors && vertexColors != null) {
+            gl.vertexAttribPointer(3, 4, gl.FLOAT(), false, 12 * Float.BYTES, 8 * Float.BYTES);
+            gl.enableVertexAttribArray(3);
+        }
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), ebo);
         IntBuffer uploadBuffer = ensureIndexBufferCapacity(compiledMesh.indices.length);
