@@ -556,6 +556,9 @@
       <id>mesh-viewer</id>
       <properties>
         <maven.test.skip>true</maven.test.skip>
+        <mesh.dsl></mesh.dsl>
+        <mesh.node></mesh.node>
+        <mesh.port></mesh.port>
       </properties>
       <build>
         <defaultGoal>compile exec:exec</defaultGoal>
@@ -573,6 +576,9 @@
                 <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-Dixdar.mesh.dsl=${mesh.dsl}</argument>
+                <argument>-Dixdar.mesh.node=${mesh.node}</argument>
+                <argument>-Dixdar.mesh.port=${mesh.port}</argument>
                 <argument>-classpath</argument>
                 <classpath />
                 <argument>ixdar.canvas.IxdarWindow</argument>

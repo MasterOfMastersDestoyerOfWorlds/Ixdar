@@ -103,6 +103,12 @@ class AutomationClient:
         """Return canonical mesh SHA-256 from the mesh viewer (GET /ui/mesh/fingerprint)."""
         return self.request_json("/ui/mesh/fingerprint")
 
+    def mesh_overlay(self, path: str = "", clear: bool = False) -> dict:
+        """Load or clear a reference OBJ overlay on the mesh viewer."""
+        if clear:
+            return self.request_json("/mesh/overlay", {"clear": True})
+        return self.request_json("/mesh/overlay", {"path": path})
+
     def screenshot(self, out_path: str = "", inline: bool = False) -> dict:
         return self.request_json("/ui/screenshot", {"path": out_path, "inline": inline})
 

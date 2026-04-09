@@ -141,6 +141,8 @@ public interface GL {
 
     void disable(int depthTest);
 
+    void depthMask(boolean flag);
+
     void createCapabilities();
 
     int DEPTH_TEST();

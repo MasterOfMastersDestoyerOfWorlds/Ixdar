@@ -14,6 +14,7 @@ import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
+import ixdar.geometry.mesh.curve.FloatCurveKernel;
 import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
@@ -31,11 +32,12 @@ public class CurveToMeshNode implements MeshNode {
     private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.1f);
     private static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 12);
     private static final InputPort FILL_CAPS = new InputPort("fill_caps", PortType.BOOLEAN, true);
+    private static final InputPort RADIUS_CLOSURE = new InputPort("radius_closure", PortType.CLOSURE, null);
     private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(CURVE, PROFILE_CURVE, RADIUS, RESOLUTION, FILL_CAPS);
+        return List.of(CURVE, PROFILE_CURVE, RADIUS, RESOLUTION, FILL_CAPS, RADIUS_CLOSURE);
     }
 
     @Override
@@ -63,6 +65,9 @@ public class CurveToMeshNode implements MeshNode {
         resolution = Math.max(3, Math.min(128, resolution));
         boolean fillCaps = FieldBroadcast.boolAt(
                 FieldBroadcast.getInputOrDefault(ctx, "fill_caps", FILL_CAPS.defaultValue()), 0, true);
+
+        Object closureObj = ctx.getInput("radius_closure", Object.class);
+        FloatCurveKernel radiusClosure = (closureObj instanceof FloatCurveKernel k) ? k : null;
 
         // Determine cross-section: use profile curve if provided, otherwise circle
         float[] profileU;
@@ -117,7 +122,7 @@ public class CurveToMeshNode implements MeshNode {
             if (nSamples < 2) continue;
 
             int m = profileU.length;
-            sweepAlongCurve(mesh, pts, nSamples, closed, profileU, profileV, m, fillCaps);
+            sweepAlongCurve(mesh, pts, nSamples, closed, profileU, profileV, m, fillCaps, radiusClosure);
         }
 
         mesh.computeNormals();
@@ -144,7 +149,7 @@ public class CurveToMeshNode implements MeshNode {
 
     private static void sweepAlongCurve(HalfEdgeMesh mesh, Vector3f[] pts, int nSamples,
                                          boolean closed, float[] profileU, float[] profileV,
-                                         int m, boolean fillCaps) {
+                                         int m, boolean fillCaps, FloatCurveKernel radiusClosure) {
         // Compute initial frame
         Vector3f w = tangent(pts, 0, nSamples, closed);
         if (w.lengthSquared() < 1e-20f) return;
@@ -172,10 +177,17 @@ public class CurveToMeshNode implements MeshNode {
             }
 
             Vector3f p = pts[i];
+            float scale = 1.0f;
+            if (radiusClosure != null) {
+                float t = (nSamples > 1) ? (float) i / (nSamples - 1) : 0.5f;
+                scale = radiusClosure.evaluate(t);
+            }
             for (int k = 0; k < m; k++) {
-                float x = p.x + uDir.x * profileU[k] + vDir.x * profileV[k];
-                float y = p.y + uDir.y * profileU[k] + vDir.y * profileV[k];
-                float z = p.z + uDir.z * profileU[k] + vDir.z * profileV[k];
+                float pu = profileU[k] * scale;
+                float pv = profileV[k] * scale;
+                float x = p.x + uDir.x * pu + vDir.x * pv;
+                float y = p.y + uDir.y * pu + vDir.y * pv;
+                float z = p.z + uDir.z * pu + vDir.z * pv;
                 vid[i][k] = mesh.addVertex(x, y, z);
             }
         }

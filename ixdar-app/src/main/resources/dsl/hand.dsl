@@ -1,149 +1,139 @@
-# Hand — Overlapping ellipsoid volumes matched to reference cross-sections
-# Reference: /Users/acw28/Blends/Hand/Hand.obj (66K verts)
-# Measured cross-section data used for precise placement:
-#   Y=-2.5: center(-0.42, 0.0)  halfX=0.68 halfZ=0.90
-#   Y=-1.5: center(-0.42,-0.06) halfX=0.62 halfZ=0.90
-#   Y=-0.5: center(-0.22,-0.47) halfX=0.84 halfZ=1.59
-#   Y= 0.0: center(-0.09,-0.73) halfX=1.01 halfZ=1.76
-#   Y= 0.5: center(-0.20,-0.52) halfX=1.20 halfZ=1.88
-#   Y= 1.0: center(-0.36,-0.18) halfX=1.20 halfZ=1.95
-#   Y= 1.5: center(-0.47, 0.12) halfX=0.44 halfZ=1.36
-#   Y= 2.0: center(-0.28, 0.13) halfX=0.57 halfZ=1.43
-#   Y= 2.5: center(-0.12,-0.02) halfX=0.64 halfZ=1.46
-#   Y= 3.0: center( 0.19,-0.31) halfX=0.63 halfZ=1.09
-#   Y= 3.5: center( 0.34,-0.31) halfX=0.30 halfZ=0.20
+# Hand — Hybrid: ellipsoid body + curve-swept fingers
+# Reference: /Users/acw28/Blends/Hand/Hand.obj (260K verts)
+# Strategy: P95 ellipsoids for forearm/wrist/palm (proven 88.5%),
+#   curve_to_mesh with radius_closure for individual fingers (no inter-finger gaps).
 
-# ── Shared primitives ────────────────────────────────────────────────
 ball = uv_sphere(radius=1.0, segments=24, rings=16)
-cyl = cylinder(radius=1.0, height=1.0, segments=24)
+
+# Shared: circle profile rotated to XY plane for curve_to_mesh
+profile_xz = circle_curve(radius=1.0, resolution=16)
+profile_xy = transform_geometry(geometry=profile_xz.curve, rotation=<1.5708, 0.0, 0.0>)
 
 # ══════════════════════════════════════════════════════════════════════
-# FOREARM — elongated cylinder Y=[-3.3, -0.8]
-# Center at (-0.42, -2.05, 0.0), halfX=0.68, halfZ=0.90, height=2.5
+# FOREARM — Y=-3.2 to -1.6 (ellipsoids from reference cross-section data)
 # ══════════════════════════════════════════════════════════════════════
-# Reference forearm: X=[-1.10,0.26], Z=[-0.87,0.92] → halfX=0.68, halfZ=0.90
-# Use overlapping ellipsoids for smoother forearm shape
-forearm_lo = transform_geometry(geometry=ball.mesh, translation=<-0.42, -2.8, 0.0>, scale=<0.62, 0.65, 0.85>)
-forearm_mid = transform_geometry(geometry=ball.mesh, translation=<-0.42, -2.0, -0.02>, scale=<0.60, 0.65, 0.85>)
-forearm_hi = transform_geometry(geometry=ball.mesh, translation=<-0.42, -1.3, -0.06>, scale=<0.58, 0.55, 0.85>)
-forearm_bot = transform_geometry(geometry=ball.mesh, translation=<-0.42, -3.25, 0.0>, scale=<0.65, 0.25, 0.88>)
+
+fa_0 = transform_geometry(geometry=ball.mesh, translation=<-0.571, -3.2, -0.062>, scale=<0.445, 0.20, 0.826>)
+fa_1 = transform_geometry(geometry=ball.mesh, translation=<-0.442, -3.0, 0.042>, scale=<0.598, 0.20, 0.879>)
+fa_2 = transform_geometry(geometry=ball.mesh, translation=<-0.418, -2.8, -0.006>, scale=<0.654, 0.20, 0.894>)
+fa_3 = transform_geometry(geometry=ball.mesh, translation=<-0.390, -2.6, -0.016>, scale=<0.671, 0.20, 0.894>)
+fa_4 = transform_geometry(geometry=ball.mesh, translation=<-0.420, -2.4, 0.021>, scale=<0.672, 0.20, 0.887>)
+fa_5 = transform_geometry(geometry=ball.mesh, translation=<-0.445, -2.2, 0.009>, scale=<0.661, 0.20, 0.880>)
+fa_6 = transform_geometry(geometry=ball.mesh, translation=<-0.441, -2.0, -0.002>, scale=<0.654, 0.20, 0.872>)
+fa_7 = transform_geometry(geometry=ball.mesh, translation=<-0.422, -1.8, -0.026>, scale=<0.645, 0.20, 0.859>)
+fa_8 = transform_geometry(geometry=ball.mesh, translation=<-0.472, -1.6, -0.050>, scale=<0.625, 0.20, 0.850>)
+
+fj1 = join_geometry(a=fa_0.geometry, b=fa_1.geometry)
+fj2 = join_geometry(a=fj1.geometry, b=fa_2.geometry)
+fj3 = join_geometry(a=fj2.geometry, b=fa_3.geometry)
+fj4 = join_geometry(a=fj3.geometry, b=fa_4.geometry)
+fj5 = join_geometry(a=fj4.geometry, b=fa_5.geometry)
+fj6 = join_geometry(a=fj5.geometry, b=fa_6.geometry)
+fj7 = join_geometry(a=fj6.geometry, b=fa_7.geometry)
+fj8 = join_geometry(a=fj7.geometry, b=fa_8.geometry)
+forearm_tagged = tag_geometry(geometry=fj8.geometry, tags="hand,forearm")
 
 # ══════════════════════════════════════════════════════════════════════
-# WRIST TRANSITION Y=[-1.0, -0.3] — widens from forearm to palm
+# WRIST + PALM — Y=-1.4 to +1.0 (ellipsoids)
 # ══════════════════════════════════════════════════════════════════════
-wrist = transform_geometry(geometry=ball.mesh, translation=<-0.30, -0.65, -0.15>, scale=<0.78, 0.55, 1.2>)
 
-# ══════════════════════════════════════════════════════════════════════
-# PALM — large flattened ellipsoid Y=[-0.5, 1.3]
-# Widest part of hand, deep Z, center shifts to Z=-0.7
-# ══════════════════════════════════════════════════════════════════════
-# Main palm mass — tight fit to reference cross-section at Y=0
-# ref: center(-0.09,-0.73) halfX=1.01 halfZ=1.76
-palm_core = transform_geometry(geometry=ball.mesh, translation=<-0.09, 0.0, -0.73>, scale=<0.88, 0.75, 1.55>)
-# Upper palm at Y=0.5: center(-0.20,-0.52) halfX=1.20 halfZ=1.88
-palm_upper = transform_geometry(geometry=ball.mesh, translation=<-0.20, 0.5, -0.52>, scale=<1.00, 0.55, 1.65>)
-# Palm-finger transition at Y=1.0: center(-0.36,-0.18) halfX=1.20 halfZ=1.95
-palm_top = transform_geometry(geometry=ball.mesh, translation=<-0.36, 1.0, -0.18>, scale=<0.95, 0.45, 1.65>)
+wp_0 = transform_geometry(geometry=ball.mesh, translation=<-0.330, -1.4, -0.061>, scale=<0.632, 0.20, 0.941>)
+wp_1 = transform_geometry(geometry=ball.mesh, translation=<-0.280, -1.2, -0.127>, scale=<0.681, 0.20, 1.112>)
+wp_2 = transform_geometry(geometry=ball.mesh, translation=<-0.206, -1.0, -0.252>, scale=<0.750, 0.20, 1.266>)
+wp_3 = transform_geometry(geometry=ball.mesh, translation=<-0.192, -0.8, -0.332>, scale=<0.792, 0.20, 1.416>)
+wp_4 = transform_geometry(geometry=ball.mesh, translation=<-0.220, -0.6, -0.441>, scale=<0.813, 0.20, 1.521>)
+wp_5 = transform_geometry(geometry=ball.mesh, translation=<-0.211, -0.4, -0.509>, scale=<0.850, 0.20, 1.608>)
+wp_6 = transform_geometry(geometry=ball.mesh, translation=<-0.206, -0.2, -0.563>, scale=<0.915, 0.20, 1.667>)
+wp_7 = transform_geometry(geometry=ball.mesh, translation=<-0.077, 0.0, -0.758>, scale=<0.995, 0.20, 1.748>)
+wp_8 = transform_geometry(geometry=ball.mesh, translation=<-0.024, 0.2, -0.811>, scale=<1.076, 0.20, 1.787>)
+wp_9 = transform_geometry(geometry=ball.mesh, translation=<-0.149, 0.4, -0.606>, scale=<1.148, 0.20, 1.845>)
+wp_10 = transform_geometry(geometry=ball.mesh, translation=<-0.227, 0.6, -0.475>, scale=<1.213, 0.20, 1.892>)
+wp_11 = transform_geometry(geometry=ball.mesh, translation=<-0.046, 0.8, -0.690>, scale=<1.220, 0.20, 1.912>)
+wp_12 = transform_geometry(geometry=ball.mesh, translation=<-0.519, 1.0, 0.071>, scale=<1.123, 0.20, 1.883>)
 
-# Thenar eminence (thumb pad — bulges at -X, Y~0, Z~-0.5)
-thenar = transform_geometry(geometry=ball.mesh, translation=<-0.85, 0.0, -0.40>, scale=<0.45, 0.8, 1.0>)
-
-# Hypothenar (pinky pad — +X side)
-hypothenar = transform_geometry(geometry=ball.mesh, translation=<0.75, 0.3, -0.35>, scale=<0.35, 0.7, 0.9>)
-
-# Knuckle back — ref shows mass at X=0.8..1.3, Z=-2.6..-2.0, Y=0.5..1.0
+# Palm deep -Z fills
+palm_deep = transform_geometry(geometry=ball.mesh, translation=<-0.07, 0.7, -1.8>, scale=<0.55, 0.45, 0.55>)
+palm_plus_x = transform_geometry(geometry=ball.mesh, translation=<0.70, 0.7, -0.50>, scale=<0.35, 0.55, 0.85>)
+thenar = transform_geometry(geometry=ball.mesh, translation=<-0.85, 0.0, -0.40>, scale=<0.42, 0.75, 0.95>)
+hypothenar = transform_geometry(geometry=ball.mesh, translation=<0.75, 0.3, -0.35>, scale=<0.30, 0.65, 0.80>)
 knuckle_back = transform_geometry(geometry=ball.mesh, translation=<1.0, 0.75, -2.30>, scale=<0.22, 0.50, 0.28>)
+wrist_px = transform_geometry(geometry=ball.mesh, translation=<0.35, -0.5, -1.20>, scale=<0.28, 0.55, 0.40>)
 
-# Wrist +X transition — undershoot at Y=-1.0..0.0, X=0.35, Z=-1.25
-wrist_plus_x = transform_geometry(geometry=ball.mesh, translation=<0.35, -0.5, -1.20>, scale=<0.30, 0.6, 0.45>)
-
-# Ring/pinky fingertip Z extension — Y=3.5, X=0.78, Z=-1.17
-ring_tip_ext = transform_geometry(geometry=ball.mesh, translation=<0.75, 3.2, -1.10>, scale=<0.18, 0.35, 0.25>)
-
-# ══════════════════════════════════════════════════════════════════════
-# THUMB — traced path from reference data
-# X=-0.85 to -0.63, Y=-0.5 to 2.25, Z=-0.2 to 0.2
-# rX=0.22 to 0.30, rZ measured ~1.2 (includes palm overlap)
-# Actual thumb radius ~0.25
-# ══════════════════════════════════════════════════════════════════════
-# Thumb metacarpal (hidden in thenar)
-thumb_mc = transform_geometry(geometry=cyl.mesh, translation=<-0.85, -0.1, -0.10>, rotation=<0.0, 0.0, 0.4>, scale=<0.27, 0.8, 0.30>)
-# MCP joint
-thumb_mcp = transform_geometry(geometry=ball.mesh, translation=<-0.88, 0.5, 0.04>, scale=<0.30, 0.25, 0.32>)
-# Proximal phalanx
-thumb_pp = transform_geometry(geometry=cyl.mesh, translation=<-0.84, 1.0, 0.20>, rotation=<-0.1, 0.0, 0.2>, scale=<0.28, 0.65, 0.30>)
-# IP joint
-thumb_ip = transform_geometry(geometry=ball.mesh, translation=<-0.77, 1.5, 0.18>, scale=<0.22, 0.2, 0.25>)
-# Distal phalanx
-thumb_dp = transform_geometry(geometry=cyl.mesh, translation=<-0.70, 1.9, 0.12>, rotation=<0.0, 0.0, 0.15>, scale=<0.18, 0.45, 0.20>)
-# Tip
-thumb_tip = transform_geometry(geometry=ball.mesh, translation=<-0.63, 2.2, 0.07>, scale=<0.15, 0.14, 0.17>)
+wj1 = join_geometry(a=wp_0.geometry, b=wp_1.geometry)
+wj2 = join_geometry(a=wj1.geometry, b=wp_2.geometry)
+wj3 = join_geometry(a=wj2.geometry, b=wp_3.geometry)
+wj4 = join_geometry(a=wj3.geometry, b=wp_4.geometry)
+wj5 = join_geometry(a=wj4.geometry, b=wp_5.geometry)
+wj6 = join_geometry(a=wj5.geometry, b=wp_6.geometry)
+wj7 = join_geometry(a=wj6.geometry, b=wp_7.geometry)
+wj8 = join_geometry(a=wj7.geometry, b=wp_8.geometry)
+wj9 = join_geometry(a=wj8.geometry, b=wp_9.geometry)
+wj10 = join_geometry(a=wj9.geometry, b=wp_10.geometry)
+wj11 = join_geometry(a=wj10.geometry, b=wp_11.geometry)
+wj12 = join_geometry(a=wj11.geometry, b=wp_12.geometry)
+wj13 = join_geometry(a=wj12.geometry, b=palm_deep.geometry)
+wj14 = join_geometry(a=wj13.geometry, b=palm_plus_x.geometry)
+wj15 = join_geometry(a=wj14.geometry, b=thenar.geometry)
+wj16 = join_geometry(a=wj15.geometry, b=hypothenar.geometry)
+wj17 = join_geometry(a=wj16.geometry, b=knuckle_back.geometry)
+wj18 = join_geometry(a=wj17.geometry, b=wrist_px.geometry)
+palm_tagged = tag_geometry(geometry=wj18.geometry, tags="hand,palm")
 
 # ══════════════════════════════════════════════════════════════════════
-# FINGER MASS — the fingers are one continuous mass in the reference
-# They don't separate. Model as overlapping Y-elongated ellipsoids
-# that taper from Y=1.5 (wide) to Y=3.5 (narrow).
-# The mass shifts from X=-0.47 to X=+0.34 as it extends.
+# THUMB — curve sweep with radius_closure
 # ══════════════════════════════════════════════════════════════════════
 
-# Lower finger mass (Y=1.2..2.5)
-fingers_lo = transform_geometry(geometry=ball.mesh, translation=<-0.30, 1.8, 0.0>, scale=<0.65, 0.8, 1.40>)
-
-# Mid finger mass (Y=2.0..3.0)
-fingers_mid = transform_geometry(geometry=ball.mesh, translation=<-0.05, 2.5, -0.05>, scale=<0.70, 0.7, 1.45>)
-
-# Upper finger mass (Y=2.5..3.5) — shifts toward +X
-fingers_hi = transform_geometry(geometry=ball.mesh, translation=<0.15, 3.0, -0.30>, scale=<0.65, 0.6, 1.10>)
-
-# Fingertips (Y=3.0..3.65) — narrow
-fingers_tips = transform_geometry(geometry=ball.mesh, translation=<0.34, 3.3, -0.30>, scale=<0.32, 0.35, 0.25>)
-
-# Additional mass to fill palm-finger junction at Z extremes
-# The reference has Z span of ~2.9 at Y=1.5 and ~2.7 at Y=2.5
-finger_front = transform_geometry(geometry=ball.mesh, translation=<-0.15, 2.0, 1.2>, scale=<0.55, 0.8, 0.4>)
-finger_back = transform_geometry(geometry=ball.mesh, translation=<-0.15, 2.0, -1.2>, scale=<0.55, 0.8, 0.4>)
+thumb_rail = curve_bezier(resolution=24, start=<-0.85, -0.3, -0.10>, handle_start=<-0.88, 0.3, 0.00>, handle_end=<-0.80, 1.2, 0.20>, end=<-0.63, 2.2, 0.07>, mode=CUBIC)
+thumb_rail_r = resample_curve(curve=thumb_rail.curve, length=0.06)
+thumb_radius = float_curve(points="0,0.30, 0.4,0.28, 0.7,0.24, 1.0,0.18")
+thumb_mesh = curve_to_mesh(curve=thumb_rail_r.curve, radius=1.0, radius_closure=thumb_radius.closure, resolution=12, fill_caps=true)
+thumb_tagged = tag_geometry(geometry=thumb_mesh.geometry, tags="hand,thumb")
 
 # ══════════════════════════════════════════════════════════════════════
-# ASSEMBLY — tag then join
+# FINGERS — individual curve sweeps with radius_closure
+# From cluster analysis: 4 distinct finger paths at Y>=1.2
 # ══════════════════════════════════════════════════════════════════════
 
-# Forearm
-fa_j1 = join_geometry(a=forearm_lo.geometry, b=forearm_mid.geometry)
-fa_j2 = join_geometry(a=fa_j1.geometry, b=forearm_hi.geometry)
-fa_j3 = join_geometry(a=fa_j2.geometry, b=forearm_bot.geometry)
-forearm_tagged = tag_geometry(geometry=fa_j3.geometry, tags="hand,forearm")
+# Finger A — Pinky (highest +Z): Y=1.2→2.5
+fA_rail = curve_bezier(resolution=20, start=<-0.50, 1.2, 1.10>, handle_start=<-0.45, 1.6, 1.20>, handle_end=<-0.10, 2.0, 1.35>, end=<0.38, 2.5, 1.42>, mode=CUBIC)
+fA_rail_r = resample_curve(curve=fA_rail.curve, length=0.06)
+fA_radius = float_curve(points="0,0.30, 0.5,0.25, 1.0,0.18")
+fA_mesh = curve_to_mesh(curve=fA_rail_r.curve, radius=1.0, radius_closure=fA_radius.closure, resolution=10, fill_caps=true)
+fA_tagged = tag_geometry(geometry=fA_mesh.geometry, tags="hand,fingers,pinky")
 
-# Wrist
-wrist_tagged = tag_geometry(geometry=wrist.geometry, tags="hand,wrist")
+# Finger B — Ring (Z≈0.5..0.6): Y=1.2→3.3
+fB_rail = curve_bezier(resolution=24, start=<-0.50, 1.2, 0.55>, handle_start=<-0.45, 1.6, 0.56>, handle_end=<-0.20, 2.4, 0.60>, end=<0.25, 3.3, 0.55>, mode=CUBIC)
+fB_rail_r = resample_curve(curve=fB_rail.curve, length=0.06)
+fB_radius = float_curve(points="0,0.33, 0.3,0.30, 0.7,0.25, 1.0,0.18")
+fB_mesh = curve_to_mesh(curve=fB_rail_r.curve, radius=1.0, radius_closure=fB_radius.closure, resolution=10, fill_caps=true)
+fB_tagged = tag_geometry(geometry=fB_mesh.geometry, tags="hand,fingers,ring")
 
-# Palm
-pa_j1 = join_geometry(a=palm_core.geometry, b=palm_upper.geometry)
-pa_j2 = join_geometry(a=pa_j1.geometry, b=palm_top.geometry)
-pa_j3 = join_geometry(a=pa_j2.geometry, b=thenar.geometry)
-pa_j4 = join_geometry(a=pa_j3.geometry, b=hypothenar.geometry)
-pa_j5 = join_geometry(a=pa_j4.geometry, b=knuckle_back.geometry)
-pa_j6 = join_geometry(a=pa_j5.geometry, b=wrist_plus_x.geometry)
-palm_tagged = tag_geometry(geometry=pa_j6.geometry, tags="hand,palm")
+# Finger C — Middle (Z≈-0.3, longest): Y=1.2→3.6
+fC_rail = curve_bezier(resolution=28, start=<-0.52, 1.2, -0.20>, handle_start=<-0.50, 1.8, -0.25>, handle_end=<-0.15, 2.8, -0.30>, end=<0.40, 3.6, -0.30>, mode=CUBIC)
+fC_rail_r = resample_curve(curve=fC_rail.curve, length=0.06)
+fC_radius = float_curve(points="0,0.35, 0.3,0.32, 0.6,0.28, 0.85,0.22, 1.0,0.17")
+fC_mesh = curve_to_mesh(curve=fC_rail_r.curve, radius=1.0, radius_closure=fC_radius.closure, resolution=10, fill_caps=true)
+fC_tagged = tag_geometry(geometry=fC_mesh.geometry, tags="hand,fingers,middle")
 
-# Thumb
-th_j1 = join_geometry(a=thumb_mc.geometry, b=thumb_mcp.geometry)
-th_j2 = join_geometry(a=th_j1.geometry, b=thumb_pp.geometry)
-th_j3 = join_geometry(a=th_j2.geometry, b=thumb_ip.geometry)
-th_j4 = join_geometry(a=th_j3.geometry, b=thumb_dp.geometry)
-th_j5 = join_geometry(a=th_j4.geometry, b=thumb_tip.geometry)
-thumb_tagged = tag_geometry(geometry=th_j5.geometry, tags="hand,thumb")
+# Finger D — Index (most -Z, Z≈-1.0..-1.1): Y=1.2→3.2
+fD_rail = curve_bezier(resolution=24, start=<-0.35, 1.2, -0.90>, handle_start=<-0.25, 1.7, -0.98>, handle_end=<0.10, 2.5, -1.08>, end=<0.55, 3.2, -1.10>, mode=CUBIC)
+fD_rail_r = resample_curve(curve=fD_rail.curve, length=0.06)
+fD_radius = float_curve(points="0,0.33, 0.3,0.30, 0.7,0.25, 1.0,0.18")
+fD_mesh = curve_to_mesh(curve=fD_rail_r.curve, radius=1.0, radius_closure=fD_radius.closure, resolution=10, fill_caps=true)
+fD_tagged = tag_geometry(geometry=fD_mesh.geometry, tags="hand,fingers,index")
 
-# Fingers
-fi_j1 = join_geometry(a=fingers_lo.geometry, b=fingers_mid.geometry)
-fi_j2 = join_geometry(a=fi_j1.geometry, b=fingers_hi.geometry)
-fi_j3 = join_geometry(a=fi_j2.geometry, b=fingers_tips.geometry)
-fi_j4 = join_geometry(a=fi_j3.geometry, b=finger_front.geometry)
-fi_j5 = join_geometry(a=fi_j4.geometry, b=finger_back.geometry)
-fi_j6 = join_geometry(a=fi_j5.geometry, b=ring_tip_ext.geometry)
-fingers_tagged = tag_geometry(geometry=fi_j6.geometry, tags="hand,fingers")
+# Ring/pinky tip extension (from error analysis)
+ring_tip = transform_geometry(geometry=ball.mesh, translation=<0.75, 3.2, -1.10>, scale=<0.18, 0.35, 0.25>)
+ring_tip_tagged = tag_geometry(geometry=ring_tip.geometry, tags="hand,fingers")
 
-# Final join
-j1 = join_geometry(a=forearm_tagged.geometry, b=wrist_tagged.geometry)
-j2 = join_geometry(a=j1.geometry, b=palm_tagged.geometry)
-j3 = join_geometry(a=j2.geometry, b=thumb_tagged.geometry)
-hand_tagged = join_geometry(a=j3.geometry, b=fingers_tagged.geometry)
+# ══════════════════════════════════════════════════════════════════════
+# ASSEMBLY
+# ══════════════════════════════════════════════════════════════════════
+
+j1 = join_geometry(a=forearm_tagged.geometry, b=palm_tagged.geometry)
+j2 = join_geometry(a=j1.geometry, b=thumb_tagged.geometry)
+j3 = join_geometry(a=j2.geometry, b=fA_tagged.geometry)
+j4 = join_geometry(a=j3.geometry, b=fB_tagged.geometry)
+j5 = join_geometry(a=j4.geometry, b=fC_tagged.geometry)
+j6 = join_geometry(a=j5.geometry, b=fD_tagged.geometry)
+hand_tagged = join_geometry(a=j6.geometry, b=ring_tip_tagged.geometry)

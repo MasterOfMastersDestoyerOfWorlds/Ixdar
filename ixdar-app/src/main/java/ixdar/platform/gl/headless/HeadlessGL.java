@@ -166,6 +166,11 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
     }
 
     @Override
+    public void depthMask(boolean flag) {
+        GL11.glDepthMask(flag);
+    }
+
+    @Override
     public void blendFunc(int sfactor, int dfactor) {
         GL11.glBlendFunc(sfactor, dfactor);
     }

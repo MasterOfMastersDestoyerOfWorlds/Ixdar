@@ -1,10 +1,13 @@
 package ixdar.scenes.mesh;
 
+import java.io.IOException;
 import java.util.List;
 
 import org.joml.Vector3f;
 
 import ixdar.annotations.scene.SceneAnnotation;
+import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.MeshLoader;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
@@ -12,6 +15,7 @@ import ixdar.gui.ui.menu.MenuBox;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
+import ixdar.platform.gl.GL;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.Scene;
 
@@ -36,9 +40,18 @@ public class MeshNodeViewerScene extends Scene {
     private OrbitMouseTrap orbitMouse;
     private MeshTopology mesh;
     private HalfEdgeMeshRuntime meshRuntime;
+    private HalfEdgeMeshRuntime overlayRuntime;
 
     public MeshNodeViewerScene() {
-        this(DEFAULT_DSL_RESOURCE, DEFAULT_DSL_FINAL_NODE, DEFAULT_DSL_FINAL_PORT);
+        this(
+                sysPropOrDefault("ixdar.mesh.dsl", DEFAULT_DSL_RESOURCE),
+                sysPropOrDefault("ixdar.mesh.node", DEFAULT_DSL_FINAL_NODE),
+                sysPropOrDefault("ixdar.mesh.port", DEFAULT_DSL_FINAL_PORT));
+    }
+
+    private static String sysPropOrDefault(String key, String fallback) {
+        String v = System.getProperty(key);
+        return (v != null && !v.isEmpty()) ? v : fallback;
     }
 
     public MeshNodeViewerScene(String dslResource, String dslFinalNode, String dslFinalPort) {
@@ -114,6 +127,16 @@ public class MeshNodeViewerScene extends Scene {
         }
         camera.resetView();
         meshRuntime.render(camera);
+
+        if (overlayRuntime != null) {
+            GL gl = Platforms.gl();
+            gl.enable(gl.BLEND());
+            gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
+            gl.depthMask(false);
+            overlayRuntime.render(camera);
+            gl.depthMask(true);
+            gl.disable(gl.BLEND());
+        }
     }
 
     @Override
@@ -210,6 +233,35 @@ public class MeshNodeViewerScene extends Scene {
         return mesh == null ? new Vector3f(HALF_EXTENT, HALF_EXTENT, HALF_EXTENT) : mesh.boundsMax(new Vector3f());
     }
 
+    /** Load a reference OBJ file as a semi-transparent overlay. */
+    public void loadOverlay(String objPath) {
+        disposeOverlay();
+        try {
+            ArrayMesh refMesh = MeshLoader.load(objPath);
+            overlayRuntime = new HalfEdgeMeshRuntime();
+            overlayRuntime.upload(refMesh);
+            overlayRuntime.setSolidColor(1.0f, 0.6f, 0.2f, 0.35f);
+            Platforms.get().log("[mesh-viewer] overlay loaded: " + objPath
+                    + " verts=" + refMesh.vertexCount() + " faces=" + refMesh.faceCount());
+        } catch (IOException e) {
+            Platforms.get().log("[mesh-viewer] overlay load failed: " + e.getMessage());
+        } catch (Exception e) {
+            Platforms.get().log("[mesh-viewer] overlay GL init failed: " + e.getMessage());
+        }
+    }
+
+    /** Remove any currently loaded overlay. */
+    public void clearOverlay() {
+        disposeOverlay();
+    }
+
+    private void disposeOverlay() {
+        if (overlayRuntime != null) {
+            overlayRuntime.dispose();
+            overlayRuntime = null;
+        }
+    }
+
     /** Current mesh from the DSL graph, or null before async load completes. */
     public MeshTopology getMesh() {
         return mesh;
@@ -228,6 +280,7 @@ public class MeshNodeViewerScene extends Scene {
             meshRuntime.dispose();
             meshRuntime = null;
         }
+        disposeOverlay();
         mesh = null;
     }
 

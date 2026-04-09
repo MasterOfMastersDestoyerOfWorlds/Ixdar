@@ -191,6 +191,22 @@ def quilt_mesh_compare(client: AutomationClient, reference: str = "") -> CliComm
     return CliCommandResult(payload=payload)
 
 
+@cli_command(name="mesh-overlay")
+def mesh_overlay(client: AutomationClient, path: str = "", clear: bool = False) -> CliCommandResult:
+    """Load a reference OBJ as a semi-transparent overlay, or clear it.
+
+    :param path: Path to reference OBJ file to overlay.
+    :param clear: If true, remove any existing overlay.
+    """
+    if not clear and not path.strip():
+        return CliCommandResult(
+            payload={"ok": False, "error": "Provide --path or --clear"},
+            exit_code=1,
+        )
+    result = client.mesh_overlay(path=path.strip(), clear=clear)
+    return CliCommandResult(payload=result, exit_code=0 if result.get("ok") else 1)
+
+
 @cli_command(name="assert-tooltip")
 def assert_tooltip(
     client: AutomationClient,

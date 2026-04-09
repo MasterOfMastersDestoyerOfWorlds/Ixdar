@@ -447,6 +447,11 @@ public class LwjglGL implements GL {
     }
 
     @Override
+    public void depthMask(boolean flag) {
+        org.lwjgl.opengl.GL11.glDepthMask(flag);
+    }
+
+    @Override
     public void createCapabilities() {
         org.lwjgl.opengl.GL.createCapabilities();
     }

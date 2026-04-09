@@ -558,6 +558,11 @@ public class WebGL implements GL {
         gl.disable(depthTest);
     }
 
+    @Override
+    public void depthMask(boolean flag) {
+        gl.depthMask(flag);
+    }
+
     @JSBody(params = { "v" }, script = "return (v|0);")
     private static native int toInt(Object v);
 

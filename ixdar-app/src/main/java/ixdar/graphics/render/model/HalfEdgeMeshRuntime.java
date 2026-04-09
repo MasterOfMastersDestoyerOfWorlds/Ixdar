@@ -219,6 +219,10 @@ public class HalfEdgeMeshRuntime {
         return compiledMesh == null ? new Vector3f() : new Vector3f(center);
     }
 
+    public void setSolidColor(float r, float g, float b, float a) {
+        solidColor.set(r, g, b, a);
+    }
+
     public boolean isWireframe() {
         return wireframe;
     }

@@ -85,6 +85,7 @@ public class AutomationApiServer {
         server.createContext("/replay/resume", this::replayResumeHandler);
         server.createContext("/replay/cancel", this::replayCancelHandler);
         server.createContext("/mesh/compare", this::compareMeshHandler);
+        server.createContext("/mesh/overlay", this::meshOverlayHandler);
     }
 
     private void screenshotHandler(HttpExchange exchange) throws IOException {
@@ -292,6 +293,27 @@ public class AutomationApiServer {
             }
 
             JsonObject result = runtime.meshCompare(referencePath, distanceType, scale);
+            writeJson(exchange, result);
+        } catch (Exception e) {
+            writeError(exchange, 500, e.getMessage());
+        }
+    }
+
+    private void meshOverlayHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        try {
+            JsonObject body = readBodyJson(exchange);
+            boolean clear = body.has("clear") && body.get("clear").getAsBoolean();
+            String path = body.has("path") ? body.get("path").getAsString() : "";
+
+            if (!clear && path.isEmpty()) {
+                writeError(exchange, 400, "Provide 'path' to load overlay or 'clear':true to remove");
+                return;
+            }
+
+            JsonObject result = runtime.meshOverlay(path, clear);
             writeJson(exchange, result);
         } catch (Exception e) {
             writeError(exchange, 500, e.getMessage());

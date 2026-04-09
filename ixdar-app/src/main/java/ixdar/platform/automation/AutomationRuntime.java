@@ -282,6 +282,36 @@ public class AutomationRuntime {
         }
     }
 
+    public JsonObject meshOverlay(String objPath, boolean clear) {
+        try {
+            return runOnMainThread(() -> {
+                JsonObject result = new JsonObject();
+                if (!(canvas instanceof MeshNodeViewerScene)) {
+                    result.addProperty("ok", false);
+                    result.addProperty("error", "MeshNodeViewerScene is not active");
+                    return result;
+                }
+                MeshNodeViewerScene mvs = (MeshNodeViewerScene) canvas;
+                if (clear) {
+                    mvs.clearOverlay();
+                    result.addProperty("ok", true);
+                    result.addProperty("action", "cleared");
+                } else {
+                    mvs.loadOverlay(objPath);
+                    result.addProperty("ok", true);
+                    result.addProperty("action", "loaded");
+                    result.addProperty("path", objPath);
+            }
+            return result;
+            });
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", e.getMessage() == null ? "" : e.getMessage());
+            return err;
+        }
+    }
+
     private static ixdar.geometry.mesh.data.MeshDistance.DistanceType parseDistanceType(String str) {
         try {
             return ixdar.geometry.mesh.data.MeshDistance.DistanceType.valueOf(str.toUpperCase());
