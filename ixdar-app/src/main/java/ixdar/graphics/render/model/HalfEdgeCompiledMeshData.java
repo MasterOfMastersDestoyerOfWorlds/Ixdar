@@ -11,6 +11,7 @@ public class HalfEdgeCompiledMeshData {
     public final Vector3f maxBounds;
     public final Vector3f center;
     public final float radius;
+    public final float[] colors;
 
     public HalfEdgeCompiledMeshData(
             float[] vertices,
@@ -21,6 +22,19 @@ public class HalfEdgeCompiledMeshData {
             Vector3f maxBounds,
             Vector3f center,
             float radius) {
+        this(vertices, indices, vertexCount, faceCount, minBounds, maxBounds, center, radius, null);
+    }
+
+    public HalfEdgeCompiledMeshData(
+            float[] vertices,
+            int[] indices,
+            int vertexCount,
+            int faceCount,
+            Vector3f minBounds,
+            Vector3f maxBounds,
+            Vector3f center,
+            float radius,
+            float[] colors) {
         this.vertices = vertices;
         this.indices = indices;
         this.vertexCount = vertexCount;
@@ -29,5 +43,6 @@ public class HalfEdgeCompiledMeshData {
         this.maxBounds = maxBounds;
         this.center = center;
         this.radius = radius;
+        this.colors = colors;
     }
 }

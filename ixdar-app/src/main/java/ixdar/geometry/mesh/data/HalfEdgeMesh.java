@@ -28,6 +28,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
 
     float[] vertexPositions;
     float[] vertexNormals;
+    float[] vertexColors;
     int[] vertexOutgoing;
     boolean[] vertexActive;
 
@@ -80,6 +81,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         this.faceEdges = new ArrayList<>(fc);
         this.vertexPositions = new float[vc * FLOATS_PER_VERTEX];
         this.vertexNormals = new float[vc * FLOATS_PER_VERTEX];
+        this.vertexColors = new float[vc * FLOATS_PER_VERTEX];
         this.vertexOutgoing = new int[vc];
         this.vertexActive = new boolean[vc];
         this.edgeHalfEdge = new int[ec];
@@ -138,12 +140,12 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         }
         this.vertexPositions = new float[maxV * FLOATS_PER_VERTEX];
         this.vertexNormals = new float[maxV * FLOATS_PER_VERTEX];
+        this.vertexColors = new float[maxV * FLOATS_PER_VERTEX];
         this.vertexOutgoing = new int[maxV];
         Arrays.fill(this.vertexOutgoing, MeshTopology.NONE);
         this.vertexActive = new boolean[maxV];
         this.edgeHalfEdge = new int[maxE];
         Arrays.fill(this.edgeHalfEdge, MeshTopology.NONE);
-        this.edgeActive = new boolean[maxE];
         this.faceHalfEdge = new int[maxF];
         Arrays.fill(this.faceHalfEdge, MeshTopology.NONE);
         this.faceNormals = new float[maxF * FLOATS_PER_VERTEX];
@@ -165,6 +167,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         this.nextEdgeId = 0;
         this.nextFaceId = 0;
         this.nextHalfEdgeId = 0;
+    }
     }
 
     public int addVertex(float x, float y, float z) {
@@ -534,6 +537,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         vertexOutgoing[vertexId] = NONE;
         setVector(vertexPositions, vertexId, x, y, z);
         setVector(vertexNormals, vertexId, 0f, 0f, 0f);
+        setVector(vertexColors, vertexId, 1f, 1f, 1f);
         ensureVertexAdjacencySlot(vertexOutgoingHalfEdges, vertexId).clear();
         ensureVertexAdjacencySlot(vertexEdges, vertexId).clear();
         ensureVertexAdjacencySlot(vertexFaces, vertexId).clear();
@@ -609,6 +613,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         vertexOutgoing[vertexId] = NONE;
         setVector(vertexPositions, vertexId, 0f, 0f, 0f);
         setVector(vertexNormals, vertexId, 0f, 0f, 0f);
+        setVector(vertexColors, vertexId, 1f, 1f, 1f);
         vertexOutgoingHalfEdges.get(vertexId).clear();
         vertexEdges.get(vertexId).clear();
         vertexFaces.get(vertexId).clear();
@@ -659,6 +664,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         vertexOutgoing = resizeIntArray(vertexOutgoing, nextCapacity);
         vertexPositions = resizeFloatTupleArray(vertexPositions, nextCapacity);
         vertexNormals = resizeFloatTupleArray(vertexNormals, nextCapacity);
+        vertexColors = resizeFloatTupleArray(vertexColors, nextCapacity);
     }
 
     private void ensureEdgeCapacity(int requiredEdgeCount) {
@@ -746,7 +752,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         Arrays.fill(values, NONE);
     }
     
-    public int[] getEdgeIndices() {
+    int[] getEdgeIndices() {
         int[] indices = new int[activeEdgeIds.size() * 2];
         for (int i = 0; i < activeEdgeIds.size(); i++) {
             int edgeId = activeEdgeIds.get(i);
@@ -756,5 +762,23 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
             indices[i * 2 + 1] = halfEdgeVertex[halfEdgeNext[he]];
         }
         return indices;
+    }
+
+    /**
+     * Sets the color for a vertex.
+     */
+    public void setVertexColor(int vertexId, float r, float g, float b) {
+        requireActiveVertex(vertexId);
+        int offset = vertexOffset(vertexId);
+        vertexColors[offset] = r;
+        vertexColors[offset + 1] = g;
+        vertexColors[offset + 2] = b;
+    }
+
+    /**
+     * Returns the vertex colors array for all active vertices.
+     */
+    public float[] getVertexColors() {
+        return Arrays.copyOf(vertexColors, vertexColors.length);
     }
 }

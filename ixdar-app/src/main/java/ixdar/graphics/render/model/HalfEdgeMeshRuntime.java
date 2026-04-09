@@ -127,6 +127,7 @@ public class HalfEdgeMeshRuntime {
         meshShader.setVec3("emissiveColor", emissiveColor);
         meshShader.setFloat("emissiveStrength", 0.08f);
         meshShader.setFloat("rimStrength", 0.16f);
+        meshShader.setBool("useVertexColor", compiledMesh.colors != null);
 
         meshVao.bind();
         Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), ebo);
@@ -236,12 +237,14 @@ public class HalfEdgeMeshRuntime {
         meshVao.bind();
         meshVbo.bind(gl.ARRAY_BUFFER());
         meshVbo.uploadData(gl.ARRAY_BUFFER(), compiledMesh.vertices, usage);
-        gl.vertexAttribPointer(0, 3, gl.FLOAT(), false, 8 * Float.BYTES, 0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT(), false, 11 * Float.BYTES, 0);
         gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(1, 3, gl.FLOAT(), false, 8 * Float.BYTES, 3 * Float.BYTES);
+        gl.vertexAttribPointer(1, 3, gl.FLOAT(), false, 11 * Float.BYTES, 3 * Float.BYTES);
         gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, 8 * Float.BYTES, 6 * Float.BYTES);
+        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, 11 * Float.BYTES, 6 * Float.BYTES);
         gl.enableVertexAttribArray(2);
+        gl.vertexAttribPointer(3, 3, gl.FLOAT(), false, 11 * Float.BYTES, 8 * Float.BYTES);
+        gl.enableVertexAttribArray(3);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), ebo);
         IntBuffer uploadBuffer = ensureIndexBufferCapacity(compiledMesh.indices.length);

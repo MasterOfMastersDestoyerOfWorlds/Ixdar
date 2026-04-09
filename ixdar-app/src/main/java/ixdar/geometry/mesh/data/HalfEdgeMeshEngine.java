@@ -276,15 +276,19 @@ public class HalfEdgeMeshEngine {
     }
 
     public static HalfEdgeCompiledMeshData compileSurfaceData(HalfEdgeMesh mesh) {
+        return compileSurfaceData(mesh, null);
+    }
+
+    public static HalfEdgeCompiledMeshData compileSurfaceData(HalfEdgeMesh mesh, float[] colors) {
         int[] vertexRemap = new int[mesh.vertexActive.length];
         Arrays.fill(vertexRemap, MeshTopology.NONE);
-        float[] vertices = new float[mesh.vertexCount() * 8];
+        float[] vertices = new float[mesh.vertexCount() * 11];
 
         for (int i = 0; i < mesh.vertexCount(); i++) {
             int vertexId = mesh.vertexIdAt(i);
             vertexRemap[vertexId] = i;
             int sourceOffset = mesh.vertexOffset(vertexId);
-            int targetOffset = i * 8;
+            int targetOffset = i * 11;
             vertices[targetOffset] = mesh.vertexPositions[sourceOffset];
             vertices[targetOffset + 1] = mesh.vertexPositions[sourceOffset + 1];
             vertices[targetOffset + 2] = mesh.vertexPositions[sourceOffset + 2];
@@ -293,6 +297,15 @@ public class HalfEdgeMeshEngine {
             vertices[targetOffset + 5] = mesh.vertexNormals[sourceOffset + 2];
             vertices[targetOffset + 6] = 0f;
             vertices[targetOffset + 7] = 0f;
+            if (colors != null) {
+                vertices[targetOffset + 8] = colors[sourceOffset];
+                vertices[targetOffset + 9] = colors[sourceOffset + 1];
+                vertices[targetOffset + 10] = colors[sourceOffset + 2];
+            } else {
+                vertices[targetOffset + 8] = 1f;
+                vertices[targetOffset + 9] = 1f;
+                vertices[targetOffset + 10] = 1f;
+            }
         }
 
         int triangleCount = 0;
@@ -329,7 +342,8 @@ public class HalfEdgeMeshEngine {
                 minBounds,
                 maxBounds,
                 center,
-                radius);
+                radius,
+                colors);
     }
 
     static int addFaceInternal(HalfEdgeMesh mesh, int[] vertexIds, boolean recomputeNormals) {

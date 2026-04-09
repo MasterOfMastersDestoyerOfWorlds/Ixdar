@@ -19,6 +19,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
 
     private final float[] positions;
     private final float[] normals;
+    private final float[] colors;
     private final float[] faceNormals;
     private final int[] faceIndices;
     private final int vertsPerFace;
@@ -45,6 +46,10 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     private boolean boundsDirty = true;
 
     public ArrayMesh(float[] positions, float[] normals, int[] faceIndices, int vertsPerFace) {
+        this(positions, normals, null, faceIndices, vertsPerFace);
+    }
+
+    public ArrayMesh(float[] positions, float[] normals, float[] colors, int[] faceIndices, int vertsPerFace) {
         if (positions.length % FLOATS_PER_VERTEX != 0) {
             throw new IllegalArgumentException("positions must be XYZ triples");
         }
@@ -53,6 +58,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         }
         this.positions = positions;
         this.normals = normals != null ? normals : new float[positions.length];
+        this.colors = colors != null ? colors : new float[positions.length];
         this.faceNormals = new float[(faceIndices.length / vertsPerFace) * FLOATS_PER_VERTEX];
         this.faceIndices = faceIndices;
         this.vertsPerFace = vertsPerFace;
@@ -117,12 +123,16 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     }
 
     public HalfEdgeCompiledMeshData compileSurfaceData() {
+        return compileSurfaceData(null);
+    }
+
+    public HalfEdgeCompiledMeshData compileSurfaceData(float[] colors) {
         int vCount = vertexCount();
         int fCount = faceCount();
-        float[] vertices = new float[vCount * 8];
+        float[] vertices = new float[vCount * 11];
         for (int i = 0; i < vCount; i++) {
             int o = i * FLOATS_PER_VERTEX;
-            int t = i * 8;
+            int t = i * 11;
             vertices[t] = positions[o];
             vertices[t + 1] = positions[o + 1];
             vertices[t + 2] = positions[o + 2];
@@ -131,6 +141,15 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
             vertices[t + 5] = normals[o + 2];
             vertices[t + 6] = 0f;
             vertices[t + 7] = 0f;
+            if (colors != null) {
+                vertices[t + 8] = colors[o];
+                vertices[t + 9] = colors[o + 1];
+                vertices[t + 10] = colors[o + 2];
+            } else {
+                vertices[t + 8] = 1f;
+                vertices[t + 9] = 1f;
+                vertices[t + 10] = 1f;
+            }
         }
         int triangleCount = 0;
         for (int fi = 0; fi < fCount; fi++) {
@@ -154,7 +173,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         Vector3f max = boundsMax(new Vector3f());
         Vector3f cen = center(new Vector3f());
         float rad = radius();
-        return new HalfEdgeCompiledMeshData(vertices, indices, vCount, fCount, min, max, cen, rad);
+        return new HalfEdgeCompiledMeshData(vertices, indices, vCount, fCount, min, max, cen, rad, colors);
     }
 
     public int[] getEdgeIndices() {
