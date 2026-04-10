@@ -16,12 +16,80 @@
 
 ## Development Setup
 
-Large 3D assets are intentionally kept outside this git repository.
+### External Asset Repository
 
-Set the environment variable `IXDAR_ASSET_REPO_ROOT` to your local asset repo folder:
+Large 3D assets are intentionally kept outside this git repository. Assets are stored in S3 and synced to a local asset repository path configured by the `IXDAR_ASSET_REPO_ROOT` environment variable.
 
-- Windows (PowerShell): `$env:IXDAR_ASSET_REPO_ROOT = "C:\\Code\\IxdarAssets"`
-- Example test model path used by the model-load scene: `C:\\Code\\IxdarAssets\\Hand.obj`
+#### Environment Variable
+
+Set `IXDAR_ASSET_REPO_ROOT` to your local asset repository folder:
+
+- **Windows (PowerShell)**: `$env:IXDAR_ASSET_REPO_ROOT = "C:\\Code\\IxdarAssets"`
+- **macOS/Linux (Bash/Zsh)**: `export IXDAR_ASSET_REPO_ROOT="/Users/username/IxdarAssets"`
+- **JVM property**: `-Dixdar.asset.repo.root=/path/to/assets`
+
+#### S3 Bucket Convention
+
+Assets are stored in S3 with the following structure:
+
+```
+s3://ixdar-assets/
+├── models/
+│   ├── shared/
+│   │   └── versioned/
+│   │       └── <asset-name>/
+│   │           ├── v1.0.0/
+│   │           │   └── <filename>.obj
+│   │           ├── v1.1.0/
+│   │           │   └── <filename>.obj
+│   │           └── latest -> v1.1.0/
+│   └── projects/
+│       └── <project-name>/
+│           └── versioned/
+│               └── <version>/
+│                   └── <filename>.obj
+```
+
+#### Sync Workflow
+
+Use the provided sync scripts to download assets from S3 to your local repository:
+
+**PowerShell**:
+```powershell
+.\tools\sync-assets.ps1
+```
+
+**Bash/Linux/macOS**:
+```bash
+./tools/sync-assets.sh
+```
+
+Or use AWS CLI directly:
+```bash
+aws s3 sync s3://ixdar-assets/models/shared/versioned/ $IXDAR_ASSET_REPO_ROOT
+```
+
+#### Test Model
+
+The model-load test scene (`ModelLoadScene`) loads `Hand.obj` from your local asset repo:
+
+- **Expected path**: `$IXDAR_ASSET_REPO_ROOT/Hand.obj`
+- **Versioned path**: `$IXDAR_ASSET_REPO_ROOT/models/shared/versioned/hand/v1.1.0/Hand.obj`
+
+#### Error Handling
+
+**Missing environment variable**:
+```
+Exception: Missing asset repo root. Set either env var IXDAR_ASSET_REPO_ROOT 
+or JVM property ixdar.asset.repo.root (e.g. C:\Code\IxdarAssets).
+```
+
+**Missing asset file**:
+```
+Exception: External asset file not found: <resolved-path>/Hand.obj
+```
+
+For full documentation, see [ixdar-app/src/main/resources/docs/ASSET_REPOSITORY.md](ixdar-app/src/main/resources/docs/ASSET_REPOSITORY.md).
 
 ## Preface
 
