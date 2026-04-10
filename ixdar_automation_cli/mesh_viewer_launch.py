@@ -95,8 +95,22 @@ def main() -> int:
                 proc.terminate()
             return 1
         print("Server ready.", file=sys.stderr)
-        # Give the DSL a moment to finish loading
-        time.sleep(2.0)
+        # Wait for mesh to actually load (DSL executes asynchronously)
+        print("Waiting for mesh to load...", file=sys.stderr)
+        mesh_deadline = time.monotonic() + 30.0
+        while time.monotonic() < mesh_deadline:
+            try:
+                state = client.ui_state()
+                mesh_info = state.get("mesh", {})
+                verts = mesh_info.get("vertexCount", 0)
+                if verts > 0:
+                    print(f"Mesh loaded: {verts} vertices, {mesh_info.get('faceCount', 0)} faces", file=sys.stderr)
+                    break
+            except Exception:
+                pass
+            time.sleep(1.0)
+        else:
+            print("WARNING: Mesh did not load within 30s (may be empty or DSL error).", file=sys.stderr)
 
     result = {"ok": True}
 
