@@ -102,16 +102,18 @@ public final class MeshLoader {
             return ArrayMeshEngine.emptyQuads();
         }
 
-        // Convert face data to flat arrays
-        int totalVertices = 0;
+        // Convert face data to flat arrays — count triangulated indices
+        int totalTriIndices = 0;
         for (int[] face : faces) {
-            totalVertices += face.length;
+            if (face.length >= 3) {
+                totalTriIndices += (face.length - 2) * 3;
+            }
         }
 
         float[] posArray = new float[positions.size()];
-        float[] normArray = new float[normals.size()];
-        System.arraycopy(positions.toArray(new Float[0]), 0, posArray, 0, positions.size());
-        System.arraycopy(normals.toArray(new Float[0]), 0, normArray, 0, normals.size());
+        float[] normArray = new float[positions.size()];
+        for (int i = 0; i < positions.size(); i++) posArray[i] = positions.get(i);
+        for (int i = 0; i < Math.min(normals.size(), normArray.length); i++) normArray[i] = normals.get(i);
 
         // Generate face normals if vertex normals are zero
         boolean hasVertexNormals = false;
@@ -177,8 +179,8 @@ public final class MeshLoader {
             }
         }
 
-        // Flatten faces to triangles (assume triangulated or convert)
-        int[] faceIndices = new int[totalVertices];
+        // Flatten faces to triangles (fan triangulation for n-gons)
+        int[] faceIndices = new int[totalTriIndices];
         int fi = 0;
         for (int[] face : faces) {
             if (face.length < 3) {
@@ -336,9 +338,9 @@ public final class MeshLoader {
         }
 
         float[] posArray = new float[positions.size()];
-        float[] normArray = new float[normals.size()];
-        System.arraycopy(positions.toArray(new Float[0]), 0, posArray, 0, positions.size());
-        System.arraycopy(normals.toArray(new Float[0]), 0, normArray, 0, normals.size());
+        float[] normArray = new float[positions.size()];
+        for (int i = 0; i < positions.size(); i++) posArray[i] = positions.get(i);
+        for (int i = 0; i < Math.min(normals.size(), normArray.length); i++) normArray[i] = normals.get(i);
 
         // Determine face vertex count
         int vertsPerFace = 3; // default to triangles
