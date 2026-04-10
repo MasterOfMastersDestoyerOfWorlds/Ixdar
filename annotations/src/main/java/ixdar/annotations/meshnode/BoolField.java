@@ -16,7 +16,7 @@ public record BoolField(boolean[] data) {
     }
 
     public boolean get(int i) {
-        return data[i];
+        return i >= 0 && i < data.length && data[i];
     }
 
     public static BoolField constant(boolean v, int len) {

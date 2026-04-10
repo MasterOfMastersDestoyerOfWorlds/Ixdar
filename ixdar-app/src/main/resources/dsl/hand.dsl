@@ -1,100 +1,56 @@
-# Hand v2 — All-quad cylinders + Catmull-Clark subdivision
-# Each body part is a quad_cylinder that subdivides into a smooth capsule.
-# The overlapping capsule approach gives a smooth organic look without
-# needing topology merging. CC subdivision rounds each piece nicely.
+# Hand v2 — Connected control cage via grid + region extrude + CC subdivision
+# Strategy: Start with a flat grid, region-extrude into a palm slab,
+#   then selectively region-extrude finger columns from the top face.
+#   Produces a SINGLE connected topology — no seams between palm and fingers.
 
 # ══════════════════════════════════════════════════════════════════════
-# FOREARM
+# PALM — 5x3 grid (5 columns: thumb gap + 4 fingers, 3 rows deep)
+# Grid is in XZ plane at Y=0
 # ══════════════════════════════════════════════════════════════════════
 
-forearm_cyl = quad_cylinder(radius=0.55, height=1.6, segments=8, rings=4, cap_rings=2)
-forearm = transform_geometry(geometry=forearm_cyl.geometry, scale=<1.2, 1.0, 1.5>, translation=<0.0, -2.4, 0.0>)
+palm_grid = mesh_grid(u_tiles=5, v_tiles=3, u_total_size=2.2, v_total_size=1.6)
+# Grid: X=[-1.1, 1.1], Z=[-0.8, 0.8], each tile = 0.44 x 0.533
+
+# Region-extrude ALL faces to create the palm slab
+# Negative offset = extrude in opposite direction (upward for XZ grid)
+palm_slab = extrude_mesh(geometry=palm_grid.mesh, offset=-0.35, region=true)
 
 # ══════════════════════════════════════════════════════════════════════
-# WRIST + PALM
+# FINGER SELECTION — top row faces 0-3 (4 finger columns)
+# mesh_grid face order: row-major, row 0 = top row (most negative Z)
+# Face 0 = leftmost col of top row, Face 3 = 4th col
+# Face 4 = 5th col (thumb side — skip for now)
 # ══════════════════════════════════════════════════════════════════════
 
-wrist_cyl = quad_cylinder(radius=0.55, height=1.0, segments=8, rings=2, cap_rings=2)
-wrist = transform_geometry(geometry=wrist_cyl.geometry, scale=<1.3, 1.0, 1.7>, translation=<0.0, -1.1, 0.0>)
-
-palm_cyl = quad_cylinder(radius=0.55, height=1.2, segments=8, rings=3, cap_rings=2)
-palm = transform_geometry(geometry=palm_cyl.geometry, scale=<1.5, 1.0, 2.0>, translation=<0.0, 0.2, 0.0>)
-
-# ══════════════════════════════════════════════════════════════════════
-# THUMB — 3 segments, angled
-# ══════════════════════════════════════════════════════════════════════
-
-thumb_meta_cyl = quad_cylinder(radius=0.24, height=0.8, segments=8, rings=2, cap_rings=1)
-thumb_meta = transform_geometry(geometry=thumb_meta_cyl.geometry, rotation=<0.0, 0.0, 0.5>, translation=<-0.70, 0.2, 0.0>)
-
-thumb_prox_cyl = quad_cylinder(radius=0.20, height=0.65, segments=8, rings=2, cap_rings=1)
-thumb_prox = transform_geometry(geometry=thumb_prox_cyl.geometry, rotation=<0.0, 0.0, 0.4>, translation=<-0.55, 1.0, 0.05>)
-
-thumb_dist_cyl = quad_cylinder(radius=0.17, height=0.55, segments=8, rings=1, cap_rings=1)
-thumb_dist = transform_geometry(geometry=thumb_dist_cyl.geometry, rotation=<0.0, 0.0, 0.3>, translation=<-0.40, 1.6, 0.10>)
+fidx = input_face_index()
+sel_f0 = compare(a=fidx.index, b=0.0, mode=EQUAL)
+sel_f1 = compare(a=fidx.index, b=1.0, mode=EQUAL)
+sel_f2 = compare(a=fidx.index, b=2.0, mode=EQUAL)
+sel_f3 = compare(a=fidx.index, b=3.0, mode=EQUAL)
+or_01 = boolean_math(a=sel_f0.result, b=sel_f1.result, mode=OR)
+or_012 = boolean_math(a=or_01.result, b=sel_f2.result, mode=OR)
+finger_sel = boolean_math(a=or_012.result, b=sel_f3.result, mode=OR)
 
 # ══════════════════════════════════════════════════════════════════════
-# FINGERS — each has 3 phalanx segments
+# FINGER EXTRUSION — 3 segments (proximal, middle, distal)
+# Use INDIVIDUAL mode (region=false) so each face extrudes separately,
+# creating 4 distinct finger columns instead of one merged block.
 # ══════════════════════════════════════════════════════════════════════
 
-# Index (Z = -0.75)
-idx_prox_cyl = quad_cylinder(radius=0.16, height=0.65, segments=8, rings=2, cap_rings=1)
-idx_prox = transform_geometry(geometry=idx_prox_cyl.geometry, translation=<-0.25, 1.35, -0.75>)
-idx_mid_cyl = quad_cylinder(radius=0.14, height=0.50, segments=8, rings=2, cap_rings=1)
-idx_mid = transform_geometry(geometry=idx_mid_cyl.geometry, translation=<-0.25, 1.90, -0.75>)
-idx_dist_cyl = quad_cylinder(radius=0.12, height=0.40, segments=8, rings=1, cap_rings=1)
-idx_dist = transform_geometry(geometry=idx_dist_cyl.geometry, translation=<-0.25, 2.30, -0.75>)
-
-# Middle (Z = -0.25, longest)
-mid_prox_cyl = quad_cylinder(radius=0.17, height=0.75, segments=8, rings=2, cap_rings=1)
-mid_prox = transform_geometry(geometry=mid_prox_cyl.geometry, translation=<-0.15, 1.40, -0.25>)
-mid_mid_cyl = quad_cylinder(radius=0.15, height=0.60, segments=8, rings=2, cap_rings=1)
-mid_mid = transform_geometry(geometry=mid_mid_cyl.geometry, translation=<-0.15, 2.05, -0.25>)
-mid_dist_cyl = quad_cylinder(radius=0.13, height=0.45, segments=8, rings=1, cap_rings=1)
-mid_dist = transform_geometry(geometry=mid_dist_cyl.geometry, translation=<-0.15, 2.55, -0.25>)
-
-# Ring (Z = 0.30)
-ring_prox_cyl = quad_cylinder(radius=0.16, height=0.65, segments=8, rings=2, cap_rings=1)
-ring_prox = transform_geometry(geometry=ring_prox_cyl.geometry, translation=<-0.15, 1.35, 0.30>)
-ring_mid_cyl = quad_cylinder(radius=0.14, height=0.50, segments=8, rings=2, cap_rings=1)
-ring_mid = transform_geometry(geometry=ring_mid_cyl.geometry, translation=<-0.15, 1.90, 0.30>)
-ring_dist_cyl = quad_cylinder(radius=0.12, height=0.40, segments=8, rings=1, cap_rings=1)
-ring_dist = transform_geometry(geometry=ring_dist_cyl.geometry, translation=<-0.15, 2.30, 0.30>)
-
-# Pinky (Z = 0.80)
-pink_prox_cyl = quad_cylinder(radius=0.13, height=0.50, segments=8, rings=2, cap_rings=1)
-pink_prox = transform_geometry(geometry=pink_prox_cyl.geometry, translation=<-0.10, 1.25, 0.80>)
-pink_mid_cyl = quad_cylinder(radius=0.11, height=0.40, segments=8, rings=2, cap_rings=1)
-pink_mid = transform_geometry(geometry=pink_mid_cyl.geometry, translation=<-0.10, 1.60, 0.80>)
-pink_dist_cyl = quad_cylinder(radius=0.09, height=0.30, segments=8, rings=1, cap_rings=1)
-pink_dist = transform_geometry(geometry=pink_dist_cyl.geometry, translation=<-0.10, 1.90, 0.80>)
+ext_prox = extrude_mesh(geometry=palm_slab.geometry, offset=-0.5, selection=finger_sel.result)
+ext_mid = extrude_mesh(geometry=ext_prox.geometry, offset=-0.4, selection=finger_sel.result)
+ext_dist = extrude_mesh(geometry=ext_mid.geometry, offset=-0.3, selection=finger_sel.result)
 
 # ══════════════════════════════════════════════════════════════════════
-# ASSEMBLY — join all, then subdivide
+# THUMB — select face 4 (5th column, thumb side) and extrude
 # ══════════════════════════════════════════════════════════════════════
 
-j1 = join_geometry(a=forearm.geometry, b=wrist.geometry)
-j2 = join_geometry(a=j1.geometry, b=palm.geometry)
-# Thumb
-j3 = join_geometry(a=j2.geometry, b=thumb_meta.geometry)
-j4 = join_geometry(a=j3.geometry, b=thumb_prox.geometry)
-j5 = join_geometry(a=j4.geometry, b=thumb_dist.geometry)
-# Index
-j6 = join_geometry(a=j5.geometry, b=idx_prox.geometry)
-j7 = join_geometry(a=j6.geometry, b=idx_mid.geometry)
-j8 = join_geometry(a=j7.geometry, b=idx_dist.geometry)
-# Middle
-j9 = join_geometry(a=j8.geometry, b=mid_prox.geometry)
-j10 = join_geometry(a=j9.geometry, b=mid_mid.geometry)
-j11 = join_geometry(a=j10.geometry, b=mid_dist.geometry)
-# Ring
-j12 = join_geometry(a=j11.geometry, b=ring_prox.geometry)
-j13 = join_geometry(a=j12.geometry, b=ring_mid.geometry)
-j14 = join_geometry(a=j13.geometry, b=ring_dist.geometry)
-# Pinky
-j15 = join_geometry(a=j14.geometry, b=pink_prox.geometry)
-j16 = join_geometry(a=j15.geometry, b=pink_mid.geometry)
-j17 = join_geometry(a=j16.geometry, b=pink_dist.geometry)
+sel_thumb = compare(a=fidx.index, b=4.0, mode=EQUAL)
+ext_thumb1 = extrude_mesh(geometry=ext_dist.geometry, offset=-0.4, selection=sel_thumb.result)
+ext_thumb2 = extrude_mesh(geometry=ext_thumb1.geometry, offset=-0.35, selection=sel_thumb.result)
 
-# Catmull-Clark — each piece becomes a smooth capsule
-hand_tagged = subdivision_surface(geometry=j17.geometry, levels=2)
+# ══════════════════════════════════════════════════════════════════════
+# CATMULL-CLARK SUBDIVISION — smooth the cage into organic form
+# ══════════════════════════════════════════════════════════════════════
+
+hand_tagged = subdivision_surface(geometry=ext_thumb2.geometry, levels=2)

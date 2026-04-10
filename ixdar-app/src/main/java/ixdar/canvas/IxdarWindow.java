@@ -153,11 +153,16 @@ public class IxdarWindow {
             FloatBuffer yScale = stack.mallocFloat(1);
             glfwGetWindowContentScale(window, xScale, yScale);
             Platforms.get().setFrameBufferSize(windowWidth * xScale.get(0), windowHeight * yScale.get(0));
-            GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-            glfwSetWindowPos(
-                    window,
-                    (vidmode.width() / 2 - pWidth.get(0)) / 2,
-                    (vidmode.height() - pHeight.get(0)) / 2);
+            long monitor = glfwGetPrimaryMonitor();
+            if (monitor != 0) {
+                GLFWVidMode vidmode = glfwGetVideoMode(monitor);
+                if (vidmode != null) {
+                    glfwSetWindowPos(
+                            window,
+                            (vidmode.width() / 2 - pWidth.get(0)) / 2,
+                            (vidmode.height() - pHeight.get(0)) / 2);
+                }
+            }
         }
         glfwMakeContextCurrent(window);
         glfwSwapInterval(1);
