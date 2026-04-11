@@ -54,7 +54,8 @@ public class PythonLexer {
         case '>':
             return new Token(TokenType.RANGLE, ">");
         default:
-            throw new RuntimeException("Unexpected character at " + (pos - 1) + ": " + c);
+            // Skip unknown characters instead of crashing — LLMs may emit stray symbols
+            return nextToken();
         }
     }
 

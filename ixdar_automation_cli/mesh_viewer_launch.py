@@ -35,6 +35,18 @@ def _wait_for_server(client: AutomationClient, timeout: float = 60.0) -> bool:
     return False
 
 
+def _wait_for_port_free(port: int, timeout: float = 5.0) -> bool:
+    """Wait until the given port is no longer in use."""
+    import socket
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(("127.0.0.1", port)) != 0:
+                return True
+        time.sleep(0.3)
+    return False
+
+
 def _build_maven_args(dsl: str, node: str, port: str) -> list[str]:
     cmd = ["mvn", "-P", "mesh-viewer", "-q"]
     if dsl:
@@ -66,13 +78,14 @@ def main() -> int:
     proc = None
 
     if not args.no_launch:
-        # Check if already running
+        # Kill any existing instance before launching fresh
         try:
             health = client.health()
             if health.get("status") == "ok":
-                print("Ixdar automation server already running — using existing instance.", file=sys.stderr)
-                args.no_launch = True
-                args.keep_alive = True
+                print("Killing existing Ixdar instance...", file=sys.stderr)
+                client.shutdown()
+                if not _wait_for_port_free(47832, timeout=5.0):
+                    print("WARNING: Port 47832 still in use after 5s, proceeding anyway.", file=sys.stderr)
         except Exception:
             pass
 

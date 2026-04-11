@@ -468,6 +468,157 @@ public final class ArrayMeshEngine {
         return out;
     }
 
+    /**
+     * Splits quad faces along one world-space axis by inserting {@code cuts} new
+     * edge loops. Edges aligned with the axis (dot product &gt; 0.5) are split;
+     * faces with two split opposite edges become {@code cuts+1} strip quads.
+     * Faces with no aligned edges pass through unchanged.
+     *
+     * @param axisIndex 0=X, 1=Y, 2=Z
+     */
+    public static ArrayMesh loopCutAxis(ArrayMesh src, int cuts, int axisIndex) {
+        if (src == null || src.vertexCount() == 0) return emptyQuads();
+        if (cuts <= 0) {
+            return new ArrayMesh(src.copyPositions(), src.copyNormals(), src.copyFaceIndices(), src.getVertsPerFace());
+        }
+        if (!isUniformQuads(src)) {
+            throw new IllegalArgumentException("loop_cut requires uniform quads");
+        }
+
+        int srcV = src.vertexCount();
+        int srcF = src.faceCount();
+        int srcE = src.edgeCount(); // triggers topology build
+
+        float ax = axisIndex == 0 ? 1f : 0f;
+        float ay = axisIndex == 1 ? 1f : 0f;
+        float az = axisIndex == 2 ? 1f : 0f;
+
+        float[] srcPos = src.copyPositions();
+        Vector3f pa = new Vector3f(), pb = new Vector3f(), dir = new Vector3f();
+
+        // Classify edges: mark aligned ones for splitting, allocate midpoint vertex indices
+        HashMap<Long, int[]> splitMap = new HashMap<>();
+        int newVertCount = 0;
+        for (int ei = 0; ei < srcE; ei++) {
+            int eid = src.edgeIdAt(ei);
+            int he = src.edgeHalfEdge(eid);
+            int va = src.halfEdgeVertex(he);
+            int vb = src.halfEdgeEndVertex(he);
+
+            src.vertexPosition(va, pa);
+            src.vertexPosition(vb, pb);
+            dir.set(pb).sub(pa);
+            float len = dir.length();
+            if (len < 1e-9f) continue;
+            dir.div(len);
+
+            float alignment = Math.abs(dir.x * ax + dir.y * ay + dir.z * az);
+            if (alignment > 0.5f) {
+                long key = edgeKey(va, vb);
+                if (!splitMap.containsKey(key)) {
+                    int[] mids = new int[cuts];
+                    for (int c = 0; c < cuts; c++) {
+                        mids[c] = srcV + newVertCount++;
+                    }
+                    splitMap.put(key, mids);
+                }
+            }
+        }
+
+        if (splitMap.isEmpty()) {
+            return new ArrayMesh(src.copyPositions(), src.copyNormals(), src.copyFaceIndices(), src.getVertsPerFace());
+        }
+
+        // Build output positions: original + midpoints
+        int outV = srcV + newVertCount;
+        float[] positions = new float[outV * FP];
+        System.arraycopy(srcPos, 0, positions, 0, srcV * FP);
+
+        for (var entry : splitMap.entrySet()) {
+            long key = entry.getKey();
+            int[] mids = entry.getValue();
+            int lo = (int) (key >>> 32);
+            int hi = (int) (key & 0xffffffffL);
+            float x0 = srcPos[lo * FP], y0 = srcPos[lo * FP + 1], z0 = srcPos[lo * FP + 2];
+            float x1 = srcPos[hi * FP], y1 = srcPos[hi * FP + 1], z1 = srcPos[hi * FP + 2];
+            for (int c = 0; c < cuts; c++) {
+                float t = (float) (c + 1) / (cuts + 1);
+                int o = mids[c] * FP;
+                positions[o] = x0 + t * (x1 - x0);
+                positions[o + 1] = y0 + t * (y1 - y0);
+                positions[o + 2] = z0 + t * (z1 - z0);
+            }
+        }
+
+        // Count output faces
+        int[] srcFaces = src.copyFaceIndices();
+        int outF = 0;
+        for (int fi = 0; fi < srcF; fi++) {
+            int b = fi * 4;
+            int v0 = srcFaces[b], v1 = srcFaces[b + 1], v2 = srcFaces[b + 2], v3 = srcFaces[b + 3];
+            boolean e0 = splitMap.containsKey(edgeKey(v0, v1));
+            boolean e1 = splitMap.containsKey(edgeKey(v1, v2));
+            boolean e2 = splitMap.containsKey(edgeKey(v2, v3));
+            boolean e3 = splitMap.containsKey(edgeKey(v3, v0));
+            outF += ((e0 && e2) || (e1 && e3)) ? cuts + 1 : 1;
+        }
+
+        // Build output faces
+        int[] faceIndices = new int[outF * 4];
+        int w = 0;
+        for (int fi = 0; fi < srcF; fi++) {
+            int b = fi * 4;
+            int v0 = srcFaces[b], v1 = srcFaces[b + 1], v2 = srcFaces[b + 2], v3 = srcFaces[b + 3];
+            boolean e0 = splitMap.containsKey(edgeKey(v0, v1));
+            boolean e1 = splitMap.containsKey(edgeKey(v1, v2));
+            boolean e2 = splitMap.containsKey(edgeKey(v2, v3));
+            boolean e3 = splitMap.containsKey(edgeKey(v3, v0));
+
+            if (e0 && e2) {
+                // Split pair A: edges v0→v1 and v2→v3
+                int[] botMids = directedMids(splitMap, v0, v1);
+                int[] topMids = directedMids(splitMap, v3, v2); // reversed to match bot direction
+                for (int k = 0; k <= cuts; k++) {
+                    faceIndices[w++] = k == 0 ? v0 : botMids[k - 1];
+                    faceIndices[w++] = k == cuts ? v1 : botMids[k];
+                    faceIndices[w++] = k == cuts ? v2 : topMids[k];
+                    faceIndices[w++] = k == 0 ? v3 : topMids[k - 1];
+                }
+            } else if (e1 && e3) {
+                // Split pair B: edges v1→v2 and v3→v0
+                int[] rightMids = directedMids(splitMap, v1, v2);
+                int[] leftMids = directedMids(splitMap, v0, v3);
+                for (int k = 0; k <= cuts; k++) {
+                    faceIndices[w++] = k == 0 ? v0 : leftMids[k - 1];
+                    faceIndices[w++] = k == 0 ? v1 : rightMids[k - 1];
+                    faceIndices[w++] = k == cuts ? v2 : rightMids[k];
+                    faceIndices[w++] = k == cuts ? v3 : leftMids[k];
+                }
+            } else {
+                // Pass through unchanged
+                faceIndices[w++] = v0;
+                faceIndices[w++] = v1;
+                faceIndices[w++] = v2;
+                faceIndices[w++] = v3;
+            }
+        }
+
+        ArrayMesh out = new ArrayMesh(positions, null, faceIndices, 4);
+        out.computeNormals();
+        return out;
+    }
+
+    /** Returns midpoints of undirected edge (va,vb) in the direction from va toward vb. */
+    private static int[] directedMids(HashMap<Long, int[]> splitMap, int va, int vb) {
+        int[] mids = splitMap.get(edgeKey(va, vb));
+        if (mids == null) return null;
+        if (va <= vb) return mids;
+        // Reverse: splitMap stores lo→hi, but we need hi→lo
+        int[] rev = new int[mids.length];
+        for (int i = 0; i < mids.length; i++) rev[i] = mids[mids.length - 1 - i];
+        return rev;
+    }
+
     private static long edgeKey(int a, int b) {
         int lo = Math.min(a, b);
         int hi = Math.max(a, b);

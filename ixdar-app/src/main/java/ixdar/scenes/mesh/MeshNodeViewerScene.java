@@ -23,7 +23,7 @@ import ixdar.scenes.Scene;
 public class MeshNodeViewerScene extends Scene {
     private static final String DSL_FOLDER = "dsl";
     private static final String DEFAULT_DSL_RESOURCE = "skull.dsl";
-    private static final String DEFAULT_DSL_FINAL_NODE = "skull_carved";
+    private static final String DEFAULT_DSL_FINAL_NODE = "";
     private static final String DEFAULT_DSL_FINAL_PORT = "geometry";
 
     private static final float HALF_EXTENT = 0.5f;
@@ -79,8 +79,12 @@ public class MeshNodeViewerScene extends Scene {
 
                 NodeGraphRuntime runtime = new NodeGraphRuntime();
                 runtime.registerAllFromAnnotationRegistry();
+                // If no final node specified, use the last node in the graph
+                String resolvedNode = (dslFinalNode != null && !dslFinalNode.isEmpty())
+                        ? dslFinalNode
+                        : ast.get(ast.size() - 1).id;
                 try {
-                    mesh = runtime.executeGraphToMesh(ast, dslFinalNode, dslFinalPort);
+                    mesh = runtime.executeGraphToMesh(ast, resolvedNode, dslFinalPort);
                 } catch (Exception e) {
                     for (Throwable t = e; t != null; t = t.getCause()) {
                         Platforms.get().log("[mesh-viewer] " + t.getClass().getName() + ": " + t.getMessage());

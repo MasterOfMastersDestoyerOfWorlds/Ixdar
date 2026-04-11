@@ -77,10 +77,12 @@ public class PythonParser {
     }
 
     // Arguments -> Argument ("," Argument)*
+    // Tolerates trailing commas for LLM-generated DSL
     private void parseArguments(Map<String, Object> args) {
         parseArgument(args);
         while (current.type == TokenType.COMMA) {
             advance();
+            if (current.type == TokenType.RPAREN) break; // trailing comma
             parseArgument(args);
         }
     }
@@ -102,8 +104,12 @@ public class PythonParser {
         } else if (current.type == TokenType.LANGLE) {
             return parseVectorLiteral();
         } else if (current.type == TokenType.STRING) {
+            // Treat quoted strings same as bare identifiers for boolean/enum resolution
+            // so LLMs can write mode="EQUAL" or region="true" and it still works
             String val = current.value;
             advance();
+            if ("true".equalsIgnoreCase(val)) return Boolean.TRUE;
+            if ("false".equalsIgnoreCase(val)) return Boolean.FALSE;
             return val;
         } else if (current.type == TokenType.IDENTIFIER) {
             String id = consume(TokenType.IDENTIFIER, "Expected identifier").value;

@@ -179,6 +179,16 @@ public final class ValidateDsl {
         probe.put("outputPort", usedPort);
         probe.put("vertexCount", mesh.vertexCount());
         probe.put("faceCount", mesh.faceCount());
+        probe.put("edgeCount", mesh.edgeCount());
+
+        int boundaryEdges = 0;
+        for (int i = 0; i < mesh.edgeCount(); i++) {
+            if (mesh.isBoundaryEdge(mesh.edgeIdAt(i))) {
+                boundaryEdges++;
+            }
+        }
+        probe.put("boundaryEdges", boundaryEdges);
+        probe.put("watertight", boundaryEdges == 0);
 
         Vector3f mn = mesh.boundsMin(new Vector3f());
         Vector3f mx = mesh.boundsMax(new Vector3f());

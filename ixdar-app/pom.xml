@@ -643,6 +643,35 @@
       </build>
     </profile>
     <profile>
+      <id>batch-dsl</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.geometry.mesh.documentation.BatchDslEvaluator</argument>
+                <argument>${dsl.file}</argument>
+                <argument>${batch.arg1}</argument>
+                <argument>${batch.arg2}</argument>
+                <argument>${batch.arg3}</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
       <id>render-dsl</id>
       <properties>
         <maven.test.skip>true</maven.test.skip>
