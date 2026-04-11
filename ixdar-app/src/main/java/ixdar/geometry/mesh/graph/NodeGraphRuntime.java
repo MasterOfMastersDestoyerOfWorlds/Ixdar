@@ -17,6 +17,19 @@ public class NodeGraphRuntime {
 
     private final Map<String, GraphNodeContext> evaluatedNodes = new HashMap<>();
 
+    /** Per-node timing from last graph execution. Entries: "id (type) → ms". */
+    private final java.util.LinkedHashMap<String, Long> lastTimingMs = new java.util.LinkedHashMap<>();
+    private long lastTotalMs;
+
+    /** Returns per-node timing from the most recent {@code executeGraphResult} call. */
+    public java.util.LinkedHashMap<String, Long> lastTimingMs() {
+        return lastTimingMs;
+    }
+
+    public long lastTotalMs() {
+        return lastTotalMs;
+    }
+
     public void registerNode(String type, Class<? extends MeshNode> nodeClass) {
         nodeRegistry.put(type, nodeClass);
     }
@@ -73,6 +86,8 @@ public class NodeGraphRuntime {
     public Object executeGraphResult(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName, Map<String, Object> overridesByNodeId) throws Exception {
         evaluatedNodes.clear();
+        lastTimingMs.clear();
+        long graphStart = System.nanoTime();
 
         FieldContext currentFieldContext = null;
         Map<String, Object> overrides = overridesByNodeId == null ? Map.of() : overridesByNodeId;
@@ -113,7 +128,10 @@ public class NodeGraphRuntime {
                 context.setInputValue("default", overrides.get(parsedData.id));
             }
 
+            long nodeStart = System.nanoTime();
             activeNode.evaluate(context);
+            long nodeMs = (System.nanoTime() - nodeStart) / 1_000_000;
+            lastTimingMs.put(parsedData.id + " (" + parsedData.type + ")", nodeMs);
 
             MeshTopology meshOut = meshFromNodeOutputs(context);
             if (meshOut != null && meshOut.vertexCount() > 0) {
@@ -122,6 +140,8 @@ public class NodeGraphRuntime {
 
             evaluatedNodes.put(parsedData.id, context);
         }
+
+        lastTotalMs = (System.nanoTime() - graphStart) / 1_000_000;
 
         GraphNodeContext finalContext = evaluatedNodes.get(finalOutputId);
         if (finalContext != null) {

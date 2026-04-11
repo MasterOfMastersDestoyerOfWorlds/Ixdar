@@ -54,13 +54,14 @@ public class JoinGeometryNode implements MeshNode {
         var joined = MeshAppend.join(ma, mb);
         GeometryBundle result = GeometryBundle.ofMesh(joined);
 
+        int countA = ma.vertexCount();
+        int countB = mb.vertexCount();
+        int total = joined.vertexCount();
+
         // Merge tags from both inputs — offset B's vertex indices by A's count
         Map<String, boolean[]> tagsA = TagGeometryNode.getTags(ga);
         Map<String, boolean[]> tagsB = TagGeometryNode.getTags(gb);
         if (tagsA != null || tagsB != null) {
-            int countA = ma.vertexCount();
-            int countB = mb.vertexCount();
-            int total = joined.vertexCount();
             Map<String, boolean[]> merged = new HashMap<>();
 
             // Copy A's tags (first countA vertices)
@@ -89,6 +90,28 @@ public class JoinGeometryNode implements MeshNode {
             }
 
             result = result.withSlot(TagGeometryNode.TAGS_SLOT, merged);
+        }
+
+        // Merge bone weight slots (float[] indexed by vertex ID)
+        String prefix = ixdar.geometry.mesh.nodes.modifier.SetBoneWeightNode.BONE_WEIGHT_PREFIX;
+        Map<String, float[]> boneSlots = new HashMap<>();
+        for (var entry : ga.slots().entrySet()) {
+            if (entry.getKey().startsWith(prefix) && entry.getValue() instanceof float[] src) {
+                float[] arr = new float[total];
+                System.arraycopy(src, 0, arr, 0, Math.min(src.length, countA));
+                boneSlots.put(entry.getKey(), arr);
+            }
+        }
+        for (var entry : gb.slots().entrySet()) {
+            if (entry.getKey().startsWith(prefix) && entry.getValue() instanceof float[] src) {
+                float[] arr = boneSlots.computeIfAbsent(entry.getKey(), k -> new float[total]);
+                for (int i = 0; i < Math.min(src.length, countB); i++) {
+                    arr[countA + i] = src[i];
+                }
+            }
+        }
+        for (var entry : boneSlots.entrySet()) {
+            result = result.withSlot(entry.getKey(), entry.getValue());
         }
 
         ctx.setOutput("geometry", result);

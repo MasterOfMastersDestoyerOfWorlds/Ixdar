@@ -110,14 +110,14 @@ public final class BatchDslEvaluator {
         }
 
         // Pre-process reference mesh for comparison (if provided)
-        MeshDistance.PreparedReference preparedRef = null;
+        // Normalize to unit bounding-box diagonal (same as viewer normalize=true)
+        ArrayMesh normalizedRefMesh = null;
         if (refObjPath != null && !refObjPath.isEmpty()) {
             try {
-                ArrayMesh refMesh = MeshLoader.load(refObjPath);
-                float[] refPos = refMesh.copyPositions();
-                preparedRef = new MeshDistance.PreparedReference(refPos, refMesh.vertexCount());
-                System.err.printf("Loaded reference mesh: %d verts, extent=%.3f%n",
-                        refMesh.vertexCount(), preparedRef.extent);
+                normalizedRefMesh = MeshLoader.load(refObjPath);
+                normalizeArrayMesh(normalizedRefMesh);
+                System.err.printf("Loaded reference mesh: %d verts (normalized)%n",
+                        normalizedRefMesh.vertexCount());
             } catch (Exception e) {
                 System.err.println("Warning: could not load reference mesh: " + e.getMessage());
             }
@@ -175,28 +175,16 @@ public final class BatchDslEvaluator {
                     row.put("watertight", boundaryEdges == 0);
 
                     // Inline mesh comparison against reference (if available)
-                    if (preparedRef != null) {
-                        float[] genPos = MeshDistance.extractPositions(mesh);
-                        MeshDistance.CompareResult cmp = MeshDistance.compareFull(
-                                genPos, mesh.vertexCount(), preparedRef);
-                        row.put("similarity", Math.round(cmp.similarityScore() * 10.0) / 10.0);
-                        row.put("coverage", Math.round(cmp.coverage() * 1000.0) / 1000.0);
-                        row.put("proximity", Math.round(cmp.proximity() * 1000.0) / 1000.0);
-                        row.put("chamfer", cmp.chamferDistance());
-                        // Per-axis extent ratios
-                        Map<String, Object> axes = new LinkedHashMap<>();
-                        String[] axNames = {"X", "Y", "Z"};
-                        for (int a = 0; a < 3; a++) {
-                            float refSpan = cmp.perAxisRefSpans()[a];
-                            float genSpan = cmp.perAxisGenSpans()[a];
-                            float ratio = refSpan > 1e-10f ? genSpan / refSpan : 0f;
-                            Map<String, Object> axInfo = new LinkedHashMap<>();
-                            axInfo.put("generated", genSpan);
-                            axInfo.put("reference", refSpan);
-                            axInfo.put("ratio", Math.round(ratio * 100.0) / 100.0);
-                            axes.put(axNames[a], axInfo);
-                        }
-                        row.put("per_axis_extents", axes);
+                    // Uses exact same path as viewer: normalize + computeAllMetrics(scale=1.0)
+                    if (normalizedRefMesh != null) {
+                        ArrayMesh genArrayMesh = ixdar.geometry.mesh.data.ArrayMeshEngine
+                                .fromUniformMeshTopology(mesh);
+                        normalizeArrayMesh(genArrayMesh);
+                        MeshDistance.MeshMetrics metrics = MeshDistance.computeAllMetrics(
+                                genArrayMesh, normalizedRefMesh, 1.0f);
+                        row.put("similarity", Math.round(metrics.similarityScore * 10.0) / 10.0);
+                        row.put("hausdorff", metrics.hausdorffDistance);
+                        row.put("chamfer", metrics.chamferDistance);
                     } else {
                         // No ref — still write OBJ for external comparison
                         Path objPath = outputDir.resolve(String.format("sample_%04d.obj", i));
@@ -216,6 +204,34 @@ public final class BatchDslEvaluator {
         output.put("sampleCount", samples.size());
         output.put("results", results);
         System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(output));
+    }
+
+    /**
+     * Center and scale ArrayMesh to unit bounding-box diagonal (in-place).
+     * Matches the viewer's normalize=true comparison exactly.
+     */
+    private static void normalizeArrayMesh(ArrayMesh mesh) {
+        int n = mesh.vertexCount();
+        if (n == 0) return;
+        float[] pos = mesh.copyPositions();
+        float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
+        float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
+        for (int i = 0; i < n; i++) {
+            int o = i * 3;
+            if (pos[o] < minX) minX = pos[o];     if (pos[o] > maxX) maxX = pos[o];
+            if (pos[o+1] < minY) minY = pos[o+1]; if (pos[o+1] > maxY) maxY = pos[o+1];
+            if (pos[o+2] < minZ) minZ = pos[o+2]; if (pos[o+2] > maxZ) maxZ = pos[o+2];
+        }
+        float cx = (minX + maxX) * 0.5f, cy = (minY + maxY) * 0.5f, cz = (minZ + maxZ) * 0.5f;
+        float dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ;
+        float diagonal = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        float invDiag = diagonal > 1e-8f ? 1.0f / diagonal : 1.0f;
+        for (int i = 0; i < n; i++) {
+            mesh.setVertexPosition(i,
+                    (pos[i * 3] - cx) * invDiag,
+                    (pos[i * 3 + 1] - cy) * invDiag,
+                    (pos[i * 3 + 2] - cz) * invDiag);
+        }
     }
 
     private static boolean isInputParam(String type) {

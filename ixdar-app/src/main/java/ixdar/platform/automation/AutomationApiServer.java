@@ -85,6 +85,7 @@ public class AutomationApiServer {
         server.createContext("/replay/resume", this::replayResumeHandler);
         server.createContext("/replay/cancel", this::replayCancelHandler);
         server.createContext("/mesh/dsl", this::dslLoadHandler);
+        server.createContext("/mesh/timing", this::meshTimingHandler);
         server.createContext("/mesh/compare", this::compareMeshHandler);
         server.createContext("/mesh/overlay", this::meshOverlayHandler);
     }
@@ -300,6 +301,17 @@ public class AutomationApiServer {
         }
     }
 
+    private void meshTimingHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "GET")) {
+            return;
+        }
+        try {
+            writeJson(exchange, runtime.getTiming());
+        } catch (Exception e) {
+            writeError(exchange, 500, e.getMessage());
+        }
+    }
+
     private void compareMeshHandler(HttpExchange exchange) throws IOException {
         if (!requireMethod(exchange, "POST")) {
             return;
@@ -309,13 +321,14 @@ public class AutomationApiServer {
             String referencePath = body.has("reference") ? body.get("reference").getAsString() : "";
             String distanceType = body.has("distance_type") ? body.get("distance_type").getAsString() : "HAUSDORFF";
             float scale = body.has("scale") ? body.get("scale").getAsFloat() : 1.0f;
+            boolean normalize = body.has("normalize") && body.get("normalize").getAsBoolean();
 
             if (referencePath.isEmpty()) {
                 writeError(exchange, 400, "Missing required field: reference");
                 return;
             }
 
-            JsonObject result = runtime.meshCompare(referencePath, distanceType, scale);
+            JsonObject result = runtime.meshCompare(referencePath, distanceType, scale, normalize);
             writeJson(exchange, result);
         } catch (Exception e) {
             writeError(exchange, 500, e.getMessage());

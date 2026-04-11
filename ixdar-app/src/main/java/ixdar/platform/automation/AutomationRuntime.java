@@ -49,7 +49,7 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.trade.TradeScene;
 
 public class AutomationRuntime {
-    private static final long MAIN_THREAD_WAIT_MS = 3000L;
+    private static final long MAIN_THREAD_WAIT_MS = 60000L;
     private static final AutomationRuntime INSTANCE = new AutomationRuntime();
 
     private static class PendingMainThreadAction {
@@ -217,7 +217,7 @@ public class AutomationRuntime {
         }
     }
 
-    public JsonObject meshCompare(String referencePath, String distanceTypeStr, float scale) {
+    public JsonObject meshCompare(String referencePath, String distanceTypeStr, float scale, boolean normalize) {
         try {
             return runOnMainThread(() -> {
                 JsonObject result = new JsonObject();
@@ -256,6 +256,12 @@ public class AutomationRuntime {
                     return result;
                 }
 
+                // Normalize: center both meshes to origin, scale to unit bounding box diagonal
+                if (normalize) {
+                    normalizeMeshPositions(currentMesh);
+                    normalizeMeshPositions(referenceMesh);
+                }
+
                 // Compute distance metrics
                 ixdar.geometry.mesh.data.MeshDistance.DistanceType distanceType = parseDistanceType(distanceTypeStr);
 
@@ -271,6 +277,7 @@ public class AutomationRuntime {
                 result.addProperty("similarity_score", metrics.similarityScore);
                 result.addProperty("distance_type", distanceTypeStr);
                 result.addProperty("scale", effectiveScale);
+                result.addProperty("normalized", normalize);
 
                 return result;
             });
@@ -279,6 +286,41 @@ public class AutomationRuntime {
             err.addProperty("ok", false);
             err.addProperty("error", e.getMessage() == null ? "" : e.getMessage());
             return err;
+        }
+    }
+
+    /**
+     * Centers a mesh to the origin and scales it so its bounding box diagonal is 1.0.
+     * Modifies vertex positions in place.
+     */
+    private static void normalizeMeshPositions(ixdar.geometry.mesh.data.ArrayMesh mesh) {
+        int n = mesh.vertexCount();
+        if (n == 0) return;
+
+        float[] pos = mesh.copyPositions();
+        float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
+        float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
+
+        for (int i = 0; i < n; i++) {
+            int o = i * 3;
+            minX = Math.min(minX, pos[o]);     maxX = Math.max(maxX, pos[o]);
+            minY = Math.min(minY, pos[o + 1]); maxY = Math.max(maxY, pos[o + 1]);
+            minZ = Math.min(minZ, pos[o + 2]); maxZ = Math.max(maxZ, pos[o + 2]);
+        }
+
+        float cx = (minX + maxX) * 0.5f;
+        float cy = (minY + maxY) * 0.5f;
+        float cz = (minZ + maxZ) * 0.5f;
+
+        float dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ;
+        float diagonal = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        float invDiag = diagonal > 1e-8f ? 1.0f / diagonal : 1.0f;
+
+        for (int i = 0; i < n; i++) {
+            mesh.setVertexPosition(i,
+                    (pos[i * 3] - cx) * invDiag,
+                    (pos[i * 3 + 1] - cy) * invDiag,
+                    (pos[i * 3 + 2] - cz) * invDiag);
         }
     }
 
@@ -329,14 +371,64 @@ public class AutomationRuntime {
                 result.addProperty("port", port != null ? port : "geometry");
                 result.addProperty("vertices", mvs.getMeshVertexCount());
                 result.addProperty("faces", mvs.getMeshFaceCount());
+                appendTiming(mvs, result);
                 return result;
             });
         } catch (Exception e) {
             JsonObject err = new JsonObject();
             err.addProperty("ok", false);
-            err.addProperty("error", e.getMessage() == null ? "" : e.getMessage());
+            StringBuilder msg = new StringBuilder();
+            for (Throwable t = e; t != null; t = t.getCause()) {
+                if (msg.length() > 0) msg.append(" <- ");
+                msg.append(t.getClass().getSimpleName()).append(": ").append(t.getMessage());
+            }
+            err.addProperty("error", msg.toString());
             return err;
         }
+    }
+
+    private static void appendTiming(ixdar.scenes.mesh.MeshNodeViewerScene mvs, JsonObject result) {
+        var runtime = mvs.getLastGraphRuntime();
+        if (runtime == null) return;
+        JsonObject timing = new JsonObject();
+        timing.addProperty("total_ms", runtime.lastTotalMs());
+        JsonArray nodes = new JsonArray();
+        for (var entry : runtime.lastTimingMs().entrySet()) {
+            if (entry.getValue() >= 1) {
+                JsonObject n = new JsonObject();
+                n.addProperty("node", entry.getKey());
+                n.addProperty("ms", entry.getValue());
+                nodes.add(n);
+            }
+        }
+        timing.add("nodes", nodes);
+        result.add("timing", timing);
+    }
+
+    public JsonObject getTiming() {
+        JsonObject result = new JsonObject();
+        if (!(canvas instanceof ixdar.scenes.mesh.MeshNodeViewerScene mvs)) {
+            result.addProperty("ok", false);
+            result.addProperty("error", "MeshNodeViewerScene is not active");
+            return result;
+        }
+        var runtime = mvs.getLastGraphRuntime();
+        if (runtime == null) {
+            result.addProperty("ok", false);
+            result.addProperty("error", "No DSL has been executed yet");
+            return result;
+        }
+        result.addProperty("ok", true);
+        result.addProperty("total_ms", runtime.lastTotalMs());
+        JsonArray nodes = new JsonArray();
+        for (var entry : runtime.lastTimingMs().entrySet()) {
+            JsonObject n = new JsonObject();
+            n.addProperty("node", entry.getKey());
+            n.addProperty("ms", entry.getValue());
+            nodes.add(n);
+        }
+        result.add("nodes", nodes);
+        return result;
     }
 
     private static ixdar.geometry.mesh.data.MeshDistance.DistanceType parseDistanceType(String str) {

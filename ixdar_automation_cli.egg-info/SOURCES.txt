@@ -3,7 +3,9 @@ pyproject.toml
 ixdar_automation_cli/__init__.py
 ixdar_automation_cli/automation_client.py
 ixdar_automation_cli/cli_registry.py
+ixdar_automation_cli/dsl_optimizer.py
 ixdar_automation_cli/ixdar_cli.py
+ixdar_automation_cli/mesh_viewer_launch.py
 ixdar_automation_cli/quilt_mesh_fingerprint.py
 ixdar_automation_cli/rebuild_krieg_web.py
 ixdar_automation_cli/scene_scaffolding.py

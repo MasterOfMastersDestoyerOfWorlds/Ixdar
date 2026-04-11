@@ -41,6 +41,12 @@ public class MeshNodeViewerScene extends Scene {
     private MeshTopology mesh;
     private HalfEdgeMeshRuntime meshRuntime;
     private HalfEdgeMeshRuntime overlayRuntime;
+    private NodeGraphRuntime lastGraphRuntime;
+
+    /** Returns the NodeGraphRuntime from the most recent DSL execution (for timing data). */
+    public NodeGraphRuntime getLastGraphRuntime() {
+        return lastGraphRuntime;
+    }
 
     public MeshNodeViewerScene() {
         this(
@@ -55,7 +61,7 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     public MeshNodeViewerScene(String dslResource, String dslFinalNode, String dslFinalPort) {
-        this.dslResource = dslResource;
+        this.dslResource = dslResource.endsWith(".dsl") ? dslResource : dslResource + ".dsl";
         this.dslFinalNode = dslFinalNode;
         this.dslFinalPort = dslFinalPort;
     }
@@ -79,6 +85,7 @@ public class MeshNodeViewerScene extends Scene {
 
                 NodeGraphRuntime runtime = new NodeGraphRuntime();
                 runtime.registerAllFromAnnotationRegistry();
+                lastGraphRuntime = runtime;
                 // If no final node specified, use the last node in the graph
                 String resolvedNode = (dslFinalNode != null && !dslFinalNode.isEmpty())
                         ? dslFinalNode
@@ -94,6 +101,7 @@ public class MeshNodeViewerScene extends Scene {
                                     + " port=" + dslFinalPort,
                             e);
                 }
+                logTiming(runtime);
                 try {
                     meshRuntime = new HalfEdgeMeshRuntime();
                 } catch (Exception e) {
@@ -155,6 +163,22 @@ public class MeshNodeViewerScene extends Scene {
     public void shutdown() {
         disposeMeshRuntime();
         super.shutdown();
+    }
+
+    private void logTiming(NodeGraphRuntime runtime) {
+        var timing = runtime.lastTimingMs();
+        long threshold = 1; // only log nodes that took >= 1ms
+        StringBuilder sb = new StringBuilder();
+        sb.append("[dsl-timing] total=").append(runtime.lastTotalMs()).append("ms");
+        int slow = 0;
+        for (var entry : timing.entrySet()) {
+            if (entry.getValue() >= threshold) {
+                sb.append("\n  ").append(entry.getValue()).append("ms  ").append(entry.getKey());
+                slow++;
+            }
+        }
+        if (slow == 0) sb.append(" (all nodes <1ms)");
+        Platforms.get().log(sb.toString());
     }
 
     public int getMeshVertexCount() {
@@ -295,6 +319,7 @@ public class MeshNodeViewerScene extends Scene {
 
             NodeGraphRuntime runtime = new NodeGraphRuntime();
             runtime.registerAllFromAnnotationRegistry();
+            lastGraphRuntime = runtime;
 
             String resolvedNode = (finalNode != null && !finalNode.isEmpty())
                     ? finalNode
@@ -306,6 +331,7 @@ public class MeshNodeViewerScene extends Scene {
                 Platforms.get().log("[mesh-viewer] DSL reload failed: " + e.getMessage());
                 throw new IllegalStateException("Failed to execute DSL: " + resolvedDslName, e);
             }
+            logTiming(runtime);
             try {
                 meshRuntime = new HalfEdgeMeshRuntime();
             } catch (Exception e) {

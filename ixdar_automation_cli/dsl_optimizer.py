@@ -150,9 +150,7 @@ def optimize(dsl_path: str, ref_path: str, samples: int = 100, rounds: int = 1, 
                     "params": r["params"],
                     "similarity": r["similarity"],
                     "chamfer": r.get("chamfer", 0),
-                    "coverage": r.get("coverage", 0),
-                    "proximity": r.get("proximity", 0),
-                    "per_axis": r.get("per_axis_extents", {}),
+                    "hausdorff": r.get("hausdorff", 0),
                 })
 
             print(f"  {len(round_results)} results with comparison data")
@@ -188,11 +186,11 @@ def main() -> int:
 
     # Print top 10
     print(f"\nTop {min(10, len(results))} Results:")
-    print(f"  {'#':<4}{'Sim':>7}{'Cov':>7}{'Prox':>7}  Parameters")
-    print(f"  {'':4}{'-'*7}{'-'*7}{'-'*7}  {'-'*40}")
+    print(f"  {'#':<4}{'Sim':>7}{'Haus':>8}{'Chamf':>8}  Parameters")
+    print(f"  {'':4}{'-'*7}{'-'*8}{'-'*8}  {'-'*40}")
     for i, r in enumerate(results[:10]):
         params_str = "  ".join(f"{k}={v}" for k, v in r["params"].items())
-        print(f"  {i+1:<4}{r['similarity']:>6.1f}%{r['coverage']*100:>6.1f}%{r['proximity']*100:>6.1f}%  {params_str}")
+        print(f"  {i+1:<4}{r['similarity']:>6.1f}%{r['hausdorff']:>7.4f}{r['chamfer']:>8.4f}  {params_str}")
 
     # Write best params to file
     best = results[0]
@@ -203,7 +201,7 @@ def main() -> int:
 
     with open(out_path, "w") as f:
         json.dump({"best_params": best["params"], "similarity": best["similarity"],
-                    "coverage": best["coverage"], "proximity": best["proximity"]}, f, indent=2)
+                    "hausdorff": best["hausdorff"], "chamfer": best["chamfer"]}, f, indent=2)
     print(f"\nBest parameters written to {out_path}")
 
     return 0
