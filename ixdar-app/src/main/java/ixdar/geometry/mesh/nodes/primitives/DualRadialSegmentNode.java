@@ -239,9 +239,24 @@ public class DualRadialSegmentNode implements MeshNode {
             candidates[j + 1] = keyVert;
         }
 
-        // Return exactly `found` vertices
+        // Rotate so index 0 is closest to theta=0 (+X axis).
+        // The tube generates vertices with theta = 2π*s/N starting at angle 0,
+        // but atan2 sorts from -π to +π. Without rotation, index 0 is at -X
+        // and quads twist 180°, collapsing the mesh at segment boundaries.
+        int bestIdx = 0;
+        float bestDist = Float.MAX_VALUE;
+        for (int i = 0; i < found; i++) {
+            float dist = Math.abs(angles[i]); // distance from angle 0
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestIdx = i;
+            }
+        }
+
         int[] result = new int[found];
-        System.arraycopy(candidates, 0, result, 0, found);
+        for (int i = 0; i < found; i++) {
+            result[i] = candidates[(i + bestIdx) % found];
+        }
         return result;
     }
 
