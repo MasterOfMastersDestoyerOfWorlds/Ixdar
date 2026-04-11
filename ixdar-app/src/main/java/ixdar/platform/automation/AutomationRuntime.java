@@ -312,6 +312,33 @@ public class AutomationRuntime {
         }
     }
 
+    public JsonObject loadDsl(String dslName, String node, String port) {
+        try {
+            return runOnMainThread(() -> {
+                JsonObject result = new JsonObject();
+                if (!(canvas instanceof MeshNodeViewerScene)) {
+                    result.addProperty("ok", false);
+                    result.addProperty("error", "MeshNodeViewerScene is not active");
+                    return result;
+                }
+                MeshNodeViewerScene mvs = (MeshNodeViewerScene) canvas;
+                mvs.loadDsl(dslName, node, port);
+                result.addProperty("ok", true);
+                result.addProperty("dsl", dslName);
+                result.addProperty("node", node != null ? node : "");
+                result.addProperty("port", port != null ? port : "geometry");
+                result.addProperty("vertices", mvs.getMeshVertexCount());
+                result.addProperty("faces", mvs.getMeshFaceCount());
+                return result;
+            });
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", e.getMessage() == null ? "" : e.getMessage());
+            return err;
+        }
+    }
+
     private static ixdar.geometry.mesh.data.MeshDistance.DistanceType parseDistanceType(String str) {
         try {
             return ixdar.geometry.mesh.data.MeshDistance.DistanceType.valueOf(str.toUpperCase());

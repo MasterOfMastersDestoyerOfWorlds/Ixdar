@@ -266,6 +266,70 @@ public class MeshNodeViewerScene extends Scene {
         }
     }
 
+    /**
+     * Reload the viewer with a different DSL file at runtime.
+     * Disposes existing mesh, parses and executes the new DSL, uploads to GPU.
+     * Must be called on the render thread (via AutomationRuntime.runOnMainThread).
+     *
+     * @param dslName DSL filename without path (e.g. "test_finger.dsl" or "test_finger")
+     * @param finalNode output node ID, or empty for last node in graph
+     * @param finalPort output port name, or empty for "geometry"
+     */
+    public void loadDsl(String dslName, String finalNode, String finalPort) {
+        // Normalize: append .dsl if missing
+        if (!dslName.endsWith(".dsl")) {
+            dslName = dslName + ".dsl";
+        }
+        if (finalPort == null || finalPort.isEmpty()) {
+            finalPort = DEFAULT_DSL_FINAL_PORT;
+        }
+
+        disposeMeshRuntime();
+
+        String resolvedPort = finalPort;
+        String resolvedDslName = dslName;
+        Platforms.get().loadSourceAsync(DSL_FOLDER, resolvedDslName, Platforms.gl().getPlatformID(), dslCode -> {
+            PythonLexer lexer = new PythonLexer(dslCode);
+            PythonParser parser = new PythonParser(lexer);
+            List<PythonParser.ParsedNode> ast = parser.parseGraph();
+
+            NodeGraphRuntime runtime = new NodeGraphRuntime();
+            runtime.registerAllFromAnnotationRegistry();
+
+            String resolvedNode = (finalNode != null && !finalNode.isEmpty())
+                    ? finalNode
+                    : ast.get(ast.size() - 1).id;
+
+            try {
+                mesh = runtime.executeGraphToMesh(ast, resolvedNode, resolvedPort);
+            } catch (Exception e) {
+                Platforms.get().log("[mesh-viewer] DSL reload failed: " + e.getMessage());
+                throw new IllegalStateException("Failed to execute DSL: " + resolvedDslName, e);
+            }
+            try {
+                meshRuntime = new HalfEdgeMeshRuntime();
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to create mesh GL runtime", e);
+            }
+            meshRuntime.upload(mesh);
+            meshRuntime.frameCamera(camera);
+
+            if (mesh != null) {
+                Platforms.get().log(
+                        "[mesh-viewer] dsl reloaded: " + resolvedDslName + " verts=" + mesh.vertexCount()
+                                + " faces=" + mesh.faceCount());
+                meshCenter.set(mesh.center(new Vector3f()));
+            } else {
+                Platforms.get().log("[mesh-viewer] dsl reload produced null mesh: " + resolvedDslName);
+                meshCenter.set(0f, 0f, 0f);
+            }
+            if (orbitMouse != null) {
+                orbitMouse.setTarget(meshCenter);
+                orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
+            }
+        });
+    }
+
     /** Current mesh from the DSL graph, or null before async load completes. */
     public MeshTopology getMesh() {
         return mesh;

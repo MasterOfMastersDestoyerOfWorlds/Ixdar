@@ -103,6 +103,10 @@ class AutomationClient:
         """Return canonical mesh SHA-256 from the mesh viewer (GET /ui/mesh/fingerprint)."""
         return self.request_json("/ui/mesh/fingerprint")
 
+    def load_dsl(self, name: str, node: str = "", port: str = "geometry") -> dict:
+        """Switch the mesh viewer to a different DSL file at runtime."""
+        return self.request_json("/mesh/dsl", {"name": name, "node": node, "port": port})
+
     def mesh_overlay(self, path: str = "", clear: bool = False) -> dict:
         """Load or clear a reference OBJ overlay on the mesh viewer."""
         if clear:

@@ -84,6 +84,7 @@ public class AutomationApiServer {
         server.createContext("/replay/pause", this::replayPauseHandler);
         server.createContext("/replay/resume", this::replayResumeHandler);
         server.createContext("/replay/cancel", this::replayCancelHandler);
+        server.createContext("/mesh/dsl", this::dslLoadHandler);
         server.createContext("/mesh/compare", this::compareMeshHandler);
         server.createContext("/mesh/overlay", this::meshOverlayHandler);
     }
@@ -275,6 +276,28 @@ public class AutomationApiServer {
             return;
         }
         writeJson(exchange, runtime.requestShutdown());
+    }
+
+    private void dslLoadHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        try {
+            JsonObject body = readBodyJson(exchange);
+            String dslName = body.has("name") ? body.get("name").getAsString() : "";
+            String node = body.has("node") ? body.get("node").getAsString() : "";
+            String port = body.has("port") ? body.get("port").getAsString() : "geometry";
+
+            if (dslName.isEmpty()) {
+                writeError(exchange, 400, "Missing required field: name");
+                return;
+            }
+
+            JsonObject result = runtime.loadDsl(dslName, node, port);
+            writeJson(exchange, result);
+        } catch (Exception e) {
+            writeError(exchange, 500, e.getMessage());
+        }
     }
 
     private void compareMeshHandler(HttpExchange exchange) throws IOException {
