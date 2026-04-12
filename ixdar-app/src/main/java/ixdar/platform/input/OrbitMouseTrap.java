@@ -45,6 +45,10 @@ public class OrbitMouseTrap extends MouseTrap {
         applyOrbit();
     }
 
+    public float getAzimuth() { return azimuth; }
+    public float getElevation() { return elevation; }
+    public float getDistance() { return distance; }
+
     @Override
     public void mouseButton(int button, int action, int mods) {
         Platforms.init(Platforms.get().getPlatformID());

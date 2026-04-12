@@ -116,6 +116,18 @@ class AutomationClient:
     def screenshot(self, out_path: str = "", inline: bool = False) -> dict:
         return self.request_json("/ui/screenshot", {"path": out_path, "inline": inline})
 
+    def multiview(self, out_path: str = "", inline: bool = False) -> dict:
+        """Capture 8-view composite (4x2 grid: front/right/back/left/top/bottom/3-4 views)."""
+        return self.request_json("/ui/multiview", {"path": out_path, "inline": inline})
+
+    def set_orbit(self, azimuth: float, elevation: float, distance: float) -> dict:
+        """Set orbit camera position (radians). Waits for next frame to render."""
+        return self.request_json("/ui/orbit", {"azimuth": azimuth, "elevation": elevation, "distance": distance})
+
+    def get_orbit(self) -> dict:
+        """Get current orbit camera state."""
+        return self.request_json("/ui/orbit")
+
     def click(self, x: float, y: float, normalized: bool = False, button: int = 0) -> dict:
         return self.request_json("/input/click", {"x": x, "y": y, "normalized": normalized, "button": button})
 
@@ -133,6 +145,36 @@ class AutomationClient:
             "/input/key",
             {"key": key_code, "action": action, "mods": mods, "scancode": scancode},
         )
+
+    def set_projection(self, orthographic: bool = True) -> dict:
+        """Set projection mode: orthographic or perspective."""
+        return self.request_json("/ui/projection", {"orthographic": orthographic})
+
+    def get_projection(self) -> dict:
+        """Get current projection mode."""
+        return self.request_json("/ui/projection")
+
+    def toggle_wireframe(self) -> dict:
+        """Toggle wireframe mode by injecting a Z key press."""
+        return self.key(KEY_Z, action=1, mods=0)
+
+    def mesh_skeleton(self, path: str, resolution: int = 128) -> dict:
+        """Extract skeleton from mesh OBJ via TEASAR algorithm."""
+        return self.request_json("/mesh/skeleton", {"path": path, "resolution": resolution})
+
+    def skeleton_compare(self, generated: str, reference: str, resolution: int = 128) -> dict:
+        """Compare skeletons of two meshes: extract, match branches, return errors + recommendations."""
+        return self.request_json("/mesh/skeleton/compare", {"generated": generated, "reference": reference, "resolution": resolution})
+
+    def skeleton_compare_detailed(self, generated: str, reference: str, resolution: int = 128) -> dict:
+        """Compare skeletons with per-joint 3D position deltas."""
+        return self.request_json("/mesh/skeleton/compare-detailed", {"generated": generated, "reference": reference, "resolution": resolution})
+
+    def skeleton_sensitivity(self, dsl: str, reference: str, resolution: int = 128, epsilon: float = 0) -> dict:
+        """Compute skeleton sensitivity: Jacobian of joint positions w.r.t. DSL parameters."""
+        return self.request_json("/mesh/skeleton/sensitivity", {
+            "dsl": dsl, "reference": reference, "resolution": resolution, "epsilon": epsilon
+        })
 
     def shutdown(self) -> dict:
         return self.request_json("/shutdown", {})

@@ -64,6 +64,9 @@ public class AutomationApiServer {
             writeJson(exchange, runtime.meshFingerprint());
         });
         server.createContext("/ui/screenshot", this::screenshotHandler);
+        server.createContext("/ui/multiview", this::multiviewHandler);
+        server.createContext("/ui/orbit", this::orbitHandler);
+        server.createContext("/ui/projection", this::projectionHandler);
         server.createContext("/input/click", this::clickHandler);
         server.createContext("/input/hover", this::hoverHandler);
         server.createContext("/input/hover/clear", this::hoverClearHandler);
@@ -88,6 +91,10 @@ public class AutomationApiServer {
         server.createContext("/mesh/timing", this::meshTimingHandler);
         server.createContext("/mesh/compare", this::compareMeshHandler);
         server.createContext("/mesh/overlay", this::meshOverlayHandler);
+        server.createContext("/mesh/skeleton/compare-detailed", this::skeletonCompareDetailedHandler);
+        server.createContext("/mesh/skeleton/compare", this::skeletonCompareHandler);
+        server.createContext("/mesh/skeleton/sensitivity", this::skeletonSensitivityHandler);
+        server.createContext("/mesh/skeleton", this::meshSkeletonHandler);
     }
 
     private void screenshotHandler(HttpExchange exchange) throws IOException {
@@ -101,6 +108,56 @@ public class AutomationApiServer {
             writeJson(exchange, runtime.captureScreenshot(outputPath, inline));
         } catch (Exception e) {
             writeError(exchange, 500, e.getMessage());
+        }
+    }
+
+    private void multiviewHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        JsonObject body = readBodyJson(exchange);
+        String outputPath = body.has("path") ? body.get("path").getAsString() : "";
+        boolean inline = body.has("inline") && body.get("inline").getAsBoolean();
+        try {
+            writeJson(exchange, runtime.captureMultiview(outputPath, inline));
+        } catch (Exception e) {
+            writeError(exchange, 500, e.getMessage());
+        }
+    }
+
+    private void orbitHandler(HttpExchange exchange) throws IOException {
+        String method = exchange.getRequestMethod().toUpperCase();
+        if ("GET".equals(method)) {
+            writeJson(exchange, runtime.getOrbit());
+        } else if ("POST".equals(method)) {
+            try {
+                JsonObject body = readBodyJson(exchange);
+                float azimuth = body.has("azimuth") ? body.get("azimuth").getAsFloat() : 0f;
+                float elevation = body.has("elevation") ? body.get("elevation").getAsFloat() : 0f;
+                float distance = body.has("distance") ? body.get("distance").getAsFloat() : 3.5f;
+                writeJson(exchange, runtime.setOrbit(azimuth, elevation, distance));
+            } catch (Exception e) {
+                writeError(exchange, 500, e.getMessage());
+            }
+        } else {
+            writeError(exchange, 405, "Method not allowed; expected GET or POST");
+        }
+    }
+
+    private void projectionHandler(HttpExchange exchange) throws IOException {
+        String method = exchange.getRequestMethod().toUpperCase();
+        if ("GET".equals(method)) {
+            writeJson(exchange, runtime.getProjection());
+        } else if ("POST".equals(method)) {
+            try {
+                JsonObject body = readBodyJson(exchange);
+                boolean ortho = body.has("orthographic") && body.get("orthographic").getAsBoolean();
+                writeJson(exchange, runtime.setProjection(ortho));
+            } catch (Exception e) {
+                writeError(exchange, 500, e.getMessage());
+            }
+        } else {
+            writeError(exchange, 405, "Method not allowed; expected GET or POST");
         }
     }
 
@@ -351,6 +408,82 @@ public class AutomationApiServer {
 
             JsonObject result = runtime.meshOverlay(path, clear);
             writeJson(exchange, result);
+        } catch (Exception e) {
+            writeError(exchange, 500, e.getMessage());
+        }
+    }
+
+    private void meshSkeletonHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        try {
+            JsonObject body = readBodyJson(exchange);
+            String path = body.has("path") ? body.get("path").getAsString() : "";
+            int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
+            if (path.isEmpty()) {
+                writeError(exchange, 400, "Provide 'path' to mesh OBJ file");
+                return;
+            }
+            writeJson(exchange, runtime.meshSkeleton(path, resolution));
+        } catch (Exception e) {
+            writeError(exchange, 500, e.getMessage());
+        }
+    }
+
+    private void skeletonCompareHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        try {
+            JsonObject body = readBodyJson(exchange);
+            String generated = body.has("generated") ? body.get("generated").getAsString() : "";
+            String reference = body.has("reference") ? body.get("reference").getAsString() : "";
+            int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
+            if (generated.isEmpty() || reference.isEmpty()) {
+                writeError(exchange, 400, "Provide 'generated' and 'reference' OBJ paths");
+                return;
+            }
+            writeJson(exchange, runtime.skeletonCompare(generated, reference, resolution));
+        } catch (Exception e) {
+            writeError(exchange, 500, e.getMessage());
+        }
+    }
+
+    private void skeletonCompareDetailedHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        try {
+            JsonObject body = readBodyJson(exchange);
+            String generated = body.has("generated") ? body.get("generated").getAsString() : "";
+            String reference = body.has("reference") ? body.get("reference").getAsString() : "";
+            int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
+            if (generated.isEmpty() || reference.isEmpty()) {
+                writeError(exchange, 400, "Provide 'generated' and 'reference' OBJ paths");
+                return;
+            }
+            writeJson(exchange, runtime.skeletonCompareDetailed(generated, reference, resolution));
+        } catch (Exception e) {
+            writeError(exchange, 500, e.getMessage());
+        }
+    }
+
+    private void skeletonSensitivityHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        try {
+            JsonObject body = readBodyJson(exchange);
+            String dsl = body.has("dsl") ? body.get("dsl").getAsString() : "";
+            String reference = body.has("reference") ? body.get("reference").getAsString() : "";
+            int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
+            float epsilon = body.has("epsilon") ? body.get("epsilon").getAsFloat() : 0;
+            if (dsl.isEmpty() || reference.isEmpty()) {
+                writeError(exchange, 400, "Provide 'dsl' name and 'reference' OBJ path");
+                return;
+            }
+            writeJson(exchange, runtime.skeletonSensitivity(dsl, reference, resolution, epsilon));
         } catch (Exception e) {
             writeError(exchange, 500, e.getMessage());
         }

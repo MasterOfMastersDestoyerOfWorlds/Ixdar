@@ -34,6 +34,24 @@ import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
  * If both {@code loop_a_tag} and {@code loop_b_tag} are provided, both loops
  * are found by tag. If only {@code loop_a_tag} is provided, the target loop is
  * auto-discovered as the nearest boundary loop to the tagged one.
+ * <p>
+ * <b>Recommended workflow:</b> Use {@code attach_to_surface} to create
+ * attachment holes on a mesh using spherical coordinates (theta/phi). That node
+ * finds the correct face automatically, insets it, removes the inner face, and
+ * tags the resulting boundary loop. Then use this node to bridge a tube's tagged
+ * base loop to the nearest attachment hole. This avoids manually specifying face
+ * indices, which are fragile and change when upstream topology changes.
+ * <pre>{@code
+ * # Create hole on palm at spherical direction (theta, phi)
+ * thumb_attach = attach_to_surface(geometry=palm.geometry, theta=0.0, phi=1.5708, tag="th_hole")
+ * # Position tube at the attachment point
+ * th_finger = transform_geometry(geometry=tube.geometry,
+ *     translation=thumb_attach.attach_position, rotation=thumb_attach.attach_rotation)
+ * th_tagged = tag_geometry(geometry=th_finger.geometry, tags="th_base")
+ * # Join and bridge
+ * joined = join_geometry(a=thumb_attach.geometry, b=th_tagged.geometry)
+ * bridged = adaptive_bridge_loops(geometry=joined.geometry, loop_a_tag="th_base")
+ * }</pre>
  */
 @MeshNodeAnnotation(id = "adaptive_bridge_loops")
 public class AdaptiveBridgeLoopsNode implements MeshNode {

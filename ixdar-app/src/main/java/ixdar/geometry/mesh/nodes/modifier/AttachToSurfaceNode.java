@@ -146,8 +146,12 @@ public class AttachToSurfaceNode implements MeshNode {
             }
         }
 
-        // Compute face normal at hit face
+        // Compute face normal at hit face, ensuring it points outward (away from centroid)
         Vector3f attachNormal = faceNormal(mesh, mesh.faceIdAt(hitFace));
+        Vector3f toCentroid = new Vector3f(attachPos).sub(centroid);
+        if (attachNormal.dot(toCentroid) < 0) {
+            attachNormal.negate();
+        }
 
         // Build output mesh: clone verts, inset selected faces, omit inner faces
         HalfEdgeMesh out = new HalfEdgeMesh();

@@ -26,6 +26,8 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshDistance;
 import ixdar.geometry.mesh.data.MeshLoader;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.SkeletonSensitivityAnalyzer;
+import ixdar.geometry.mesh.graph.InputParameterDescriptor;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
@@ -41,11 +43,9 @@ public final class BatchDslEvaluator {
 
     private static final String[] INPUT_NODE_TYPES = {"input_float", "input_int"};
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
         if (args.length < 2) {
-            System.err.println("Usage:");
-            System.err.println("  BatchDslEvaluator <dsl-path> --discover");
-            System.err.println("  BatchDslEvaluator <dsl-path> <output-dir> <params-json> [ref-obj]");
+            printUsage();
             System.exit(2);
         }
 
@@ -59,16 +59,46 @@ public final class BatchDslEvaluator {
         List<PythonParser.ParsedNode> parsed = new PythonParser(new PythonLexer(source)).parseGraph();
         Map<String, Class<? extends MeshNode>> registry = NodeGraphRuntime.annotationRegistryClasses();
 
-        if ("--discover".equals(args[1])) {
-            discover(parsed, registry);
-        } else {
-            if (args.length < 3) {
-                System.err.println("Batch mode requires: <dsl-path> <output-dir> <params-json> [ref-obj]");
-                System.exit(2);
+        switch (args[1]) {
+            case "--discover" -> discover(parsed, registry);
+            case "--skeleton-sensitivity" -> {
+                if (args.length < 3) {
+                    System.err.println("skeleton-sensitivity requires: <dsl-path> --skeleton-sensitivity <ref-obj> [--resolution N] [--epsilon F]");
+                    System.exit(2);
+                }
+                String refObj = args[2];
+                int resolution = intFlag(args, "--resolution", 128);
+                float epsilon = floatFlag(args, "--epsilon", 0);
+                skeletonSensitivity(parsed, refObj, resolution, epsilon);
             }
-            String refObjPath = (args.length >= 4 && !"unused".equals(args[3])) ? args[3] : null;
-            batch(parsed, registry, Path.of(args[1]), Path.of(args[2]), refObjPath);
+            case "--skeleton-optimize" -> {
+                if (args.length < 3) {
+                    System.err.println("skeleton-optimize requires: <dsl-path> --skeleton-optimize <ref-obj> [--resolution N] [--max-iters N] [--target-score F]");
+                    System.exit(2);
+                }
+                String refObj = args[2];
+                int resolution = intFlag(args, "--resolution", 128);
+                int maxIters = intFlag(args, "--max-iters", 10);
+                float targetScore = floatFlag(args, "--target-score", 95);
+                skeletonOptimize(parsed, refObj, resolution, maxIters, targetScore);
+            }
+            default -> {
+                if (args.length < 3) {
+                    System.err.println("Batch mode requires: <dsl-path> <output-dir> <params-json> [ref-obj]");
+                    System.exit(2);
+                }
+                String refObjPath = (args.length >= 4 && !"unused".equals(args[3])) ? args[3] : null;
+                batch(parsed, registry, Path.of(args[1]), Path.of(args[2]), refObjPath);
+            }
         }
+    }
+
+    private static void printUsage() {
+        System.err.println("Usage:");
+        System.err.println("  BatchDslEvaluator <dsl-path> --discover");
+        System.err.println("  BatchDslEvaluator <dsl-path> <output-dir> <params-json> [ref-obj]");
+        System.err.println("  BatchDslEvaluator <dsl-path> --skeleton-sensitivity <ref-obj> [--resolution N] [--epsilon F]");
+        System.err.println("  BatchDslEvaluator <dsl-path> --skeleton-optimize <ref-obj> [--resolution N] [--max-iters N] [--target-score F]");
     }
 
     private static void discover(List<PythonParser.ParsedNode> parsed,
@@ -204,6 +234,147 @@ public final class BatchDslEvaluator {
         output.put("sampleCount", samples.size());
         output.put("results", results);
         System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(output));
+    }
+
+    // ─── Skeleton sensitivity mode ───
+
+    private static void skeletonSensitivity(List<PythonParser.ParsedNode> parsed,
+            String refObjPath, int resolution, float epsilon) throws Exception {
+        System.err.println("Computing skeleton sensitivity...");
+        System.err.printf("  Reference: %s%n", refObjPath);
+        System.err.printf("  Resolution: %d%n", resolution);
+
+        SkeletonSensitivityAnalyzer.SensitivityResult result =
+                SkeletonSensitivityAnalyzer.analyze(parsed, refObjPath, resolution, epsilon);
+
+        // Build output JSON
+        Map<String, Object> output = new LinkedHashMap<>();
+        output.put("baselineScore", result.baselineScore());
+        output.put("projectedScore", result.projectedScore());
+        output.put("parameterCount", result.parameters().size());
+        output.put("jointCount", result.jointIndices().size());
+
+        // Parameters with sensitivity info
+        List<Map<String, Object>> paramList = new ArrayList<>();
+        for (int pi = 0; pi < result.parameters().size(); pi++) {
+            InputParameterDescriptor p = result.parameters().get(pi);
+            Map<String, Object> pm = new LinkedHashMap<>();
+            pm.put("id", p.nodeId());
+            pm.put("name", p.name());
+            pm.put("default", p.kind() == InputParameterDescriptor.InputParameterKind.INT
+                    ? p.intDefault() : p.floatDefault());
+            pm.put("suggestedDelta", result.suggestedDeltas().getOrDefault(p.nodeId(), 0f));
+            // Compute aggregate sensitivity magnitude for this param
+            float totalSens = 0;
+            for (int ji = 0; ji < result.jointIndices().size(); ji++) {
+                float[] j = result.jacobian3D()[ji][pi];
+                totalSens += (float) Math.sqrt(j[0] * j[0] + j[1] * j[1] + j[2] * j[2]);
+            }
+            pm.put("totalSensitivity", totalSens);
+            paramList.add(pm);
+        }
+        output.put("parameters", paramList);
+
+        // Suggested new values
+        Map<String, Object> suggestedValues = new LinkedHashMap<>();
+        for (InputParameterDescriptor p : result.parameters()) {
+            float base = p.kind() == InputParameterDescriptor.InputParameterKind.INT
+                    ? (p.intDefault() != null ? p.intDefault() : 0)
+                    : (p.floatDefault() != null ? p.floatDefault() : 0);
+            float delta = result.suggestedDeltas().getOrDefault(p.nodeId(), 0f);
+            suggestedValues.put(p.nodeId(), base + delta);
+        }
+        output.put("suggestedValues", suggestedValues);
+
+        // Baseline errors per branch
+        List<Map<String, Object>> branchErrors = new ArrayList<>();
+        String currentBranch = null;
+        float branchTotalErr = 0;
+        int branchJointCount = 0;
+        for (int ji = 0; ji < result.jointIndices().size(); ji++) {
+            SkeletonSensitivityAnalyzer.BranchJointIndex bji = result.jointIndices().get(ji);
+            if (currentBranch != null && !currentBranch.equals(bji.branchLabel())) {
+                Map<String, Object> be = new LinkedHashMap<>();
+                be.put("branch", currentBranch);
+                be.put("avgError", branchTotalErr / branchJointCount);
+                be.put("joints", branchJointCount);
+                branchErrors.add(be);
+                branchTotalErr = 0;
+                branchJointCount = 0;
+            }
+            currentBranch = bji.branchLabel();
+            branchTotalErr += result.baselineErrors().get(ji).distance();
+            branchJointCount++;
+        }
+        if (currentBranch != null) {
+            Map<String, Object> be = new LinkedHashMap<>();
+            be.put("branch", currentBranch);
+            be.put("avgError", branchJointCount > 0 ? branchTotalErr / branchJointCount : 0);
+            be.put("joints", branchJointCount);
+            branchErrors.add(be);
+        }
+        output.put("branchErrors", branchErrors);
+
+        if (!result.unstableParams().isEmpty()) {
+            output.put("unstableParams", result.unstableParams());
+        }
+
+        System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(output));
+    }
+
+    // ─── Skeleton optimization mode ───
+
+    private static void skeletonOptimize(List<PythonParser.ParsedNode> parsed,
+            String refObjPath, int resolution, int maxIters, float targetScore) throws Exception {
+        System.err.println("Running skeleton optimization...");
+        System.err.printf("  Reference: %s%n", refObjPath);
+        System.err.printf("  Resolution: %d, Max iterations: %d, Target: %.1f%%%n",
+                resolution, maxIters, targetScore);
+
+        SkeletonSensitivityAnalyzer.OptimizationResult result =
+                SkeletonSensitivityAnalyzer.optimize(parsed, refObjPath, resolution, maxIters, targetScore);
+
+        Map<String, Object> output = new LinkedHashMap<>();
+        output.put("initialScore", result.initialScore());
+        output.put("finalScore", result.finalScore());
+        output.put("improvement", result.finalScore() - result.initialScore());
+        output.put("iterations", result.steps().size());
+
+        // Final parameter values
+        output.put("finalParams", result.finalParams());
+
+        // Step history
+        List<Map<String, Object>> stepList = new ArrayList<>();
+        for (SkeletonSensitivityAnalyzer.OptimizationStep step : result.steps()) {
+            Map<String, Object> sm = new LinkedHashMap<>();
+            sm.put("iteration", step.iteration());
+            sm.put("score", step.score());
+            sm.put("improvement", step.improvement());
+            stepList.add(sm);
+        }
+        output.put("steps", stepList);
+
+        System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(output));
+    }
+
+    // ─── CLI flag parsing ───
+
+    private static int intFlag(String[] args, String flag, int defaultVal) {
+        for (int i = 0; i < args.length - 1; i++) {
+            if (flag.equals(args[i])) {
+                try { return Integer.parseInt(args[i + 1]); } catch (NumberFormatException e) { return defaultVal; }
+            }
+        }
+        return defaultVal;
+    }
+
+    private static float floatFlag(String[] args, String flag, float defaultVal) {
+        for (int i = 0; i < args.length - 1; i++) {
+            if (flag.equals(args[i])) {
+                try { return Float.parseFloat(args[i + 1]); } catch (NumberFormatException e) { return defaultVal; }
+            }
+        }
+        return defaultVal;
     }
 
     /**

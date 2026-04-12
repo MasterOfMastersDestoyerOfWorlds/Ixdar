@@ -40,6 +40,7 @@ public class HalfEdgeMeshRuntime {
     private int edgeEbo;
     private int edgeCount;
     private boolean wireframe = false;
+    private volatile boolean orthographic = false;
     private boolean xray = true;
 
     public HalfEdgeMeshRuntime() throws Exception {
@@ -111,11 +112,19 @@ public class HalfEdgeMeshRuntime {
         int height = Platforms.get().getFrameBufferHeight();
         float aspect = width <= 0 || height <= 0 ? 1f : ((float) width / (float) height);
 
-        projectionMatrix.identity().perspective(
-                (float) Math.toRadians((float) camera.fov),
-                aspect,
-                0.01f,
-                Math.max(1000f, compiledMesh.radius * 20f));
+        float far = Math.max(1000f, compiledMesh.radius * 20f);
+        if (orthographic) {
+            float dist = camera.position.distance(camera.target);
+            float halfH = dist * (float) Math.tan(Math.toRadians(camera.fov / 2.0));
+            float halfW = halfH * aspect;
+            projectionMatrix.identity().ortho(-halfW, halfW, -halfH, halfH, 0.01f, far);
+        } else {
+            projectionMatrix.identity().perspective(
+                    (float) Math.toRadians((float) camera.fov),
+                    aspect,
+                    0.01f,
+                    far);
+        }
 
         meshShader.use();
         meshShader.setMat4("model", modelMatrix.identity());
@@ -229,6 +238,14 @@ public class HalfEdgeMeshRuntime {
 
     public void setWireframe(boolean wireframe) {
         this.wireframe = wireframe;
+    }
+
+    public boolean isOrthographic() {
+        return orthographic;
+    }
+
+    public void setOrthographic(boolean orthographic) {
+        this.orthographic = orthographic;
     }
 
     private void uploadCompiledMesh(int usage) {

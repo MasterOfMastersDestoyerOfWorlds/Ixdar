@@ -140,6 +140,14 @@ public class SegmentCapNode implements MeshNode {
             prevRing = currentRing;
         }
 
+        // Close the innermost ring with a triangle fan to a center vertex.
+        // CC subdivision handles triangles by splitting each into 3 quads.
+        int centerVert = mesh.addVertex(center.x, maxY, center.z);
+        for (int s = 0; s < found; s++) {
+            int ns = (s + 1) % found;
+            mesh.addFace(prevRing[s], prevRing[ns], centerVert);
+        }
+
         mesh.computeNormals();
         ctx.setOutput("geometry", base.withMesh(mesh));
     }

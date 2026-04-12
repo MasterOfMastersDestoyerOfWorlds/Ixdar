@@ -190,6 +190,13 @@ public final class ValidateDsl {
         probe.put("boundaryEdges", boundaryEdges);
         probe.put("watertight", boundaryEdges == 0);
 
+        boolean requireWatertight = Boolean.parseBoolean(System.getProperty("dsl.requireWatertight", "false"));
+        if (requireWatertight && boundaryEdges > 0) {
+            probe.put("ok", false);
+            probe.put("error", "Mesh has " + boundaryEdges + " boundary edges (not watertight)");
+            return probe;
+        }
+
         Vector3f mn = mesh.boundsMin(new Vector3f());
         Vector3f mx = mesh.boundsMax(new Vector3f());
         probe.put("boundsMin", vec3Json(mn));

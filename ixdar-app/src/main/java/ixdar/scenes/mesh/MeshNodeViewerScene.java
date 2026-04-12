@@ -39,13 +39,17 @@ public class MeshNodeViewerScene extends Scene {
 
     private OrbitMouseTrap orbitMouse;
     private MeshTopology mesh;
-    private HalfEdgeMeshRuntime meshRuntime;
+    private volatile HalfEdgeMeshRuntime meshRuntime;
     private HalfEdgeMeshRuntime overlayRuntime;
     private NodeGraphRuntime lastGraphRuntime;
 
     /** Returns the NodeGraphRuntime from the most recent DSL execution (for timing data). */
     public NodeGraphRuntime getLastGraphRuntime() {
         return lastGraphRuntime;
+    }
+
+    public OrbitMouseTrap getOrbitMouse() {
+        return orbitMouse;
     }
 
     public MeshNodeViewerScene() {
@@ -367,6 +371,17 @@ public class MeshNodeViewerScene extends Scene {
         }
         meshRuntime.setWireframe(!meshRuntime.isWireframe());
         Platforms.get().log("[mesh-viewer] wireframe=" + meshRuntime.isWireframe());
+    }
+
+    public void setOrthographic(boolean ortho) {
+        HalfEdgeMeshRuntime rt = meshRuntime;
+        if (rt == null) return;
+        rt.setOrthographic(ortho);
+    }
+
+    public boolean isOrthographic() {
+        HalfEdgeMeshRuntime rt = meshRuntime;
+        return rt != null && rt.isOrthographic();
     }
 
     private void disposeMeshRuntime() {

@@ -121,7 +121,8 @@ public final class GraphValidator {
         if (from == to) {
             return true;
         }
-        if (from == PortType.FLOAT && to == PortType.INT) {
+        if ((from == PortType.FLOAT && to == PortType.INT)
+                || (from == PortType.INT && to == PortType.FLOAT)) {
             return true;
         }
         if (from == PortType.MESH && to == PortType.GEOMETRY_BUNDLE) {

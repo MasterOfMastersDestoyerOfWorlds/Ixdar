@@ -6,70 +6,71 @@
 # SHAPE PARAMETERS (same as v11)
 # ══════════════════════════════════════════════════════════════════════
 
-palm_x = input_float(name="palm_x", default=0.903, min=0.8, max=3.0)
-palm_y = input_float(name="palm_y", default=0.2735, min=0.2, max=1.2)
-palm_z = input_float(name="palm_z", default=2.5876, min=2.0, max=6.0)
+palm_x = input_float(name="palm_x", default=0.866, min=0.4, max=3.0)
+palm_y = input_float(name="palm_y", default=2.025, min=0.2, max=4.0)
+palm_z = input_float(name="palm_z", default=1.793, min=1.0, max=6.0)
 
-pinky_1 = input_float(name="pinky_1", default=0.85, min=0.1, max=1.0)
-pinky_2 = input_float(name="pinky_2", default=0.64, min=0.1, max=0.8)
-pinky_3 = input_float(name="pinky_3", default=0.22, min=0.05, max=0.5)
+pinky_1 = input_float(name="pinky_1", default=0.51, min=0.1, max=1.0)
+pinky_2 = input_float(name="pinky_2", default=0.38, min=0.1, max=0.8)
+pinky_3 = input_float(name="pinky_3", default=0.13, min=0.05, max=0.5)
 
-ring_1 = input_float(name="ring_1", default=1.04, min=0.1, max=1.2)
-ring_2 = input_float(name="ring_2", default=0.89, min=0.1, max=1.0)
-ring_3 = input_float(name="ring_3", default=0.75, min=0.1, max=0.8)
+ring_1 = input_float(name="ring_1", default=0.971, min=0.1, max=1.2)
+ring_2 = input_float(name="ring_2", default=0.848, min=0.1, max=1.0)
+ring_3 = input_float(name="ring_3", default=0.644, min=0.1, max=0.8)
 
-middle_1 = input_float(name="middle_1", default=1.49, min=0.1, max=1.5)
-middle_2 = input_float(name="middle_2", default=1.03, min=0.1, max=1.2)
-middle_3 = input_float(name="middle_3", default=0.53, min=0.1, max=0.8)
+middle_1 = input_float(name="middle_1", default=1.400, min=0.1, max=1.5)
+middle_2 = input_float(name="middle_2", default=1.200, min=0.1, max=1.2)
+middle_3 = input_float(name="middle_3", default=0.675, min=0.1, max=0.8)
 
 index_1 = input_float(name="index_1", default=0.65, min=0.1, max=1.2)
 index_2 = input_float(name="index_2", default=0.81, min=0.1, max=1.0)
 index_3 = input_float(name="index_3", default=0.74, min=0.1, max=0.8)
 
-thumb_1 = input_float(name="thumb_1", default=0.21, min=0.1, max=1.5)
-thumb_2 = input_float(name="thumb_2", default=0.48, min=0.1, max=1.0)
-thumb_3 = input_float(name="thumb_3", default=0.27, min=0.1, max=0.8)
+thumb_1 = input_float(name="thumb_1", default=0.12, min=0.05, max=1.5)
+thumb_2 = input_float(name="thumb_2", default=0.28, min=0.1, max=1.0)
+thumb_3 = input_float(name="thumb_3", default=0.16, min=0.05, max=0.8)
 
-finger_rx = input_float(name="finger_rx", default=0.28, min=0.1, max=0.5)
-finger_ry = input_float(name="finger_ry", default=0.22, min=0.1, max=0.5)
-finger_taper = input_float(name="finger_taper", default=0.85, min=0.5, max=1.0)
-finger_tip_taper = input_float(name="finger_tip_taper", default=0.6, min=0.3, max=0.9)
+finger_rx = input_float(name="finger_rx", default=0.369, min=0.1, max=0.5)
+finger_ry = input_float(name="finger_ry", default=0.352, min=0.1, max=0.5)
+finger_taper = input_float(name="finger_taper", default=1.0, min=0.5, max=1.0)
+finger_tip_taper = input_float(name="finger_tip_taper", default=0.709, min=0.3, max=0.9)
 finger_tangent = input_float(name="finger_tangent", default=-0.04, min=-0.3, max=0.0)
 
 seg_count = input_int(name="seg_count", default=12, min=6, max=24)
 ring_count = input_int(name="ring_count", default=6, min=3, max=16)
 
-forearm_1 = input_float(name="forearm_1", default=0.70, min=0.3, max=2.5)
-forearm_2 = input_float(name="forearm_2", default=0.52, min=0.3, max=2.5)
-forearm_3 = input_float(name="forearm_3", default=0.81, min=0.3, max=2.5)
-forearm_4 = input_float(name="forearm_4", default=0.58, min=0.3, max=2.5)
+forearm_1 = input_float(name="forearm_1", default=0.510, min=0.2, max=2.5)
+forearm_2 = input_float(name="forearm_2", default=0.440, min=0.2, max=2.5)
+forearm_3 = input_float(name="forearm_3", default=0.510, min=0.2, max=2.5)
+forearm_4 = input_float(name="forearm_4", default=0.440, min=0.2, max=2.5)
 
 crease_wrist = input_float(name="crease_wrist", default=1.76, min=0.5, max=5.0)
 
 # ══════════════════════════════════════════════════════════════════════
 # CURL PARAMETERS — 15 joints (5 fingers × 3 joints)
-# Negative values curl forward (close hand), positive extend
+# Rotation around Z axis: negative values curl toward palm (+X), positive extend
+# Thumb: positive values curl toward fingers (+Y), negative extend
 # ══════════════════════════════════════════════════════════════════════
 
 pk_mcp_curl = input_float(name="pk_mcp_curl", default=-0.5, min=-2.0, max=0.5)
 pk_pip_curl = input_float(name="pk_pip_curl", default=-0.8, min=-2.0, max=0.5)
 pk_dip_curl = input_float(name="pk_dip_curl", default=-0.4, min=-2.0, max=0.5)
 
-rg_mcp_curl = input_float(name="rg_mcp_curl", default=-0.5, min=-2.0, max=0.5)
-rg_pip_curl = input_float(name="rg_pip_curl", default=-0.8, min=-2.0, max=0.5)
-rg_dip_curl = input_float(name="rg_dip_curl", default=-0.4, min=-2.0, max=0.5)
+rg_mcp_curl = input_float(name="rg_mcp_curl", default=-0.260, min=-2.0, max=0.5)
+rg_pip_curl = input_float(name="rg_pip_curl", default=-0.732, min=-2.0, max=0.5)
+rg_dip_curl = input_float(name="rg_dip_curl", default=-0.369, min=-2.0, max=0.5)
 
-md_mcp_curl = input_float(name="md_mcp_curl", default=-0.5, min=-2.0, max=0.5)
-md_pip_curl = input_float(name="md_pip_curl", default=-0.8, min=-2.0, max=0.5)
-md_dip_curl = input_float(name="md_dip_curl", default=-0.4, min=-2.0, max=0.5)
+md_mcp_curl = input_float(name="md_mcp_curl", default=-0.460, min=-2.0, max=0.5)
+md_pip_curl = input_float(name="md_pip_curl", default=-0.108, min=-2.0, max=0.5)
+md_dip_curl = input_float(name="md_dip_curl", default=-0.390, min=-2.0, max=0.5)
 
 ix_mcp_curl = input_float(name="ix_mcp_curl", default=-0.5, min=-2.0, max=0.5)
 ix_pip_curl = input_float(name="ix_pip_curl", default=-0.8, min=-2.0, max=0.5)
 ix_dip_curl = input_float(name="ix_dip_curl", default=-0.4, min=-2.0, max=0.5)
 
-th_mcp_curl = input_float(name="th_mcp_curl", default=-0.3, min=-2.0, max=2.0)
-th_pip_curl = input_float(name="th_pip_curl", default=-0.5, min=-2.0, max=2.0)
-th_dip_curl = input_float(name="th_dip_curl", default=-0.3, min=-2.0, max=2.0)
+th_mcp_curl = input_float(name="th_mcp_curl", default=0.445, min=-2.0, max=2.0)
+th_pip_curl = input_float(name="th_pip_curl", default=0.5, min=-2.0, max=2.0)
+th_dip_curl = input_float(name="th_dip_curl", default=0.3, min=-2.0, max=2.0)
 
 # ══════════════════════════════════════════════════════════════════════
 # DERIVED VALUES
@@ -298,11 +299,7 @@ th_w1 = set_bone_weight(geometry=th_cap.geometry, bone_name="th_prox", weight=1.
 th_w2 = set_bone_weight(geometry=th_w1.geometry, bone_name="th_mid", weight=1.0, selection=th_mid_sel.result)
 th_w3 = set_bone_weight(geometry=th_w2.geometry, bone_name="th_dist", weight=1.0, selection=th_dist_sel.result)
 
-half_palm_x = float_math(operation=MULTIPLY, a=palm_x.result, b=0.5)
-thumb_z_pos = float_math(operation=MULTIPLY, a=palm_z.result, b=-0.15)
-th_pos = combine_xyz(x=half_palm_x.result, y=0.0, z=thumb_z_pos.result)
-th_finger = transform_geometry(geometry=th_w3.geometry, translation=th_pos.vector, rotation=<0.0, 0.0, -1.5708>)
-th_tagged = tag_geometry(geometry=th_finger.geometry, tags="th_base")
+th_tagged = tag_geometry(geometry=th_w3.geometry, tags="th_base")
 
 # ══════════════════════════════════════════════════════════════════════
 # PALM — box model (cube → loop_cut → scale)
@@ -314,7 +311,18 @@ palm_scale = combine_xyz(x=palm_x.result, y=palm_y.result, z=palm_z.result)
 palm = transform_geometry(geometry=palm_cut.geometry, scale=palm_scale.vector)
 
 # ══════════════════════════════════════════════════════════════════════
+# THUMB HOLE — attach_to_surface on the palm BEFORE forearm extrusion
+# so the centroid is at origin and theta=0 phi=π/2 targets the +X face
+# ══════════════════════════════════════════════════════════════════════
+
+thumb_attach = attach_to_surface(geometry=palm.geometry, theta=0.0, phi=1.5708, inset=0.12, tag="th_hole")
+
+# Position thumb tube at the attachment point using output position/rotation
+th_finger = transform_geometry(geometry=th_tagged.geometry, translation=thumb_attach.attach_position, rotation=thumb_attach.attach_rotation)
+
+# ══════════════════════════════════════════════════════════════════════
 # FOREARM — extrude from palm bottom faces (indices 2,3,4,5)
+# attach_to_surface preserves face ordering for indices < hitFace (10+)
 # ══════════════════════════════════════════════════════════════════════
 
 fidx = input_face_index()
@@ -327,13 +335,13 @@ or_23 = boolean_math(a=sel_2.result, b=sel_3.result, mode=OR)
 or_234 = boolean_math(a=or_23.result, b=sel_4.result, mode=OR)
 forearm_sel = boolean_math(a=or_234.result, b=sel_5.result, mode=OR)
 
-ext_a1 = extrude_mesh(geometry=palm.geometry, offset=forearm_1.result, selection=forearm_sel.result, region=true)
+ext_a1 = extrude_mesh(geometry=thumb_attach.geometry, offset=forearm_1.result, selection=forearm_sel.result, region=true)
 ext_a2 = extrude_mesh(geometry=ext_a1.geometry, offset=forearm_2.result, selection=forearm_sel.result, region=true)
 ext_a3 = extrude_mesh(geometry=ext_a2.geometry, offset=forearm_3.result, selection=forearm_sel.result, region=true)
 ext_a4 = extrude_mesh(geometry=ext_a3.geometry, offset=forearm_4.result, selection=forearm_sel.result, region=true)
 
 # ══════════════════════════════════════════════════════════════════════
-# PALM HOLES — inset top 4 faces (6,7,8,9) + thumb face (10)
+# PALM HOLES — inset top 4 faces (6,7,8,9) for fingers
 # ══════════════════════════════════════════════════════════════════════
 
 sel_6 = compare(a=fidx.index, b=6.0, mode=EQUAL)
@@ -344,11 +352,8 @@ or_67 = boolean_math(a=sel_6.result, b=sel_7.result, mode=OR)
 or_89 = boolean_math(a=sel_8.result, b=sel_9.result, mode=OR)
 top_sel = boolean_math(a=or_67.result, b=or_89.result, mode=OR)
 
-sel_10 = compare(a=fidx.index, b=10.0, mode=EQUAL)
-hole_sel = boolean_math(a=top_sel.result, b=sel_10.result, mode=OR)
-
-palm_inset = inset_faces(geometry=ext_a4.geometry, inset=0.12, selection=hole_sel.result)
-palm_holes = separate_geometry(geometry=palm_inset.geometry, selection=hole_sel.result)
+palm_inset = inset_faces(geometry=ext_a4.geometry, inset=0.12, selection=top_sel.result)
+palm_holes = separate_geometry(geometry=palm_inset.geometry, selection=top_sel.result)
 
 # ══════════════════════════════════════════════════════════════════════
 # JOIN — palm with holes + all 5 tagged finger tubes
@@ -357,7 +362,7 @@ palm_holes = separate_geometry(geometry=palm_inset.geometry, selection=hole_sel.
 join_pk_rg = join_geometry(a=pk_tagged.geometry, b=rg_tagged.geometry)
 join_md_ix = join_geometry(a=md_tagged.geometry, b=ix_tagged.geometry)
 join_4fingers = join_geometry(a=join_pk_rg.geometry, b=join_md_ix.geometry)
-join_5fingers = join_geometry(a=join_4fingers.geometry, b=th_tagged.geometry)
+join_5fingers = join_geometry(a=join_4fingers.geometry, b=th_finger.geometry)
 join_all = join_geometry(a=palm_holes.inverted, b=join_5fingers.geometry)
 
 # ══════════════════════════════════════════════════════════════════════
@@ -387,9 +392,9 @@ pk_dip_y = float_math(operation=ADD, a=pk_pip_y.result, b=pinky_2.result)
 pk_dip_pivot = combine_xyz(x=0.0, y=pk_dip_y.result, z=neg_three_eighths.result)
 pk_pip_pivot = combine_xyz(x=0.0, y=pk_pip_y.result, z=neg_three_eighths.result)
 pk_mcp_pivot = combine_xyz(x=0.0, y=half_palm_y.result, z=neg_three_eighths.result)
-pk_dip_rot = combine_xyz(x=pk_dip_curl.result, y=0.0, z=0.0)
-pk_pip_rot = combine_xyz(x=pk_pip_curl.result, y=0.0, z=0.0)
-pk_mcp_rot = combine_xyz(x=pk_mcp_curl.result, y=0.0, z=0.0)
+pk_dip_rot = combine_xyz(x=0.0, y=0.0, z=pk_dip_curl.result)
+pk_pip_rot = combine_xyz(x=0.0, y=0.0, z=pk_pip_curl.result)
+pk_mcp_rot = combine_xyz(x=0.0, y=0.0, z=pk_mcp_curl.result)
 
 pose_pk_dip = apply_bone(geometry=crease_w.geometry, bone_name="pk_dist", rotation=pk_dip_rot.vector, pivot=pk_dip_pivot.vector)
 pose_pk_pip = apply_bone(geometry=pose_pk_dip.geometry, bone_name="pk_mid", rotation=pk_pip_rot.vector, pivot=pk_pip_pivot.vector)
@@ -401,9 +406,9 @@ rg_dip_y = float_math(operation=ADD, a=rg_pip_y.result, b=ring_2.result)
 rg_dip_pivot = combine_xyz(x=0.0, y=rg_dip_y.result, z=neg_one_eighth.result)
 rg_pip_pivot = combine_xyz(x=0.0, y=rg_pip_y.result, z=neg_one_eighth.result)
 rg_mcp_pivot = combine_xyz(x=0.0, y=half_palm_y.result, z=neg_one_eighth.result)
-rg_dip_rot = combine_xyz(x=rg_dip_curl.result, y=0.0, z=0.0)
-rg_pip_rot = combine_xyz(x=rg_pip_curl.result, y=0.0, z=0.0)
-rg_mcp_rot = combine_xyz(x=rg_mcp_curl.result, y=0.0, z=0.0)
+rg_dip_rot = combine_xyz(x=0.0, y=0.0, z=rg_dip_curl.result)
+rg_pip_rot = combine_xyz(x=0.0, y=0.0, z=rg_pip_curl.result)
+rg_mcp_rot = combine_xyz(x=0.0, y=0.0, z=rg_mcp_curl.result)
 
 pose_rg_dip = apply_bone(geometry=pose_pk_mcp.geometry, bone_name="rg_dist", rotation=rg_dip_rot.vector, pivot=rg_dip_pivot.vector)
 pose_rg_pip = apply_bone(geometry=pose_rg_dip.geometry, bone_name="rg_mid", rotation=rg_pip_rot.vector, pivot=rg_pip_pivot.vector)
@@ -415,9 +420,9 @@ md_dip_y = float_math(operation=ADD, a=md_pip_y.result, b=middle_2.result)
 md_dip_pivot = combine_xyz(x=0.0, y=md_dip_y.result, z=pos_one_eighth.result)
 md_pip_pivot = combine_xyz(x=0.0, y=md_pip_y.result, z=pos_one_eighth.result)
 md_mcp_pivot = combine_xyz(x=0.0, y=half_palm_y.result, z=pos_one_eighth.result)
-md_dip_rot = combine_xyz(x=md_dip_curl.result, y=0.0, z=0.0)
-md_pip_rot = combine_xyz(x=md_pip_curl.result, y=0.0, z=0.0)
-md_mcp_rot = combine_xyz(x=md_mcp_curl.result, y=0.0, z=0.0)
+md_dip_rot = combine_xyz(x=0.0, y=0.0, z=md_dip_curl.result)
+md_pip_rot = combine_xyz(x=0.0, y=0.0, z=md_pip_curl.result)
+md_mcp_rot = combine_xyz(x=0.0, y=0.0, z=md_mcp_curl.result)
 
 pose_md_dip = apply_bone(geometry=pose_rg_mcp.geometry, bone_name="md_dist", rotation=md_dip_rot.vector, pivot=md_dip_pivot.vector)
 pose_md_pip = apply_bone(geometry=pose_md_dip.geometry, bone_name="md_mid", rotation=md_pip_rot.vector, pivot=md_pip_pivot.vector)
@@ -429,22 +434,23 @@ ix_dip_y = float_math(operation=ADD, a=ix_pip_y.result, b=index_2.result)
 ix_dip_pivot = combine_xyz(x=0.0, y=ix_dip_y.result, z=pos_three_eighths.result)
 ix_pip_pivot = combine_xyz(x=0.0, y=ix_pip_y.result, z=pos_three_eighths.result)
 ix_mcp_pivot = combine_xyz(x=0.0, y=half_palm_y.result, z=pos_three_eighths.result)
-ix_dip_rot = combine_xyz(x=ix_dip_curl.result, y=0.0, z=0.0)
-ix_pip_rot = combine_xyz(x=ix_pip_curl.result, y=0.0, z=0.0)
-ix_mcp_rot = combine_xyz(x=ix_mcp_curl.result, y=0.0, z=0.0)
+ix_dip_rot = combine_xyz(x=0.0, y=0.0, z=ix_dip_curl.result)
+ix_pip_rot = combine_xyz(x=0.0, y=0.0, z=ix_pip_curl.result)
+ix_mcp_rot = combine_xyz(x=0.0, y=0.0, z=ix_mcp_curl.result)
 
 pose_ix_dip = apply_bone(geometry=pose_md_mcp.geometry, bone_name="ix_dist", rotation=ix_dip_rot.vector, pivot=ix_dip_pivot.vector)
 pose_ix_pip = apply_bone(geometry=pose_ix_dip.geometry, bone_name="ix_mid", rotation=ix_pip_rot.vector, pivot=ix_pip_pivot.vector)
 pose_ix_mcp = apply_bone(geometry=pose_ix_pip.geometry, bone_name="ix_prox", rotation=ix_mcp_rot.vector, pivot=ix_mcp_pivot.vector)
 
 # --- Thumb pivots ---
-# Thumb is rotated -90deg Z, so it extends along +X from (half_palm_x, 0, thumb_z_pos)
-# Curl axis for thumb is Z (perpendicular to thumb extension direction)
-th_pip_x = float_math(operation=ADD, a=half_palm_x.result, b=thumb_1.result)
+# Thumb attaches via attach_to_surface at theta=0 phi=π/2 → extends along +X
+# Curl axis is Z: positive Z curl → toward +Y (toward other fingers)
+th_attach_pos = separate_xyz(vector=thumb_attach.attach_position)
+th_pip_x = float_math(operation=ADD, a=th_attach_pos.x, b=thumb_1.result)
 th_dip_x = float_math(operation=ADD, a=th_pip_x.result, b=thumb_2.result)
-th_dip_pivot = combine_xyz(x=th_dip_x.result, y=0.0, z=thumb_z_pos.result)
-th_pip_pivot = combine_xyz(x=th_pip_x.result, y=0.0, z=thumb_z_pos.result)
-th_mcp_pivot = combine_xyz(x=half_palm_x.result, y=0.0, z=thumb_z_pos.result)
+th_dip_pivot = combine_xyz(x=th_dip_x.result, y=th_attach_pos.y, z=th_attach_pos.z)
+th_pip_pivot = combine_xyz(x=th_pip_x.result, y=th_attach_pos.y, z=th_attach_pos.z)
+th_mcp_pivot = combine_xyz(x=th_attach_pos.x, y=th_attach_pos.y, z=th_attach_pos.z)
 th_dip_rot = combine_xyz(x=0.0, y=0.0, z=th_dip_curl.result)
 th_pip_rot = combine_xyz(x=0.0, y=0.0, z=th_pip_curl.result)
 th_mcp_rot = combine_xyz(x=0.0, y=0.0, z=th_mcp_curl.result)
