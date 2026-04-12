@@ -5,12 +5,15 @@ import java.util.HashMap;
 
 import ixdar.geometry.knot.Knot;
 import ixdar.geometry.point.Grid;
+import ixdar.geometry.point.IrregularQuadGrid;
 import ixdar.geometry.point.PointND;
 import ixdar.geometry.point.PointSet;
 import ixdar.geometry.shell.DistanceMatrix;
 import ixdar.geometry.shell.Shell;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.sdf.SDFLine;
+import ixdar.game.IrregularQuadLayoutGenerator;
+import org.joml.Vector2f;
 
 /**
  * Represents the network of cities and roads in the trade game world. This is
@@ -299,5 +302,51 @@ public class CityNetwork {
             shell.add(new PointND.Float(maxX + margin, maxY + margin));
         }
         return shell.toPointSet();
+    }
+
+    // ==================== IRREGULAR QUAD GRID SUPPORT ====================
+
+    /**
+     * Creates a new CityNetwork with an IrregularQuadGrid.
+     * 
+     * @param seed             Random seed for deterministic generation
+     * @param gridWidth        Number of grid cells in X direction
+     * @param gridHeight       Number of grid cells in Y direction
+     * @param tileSize         Base tile size for the grid
+     * @param relaxIterations  Number of Lloyd relaxation iterations
+     * @param boundaryMargin   Margin from bounds for boundary handling
+     * @param jitterRatio      Jitter ratio for blue-noise effect
+     * @return New CityNetwork with IrregularQuadGrid
+     */
+    public static CityNetwork createWithIrregularQuadGrid(long seed, int gridWidth, int gridHeight, float tileSize,
+            int relaxIterations, float boundaryMargin, float jitterRatio) {
+        // Generate the irregular quad layout
+        IrregularQuadLayoutGenerator.Layout layout = IrregularQuadLayoutGenerator.generateFromGridBounds(
+                seed, gridWidth, gridHeight, tileSize, relaxIterations, boundaryMargin, jitterRatio);
+
+        // Create the IrregularQuadGrid
+        IrregularQuadGrid grid = new IrregularQuadGrid(layout, seed, relaxIterations, jitterRatio, gridWidth,
+                gridHeight);
+
+        // Create the CityNetwork with the irregular grid
+        return new CityNetwork(grid);
+    }
+
+    /**
+     * Checks if this network uses an IrregularQuadGrid.
+     * 
+     * @return true if the grid is an IrregularQuadGrid
+     */
+    public boolean hasIrregularQuadGrid() {
+        return grid instanceof IrregularQuadGrid;
+    }
+
+    /**
+     * Gets the IrregularQuadGrid if this network uses one.
+     * 
+     * @return the IrregularQuadGrid, or null if not using irregular quad grid
+     */
+    public IrregularQuadGrid getIrregularQuadGrid() {
+        return grid instanceof IrregularQuadGrid ? (IrregularQuadGrid) grid : null;
     }
 }

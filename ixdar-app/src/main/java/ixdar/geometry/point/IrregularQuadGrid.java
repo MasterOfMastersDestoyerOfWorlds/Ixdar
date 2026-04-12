@@ -54,6 +54,26 @@ public class IrregularQuadGrid extends Grid {
         this.verticalEdgeStdDev = layout == null ? 0f : layout.verticalEdgeStdDev;
     }
 
+    /**
+     * Creates an IrregularQuadGrid from a layout with explicit row/col counts.
+     */
+    public IrregularQuadGrid(IrregularQuadLayoutGenerator.Layout layout, long seed, int relaxIterations,
+            float jitterRatio, int rows, int cols) {
+        this.anchors = layout == null || layout.points == null ? new ArrayList<>() : new ArrayList<>(layout.points);
+        this.dualPoints = layout == null || layout.dualPoints == null ? new ArrayList<>()
+                : new ArrayList<>(layout.dualPoints);
+        this.edges = layout == null || layout.edges == null ? new ArrayList<>() : new ArrayList<>(layout.edges);
+        this.seed = seed;
+        this.relaxIterations = relaxIterations;
+        this.jitterRatio = jitterRatio;
+        this.rows = rows;
+        this.cols = cols;
+        this.horizontalEdgeMean = layout == null ? 0f : layout.horizontalEdgeMean;
+        this.verticalEdgeMean = layout == null ? 0f : layout.verticalEdgeMean;
+        this.horizontalEdgeStdDev = layout == null ? 0f : layout.horizontalEdgeStdDev;
+        this.verticalEdgeStdDev = layout == null ? 0f : layout.verticalEdgeStdDev;
+    }
+
     public long seed() {
         return seed;
     }

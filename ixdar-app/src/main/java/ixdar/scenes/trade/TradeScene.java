@@ -1,4 +1,5 @@
 package ixdar.scenes.trade;
+package ixdar.scenes.trade;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -9,6 +10,7 @@ import ixdar.canvas.Canvas3D;
 import ixdar.game.City;
 import ixdar.game.CityNetwork;
 import ixdar.geometry.point.Grid.CartesianGrid;
+import ixdar.geometry.point.IrregularQuadGrid;
 import ixdar.geometry.point.PointSet;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera;
@@ -26,7 +28,6 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
-import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.platform.input.TradeKeyGuy;
 import ixdar.platform.input.TradeMouseTrap;
 
@@ -54,6 +55,11 @@ public class TradeScene {
     public static final String VIEW_MAIN = "MAIN";
     public static final String VIEW_TOOLTIP = "TOOLTIP";
     public static final int TOP_BAR_HEIGHT = 40;
+
+    // Grid type toggle for irregular quad grid
+    public static final String GRID_TYPE_CARTESIAN = "cartesian";
+    public static final String GRID_TYPE_IRREGULAR_QUAD = "irregular_quad";
+    private static String activeGridType = GRID_TYPE_CARTESIAN; // Default to cartesian for compatibility
 
     // Tooltip state
     private static HyperString toolTip;
@@ -370,5 +376,47 @@ public class TradeScene {
             bind.invoke(null, platform, keys, mouse);
         } catch (Throwable ignored) {
         }
+    }
+
+    // ==================== GRID TYPE CONTROL ====================
+
+    /**
+     * Gets the currently active grid type.
+     * 
+     * @return grid type string (GRID_TYPE_CARTESIAN or GRID_TYPE_IRREGULAR_QUAD)
+     */
+    public static String getActiveGridType() {
+        return activeGridType;
+    }
+
+    /**
+     * Sets the active grid type for the trade scene.
+     * 
+     * @param gridType grid type string (GRID_TYPE_CARTESIAN or GRID_TYPE_IRREGULAR_QUAD)
+     */
+    public static void setActiveGridType(String gridType) {
+        if (gridType == null || gridType.isEmpty()) {
+            gridType = GRID_TYPE_CARTESIAN;
+        }
+        activeGridType = gridType;
+        System.out.println("[TradeScene] Grid type set to: " + gridType);
+    }
+
+    /**
+     * Checks if the irregular quad grid is currently active.
+     * 
+     * @return true if irregular quad grid is active, false otherwise
+     */
+    public static boolean isIrregularQuadGridActive() {
+        return GRID_TYPE_IRREGULAR_QUAD.equals(activeGridType);
+    }
+
+    /**
+     * Checks if the cartesian grid is currently active.
+     * 
+     * @return true if cartesian grid is active, false otherwise
+     */
+    public static boolean isCartesianGridActive() {
+        return GRID_TYPE_CARTESIAN.equals(activeGridType);
     }
 }

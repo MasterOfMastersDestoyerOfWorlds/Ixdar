@@ -51,6 +51,27 @@ public class IrregularQuadLayoutGenerator {
         return layout;
     }
 
+    /**
+     * Generates a deterministic irregular quad grid using blue-noise sampling
+     * and Lloyd relaxation.
+     * 
+     * @param seed             Random seed for deterministic output
+     * @param gridWidth        Number of grid cells in X direction
+     * @param gridHeight       Number of grid cells in Y direction
+     * @param tileSize         Base tile size
+     * @param relaxIterations  Number of Lloyd relaxation iterations
+     * @param boundaryMargin   Margin from bounds for boundary handling
+     * @param jitterRatio      Jitter ratio for blue-noise effect (0 = none)
+     * @return Generated layout with points, dual points, and edges
+     */
+    public static Layout generateFromGridBounds(long seed, int gridWidth, int gridHeight, float tileSize,
+            int relaxIterations,
+            float boundaryMargin, float jitterRatio) {
+        float width = gridWidth * tileSize;
+        float height = gridHeight * tileSize;
+        return generate(gridWidth * gridHeight, width, height, boundaryMargin, seed, relaxIterations, jitterRatio);
+    }
+
     public static Layout generateTownscaperHex(int hexRadius, float triangleSize, long seed, int relaxIterations) {
         int radius = Math.max(2, hexRadius);
         float size = Math.max(0.01f, triangleSize);
