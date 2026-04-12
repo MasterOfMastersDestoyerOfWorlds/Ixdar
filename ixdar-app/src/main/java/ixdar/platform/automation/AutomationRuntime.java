@@ -3,6 +3,10 @@ package ixdar.platform.automation;
 import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
 
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -324,6 +328,129 @@ public class AutomationRuntime {
             result.addProperty("path", out.getAbsolutePath());
             result.addProperty("width", width);
             result.addProperty("height", height);
+            result.addProperty("sha256", sha256(pngBytes));
+            if (inlineBase64) {
+                result.addProperty("base64", Base64.getEncoder().encodeToString(pngBytes));
+            }
+            result.addProperty("inlineBase64", inlineBase64);
+            return result;
+        });
+    }
+
+    public JsonObject captureMultiview(boolean inlineBase64) throws Exception {
+        return runOnMainThread(() -> {
+            if (canvas == null) {
+                JsonObject err = new JsonObject();
+                err.addProperty("ok", false);
+                err.addProperty("error", "Canvas not available");
+                return err;
+            }
+
+            // Save original camera state
+            Camera3D cam = canvas.camera;
+            Vector3f origPos = new Vector3f(cam.position);
+            float origYaw = cam.yaw;
+            float origPitch = cam.pitch;
+
+            // Define 8 viewpoints: 4 orthogonal + 4 diagonal
+            // Format: [yaw, pitch, radius, label]
+            float[][] views = {
+                {0f, 0f, 5f, "front"},
+                {180f, 0f, 5f, "back"},
+                {-90f, 0f, 5f, "left"},
+                {90f, 0f, 5f, "right"},
+                {0f, 90f, 5f, "top"},
+                {0f, -90f, 5f, "bottom"},
+                {45f, 0f, 5f, "front-right"},
+                {225f, 0f, 5f, "back-left"}
+            };
+
+            int gridCols = 4;
+            int gridRows = 2;
+            int cellW = 512;
+            int cellH = 512;
+            int totalW = gridCols * cellW;
+            int totalH = gridRows * cellH;
+
+            BufferedImage[] viewsImg = new BufferedImage[8];
+
+            for (int i = 0; i < 8; i++) {
+                float yaw = views[i][0];
+                float pitch = views[i][1];
+                float radius = views[i][2];
+
+                // Set camera position
+                float cx = (float) (Math.sin(Math.toRadians(yaw)) * radius);
+                float cz = (float) (Math.cos(Math.toRadians(yaw)) * radius);
+                cam.position.set(cx, 0f, cz);
+                cam.target.set(0f, 0f, 0f);
+                cam.yaw = yaw;
+                cam.pitch = pitch;
+                cam.updateCameraVectors();
+
+                // Render and capture
+                Platform gl = Platforms.get();
+                gl.getCanvas().paintGL();
+                int fbw = gl.getFrameBufferWidth();
+                int fbh = gl.getFrameBufferHeight();
+
+                int[] pixels = gl.readPixels(0, 0, fbw, fbh, gl.RGBA(), gl.UNSIGNED_BYTE(), fbw * fbh * 4);
+                BufferedImage img = new BufferedImage(fbw, fbh, BufferedImage.TYPE_INT_RGB);
+                for (int y = 0; y < fbh; y++) {
+                    for (int x = 0; x < fbw; x++) {
+                        int srcIndex = (fbh - 1 - y) * fbw + x;
+                        img.setRGB(x, y, pixels[srcIndex]);
+                    }
+                }
+
+                // Scale to cell size
+                BufferedImage scaled = new BufferedImage(cellW, cellH, BufferedImage.TYPE_INT_RGB);
+                java.awt.Graphics2D g2d = scaled.createGraphics();
+                g2d.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                    java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g2d.drawImage(img, 0, 0, cellW, cellH, null);
+                g2d.dispose();
+
+                // Add label
+                g2d = scaled.createGraphics();
+                g2d.setColor(java.awt.Color.WHITE);
+                g2d.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 16));
+                g2d.drawString(views[i][3], 10, 25);
+                g2d.dispose();
+
+                viewsImg[i] = scaled;
+            }
+
+            // Composite into grid
+            BufferedImage composite = new BufferedImage(totalW, totalH, BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D g2d = composite.createGraphics();
+            g2d.setColor(java.awt.Color.BLACK);
+            g2d.fillRect(0, 0, totalW, totalH);
+
+            for (int i = 0; i < 8; i++) {
+                int col = i % gridCols;
+                int row = i / gridCols;
+                int x = col * cellW;
+                int y = row * cellH;
+                g2d.drawImage(viewsImg[i], x, y, null);
+            }
+            g2d.dispose();
+
+            // Restore camera
+            cam.position.set(origPos);
+            cam.yaw = origYaw;
+            cam.pitch = origPitch;
+            cam.updateCameraVectors();
+
+            // Encode as PNG
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(composite, "PNG", baos);
+            byte[] pngBytes = baos.toByteArray();
+
+            JsonObject result = new JsonObject();
+            result.addProperty("ok", true);
+            result.addProperty("width", totalW);
+            result.addProperty("height", totalH);
             result.addProperty("sha256", sha256(pngBytes));
             if (inlineBase64) {
                 result.addProperty("base64", Base64.getEncoder().encodeToString(pngBytes));

@@ -64,6 +64,8 @@ public class AutomationApiServer {
             writeJson(exchange, runtime.meshFingerprint());
         });
         server.createContext("/ui/screenshot", this::screenshotHandler);
+        server.createContext("/ui/multiview", this::multiviewHandler);
+        server.createContext("/ui/orbit", this::orbitHandler);
         server.createContext("/input/click", this::clickHandler);
         server.createContext("/input/hover", this::hoverHandler);
         server.createContext("/input/hover/clear", this::hoverClearHandler);
@@ -96,6 +98,19 @@ public class AutomationApiServer {
         boolean inline = body.has("inline") && body.get("inline").getAsBoolean();
         try {
             writeJson(exchange, runtime.captureScreenshot(outputPath, inline));
+        } catch (Exception e) {
+            writeError(exchange, 500, e.getMessage());
+        }
+    }
+
+    private void multiviewHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        JsonObject body = readBodyJson(exchange);
+        boolean inline = body.has("inline") && body.get("inline").getAsBoolean();
+        try {
+            writeJson(exchange, runtime.captureMultiview(inline));
         } catch (Exception e) {
             writeError(exchange, 500, e.getMessage());
         }
