@@ -703,6 +703,53 @@
       </build>
     </profile>
     <profile>
+      <id>render-grid</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+        <render.grid.inputs></render.grid.inputs>
+        <render.grid.output></render.grid.output>
+        <render.grid.cols></render.grid.cols>
+        <render.grid.cell-size></render.grid.cell-size>
+        <render.grid.cell-padding></render.grid.cell-padding>
+        <render.grid.label-size></render.grid.label-size>
+      </properties>
+      <build>
+        <defaultGoal>compile exec:exec</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <executable>java</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>-enableassertions</argument>
+                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
+                <argument>-XstartOnFirstThread</argument>
+                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>ixdar.cli.RenderGrid</argument>
+                <argument>--inputs</argument>
+                <argument>${render.grid.inputs}</argument>
+                <argument>--output</argument>
+                <argument>${render.grid.output}</argument>
+                <argument>--cols</argument>
+                <argument>${render.grid.cols}</argument>
+                <argument>--cell-size</argument>
+                <argument>${render.grid.cell-size:-512}</argument>
+                <argument>--cell-padding</argument>
+                <argument>${render.grid.cell-padding:-10}</argument>
+                <argument>--label-size</argument>
+                <argument>${render.grid.label-size:-24}</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
       <id>native</id>
       <build>
         <plugins>
