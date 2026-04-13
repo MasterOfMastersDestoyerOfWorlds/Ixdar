@@ -81,6 +81,8 @@ public class MeshNodeViewerScene extends Scene {
         orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
         mouse = orbitMouse;
         bindAutomationIfAvailable(Platforms.get(), keys, mouse);
+        // Fallback: if reflection-based binding failed (TeaVM), wire callbacks directly
+        bindInputDirect(Platforms.get(), keys, mouse);
         try {
             Platforms.get().loadSourceAsync(DSL_FOLDER, dslResource, Platforms.gl().getPlatformID(), dslCode -> {
                 PythonLexer lexer = new PythonLexer(dslCode);
@@ -393,6 +395,28 @@ public class MeshNodeViewerScene extends Scene {
         }
         disposeOverlay();
         mesh = null;
+    }
+
+    /**
+     * Direct input binding that doesn't rely on reflection (works in TeaVM).
+     * bindAutomationIfAvailable uses Class.forName which silently fails in
+     * TeaVM, leaving all input callbacks null. This method wires them directly.
+     */
+    private static void bindInputDirect(ixdar.platform.gl.Platform platform,
+                                         ixdar.platform.input.KeyGuy keys,
+                                         ixdar.platform.input.MouseTrap mouse) {
+        platform.setCursorPosCallback((window, x, y) -> {
+            mouse.moveOrDrag(window, (float) x, (float) y);
+        });
+        platform.setMouseButtonCallback((button, action, mods) -> {
+            mouse.mouseButton(button, action, mods);
+        });
+        platform.setScrollCallback((xoff, yoff) -> {
+            mouse.scrollCallback(yoff);
+        });
+        platform.setKeyCallback((key, scancode, action, mods) -> {
+            keys.keyCallback(0L, key, scancode, action, mods);
+        });
     }
 
 }
