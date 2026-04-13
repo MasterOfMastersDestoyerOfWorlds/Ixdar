@@ -634,6 +634,7 @@
                 <argument>-classpath</argument>
                 <classpath />
                 <argument>-Ddsl.export=${dsl.export}</argument>
+                <argument>-Dskill.dir=${skill.dir}</argument>
                 <argument>ixdar.geometry.mesh.documentation.ValidateDsl</argument>
                 <argument>${dsl.file}</argument>
               </arguments>

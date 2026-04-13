@@ -58,6 +58,7 @@ public class RenderGrid {
         String inputDir = null;
         String outputPath = null;
         String referencePath = null;
+        String skillDir = null;
         int cols = DEFAULT_COLS;
         int cellSize = DEFAULT_CELL_SIZE;
         String labelsArg = null;
@@ -70,6 +71,7 @@ public class RenderGrid {
                 case "--cols" -> cols = Integer.parseInt(args[++i]);
                 case "--cell-size" -> cellSize = Integer.parseInt(args[++i]);
                 case "--labels" -> labelsArg = args[++i];
+                case "--skill-dir" -> skillDir = args[++i];
                 default -> {
                     System.err.println("Unknown option: " + args[i]);
                     System.exit(1);
@@ -148,7 +150,7 @@ public class RenderGrid {
                 int cellX = col * cellSize;
                 int cellY = row * (cellSize + LABEL_HEIGHT);
 
-                BufferedImage cellImage = renderDslToImage(platform, gl, entry.path, cellSize);
+                BufferedImage cellImage = renderDslToImage(platform, gl, entry.path, cellSize, skillDir);
                 if (cellImage != null) {
                     g2d.drawImage(cellImage, cellX, cellY, null);
                 } else {
@@ -202,7 +204,7 @@ public class RenderGrid {
     }
 
     private static BufferedImage renderDslToImage(HeadlessPlatform platform, HeadlessGL gl,
-            Path dslPath, int cellSize) {
+            Path dslPath, int cellSize, String skillDir) {
         try {
             String dslCode = Files.readString(dslPath);
             PythonLexer lexer = new PythonLexer(dslCode);
@@ -219,6 +221,12 @@ public class RenderGrid {
             NodeGraphRuntime runtime = new NodeGraphRuntime();
             runtime.registerAllFromAnnotationRegistry();
             runtime.registerFunctionDefs(parser.functionDefs());
+
+            if (skillDir != null) {
+                var skillLib = new ixdar.geometry.mesh.graph.SkillLibrary();
+                skillLib.loadDirectory(java.nio.file.Path.of(skillDir));
+                skillLib.registerWith(runtime);
+            }
 
             MeshTopology mesh = executeWithPortFallback(runtime, ast, finalNodeId);
             if (mesh == null || mesh.vertexCount() == 0) {

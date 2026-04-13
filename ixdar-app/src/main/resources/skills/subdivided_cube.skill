@@ -1,0 +1,12 @@
+---
+name: subdivided_cube
+description: Creates a cube with configurable subdivision levels
+technique: primitives
+fitness: 0
+generation: 0
+origin_run: test
+---
+def subdivided_cube(size: FLOAT, levels: INT) -> MESH:
+    c = cube(size=size)
+    s = subdivide_mesh(mesh=c.mesh, levels=levels)
+end

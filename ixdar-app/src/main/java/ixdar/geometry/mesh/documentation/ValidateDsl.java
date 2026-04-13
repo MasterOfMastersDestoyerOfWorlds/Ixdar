@@ -48,6 +48,13 @@ public final class ValidateDsl {
             System.exit(2);
         }
 
+        // Load skill library if --skill-dir or -Dskill.dir is set
+        String skillDirProp = System.getProperty("skill.dir", "");
+        ixdar.geometry.mesh.graph.SkillLibrary skillLib = new ixdar.geometry.mesh.graph.SkillLibrary();
+        if (!skillDirProp.isEmpty()) {
+            skillLib.loadDirectory(Path.of(skillDirProp));
+        }
+
         String source = Files.readString(dslPath);
         Map<String, Class<? extends MeshNode>> registry = NodeGraphRuntime.annotationRegistryClasses();
 
@@ -55,8 +62,18 @@ public final class ValidateDsl {
         Map<String, PythonParser.FunctionDef> funcDefs;
         try {
             PythonParser parser = new PythonParser(new PythonLexer(source));
-            parsed = parser.parseGraph();
-            funcDefs = parser.functionDefs();
+            // Prepend skill function defs so they're available during parsing
+            if (!skillLib.getSkills().isEmpty()) {
+                String preamble = skillLib.toDslPreamble();
+                PythonParser preambleParser = new PythonParser(new PythonLexer(preamble));
+                preambleParser.parseGraph();
+                funcDefs = new java.util.HashMap<>(preambleParser.functionDefs());
+                parsed = parser.parseGraph();
+                funcDefs.putAll(parser.functionDefs());
+            } else {
+                parsed = parser.parseGraph();
+                funcDefs = parser.functionDefs();
+            }
         } catch (RuntimeException e) {
             Map<String, Object> result = Map.of(
                     "valid", false,

@@ -51,6 +51,7 @@ public class RenderDsl {
         String outputPath = args[1];
         String nodeId = null;
         String portName = null;
+        String skillDir = null;
         int width = DEFAULT_WIDTH;
         int height = DEFAULT_HEIGHT;
 
@@ -61,6 +62,7 @@ public class RenderDsl {
                 case "--port" -> portName = args[++i];
                 case "--width" -> width = Integer.parseInt(args[++i]);
                 case "--height" -> height = Integer.parseInt(args[++i]);
+                case "--skill-dir" -> skillDir = args[++i];
                 default -> {
                     System.err.println("Unknown option: " + args[i]);
                     System.exit(1);
@@ -99,6 +101,14 @@ public class RenderDsl {
             NodeGraphRuntime runtime = new NodeGraphRuntime();
             runtime.registerAllFromAnnotationRegistry();
             runtime.registerFunctionDefs(parser.functionDefs());
+
+            // Load skills if --skill-dir specified
+            if (skillDir != null) {
+                var skillLib = new ixdar.geometry.mesh.graph.SkillLibrary();
+                skillLib.loadDirectory(java.nio.file.Path.of(skillDir));
+                skillLib.registerWith(runtime);
+                System.out.println("[RenderDsl] Loaded " + skillLib.getSkills().size() + " skills");
+            }
 
             MeshTopology mesh = executeWithPortFallback(runtime, ast, finalNodeId, portName);
 
