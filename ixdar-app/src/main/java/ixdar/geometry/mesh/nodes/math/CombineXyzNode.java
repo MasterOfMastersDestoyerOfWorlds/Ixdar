@@ -15,9 +15,9 @@ import ixdar.annotations.meshnode.Vector3Value;
 @MeshNodeAnnotation(id = "combine_xyz")
 public class CombineXyzNode implements MeshNode {
 
-    private static final InputPort X = new InputPort("x", PortType.FLOAT, 0.0f);
-    private static final InputPort Y = new InputPort("y", PortType.FLOAT, 0.0f);
-    private static final InputPort Z = new InputPort("z", PortType.FLOAT, 0.0f);
+    private static final InputPort X = new InputPort("x", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort Y = new InputPort("y", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort Z = new InputPort("z", PortType.FLOAT, 0.0f, -1000f, 1000f);
     private static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
 
     @Override

@@ -38,9 +38,9 @@ public class CurveDeformNode implements MeshNode {
             new ModeConstraint("Y", List.of("X", "Y", "Z"), Map.of()));
     private static final InputPort TARGET_AXIS = new InputPort("target_axis", PortType.STRING, "Z",
             new ModeConstraint("Z", List.of("X", "Y", "Z"), Map.of()));
-    private static final InputPort FROM_MIN = new InputPort("from_min", PortType.FLOAT, 0f);
-    private static final InputPort FROM_MAX = new InputPort("from_max", PortType.FLOAT, 1f);
-    private static final InputPort AMPLITUDE = new InputPort("amplitude", PortType.FLOAT, 1f);
+    private static final InputPort FROM_MIN = new InputPort("from_min", PortType.FLOAT, 0f, -100f, 100f);
+    private static final InputPort FROM_MAX = new InputPort("from_max", PortType.FLOAT, 1f, -100f, 100f);
+    private static final InputPort AMPLITUDE = new InputPort("amplitude", PortType.FLOAT, 1f, -100f, 100f);
 
     private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 

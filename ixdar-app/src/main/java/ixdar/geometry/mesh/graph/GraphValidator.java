@@ -19,6 +19,12 @@ public final class GraphValidator {
 
     public static List<String> validate(List<PythonParser.ParsedNode> parsed,
             Map<String, Class<? extends MeshNode>> registry) {
+        return validate(parsed, registry, java.util.Set.of());
+    }
+
+    public static List<String> validate(List<PythonParser.ParsedNode> parsed,
+            Map<String, Class<? extends MeshNode>> registry,
+            java.util.Set<String> functionNames) {
         List<String> errors = new ArrayList<>();
         Map<String, PythonParser.ParsedNode> byId = new HashMap<>();
         for (PythonParser.ParsedNode n : parsed) {
@@ -29,6 +35,10 @@ public final class GraphValidator {
         }
 
         for (PythonParser.ParsedNode n : parsed) {
+            if (functionNames.contains(n.type)) {
+                // Function call — skip registry validation (validated at runtime)
+                continue;
+            }
             Class<? extends MeshNode> clazz = registry.get(n.type);
             if (clazz == null) {
                 errors.add("Unknown node type '" + n.type + "' for node '" + n.id + "'");

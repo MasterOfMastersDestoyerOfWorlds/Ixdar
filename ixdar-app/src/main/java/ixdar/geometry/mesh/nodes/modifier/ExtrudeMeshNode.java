@@ -33,7 +33,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 public class ExtrudeMeshNode implements MeshNode {
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort OFFSET = new InputPort("offset", PortType.FLOAT, 0.1f);
+    private static final InputPort OFFSET = new InputPort("offset", PortType.FLOAT, 0.1f, -10f, 10f);
     private static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
     private static final InputPort REGION = new InputPort("region", PortType.BOOLEAN, false);
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);

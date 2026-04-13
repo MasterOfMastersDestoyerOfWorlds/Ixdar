@@ -37,11 +37,11 @@ public class BiRailLoftNode implements MeshNode {
     private static final InputPort RAIL_B = new InputPort("rail_b", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort PROFILE = new InputPort("profile", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort PROFILE_B = new InputPort("profile_b", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort X_RESOLUTION = new InputPort("x_resolution", PortType.INT, 32);
-    private static final InputPort Y_RESOLUTION = new InputPort("y_resolution", PortType.INT, 16);
+    private static final InputPort X_RESOLUTION = new InputPort("x_resolution", PortType.INT, 32, 2f, 512f);
+    private static final InputPort Y_RESOLUTION = new InputPort("y_resolution", PortType.INT, 16, 2f, 512f);
     private static final InputPort BLEND_CLOSURE = new InputPort("blend_closure", PortType.CLOSURE, null);
-    private static final InputPort DEPTH_SCALE = new InputPort("depth_scale", PortType.FLOAT, 1f);
-    private static final InputPort ISO_CURVE_T = new InputPort("iso_curve_t", PortType.FLOAT, -1f);
+    private static final InputPort DEPTH_SCALE = new InputPort("depth_scale", PortType.FLOAT, 1f, -100f, 100f);
+    private static final InputPort ISO_CURVE_T = new InputPort("iso_curve_t", PortType.FLOAT, -1f, -1f, 1f);
     private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
     private static final OutputPort ISO_CURVE = new OutputPort("iso_curve", PortType.GEOMETRY_BUNDLE);
     private static final OutputPort BOUNDARY_A = new OutputPort("boundary_a", PortType.GEOMETRY_BUNDLE);

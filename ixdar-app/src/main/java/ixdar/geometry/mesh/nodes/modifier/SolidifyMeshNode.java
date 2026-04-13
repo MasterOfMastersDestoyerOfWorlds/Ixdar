@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 public class SolidifyMeshNode implements MeshNode {
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort THICKNESS = new InputPort("thickness", PortType.FLOAT, 0.01f);
+    private static final InputPort THICKNESS = new InputPort("thickness", PortType.FLOAT, 0.01f, 0.001f, 10f);
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
     private static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
 

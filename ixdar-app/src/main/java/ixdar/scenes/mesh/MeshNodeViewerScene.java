@@ -89,6 +89,7 @@ public class MeshNodeViewerScene extends Scene {
 
                 NodeGraphRuntime runtime = new NodeGraphRuntime();
                 runtime.registerAllFromAnnotationRegistry();
+                runtime.registerFunctionDefs(parser.functionDefs());
                 lastGraphRuntime = runtime;
                 // If no final node specified, use the last node in the graph
                 String resolvedNode = (dslFinalNode != null && !dslFinalNode.isEmpty())
@@ -323,6 +324,7 @@ public class MeshNodeViewerScene extends Scene {
 
             NodeGraphRuntime runtime = new NodeGraphRuntime();
             runtime.registerAllFromAnnotationRegistry();
+            runtime.registerFunctionDefs(parser.functionDefs());
             lastGraphRuntime = runtime;
 
             String resolvedNode = (finalNode != null && !finalNode.isEmpty())

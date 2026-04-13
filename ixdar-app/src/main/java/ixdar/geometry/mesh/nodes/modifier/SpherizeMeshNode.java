@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.data.MeshTopology;
 @MeshNodeAnnotation(id = "spherize")
 public class SpherizeMeshNode implements MeshNode {
     private static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
-    private static final InputPort FACTOR = new InputPort("factor", PortType.FLOAT, 1.0f);
+    private static final InputPort FACTOR = new InputPort("factor", PortType.FLOAT, 1.0f, 0f, 1f);
     private static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
 
     @Override

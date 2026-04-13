@@ -21,7 +21,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 public class InputShortestEdgePathsNode implements MeshNode {
 
     private static final InputPort END = new InputPort("end", PortType.BOOLEAN, false);
-    private static final InputPort EDGE_COST = new InputPort("edge_cost", PortType.FLOAT, 1.0f);
+    private static final InputPort EDGE_COST = new InputPort("edge_cost", PortType.FLOAT, 1.0f, 0.001f, 1000f);
     private static final OutputPort NEXT_VERTEX = new OutputPort("next_vertex", PortType.INT);
     private static final OutputPort TOTAL_COST = new OutputPort("total_cost", PortType.FLOAT);
 

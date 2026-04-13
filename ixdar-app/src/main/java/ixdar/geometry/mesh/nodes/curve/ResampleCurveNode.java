@@ -20,7 +20,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 public class ResampleCurveNode implements MeshNode {
 
     private static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort LENGTH = new InputPort("length", PortType.FLOAT, 0.1f);
+    private static final InputPort LENGTH = new InputPort("length", PortType.FLOAT, 0.1f, 0.001f, 100f);
     private static final OutputPort CURVE_OUT = new OutputPort("curve", PortType.GEOMETRY_BUNDLE);
 
     @Override

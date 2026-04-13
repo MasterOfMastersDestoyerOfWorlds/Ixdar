@@ -30,8 +30,8 @@ import ixdar.geometry.mesh.data.HalfEdgeMesh;
 public class SegmentCapNode implements MeshNode {
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 12);
-    private static final InputPort CAP_RINGS = new InputPort("cap_rings", PortType.INT, 2);
+    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 12, (float) 3, (float) 128);
+    private static final InputPort CAP_RINGS = new InputPort("cap_rings", PortType.INT, 2, (float) 0, (float) 16);
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override

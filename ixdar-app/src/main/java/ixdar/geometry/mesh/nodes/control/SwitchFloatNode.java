@@ -16,8 +16,8 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 public class SwitchFloatNode implements MeshNode {
 
     private static final InputPort SWITCH = new InputPort("switch", PortType.BOOLEAN, false);
-    private static final InputPort FALSE_VAL = new InputPort("false", PortType.FLOAT, 0.0f);
-    private static final InputPort TRUE_VAL = new InputPort("true", PortType.FLOAT, 0.0f);
+    private static final InputPort FALSE_VAL = new InputPort("false", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort TRUE_VAL = new InputPort("true", PortType.FLOAT, 0.0f, -1000f, 1000f);
     private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override

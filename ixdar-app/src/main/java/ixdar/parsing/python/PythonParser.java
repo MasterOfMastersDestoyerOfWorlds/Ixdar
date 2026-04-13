@@ -14,6 +14,7 @@ public class PythonParser {
     private Token current;
     private int inlineCounter = 0;
     private final List<ParsedNode> pendingInlineNodes = new ArrayList<>();
+    private final Map<String, FunctionDef> functionDefs = new HashMap<>();
 
     // Temporary AST structures to hold parsed data
     public static class ParsedNode {
@@ -26,6 +27,25 @@ public class PythonParser {
         public String nodeId;
         public String portName;
         public NodeReference(String n, String p) { nodeId = n; portName = p; }
+    }
+
+    public static class FunctionParam {
+        public String name;
+        public String type;
+        public FunctionParam(String name, String type) { this.name = name; this.type = type; }
+    }
+
+    public static class FunctionDef {
+        public String name;
+        public List<FunctionParam> params;
+        public String returnType;
+        public List<ParsedNode> body;
+        public FunctionDef(String name, List<FunctionParam> params, String returnType, List<ParsedNode> body) {
+            this.name = name;
+            this.params = params;
+            this.returnType = returnType;
+            this.body = body;
+        }
     }
 
     public PythonParser(PythonLexer lexer) {
@@ -46,16 +66,25 @@ public class PythonParser {
         throw new RuntimeException("Syntax Error: " + errorMessage + ". Found '" + current.value + "'");
     }
 
-    // Graph -> Statement* EOF
+    // Graph -> (FunctionDef | Statement)* EOF
     public List<ParsedNode> parseGraph() {
         List<ParsedNode> nodes = new ArrayList<>();
         while (current.type != TokenType.EOF) {
-            pendingInlineNodes.clear();
-            ParsedNode node = parseStatement();
-            nodes.addAll(pendingInlineNodes);
-            nodes.add(node);
+            if (current.type == TokenType.IDENTIFIER && "def".equals(current.value)) {
+                parseFunctionDef();
+            } else {
+                pendingInlineNodes.clear();
+                ParsedNode node = parseStatement();
+                nodes.addAll(pendingInlineNodes);
+                nodes.add(node);
+            }
         }
         return nodes;
+    }
+
+    /** Returns function definitions parsed from the graph. */
+    public Map<String, FunctionDef> functionDefs() {
+        return functionDefs;
     }
 
     // Statement -> Identifier "=" Identifier "(" Arguments ")"
@@ -74,6 +103,47 @@ public class PythonParser {
         
         consume(TokenType.RPAREN, "Expected ')' to close node arguments");
         return node;
+    }
+
+    // FunctionDef -> "def" Identifier "(" ParamList ")" "->" Identifier ":" Body "end"
+    private void parseFunctionDef() {
+        consume(TokenType.IDENTIFIER, "Expected 'def'"); // consume "def"
+        String name = consume(TokenType.IDENTIFIER, "Expected function name after 'def'").value;
+        consume(TokenType.LPAREN, "Expected '(' after function name");
+        List<FunctionParam> params = new ArrayList<>();
+        if (current.type != TokenType.RPAREN) {
+            parseFunctionParams(params);
+        }
+        consume(TokenType.RPAREN, "Expected ')' after parameter list");
+        consume(TokenType.ARROW, "Expected '->' after parameter list");
+        String returnType = consume(TokenType.IDENTIFIER, "Expected return type after '->'").value;
+        consume(TokenType.COLON, "Expected ':' after return type");
+        List<ParsedNode> body = new ArrayList<>();
+        while (current.type != TokenType.EOF
+                && !(current.type == TokenType.IDENTIFIER && "end".equals(current.value))) {
+            pendingInlineNodes.clear();
+            ParsedNode node = parseStatement();
+            body.addAll(pendingInlineNodes);
+            body.add(node);
+        }
+        consume(TokenType.IDENTIFIER, "Expected 'end' to close function definition");
+        functionDefs.put(name, new FunctionDef(name, params, returnType, body));
+    }
+
+    private void parseFunctionParams(List<FunctionParam> params) {
+        params.add(parseFunctionParam());
+        while (current.type == TokenType.COMMA) {
+            advance();
+            if (current.type == TokenType.RPAREN) break; // trailing comma
+            params.add(parseFunctionParam());
+        }
+    }
+
+    private FunctionParam parseFunctionParam() {
+        String paramName = consume(TokenType.IDENTIFIER, "Expected parameter name").value;
+        consume(TokenType.COLON, "Expected ':' after parameter name");
+        String paramType = consume(TokenType.IDENTIFIER, "Expected type after ':'").value;
+        return new FunctionParam(paramName, paramType);
     }
 
     // Arguments -> Argument ("," Argument)*

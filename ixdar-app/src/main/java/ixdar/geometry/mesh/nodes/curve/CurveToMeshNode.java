@@ -29,8 +29,8 @@ public class CurveToMeshNode implements MeshNode {
 
     private static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort PROFILE_CURVE = new InputPort("profile_curve", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.1f);
-    private static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 12);
+    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.1f, 0.001f, 100f);
+    private static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 12, 3f, 128f);
     private static final InputPort FILL_CAPS = new InputPort("fill_caps", PortType.BOOLEAN, true);
     private static final InputPort RADIUS_CLOSURE = new InputPort("radius_closure", PortType.CLOSURE, null);
     private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);

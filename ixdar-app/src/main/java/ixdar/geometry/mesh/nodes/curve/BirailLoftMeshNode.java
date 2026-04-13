@@ -27,8 +27,8 @@ public class BirailLoftMeshNode implements MeshNode {
 
     private static final InputPort RAIL_A = new InputPort("rail_a", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort RAIL_B = new InputPort("rail_b", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort U_SEGMENTS = new InputPort("u_segments", PortType.INT, 16);
-    private static final InputPort V_SEGMENTS = new InputPort("v_segments", PortType.INT, 8);
+    private static final InputPort U_SEGMENTS = new InputPort("u_segments", PortType.INT, 16, 2f, 512f);
+    private static final InputPort V_SEGMENTS = new InputPort("v_segments", PortType.INT, 8, 2f, 512f);
     private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override

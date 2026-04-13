@@ -37,21 +37,21 @@ public class DualRadialSegmentNode implements MeshNode {
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
 
     // Hermite boundary conditions for X-axis radius
-    private static final InputPort START_RX = new InputPort("start_rx", PortType.FLOAT, 0.5f);
-    private static final InputPort START_TX = new InputPort("start_tx", PortType.FLOAT, 0.0f);
-    private static final InputPort END_RX = new InputPort("end_rx", PortType.FLOAT, 0.4f);
-    private static final InputPort END_TX = new InputPort("end_tx", PortType.FLOAT, 0.0f);
+    private static final InputPort START_RX = new InputPort("start_rx", PortType.FLOAT, 0.5f, 0.001f, 10f);
+    private static final InputPort START_TX = new InputPort("start_tx", PortType.FLOAT, 0.0f, -10f, 10f);
+    private static final InputPort END_RX = new InputPort("end_rx", PortType.FLOAT, 0.4f, 0.001f, 10f);
+    private static final InputPort END_TX = new InputPort("end_tx", PortType.FLOAT, 0.0f, -10f, 10f);
 
     // Hermite boundary conditions for Y-axis radius
-    private static final InputPort START_RY = new InputPort("start_ry", PortType.FLOAT, 0.5f);
-    private static final InputPort START_TY = new InputPort("start_ty", PortType.FLOAT, 0.0f);
-    private static final InputPort END_RY = new InputPort("end_ry", PortType.FLOAT, 0.4f);
-    private static final InputPort END_TY = new InputPort("end_ty", PortType.FLOAT, 0.0f);
+    private static final InputPort START_RY = new InputPort("start_ry", PortType.FLOAT, 0.5f, 0.001f, 10f);
+    private static final InputPort START_TY = new InputPort("start_ty", PortType.FLOAT, 0.0f, -10f, 10f);
+    private static final InputPort END_RY = new InputPort("end_ry", PortType.FLOAT, 0.4f, 0.001f, 10f);
+    private static final InputPort END_TY = new InputPort("end_ty", PortType.FLOAT, 0.0f, -10f, 10f);
 
     // Segment geometry parameters
-    private static final InputPort LENGTH = new InputPort("length", PortType.FLOAT, 1.0f);
-    private static final InputPort RINGS = new InputPort("rings", PortType.INT, 8);
-    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 12);
+    private static final InputPort LENGTH = new InputPort("length", PortType.FLOAT, 1.0f, 0.001f, 100f);
+    private static final InputPort RINGS = new InputPort("rings", PortType.INT, 8, (float) 1, (float) 64);
+    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 12, (float) 3, (float) 128);
 
     // Geometry output
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);

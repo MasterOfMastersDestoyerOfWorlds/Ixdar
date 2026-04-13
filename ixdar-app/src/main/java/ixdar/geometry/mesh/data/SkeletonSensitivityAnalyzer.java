@@ -12,7 +12,9 @@ import ixdar.geometry.mesh.data.MeshSkeletonComparator.JointDelta;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonResult;
 import ixdar.geometry.mesh.graph.InputParameterDescriptor;
 import ixdar.geometry.mesh.graph.InputParameterDescriptor.InputParameterKind;
+import ixdar.geometry.mesh.graph.LiteralParameterDescriptor;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.graph.OptimizableParameter;
 import ixdar.parsing.python.PythonParser;
 
 /**
@@ -34,7 +36,7 @@ public final class SkeletonSensitivityAnalyzer {
 
     /** Full sensitivity analysis result. */
     public record SensitivityResult(
-            List<InputParameterDescriptor> parameters,
+            List<OptimizableParameter> parameters,
             List<BranchJointIndex> jointIndices,
             float[][][] jacobian3D,           // [M joints][N params][3 dims]
             float baselineScore,
@@ -84,14 +86,8 @@ public final class SkeletonSensitivityAnalyzer {
 
         if (epsilon <= 0) epsilon = DEFAULT_EPSILON_RELATIVE;
 
-        // 1. Discover parameters
-        List<InputParameterDescriptor> allParams = InputParameterDescriptor.collect(parsed);
-        List<InputParameterDescriptor> params = new ArrayList<>();
-        for (InputParameterDescriptor p : allParams) {
-            if (p.kind() == InputParameterKind.FLOAT || p.kind() == InputParameterKind.INT) {
-                params.add(p);
-            }
-        }
+        // 1. Discover parameters (input nodes + literal arguments)
+        List<OptimizableParameter> params = collectAllParameters(parsed);
 
         if (params.isEmpty()) {
             return new SensitivityResult(params, List.of(), new float[0][0][0],
@@ -156,17 +152,17 @@ public final class SkeletonSensitivityAnalyzer {
         List<String> unstableParams = new ArrayList<>();
 
         for (int pi = 0; pi < N; pi++) {
-            InputParameterDescriptor param = params.get(pi);
-            float defaultVal = paramDefault(param);
+            OptimizableParameter param = params.get(pi);
+            float defaultVal = param.defaultValue();
             float eps = computeEpsilon(param, epsilon);
 
             Map<String, Object> overrides = new HashMap<>();
-            overrides.put(param.nodeId(), defaultVal + eps);
+            overrides.put(param.overrideKey(), defaultVal + eps);
 
             try {
                 MeshTopology perturbedMesh = executeDsl(runtime, parsed, lastNode.id, ports, overrides);
                 if (perturbedMesh == null) {
-                    unstableParams.add(param.nodeId());
+                    unstableParams.add(param.overrideKey());
                     continue;
                 }
 
@@ -194,7 +190,6 @@ public final class SkeletonSensitivityAnalyzer {
                     int[] range = entry.getValue();
                     List<float[]> perturbedPos = perturbedByLabel.get(label);
                     if (perturbedPos == null || perturbedPos.size() != (range[1] - range[0])) {
-                        // This branch is unstable for this parameter — leave as zeros
                         continue;
                     }
                     for (int ji = range[0]; ji < range[1]; ji++) {
@@ -207,13 +202,11 @@ public final class SkeletonSensitivityAnalyzer {
                     }
                 }
 
-                // If fewer than half of joints matched, mark as unstable
                 if (matchedJoints < M / 2) {
-                    unstableParams.add(param.nodeId());
+                    unstableParams.add(param.overrideKey());
                 }
             } catch (Exception e) {
-                // Parameter perturbation caused an error — mark as unstable
-                unstableParams.add(param.nodeId());
+                unstableParams.add(param.overrideKey());
             }
         }
 
@@ -244,13 +237,7 @@ public final class SkeletonSensitivityAnalyzer {
             int maxIters,
             float targetScore) throws Exception {
 
-        List<InputParameterDescriptor> allParams = InputParameterDescriptor.collect(parsed);
-        List<InputParameterDescriptor> params = new ArrayList<>();
-        for (InputParameterDescriptor p : allParams) {
-            if (p.kind() == InputParameterKind.FLOAT || p.kind() == InputParameterKind.INT) {
-                params.add(p);
-            }
-        }
+        List<OptimizableParameter> params = collectAllParameters(parsed);
 
         ArrayMesh refMesh = MeshLoader.load(refMeshPath);
         SkeletonResult refSkel = MeshSkeletonExtractor.extract(refMesh, resolution);
@@ -263,8 +250,8 @@ public final class SkeletonSensitivityAnalyzer {
 
         // Current parameter values (start at defaults)
         Map<String, Float> currentParams = new LinkedHashMap<>();
-        for (InputParameterDescriptor p : params) {
-            currentParams.put(p.nodeId(), paramDefault(p));
+        for (OptimizableParameter p : params) {
+            currentParams.put(p.overrideKey(), p.defaultValue());
         }
 
         List<OptimizationStep> steps = new ArrayList<>();
@@ -312,12 +299,12 @@ public final class SkeletonSensitivityAnalyzer {
             // Compute Jacobian at current parameter values (label-matched)
             float[][][] jacobian = new float[M][N][3];
             for (int pi = 0; pi < N; pi++) {
-                InputParameterDescriptor param = params.get(pi);
-                float currentVal = currentParams.get(param.nodeId());
+                OptimizableParameter param = params.get(pi);
+                float currentVal = currentParams.get(param.overrideKey());
                 float eps = computeEpsilon(param, DEFAULT_EPSILON_RELATIVE);
 
                 Map<String, Object> overrides = new HashMap<>(overridesBase);
-                overrides.put(param.nodeId(), currentVal + eps);
+                overrides.put(param.overrideKey(), currentVal + eps);
 
                 try {
                     MeshTopology perturbedMesh = executeDsl(runtime, parsed, lastNode.id, ports, overrides);
@@ -369,15 +356,14 @@ public final class SkeletonSensitivityAnalyzer {
 
             for (int attempt = 0; attempt < 4; attempt++) {
                 for (var entry : deltas.entrySet()) {
-                    String paramId = entry.getKey();
+                    String paramKey = entry.getKey();
                     float delta = entry.getValue() * stepSize;
-                    float newVal = currentParams.get(paramId) + delta;
-                    // Clamp to bounds
-                    InputParameterDescriptor desc = findParam(params, paramId);
+                    float newVal = currentParams.get(paramKey) + delta;
+                    OptimizableParameter desc = findParam(params, paramKey);
                     if (desc != null) {
-                        newVal = clampToRange(newVal, desc);
+                        newVal = Math.max(desc.minValue(), Math.min(desc.maxValue(), newVal));
                     }
-                    candidateParams.put(paramId, newVal);
+                    candidateParams.put(paramKey, newVal);
                 }
 
                 candidateScore = evaluateScore(runtime, parsed, lastNode.id, ports, candidateParams, refSkel, resolution);
@@ -411,13 +397,12 @@ public final class SkeletonSensitivityAnalyzer {
      */
     private static Map<String, Float> solveDampedLeastSquares(
             float[][][] jacobian3D, List<JointDelta> errors,
-            List<InputParameterDescriptor> params, float lambda) {
+            List<OptimizableParameter> params, float lambda) {
 
         int M = errors.size();
         int N = params.size();
-        int rows = M * 3; // flattened 3D
+        int rows = M * 3;
 
-        // Flatten Jacobian to 2D: [M*3][N]
         float[][] J = new float[rows][N];
         for (int ji = 0; ji < M; ji++) {
             for (int pi = 0; pi < N; pi++) {
@@ -427,8 +412,6 @@ public final class SkeletonSensitivityAnalyzer {
             }
         }
 
-        // Flatten error vector: e[M*3] = -(ref - gen) direction we need to move
-        // delta = ref - gen (computed in JointDelta), we want to minimize ||J*dp - delta||
         float[] e = new float[rows];
         for (int ji = 0; ji < M; ji++) {
             JointDelta jd = errors.get(ji);
@@ -437,7 +420,6 @@ public final class SkeletonSensitivityAnalyzer {
             e[ji * 3 + 2] = jd.delta()[2];
         }
 
-        // Compute J^T * e (N-vector)
         float[] JTe = new float[N];
         for (int pi = 0; pi < N; pi++) {
             float sum = 0;
@@ -447,7 +429,6 @@ public final class SkeletonSensitivityAnalyzer {
             JTe[pi] = sum;
         }
 
-        // Compute J^T * J (N x N matrix) + lambda * I
         float[][] JTJ = new float[N][N];
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < N; j++) {
@@ -457,23 +438,18 @@ public final class SkeletonSensitivityAnalyzer {
                 }
                 JTJ[i][j] = sum;
             }
-            JTJ[i][i] += lambda; // damping
+            JTJ[i][i] += lambda;
         }
 
-        // Solve (J^T J + lambda I) * dp = J^T * e via Cholesky-like Gaussian elimination
         float[] dp = solveLinearSystem(JTJ, JTe, N);
 
-        // Build result map with parameter bounds clamping
         Map<String, Float> deltas = new LinkedHashMap<>();
         for (int pi = 0; pi < N; pi++) {
-            InputParameterDescriptor param = params.get(pi);
+            OptimizableParameter param = params.get(pi);
             float delta = dp[pi];
-            // Clamp delta so result stays within bounds
-            float current = paramDefault(param);
-            float minVal = paramMin(param);
-            float maxVal = paramMax(param);
-            delta = Math.max(minVal - current, Math.min(maxVal - current, delta));
-            deltas.put(param.nodeId(), delta);
+            float current = param.defaultValue();
+            delta = Math.max(param.minValue() - current, Math.min(param.maxValue() - current, delta));
+            deltas.put(param.overrideKey(), delta);
         }
         return deltas;
     }
@@ -558,14 +534,14 @@ public final class SkeletonSensitivityAnalyzer {
 
     private static float estimateProjectedScore(NodeGraphRuntime runtime,
             List<PythonParser.ParsedNode> parsed, String lastNodeId,
-            List<String> ports, List<InputParameterDescriptor> params,
+            List<String> ports, List<OptimizableParameter> params,
             Map<String, Float> suggestedDeltas, SkeletonResult refSkel, int resolution) {
         try {
             Map<String, Float> projected = new LinkedHashMap<>();
-            for (InputParameterDescriptor p : params) {
-                float base = paramDefault(p);
-                float delta = suggestedDeltas.getOrDefault(p.nodeId(), 0f);
-                projected.put(p.nodeId(), clampToRange(base + delta, p));
+            for (OptimizableParameter p : params) {
+                float base = p.defaultValue();
+                float delta = suggestedDeltas.getOrDefault(p.overrideKey(), 0f);
+                projected.put(p.overrideKey(), Math.max(p.minValue(), Math.min(p.maxValue(), base + delta)));
             }
             return evaluateScore(runtime, parsed, lastNodeId, ports, projected, refSkel, resolution);
         } catch (Exception e) {
@@ -573,44 +549,30 @@ public final class SkeletonSensitivityAnalyzer {
         }
     }
 
-    private static float computeEpsilon(InputParameterDescriptor param, float epsilonRelative) {
-        if (param.kind() == InputParameterKind.INT) return 1.0f;
-        float min = paramMin(param);
-        float max = paramMax(param);
-        float range = max - min;
+    private static float computeEpsilon(OptimizableParameter param, float epsilonRelative) {
+        float range = param.maxValue() - param.minValue();
         if (Float.isInfinite(range) || range <= 0) {
-            return Math.max(MIN_EPSILON, Math.abs(paramDefault(param)) * epsilonRelative);
+            return Math.max(MIN_EPSILON, Math.abs(param.defaultValue()) * epsilonRelative);
         }
         return Math.max(MIN_EPSILON, range * epsilonRelative);
     }
 
-    private static float paramDefault(InputParameterDescriptor p) {
-        return p.kind() == InputParameterKind.INT
-                ? (p.intDefault() != null ? p.intDefault() : 0)
-                : (p.floatDefault() != null ? p.floatDefault() : 0);
-    }
-
-    private static float paramMin(InputParameterDescriptor p) {
-        if (p.kind() == InputParameterKind.INT) {
-            return p.minInt() != null ? p.minInt() : -1e6f;
+    private static List<OptimizableParameter> collectAllParameters(List<PythonParser.ParsedNode> parsed) {
+        List<OptimizableParameter> params = new ArrayList<>();
+        for (InputParameterDescriptor p : InputParameterDescriptor.collect(parsed)) {
+            if (p.kind() == InputParameterKind.FLOAT || p.kind() == InputParameterKind.INT) {
+                params.add(OptimizableParameter.fromInput(p));
+            }
         }
-        return p.minFloat() != null && !Float.isInfinite(p.minFloat()) ? p.minFloat() : -1e6f;
-    }
-
-    private static float paramMax(InputParameterDescriptor p) {
-        if (p.kind() == InputParameterKind.INT) {
-            return p.maxInt() != null ? p.maxInt() : 1e6f;
+        for (LiteralParameterDescriptor p : LiteralParameterDescriptor.collect(parsed)) {
+            params.add(OptimizableParameter.fromLiteral(p));
         }
-        return p.maxFloat() != null && !Float.isInfinite(p.maxFloat()) ? p.maxFloat() : 1e6f;
+        return params;
     }
 
-    private static float clampToRange(float val, InputParameterDescriptor p) {
-        return Math.max(paramMin(p), Math.min(paramMax(p), val));
-    }
-
-    private static InputParameterDescriptor findParam(List<InputParameterDescriptor> params, String nodeId) {
-        for (InputParameterDescriptor p : params) {
-            if (p.nodeId().equals(nodeId)) return p;
+    private static OptimizableParameter findParam(List<OptimizableParameter> params, String key) {
+        for (OptimizableParameter p : params) {
+            if (p.overrideKey().equals(key)) return p;
         }
         return null;
     }

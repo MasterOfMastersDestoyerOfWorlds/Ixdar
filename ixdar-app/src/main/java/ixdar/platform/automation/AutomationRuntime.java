@@ -893,11 +893,9 @@ public class AutomationRuntime {
             // Suggested new values
             JsonObject suggestedValues = new JsonObject();
             for (var param : sensResult.parameters()) {
-                float base = param.kind() == ixdar.geometry.mesh.graph.InputParameterDescriptor.InputParameterKind.INT
-                        ? (param.intDefault() != null ? param.intDefault() : 0)
-                        : (param.floatDefault() != null ? param.floatDefault() : 0);
-                float delta = sensResult.suggestedDeltas().getOrDefault(param.nodeId(), 0f);
-                suggestedValues.addProperty(param.nodeId(), base + delta);
+                float base = param.defaultValue();
+                float delta = sensResult.suggestedDeltas().getOrDefault(param.overrideKey(), 0f);
+                suggestedValues.addProperty(param.overrideKey(), base + delta);
             }
             result.add("suggestedValues", suggestedValues);
 

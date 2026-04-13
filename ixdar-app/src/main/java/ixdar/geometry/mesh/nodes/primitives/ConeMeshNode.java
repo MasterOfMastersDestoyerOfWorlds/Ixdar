@@ -12,9 +12,9 @@ import ixdar.geometry.mesh.data.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "cone")
 public class ConeMeshNode implements MeshNode {
-    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f);
-    private static final InputPort HEIGHT = new InputPort("height", PortType.FLOAT, 1.0f);
-    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 16);
+    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f, 0.001f, 100f);
+    private static final InputPort HEIGHT = new InputPort("height", PortType.FLOAT, 1.0f, 0.001f, 100f);
+    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 16, (float) 3, (float) 128);
     private static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
 
     @Override

@@ -31,7 +31,7 @@ public class MarkCreaseNode implements MeshNode {
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
-    private static final InputPort WEIGHT = new InputPort("weight", PortType.FLOAT, 1.0f);
+    private static final InputPort WEIGHT = new InputPort("weight", PortType.FLOAT, 1.0f, 0f, 1f);
     private static final InputPort FACE_BOUNDARY = new InputPort("face_boundary", PortType.BOOLEAN, false);
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 

@@ -31,7 +31,7 @@ public class SetBoneWeightNode implements MeshNode {
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort BONE_NAME = new InputPort("bone_name", PortType.STRING, "bone");
-    private static final InputPort WEIGHT = new InputPort("weight", PortType.FLOAT, 1.0f);
+    private static final InputPort WEIGHT = new InputPort("weight", PortType.FLOAT, 1.0f, 0f, 1f);
     private static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 

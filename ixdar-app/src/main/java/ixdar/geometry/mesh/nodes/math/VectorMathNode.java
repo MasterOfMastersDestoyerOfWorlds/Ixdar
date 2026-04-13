@@ -25,7 +25,7 @@ public class VectorMathNode implements MeshNode {
     private static final InputPort OPERATION = new InputPort("operation", PortType.STRING, "ADD");
     private static final InputPort A = new InputPort("a", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
     private static final InputPort B = new InputPort("b", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
-    private static final InputPort SCALE = new InputPort("scale", PortType.FLOAT, 1.0f);
+    private static final InputPort SCALE = new InputPort("scale", PortType.FLOAT, 1.0f, -1000f, 1000f);
     private static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
     private static final OutputPort VALUE = new OutputPort("value", PortType.FLOAT);
 

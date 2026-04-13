@@ -25,7 +25,7 @@ public class LoopCutNode implements MeshNode {
 
     private static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
     private static final InputPort GEOMETRY_IN = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort CUTS = new InputPort("cuts", PortType.INT, 1);
+    private static final InputPort CUTS = new InputPort("cuts", PortType.INT, 1, 1f, 32f);
     private static final InputPort AXIS = new InputPort("axis", PortType.STRING, "Z");
     private static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);

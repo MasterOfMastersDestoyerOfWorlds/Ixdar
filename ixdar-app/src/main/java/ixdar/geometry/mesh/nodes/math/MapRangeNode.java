@@ -25,11 +25,11 @@ import ixdar.annotations.meshnode.PortType;
 @MeshNodeAnnotation(id = "map_range")
 public class MapRangeNode implements MeshNode {
 
-    private static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.5f);
-    private static final InputPort FROM_MIN = new InputPort("from_min", PortType.FLOAT, 0.0f);
-    private static final InputPort FROM_MAX = new InputPort("from_max", PortType.FLOAT, 1.0f);
-    private static final InputPort TO_MIN = new InputPort("to_min", PortType.FLOAT, 0.0f);
-    private static final InputPort TO_MAX = new InputPort("to_max", PortType.FLOAT, 1.0f);
+    private static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.5f, -1000f, 1000f);
+    private static final InputPort FROM_MIN = new InputPort("from_min", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort FROM_MAX = new InputPort("from_max", PortType.FLOAT, 1.0f, -1000f, 1000f);
+    private static final InputPort TO_MIN = new InputPort("to_min", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort TO_MAX = new InputPort("to_max", PortType.FLOAT, 1.0f, -1000f, 1000f);
     private static final InputPort CLAMP = new InputPort("clamp", PortType.BOOLEAN, true);
     private static final InputPort MODE = new InputPort("mode", PortType.STRING, "LINEAR",
             new ModeConstraint("LINEAR", List.of("LINEAR", "SMOOTH_STEP"), Map.of()));

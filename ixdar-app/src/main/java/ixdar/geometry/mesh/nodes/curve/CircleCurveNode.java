@@ -23,8 +23,8 @@ import ixdar.geometry.mesh.data.GeometryBundles;
 @MeshNodeAnnotation(id = "circle_curve")
 public class CircleCurveNode implements MeshNode {
 
-    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.1f);
-    private static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 32);
+    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.1f, 0.001f, 100f);
+    private static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 32, 2f, 256f);
     private static final InputPort CENTER = new InputPort("center", PortType.VECTOR3, new Vector3Value(0.0f, 0.0f, 0.0f));
     private static final OutputPort CURVE = new OutputPort("curve", PortType.GEOMETRY_BUNDLE);
 

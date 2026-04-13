@@ -36,9 +36,9 @@ public class CompareNode implements MeshNode {
         }
     }
 
-    private static final InputPort A = new InputPort("a", PortType.FLOAT, 0.0f);
-    private static final InputPort B = new InputPort("b", PortType.FLOAT, 0.0f);
-    private static final InputPort EPSILON = new InputPort("epsilon", PortType.FLOAT, 1e-6f);
+    private static final InputPort A = new InputPort("a", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort B = new InputPort("b", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort EPSILON = new InputPort("epsilon", PortType.FLOAT, 1e-6f, 1e-8f, 1f);
     private static final InputPort MODE = new InputPort("mode", PortType.STRING, "EQUAL", MODE_CONSTRAINT);
     private static final OutputPort RESULT = new OutputPort("result", PortType.BOOLEAN);
 

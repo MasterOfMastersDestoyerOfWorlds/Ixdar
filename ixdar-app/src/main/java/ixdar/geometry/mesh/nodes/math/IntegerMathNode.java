@@ -39,8 +39,8 @@ public class IntegerMathNode implements MeshNode {
         }
     }
 
-    private static final InputPort A = new InputPort("a", PortType.INT, 0);
-    private static final InputPort B = new InputPort("b", PortType.INT, 0);
+    private static final InputPort A = new InputPort("a", PortType.INT, 0, -1000f, 1000f);
+    private static final InputPort B = new InputPort("b", PortType.INT, 0, -1000f, 1000f);
     private static final InputPort MODE = new InputPort("mode", PortType.STRING, "ADD", MODE_CONSTRAINT);
     private static final OutputPort RESULT = new OutputPort("result", PortType.INT);
 

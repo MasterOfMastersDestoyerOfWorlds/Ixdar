@@ -30,7 +30,7 @@ public class FloatToIntNode implements MeshNode {
         }
     }
 
-    private static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.0f);
+    private static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.0f, -1000f, 1000f);
     private static final InputPort MODE = new InputPort("mode", PortType.STRING, "ROUND", MODE_CONSTRAINT);
     private static final OutputPort RESULT = new OutputPort("result", PortType.INT);
 

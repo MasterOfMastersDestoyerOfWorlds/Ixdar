@@ -11,9 +11,9 @@ import ixdar.geometry.mesh.data.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "sphere")
 public class QuadSphereMeshNode implements MeshNode {
-    private static final InputPort SIZE = new InputPort("size", PortType.FLOAT, 1.0f);
+    private static final InputPort SIZE = new InputPort("size", PortType.FLOAT, 1.0f, 0.001f, 100f);
     // Defines how many quads make up the circumference of the sphere
-    private static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 16);
+    private static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 16, (float) 3, (float) 128);
     private static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
 
     @Override

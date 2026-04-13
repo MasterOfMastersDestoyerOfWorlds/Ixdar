@@ -31,7 +31,7 @@ public class CurvePrimitiveBezierNode implements MeshNode {
     private static final Vector3Value DEFAULT_HANDLE_START = new Vector3Value(0.33f, 0.33f, 0f);
     private static final Vector3Value DEFAULT_HANDLE_END = new Vector3Value(0.66f, 0.33f, 0f);
 
-    private static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 16);
+    private static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 16, 2f, 256f);
     private static final InputPort START = new InputPort("start", PortType.VECTOR3, ZERO);
     private static final InputPort HANDLE_START = new InputPort("handle_start", PortType.VECTOR3, DEFAULT_HANDLE_START);
     private static final InputPort HANDLE_END = new InputPort("handle_end", PortType.VECTOR3, DEFAULT_HANDLE_END);

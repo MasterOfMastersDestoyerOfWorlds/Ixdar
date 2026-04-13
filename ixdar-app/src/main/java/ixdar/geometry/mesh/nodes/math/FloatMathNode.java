@@ -17,8 +17,8 @@ import ixdar.annotations.meshnode.PortType;
 public class FloatMathNode implements MeshNode {
 
     private static final InputPort OPERATION = new InputPort("operation", PortType.STRING, "ADD");
-    private static final InputPort A = new InputPort("a", PortType.FLOAT, 0.0f);
-    private static final InputPort B = new InputPort("b", PortType.FLOAT, 0.0f);
+    private static final InputPort A = new InputPort("a", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort B = new InputPort("b", PortType.FLOAT, 0.0f, -1000f, 1000f);
     private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override

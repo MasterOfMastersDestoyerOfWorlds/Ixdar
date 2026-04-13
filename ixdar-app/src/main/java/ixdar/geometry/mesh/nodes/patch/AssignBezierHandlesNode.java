@@ -37,7 +37,7 @@ public class AssignBezierHandlesNode implements MeshNode {
     public static final String SLOT_HANDLES_END = "_bezier_handles_end";
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort WEIGHT = new InputPort("weight", PortType.FLOAT, 1.0f);
+    private static final InputPort WEIGHT = new InputPort("weight", PortType.FLOAT, 1.0f, 0f, 10f);
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override

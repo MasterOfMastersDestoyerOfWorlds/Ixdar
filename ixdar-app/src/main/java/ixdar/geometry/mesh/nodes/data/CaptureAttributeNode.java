@@ -18,7 +18,7 @@ public class CaptureAttributeNode implements MeshNode {
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort NAME = new InputPort("name", PortType.STRING, "attr");
-    private static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.0f);
+    private static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.0f, -1000f, 1000f);
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override

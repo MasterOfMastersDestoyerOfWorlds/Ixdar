@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 public class EdgePathsToSelectionNode implements MeshNode {
 
     private static final InputPort START = new InputPort("start", PortType.BOOLEAN, false);
-    private static final InputPort NEXT_VERTEX = new InputPort("next_vertex", PortType.INT, 0);
+    private static final InputPort NEXT_VERTEX = new InputPort("next_vertex", PortType.INT, 0, 0f, 1000000f);
     private static final OutputPort SELECTION = new OutputPort("selection", PortType.BOOLEAN);
 
     @Override

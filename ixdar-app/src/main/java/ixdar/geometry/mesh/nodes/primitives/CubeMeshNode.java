@@ -12,7 +12,7 @@ import ixdar.geometry.mesh.data.ArrayMesh;
 
 @MeshNodeAnnotation(id = "cube")
 public class CubeMeshNode implements MeshNode {
-    private static final InputPort SIZE = new InputPort("size", PortType.FLOAT, 1.0f);
+    private static final InputPort SIZE = new InputPort("size", PortType.FLOAT, 1.0f, 0.001f, 100f);
     private static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
 
     @Override

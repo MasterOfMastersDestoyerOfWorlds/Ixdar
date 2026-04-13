@@ -37,11 +37,11 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 public class AttachToSurfaceNode implements MeshNode {
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort THETA = new InputPort("theta", PortType.FLOAT, 0.0f);
-    private static final InputPort PHI = new InputPort("phi", PortType.FLOAT, 1.5707963f); // π/2
-    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.0f);
-    private static final InputPort INSET = new InputPort("inset", PortType.FLOAT, 0.12f);
-    private static final InputPort TWIST = new InputPort("twist", PortType.FLOAT, 0.0f);
+    private static final InputPort THETA = new InputPort("theta", PortType.FLOAT, 0.0f, -6.2832f, 6.2832f);
+    private static final InputPort PHI = new InputPort("phi", PortType.FLOAT, 1.5707963f, 0f, 3.1416f);
+    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.0f, 0f, 10f);
+    private static final InputPort INSET = new InputPort("inset", PortType.FLOAT, 0.12f, 0f, 1f);
+    private static final InputPort TWIST = new InputPort("twist", PortType.FLOAT, 0.0f, -6.2832f, 6.2832f);
     private static final InputPort TAG = new InputPort("tag", PortType.STRING, "attach");
 
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);

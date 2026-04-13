@@ -52,8 +52,11 @@ public final class ValidateDsl {
         Map<String, Class<? extends MeshNode>> registry = NodeGraphRuntime.annotationRegistryClasses();
 
         List<PythonParser.ParsedNode> parsed;
+        Map<String, PythonParser.FunctionDef> funcDefs;
         try {
-            parsed = new PythonParser(new PythonLexer(source)).parseGraph();
+            PythonParser parser = new PythonParser(new PythonLexer(source));
+            parsed = parser.parseGraph();
+            funcDefs = parser.functionDefs();
         } catch (RuntimeException e) {
             Map<String, Object> result = Map.of(
                     "valid", false,
@@ -66,7 +69,8 @@ public final class ValidateDsl {
             return;
         }
 
-        List<String> errors = GraphValidator.validate(parsed, registry);
+        java.util.Set<String> functionNames = funcDefs.keySet();
+        List<String> errors = GraphValidator.validate(parsed, registry, functionNames);
         List<String> warnings = GraphValidator.validateWithRandomValueWarnings(parsed, registry);
 
         boolean valid = errors.isEmpty();
@@ -77,7 +81,7 @@ public final class ValidateDsl {
         result.put("warnings", warnings);
 
         if (valid && !parsed.isEmpty()) {
-            Map<String, Object> probe = runMeshProbe(parsed, registry);
+            Map<String, Object> probe = runMeshProbe(parsed, registry, funcDefs);
             result.put("meshProbe", probe);
 
             // OBJ export: if -Ddsl.export=<path> is set and mesh probe succeeded
@@ -85,7 +89,7 @@ public final class ValidateDsl {
             if (exportPath != null && !exportPath.isEmpty()
                     && Boolean.TRUE.equals(probe.get("ok"))) {
                 try {
-                    ExportResult er = executeForExport(parsed, registry);
+                    ExportResult er = executeForExport(parsed, registry, funcDefs);
                     if (er != null && er.mesh != null) {
                         Path out = Path.of(exportPath);
                         if (out.getParent() != null) Files.createDirectories(out.getParent());
@@ -141,7 +145,8 @@ public final class ValidateDsl {
     }
 
     private static Map<String, Object> runMeshProbe(List<PythonParser.ParsedNode> parsed,
-            Map<String, Class<? extends MeshNode>> registry) {
+            Map<String, Class<? extends MeshNode>> registry,
+            Map<String, PythonParser.FunctionDef> funcDefs) {
         Map<String, Object> probe = new LinkedHashMap<>();
         probe.put("attempted", true);
 
@@ -152,6 +157,7 @@ public final class ValidateDsl {
 
         NodeGraphRuntime runtime = new NodeGraphRuntime();
         runtime.registerAllFromAnnotationRegistry();
+        runtime.registerFunctionDefs(funcDefs);
 
         MeshTopology mesh = null;
         String usedPort = null;
@@ -246,11 +252,13 @@ public final class ValidateDsl {
     private record ExportResult(MeshTopology mesh, Map<String, boolean[]> tags) {}
 
     private static ExportResult executeForExport(List<PythonParser.ParsedNode> parsed,
-            Map<String, Class<? extends MeshNode>> registry) {
+            Map<String, Class<? extends MeshNode>> registry,
+            Map<String, PythonParser.FunctionDef> funcDefs) {
         PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
         List<String> ports = candidateMeshPorts(last, registry);
         NodeGraphRuntime runtime = new NodeGraphRuntime();
         runtime.registerAllFromAnnotationRegistry();
+        runtime.registerFunctionDefs(funcDefs);
         for (String port : ports) {
             try {
                 Object raw = runtime.executeGraphResult(parsed, last.id, port);

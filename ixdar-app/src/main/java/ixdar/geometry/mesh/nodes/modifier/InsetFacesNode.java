@@ -31,7 +31,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 public class InsetFacesNode implements MeshNode {
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort INSET = new InputPort("inset", PortType.FLOAT, 0.1f);
+    private static final InputPort INSET = new InputPort("inset", PortType.FLOAT, 0.1f, 0f, 1f);
     private static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
     private static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);

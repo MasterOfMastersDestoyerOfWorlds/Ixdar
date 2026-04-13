@@ -17,7 +17,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 public class EvaluateClosureNode implements MeshNode {
 
     private static final InputPort CLOSURE = new InputPort("closure", PortType.CLOSURE, null);
-    private static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.0f);
+    private static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.0f, -1000f, 1000f);
     private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override

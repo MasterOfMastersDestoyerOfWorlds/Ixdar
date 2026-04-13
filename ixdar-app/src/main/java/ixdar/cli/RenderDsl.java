@@ -98,6 +98,7 @@ public class RenderDsl {
             // Execute graph
             NodeGraphRuntime runtime = new NodeGraphRuntime();
             runtime.registerAllFromAnnotationRegistry();
+            runtime.registerFunctionDefs(parser.functionDefs());
 
             MeshTopology mesh = executeWithPortFallback(runtime, ast, finalNodeId, portName);
 

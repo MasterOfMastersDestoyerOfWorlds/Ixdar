@@ -15,8 +15,8 @@ import ixdar.geometry.mesh.data.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "icosphere")
 public class IcosphereMeshNode implements MeshNode {
-    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f);
-    private static final InputPort SUBDIVISIONS = new InputPort("subdivisions", PortType.INT, 0);
+    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f, 0.001f, 100f);
+    private static final InputPort SUBDIVISIONS = new InputPort("subdivisions", PortType.INT, 0, (float) 0, (float) 6);
     private static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
 
     @Override

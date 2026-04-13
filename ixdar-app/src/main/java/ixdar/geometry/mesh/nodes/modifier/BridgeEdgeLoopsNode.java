@@ -33,8 +33,8 @@ public class BridgeEdgeLoopsNode implements MeshNode {
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort LOOP_A_TAG = new InputPort("loop_a_tag", PortType.STRING, "");
     private static final InputPort LOOP_B_TAG = new InputPort("loop_b_tag", PortType.STRING, "");
-    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 1);
-    private static final InputPort TWIST = new InputPort("twist", PortType.INT, 0);
+    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 1, 1f, 32f);
+    private static final InputPort TWIST = new InputPort("twist", PortType.INT, 0, -32f, 32f);
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override

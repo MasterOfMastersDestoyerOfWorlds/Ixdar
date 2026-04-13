@@ -23,7 +23,7 @@ public class SubdivisionMeshNode implements MeshNode {
 
     private static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
     private static final InputPort GEOMETRY_IN = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort LEVELS = new InputPort("levels", PortType.INT, 1);
+    private static final InputPort LEVELS = new InputPort("levels", PortType.INT, 1, 0f, 6f);
     private static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 

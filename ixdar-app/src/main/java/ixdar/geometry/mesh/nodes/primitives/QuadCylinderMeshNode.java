@@ -21,11 +21,11 @@ import ixdar.geometry.mesh.data.HalfEdgeMesh;
 @MeshNodeAnnotation(id = "quad_cylinder")
 public class QuadCylinderMeshNode implements MeshNode {
 
-    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.5f);
-    private static final InputPort HEIGHT = new InputPort("height", PortType.FLOAT, 2.0f);
-    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 8);
-    private static final InputPort RINGS = new InputPort("rings", PortType.INT, 1);
-    private static final InputPort CAP_RINGS = new InputPort("cap_rings", PortType.INT, 2);
+    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.5f, 0.001f, 100f);
+    private static final InputPort HEIGHT = new InputPort("height", PortType.FLOAT, 2.0f, 0.001f, 100f);
+    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 8, (float) 3, (float) 128);
+    private static final InputPort RINGS = new InputPort("rings", PortType.INT, 1, (float) 1, (float) 64);
+    private static final InputPort CAP_RINGS = new InputPort("cap_rings", PortType.INT, 2, (float) 0, (float) 16);
     private static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
     private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 

@@ -2,7 +2,8 @@ package ixdar.parsing.python;
 
 public class PythonLexer {
     public enum TokenType {
-        IDENTIFIER, NUMBER, STRING, EQUALS, LPAREN, RPAREN, COMMA, DOT, LANGLE, RANGLE, EOF
+        IDENTIFIER, NUMBER, STRING, EQUALS, LPAREN, RPAREN, COMMA, DOT, LANGLE, RANGLE,
+        COLON, ARROW, EOF
     }
 
     public static class Token {
@@ -31,7 +32,14 @@ public class PythonLexer {
 
         if (Character.isLetter(c) || c == '_')
             return readIdentifier();
-        if (Character.isDigit(c) || c == '-')
+        if (c == '-') {
+            if (pos + 1 < input.length() && input.charAt(pos + 1) == '>') {
+                pos += 2;
+                return new Token(TokenType.ARROW, "->");
+            }
+            return readNumber();
+        }
+        if (Character.isDigit(c))
             return readNumber();
         if (c == '"') {
             return readString();
@@ -53,6 +61,8 @@ public class PythonLexer {
             return new Token(TokenType.LANGLE, "<");
         case '>':
             return new Token(TokenType.RANGLE, ">");
+        case ':':
+            return new Token(TokenType.COLON, ":");
         default:
             // Skip unknown characters instead of crashing — LLMs may emit stray symbols
             return nextToken();

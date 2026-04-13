@@ -36,9 +36,9 @@ public class RandomValueNode implements MeshNode {
             "INT", List.of("int_out"),
             "VECTOR", List.of("vector_out"));
 
-    private static final InputPort SEED = new InputPort("seed", PortType.INT, 0);
-    private static final InputPort MIN = new InputPort("min", PortType.FLOAT, 0.0f);
-    private static final InputPort MAX = new InputPort("max", PortType.FLOAT, 1.0f);
+    private static final InputPort SEED = new InputPort("seed", PortType.INT, 0, 0f, 1000000f);
+    private static final InputPort MIN = new InputPort("min", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort MAX = new InputPort("max", PortType.FLOAT, 1.0f, -1000f, 1000f);
     private static final InputPort MODE = new InputPort("mode", PortType.STRING, "FLOAT", MODE_CONSTRAINT);
     private static final OutputPort OUT_FLOAT = new OutputPort("float_out", PortType.FLOAT);
     private static final OutputPort OUT_INT = new OutputPort("int_out", PortType.INT);

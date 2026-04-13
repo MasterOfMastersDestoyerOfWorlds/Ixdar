@@ -28,7 +28,7 @@ import ixdar.geometry.mesh.data.MeshTopology;
 public class CoonsPatchNode implements MeshNode {
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort SUBDIVISIONS = new InputPort("subdivisions", PortType.INT, 4);
+    private static final InputPort SUBDIVISIONS = new InputPort("subdivisions", PortType.INT, 4, 1f, 64f);
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override

@@ -29,6 +29,7 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.SkeletonSensitivityAnalyzer;
 import ixdar.geometry.mesh.graph.InputParameterDescriptor;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.graph.OptimizableParameter;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
 
@@ -40,6 +41,9 @@ import ixdar.parsing.python.PythonParser;
  * </ul>
  */
 public final class BatchDslEvaluator {
+
+    /** Function definitions from the parsed DSL (set during main). */
+    private static Map<String, PythonParser.FunctionDef> batchFuncDefs = Map.of();
 
     private static final String[] INPUT_NODE_TYPES = {"input_float", "input_int"};
 
@@ -56,7 +60,9 @@ public final class BatchDslEvaluator {
         }
 
         String source = Files.readString(dslPath);
-        List<PythonParser.ParsedNode> parsed = new PythonParser(new PythonLexer(source)).parseGraph();
+        PythonParser parser = new PythonParser(new PythonLexer(source));
+        List<PythonParser.ParsedNode> parsed = parser.parseGraph();
+        batchFuncDefs = parser.functionDefs();
         Map<String, Class<? extends MeshNode>> registry = NodeGraphRuntime.annotationRegistryClasses();
 
         switch (args[1]) {
@@ -159,6 +165,7 @@ public final class BatchDslEvaluator {
 
         NodeGraphRuntime runtime = new NodeGraphRuntime();
         runtime.registerAllFromAnnotationRegistry();
+        runtime.registerFunctionDefs(batchFuncDefs);
 
         List<Map<String, Object>> results = new ArrayList<>();
 
@@ -257,14 +264,13 @@ public final class BatchDslEvaluator {
         // Parameters with sensitivity info
         List<Map<String, Object>> paramList = new ArrayList<>();
         for (int pi = 0; pi < result.parameters().size(); pi++) {
-            InputParameterDescriptor p = result.parameters().get(pi);
+            OptimizableParameter p = result.parameters().get(pi);
             Map<String, Object> pm = new LinkedHashMap<>();
-            pm.put("id", p.nodeId());
-            pm.put("name", p.name());
-            pm.put("default", p.kind() == InputParameterDescriptor.InputParameterKind.INT
-                    ? p.intDefault() : p.floatDefault());
-            pm.put("suggestedDelta", result.suggestedDeltas().getOrDefault(p.nodeId(), 0f));
-            // Compute aggregate sensitivity magnitude for this param
+            pm.put("id", p.overrideKey());
+            pm.put("name", p.displayName());
+            pm.put("default", p.defaultValue());
+            pm.put("literal", p.isLiteral());
+            pm.put("suggestedDelta", result.suggestedDeltas().getOrDefault(p.overrideKey(), 0f));
             float totalSens = 0;
             for (int ji = 0; ji < result.jointIndices().size(); ji++) {
                 float[] j = result.jacobian3D()[ji][pi];
@@ -277,12 +283,10 @@ public final class BatchDslEvaluator {
 
         // Suggested new values
         Map<String, Object> suggestedValues = new LinkedHashMap<>();
-        for (InputParameterDescriptor p : result.parameters()) {
-            float base = p.kind() == InputParameterDescriptor.InputParameterKind.INT
-                    ? (p.intDefault() != null ? p.intDefault() : 0)
-                    : (p.floatDefault() != null ? p.floatDefault() : 0);
-            float delta = result.suggestedDeltas().getOrDefault(p.nodeId(), 0f);
-            suggestedValues.put(p.nodeId(), base + delta);
+        for (OptimizableParameter p : result.parameters()) {
+            float base = p.defaultValue();
+            float delta = result.suggestedDeltas().getOrDefault(p.overrideKey(), 0f);
+            suggestedValues.put(p.overrideKey(), base + delta);
         }
         output.put("suggestedValues", suggestedValues);
 

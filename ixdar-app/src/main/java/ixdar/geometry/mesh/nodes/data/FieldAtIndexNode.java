@@ -15,8 +15,8 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 @MeshNodeAnnotation(id = "field_at_index")
 public class FieldAtIndexNode implements MeshNode {
 
-    private static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.0f);
-    private static final InputPort INDEX = new InputPort("index", PortType.INT, 0);
+    private static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort INDEX = new InputPort("index", PortType.INT, 0, 0f, 1000000f);
     private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override
