@@ -35,6 +35,9 @@ public class MeshNodeViewerScene extends Scene {
     private final String dslFinalNode;
     private final String dslFinalPort;
 
+    /** When non-null, load this OBJ file instead of executing a DSL graph. */
+    private final String objResource;
+
     private final Vector3f meshCenter = new Vector3f();
 
     private OrbitMouseTrap orbitMouse;
@@ -68,6 +71,19 @@ public class MeshNodeViewerScene extends Scene {
         this.dslResource = dslResource.endsWith(".dsl") ? dslResource : dslResource + ".dsl";
         this.dslFinalNode = dslFinalNode;
         this.dslFinalPort = dslFinalPort;
+        this.objResource = null;
+    }
+
+    /** Create an OBJ viewer (no DSL execution, just loads and displays an OBJ file). */
+    public static MeshNodeViewerScene forObj(String objFilename) {
+        return new MeshNodeViewerScene(objFilename, true);
+    }
+
+    private MeshNodeViewerScene(String objFilename, boolean objMode) {
+        this.dslResource = null;
+        this.dslFinalNode = null;
+        this.dslFinalPort = null;
+        this.objResource = objFilename;
     }
 
     @Override
@@ -83,6 +99,12 @@ public class MeshNodeViewerScene extends Scene {
         bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         // Fallback: if reflection-based binding failed (TeaVM), wire callbacks directly
         bindInputDirect(Platforms.get(), keys, mouse);
+
+        if (objResource != null) {
+            initObjViewer();
+            return;
+        }
+
         try {
             Platforms.get().loadSourceAsync(DSL_FOLDER, dslResource, Platforms.gl().getPlatformID(), dslCode -> {
                 PythonLexer lexer = new PythonLexer(dslCode);
@@ -136,6 +158,34 @@ public class MeshNodeViewerScene extends Scene {
 
         } catch (Exception e) {
             throw new IllegalStateException("Failed to initialize mesh viewer runtime", e);
+        }
+    }
+
+    private void initObjViewer() {
+        try {
+            Platforms.get().loadSourceAsync("obj", objResource, Platforms.gl().getPlatformID(), objText -> {
+                ArrayMesh arrayMesh = MeshLoader.parseObj(objText);
+                try {
+                    meshRuntime = new HalfEdgeMeshRuntime();
+                } catch (Exception e) {
+                    throw new IllegalStateException("Failed to create mesh GL runtime for OBJ", e);
+                }
+                meshRuntime.upload(arrayMesh);
+                meshRuntime.frameCamera(camera);
+                Platforms.get().log("[mesh-viewer] OBJ loaded: " + objResource
+                        + " verts=" + arrayMesh.vertexCount() + " faces=" + arrayMesh.faceCount());
+                if (arrayMesh.vertexCount() > 0) {
+                    meshCenter.set(arrayMesh.center(new Vector3f()));
+                } else {
+                    meshCenter.set(0f, 0f, 0f);
+                }
+                if (orbitMouse != null) {
+                    orbitMouse.setTarget(meshCenter);
+                    orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
+                }
+            });
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to load OBJ: " + objResource, e);
         }
     }
 

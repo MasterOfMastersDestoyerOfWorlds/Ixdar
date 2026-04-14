@@ -69,8 +69,13 @@ public final class WebLauncher {
             Platforms.get().setFrameBufferSize(w, h);
 
             Canvas3D canvas3d;
+            String dataObj = canvas.getAttribute("data-obj");
             String dataDsl = canvas.getAttribute("data-dsl");
-            if (dataDsl != null && !dataDsl.isEmpty()) {
+            if (dataObj != null && !dataObj.isEmpty()) {
+                // Canvas specifies an OBJ file — create an OBJ-only viewer
+                Platforms.get().log("OBJ viewer: " + dataObj);
+                canvas3d = MeshNodeViewerScene.forObj(dataObj);
+            } else if (dataDsl != null && !dataDsl.isEmpty()) {
                 // Canvas specifies a DSL file — create a parameterized mesh viewer
                 String dataNode = canvas.getAttribute("data-node");
                 String dataPort = canvas.getAttribute("data-port");

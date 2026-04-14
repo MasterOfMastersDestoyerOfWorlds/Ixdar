@@ -3,6 +3,7 @@ package ixdar.geometry.mesh.data;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,11 +47,26 @@ public final class MeshLoader {
      * Generates face normals if not provided.
      */
     private static ArrayMesh loadObj(String path) throws IOException {
+        try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line).append('\n');
+            }
+            return parseObj(sb.toString());
+        }
+    }
+
+    /**
+     * Parse OBJ text content into ArrayMesh (no filesystem access).
+     * Works in TeaVM/browser where FileReader is unavailable.
+     */
+    public static ArrayMesh parseObj(String content) {
         List<Float> positions = new ArrayList<>();
         List<Float> normals = new ArrayList<>();
         List<int[]> faces = new ArrayList<>();
 
-        try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
+        try (BufferedReader reader = new BufferedReader(new StringReader(content))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
@@ -79,8 +95,6 @@ public final class MeshLoader {
                     float x = Float.parseFloat(parts[1]);
                     float y = Float.parseFloat(parts[2]);
                     float z = Float.parseFloat(parts[3]);
-                    // Store normals in a separate list for later assignment
-                    // We'll map them to faces after parsing
                     if (normals.size() / 3 < positions.size() / 3) {
                         normals.add(x);
                         normals.add(y);
@@ -96,6 +110,9 @@ public final class MeshLoader {
                     faces.add(face);
                 }
             }
+        } catch (IOException e) {
+            // StringReader.readLine() won't throw in practice
+            throw new RuntimeException(e);
         }
 
         if (positions.isEmpty()) {
