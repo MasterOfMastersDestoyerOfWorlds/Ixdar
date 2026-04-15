@@ -152,7 +152,8 @@ public class MeshNodeViewerScene extends Scene {
                 }
                 if (orbitMouse != null) {
                     orbitMouse.setTarget(meshCenter);
-                    orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
+                    float orbitDist = mesh != null ? Math.max(1.5f, mesh.radius() * 2.5f) : CAMERA_DISTANCE;
+                    orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDist);
                 }
             });
 
@@ -409,7 +410,8 @@ public class MeshNodeViewerScene extends Scene {
             }
             if (orbitMouse != null) {
                 orbitMouse.setTarget(meshCenter);
-                orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
+                float orbitDist = mesh != null ? Math.max(1.5f, mesh.radius() * 2.5f) : CAMERA_DISTANCE;
+                orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDist);
             }
         });
     }

@@ -794,6 +794,34 @@
       <id>web-teavm</id>
       <build>
         <plugins>
+          <!-- TeaVM 0.9.2 reads JDK platform classes at runtime; it cannot
+               parse class-file versions above 65 (JDK 21).  Fail fast with a
+               clear message instead of a cryptic "Unsupported class file
+               major version" deep in the build. -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <version>3.5.0</version>
+            <executions>
+              <execution>
+                <id>require-jdk21-for-teavm</id>
+                <goals><goal>enforce</goal></goals>
+                <configuration>
+                  <rules>
+                    <requireJavaVersion>
+                      <version>[21,22)</version>
+                      <message>
+TeaVM 0.9.2 requires JDK 21.  Run:
+  JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn package -pl ixdar-app -P web-teavm -DskipTests
+or use:
+  ./tools/teavm-build.sh
+                      </message>
+                    </requireJavaVersion>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
           <plugin>
             <groupId>org.teavm</groupId>
             <artifactId>teavm-maven-plugin</artifactId>

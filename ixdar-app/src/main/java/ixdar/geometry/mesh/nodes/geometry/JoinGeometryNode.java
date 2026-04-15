@@ -14,6 +14,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshAppend;
+import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 
 @MeshNodeAnnotation(id = "join_geometry")
@@ -21,11 +22,12 @@ public class JoinGeometryNode implements MeshNode {
 
     private static final InputPort A = new InputPort("a", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort B = new InputPort("b", PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort MERGE_DISTANCE = new InputPort("merge_distance", PortType.FLOAT, 0f, 0f, 1f);
     private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(A, B);
+        return List.of(A, B, MERGE_DISTANCE);
     }
 
     @Override
@@ -51,7 +53,13 @@ public class JoinGeometryNode implements MeshNode {
             ctx.setOutput("geometry", ga);
             return;
         }
-        var joined = MeshAppend.join(ma, mb);
+        Number mergeDist = ctx.getInput("merge_distance", Number.class);
+        float md = mergeDist == null ? 0f : mergeDist.floatValue();
+
+        MeshTopology joined = MeshAppend.join(ma, mb);
+        if (md > 0f) {
+            joined = MeshMergeByDistance.merge(joined, md);
+        }
         GeometryBundle result = GeometryBundle.ofMesh(joined);
 
         int countA = ma.vertexCount();

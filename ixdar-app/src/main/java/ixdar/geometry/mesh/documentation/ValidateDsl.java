@@ -36,33 +36,30 @@ import ixdar.parsing.python.PythonParser;
  */
 public final class ValidateDsl {
 
-    public static void main(String[] args) throws IOException {
-        if (args.length < 1) {
-            System.err.println("Usage: ValidateDsl <dsl-path>");
-            System.exit(2);
-        }
-
-        Path dslPath = Path.of(args[0]);
-        if (!Files.exists(dslPath)) {
-            System.err.println("File not found: " + dslPath);
-            System.exit(2);
-        }
-
-        // Load skill library if --skill-dir or -Dskill.dir is set
-        String skillDirProp = System.getProperty("skill.dir", "");
+    /**
+     * Validate DSL source text and optionally export to OBJ.
+     * <p>
+     * This is the core validation logic, callable from both the CLI entry point
+     * and the automation server endpoint. Returns a result map matching the
+     * standard JSON schema (valid, nodeCount, errors, warnings, meshProbe, ...).
+     */
+    public static Map<String, Object> validate(String source, String skillDir, String exportPath) {
+        // Load skill library if provided (optional — validation works without it)
         ixdar.geometry.mesh.graph.SkillLibrary skillLib = new ixdar.geometry.mesh.graph.SkillLibrary();
-        if (!skillDirProp.isEmpty()) {
-            skillLib.loadDirectory(Path.of(skillDirProp));
+        if (skillDir != null && !skillDir.isEmpty()) {
+            try {
+                skillLib.loadDirectory(Path.of(skillDir));
+            } catch (IOException e) {
+                // Skills directory unreadable — continue without skills
+            }
         }
 
-        String source = Files.readString(dslPath);
         Map<String, Class<? extends MeshNode>> registry = NodeGraphRuntime.annotationRegistryClasses();
 
         List<PythonParser.ParsedNode> parsed;
         Map<String, PythonParser.FunctionDef> funcDefs;
         try {
             PythonParser parser = new PythonParser(new PythonLexer(source));
-            // Prepend skill function defs so they're available during parsing
             if (!skillLib.getSkills().isEmpty()) {
                 String preamble = skillLib.toDslPreamble();
                 PythonParser preambleParser = new PythonParser(new PythonLexer(preamble));
@@ -75,15 +72,12 @@ public final class ValidateDsl {
                 funcDefs = parser.functionDefs();
             }
         } catch (RuntimeException e) {
-            Map<String, Object> result = Map.of(
+            return Map.of(
                     "valid", false,
                     "nodeCount", 0,
                     "parseError", e.getMessage(),
                     "errors", List.of(),
                     "warnings", List.of());
-            System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(result));
-            System.exit(1);
-            return;
         }
 
         java.util.Set<String> functionNames = funcDefs.keySet();
@@ -101,8 +95,6 @@ public final class ValidateDsl {
             Map<String, Object> probe = runMeshProbe(parsed, registry, funcDefs);
             result.put("meshProbe", probe);
 
-            // OBJ export: if -Ddsl.export=<path> is set and mesh probe succeeded
-            String exportPath = System.getProperty("dsl.export");
             if (exportPath != null && !exportPath.isEmpty()
                     && Boolean.TRUE.equals(probe.get("ok"))) {
                 try {
@@ -113,7 +105,6 @@ public final class ValidateDsl {
                         writeObj(er.mesh, out);
                         probe.put("exportedObj", exportPath);
 
-                        // Write .tags.json sidecar if tags are present
                         if (er.tags != null && !er.tags.isEmpty()) {
                             Path tagsPath = Path.of(exportPath.replaceAll("\\.obj$", "") + ".tags.json");
                             writeTagsJson(er.tags, er.mesh.vertexCount(), tagsPath);
@@ -128,7 +119,29 @@ public final class ValidateDsl {
             result.put("meshProbe", meshProbeSkipped("graph has validation errors or is empty"));
         }
 
+        return result;
+    }
+
+    public static void main(String[] args) throws IOException {
+        if (args.length < 1) {
+            System.err.println("Usage: ValidateDsl <dsl-path>");
+            System.exit(2);
+        }
+
+        Path dslPath = Path.of(args[0]);
+        if (!Files.exists(dslPath)) {
+            System.err.println("File not found: " + dslPath);
+            System.exit(2);
+        }
+
+        String skillDirProp = System.getProperty("skill.dir", "");
+        String exportPath = System.getProperty("dsl.export");
+        String source = Files.readString(dslPath);
+
+        Map<String, Object> result = validate(source, skillDirProp, exportPath);
+
         System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(result));
+        boolean valid = Boolean.TRUE.equals(result.get("valid"));
         System.exit(valid ? 0 : 1);
     }
 

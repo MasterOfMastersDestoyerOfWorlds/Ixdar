@@ -86,7 +86,7 @@ public final class MeshMergeByDistance {
         for (int i = 0; i < n; i++) {
             int r = rootOf[i];
             sumByRoot.computeIfAbsent(r, k -> new Vector3f()).add(pos[i]);
-            countByRoot.merge(r, 1, Integer::sum);
+            countByRoot.merge(r, 1, (a, b) -> a + b);
         }
 
         HashMap<Integer, Integer> outVidByRoot = new HashMap<>();
@@ -192,7 +192,7 @@ public final class MeshMergeByDistance {
         for (int i = 0; i < n; i++) {
             int r = rootOf[i];
             sumByRoot.computeIfAbsent(r, k -> new Vector3f()).add(pos[i]);
-            countByRoot.merge(r, 1, Integer::sum);
+            countByRoot.merge(r, 1, (a, b) -> a + b);
         }
 
         HashMap<Integer, Integer> outVidByRoot = new HashMap<>();

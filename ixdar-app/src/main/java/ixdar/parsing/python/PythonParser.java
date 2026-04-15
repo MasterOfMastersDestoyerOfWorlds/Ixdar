@@ -20,6 +20,7 @@ public class PythonParser {
     public static class ParsedNode {
         public String id;
         public String type;
+        public int line;
         public Map<String, Object> arguments = new HashMap<>();
     }
 
@@ -63,7 +64,7 @@ public class PythonParser {
             advance();
             return t;
         }
-        throw new RuntimeException("Syntax Error: " + errorMessage + ". Found '" + current.value + "'");
+        throw new RuntimeException("Line " + current.line + ": " + errorMessage + ". Found '" + current.value + "'");
     }
 
     // Graph -> (FunctionDef | Statement)* EOF
@@ -90,7 +91,7 @@ public class PythonParser {
     // Statement -> Identifier "=" Identifier "(" Arguments ")"
     private ParsedNode parseStatement() {
         ParsedNode node = new ParsedNode();
-        
+        node.line = current.line;
         node.id = consume(TokenType.IDENTIFIER, "Expected variable assignment ID").value;
         consume(TokenType.EQUALS, "Expected '=' after variable ID");
         
@@ -199,14 +200,16 @@ public class PythonParser {
             }
             return id;
         }
-        throw new RuntimeException("Expected Number, Vector, or Node Reference, found '" + current.value + "'");
+        throw new RuntimeException("Line " + current.line + ": Expected Number, Vector, or Node Reference, found '" + current.value + "'");
     }
 
     // InlineCall -> Identifier "(" Arguments ")" ("." Identifier)?
     private NodeReference parseInlineCall(String type) {
         String syntheticId = "__inline_" + (inlineCounter++);
+        int callLine = current.line;
         consume(TokenType.LPAREN, "Expected '(' for inline call");
         ParsedNode node = new ParsedNode();
+        node.line = callLine;
         node.id = syntheticId;
         node.type = type;
         if (current.type != TokenType.RPAREN) {

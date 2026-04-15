@@ -210,6 +210,12 @@ public class CoonsPatchNode implements MeshNode {
      * Evaluates the cubic bezier on undirected edge {@code eid} so that {@code t=0}
      * is at {@code expectedStartVertex} (one of the edge endpoints), matching face
      * winding.
+     * <p>
+     * Control points are always set up in canonical half-edge direction (ca → cb).
+     * When the face traverses the edge in reverse, the parameter is flipped to
+     * {@code 1-t} instead of reversing the control points. This guarantees both
+     * faces sharing an edge produce bitwise-identical positions, making
+     * merge-by-distance reliable.
      */
     private static void evalFaceEdge(
             MeshTopology mesh,
@@ -236,23 +242,15 @@ public class CoonsPatchNode implements MeshNode {
         handle(hStart, o, offStart);
         handle(hEnd, o, offEnd);
 
-        if (expectedStartVertex == ca) {
-            p0.set(posCa);
-            p3.set(posCb);
-            p1.set(posCa).add(offStart);
-            p2.set(posCb).add(offEnd);
-        } else if (expectedStartVertex == cb) {
-            p0.set(posCb);
-            p3.set(posCa);
-            p1.set(posCb).add(offEnd);
-            p2.set(posCa).add(offStart);
-        } else {
-            p0.set(posCa);
-            p3.set(posCb);
-            p1.set(posCa).add(offStart);
-            p2.set(posCb).add(offEnd);
-        }
-        cubicBezier(p0, p1, p2, p3, t, dest);
+        // Always canonical direction: ca → cb
+        p0.set(posCa);
+        p1.set(posCa).add(offStart);
+        p2.set(posCb).add(offEnd);
+        p3.set(posCb);
+
+        // Flip parameter when face winding reverses edge direction
+        float evalT = (expectedStartVertex == cb) ? 1f - t : t;
+        cubicBezier(p0, p1, p2, p3, evalT, dest);
     }
 
     private static void handle(float[] arr, int o, Vector3f dest) {

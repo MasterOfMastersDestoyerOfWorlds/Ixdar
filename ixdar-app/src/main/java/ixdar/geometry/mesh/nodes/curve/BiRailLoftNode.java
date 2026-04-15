@@ -12,9 +12,11 @@ import ixdar.geometry.mesh.curve.FloatCurveKernel;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.CurveGeometry;
+import ixdar.geometry.mesh.data.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
@@ -42,6 +44,7 @@ public class BiRailLoftNode implements MeshNode {
     private static final InputPort BLEND_CLOSURE = new InputPort("blend_closure", PortType.CLOSURE, null);
     private static final InputPort DEPTH_SCALE = new InputPort("depth_scale", PortType.FLOAT, 1f, -100f, 100f);
     private static final InputPort ISO_CURVE_T = new InputPort("iso_curve_t", PortType.FLOAT, -1f, -1f, 1f);
+    private static final InputPort THICKNESS = new InputPort("thickness", PortType.FLOAT, 0.001f, 0f, 10f);
     private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
     private static final OutputPort ISO_CURVE = new OutputPort("iso_curve", PortType.GEOMETRY_BUNDLE);
     private static final OutputPort BOUNDARY_A = new OutputPort("boundary_a", PortType.GEOMETRY_BUNDLE);
@@ -49,7 +52,7 @@ public class BiRailLoftNode implements MeshNode {
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(RAIL_A, RAIL_B, PROFILE, PROFILE_B, X_RESOLUTION, Y_RESOLUTION, BLEND_CLOSURE, DEPTH_SCALE, ISO_CURVE_T);
+        return List.of(RAIL_A, RAIL_B, PROFILE, PROFILE_B, X_RESOLUTION, Y_RESOLUTION, BLEND_CLOSURE, DEPTH_SCALE, ISO_CURVE_T, THICKNESS);
     }
 
     @Override
@@ -138,12 +141,23 @@ public class BiRailLoftNode implements MeshNode {
         float[] boundaryAPositions = new float[xRes * 3];
         float[] boundaryBPositions = new float[xRes * 3];
 
+        float thickness = FieldBroadcast.floatAt(
+                FieldBroadcast.getInputOrDefault(ctx, "thickness", THICKNESS.defaultValue()), 0, 0.001f);
+
         HalfEdgeMesh mesh = buildLoftMesh(railA, railB, xRes,
                 profileAU, profileAV, profileBU, profileBV, yRes, blendKernel, depthScale,
                 isoRow, isoCurvePositions, boundaryAPositions, boundaryBPositions);
         mesh.computeNormals();
 
-        GeometryBundle outBundle = GeometryBundle.empty().withMesh(mesh);
+        // Solidify the open loft surface to make it watertight
+        MeshTopology finalMesh;
+        if (thickness > 0f) {
+            finalMesh = ArrayMeshEngine.solidifyUniformMeshTopology(mesh, thickness);
+        } else {
+            finalMesh = mesh;
+        }
+
+        GeometryBundle outBundle = GeometryBundle.empty().withMesh(finalMesh);
         ctx.setOutput("geometry", outBundle);
 
         // Output iso-curve if requested

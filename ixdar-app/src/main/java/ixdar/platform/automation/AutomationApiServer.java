@@ -87,6 +87,7 @@ public class AutomationApiServer {
         server.createContext("/replay/pause", this::replayPauseHandler);
         server.createContext("/replay/resume", this::replayResumeHandler);
         server.createContext("/replay/cancel", this::replayCancelHandler);
+        server.createContext("/mesh/dsl/validate", this::dslValidateHandler);
         server.createContext("/mesh/dsl", this::dslLoadHandler);
         server.createContext("/mesh/timing", this::meshTimingHandler);
         server.createContext("/mesh/compare", this::compareMeshHandler);
@@ -334,6 +335,29 @@ public class AutomationApiServer {
             return;
         }
         writeJson(exchange, runtime.requestShutdown());
+    }
+
+    private void dslValidateHandler(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+        try {
+            JsonObject body = readBodyJson(exchange);
+            String dslSource = body.has("dsl") ? body.get("dsl").getAsString() : "";
+            String exportPath = body.has("export") ? body.get("export").getAsString() : null;
+
+            if (dslSource.isEmpty()) {
+                writeError(exchange, 400, "Missing required field: dsl (DSL source text)");
+                return;
+            }
+
+            String skillDir = System.getProperty("user.home") + "/.ix/voyage/skills";
+            java.util.Map<String, Object> result =
+                    ixdar.geometry.mesh.documentation.ValidateDsl.validate(dslSource, skillDir, exportPath);
+            writeJson(exchange, GSON.toJsonTree(result).getAsJsonObject());
+        } catch (Exception e) {
+            writeError(exchange, 500, e.getMessage());
+        }
     }
 
     private void dslLoadHandler(HttpExchange exchange) throws IOException {

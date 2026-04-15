@@ -29,7 +29,7 @@ public final class GraphValidator {
         Map<String, PythonParser.ParsedNode> byId = new HashMap<>();
         for (PythonParser.ParsedNode n : parsed) {
             if (byId.containsKey(n.id)) {
-                errors.add("Duplicate node id: " + n.id);
+                errors.add("Line " + n.line + ": Duplicate node id: " + n.id);
             }
             byId.put(n.id, n);
         }
@@ -41,14 +41,14 @@ public final class GraphValidator {
             }
             Class<? extends MeshNode> clazz = registry.get(n.type);
             if (clazz == null) {
-                errors.add("Unknown node type '" + n.type + "' for node '" + n.id + "'");
+                errors.add("Line " + n.line + ": Unknown node type '" + n.type + "' for node '" + n.id + "'");
                 continue;
             }
             MeshNode instance;
             try {
                 instance = clazz.getDeclaredConstructor().newInstance();
             } catch (ReflectiveOperationException e) {
-                errors.add("Cannot instantiate node type '" + n.type + "': " + e.getMessage());
+                errors.add("Line " + n.line + ": Cannot instantiate node type '" + n.type + "': " + e.getMessage());
                 continue;
             }
             MeshNodeSchema schema = instance.schema();
@@ -57,11 +57,11 @@ public final class GraphValidator {
                 Object val = arg.getValue();
                 InputPort ip = findInput(schema, portName);
                 if (ip == null) {
-                    errors.add("Node '" + n.id + "' has unknown input port '" + portName + "'");
+                    errors.add("Line " + n.line + ": Node '" + n.id + "' has unknown input port '" + portName + "'");
                     continue;
                 }
                 if (val instanceof PythonParser.NodeReference ref) {
-                    validateEdge(errors, byId, registry, n.id, ref, ip);
+                    validateEdge(errors, byId, registry, n.id, n.line, ref, ip);
                 }
             }
         }
@@ -96,33 +96,33 @@ public final class GraphValidator {
     }
 
     private static void validateEdge(List<String> errors, Map<String, PythonParser.ParsedNode> byId,
-            Map<String, Class<? extends MeshNode>> registry, String consumerId,
+            Map<String, Class<? extends MeshNode>> registry, String consumerId, int consumerLine,
             PythonParser.NodeReference ref, InputPort targetInput) {
         PythonParser.ParsedNode sourceNode = byId.get(ref.nodeId);
         if (sourceNode == null) {
-            errors.add("Edge to '" + consumerId + "': unknown source node '" + ref.nodeId + "'");
+            errors.add("Line " + consumerLine + ": Edge to '" + consumerId + "': unknown source node '" + ref.nodeId + "'");
             return;
         }
         Class<? extends MeshNode> sourceClass = registry.get(sourceNode.type);
         if (sourceClass == null) {
-            errors.add("Edge from '" + ref.nodeId + "': unknown source node type '" + sourceNode.type + "'");
+            errors.add("Line " + consumerLine + ": Edge from '" + ref.nodeId + "': unknown source node type '" + sourceNode.type + "'");
             return;
         }
         MeshNode sourceInstance;
         try {
             sourceInstance = sourceClass.getDeclaredConstructor().newInstance();
         } catch (ReflectiveOperationException e) {
-            errors.add("Cannot instantiate source '" + sourceNode.type + "': " + e.getMessage());
+            errors.add("Line " + consumerLine + ": Cannot instantiate source '" + sourceNode.type + "': " + e.getMessage());
             return;
         }
         OutputPort out = findOutput(sourceInstance.schema(), ref.portName);
         if (out == null) {
-            errors.add("Node '" + ref.nodeId + "' has no output port '" + ref.portName + "' (used from '"
+            errors.add("Line " + consumerLine + ": Node '" + ref.nodeId + "' has no output port '" + ref.portName + "' (used from '"
                     + consumerId + "')");
             return;
         }
         if (!portTypesCompatible(out.type(), targetInput.type())) {
-            errors.add("Type mismatch " + ref.nodeId + "." + ref.portName + " (" + out.type() + ") -> "
+            errors.add("Line " + consumerLine + ": Type mismatch " + ref.nodeId + "." + ref.portName + " (" + out.type() + ") -> "
                     + consumerId + "." + targetInput.name() + " (" + targetInput.type() + ")");
         }
     }
