@@ -36,6 +36,11 @@ public class AlignRotationToVectorNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Computes a rotation quaternion that aligns the Y-up axis to the given direction vector.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         Object vo = FieldBroadcast.getInputOrDefault(ctx, "vector", VECTOR.defaultValue());
         if (vo instanceof Vec3Field vf) {

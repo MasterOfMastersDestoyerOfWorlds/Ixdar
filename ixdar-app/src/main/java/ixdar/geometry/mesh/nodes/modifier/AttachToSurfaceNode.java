@@ -60,6 +60,11 @@ public class AttachToSurfaceNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Creates an attachment hole on a mesh surface at a spherical coordinate direction (theta, phi), outputting the position, normal, and rotation for aligning child geometry like limbs or tubes.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology mesh = base.mesh();

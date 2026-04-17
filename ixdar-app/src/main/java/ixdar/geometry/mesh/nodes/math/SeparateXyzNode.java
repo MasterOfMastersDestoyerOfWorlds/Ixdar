@@ -21,6 +21,11 @@ public class SeparateXyzNode implements MeshNode {
     private static final OutputPort Z = new OutputPort("z", PortType.FLOAT);
 
     @Override
+    public String description() {
+        return "Splits a vector into its X, Y, Z float components.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(VECTOR);
     }

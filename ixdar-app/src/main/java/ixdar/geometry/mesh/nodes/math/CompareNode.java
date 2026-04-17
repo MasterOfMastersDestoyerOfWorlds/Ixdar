@@ -43,6 +43,11 @@ public class CompareNode implements MeshNode {
     private static final OutputPort RESULT = new OutputPort("result", PortType.BOOLEAN);
 
     @Override
+    public String description() {
+        return "Compares two float values with an epsilon tolerance using modes EQUAL, LESS, GREATER.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(A, B, EPSILON, MODE);
     }

@@ -74,6 +74,11 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Bridges two boundary edge loops that may have different vertex counts, using a fan transition with quads and optional intermediate rings. Auto-discovers the nearest untagged loop if only one tag is provided.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology meshTopo = base.mesh();

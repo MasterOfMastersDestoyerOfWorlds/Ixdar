@@ -46,6 +46,11 @@ public class MarkCreaseNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Assigns crease weights to edges for controlling sharpness during Catmull-Clark subdivision, where higher weights preserve hard edges for more subdivision levels.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology mesh = base.mesh();

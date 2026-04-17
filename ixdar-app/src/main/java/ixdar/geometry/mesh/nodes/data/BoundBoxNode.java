@@ -22,6 +22,11 @@ public class BoundBoxNode implements MeshNode {
     private static final OutputPort MAX = new OutputPort("max", PortType.VECTOR3);
 
     @Override
+    public String description() {
+        return "Computes the axis-aligned bounding box of a geometry, outputting its min and max corner vectors.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(GEOMETRY);
     }

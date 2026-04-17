@@ -37,6 +37,11 @@ public class CoonsLoopCutNode implements MeshNode {
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Inserts geometry-preserving loop cuts along an axis using exact de Casteljau subdivision, so new edges land on the original Bezier curves.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(GEOMETRY, AXIS, CUTS);
     }

@@ -28,6 +28,11 @@ public class JoinCurvesNode implements MeshNode {
     private static final OutputPort CURVE = new OutputPort("curve", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Concatenates two curve polylines into a single continuous curve, optionally deduplicating the shared endpoint at the join.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(CURVE_A, CURVE_B, DEDUPLICATE);
     }

@@ -51,6 +51,11 @@ public class BiRailLoftNode implements MeshNode {
     private static final OutputPort BOUNDARY_B = new OutputPort("boundary_b", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Generates a surface by sweeping profile curves between two rail curves with optional profile blending, depth scaling, and solidification via thickness.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(RAIL_A, RAIL_B, PROFILE, PROFILE_B, X_RESOLUTION, Y_RESOLUTION, BLEND_CLOSURE, DEPTH_SCALE, ISO_CURVE_T, THICKNESS);
     }

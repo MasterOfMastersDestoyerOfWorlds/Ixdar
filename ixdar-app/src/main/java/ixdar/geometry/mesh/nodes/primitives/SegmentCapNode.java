@@ -35,6 +35,11 @@ public class SegmentCapNode implements MeshNode {
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Closes the open top end of a tube segment with an all-quad concentric cap, taking a geometry bundle as input; typically the terminal node in a dual_radial_segment chain.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(GEOMETRY, SEGMENTS, CAP_RINGS);
     }

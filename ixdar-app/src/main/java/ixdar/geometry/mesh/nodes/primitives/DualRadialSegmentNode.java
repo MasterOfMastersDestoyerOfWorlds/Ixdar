@@ -63,6 +63,11 @@ public class DualRadialSegmentNode implements MeshNode {
     private static final OutputPort OUT_END_TY = new OutputPort("end_ty", PortType.FLOAT);
 
     @Override
+    public String description() {
+        return "Generates a parametric tube segment with independent X/Y elliptical radius profiles interpolated via cubic Hermite curves, supporting G1-continuous chaining through geometry and end tangent outputs.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(GEOMETRY, START_RX, START_TX, END_RX, END_TX,
                 START_RY, START_TY, END_RY, END_TY, LENGTH, RINGS, SEGMENTS);

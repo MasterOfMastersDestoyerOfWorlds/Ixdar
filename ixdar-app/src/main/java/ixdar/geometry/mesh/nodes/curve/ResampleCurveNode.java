@@ -24,6 +24,11 @@ public class ResampleCurveNode implements MeshNode {
     private static final OutputPort CURVE_OUT = new OutputPort("curve", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Resamples curve polylines to uniform segment lengths, controlled by the length parameter.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(CURVE, LENGTH);
     }

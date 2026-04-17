@@ -28,6 +28,11 @@ public class RealizeInstancesNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Extracts the concrete mesh from a geometry bundle, converting instanced or bundled geometry into a plain mesh output.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         MeshTopology m = GeometryBundles.meshPart(ctx.getInput("geometry", Object.class));
         ctx.setOutput("mesh", m);

@@ -41,6 +41,11 @@ public class AssignBezierHandlesNode implements MeshNode {
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Computes and stores per-edge cubic Bezier handle offsets on a mesh, with handle directions derived from adjacent edge geometry and magnitude scaled by weight.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(GEOMETRY, WEIGHT);
     }

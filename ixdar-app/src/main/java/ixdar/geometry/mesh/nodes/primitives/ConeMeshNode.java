@@ -28,6 +28,11 @@ public class ConeMeshNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Generates a cone with a circular base and a single apex point, controlled by radius, height, and segment count.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         float radius = ctx.getInput("radius", Number.class) != null ? ctx.getInput("radius", Number.class).floatValue()
                 : 1.0f;
@@ -58,7 +63,7 @@ public class ConeMeshNode implements MeshNode {
         for (int i = 0; i < segments; i++) {
             int nextI = (i + 1) % segments;
             mesh.addFace(topPole, bottomRingVertices[nextI], bottomRingVertices[i]);
-            mesh.addFace(bottomPole, bottomRingVertices[i], bottomRingVertices[nextI]);
+            mesh.addFace(bottomPole, bottomRingVertices[nextI], bottomRingVertices[i]);
         }
 
         mesh.computeNormals();

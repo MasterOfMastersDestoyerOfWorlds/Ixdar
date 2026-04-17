@@ -28,6 +28,11 @@ public class UVSphereMeshNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Generates a latitude/longitude sphere with quad bands and triangle-fan poles, controlled by radius, segments (longitude), and rings (latitude).";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         float radius = ctx.getInput("radius", Number.class) != null ? ctx.getInput("radius", Number.class).floatValue() : 1.0f;
         int segments = ctx.getInput("segments", Number.class) != null ? ctx.getInput("segments", Number.class).intValue() : 32;

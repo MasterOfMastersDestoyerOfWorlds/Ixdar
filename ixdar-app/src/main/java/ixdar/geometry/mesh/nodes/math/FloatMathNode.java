@@ -22,6 +22,11 @@ public class FloatMathNode implements MeshNode {
     private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override
+    public String description() {
+        return "Per-element float math with operations ADD, SUBTRACT, MULTIPLY, DIVIDE, POWER, MIN, MAX, ABS, FRACT, SIN, COS, SQRT, NEGATE.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(OPERATION, A, B);
     }

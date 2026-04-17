@@ -1,6 +1,7 @@
  package ixdar.geometry.mesh.graph;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +42,12 @@ public final class GraphValidator {
             }
             Class<? extends MeshNode> clazz = registry.get(n.type);
             if (clazz == null) {
-                errors.add("Line " + n.line + ": Unknown node type '" + n.type + "' for node '" + n.id + "'");
+                String msg = "Line " + n.line + ": Unknown node type '" + n.type + "' for node '" + n.id + "'";
+                String suggestion = findClosestType(n.type, registry.keySet());
+                if (suggestion != null) {
+                    msg += ". Did you mean '" + suggestion + "'?";
+                }
+                errors.add(msg);
                 continue;
             }
             MeshNode instance;
@@ -57,7 +63,9 @@ public final class GraphValidator {
                 Object val = arg.getValue();
                 InputPort ip = findInput(schema, portName);
                 if (ip == null) {
-                    errors.add("Line " + n.line + ": Node '" + n.id + "' has unknown input port '" + portName + "'");
+                    List<String> validInputs = schema.inputs().stream().map(InputPort::name).toList();
+                    errors.add("Line " + n.line + ": Node '" + n.id + "' has unknown input port '" + portName
+                            + "'. Valid inputs: " + String.join(", ", validInputs));
                     continue;
                 }
                 if (val instanceof PythonParser.NodeReference ref) {
@@ -117,8 +125,9 @@ public final class GraphValidator {
         }
         OutputPort out = findOutput(sourceInstance.schema(), ref.portName);
         if (out == null) {
+            List<String> validOutputs = sourceInstance.schema().outputs().stream().map(OutputPort::name).toList();
             errors.add("Line " + consumerLine + ": Node '" + ref.nodeId + "' has no output port '" + ref.portName + "' (used from '"
-                    + consumerId + "')");
+                    + consumerId + "'). Valid outputs: " + String.join(", ", validOutputs));
             return;
         }
         if (!portTypesCompatible(out.type(), targetInput.type())) {
@@ -163,5 +172,35 @@ public final class GraphValidator {
             }
         }
         return null;
+    }
+
+    /** Returns the closest matching type name, or null if none within edit distance 3. */
+    static String findClosestType(String unknown, Collection<String> knownTypes) {
+        String best = null;
+        int bestDist = 4; // threshold: only suggest if distance ≤ 3
+        for (String known : knownTypes) {
+            int d = editDistance(unknown, known);
+            if (d < bestDist) {
+                bestDist = d;
+                best = known;
+            }
+        }
+        return best;
+    }
+
+    private static int editDistance(String a, String b) {
+        int m = a.length(), n = b.length();
+        int[] prev = new int[n + 1];
+        int[] curr = new int[n + 1];
+        for (int j = 0; j <= n; j++) prev[j] = j;
+        for (int i = 1; i <= m; i++) {
+            curr[0] = i;
+            for (int j = 1; j <= n; j++) {
+                int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+                curr[j] = Math.min(Math.min(curr[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
+            }
+            int[] tmp = prev; prev = curr; curr = tmp;
+        }
+        return prev[n];
     }
 }

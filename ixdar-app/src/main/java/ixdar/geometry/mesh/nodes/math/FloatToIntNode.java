@@ -35,6 +35,11 @@ public class FloatToIntNode implements MeshNode {
     private static final OutputPort RESULT = new OutputPort("result", PortType.INT);
 
     @Override
+    public String description() {
+        return "Converts a float to an integer using modes ROUND, FLOOR, CEIL, TRUNCATE.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(VALUE, MODE);
     }

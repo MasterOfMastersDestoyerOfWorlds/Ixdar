@@ -17,6 +17,11 @@ public class InputNormalNode implements MeshNode {
     private static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
 
     @Override
+    public String description() {
+        return "Provides the per-vertex normal vectors from the current mesh field context.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of();
     }

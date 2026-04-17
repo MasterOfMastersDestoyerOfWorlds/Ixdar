@@ -31,6 +31,11 @@ public class SwitchFloatNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Outputs one of two float values based on a boolean switch. Supports per-element field evaluation.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         Object so = FieldBroadcast.getInputOrDefault(ctx, "switch", SWITCH.defaultValue());
         Object fa = FieldBroadcast.getInputOrDefault(ctx, "false", FALSE_VAL.defaultValue());

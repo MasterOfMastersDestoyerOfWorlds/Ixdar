@@ -27,6 +27,11 @@ public class QuadSphereMeshNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Generates an all-quad sphere by projecting a subdivided cube onto a sphere surface, controlled by size and resolution (quads around the circumference); ideal for Catmull-Clark subdivision.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         Number sizeInput = ctx.getInput("size", Number.class);
         float radius = (sizeInput == null ? 1.0f : sizeInput.floatValue()) * 0.5f;

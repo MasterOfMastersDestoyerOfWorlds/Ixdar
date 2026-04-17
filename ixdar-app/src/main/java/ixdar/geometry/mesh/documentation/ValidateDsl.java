@@ -212,6 +212,29 @@ public final class ValidateDsl {
             return probe;
         }
 
+        // Always report execution time for observability
+        long executionMs = runtime.lastTotalMs();
+        probe.put("executionMs", executionMs);
+
+        // Performance gate: reject DSLs that take too long to evaluate
+        final long MAX_EXECUTION_MS = 1000;
+        if (executionMs > MAX_EXECUTION_MS) {
+            probe.put("ok", false);
+            probe.put("faceCount", mesh.faceCount());
+            probe.put("vertexCount", mesh.vertexCount());
+            probe.put("error", "DSL execution took " + executionMs + "ms (limit " + MAX_EXECUTION_MS + "ms)");
+            return probe;
+        }
+
+        // Reject meshes over 1M faces
+        final int MAX_FACE_COUNT = 1_000_000;
+        if (mesh.faceCount() > MAX_FACE_COUNT) {
+            probe.put("ok", false);
+            probe.put("faceCount", mesh.faceCount());
+            probe.put("error", "Mesh face count (" + mesh.faceCount() + ") exceeds limit of " + MAX_FACE_COUNT);
+            return probe;
+        }
+
         probe.put("outputPort", usedPort);
         probe.put("vertexCount", mesh.vertexCount());
         probe.put("faceCount", mesh.faceCount());

@@ -36,6 +36,11 @@ public class JoinGeometryNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Combines two geometry inputs into one mesh, merging tags and bone weights. Optionally welds nearby vertices within merge_distance.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle ga = GeometryBundles.bundlePart(ctx.getInput("a", Object.class));
         GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput("b", Object.class));

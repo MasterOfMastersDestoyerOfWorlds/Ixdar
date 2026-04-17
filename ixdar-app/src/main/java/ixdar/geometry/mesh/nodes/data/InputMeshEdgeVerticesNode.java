@@ -19,6 +19,11 @@ public class InputMeshEdgeVerticesNode implements MeshNode {
     private static final OutputPort VERTEX_B = new OutputPort("vertex_b", PortType.INT);
 
     @Override
+    public String description() {
+        return "Outputs per-edge IntFields containing the start and end vertex indices for every edge in the mesh.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of();
     }

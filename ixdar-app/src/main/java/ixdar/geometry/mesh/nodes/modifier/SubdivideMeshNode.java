@@ -40,6 +40,11 @@ public class SubdivideMeshNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Linearly subdivides each face by inserting edge midpoints and face centroids without smoothing, increasing mesh resolution while preserving the original shape.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         MeshTopology mesh = ctx.getInput("mesh", MeshTopology.class);
         Number levelsInput = ctx.getInput("levels", Number.class);

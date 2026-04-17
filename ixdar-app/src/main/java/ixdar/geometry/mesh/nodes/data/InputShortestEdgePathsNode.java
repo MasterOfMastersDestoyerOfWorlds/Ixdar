@@ -33,6 +33,11 @@ public class InputShortestEdgePathsNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Computes shortest paths from source vertices across mesh edges using Dijkstra. Outputs per-vertex next-hop index and total cost fields.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(END, EDGE_COST);
     }

@@ -32,6 +32,11 @@ public class EdgePathsToSelectionNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Converts vertex path chains (defined by next_vertex indices) into an edge selection mask.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         Object no = FieldBroadcast.getInputOrDefault(ctx, "next_vertex", NEXT_VERTEX.defaultValue());
         var fc = ctx.fieldContext();

@@ -44,6 +44,11 @@ public class SeparateGeometryNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Splits geometry into two outputs based on a per-face boolean selection. Selected faces go to one output, the rest to the other.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology in = base.mesh();

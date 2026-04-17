@@ -131,9 +131,16 @@ public class HalfEdgeMeshRuntime {
         meshShader.setMat4("view", camera.view);
         meshShader.setMat4("projection", projectionMatrix);
         meshShader.setVec4("solidColor", solidColor);
-        // Light follows camera direction so visible faces are always lit
-        Vector3f viewLightDir = new Vector3f(camera.position).sub(camera.target).normalize();
-        meshShader.setVec3("lightDir", viewLightDir);
+        // Light follows camera so visible faces are always lit
+        // lightDir convention: points INTO scene (shader uses -lightDir for surface→light)
+        float dx = camera.target.x - camera.position.x;
+        float dy = camera.target.y - camera.position.y;
+        float dz = camera.target.z - camera.position.z;
+        float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (len > 0.001f) {
+            lightDir.set(dx / len, dy / len, dz / len);
+        }
+        meshShader.setVec3("lightDir", lightDir);
         meshShader.setBool("useTexture", false);
         meshShader.setVec3("emissiveColor", emissiveColor);
         meshShader.setFloat("emissiveStrength", 0.08f);

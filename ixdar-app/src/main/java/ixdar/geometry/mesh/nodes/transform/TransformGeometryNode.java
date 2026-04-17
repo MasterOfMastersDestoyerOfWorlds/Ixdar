@@ -44,6 +44,11 @@ public class TransformGeometryNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Applies translation, rotation, and scale to mesh vertices and curve geometry using standard SRT order.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         Vector3Value trans = FieldBroadcast.vector3ValueOrDefault(

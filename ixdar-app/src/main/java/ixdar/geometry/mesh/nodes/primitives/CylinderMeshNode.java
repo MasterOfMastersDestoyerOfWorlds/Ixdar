@@ -28,6 +28,11 @@ public class CylinderMeshNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Generates a capped cylinder with triangle-fan caps, controlled by radius, height, and segment count around the circumference.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         float radius = ctx.getInput("radius", Number.class) != null ? ctx.getInput("radius", Number.class).floatValue()
                 : 1.0f;

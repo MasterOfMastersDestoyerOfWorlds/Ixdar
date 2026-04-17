@@ -12,4 +12,8 @@ public interface MeshNode {
     default MeshNodeSchema schema() {
         return MeshNodeSchema.from(this);
     }
+
+    default String description() {
+        return "";
+    }
 }

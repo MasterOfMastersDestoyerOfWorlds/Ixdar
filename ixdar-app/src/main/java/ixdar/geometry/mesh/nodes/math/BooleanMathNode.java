@@ -37,6 +37,11 @@ public class BooleanMathNode implements MeshNode {
     private static final OutputPort RESULT = new OutputPort("result", PortType.BOOLEAN);
 
     @Override
+    public String description() {
+        return "Per-element boolean logic with modes AND, OR, NOT, XOR.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(A, B, MODE);
     }

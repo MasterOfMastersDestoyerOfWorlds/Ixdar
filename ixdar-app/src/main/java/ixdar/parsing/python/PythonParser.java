@@ -225,15 +225,33 @@ public class PythonParser {
         return new NodeReference(syntheticId, "result");
     }
 
-    // VectorLiteral -> "<" Number "," Number "," Number ">"
-    private Vector3Value parseVectorLiteral() {
+    // VectorLiteral -> "<" Value "," Value "," Value ">"
+    // If all values are float literals, returns Vector3Value.
+    // Otherwise, desugars to a synthetic combine_xyz node and returns a NodeReference.
+    private Object parseVectorLiteral() {
+        int litLine = current.line;
         consume(TokenType.LANGLE, "Expected '<'");
-        float x = Float.parseFloat(consume(TokenType.NUMBER, "Expected X component").value);
+        Object xVal = parseValue();
         consume(TokenType.COMMA, "Expected ',' after X component");
-        float y = Float.parseFloat(consume(TokenType.NUMBER, "Expected Y component").value);
+        Object yVal = parseValue();
         consume(TokenType.COMMA, "Expected ',' after Y component");
-        float z = Float.parseFloat(consume(TokenType.NUMBER, "Expected Z component").value);
+        Object zVal = parseValue();
         consume(TokenType.RANGLE, "Expected '>' to close vector literal");
-        return new Vector3Value(x, y, z);
+
+        if (xVal instanceof Float && yVal instanceof Float && zVal instanceof Float) {
+            return new Vector3Value((float) xVal, (float) yVal, (float) zVal);
+        }
+
+        // Desugar to synthetic combine_xyz node
+        String syntheticId = "__vec_" + (inlineCounter++);
+        ParsedNode node = new ParsedNode();
+        node.line = litLine;
+        node.id = syntheticId;
+        node.type = "combine_xyz";
+        node.arguments.put("x", xVal);
+        node.arguments.put("y", yVal);
+        node.arguments.put("z", zVal);
+        pendingInlineNodes.add(node);
+        return new NodeReference(syntheticId, "vector");
     }
 }

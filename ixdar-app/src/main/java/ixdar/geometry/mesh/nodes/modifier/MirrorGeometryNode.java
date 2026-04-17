@@ -42,6 +42,11 @@ public class MirrorGeometryNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Mirrors geometry across a symmetry plane (X, Y, or Z axis), reverses face winding on the copy, and welds seam vertices for bilateral symmetry.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         String axis = ctx.getInput("axis", String.class);

@@ -17,6 +17,11 @@ public class InputPositionNode implements MeshNode {
     private static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
 
     @Override
+    public String description() {
+        return "Provides the per-vertex position vectors from the current mesh field context.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of();
     }

@@ -33,6 +33,11 @@ public class DeleteGeometryNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Removes selected vertices or edges from the mesh based on a boolean selection mask and domain.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         Object sel = FieldBroadcast.getInputOrDefault(ctx, "selection", SELECTION.defaultValue());

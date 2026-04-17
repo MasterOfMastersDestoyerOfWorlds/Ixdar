@@ -45,6 +45,11 @@ public class CurveDeformNode implements MeshNode {
     private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Deforms curve points by mapping a source axis coordinate through a float curve closure and adding the scaled result to a target axis.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(CURVE, CLOSURE, SOURCE_AXIS, TARGET_AXIS, FROM_MIN, FROM_MAX, AMPLITUDE);
     }

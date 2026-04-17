@@ -34,6 +34,11 @@ public class SolidifyMeshNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Gives thickness to a flat uniform-quad mesh by duplicating and offsetting it along normals, creating a watertight shell.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology in = base.mesh();

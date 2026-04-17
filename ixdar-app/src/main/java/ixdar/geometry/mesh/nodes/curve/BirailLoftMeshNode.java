@@ -32,6 +32,11 @@ public class BirailLoftMeshNode implements MeshNode {
     private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Creates a ruled surface by linearly interpolating between two rail curves resampled by arc length, with configurable U and V segment counts.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(RAIL_A, RAIL_B, U_SEGMENTS, V_SEGMENTS);
     }

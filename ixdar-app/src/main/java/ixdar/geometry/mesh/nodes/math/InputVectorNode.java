@@ -18,6 +18,11 @@ public class InputVectorNode implements MeshNode {
     private static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
 
     @Override
+    public String description() {
+        return "Constructs a Vector3 from individual X, Y, Z float inputs.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(X, Y, Z);
     }

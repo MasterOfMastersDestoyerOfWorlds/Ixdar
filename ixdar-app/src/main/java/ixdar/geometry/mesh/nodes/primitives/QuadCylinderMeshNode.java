@@ -40,6 +40,11 @@ public class QuadCylinderMeshNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Generates an all-quad cylinder with concentric quad-ring caps suitable for Catmull-Clark subdivision, controlled by radius, height, barrel segments/rings, and cap_rings for cap density.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         Number rIn = ctx.getInput("radius", Number.class);
         float radius = rIn == null ? 0.5f : rIn.floatValue();

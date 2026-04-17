@@ -45,6 +45,11 @@ public class IntegerMathNode implements MeshNode {
     private static final OutputPort RESULT = new OutputPort("result", PortType.INT);
 
     @Override
+    public String description() {
+        return "Integer arithmetic with modes ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, MIN, MAX.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(A, B, MODE);
     }

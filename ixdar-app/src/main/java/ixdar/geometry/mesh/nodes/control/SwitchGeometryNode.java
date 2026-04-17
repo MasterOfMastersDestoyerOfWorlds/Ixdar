@@ -30,6 +30,11 @@ public class SwitchGeometryNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Outputs one of two geometry inputs based on a boolean switch.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         Boolean sw = ctx.getInput("switch", Boolean.class);
         Object fa = ctx.getInput("false", Object.class);

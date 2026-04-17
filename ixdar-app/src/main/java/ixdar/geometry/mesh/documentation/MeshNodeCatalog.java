@@ -35,6 +35,10 @@ public final class MeshNodeCatalog {
             entry.put("category", categoryFromClass(n.getClass()));
             entry.put("inputs", serializeInputs(schema.inputs()));
             entry.put("outputs", serializeOutputs(schema.outputs()));
+            String desc = n.description();
+            if (desc != null && !desc.isEmpty()) {
+                entry.put("description", desc);
+            }
             if (n instanceof RandomValueNode) {
                 entry.put("outputActivationByMode", RandomValueNode.OUTPUT_ACTIVATION_BY_MODE);
             }

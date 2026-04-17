@@ -32,6 +32,11 @@ public class CurveSweepMeshNode implements MeshNode {
     private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Sweeps a profile mesh face along a curve path using parallel-transported frames to create tubular or extruded geometry, with optional end caps.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(CURVE, PROFILE, CAPS);
     }

@@ -36,6 +36,11 @@ public class CurveToMeshNode implements MeshNode {
     private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Converts a curve into a tube mesh by sweeping a circular or custom profile cross-section along the path, with optional radius closure for per-station scaling and cap filling.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(CURVE, PROFILE_CURVE, RADIUS, RESOLUTION, FILL_CAPS, RADIUS_CLOSURE);
     }

@@ -26,6 +26,11 @@ public class InputVertexIndexNode implements MeshNode {
     private static final OutputPort INDEX = new OutputPort("index", PortType.FLOAT);
 
     @Override
+    public String description() {
+        return "Outputs a per-element identity index field (data[i] = i) for vertex-domain selection and filtering.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of();
     }

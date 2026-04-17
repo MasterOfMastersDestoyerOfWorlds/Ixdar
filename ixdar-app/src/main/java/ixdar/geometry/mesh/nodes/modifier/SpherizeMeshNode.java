@@ -32,6 +32,11 @@ public class SpherizeMeshNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Blends vertex positions toward a sphere centered at the mesh centroid, controlled by a 0-to-1 factor for partial or full spherization.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         MeshTopology inputMesh = ctx.getInput("mesh", MeshTopology.class);
         Number factorInput = ctx.getInput("factor", Number.class);

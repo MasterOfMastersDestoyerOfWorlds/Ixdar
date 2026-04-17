@@ -30,6 +30,11 @@ public class VectorMathNode implements MeshNode {
     private static final OutputPort VALUE = new OutputPort("value", PortType.FLOAT);
 
     @Override
+    public String description() {
+        return "Per-element vector math with operations ADD, SUBTRACT, MULTIPLY, SCALE, NORMALIZE, CROSS, DOT. Outputs both the result vector and its length.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(OPERATION, A, B, SCALE);
     }

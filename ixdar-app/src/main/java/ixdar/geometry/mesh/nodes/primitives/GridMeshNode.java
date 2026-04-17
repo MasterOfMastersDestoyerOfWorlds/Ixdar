@@ -33,6 +33,11 @@ public class GridMeshNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Generates a flat quad grid on the XZ plane centered at the origin, with configurable tile counts and sizes in U/V directions; u_total_size/v_total_size override per-tile sizes when positive.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         int uTiles = ctx.getInput("u_tiles", Number.class) != null ? ctx.getInput("u_tiles", Number.class).intValue() : 1;
         int vTiles = ctx.getInput("v_tiles", Number.class) != null ? ctx.getInput("v_tiles", Number.class).intValue() : 1;

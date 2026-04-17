@@ -18,6 +18,11 @@ public class InputFloatNode implements MeshNode {
     private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override
+    public String description() {
+        return "Declares a named float parameter for the graph with a default value and optional min/max bounds.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(NAME, DEFAULT, MIN, MAX);
     }

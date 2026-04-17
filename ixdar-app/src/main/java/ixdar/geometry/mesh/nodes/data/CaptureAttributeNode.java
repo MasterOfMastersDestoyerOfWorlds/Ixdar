@@ -22,6 +22,11 @@ public class CaptureAttributeNode implements MeshNode {
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Stores a float value or FloatField as a named attribute slot on a geometry bundle for downstream retrieval.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(GEOMETRY, NAME, VALUE);
     }

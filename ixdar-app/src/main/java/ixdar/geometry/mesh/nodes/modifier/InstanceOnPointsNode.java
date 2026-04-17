@@ -41,6 +41,11 @@ public class InstanceOnPointsNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Places a copy of an instance mesh at each point in a geometry bundle or curve, with optional per-point rotation for scatter or array patterns.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle pts = GeometryBundles.bundlePart(ctx.getInput("points", Object.class));
         MeshTopology inst = ctx.getInput("instance", MeshTopology.class);

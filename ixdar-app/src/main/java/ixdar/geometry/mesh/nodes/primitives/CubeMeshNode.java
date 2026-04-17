@@ -26,6 +26,11 @@ public class CubeMeshNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Generates an axis-aligned cube mesh centered at the origin with uniform size controlling edge length.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         Number sizeInput = ctx.getInput("size", Number.class);
         float c = (sizeInput == null ? 1.0f : sizeInput.floatValue()) * 0.5f;
@@ -34,12 +39,12 @@ public class CubeMeshNode implements MeshNode {
                 -c, -c,  c,  c, -c,  c,  c,  c,  c, -c,  c,  c,
         };
         int[] quads = {
-                0, 1, 2, 3,
-                4, 7, 6, 5,
-                0, 4, 5, 1,
-                3, 2, 6, 7,
-                1, 5, 6, 2,
-                0, 3, 7, 4,
+                0, 3, 2, 1,   // Back  (-Z)
+                4, 5, 6, 7,   // Front (+Z)
+                0, 1, 5, 4,   // Bottom (-Y)
+                3, 7, 6, 2,   // Top   (+Y)
+                1, 2, 6, 5,   // Right (+X)
+                0, 4, 7, 3,   // Left  (-X)
         };
         ArrayMesh mesh = ArrayMesh.fromQuads(positions, quads);
         mesh.computeNormals();

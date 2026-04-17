@@ -21,6 +21,11 @@ public class InputTangentNode implements MeshNode {
     private static final OutputPort TANGENT = new OutputPort("tangent", PortType.VECTOR3);
 
     @Override
+    public String description() {
+        return "Outputs a per-vertex tangent vector derived from the first outgoing half-edge of each vertex.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of();
     }

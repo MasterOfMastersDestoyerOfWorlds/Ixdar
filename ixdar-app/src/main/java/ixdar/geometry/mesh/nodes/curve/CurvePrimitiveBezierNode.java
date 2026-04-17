@@ -41,6 +41,11 @@ public class CurvePrimitiveBezierNode implements MeshNode {
     private static final OutputPort CURVE = new OutputPort("curve", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Creates a cubic or quadratic Bezier curve segment as a polyline from control points, with configurable resolution.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(RESOLUTION, START, HANDLE_START, HANDLE_END, END, MODE);
     }

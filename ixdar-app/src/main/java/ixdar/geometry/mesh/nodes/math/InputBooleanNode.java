@@ -16,6 +16,11 @@ public class InputBooleanNode implements MeshNode {
     private static final OutputPort RESULT = new OutputPort("result", PortType.BOOLEAN);
 
     @Override
+    public String description() {
+        return "Declares a named boolean parameter for the graph with a default value.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(NAME, DEFAULT);
     }

@@ -29,6 +29,11 @@ public class CircleCurveNode implements MeshNode {
     private static final OutputPort CURVE = new OutputPort("curve", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Generates a closed circular polyline in the XZ plane with configurable radius, resolution, and center position.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(RADIUS, RESOLUTION, CENTER);
     }

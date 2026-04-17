@@ -48,6 +48,11 @@ public class MeshBooleanNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Performs CSG boolean operations (union, difference, or intersect) on two meshes using ray-cast face classification.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle gbA = GeometryBundles.bundlePart(ctx.getInput("mesh_a", Object.class));
         GeometryBundle gbB = GeometryBundles.bundlePart(ctx.getInput("mesh_b", Object.class));

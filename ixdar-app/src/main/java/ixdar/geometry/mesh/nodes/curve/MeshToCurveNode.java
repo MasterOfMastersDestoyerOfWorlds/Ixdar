@@ -26,6 +26,11 @@ public class MeshToCurveNode implements MeshNode {
     private static final OutputPort CURVE = new OutputPort("curve", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Extracts curve geometry from a mesh, either as individual edge segments (ALL_EDGES) or as an ordered boundary loop (BOUNDARY).";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(GEOMETRY, SOURCE);
     }

@@ -30,6 +30,11 @@ public class IcosphereMeshNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Generates a triangle-based sphere by subdividing an icosahedron, controlled by radius and subdivision level (0 = 20-face icosahedron, each level quadruples face count).";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         float radius = ctx.getInput("radius", Number.class) != null ? ctx.getInput("radius", Number.class).floatValue()
                 : 1.0f;

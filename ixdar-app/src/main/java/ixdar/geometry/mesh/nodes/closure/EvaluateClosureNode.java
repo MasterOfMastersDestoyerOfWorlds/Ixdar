@@ -21,6 +21,11 @@ public class EvaluateClosureNode implements MeshNode {
     private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override
+    public String description() {
+        return "Evaluates a float curve closure at a scalar or per-vertex field value, returning the mapped result.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(CLOSURE, VALUE);
     }

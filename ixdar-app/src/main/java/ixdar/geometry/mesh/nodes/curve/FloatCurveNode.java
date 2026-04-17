@@ -24,6 +24,11 @@ public class FloatCurveNode implements MeshNode {
     private static final OutputPort CLOSURE = new OutputPort("closure", PortType.CLOSURE);
 
     @Override
+    public String description() {
+        return "Builds a float curve closure from comma-separated x,y control point pairs for use as an editable input parameter.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(POINTS);
     }

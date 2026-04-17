@@ -46,6 +46,11 @@ public class SetBoneWeightNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Assigns a bone weight to vertices of selected faces for skeletal animation, stored per-vertex in the geometry bundle for use with apply_bone.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology mesh = base.mesh();

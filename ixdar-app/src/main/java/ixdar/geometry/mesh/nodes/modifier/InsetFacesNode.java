@@ -47,6 +47,11 @@ public class InsetFacesNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Insets selected faces by creating a smaller inner face connected to the original boundary by side quads, useful for preparing faces for extrusion.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology in = base.mesh();

@@ -48,6 +48,11 @@ public class BridgeEdgeLoopsNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Connects two tagged boundary edge loops of equal vertex count with quad faces, with optional intermediate interpolation rings for smoother transitions.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology meshTopo = base.mesh();

@@ -31,6 +31,11 @@ public class MergeByDistanceNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Welds vertices closer than a threshold distance into single vertices, useful for cleaning seams after joins or mirrors.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         Object d = FieldBroadcast.getInputOrDefault(ctx, "distance", DISTANCE.defaultValue());

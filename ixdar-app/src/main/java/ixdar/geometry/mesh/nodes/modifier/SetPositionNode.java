@@ -33,6 +33,11 @@ public class SetPositionNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Translates all vertices of a geometry by a vector offset, useful for repositioning meshes in world space.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         Object off = FieldBroadcast.getInputOrDefault(ctx, "offset", OFFSET.defaultValue());

@@ -28,8 +28,13 @@ import ixdar.geometry.mesh.data.MeshTopology;
 public class CoonsPatchNode implements MeshNode {
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort SUBDIVISIONS = new InputPort("subdivisions", PortType.INT, 4, 1f, 64f);
+    private static final InputPort SUBDIVISIONS = new InputPort("subdivisions", PortType.INT, 4, 1f, 6f);
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+
+    @Override
+    public String description() {
+        return "Subdivides each quad face into a smooth bilinearly blended Coons patch using cubic Bezier edge boundaries, controlled by a subdivisions parameter.";
+    }
 
     @Override
     public List<InputPort> inputs() {
@@ -45,12 +50,25 @@ public class CoonsPatchNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         Number subNum = ctx.getInput("subdivisions", Number.class);
-        int n = subNum == null ? 4 : Math.max(1, subNum.intValue());
+        int n = subNum == null ? 4 : Math.max(1, Math.min(6, subNum.intValue()));
 
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.faceCount() == 0) {
             ctx.setOutput("geometry", base);
             return;
+        }
+
+        // OOM guard: cap subdivisions so output stays under 600k faces
+        int inputFaces = mesh.faceCount();
+        if (inputFaces > 0) {
+            long estimated = (long) inputFaces * n * n;
+            if (estimated > 600_000) {
+                int safeN = Math.max(1, (int) Math.sqrt(600_000.0 / inputFaces));
+                System.err.println("[coons_patch] Capped subdivisions from " + n + " to " + safeN
+                        + " (" + inputFaces + " input faces × " + n + "² = " + estimated
+                        + " would exceed 600k limit)");
+                n = safeN;
+            }
         }
 
         float[] hStart = slotFloat3(base, AssignBezierHandlesNode.SLOT_HANDLES_START, mesh);

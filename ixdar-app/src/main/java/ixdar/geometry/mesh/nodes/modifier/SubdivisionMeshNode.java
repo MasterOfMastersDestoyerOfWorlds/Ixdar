@@ -38,6 +38,11 @@ public class SubdivisionMeshNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Applies Catmull-Clark subdivision surface smoothing, supporting crease weights for semi-sharp edges. Handles mixed tri/quad input.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         // Accept geometry bundle (with crease weights) or plain mesh
         GeometryBundle bundle = null;

@@ -50,6 +50,11 @@ public class ExtrudeMeshNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Extrudes selected faces along their normals by an offset distance, with individual or region mode for controlling whether adjacent faces share extruded vertices.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology in = base.mesh();

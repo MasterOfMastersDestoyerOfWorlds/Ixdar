@@ -195,7 +195,26 @@ public class NodeGraphRuntime {
 
         GraphNodeContext finalContext = evaluatedNodes.get(finalOutputId);
         if (finalContext != null) {
-            return finalContext.getOutput(outputPortName);
+            Object result = finalContext.getOutput(outputPortName);
+            if (result != null) {
+                return result;
+            }
+        }
+
+        // Fallback: walk nodes in reverse order and probe common mesh port names.
+        // This handles DSLs where the output node isn't named as expected.
+        String[] probeNames = { outputPortName, "mesh", "geometry", "result" };
+        for (int i = parsedStatements.size() - 1; i >= 0; i--) {
+            GraphNodeContext ctx = evaluatedNodes.get(parsedStatements.get(i).id);
+            if (ctx == null) {
+                continue;
+            }
+            for (String port : probeNames) {
+                Object out = ctx.getOutput(port);
+                if (out != null) {
+                    return out;
+                }
+            }
         }
         return null;
     }

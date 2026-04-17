@@ -20,6 +20,11 @@ public class FieldAtIndexNode implements MeshNode {
     private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override
+    public String description() {
+        return "Samples a float field at a given index or indices, enabling indirect/gather-style lookups into per-vertex data.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(VALUE, INDEX);
     }

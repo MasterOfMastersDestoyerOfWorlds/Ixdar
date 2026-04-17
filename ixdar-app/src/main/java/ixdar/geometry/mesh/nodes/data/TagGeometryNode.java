@@ -41,6 +41,11 @@ public class TagGeometryNode implements MeshNode {
     private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
+    public String description() {
+        return "Annotates all vertices in a geometry with one or more comma-separated tag labels, stored as per-vertex boolean masks.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(GEOMETRY, TAGS);
     }

@@ -21,6 +21,11 @@ public class CombineXyzNode implements MeshNode {
     private static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
 
     @Override
+    public String description() {
+        return "Combines X, Y, Z float values (scalars or per-vertex fields) into a single vector or Vec3Field.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(X, Y, Z);
     }

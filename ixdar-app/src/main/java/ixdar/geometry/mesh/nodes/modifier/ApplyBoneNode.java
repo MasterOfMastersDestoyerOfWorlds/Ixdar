@@ -50,6 +50,11 @@ public class ApplyBoneNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Rotates weighted vertices around a pivot point for forward-kinematics posing, using bone weights from set_bone_weight. Chain tip-to-root for multi-bone rigs.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology mesh = base.mesh();

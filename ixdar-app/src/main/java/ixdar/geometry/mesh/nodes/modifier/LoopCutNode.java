@@ -41,6 +41,11 @@ public class LoopCutNode implements MeshNode {
     }
 
     @Override
+    public String description() {
+        return "Inserts edge loops along a world-space axis (X, Y, or Z), splitting aligned quad faces to add resolution where needed.";
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle bundle = null;
         MeshTopology mesh = null;

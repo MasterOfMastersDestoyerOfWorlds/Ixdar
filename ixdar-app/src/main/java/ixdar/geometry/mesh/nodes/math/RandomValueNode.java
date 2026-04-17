@@ -45,6 +45,11 @@ public class RandomValueNode implements MeshNode {
     private static final OutputPort OUT_VECTOR = new OutputPort("vector_out", PortType.VECTOR3);
 
     @Override
+    public String description() {
+        return "Generates a deterministic random value from a seed. Modes FLOAT, INT, VECTOR select the output type within a min/max range.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(SEED, MIN, MAX, MODE);
     }

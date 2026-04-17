@@ -36,6 +36,11 @@ public class MapRangeNode implements MeshNode {
     private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override
+    public String description() {
+        return "Remaps a float value from one range to another using LINEAR or SMOOTH_STEP interpolation, with optional clamping.";
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(VALUE, FROM_MIN, FROM_MAX, TO_MIN, TO_MAX, CLAMP, MODE);
     }
