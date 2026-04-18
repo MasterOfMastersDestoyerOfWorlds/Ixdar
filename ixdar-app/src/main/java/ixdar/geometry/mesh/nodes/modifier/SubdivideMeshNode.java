@@ -45,6 +45,18 @@ public class SubdivideMeshNode implements MeshNode {
     }
 
     @Override
+    public boolean destructive() {
+        return true;
+    }
+
+    @Override
+    public List<String> consumes() {
+        return List.of(
+                ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode.SLOT_HANDLES_START,
+                ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode.SLOT_HANDLES_END);
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         MeshTopology mesh = ctx.getInput("mesh", MeshTopology.class);
         Number levelsInput = ctx.getInput("levels", Number.class);

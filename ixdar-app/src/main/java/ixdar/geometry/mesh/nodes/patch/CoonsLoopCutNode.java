@@ -9,7 +9,6 @@ import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
-import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
@@ -26,9 +25,15 @@ import ixdar.geometry.mesh.data.MeshTopology;
  * near-identical) surface when fed to {@link CoonsPatchNode}.
  *
  * <p>Typical workflow:
- * {@code cube → assign_bezier_handles → coons_loop_cut(axis=X) → coons_patch}
+ * {@code cube → assign_bezier_handles → loop_cut(axis=X) → coons_patch} — the
+ * {@code loop_cut} node auto-detects handle slots and dispatches to this
+ * curve-preserving implementation.
+ * <p>
+ * <strong>Not registered.</strong> The {@code loop_cut} node
+ * ({@link ixdar.geometry.mesh.nodes.modifier.LoopCutNode}) is the single public
+ * entry point for loop cuts; it calls {@link #loopCut} here when the input cage
+ * carries bezier metadata.
  */
-@MeshNodeAnnotation(id = "coons_loop_cut")
 public class CoonsLoopCutNode implements MeshNode {
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
@@ -58,12 +63,24 @@ public class CoonsLoopCutNode implements MeshNode {
         if (axis == null) axis = "X";
         Number cutsNum = ctx.getInput("cuts", Number.class);
         int cuts = cutsNum == null ? 1 : Math.max(1, cutsNum.intValue());
+        ctx.setOutput("geometry", loopCut(base, axis, cuts));
+    }
 
+    /**
+     * Curve-preserving loop cut: entry point for callers that already have a
+     * {@link GeometryBundle} with bezier handle slots. Used by {@code loop_cut}
+     * to dispatch when the input cage carries bezier metadata.
+     */
+    public static GeometryBundle loopCut(GeometryBundle base, String axis, int cuts) {
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.faceCount() == 0) {
-            ctx.setOutput("geometry", base);
-            return;
+            return base;
         }
+        return doLoopCut(base, axis, cuts);
+    }
+
+    private static GeometryBundle doLoopCut(GeometryBundle base, String axis, int cuts) {
+        MeshTopology mesh = base.mesh();
 
         Vector3f axisVec = switch (axis.toUpperCase()) {
             case "Y" -> new Vector3f(0, 1, 0);
@@ -71,11 +88,11 @@ public class CoonsLoopCutNode implements MeshNode {
             default -> new Vector3f(1, 0, 0);
         };
 
-        float[] hStart = slotFloat3(base, AssignBezierHandlesNode.SLOT_HANDLES_START, mesh);
-        float[] hEnd = slotFloat3(base, AssignBezierHandlesNode.SLOT_HANDLES_END, mesh);
+        float[] hStart = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_START, mesh);
+        float[] hEnd = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_END, mesh);
 
         // --- Phase 1: classify edges ---
-        int maxEid = maxEdgeId(mesh);
+        int maxEid = CoonsHandleBuilder.maxEdgeId(mesh);
         boolean[] edgeSplit = new boolean[maxEid + 1];
         Vector3f tmpA = new Vector3f(), tmpB = new Vector3f(), edgeDir = new Vector3f();
         for (int ei = 0; ei < mesh.edgeCount(); ei++) {
@@ -121,8 +138,8 @@ public class CoonsLoopCutNode implements MeshNode {
             int ca = mesh.halfEdgeVertex(he), cb = mesh.halfEdgeEndVertex(he);
             int na = oldToNew.get(ca), nb = oldToNew.get(cb);
             int o = eid * 3;
-            dh.put(dirPack(na, nb), new float[]{hStart[o], hStart[o + 1], hStart[o + 2]});
-            dh.put(dirPack(nb, na), new float[]{hEnd[o], hEnd[o + 1], hEnd[o + 2]});
+            dh.put(CoonsHandleBuilder.dirPack(na, nb), new float[]{hStart[o], hStart[o + 1], hStart[o + 2]});
+            dh.put(CoonsHandleBuilder.dirPack(nb, na), new float[]{hEnd[o], hEnd[o + 1], hEnd[o + 2]});
         }
 
         int nextVid = origCount;
@@ -150,35 +167,32 @@ public class CoonsLoopCutNode implements MeshNode {
             for (int k = 0; k < cuts; k++) {
                 float t = 1f / (cuts + 1 - k);
 
-                // De Casteljau split at t
-                Vector3f A = new Vector3f(rP0).lerp(rP1, t);
-                Vector3f B = new Vector3f(rP1).lerp(rP2, t);
-                Vector3f C = new Vector3f(rP2).lerp(rP3, t);
-                Vector3f D = new Vector3f(A).lerp(B, t);
-                Vector3f E = new Vector3f(B).lerp(C, t);
-                Vector3f F = new Vector3f(D).lerp(E, t);
+                // de Casteljau split at t
+                CoonsHandleBuilder.SplitResult sr = CoonsHandleBuilder.split(rP0, rP1, rP2, rP3, t);
 
                 int sv = nextVid++;
                 mids[k] = sv;
-                extraPos.add(F.x);
-                extraPos.add(F.y);
-                extraPos.add(F.z);
+                extraPos.add(sr.splitPoint.x);
+                extraPos.add(sr.splitPoint.y);
+                extraPos.add(sr.splitPoint.z);
 
-                // Left sub-curve handles: rP0, A, D, F
-                dh.put(dirPack(prevVid, sv), new float[]{A.x - rP0.x, A.y - rP0.y, A.z - rP0.z});
-                dh.put(dirPack(sv, prevVid), new float[]{D.x - F.x, D.y - F.y, D.z - F.z});
+                // Left sub-curve handles: rP0, leftCp1, leftCp2, splitPoint
+                dh.put(CoonsHandleBuilder.dirPack(prevVid, sv),
+                        new float[]{sr.leftCp1.x - rP0.x, sr.leftCp1.y - rP0.y, sr.leftCp1.z - rP0.z});
+                dh.put(CoonsHandleBuilder.dirPack(sv, prevVid),
+                        new float[]{sr.leftCp2.x - sr.splitPoint.x, sr.leftCp2.y - sr.splitPoint.y, sr.leftCp2.z - sr.splitPoint.z});
 
-                // Advance: right sub-curve becomes current
-                rP0.set(F);
-                rP1.set(E);
-                rP2.set(C);
+                // Advance: right sub-curve becomes current. rightCp1 = E, rightCp2 = C.
+                rP0.set(sr.splitPoint);
+                rP1.set(sr.rightCp1);
+                rP2.set(sr.rightCp2);
                 // rP3 unchanged
                 prevVid = sv;
             }
 
             // Final sub-curve: rP0→rP3 (last split → cb)
-            dh.put(dirPack(prevVid, nCb), new float[]{rP1.x - rP0.x, rP1.y - rP0.y, rP1.z - rP0.z});
-            dh.put(dirPack(nCb, prevVid), new float[]{rP2.x - rP3.x, rP2.y - rP3.y, rP2.z - rP3.z});
+            dh.put(CoonsHandleBuilder.dirPack(prevVid, nCb), new float[]{rP1.x - rP0.x, rP1.y - rP0.y, rP1.z - rP0.z});
+            dh.put(CoonsHandleBuilder.dirPack(nCb, prevVid), new float[]{rP2.x - rP3.x, rP2.y - rP3.y, rP2.z - rP3.z});
 
             splitMids.put(eid, mids);
         }
@@ -276,36 +290,14 @@ public class CoonsLoopCutNode implements MeshNode {
         HalfEdgeMesh outMesh = HalfEdgeMesh.bulkAllocate(positions, faceIdx, 4);
 
         // --- Phase 6: build handle arrays from directed map ---
-        int outMaxEid = 0;
-        for (int i = 0; i < outMesh.edgeCount(); i++)
-            outMaxEid = Math.max(outMaxEid, outMesh.edgeIdAt(i));
-
-        float[] newHS = new float[(outMaxEid + 1) * 3];
-        float[] newHE = new float[(outMaxEid + 1) * 3];
-
-        for (int i = 0; i < outMesh.edgeCount(); i++) {
-            int eid = outMesh.edgeIdAt(i);
-            int ohe = outMesh.edgeHalfEdge(eid);
-            int ca = outMesh.halfEdgeVertex(ohe);
-            int cb = outMesh.halfEdgeEndVertex(ohe);
-            int o = eid * 3;
-
-            float[] hs = dh.get(dirPack(ca, cb));
-            if (hs != null) {
-                newHS[o] = hs[0]; newHS[o + 1] = hs[1]; newHS[o + 2] = hs[2];
-            }
-            float[] he = dh.get(dirPack(cb, ca));
-            if (he != null) {
-                newHE[o] = he[0]; newHE[o + 1] = he[1]; newHE[o + 2] = he[2];
-            }
-        }
+        float[][] handles = CoonsHandleBuilder.flushDirectedHandles(outMesh, dh);
 
         outMesh.computeNormals();
 
         HashMap<String, Object> nextSlots = new HashMap<>(base.slots());
-        nextSlots.put(AssignBezierHandlesNode.SLOT_HANDLES_START, newHS);
-        nextSlots.put(AssignBezierHandlesNode.SLOT_HANDLES_END, newHE);
-        ctx.setOutput("geometry", new GeometryBundle(outMesh, Map.copyOf(nextSlots)));
+        nextSlots.put(AssignBezierHandlesNode.SLOT_HANDLES_START, handles[0]);
+        nextSlots.put(AssignBezierHandlesNode.SLOT_HANDLES_END, handles[1]);
+        return new GeometryBundle(outMesh, Map.copyOf(nextSlots));
     }
 
     // ---- helpers ----
@@ -390,8 +382,8 @@ public class CoonsLoopCutNode implements MeshNode {
             // Handle offsets
             float[] hs = {crossP1.x - m0.x, crossP1.y - m0.y, crossP1.z - m0.z};
             float[] he = {crossP2.x - m1.x, crossP2.y - m1.y, crossP2.z - m1.z};
-            dh.put(dirPack(mids0[k], mids1[k]), hs);
-            dh.put(dirPack(mids1[k], mids0[k]), he);
+            dh.put(CoonsHandleBuilder.dirPack(mids0[k], mids1[k]), hs);
+            dh.put(CoonsHandleBuilder.dirPack(mids1[k], mids0[k]), he);
         }
     }
 
@@ -436,31 +428,4 @@ public class CoonsLoopCutNode implements MeshNode {
         return new Vector3f(extraPos.get(o), extraPos.get(o + 1), extraPos.get(o + 2));
     }
 
-    private static long dirPack(int from, int to) {
-        return ((long) from << 32) | (to & 0xffffffffL);
-    }
-
-    private static float[] slotFloat3(GeometryBundle base, String name, MeshTopology mesh) {
-        Object o = base.slots().get(name);
-        if (!(o instanceof float[] arr)) return zeroHandles(mesh);
-        int maxEid = maxEdgeId(mesh);
-        int need = (maxEid + 1) * 3;
-        if (arr.length < need) {
-            float[] padded = new float[need];
-            System.arraycopy(arr, 0, padded, 0, Math.min(arr.length, need));
-            return padded;
-        }
-        return arr;
-    }
-
-    private static float[] zeroHandles(MeshTopology mesh) {
-        return new float[(maxEdgeId(mesh) + 1) * 3];
-    }
-
-    private static int maxEdgeId(MeshTopology mesh) {
-        int max = 0;
-        for (int i = 0; i < mesh.edgeCount(); i++)
-            max = Math.max(max, mesh.edgeIdAt(i));
-        return max;
-    }
 }

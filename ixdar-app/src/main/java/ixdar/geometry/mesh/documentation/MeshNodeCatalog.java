@@ -39,6 +39,10 @@ public final class MeshNodeCatalog {
             if (desc != null && !desc.isEmpty()) {
                 entry.put("description", desc);
             }
+            if (schema.destructive()) {
+                entry.put("destructive", true);
+                entry.put("consumes", schema.consumes());
+            }
             if (n instanceof RandomValueNode) {
                 entry.put("outputActivationByMode", RandomValueNode.OUTPUT_ACTIVATION_BY_MODE);
             }

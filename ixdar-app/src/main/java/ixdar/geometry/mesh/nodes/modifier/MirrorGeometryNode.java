@@ -1,6 +1,8 @@
 package ixdar.geometry.mesh.nodes.modifier;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -17,6 +19,8 @@ import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshAppend;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
+import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
+import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
 
 /**
  * Mirrors geometry across a symmetry plane, reverses face winding on the
@@ -112,6 +116,97 @@ public class MirrorGeometryNode implements MeshNode {
             hem.computeNormals();
         }
 
-        ctx.setOutput("geometry", GeometryBundle.ofMesh(result));
+        // Preserve non-handle slots from input; rebuild handle slots if present.
+        HashMap<String, Object> nextSlots = new HashMap<>(base.slots());
+        nextSlots.remove(AssignBezierHandlesNode.SLOT_HANDLES_START);
+        nextSlots.remove(AssignBezierHandlesNode.SLOT_HANDLES_END);
+
+        if (CoonsHandleBuilder.hasHandles(base)) {
+            float[][] rebuilt = rebuildMirroredHandles(base, mesh, mirrored, combined, result,
+                    idMap, axis, md);
+            if (rebuilt != null) {
+                nextSlots.put(AssignBezierHandlesNode.SLOT_HANDLES_START, rebuilt[0]);
+                nextSlots.put(AssignBezierHandlesNode.SLOT_HANDLES_END, rebuilt[1]);
+            }
+        }
+
+        ctx.setOutput("geometry", new GeometryBundle(result, Map.copyOf(nextSlots)));
+    }
+
+    /**
+     * Builds directed handles for the combined (pre-weld) mesh: the original
+     * half uses the input's handles unchanged; the mirrored half reflects
+     * handle vectors across the mirror plane AND swaps start↔end on each edge
+     * because the face winding was reversed. Then flushes against the final
+     * (possibly welded) output mesh via {@link CoonsHandleBuilder}.
+     */
+    private static float[][] rebuildMirroredHandles(
+            GeometryBundle base, MeshTopology origMesh, HalfEdgeMesh mirroredMesh,
+            HalfEdgeMesh combined, MeshTopology finalMesh,
+            Map<Integer, Integer> origToMirroredVid, String axis, float mergeDist) {
+
+        float[] origHS = CoonsHandleBuilder.readHandleSlot(base,
+                AssignBezierHandlesNode.SLOT_HANDLES_START, origMesh);
+        float[] origHE = CoonsHandleBuilder.readHandleSlot(base,
+                AssignBezierHandlesNode.SLOT_HANDLES_END, origMesh);
+
+        int axisIdx = switch (axis.toUpperCase()) {
+            case "Y" -> 1;
+            case "Z" -> 2;
+            default -> 0;
+        };
+
+        // Temporary bundle for the combined mesh with assembled handles, so
+        // we can delegate to rebuildHandlesAfterWeld for the optional weld step.
+        Map<Long, float[]> dh = new HashMap<>();
+
+        // Vertex-id translation helpers:
+        //   combined's first-append IDs are sequential 0..origN-1 in the order
+        //   origMesh enumerates them — which equals origToMirroredVid.get(origVid)
+        //   because the mirrored mesh was constructed by the same enumeration.
+        //   The second append shifts the mirrored IDs by origMesh.vertexCount().
+        int origVertexOffset = origMesh.vertexCount();
+        for (int ei = 0; ei < origMesh.edgeCount(); ei++) {
+            int eid = origMesh.edgeIdAt(ei);
+            int he = origMesh.edgeHalfEdge(eid);
+            int va = origMesh.halfEdgeVertex(he);
+            int vb = origMesh.halfEdgeEndVertex(he);
+            int o = eid * 3;
+
+            int origVaCombined = origToMirroredVid.get(va);
+            int origVbCombined = origToMirroredVid.get(vb);
+            int mirVaCombined = origVaCombined + origVertexOffset;
+            int mirVbCombined = origVbCombined + origVertexOffset;
+
+            // Original half: handles unchanged.
+            dh.put(CoonsHandleBuilder.dirPack(origVaCombined, origVbCombined),
+                    new float[]{origHS[o], origHS[o + 1], origHS[o + 2]});
+            dh.put(CoonsHandleBuilder.dirPack(origVbCombined, origVaCombined),
+                    new float[]{origHE[o], origHE[o + 1], origHE[o + 2]});
+
+            // Mirrored half: reflect handle offset vectors across the mirror axis.
+            float hsX = origHS[o], hsY = origHS[o + 1], hsZ = origHS[o + 2];
+            float heX = origHE[o], heY = origHE[o + 1], heZ = origHE[o + 2];
+            if (axisIdx == 0) { hsX = -hsX; heX = -heX; }
+            else if (axisIdx == 1) { hsY = -hsY; heY = -heY; }
+            else { hsZ = -hsZ; heZ = -heZ; }
+
+            // Handles are keyed by directed-edge, not by winding. Register both
+            // directions; the flush step picks the right side per output edge.
+            dh.put(CoonsHandleBuilder.dirPack(mirVaCombined, mirVbCombined),
+                    new float[]{hsX, hsY, hsZ});
+            dh.put(CoonsHandleBuilder.dirPack(mirVbCombined, mirVaCombined),
+                    new float[]{heX, heY, heZ});
+        }
+
+        // Flush onto the combined mesh first to get handle arrays keyed by
+        // combined edge IDs. Then, if a weld was applied, rebuild against the
+        // final welded mesh using the same helper merge_by_distance uses.
+        float[][] combinedHandles = CoonsHandleBuilder.flushDirectedHandles(combined, dh);
+        if (finalMesh == combined) {
+            return combinedHandles;
+        }
+        return CoonsHandleBuilder.rebuildHandlesAfterWeld(
+                combinedHandles[0], combinedHandles[1], combined, finalMesh, mergeDist);
     }
 }

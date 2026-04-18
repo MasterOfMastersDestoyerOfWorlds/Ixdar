@@ -133,23 +133,75 @@ public final class MeshMergeByDistance {
 
     /**
      * Same clustering as {@link #merge(MeshTopology, float)} but emits a dense {@link ArrayMesh} (uniform faces only).
+     * Uses primitive arrays throughout — no HashMap/Integer boxing — so it stays fast under TeaVM.
      */
     public static ArrayMesh mergeToArrayMesh(MeshTopology mesh, float distance) {
         if (mesh == null || mesh.vertexCount() == 0) {
             return new ArrayMesh(new float[0], null, new int[0], 4);
         }
         int n = mesh.vertexCount();
-        Vector3f[] pos = new Vector3f[n];
+
+        // Flat position array (no Vector3f[] allocation)
+        float[] vx = new float[n];
+        float[] vy = new float[n];
+        float[] vz = new float[n];
+        // Map from sparse vertex id → dense index [0,n). ArrayMesh already has this identity,
+        // but HalfEdgeMesh may have gaps.
+        int maxSparseId = -1;
         for (int i = 0; i < n; i++) {
             int vid = mesh.vertexIdAt(i);
-            pos[i] = mesh.vertexPosition(vid, new Vector3f());
+            if (vid > maxSparseId) {
+                maxSparseId = vid;
+            }
+        }
+        int[] sparseToDense = new int[maxSparseId + 1];
+        Vector3f tmp = new Vector3f();
+        for (int i = 0; i < n; i++) {
+            int vid = mesh.vertexIdAt(i);
+            mesh.vertexPosition(vid, tmp);
+            vx[i] = tmp.x;
+            vy[i] = tmp.y;
+            vz[i] = tmp.z;
+            sparseToDense[vid] = i;
         }
 
         float cell = Math.max(distance, 1e-8f);
-        HashMap<Long, List<Integer>> grid = new HashMap<>();
+
+        // Spatial grid: sort vertex indices by cell-key via counting sort on 32-bit packed cell coords.
+        // Then for each vertex, iterate the 27 neighbor cells; bucket membership is an int[] range.
+        int[] cellGx = new int[n];
+        int[] cellGy = new int[n];
+        int[] cellGz = new int[n];
         for (int i = 0; i < n; i++) {
-            long gkey = key(pos[i], cell);
-            grid.computeIfAbsent(gkey, k -> new ArrayList<>()).add(i);
+            cellGx[i] = (int) Math.floor(vx[i] / cell);
+            cellGy[i] = (int) Math.floor(vy[i] / cell);
+            cellGz[i] = (int) Math.floor(vz[i] / cell);
+        }
+
+        // Open-addressing Long→int-head map, with int[] chain of vertex indices in bucket.
+        // Power-of-two sized (load factor ~0.5).
+        int gridCap = 1;
+        while (gridCap < n * 2) {
+            gridCap <<= 1;
+        }
+        int gridMask = gridCap - 1;
+        long[] gridKeys = new long[gridCap];
+        int[] gridHead = new int[gridCap];
+        Arrays.fill(gridKeys, Long.MIN_VALUE);
+        Arrays.fill(gridHead, -1);
+        int[] nextInBucket = new int[n];
+
+        for (int i = 0; i < n; i++) {
+            long pk = pack(cellGx[i], cellGy[i], cellGz[i]);
+            int slot = (int) (mix(pk) & gridMask);
+            while (gridKeys[slot] != Long.MIN_VALUE && gridKeys[slot] != pk) {
+                slot = (slot + 1) & gridMask;
+            }
+            if (gridKeys[slot] == Long.MIN_VALUE) {
+                gridKeys[slot] = pk;
+            }
+            nextInBucket[i] = gridHead[slot];
+            gridHead[slot] = i;
         }
 
         int[] parent = new int[n];
@@ -157,25 +209,33 @@ public final class MeshMergeByDistance {
             parent[i] = i;
         }
 
+        float distSq = distance * distance;
         for (int i = 0; i < n; i++) {
-            int gx = (int) Math.floor(pos[i].x / cell);
-            int gy = (int) Math.floor(pos[i].y / cell);
-            int gz = (int) Math.floor(pos[i].z / cell);
+            int gx = cellGx[i];
+            int gy = cellGy[i];
+            int gz = cellGz[i];
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dy = -1; dy <= 1; dy++) {
                     for (int dz = -1; dz <= 1; dz++) {
                         long nk = pack(gx + dx, gy + dy, gz + dz);
-                        List<Integer> bucket = grid.get(nk);
-                        if (bucket == null) {
+                        int slot = (int) (mix(nk) & gridMask);
+                        while (gridKeys[slot] != Long.MIN_VALUE && gridKeys[slot] != nk) {
+                            slot = (slot + 1) & gridMask;
+                        }
+                        if (gridKeys[slot] != nk) {
                             continue;
                         }
-                        for (int j : bucket) {
-                            if (j <= i) {
-                                continue;
+                        int j = gridHead[slot];
+                        while (j >= 0) {
+                            if (j > i) {
+                                float ex = vx[i] - vx[j];
+                                float ey = vy[i] - vy[j];
+                                float ez = vz[i] - vz[j];
+                                if (ex * ex + ey * ey + ez * ez < distSq) {
+                                    union(parent, i, j);
+                                }
                             }
-                            if (pos[i].distance(pos[j]) < distance) {
-                                union(parent, i, j);
-                            }
+                            j = nextInBucket[j];
                         }
                     }
                 }
@@ -187,40 +247,32 @@ public final class MeshMergeByDistance {
             rootOf[i] = find(parent, i);
         }
 
-        HashMap<Integer, Vector3f> sumByRoot = new HashMap<>();
-        HashMap<Integer, Integer> countByRoot = new HashMap<>();
+        // Assign dense output IDs per root. rootToOut[root] = new index, or -1 if unassigned.
+        int[] rootToOut = new int[n];
+        Arrays.fill(rootToOut, -1);
+        float[] sumX = new float[n];
+        float[] sumY = new float[n];
+        float[] sumZ = new float[n];
+        int[] count = new int[n];
+        int outV = 0;
         for (int i = 0; i < n; i++) {
             int r = rootOf[i];
-            sumByRoot.computeIfAbsent(r, k -> new Vector3f()).add(pos[i]);
-            countByRoot.merge(r, 1, (a, b) -> a + b);
+            if (rootToOut[r] < 0) {
+                rootToOut[r] = outV++;
+            }
+            int o = rootToOut[r];
+            sumX[o] += vx[i];
+            sumY[o] += vy[i];
+            sumZ[o] += vz[i];
+            count[o]++;
         }
 
-        HashMap<Integer, Integer> outVidByRoot = new HashMap<>();
-        Vector3f tmp = new Vector3f();
-        int next = 0;
-        for (int r : sumByRoot.keySet()) {
-            int cnt = countByRoot.get(r);
-            tmp.set(sumByRoot.get(r)).mul(1f / cnt);
-            outVidByRoot.put(r, next++);
-        }
-
-        int outV = outVidByRoot.size();
-        float[] positions = new float[outV * HalfEdgeMesh.FLOATS_PER_VERTEX];
-        for (int r : sumByRoot.keySet()) {
-            int cnt = countByRoot.get(r);
-            tmp.set(sumByRoot.get(r)).mul(1f / cnt);
-            int oid = outVidByRoot.get(r);
-            int o = oid * HalfEdgeMesh.FLOATS_PER_VERTEX;
-            positions[o] = tmp.x;
-            positions[o + 1] = tmp.y;
-            positions[o + 2] = tmp.z;
-        }
-
-        HashMap<Integer, Integer> meshVidToOutVid = new HashMap<>();
-        for (int i = 0; i < n; i++) {
-            int vid = mesh.vertexIdAt(i);
-            int r = rootOf[i];
-            meshVidToOutVid.put(vid, outVidByRoot.get(r));
+        float[] positions = new float[outV * 3];
+        for (int o = 0; o < outV; o++) {
+            float inv = 1f / count[o];
+            positions[o * 3] = sumX[o] * inv;
+            positions[o * 3 + 1] = sumY[o] * inv;
+            positions[o * 3 + 2] = sumZ[o] * inv;
         }
 
         int nf = mesh.faceCount();
@@ -235,15 +287,16 @@ public final class MeshMergeByDistance {
         }
         int[] faceIdx = new int[nf * vpf];
         int outF = 0;
+        int[] nv = new int[vpf];
         for (int fi = 0; fi < nf; fi++) {
             int fid = mesh.faceIdAt(fi);
-            int[] nv = new int[vpf];
             for (int k = 0; k < vpf; k++) {
                 int ov = mesh.faceVertexAt(fid, k);
-                nv[k] = meshVidToOutVid.get(ov);
+                int dense = sparseToDense[ov];
+                nv[k] = rootToOut[rootOf[dense]];
             }
             boolean dup = false;
-            for (int a = 0; a < vpf; a++) {
+            for (int a = 0; a < vpf && !dup; a++) {
                 for (int b = a + 1; b < vpf; b++) {
                     if (nv[a] == nv[b]) {
                         dup = true;
@@ -259,6 +312,15 @@ public final class MeshMergeByDistance {
         ArrayMesh out = new ArrayMesh(positions, null, Arrays.copyOf(faceIdx, outF * vpf), vpf);
         out.computeNormals();
         return out;
+    }
+
+    private static long mix(long x) {
+        x ^= (x >>> 33);
+        x *= 0xff51afd7ed558ccdL;
+        x ^= (x >>> 33);
+        x *= 0xc4ceb9fe1a85ec53L;
+        x ^= (x >>> 33);
+        return x;
     }
 
     private static long key(Vector3f p, float cell) {

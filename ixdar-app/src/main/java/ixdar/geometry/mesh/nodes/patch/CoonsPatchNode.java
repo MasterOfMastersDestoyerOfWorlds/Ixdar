@@ -1,6 +1,6 @@
 package ixdar.geometry.mesh.nodes.patch;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,9 +13,9 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.data.ArrayMesh;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
@@ -47,6 +47,18 @@ public class CoonsPatchNode implements MeshNode {
     }
 
     @Override
+    public boolean destructive() {
+        return true;
+    }
+
+    @Override
+    public List<String> consumes() {
+        return List.of(
+                AssignBezierHandlesNode.SLOT_HANDLES_START,
+                AssignBezierHandlesNode.SLOT_HANDLES_END);
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         Number subNum = ctx.getInput("subdivisions", Number.class);
@@ -74,8 +86,13 @@ public class CoonsPatchNode implements MeshNode {
         float[] hStart = slotFloat3(base, AssignBezierHandlesNode.SLOT_HANDLES_START, mesh);
         float[] hEnd = slotFloat3(base, AssignBezierHandlesNode.SLOT_HANDLES_END, mesh);
 
-        ArrayList<Float> pos = new ArrayList<>(mesh.faceCount() * (n + 1) * (n + 1) * 3);
-        ArrayList<int[]> quads = new ArrayList<>(mesh.faceCount() * n * n);
+        int faceCount = mesh.faceCount();
+        int maxVerts = faceCount * (n + 1) * (n + 1);
+        int maxQuads = faceCount * n * n;
+        float[] positions = new float[maxVerts * 3];
+        int[] faceIndices = new int[maxQuads * 4];
+        int vertCount = 0;
+        int quadCount = 0;
 
         Vector3f tmp0 = new Vector3f();
         Vector3f tmp1 = new Vector3f();
@@ -122,7 +139,7 @@ public class CoonsPatchNode implements MeshNode {
             evalFaceEdge(mesh, hStart, hEnd, e2, v3, 1f, p11, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2,
                     tmp3);
 
-            int baseIdx = pos.size() / 3;
+            int baseIdx = vertCount;
             float invN = 1f / n;
 
             for (int j = 0; j <= n; j++) {
@@ -148,9 +165,11 @@ public class CoonsPatchNode implements MeshNode {
                     bilinear.set(mix1).lerp(mix2, vS);
                     out.set(loftU).add(loftV).sub(bilinear);
 
-                    pos.add(out.x);
-                    pos.add(out.y);
-                    pos.add(out.z);
+                    int po = vertCount * 3;
+                    positions[po] = out.x;
+                    positions[po + 1] = out.y;
+                    positions[po + 2] = out.z;
+                    vertCount++;
                 }
             }
 
@@ -160,29 +179,28 @@ public class CoonsPatchNode implements MeshNode {
                     int i10 = i00 + 1;
                     int i01 = i00 + (n + 1);
                     int i11 = i01 + 1;
-                    quads.add(new int[] { i00, i10, i11, i01 });
+                    int qo = quadCount * 4;
+                    faceIndices[qo] = i00;
+                    faceIndices[qo + 1] = i10;
+                    faceIndices[qo + 2] = i11;
+                    faceIndices[qo + 3] = i01;
+                    quadCount++;
                 }
             }
         }
 
-        if (pos.isEmpty()) {
+        if (vertCount == 0) {
             ctx.setOutput("geometry", base);
             return;
         }
 
-        float[] positions = new float[pos.size()];
-        for (int i = 0; i < pos.size(); i++) {
-            positions[i] = pos.get(i);
+        if (vertCount * 3 < positions.length) {
+            positions = Arrays.copyOf(positions, vertCount * 3);
         }
-        int[] faceIndices = new int[quads.size() * 4];
-        int w = 0;
-        for (int[] q : quads) {
-            faceIndices[w++] = q[0];
-            faceIndices[w++] = q[1];
-            faceIndices[w++] = q[2];
-            faceIndices[w++] = q[3];
+        if (quadCount * 4 < faceIndices.length) {
+            faceIndices = Arrays.copyOf(faceIndices, quadCount * 4);
         }
-        HalfEdgeMesh outMesh = HalfEdgeMesh.bulkAllocate(positions, faceIndices, 4);
+        ArrayMesh outMesh = new ArrayMesh(positions, null, faceIndices, 4);
         outMesh.computeNormals();
 
         HashMap<String, Object> nextSlots = new HashMap<>(base.slots());
