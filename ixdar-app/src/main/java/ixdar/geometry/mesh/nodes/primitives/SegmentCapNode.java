@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.primitives;
 
 import java.util.List;
+import java.util.Map;
 
 import org.joml.Vector3f;
 
@@ -37,6 +38,15 @@ public class SegmentCapNode implements MeshNode {
     @Override
     public String description() {
         return "Closes the open top end of a tube segment with an all-quad concentric cap, taking a geometry bundle as input; typically the terminal node in a dual_radial_segment chain.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "geometry", "Input/output geometry bundle. The cap is added at the maximum-Y boundary ring of the input; output contains the capped mesh.",
+                "segments", "Number of vertices in the boundary ring (must match upstream segment's segments). Default 12.",
+                "cap_rings", "Concentric quad rings spiraling inward from the boundary. Higher = smoother cap after subdivision. Default 2."
+        );
     }
 
     @Override

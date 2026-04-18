@@ -37,6 +37,16 @@ public class CurveSweepMeshNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "curve", "Path curve to sweep along.",
+                "profile", "Mesh whose first face is swept along the curve. Vertex count determines segment resolution.",
+                "caps", "If true, cap the two ends of the sweep with the profile face; if false, leave the tube open.",
+                "geometry", "Swept surface as a geometry bundle."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(CURVE, PROFILE, CAPS);
     }

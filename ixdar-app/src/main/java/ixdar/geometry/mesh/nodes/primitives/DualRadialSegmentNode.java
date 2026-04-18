@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.primitives;
 
 import java.util.List;
+import java.util.Map;
 
 import org.joml.Vector3f;
 
@@ -65,6 +66,24 @@ public class DualRadialSegmentNode implements MeshNode {
     @Override
     public String description() {
         return "Generates a parametric tube segment with independent X/Y elliptical radius profiles interpolated via cubic Hermite curves, supporting G1-continuous chaining through geometry and end tangent outputs.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.ofEntries(
+                Map.entry("geometry", "Optional upstream GeometryBundle to append to; on the output, the tube mesh (appended if input provided). If input is null, a fresh mesh is created."),
+                Map.entry("start_rx", "X-axis radius at t=0. Ellipse half-width at the segment start. Default 0.5."),
+                Map.entry("start_tx", "X-axis radius tangent at t=0 (∂Rx/∂y). Zero = flat at the start; positive = expanding."),
+                Map.entry("end_rx", "X-axis radius at t=1 on the input side; pass-through value on the output side for G1 chaining into the next segment's start_rx."),
+                Map.entry("end_tx", "X-axis radius tangent at t=1 (∂Rx/∂y) on the input side; pass-through for chaining on the output side."),
+                Map.entry("start_ry", "Y-axis radius at t=0. Paired with start_rx for elliptical cross-sections."),
+                Map.entry("start_ty", "Y-axis radius tangent at t=0 (∂Ry/∂y)."),
+                Map.entry("end_ry", "Y-axis radius at t=1 on input; pass-through for chaining on output."),
+                Map.entry("end_ty", "Y-axis radius tangent at t=1 on input; pass-through for chaining on output."),
+                Map.entry("length", "Extent along +Y. Segment spans y=0 to y=length."),
+                Map.entry("rings", "Number of cross-section slices along the length. Default 8."),
+                Map.entry("segments", "Vertices per cross-section ring. Higher = smoother. Default 12.")
+        );
     }
 
     @Override

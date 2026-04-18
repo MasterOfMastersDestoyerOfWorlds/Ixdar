@@ -21,6 +21,15 @@ public class InputBooleanNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "name", "Parameter name (shown in the UI, referenced by param_sweep / overrides).",
+                "default", "Initial value when not overridden.",
+                "result", "The (possibly-overridden) boolean value."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(NAME, DEFAULT);
     }

@@ -50,6 +50,16 @@ public class SelectByNormalNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Geometry bundle to test.",
+                "direction", "Reference direction (need not be unit; normalized internally).",
+                "threshold", "Minimum dot product. 1 = exact alignment; 0.7 ≈ within 45°; 0 ≈ same hemisphere; -1 = always true.",
+                "selection", "Per-face BOOLEAN mask."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         Vector3Value dir = FieldBroadcast.vector3ValueOrDefault(

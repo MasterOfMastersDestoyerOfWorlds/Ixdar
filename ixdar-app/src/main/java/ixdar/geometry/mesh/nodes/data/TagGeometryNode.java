@@ -46,6 +46,14 @@ public class TagGeometryNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input/output bundle. Every vertex is labeled with each tag; slots are keyed by tag name.",
+                "tags", "Comma-separated tag labels (e.g. 'skull,cranium,face'). Downstream consumers read per-tag boolean masks from geometry slots."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(GEOMETRY, TAGS);
     }

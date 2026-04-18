@@ -26,6 +26,15 @@ public class EvaluateClosureNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "closure", "Float closure to sample (from float_curve or function_curve).",
+                "value", "Input X (scalar or per-vertex FloatField). Typically in [0, 1] for float_curve; arbitrary for function_curve.",
+                "result", "Sampled Y value(s)."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(CLOSURE, VALUE);
     }

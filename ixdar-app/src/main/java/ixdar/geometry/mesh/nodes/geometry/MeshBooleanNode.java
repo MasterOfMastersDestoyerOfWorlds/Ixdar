@@ -53,6 +53,16 @@ public class MeshBooleanNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "mesh_a", "First operand (typically the base mesh).",
+                "mesh_b", "Second operand (typically the tool mesh).",
+                "operation", "CSG op: UNION (A ∪ B), DIFFERENCE (A − B), INTERSECT (A ∩ B).",
+                "geometry", "Result as a geometry bundle."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle gbA = GeometryBundles.bundlePart(ctx.getInput("mesh_a", Object.class));
         GeometryBundle gbB = GeometryBundles.bundlePart(ctx.getInput("mesh_b", Object.class));

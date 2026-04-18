@@ -35,6 +35,16 @@ public class SwitchGeometryNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "switch", "Scalar BOOLEAN selector.",
+                "false", "Geometry used when switch is false.",
+                "true", "Geometry used when switch is true.",
+                "geometry", "Selected geometry bundle."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         Boolean sw = ctx.getInput("switch", Boolean.class);
         Object fa = ctx.getInput("false", Object.class);

@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.modifier;
 
 import java.util.List;
+import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -36,6 +37,14 @@ public class MergeByDistanceNode implements MeshNode {
     @Override
     public String description() {
         return "Welds vertices closer than a threshold distance into single vertices, useful for cleaning seams after joins or mirrors.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "geometry", "Input/output. Vertices within `distance` are collapsed into one at the centroid. Bezier handle slots are rebuilt against the welded mesh.",
+                "distance", "Weld threshold in world units (1e-6..1). Use 0.0001 after coons_patch to close its seam duplicates; use larger values to merge post-mirror seams."
+        );
     }
 
     @Override

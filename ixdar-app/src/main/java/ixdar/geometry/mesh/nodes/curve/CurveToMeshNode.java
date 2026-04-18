@@ -41,6 +41,19 @@ public class CurveToMeshNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "curve", "Path curve to sweep along.",
+                "profile_curve", "Optional custom cross-section curve. If null, a circle of `radius` and `resolution` is used.",
+                "radius", "Tube radius (ignored when profile_curve is set).",
+                "resolution", "Vertices around the circular cross-section (ignored when profile_curve is set).",
+                "fill_caps", "If true, close the two ends of the tube with a disc; if false, leave open.",
+                "radius_closure", "Optional float closure mapping t∈[0,1] along the path to a per-station radius multiplier. null = uniform.",
+                "geometry", "Tube mesh as a geometry bundle."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(CURVE, PROFILE_CURVE, RADIUS, RESOLUTION, FILL_CAPS, RADIUS_CLOSURE);
     }

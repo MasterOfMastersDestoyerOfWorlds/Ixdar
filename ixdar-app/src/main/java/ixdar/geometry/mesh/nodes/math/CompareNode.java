@@ -48,6 +48,17 @@ public class CompareNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "a", "Left operand (scalar or per-vertex FloatField).",
+                "b", "Right operand.",
+                "epsilon", "Tolerance for EQUAL mode. EQUAL is |a - b| < epsilon; LESS/GREATER are strict when epsilon=0, otherwise include a tolerance band.",
+                "mode", "Comparison: EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL, NOT_EQUAL.",
+                "result", "Per-element BOOLEAN."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(A, B, EPSILON, MODE);
     }

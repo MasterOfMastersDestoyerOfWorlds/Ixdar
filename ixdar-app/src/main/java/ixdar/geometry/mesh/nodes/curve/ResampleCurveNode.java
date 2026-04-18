@@ -29,6 +29,14 @@ public class ResampleCurveNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "curve", "Input curve polyline.",
+                "length", "Target segment length (world units). Smaller = more points, smoother sweeps. Ignored when the curve is already shorter than `length`."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(CURVE, LENGTH);
     }

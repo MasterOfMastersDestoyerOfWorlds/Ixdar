@@ -61,6 +61,18 @@ public class ExtrudeMeshNode implements MeshNode {
     }
 
     @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "geometry", "Input/output cage. Preserves bezier handle slots via rebuild when _bezier_handle_weight is set.",
+                "offset", "Distance to push extruded faces along the (averaged) face normal. Positive = outward, negative = inward.",
+                "selection", "Per-face BOOLEAN mask (or scalar). True = face gets extruded.",
+                "region", "If true, adjacent selected faces share extruded vertices — single extruded region. If false (default), each face extrudes independently (cheese-grater).",
+                "mesh", "Topology-only output.",
+                "generated", "Per-output-face BOOLEAN: true for the newly-created top face of each extrusion; false for pass-through and side walls. Thread into the selection of the next op to chain features."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology in = base.mesh();
@@ -103,13 +115,23 @@ public class ExtrudeMeshNode implements MeshNode {
 
         GeometryBundle outBundle = base.withMesh(out);
 
-        // Handle preservation: when the input carries bezier handle slots,
-        // walk output edges and assign handles based on the edge's origin:
-        //   both endpoints pass-through      → copy from corresponding input edge
-        //   both endpoints are extruded      → copy from the ancestor input edge
-        //   mixed (vertical side-wall edge)  → zero handles (straight)
-        if (CoonsHandleBuilder.hasHandles(base) && out != null && er.newToOrig != null) {
-            outBundle = preserveHandles(base, in, out, er.newToOrig, outBundle);
+        // Handle preservation — two paths:
+        //   1. If the input carries the _bezier_handle_weight slot (stored by
+        //      assign_bezier_handles), rebuild handles for every output edge
+        //      via AssignBezierHandlesNode.computeHandles. This gives globally
+        //      consistent handles: adjacent cage faces share an edge with
+        //      identical handle data, so coons_patch produces a seamless
+        //      surface across chained inset/extrude operations.
+        //   2. Legacy fallback: copy handles edge-by-edge. Only used if the
+        //      input has handles but no weight slot (e.g. handles written by
+        //      hand or by a not-yet-updated upstream node).
+        if (out != null && CoonsHandleBuilder.hasHandles(base)) {
+            Object w = base.slots().get(AssignBezierHandlesNode.SLOT_WEIGHT);
+            if (w instanceof Number num) {
+                outBundle = AssignBezierHandlesNode.computeHandles(outBundle, num.floatValue());
+            } else if (er.newToOrig != null) {
+                outBundle = preserveHandles(base, in, out, er.newToOrig, outBundle);
+            }
         }
 
         ctx.setOutput("mesh", out);

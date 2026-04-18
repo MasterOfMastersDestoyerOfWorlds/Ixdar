@@ -37,6 +37,17 @@ public class BirailLoftMeshNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "rail_a", "First rail curve defining one surface boundary.",
+                "rail_b", "Second rail curve defining the opposing boundary.",
+                "u_segments", "Samples along the rails. Higher = smoother sweep.",
+                "v_segments", "Samples across (from rail_a to rail_b). Higher = smoother cross-section.",
+                "geometry", "Ruled surface as a geometry bundle."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(RAIL_A, RAIL_B, U_SEGMENTS, V_SEGMENTS);
     }

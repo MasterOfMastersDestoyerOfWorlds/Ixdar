@@ -26,6 +26,16 @@ public class CombineXyzNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "x", "X component (scalar float or per-vertex FloatField).",
+                "y", "Y component.",
+                "z", "Z component.",
+                "vector", "Combined Vector3 or Vec3Field (if any input is a field)."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(X, Y, Z);
     }

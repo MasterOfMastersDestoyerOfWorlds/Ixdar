@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.primitives;
 
 import java.util.List;
+import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -42,6 +43,19 @@ public class QuadCylinderMeshNode implements MeshNode {
     @Override
     public String description() {
         return "Generates an all-quad cylinder with concentric quad-ring caps suitable for Catmull-Clark subdivision, controlled by radius, height, barrel segments/rings, and cap_rings for cap density.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "radius", "Distance from the central Y-axis to the side surface. Default 0.5 (diameter 1).",
+                "height", "Total Y-axis extent. quad_cylinder(height=h) spans y=±h/2.",
+                "segments", "Divisions around the circumference. Higher = smoother barrel. Default 8.",
+                "rings", "Number of quad rings along the barrel length (between the two caps). Default 1.",
+                "cap_rings", "Concentric quad rings per cap (converging toward the pole). 0 leaves the cap open; higher values give cleaner subdivision at the cap. Default 2.",
+                "mesh", "All-quad cylinder, Y-aligned, centered at origin.",
+                "geometry", "Same mesh as a GeometryBundle (slot-carrying)."
+        );
     }
 
     @Override

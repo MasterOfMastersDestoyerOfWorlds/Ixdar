@@ -51,6 +51,16 @@ public class MarkCreaseNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input/output. Output carries the crease weights in a slot read by subdivision_surface.",
+                "selection", "Per-face OR per-edge BOOLEAN mask. Determines which edges receive the crease weight.",
+                "weight", "Crease weight 0..infinity. 0 = no crease (fully smooth); higher = sharper; +infinity = perfectly sharp.",
+                "face_boundary", "If true, interpret `selection` as per-face and crease only the BOUNDARY edges of selected regions. If false, interpret `selection` as per-edge directly."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology mesh = base.mesh();

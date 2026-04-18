@@ -35,6 +35,18 @@ public class VectorMathNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "operation", "Op: ADD, SUBTRACT, MULTIPLY, SCALE (by `scale`), NORMALIZE (of a), CROSS, DOT (scalar result).",
+                "a", "Left vector operand.",
+                "b", "Right vector operand. Ignored for NORMALIZE and SCALE.",
+                "scale", "Scalar multiplier for SCALE mode. Ignored otherwise.",
+                "vector", "Vector result (for vector-valued ops). For DOT mode, this is (0, 0, 0).",
+                "value", "Scalar result: length of `vector` for vector-valued ops, dot product for DOT."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(OPERATION, A, B, SCALE);
     }

@@ -27,6 +27,15 @@ public class BoundBoxNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input geometry bundle to measure.",
+                "min", "Lower corner: <min_x, min_y, min_z>.",
+                "max", "Upper corner: <max_x, max_y, max_z>. Extent = max - min."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(GEOMETRY);
     }

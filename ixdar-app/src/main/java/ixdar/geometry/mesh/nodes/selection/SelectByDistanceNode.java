@@ -49,6 +49,16 @@ public class SelectByDistanceNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Geometry bundle to test. Face centroids are computed from the current vertex positions.",
+                "point", "World-space center of the test sphere.",
+                "radius", "Selection radius. Faces with centroid distance ≤ radius from `point` are selected. Tune with care — too large overlaps adjacent features after topology modifications.",
+                "selection", "Per-face BOOLEAN mask. Feed into inset_faces / extrude_mesh selection."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         Vector3Value pt = FieldBroadcast.vector3ValueOrDefault(

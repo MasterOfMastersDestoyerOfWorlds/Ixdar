@@ -41,6 +41,20 @@ public class MapRangeNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "value", "Input value to remap.",
+                "from_min", "Input range low end.",
+                "from_max", "Input range high end.",
+                "to_min", "Output range low end.",
+                "to_max", "Output range high end.",
+                "clamp", "If true (default), clamp output to [to_min, to_max]; if false, extrapolate beyond.",
+                "mode", "Interpolation curve: LINEAR or SMOOTH_STEP.",
+                "result", "Remapped float."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(VALUE, FROM_MIN, FROM_MAX, TO_MIN, TO_MAX, CLAMP, MODE);
     }

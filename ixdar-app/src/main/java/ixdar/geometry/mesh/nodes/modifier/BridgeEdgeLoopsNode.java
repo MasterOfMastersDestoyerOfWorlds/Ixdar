@@ -53,6 +53,17 @@ public class BridgeEdgeLoopsNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input/output. Two tagged boundary loops of EQUAL vertex count are bridged with quads. For unequal counts use adaptive_bridge_loops.",
+                "loop_a_tag", "Tag identifying the first boundary loop.",
+                "loop_b_tag", "Tag identifying the second boundary loop.",
+                "segments", "Number of intermediate interpolation rings. 0 = direct bridge; higher = smoother.",
+                "twist", "Rotation offset (radians) around the bridge axis when pairing vertices."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology meshTopo = base.mesh();

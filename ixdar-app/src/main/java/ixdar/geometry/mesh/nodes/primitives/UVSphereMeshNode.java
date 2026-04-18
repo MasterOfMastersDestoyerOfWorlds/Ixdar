@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.primitives;
 
 import java.util.List;
+import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -30,6 +31,16 @@ public class UVSphereMeshNode implements MeshNode {
     @Override
     public String description() {
         return "Generates a latitude/longitude sphere with quad bands and triangle-fan poles, controlled by radius, segments (longitude), and rings (latitude).";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "radius", "Distance from center to surface. uv_sphere(radius=r) has extent 2r on each axis (vertices at ±r). For a reference of extent <X,Y,Z>, start with radius=1 and apply transform_geometry(scale=<X/2, Y/2, Z/2>).",
+                "segments", "Longitudinal divisions (meridians). Higher = smoother around the equator. Default 32.",
+                "rings", "Latitudinal bands between the two poles. Higher = smoother pole-to-pole. Default 16.",
+                "mesh", "Quad-banded sphere with triangle-fan poles, centered at origin."
+        );
     }
 
     @Override

@@ -31,6 +31,13 @@ public class InputFaceIndexNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "index", "Per-face FloatField where index[i] = i. Feed into compare + boolean_math to build per-face selection masks."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of();
     }

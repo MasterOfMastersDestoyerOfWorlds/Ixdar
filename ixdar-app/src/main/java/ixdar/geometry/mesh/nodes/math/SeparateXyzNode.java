@@ -26,6 +26,16 @@ public class SeparateXyzNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "vector", "Input Vector3 or Vec3Field.",
+                "x", "X component (per-element).",
+                "y", "Y component.",
+                "z", "Z component."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(VECTOR);
     }

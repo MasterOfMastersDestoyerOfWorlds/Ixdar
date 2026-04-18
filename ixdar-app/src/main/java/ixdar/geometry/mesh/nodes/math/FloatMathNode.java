@@ -27,6 +27,16 @@ public class FloatMathNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "operation", "Op name: ADD, SUBTRACT, MULTIPLY, DIVIDE, POWER, MINIMUM, MAXIMUM, ABSOLUTE, FRACT, SIN, COS, SQRT, NEGATE, MODULO, ATAN2.",
+                "a", "Left operand (scalar or per-vertex FloatField).",
+                "b", "Right operand. Ignored for single-operand ops (ABSOLUTE, FRACT, SIN, COS, SQRT, NEGATE).",
+                "result", "Per-element float."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(OPERATION, A, B);
     }

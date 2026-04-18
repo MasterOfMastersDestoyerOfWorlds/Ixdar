@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.primitives;
 
 import java.util.List;
+import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -30,6 +31,16 @@ public class ConeMeshNode implements MeshNode {
     @Override
     public String description() {
         return "Generates a cone with a circular base and a single apex point, controlled by radius, height, and segment count.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "radius", "Base circle radius. cone(radius=r) base spans ±r in X and Z (extent 2r at the base).",
+                "height", "Total Y-axis extent from base to apex. cone(height=h) base at y=-h/2, apex at y=+h/2.",
+                "segments", "Number of divisions around the base circumference. Higher = smoother cone. Default 16.",
+                "mesh", "Cone aligned with Y-axis (apex up), centered at origin."
+        );
     }
 
     @Override

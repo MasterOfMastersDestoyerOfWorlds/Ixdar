@@ -33,6 +33,14 @@ public class RealizeInstancesNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input bundle (possibly with instances) to flatten into a single concrete mesh.",
+                "mesh", "Concrete mesh with all instances materialized into real vertices and faces."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         MeshTopology m = GeometryBundles.meshPart(ctx.getInput("geometry", Object.class));
         ctx.setOutput("mesh", m);

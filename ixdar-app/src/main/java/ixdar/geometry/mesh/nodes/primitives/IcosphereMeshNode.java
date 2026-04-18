@@ -35,6 +35,15 @@ public class IcosphereMeshNode implements MeshNode {
     }
 
     @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "radius", "Distance from center to surface. icosphere(radius=r) has extent 2r on each axis (vertices at ±r). For a reference of extent <X,Y,Z>, start with radius=1 and apply transform_geometry(scale=<X/2, Y/2, Z/2>).",
+                "subdivisions", "Number of recursive quadrisections. 0 = 20 triangle faces; each level quadruples face count. Caps at 6.",
+                "mesh", "Triangle-based sphere, manifold, centered at origin."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         float radius = ctx.getInput("radius", Number.class) != null ? ctx.getInput("radius", Number.class).floatValue()
                 : 1.0f;

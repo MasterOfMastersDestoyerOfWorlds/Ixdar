@@ -56,6 +56,26 @@ public class BiRailLoftNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.ofEntries(
+                java.util.Map.entry("rail_a", "First rail curve defining the surface boundary along one side."),
+                java.util.Map.entry("rail_b", "Second rail curve defining the opposing boundary."),
+                java.util.Map.entry("profile", "Primary cross-section curve swept between rails."),
+                java.util.Map.entry("profile_b", "Optional second cross-section. When set, the surface blends from `profile` at V=0 to `profile_b` at V=1."),
+                java.util.Map.entry("x_resolution", "Samples along the U direction (along the rails). Higher = smoother sweep."),
+                java.util.Map.entry("y_resolution", "Samples along the V direction (across the profile). Higher = smoother cross-section."),
+                java.util.Map.entry("blend_closure", "Optional float closure controlling profile-to-profile_b blend as a function of V."),
+                java.util.Map.entry("depth_scale", "Multiplier on profile depth. 1 = as-authored; 0 = flat sheet."),
+                java.util.Map.entry("iso_curve_t", "If ≥ 0, also output an iso-curve at this U parameter. -1 = disabled."),
+                java.util.Map.entry("thickness", "Solidify thickness for closed shells. 0 = open surface. Typical 0.001."),
+                java.util.Map.entry("geometry", "Generated surface (possibly solidified)."),
+                java.util.Map.entry("iso_curve", "U-isocurve at iso_curve_t (empty if disabled)."),
+                java.util.Map.entry("boundary_a", "Ordered boundary curve on the rail_a side of the surface (for bridging)."),
+                java.util.Map.entry("boundary_b", "Ordered boundary curve on the rail_b side.")
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(RAIL_A, RAIL_B, PROFILE, PROFILE_B, X_RESOLUTION, Y_RESOLUTION, BLEND_CLOSURE, DEPTH_SCALE, ISO_CURVE_T, THICKNESS);
     }

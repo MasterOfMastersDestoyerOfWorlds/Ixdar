@@ -23,6 +23,16 @@ public class InputVectorNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "x", "X component.",
+                "y", "Y component.",
+                "z", "Z component.",
+                "vector", "Vector3 formed from <x, y, z>."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(X, Y, Z);
     }

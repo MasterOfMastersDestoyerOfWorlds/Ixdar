@@ -39,6 +39,15 @@ public class SolidifyMeshNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input/output. Flat (or near-flat) quad surface becomes a closed shell wrapped in a GeometryBundle.",
+                "thickness", "Offset distance along the averaged vertex normal. 0 = no thickness; positive = outward shell.",
+                "mesh", "Solid mesh topology (alternative accessor to `geometry.mesh`)."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology in = base.mesh();

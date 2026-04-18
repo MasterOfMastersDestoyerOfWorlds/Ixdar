@@ -25,6 +25,15 @@ public class FieldAtIndexNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "value", "Per-element FloatField to sample from.",
+                "index", "Indices into the field. Scalar or IntField.",
+                "result", "Sampled float(s) at the requested index/indices."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(VALUE, INDEX);
     }

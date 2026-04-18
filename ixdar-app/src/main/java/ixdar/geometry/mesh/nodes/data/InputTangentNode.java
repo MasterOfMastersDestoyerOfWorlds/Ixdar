@@ -26,6 +26,13 @@ public class InputTangentNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "tangent", "Per-vertex Vec3Field of unit tangents (direction along the first outgoing half-edge)."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of();
     }

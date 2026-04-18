@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.modifier;
 
 import java.util.List;
+import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -51,6 +52,16 @@ public class LoopCutNode implements MeshNode {
     @Override
     public String description() {
         return "Inserts edge loops along a world-space axis (X, Y, or Z), splitting aligned quad faces to add resolution where needed.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "mesh", "Topology-only input (alternative to geometry). Used when no bundle slots need preservation.",
+                "geometry", "Geometry bundle input/output. If it carries bezier handles, de Casteljau subdivision is used and handles survive the cut.",
+                "cuts", "Number of new edge loops to insert, 1..32. Each cut subdivides aligned edges.",
+                "axis", "World-space axis the new loops run PERPENDICULAR to — i.e. cuts=1, axis=X inserts one loop across the X direction. Accepted: X, Y, Z."
+        );
     }
 
     @Override

@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.transform;
 
 import java.util.List;
+import java.util.Map;
 
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -48,6 +49,16 @@ public class TransformGeometryNode implements MeshNode {
     @Override
     public String description() {
         return "Applies translation, rotation, and scale to mesh vertices and curve geometry using standard SRT order.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "geometry", "Input/output geometry bundle. Vertex positions and curve control points are transformed; bezier handle slots are scaled and rotated in place.",
+                "translation", "World-space offset added after scale+rotate. translation=<X,Y,Z> shifts every vertex by those units.",
+                "rotation", "Euler XYZ in RADIANS (not degrees). Applied after scale, before translate. <0,0,0> = identity.",
+                "scale", "Per-axis multiplier applied first. scale=<X,Y,Z> stretches extent by those factors componentwise: output extent = input extent × scale. Pass 1.0 to leave an axis untouched, not 0.5. To map a unit cube (extent 1) onto a reference with extent <Ex,Ey,Ez>, use scale=<Ex,Ey,Ez>."
+        );
     }
 
     @Override

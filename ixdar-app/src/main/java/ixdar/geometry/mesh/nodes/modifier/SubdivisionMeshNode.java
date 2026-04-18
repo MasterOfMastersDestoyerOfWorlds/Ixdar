@@ -43,6 +43,15 @@ public class SubdivisionMeshNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "mesh", "Plain topology input (alternative to geometry). Used when no crease weights need to be read.",
+                "geometry", "Input/output geometry bundle. Carries crease weights written by mark_crease so semi-sharp edges subdivide smoothly.",
+                "levels", "Catmull-Clark iterations. Each level quadruples face count AND smooths toward the limit surface."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         // Accept geometry bundle (with crease weights) or plain mesh
         GeometryBundle bundle = null;

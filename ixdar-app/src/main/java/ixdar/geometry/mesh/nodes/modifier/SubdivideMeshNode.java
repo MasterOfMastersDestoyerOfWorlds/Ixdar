@@ -45,6 +45,15 @@ public class SubdivideMeshNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "mesh", "Input topology to subdivide. Each face becomes 4^levels faces.",
+                "levels", "Subdivision iterations, 0..N. Each level quadruples face count. DESTRUCTIVE: consumes bezier handle slots — use BEFORE assign_bezier_handles.",
+                "geometry", "Output geometry bundle wrapping the subdivided mesh (slots dropped per destructive contract)."
+        );
+    }
+
+    @Override
     public boolean destructive() {
         return true;
     }

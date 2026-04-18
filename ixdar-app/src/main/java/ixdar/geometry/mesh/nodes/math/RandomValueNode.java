@@ -50,6 +50,19 @@ public class RandomValueNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "seed", "Deterministic PRNG seed. Same seed = same output.",
+                "min", "Range minimum (per-component for VECTOR).",
+                "max", "Range maximum.",
+                "mode", "Output selector: FLOAT, INT, or VECTOR. Only the matching *_out port is active; the others are null.",
+                "float_out", "Active when mode=FLOAT; null otherwise.",
+                "int_out", "Active when mode=INT; null otherwise.",
+                "vector_out", "Active when mode=VECTOR; null otherwise."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(SEED, MIN, MAX, MODE);
     }

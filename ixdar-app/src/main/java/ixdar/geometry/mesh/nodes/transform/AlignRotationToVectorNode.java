@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.transform;
 
 import java.util.List;
+import java.util.Map;
 
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -38,6 +39,14 @@ public class AlignRotationToVectorNode implements MeshNode {
     @Override
     public String description() {
         return "Computes a rotation quaternion that aligns the Y-up axis to the given direction vector.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "vector", "Target direction. The resulting rotation maps +Y (<0,1,0>) onto this vector. Zero vectors are treated as +Y (identity rotation).",
+                "rotation", "Quaternion that rotates +Y onto the input vector."
+        );
     }
 
     @Override

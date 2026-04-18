@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.primitives;
 
 import java.util.List;
+import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -30,6 +31,16 @@ public class CylinderMeshNode implements MeshNode {
     @Override
     public String description() {
         return "Generates a capped cylinder with triangle-fan caps, controlled by radius, height, and segment count around the circumference.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "radius", "Distance from the central Y-axis to the side surface. cylinder(radius=r) spans ±r in X and Z (extent 2r on those axes).",
+                "height", "Total Y-axis extent. cylinder(height=h) spans from y=-h/2 to y=+h/2 (extent = h, vertices at ±h/2).",
+                "segments", "Number of divisions around the circumference. Higher = smoother cylinder. Default 16.",
+                "mesh", "Capped cylinder aligned with Y-axis, centered at origin."
+        );
     }
 
     @Override

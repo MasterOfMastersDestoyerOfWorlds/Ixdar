@@ -33,6 +33,16 @@ public class JoinCurvesNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "curve_a", "First curve polyline.",
+                "curve_b", "Second curve polyline, appended after a's end.",
+                "deduplicate", "If true (default), drop b's start vertex when it coincides with a's end, keeping the join clean.",
+                "curve", "Combined curve."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(CURVE_A, CURVE_B, DEDUPLICATE);
     }

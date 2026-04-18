@@ -35,6 +35,12 @@ public class AssignBezierHandlesNode implements MeshNode {
 
     public static final String SLOT_HANDLES_START = "_bezier_handles_start";
     public static final String SLOT_HANDLES_END = "_bezier_handles_end";
+    /**
+     * Stashes the {@code weight} passed to this node so downstream
+     * topology-modifying nodes (extrude, inset, etc.) can re-run the handle
+     * computation on their output mesh and get globally consistent handles.
+     */
+    public static final String SLOT_WEIGHT = "_bezier_handle_weight";
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort WEIGHT = new InputPort("weight", PortType.FLOAT, 1.0f, 0f, 10f);
@@ -43,6 +49,14 @@ public class AssignBezierHandlesNode implements MeshNode {
     @Override
     public String description() {
         return "Computes and stores per-edge cubic Bezier handle offsets on a mesh, with handle directions derived from adjacent edge geometry and magnitude scaled by weight.";
+    }
+
+    @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input cage / output bundle with _bezier_handles_start, _bezier_handles_end, _bezier_handle_weight slots populated.",
+                "weight", "Multiplier on the default quarter-circle tangent magnitude. 0 = straight edges (no rounding); 0.33 ≈ gentle; 1.0 ≈ bulging. Stored in the _bezier_handle_weight slot so downstream topology ops (loop_cut, inset, extrude) can rebuild handles consistently."
+        );
     }
 
     @Override
@@ -60,11 +74,21 @@ public class AssignBezierHandlesNode implements MeshNode {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         Object w = FieldBroadcast.getInputOrDefault(ctx, "weight", WEIGHT.defaultValue());
         float weight = FieldBroadcast.floatScalarOrDefault(w, 1.0f);
+        ctx.setOutput("geometry", computeHandles(base, weight));
+    }
 
+    /**
+     * Runs the bezier-handle computation over {@code base}'s mesh and returns
+     * a new bundle with {@link #SLOT_HANDLES_START}, {@link #SLOT_HANDLES_END}
+     * and {@link #SLOT_WEIGHT} populated. Pure math over topology — no
+     * dependence on prior slot state. Called directly by topology-modifying
+     * nodes (extrude, inset) to rebuild globally consistent handles after they
+     * change the mesh.
+     */
+    public static GeometryBundle computeHandles(GeometryBundle base, float weight) {
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.edgeCount() == 0) {
-            ctx.setOutput("geometry", base);
-            return;
+            return base.withSlot(SLOT_WEIGHT, weight);
         }
 
         int maxEdgeId = 0;
@@ -105,8 +129,10 @@ public class AssignBezierHandlesNode implements MeshNode {
             hEnd[o + 2] = outDir.z;
         }
 
-        GeometryBundle out = base.withSlot(SLOT_HANDLES_START, hStart).withSlot(SLOT_HANDLES_END, hEnd);
-        ctx.setOutput("geometry", out);
+        return base
+                .withSlot(SLOT_HANDLES_START, hStart)
+                .withSlot(SLOT_HANDLES_END, hEnd)
+                .withSlot(SLOT_WEIGHT, weight);
     }
 
     private static Vector3f meshCenter(MeshTopology mesh) {

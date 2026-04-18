@@ -46,6 +46,16 @@ public class InstanceOnPointsNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "points", "Geometry bundle or curve whose vertex positions act as placement locations for the instances.",
+                "instance", "Source mesh to be copied at each point.",
+                "rotation", "Per-point Euler rotation (radians) applied to each instance. Accepts a single Vector3 or a rotation field.",
+                "geometry", "Output bundle containing all instances. Call realize_instances to flatten to a single mesh."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle pts = GeometryBundles.bundlePart(ctx.getInput("points", Object.class));
         MeshTopology inst = ctx.getInput("instance", MeshTopology.class);

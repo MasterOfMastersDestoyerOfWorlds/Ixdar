@@ -37,6 +37,14 @@ public class CoonsPatchNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input cage (must carry bezier handle slots from assign_bezier_handles) / output smooth high-poly surface mesh. DESTRUCTIVE: consumes the handle slots. Always follow with merge_by_distance(distance=0.0001) to weld duplicated seam vertices.",
+                "subdivisions", "n×n samples per quad face. 4 = 16 quads per face (cheap); 8 = 64 (smooth). Capped internally so total output faces stay under 600k."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(GEOMETRY, SUBDIVISIONS);
     }

@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.primitives;
 
 import java.util.List;
+import java.util.Map;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -29,6 +30,15 @@ public class QuadSphereMeshNode implements MeshNode {
     @Override
     public String description() {
         return "Generates an all-quad sphere by projecting a subdivided cube onto a sphere surface, controlled by size and resolution (quads around the circumference); ideal for Catmull-Clark subdivision.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "size", "Diameter. sphere(size=s) has extent s on each axis (vertices at ±s/2). Note: this is diameter, NOT radius — unlike icosphere/uv_sphere which use radius.",
+                "resolution", "Quads around the circumference (equator). Higher = smoother. Default 16.",
+                "mesh", "All-quad sphere, centered at origin."
+        );
     }
 
     @Override

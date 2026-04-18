@@ -38,6 +38,16 @@ public class InputShortestEdgePathsNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "end", "Per-vertex BoolField marking source (start) vertices. Paths are computed FROM these TO every other vertex.",
+                "edge_cost", "Per-edge FloatField of edge traversal costs. Scalar = uniform graph distance.",
+                "next_vertex", "Per-vertex IntField: the next hop toward the nearest source.",
+                "total_cost", "Per-vertex FloatField: accumulated path cost to the nearest source."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(END, EDGE_COST);
     }

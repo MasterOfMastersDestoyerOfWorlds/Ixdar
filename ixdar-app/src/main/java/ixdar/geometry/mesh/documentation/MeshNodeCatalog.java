@@ -33,8 +33,8 @@ public final class MeshNodeCatalog {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("id", e.getKey());
             entry.put("category", categoryFromClass(n.getClass()));
-            entry.put("inputs", serializeInputs(schema.inputs()));
-            entry.put("outputs", serializeOutputs(schema.outputs()));
+            entry.put("inputs", serializeInputs(schema.inputs(), schema.socketDocs()));
+            entry.put("outputs", serializeOutputs(schema.outputs(), schema.socketDocs()));
             String desc = n.description();
             if (desc != null && !desc.isEmpty()) {
                 entry.put("description", desc);
@@ -72,12 +72,17 @@ public final class MeshNodeCatalog {
         };
     }
 
-    private static List<Map<String, Object>> serializeInputs(List<InputPort> inputs) {
+    private static List<Map<String, Object>> serializeInputs(
+            List<InputPort> inputs, Map<String, String> socketDocs) {
         List<Map<String, Object>> out = new ArrayList<>();
         for (InputPort p : inputs) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("name", p.name());
             m.put("portType", p.type().name());
+            String doc = socketDocs.get(p.name());
+            if (doc != null && !doc.isEmpty()) {
+                m.put("description", doc);
+            }
             m.put("defaultValue", p.defaultValue());
             ModeConstraint mc = p.modes();
             if (mc != null) {
@@ -90,12 +95,17 @@ public final class MeshNodeCatalog {
         return out;
     }
 
-    private static List<Map<String, Object>> serializeOutputs(List<OutputPort> outputs) {
+    private static List<Map<String, Object>> serializeOutputs(
+            List<OutputPort> outputs, Map<String, String> socketDocs) {
         List<Map<String, Object>> out = new ArrayList<>();
         for (OutputPort p : outputs) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("name", p.name());
             m.put("portType", p.type().name());
+            String doc = socketDocs.get(p.name());
+            if (doc != null && !doc.isEmpty()) {
+                m.put("description", doc);
+            }
             out.add(m);
         }
         return out;

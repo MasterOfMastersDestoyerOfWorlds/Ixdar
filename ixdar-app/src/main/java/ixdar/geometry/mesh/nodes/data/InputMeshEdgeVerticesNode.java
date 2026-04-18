@@ -24,6 +24,14 @@ public class InputMeshEdgeVerticesNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "vertex_a", "Per-edge IntField: the start vertex index of each edge.",
+                "vertex_b", "Per-edge IntField: the end vertex index of each edge."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of();
     }

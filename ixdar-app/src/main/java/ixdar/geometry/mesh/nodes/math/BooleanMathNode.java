@@ -42,6 +42,16 @@ public class BooleanMathNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "a", "Left operand (scalar bool or per-element BoolField).",
+                "b", "Right operand. Ignored for mode=NOT.",
+                "mode", "Operation: AND, OR, NOT (of a), XOR.",
+                "result", "Boolean result with broadcast shape of a/b."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(A, B, MODE);
     }

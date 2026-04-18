@@ -94,4 +94,13 @@ public class FunctionCurveNode implements MeshNode {
                 + "Organic: smin(a,b,k) pingpong(x,len). "
                 + "Use function_curve for math formulas, float_curve for hand-tuned control points.";
     }
+
+    @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "expression", "Math expression in variable `x`. Supports trig, exp/log, clamp, smoothstep, ease_*, smin, pingpong, and more (see node description for the full list).",
+                "resolution", "Number of samples taken over x∈[0,1] when rendering the curve for display; does NOT limit evaluation precision at runtime.",
+                "closure", "Float closure wrapping the compiled expression. Sample at any x via evaluate_closure."
+        );
+    }
 }

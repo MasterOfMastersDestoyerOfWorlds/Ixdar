@@ -29,6 +29,14 @@ public class FloatCurveNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "points", "Comma-separated x,y pairs: 'x0,y0,x1,y1,...'. Linear interpolation between points; clamped outside.",
+                "closure", "Float closure that can be sampled by evaluate_closure at any input x."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(POINTS);
     }

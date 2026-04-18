@@ -79,6 +79,17 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input/output. The two tagged loops are bridged with quad faces; unequal vertex counts are handled via a fan transition.",
+                "loop_a_tag", "Tag string identifying the first boundary loop (set upstream by attach_to_surface or tag_geometry).",
+                "loop_b_tag", "Tag string identifying the second boundary loop. If empty, the nearest untagged loop is auto-discovered.",
+                "segments", "Number of intermediate interpolation rings between the two loops. 0 = direct bridge; higher = smoother transition.",
+                "twist", "Rotation offset (radians) applied to the loop_b side when pairing vertices. Use to un-twist a natural misalignment."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology meshTopo = base.mesh();

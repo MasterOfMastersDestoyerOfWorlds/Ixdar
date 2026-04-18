@@ -51,6 +51,16 @@ public class SetBoneWeightNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input/output. Per-vertex bone weights are written into a slot keyed by `bone_name`.",
+                "bone_name", "Name of the bone whose weight is being written. Match this in a downstream apply_bone.",
+                "weight", "Weight value in [0, 1]. 0 = vertex unaffected; 1 = fully driven by the bone.",
+                "selection", "Per-face BOOLEAN mask. All vertices of selected faces receive the weight; other vertices keep their prior weight for this bone."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology mesh = base.mesh();

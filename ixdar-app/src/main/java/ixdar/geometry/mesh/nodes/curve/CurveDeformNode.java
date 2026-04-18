@@ -50,6 +50,20 @@ public class CurveDeformNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "curve", "Input curve to deform.",
+                "closure", "Float closure mapping source coordinate to displacement.",
+                "source_axis", "Axis whose coordinate is fed into `closure`: X, Y, or Z.",
+                "target_axis", "Axis where the closure's output is added: X, Y, or Z.",
+                "from_min", "Low end of the source axis range remapped to closure input 0.",
+                "from_max", "High end of the source axis range remapped to closure input 1.",
+                "amplitude", "Multiplier on the closure's output before adding to the target axis.",
+                "geometry", "Deformed curve."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(CURVE, CLOSURE, SOURCE_AXIS, TARGET_AXIS, FROM_MIN, FROM_MAX, AMPLITUDE);
     }

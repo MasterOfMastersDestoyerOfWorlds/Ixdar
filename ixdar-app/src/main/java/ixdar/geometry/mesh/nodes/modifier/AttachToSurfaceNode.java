@@ -65,6 +65,22 @@ public class AttachToSurfaceNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.ofEntries(
+                java.util.Map.entry("geometry", "Input/output. A hole is cut at the attachment point on the parent surface; the opening boundary is tagged for bridge_edge_loops."),
+                java.util.Map.entry("theta", "Azimuthal angle (radians, around Y axis). 0 = +X, π/2 = +Z."),
+                java.util.Map.entry("phi", "Polar angle (radians, from +Y). 0 = top pole, π/2 = equator, π = bottom pole."),
+                java.util.Map.entry("radius", "Hole radius around the attachment point in world units."),
+                java.util.Map.entry("inset", "Inset distance from the cut boundary to the attachment ring. 0 = flush; positive = recessed."),
+                java.util.Map.entry("twist", "Roll angle (radians) around the attachment normal. Rotates the attached child around its axis."),
+                java.util.Map.entry("tag", "String tag applied to the new boundary ring so downstream bridge_edge_loops / adaptive_bridge_loops can find it."),
+                java.util.Map.entry("attach_position", "World-space position of the attachment point on the surface."),
+                java.util.Map.entry("attach_normal", "Unit outward normal at the attachment point."),
+                java.util.Map.entry("attach_rotation", "Euler rotation (radians) that aligns +Y to the attach normal, plus twist.")
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology mesh = base.mesh();

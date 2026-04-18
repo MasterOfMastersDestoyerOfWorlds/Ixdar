@@ -39,6 +39,16 @@ public class SwitchVectorNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "switch", "Per-element BOOLEAN selector.",
+                "false", "Vector used where switch is false.",
+                "true", "Vector used where switch is true.",
+                "result", "Per-element Vector3: switch ? true : false."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         Object so = FieldBroadcast.getInputOrDefault(ctx, "switch", SWITCH.defaultValue());
         Object fa = FieldBroadcast.getInputOrDefault(ctx, "false", FALSE_VAL.defaultValue());

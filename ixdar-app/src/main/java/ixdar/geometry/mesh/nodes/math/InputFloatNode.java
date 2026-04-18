@@ -23,6 +23,17 @@ public class InputFloatNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "name", "Parameter name (shown in UI, referenced by param_sweep / overrides).",
+                "default", "Initial value when not overridden.",
+                "min", "Lower bound (optional). When null, unbounded below.",
+                "max", "Upper bound (optional). When null, unbounded above.",
+                "result", "The (possibly-overridden) float value."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(NAME, DEFAULT, MIN, MAX);
     }

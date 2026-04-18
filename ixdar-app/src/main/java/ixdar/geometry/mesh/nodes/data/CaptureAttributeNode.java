@@ -27,6 +27,15 @@ public class CaptureAttributeNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input/output bundle. The output carries a new slot named `name` holding `value`.",
+                "name", "Slot key (string) under which to store the attribute.",
+                "value", "Float scalar or FloatField to store. Downstream nodes read via this same name."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(GEOMETRY, NAME, VALUE);
     }

@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.primitives;
 
 import java.util.List;
+import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -35,6 +36,19 @@ public class GridMeshNode implements MeshNode {
     @Override
     public String description() {
         return "Generates a flat quad grid on the XZ plane centered at the origin, with configurable tile counts and sizes in U/V directions; u_total_size/v_total_size override per-tile sizes when positive.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "u_tiles", "Number of quads along the U (X) axis.",
+                "v_tiles", "Number of quads along the V (Z) axis.",
+                "u_tile_size", "Per-tile edge length along U. Grid extent along X = u_tiles × u_tile_size, vertices at ±extent/2. Ignored when u_total_size > 0.",
+                "v_tile_size", "Per-tile edge length along V. Grid extent along Z = v_tiles × v_tile_size, vertices at ±extent/2. Ignored when v_total_size > 0.",
+                "u_total_size", "Total extent along U. When > 0, per-tile U size becomes u_total_size / u_tiles (overrides u_tile_size).",
+                "v_total_size", "Total extent along V. When > 0, per-tile V size becomes v_total_size / v_tiles (overrides v_tile_size).",
+                "mesh", "Flat quad grid on XZ plane, centered at origin, Y=0."
+        );
     }
 
     @Override

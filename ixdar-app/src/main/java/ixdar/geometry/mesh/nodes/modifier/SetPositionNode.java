@@ -38,6 +38,14 @@ public class SetPositionNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input/output. Every vertex position is shifted by `offset`.",
+                "offset", "World-space translation added to every vertex. <0,0,0> = identity. For selective displacement, use a Vec3Field."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         Object off = FieldBroadcast.getInputOrDefault(ctx, "offset", OFFSET.defaultValue());

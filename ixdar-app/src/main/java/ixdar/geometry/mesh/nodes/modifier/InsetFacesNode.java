@@ -58,6 +58,17 @@ public class InsetFacesNode implements MeshNode {
     }
 
     @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "geometry", "Input/output cage. Preserves bezier handle slots via rebuild when _bezier_handle_weight is set.",
+                "inset", "Inset amount in [0, 1] — fraction of the way from each corner toward the face centroid. 0 = no inset; 0.5 = halfway.",
+                "selection", "Per-face BOOLEAN mask. True = face gets inset (replaced by inner quad + 4 side quads).",
+                "mesh", "Topology-only output.",
+                "generated", "Per-output-face BOOLEAN: true for the newly-created inner face of each inset; false for pass-through and side quads. Thread into the selection of the next op to chain features."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology in = base.mesh();
@@ -94,13 +105,19 @@ public class InsetFacesNode implements MeshNode {
 
         GeometryBundle outBundle = base.withMesh(out);
 
-        // Handle preservation: when input carries bezier handle slots, preserve
-        // handles on edges whose endpoints are both still original vertices
-        // (i.e. outer boundary edges of the side quads). New edges (inner-face
-        // boundary, radial bridges) get zero handles — yielding straight
-        // geometry at the inset boundary, acceptable for flat depressions.
-        if (CoonsHandleBuilder.hasHandles(base) && out != null) {
-            outBundle = preserveOuterHandles(base, in, out, outBundle);
+        // Handle preservation — prefer the globally-consistent rebuild path
+        // (via the _bezier_handle_weight slot stashed by assign_bezier_handles)
+        // so every output edge gets handles computed by the same algorithm.
+        // This fixes coons_patch surface divergence at shared cage edges when
+        // multiple inset/extrude operations chain. Falls back to edge-by-edge
+        // copying only if handles exist without a weight slot.
+        if (out != null && CoonsHandleBuilder.hasHandles(base)) {
+            Object w = base.slots().get(AssignBezierHandlesNode.SLOT_WEIGHT);
+            if (w instanceof Number num) {
+                outBundle = AssignBezierHandlesNode.computeHandles(outBundle, num.floatValue());
+            } else {
+                outBundle = preserveOuterHandles(base, in, out, outBundle);
+            }
         }
 
         ctx.setOutput("mesh", out);

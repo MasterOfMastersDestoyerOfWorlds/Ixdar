@@ -55,6 +55,16 @@ public class ApplyBoneNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input/output. Vertices with nonzero weight for `bone_name` are rotated around `pivot`.",
+                "bone_name", "Name of the bone whose weights were written upstream by set_bone_weight.",
+                "rotation", "Euler rotation (radians) applied around the pivot.",
+                "pivot", "World-space point around which rotation is applied. Typically the bone's joint position."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         MeshTopology mesh = base.mesh();

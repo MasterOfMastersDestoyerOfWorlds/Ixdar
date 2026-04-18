@@ -51,6 +51,15 @@ public class MirrorGeometryNode implements MeshNode {
     }
 
     @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "geometry", "Input/output. Output contains original + mirrored copy. Bezier handles are reflected across the mirror plane.",
+                "axis", "Symmetry plane: X (mirror across YZ plane), Y (across XZ), Z (across XY). Default X.",
+                "merge_distance", "Weld threshold for seam vertices on the symmetry plane. 0 = no weld (two disjoint halves); typical 0.0001."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
         String axis = ctx.getInput("axis", String.class);

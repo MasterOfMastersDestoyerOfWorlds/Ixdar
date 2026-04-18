@@ -34,6 +34,16 @@ public class CircleCurveNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "radius", "Distance from center to each polyline vertex. The circle has diameter 2r in the XZ plane (extent 2r on those axes).",
+                "resolution", "Number of segments. 3 = triangle; 32 = near-circle; 128 = very smooth.",
+                "center", "World-space position of the circle's center.",
+                "curve", "Closed curve geometry bundle (polyline in XZ plane)."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(RADIUS, RESOLUTION, CENTER);
     }

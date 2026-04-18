@@ -37,6 +37,15 @@ public class EdgePathsToSelectionNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "start", "Per-vertex BoolField marking path start vertices.",
+                "next_vertex", "Per-vertex IntField: next-hop vertex index for each vertex (from input_shortest_edge_paths).",
+                "selection", "Per-edge BoolField: true for edges that lie on any traced path."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         Object no = FieldBroadcast.getInputOrDefault(ctx, "next_vertex", NEXT_VERTEX.defaultValue());
         var fc = ctx.fieldContext();

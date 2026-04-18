@@ -50,6 +50,16 @@ public class IntegerMathNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "a", "Left integer operand.",
+                "b", "Right integer operand.",
+                "mode", "Operation: ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, MIN, MAX.",
+                "result", "Integer result."
+        );
+    }
+
+    @Override
     public List<InputPort> inputs() {
         return List.of(A, B, MODE);
     }

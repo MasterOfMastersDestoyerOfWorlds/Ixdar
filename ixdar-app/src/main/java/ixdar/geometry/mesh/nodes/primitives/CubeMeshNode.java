@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.primitives;
 
 import java.util.List;
+import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -27,7 +28,17 @@ public class CubeMeshNode implements MeshNode {
 
     @Override
     public String description() {
-        return "Generates an axis-aligned cube mesh centered at the origin with uniform size controlling edge length.";
+        return "Generates an axis-aligned cube mesh centered at the origin.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                "size", "Edge length. cube(size=s) has vertices at ±s/2 and extent = s on each axis."
+                        + " To match a reference with bounding-box extent <X,Y,Z> from a unit cube, use"
+                        + " transform_geometry(scale=<X,Y,Z>).",
+                "mesh", "Axis-aligned cube mesh (8 verts, 6 quad faces), centered at origin."
+        );
     }
 
     @Override

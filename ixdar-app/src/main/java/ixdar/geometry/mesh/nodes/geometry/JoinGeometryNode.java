@@ -41,6 +41,16 @@ public class JoinGeometryNode implements MeshNode {
     }
 
     @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "a", "First geometry bundle. Tags/weights from both are preserved in the output.",
+                "b", "Second geometry bundle.",
+                "merge_distance", "Weld threshold for seam vertices. 0 = no weld (a and b remain disjoint); typical 0.001 for light seam cleanup.",
+                "geometry", "Combined bundle."
+        );
+    }
+
+    @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle ga = GeometryBundles.bundlePart(ctx.getInput("a", Object.class));
         GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput("b", Object.class));
