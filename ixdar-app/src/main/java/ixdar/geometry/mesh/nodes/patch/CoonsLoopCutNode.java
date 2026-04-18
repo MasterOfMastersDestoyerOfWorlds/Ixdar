@@ -9,6 +9,7 @@ import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
+import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
@@ -25,15 +26,13 @@ import ixdar.geometry.mesh.data.MeshTopology;
  * near-identical) surface when fed to {@link CoonsPatchNode}.
  *
  * <p>Typical workflow:
- * {@code cube → assign_bezier_handles → loop_cut(axis=X) → coons_patch} — the
- * {@code loop_cut} node auto-detects handle slots and dispatches to this
- * curve-preserving implementation.
+ * {@code cube → assign_bezier_handles → coons_loop_cut(axis=X) → coons_patch}.
  * <p>
- * <strong>Not registered.</strong> The {@code loop_cut} node
- * ({@link ixdar.geometry.mesh.nodes.modifier.LoopCutNode}) is the single public
- * entry point for loop cuts; it calls {@link #loopCut} here when the input cage
- * carries bezier metadata.
+ * Registered separately from {@code loop_cut} so behavior does not silently
+ * depend on whether handle slots are attached — the agent picks explicitly.
+ * For unhandled cages use {@code loop_cut}, which does straight midpoint cuts.
  */
+@MeshNodeAnnotation(id = "coons_loop_cut")
 public class CoonsLoopCutNode implements MeshNode {
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
@@ -43,7 +42,16 @@ public class CoonsLoopCutNode implements MeshNode {
 
     @Override
     public String description() {
-        return "Inserts geometry-preserving loop cuts along an axis using exact de Casteljau subdivision, so new edges land on the original Bezier curves.";
+        return "Inserts geometry-preserving loop cuts along an axis using exact de Casteljau subdivision, so new vertices land on the original Bezier curves. Input MUST carry bezier handle slots (use assign_bezier_handles upstream); for unhandled cages use loop_cut instead.";
+    }
+
+    @Override
+    public java.util.Map<String, String> socketDocs() {
+        return java.util.Map.of(
+                "geometry", "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles. Unhandled input passes through with a warning.",
+                "axis", "Cuts are placed PERPENDICULAR to this axis. Accepted: X, Y, Z.",
+                "cuts", "Number of new edge loops to insert (1..8)."
+        );
     }
 
     @Override
@@ -59,6 +67,11 @@ public class CoonsLoopCutNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
+        if (!CoonsHandleBuilder.hasHandles(base)) {
+            System.err.println("[coons_loop_cut] WARNING: input lacks bezier handles; passing through unchanged. Use assign_bezier_handles upstream, or use loop_cut for straight midpoint cuts.");
+            ctx.setOutput("geometry", base);
+            return;
+        }
         String axis = ctx.getInput("axis", String.class);
         if (axis == null) axis = "X";
         Number cutsNum = ctx.getInput("cuts", Number.class);

@@ -15,19 +15,17 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
-import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
-import ixdar.geometry.mesh.nodes.patch.CoonsLoopCutNode;
 
 /**
  * Adds edge loops along a world-space axis. Splits each quad face's edges
  * aligned with the axis, producing {@code cuts+1} strip quads per face.
  * Faces with no aligned edges pass through unchanged.
  * <p>
- * If the input geometry bundle carries bezier handle slots
- * ({@code _bezier_handles_start} from {@code assign_bezier_handles}), the cut
- * is performed via exact de Casteljau subdivision so new vertices land on the
- * original bezier curves and handles survive for downstream {@code coons_patch}
- * consumption. Otherwise a straight midpoint cut is used.
+ * Topology-only: straight midpoint cuts. If input carries bezier handle slots,
+ * the new vertices land on the STRAIGHT EDGE MIDPOINT (not on the Bezier
+ * curve) and existing handle slots are passed through unchanged — they become
+ * stale for new edges. Use {@code coons_loop_cut} for curve-preserving cuts
+ * on handled cages.
  */
 @MeshNodeAnnotation(id = "loop_cut")
 public class LoopCutNode implements MeshNode {
@@ -87,16 +85,6 @@ public class LoopCutNode implements MeshNode {
 
         String axisStr = String.valueOf(ctx.getInputValue("axis"));
         if (axisStr == null || axisStr.isEmpty()) axisStr = "Z";
-
-        // Curve-preserving path: if the input bundle carries bezier handle slots,
-        // use exact de Casteljau subdivision via CoonsLoopCutNode so new vertices
-        // land on the original bezier curves and handles survive the cut.
-        if (bundle != null && CoonsHandleBuilder.hasHandles(bundle)) {
-            GeometryBundle out = CoonsLoopCutNode.loopCut(bundle, axisStr, cuts);
-            ctx.setOutput("mesh", out.mesh());
-            ctx.setOutput("geometry", out);
-            return;
-        }
 
         int axisIndex = switch (axisStr.toUpperCase()) {
             case "X" -> 0;

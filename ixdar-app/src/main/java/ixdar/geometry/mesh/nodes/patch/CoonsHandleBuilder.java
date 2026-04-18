@@ -261,4 +261,153 @@ public final class CoonsHandleBuilder {
         }
         return new float[][]{hs, he};
     }
+
+    // ------------------------------------------------------------------
+    // Coons-surface evaluation (shared with CoonsPatchNode)
+    // ------------------------------------------------------------------
+
+    /**
+     * Evaluates a cubic Bezier at parameter {@code t}. Allocating version —
+     * fine outside hot loops. Use {@link #cubicBezier(Vector3f, Vector3f,
+     * Vector3f, Vector3f, float, Vector3f)} when you have a destination to
+     * reuse.
+     */
+    public static Vector3f cubicBezier(Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3, float t) {
+        Vector3f dest = new Vector3f();
+        cubicBezier(p0, p1, p2, p3, t, dest);
+        return dest;
+    }
+
+    /** Evaluates a cubic Bezier at {@code t}, writing into {@code dest}. */
+    public static void cubicBezier(
+            Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3, float t, Vector3f dest) {
+        float u = 1f - t;
+        float uu = u * u;
+        float tt = t * t;
+        float c0 = uu * u;
+        float c1 = 3f * uu * t;
+        float c2 = 3f * u * tt;
+        float c3 = t * tt;
+        dest.x = c0 * p0.x + c1 * p1.x + c2 * p2.x + c3 * p3.x;
+        dest.y = c0 * p0.y + c1 * p1.y + c2 * p2.y + c3 * p3.y;
+        dest.z = c0 * p0.z + c1 * p1.z + c2 * p2.z + c3 * p3.z;
+    }
+
+    /**
+     * Samples the cubic Bezier on undirected edge {@code eid} so that
+     * {@code t=0} is at {@code expectedStartVid} (one of the edge endpoints),
+     * regardless of the underlying half-edge direction. When the half-edge
+     * canonical direction disagrees, the parameter is flipped rather than the
+     * control points, guaranteeing bitwise-identical output for the two faces
+     * sharing this edge. Mirrors the convention in CoonsPatchNode.
+     */
+    public static Vector3f evalFaceEdgeAt(
+            MeshTopology mesh, float[] hStart, float[] hEnd,
+            int eid, int expectedStartVid, float t) {
+        int he = mesh.edgeHalfEdge(eid);
+        int ca = mesh.halfEdgeVertex(he);
+        int cb = mesh.halfEdgeEndVertex(he);
+        int o = eid * 3;
+        Vector3f posCa = mesh.vertexPosition(ca, new Vector3f());
+        Vector3f posCb = mesh.vertexPosition(cb, new Vector3f());
+        Vector3f p1 = new Vector3f(posCa).add(hStart[o], hStart[o + 1], hStart[o + 2]);
+        Vector3f p2 = new Vector3f(posCb).add(hEnd[o], hEnd[o + 1], hEnd[o + 2]);
+        float evalT = (expectedStartVid == cb) ? 1f - t : t;
+        return cubicBezier(posCa, p1, p2, posCb, evalT);
+    }
+
+    /**
+     * Smootherstep — the same easing {@link CoonsPatchNode} uses for its
+     * bilinear blend, so surface samples match.
+     */
+    public static float smootherStep(float t) {
+        return t * t * t * (t * (t * 6f - 15f) + 10f);
+    }
+
+    /**
+     * Coons surface normal at parameter {@code (u, v)} on a quad face:
+     * {@code (∂S/∂u × ∂S/∂v)} computed by symmetric finite difference on
+     * {@link #evalCoonsSurface}. Returns a unit vector; zero-length result is
+     * returned untouched so the caller can detect a degenerate face.
+     * <p>
+     * The sign is chosen so the normal points in the same half-space as the
+     * face's flat-polygon normal (cross of two adjacent edge vectors at v0),
+     * which is the "outward" direction for a typical cage. For corners on the
+     * boundary of the parameter square, the finite difference is one-sided
+     * toward the interior.
+     */
+    public static Vector3f coonsSurfaceNormal(
+            MeshTopology mesh, float[] hStart, float[] hEnd,
+            int v0, int v1, int v3,
+            int e0, int e1, int e2, int e3,
+            float u, float v) {
+        float eps = 1e-3f;
+        float uPlus = Math.min(1f, u + eps);
+        float uMinus = Math.max(0f, u - eps);
+        float vPlus = Math.min(1f, v + eps);
+        float vMinus = Math.max(0f, v - eps);
+
+        Vector3f sUPlus = evalCoonsSurface(mesh, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3, uPlus, v);
+        Vector3f sUMinus = evalCoonsSurface(mesh, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3, uMinus, v);
+        Vector3f sVPlus = evalCoonsSurface(mesh, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3, u, vPlus);
+        Vector3f sVMinus = evalCoonsSurface(mesh, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3, u, vMinus);
+
+        Vector3f dS_du = new Vector3f(sUPlus).sub(sUMinus);
+        Vector3f dS_dv = new Vector3f(sVPlus).sub(sVMinus);
+        Vector3f n = new Vector3f();
+        dS_du.cross(dS_dv, n);
+
+        // Sign check against flat-polygon normal of v0→v1 × v0→v3 at the face corner.
+        // Ixdar's face convention has normals pointing outward from closed meshes, so
+        // we flip our finite-difference normal to match if it came out inverted.
+        Vector3f p0 = mesh.vertexPosition(v0, new Vector3f());
+        Vector3f p1 = mesh.vertexPosition(v1, new Vector3f());
+        Vector3f p3 = mesh.vertexPosition(v3, new Vector3f());
+        Vector3f flatN = new Vector3f(p1).sub(p0).cross(new Vector3f(p3).sub(p0));
+        if (n.dot(flatN) < 0f) n.negate();
+
+        float len = n.length();
+        if (len > 1e-8f) n.mul(1f / len);
+        return n;
+    }
+
+    /**
+     * Evaluates the Coons-patch surface S(u, v) for a quad face with
+     * bezier-handled boundary edges. The 4 corner vertices are v0, v1, v2, v3
+     * in face-winding order; the 4 edges {@code e0..e3} likewise, with
+     * {@code e0} being the v0→v1 edge.
+     * <p>
+     * {@code (u=0, v=0)} is at v0; {@code (u=1, v=0)} is at v1;
+     * {@code (u=1, v=1)} is at v2; {@code (u=0, v=1)} is at v3.
+     * Matches {@link CoonsPatchNode}'s bilinear blend with smootherStep
+     * easing.
+     */
+    public static Vector3f evalCoonsSurface(
+            MeshTopology mesh, float[] hStart, float[] hEnd,
+            int v0, int v1, int v3,
+            int e0, int e1, int e2, int e3,
+            float u, float v) {
+        float uS = smootherStep(u);
+        float vS = smootherStep(v);
+
+        Vector3f p00 = evalFaceEdgeAt(mesh, hStart, hEnd, e0, v0, 0f);
+        Vector3f p10 = evalFaceEdgeAt(mesh, hStart, hEnd, e0, v0, 1f);
+        Vector3f p01 = evalFaceEdgeAt(mesh, hStart, hEnd, e2, v3, 0f);
+        Vector3f p11 = evalFaceEdgeAt(mesh, hStart, hEnd, e2, v3, 1f);
+
+        Vector3f bottom = evalFaceEdgeAt(mesh, hStart, hEnd, e0, v0, u);
+        Vector3f top = evalFaceEdgeAt(mesh, hStart, hEnd, e2, v3, u);
+        Vector3f left = evalFaceEdgeAt(mesh, hStart, hEnd, e3, v0, v);
+        Vector3f right = evalFaceEdgeAt(mesh, hStart, hEnd, e1, v1, v);
+
+        // loftU = lerp(bottom, top, vS); loftV = lerp(left, right, uS)
+        Vector3f loftU = new Vector3f(bottom).lerp(top, vS);
+        Vector3f loftV = new Vector3f(left).lerp(right, uS);
+        // bilinear = lerp( lerp(p00,p10,uS), lerp(p01,p11,uS), vS )
+        Vector3f mix1 = new Vector3f(p00).lerp(p10, uS);
+        Vector3f mix2 = new Vector3f(p01).lerp(p11, uS);
+        Vector3f bilinear = new Vector3f(mix1).lerp(mix2, vS);
+
+        return new Vector3f(loftU).add(loftV).sub(bilinear);
+    }
 }
