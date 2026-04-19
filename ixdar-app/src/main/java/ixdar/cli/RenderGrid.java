@@ -201,6 +201,11 @@ public class RenderGrid {
         } finally {
             platform.shutdown();
         }
+        // Force exit — on macOS with -XstartOnFirstThread, LWJGL/GLFW and AWT
+        // (via ImageIO) leave non-daemon threads alive after main() returns, so
+        // the JVM would otherwise linger indefinitely. Without this, every
+        // voyage-batch grid render leaves a hung Java process behind.
+        System.exit(0);
     }
 
     private static BufferedImage renderDslToImage(HeadlessPlatform platform, HeadlessGL gl,

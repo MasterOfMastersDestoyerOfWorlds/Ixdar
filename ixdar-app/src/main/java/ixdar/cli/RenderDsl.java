@@ -165,6 +165,9 @@ public class RenderDsl {
         } finally {
             platform.shutdown();
         }
+        // Force exit — LWJGL/GLFW leaves non-daemon threads alive on macOS
+        // after main() returns; without this the JVM lingers as an orphan.
+        System.exit(0);
     }
 
     /**
