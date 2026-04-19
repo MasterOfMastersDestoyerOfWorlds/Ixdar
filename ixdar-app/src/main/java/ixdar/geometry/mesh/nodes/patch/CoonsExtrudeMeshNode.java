@@ -20,6 +20,7 @@ import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
@@ -473,18 +474,21 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             positions[i * 3 + 1] = tmp.y;
             positions[i * 3 + 2] = tmp.z;
         }
+        // Preserve each face's original vertex count — previous code padded
+        // to the first face's vpf which broke mixed-topology inputs by
+        // creating duplicate-edge non-manifold configurations.
         int fn = in.faceCount();
-        int vpf = fn == 0 ? 4 : in.faceVertexCount(in.faceIdAt(0));
-        int[] faceIdx = new int[fn * vpf];
-        int w = 0;
+        ArrayList<Integer> faceIdxList = new ArrayList<>();
+        ArrayList<Integer> faceVpfList = new ArrayList<>();
         for (int fi = 0; fi < fn; fi++) {
             int fid = in.faceIdAt(fi);
             int fvc = in.faceVertexCount(fid);
-            for (int k = 0; k < vpf; k++) {
-                faceIdx[w++] = k < fvc ? oldToDense.get(in.faceVertexAt(fid, k)) : 0;
+            for (int k = 0; k < fvc; k++) {
+                faceIdxList.add(oldToDense.get(in.faceVertexAt(fid, k)));
             }
+            faceVpfList.add(fvc);
         }
-        HalfEdgeMesh out = HalfEdgeMesh.bulkAllocate(positions, faceIdx, vpf);
+        HalfEdgeMesh out = finalizeMixedMesh(positions, faceIdxList, faceVpfList);
         out.computeNormals();
         Map<Long, float[]> dh = new HashMap<>();
         seedOriginalEdgeHandles(in, hStart, hEnd, oldToDense, dh);
@@ -547,23 +551,22 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         }
 
         int origFaceCount = in.faceCount();
-        // Each unselected face: 1 face. Each selected face: 1 top + 4 side walls = 5.
-        int outFaceCount = 0;
-        for (int fi = 0; fi < origFaceCount; fi++) {
-            outFaceCount += selected[fi] ? 5 : 1;
-        }
-        int[] faceIdx = new int[outFaceCount * 4];
-        boolean[] generated = new boolean[outFaceCount];
-        int w = 0, faceW = 0;
+        // Selected faces: 1 top quad + 4 side quads. Unselected faces: 1
+        // pass-through of original vpf (preserves non-quad faces rather than
+        // padding/corrupting, so upstream coons_patch n-gons flow through).
+        ArrayList<Integer> faceIdxList = new ArrayList<>();
+        ArrayList<Integer> faceVpfList = new ArrayList<>();
+        ArrayList<Boolean> generatedList = new ArrayList<>();
 
         for (int fi = 0; fi < origFaceCount; fi++) {
             int fid = in.faceIdAt(fi);
             if (!selected[fi]) {
                 int fvc = in.faceVertexCount(fid);
-                for (int k = 0; k < 4; k++) {
-                    faceIdx[w++] = k < fvc ? oldToDense.get(in.faceVertexAt(fid, k)) : 0;
+                for (int k = 0; k < fvc; k++) {
+                    faceIdxList.add(oldToDense.get(in.faceVertexAt(fid, k)));
                 }
-                generated[faceW++] = false;
+                faceVpfList.add(fvc);
+                generatedList.add(false);
                 continue;
             }
             int[] tops = topVids[fi];
@@ -573,24 +576,43 @@ public class CoonsExtrudeMeshNode implements MeshNode {
                     oldToDense.get(in.faceVertexAt(fid, 2)),
                     oldToDense.get(in.faceVertexAt(fid, 3)),
             };
-            // Top face (matches original winding — new faces go into the same slot as the original).
-            faceIdx[w++] = tops[0]; faceIdx[w++] = tops[1]; faceIdx[w++] = tops[2]; faceIdx[w++] = tops[3];
-            generated[faceW++] = true;
-            // 4 side walls: each is (origA, origB, topB, topA) for k in 0..3.
+            faceIdxList.add(tops[0]); faceIdxList.add(tops[1]);
+            faceIdxList.add(tops[2]); faceIdxList.add(tops[3]);
+            faceVpfList.add(4);
+            generatedList.add(true);
             for (int k = 0; k < 4; k++) {
                 int origA = origDenseIds[k];
                 int origB = origDenseIds[(k + 1) % 4];
                 int topA = tops[k];
                 int topB = tops[(k + 1) % 4];
-                faceIdx[w++] = origA; faceIdx[w++] = origB; faceIdx[w++] = topB; faceIdx[w++] = topA;
-                generated[faceW++] = false;
+                faceIdxList.add(origA); faceIdxList.add(origB);
+                faceIdxList.add(topB); faceIdxList.add(topA);
+                faceVpfList.add(4);
+                generatedList.add(false);
             }
         }
 
-        HalfEdgeMesh out = HalfEdgeMesh.bulkAllocate(positions, faceIdx, 4);
+        HalfEdgeMesh out = finalizeMixedMesh(positions, faceIdxList, faceVpfList);
         out.computeNormals();
         float[][] handles = CoonsHandleBuilder.flushDirectedHandles(out, dh);
+        boolean[] generated = new boolean[generatedList.size()];
+        for (int i = 0; i < generatedList.size(); i++) generated[i] = generatedList.get(i);
         return new ExtrudeResult(out, handles, generated);
+    }
+
+    private static HalfEdgeMesh finalizeMixedMesh(float[] positions,
+                                                  ArrayList<Integer> faceIdxList,
+                                                  ArrayList<Integer> faceVpfList) {
+        int[] faceIdxFlat = new int[faceIdxList.size()];
+        for (int i = 0; i < faceIdxList.size(); i++) faceIdxFlat[i] = faceIdxList.get(i);
+        int[] faceVpfArr = new int[faceVpfList.size()];
+        for (int i = 0; i < faceVpfList.size(); i++) faceVpfArr[i] = faceVpfList.get(i);
+        boolean allQuads = true;
+        for (int v : faceVpfArr) { if (v != 4) { allQuads = false; break; } }
+        if (allQuads) {
+            return HalfEdgeMesh.bulkAllocate(positions, faceIdxFlat, 4);
+        }
+        return HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceVpfArr, faceIdxFlat);
     }
 
     /** Builds the output mesh for REGION mode: side walls only on boundary edges. */
@@ -638,36 +660,42 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             }
         }
 
-        // Face count: selected faces → 1 top each (replacing the original slot).
-        //             unselected faces → 1 pass-through.
-        //             boundary edges → 1 side quad each.
-        int outFaceCount = origFaceCount + boundarySideCount[0];
-        int[] faceIdx = new int[outFaceCount * 4];
-        boolean[] generated = new boolean[outFaceCount];
-        int w = 0, faceW = 0;
+        // Selected faces → 1 top quad (replacing the original slot).
+        // Unselected faces → 1 pass-through preserving original vpf.
+        // Boundary edges → 1 side quad each.
+        ArrayList<Integer> faceIdxList = new ArrayList<>();
+        ArrayList<Integer> faceVpfList = new ArrayList<>();
+        ArrayList<Boolean> generatedList = new ArrayList<>();
 
         for (int fi = 0; fi < origFaceCount; fi++) {
             int fid = in.faceIdAt(fi);
             if (selected[fi]) {
                 int[] tops = topVids[fi];
-                faceIdx[w++] = tops[0]; faceIdx[w++] = tops[1]; faceIdx[w++] = tops[2]; faceIdx[w++] = tops[3];
-                generated[faceW++] = true;
+                faceIdxList.add(tops[0]); faceIdxList.add(tops[1]);
+                faceIdxList.add(tops[2]); faceIdxList.add(tops[3]);
+                faceVpfList.add(4);
+                generatedList.add(true);
             } else {
                 int fvc = in.faceVertexCount(fid);
-                for (int k = 0; k < 4; k++) {
-                    faceIdx[w++] = k < fvc ? oldToDense.get(in.faceVertexAt(fid, k)) : 0;
+                for (int k = 0; k < fvc; k++) {
+                    faceIdxList.add(oldToDense.get(in.faceVertexAt(fid, k)));
                 }
-                generated[faceW++] = false;
+                faceVpfList.add(fvc);
+                generatedList.add(false);
             }
         }
         for (SideEdge se : sides) {
-            faceIdx[w++] = se.origA; faceIdx[w++] = se.origB; faceIdx[w++] = se.topB; faceIdx[w++] = se.topA;
-            generated[faceW++] = false;
+            faceIdxList.add(se.origA); faceIdxList.add(se.origB);
+            faceIdxList.add(se.topB); faceIdxList.add(se.topA);
+            faceVpfList.add(4);
+            generatedList.add(false);
         }
 
-        HalfEdgeMesh out = HalfEdgeMesh.bulkAllocate(positions, faceIdx, 4);
+        HalfEdgeMesh out = finalizeMixedMesh(positions, faceIdxList, faceVpfList);
         out.computeNormals();
         float[][] handles = CoonsHandleBuilder.flushDirectedHandles(out, dh);
+        boolean[] generated = new boolean[generatedList.size()];
+        for (int i = 0; i < generatedList.size(); i++) generated[i] = generatedList.get(i);
         return new ExtrudeResult(out, handles, generated);
     }
 
