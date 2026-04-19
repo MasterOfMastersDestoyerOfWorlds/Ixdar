@@ -19,6 +19,7 @@ import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
@@ -186,26 +187,6 @@ public class CoonsInsetFacesNode implements MeshNode {
             }
         }
 
-        // Only merge shared edges where BOTH endpoints are 2-face corners.
-        // Partial merges (one endpoint 2-face, the other 3+) create manifold
-        // violations downstream because the side quad kept at the 3+ end
-        // claims an edge along the cage that the neighbor's inner quad also
-        // traverses in the same direction.
-        Set<Integer> fullyMergeableEdges = new HashSet<>();
-        for (int eid : sharedEdgeIds) {
-            int he = in.edgeHalfEdge(eid);
-            int va = in.halfEdgeVertex(he);
-            int vb = in.halfEdgeEndVertex(he);
-            Integer denseA = oldToDense.get(va);
-            Integer denseB = oldToDense.get(vb);
-            if (denseA == null || denseB == null) continue;
-            List<int[]> atA = facesAtVertex.get(denseA);
-            List<int[]> atB = facesAtVertex.get(denseB);
-            if (atA != null && atA.size() == 2 && atB != null && atB.size() == 2) {
-                fullyMergeableEdges.add(eid);
-            }
-        }
-
         ArrayList<Float> extraPos = new ArrayList<>(selectedCount * 4 * 3);
         int[][] innerVids = new int[origFaceCount][];
         float[][] innerUV = new float[origFaceCount][];  // per face: [u0,v0, u1,v1, u2,v2, u3,v3]
@@ -216,20 +197,51 @@ public class CoonsInsetFacesNode implements MeshNode {
             }
         }
 
-        // Which (cage edge, endpoint-vid) pairs successfully merged? Used by the
-        // side-quad emission pass to drop side quads where BOTH endpoints merged.
+        // Per (face, corner): if the corner sits at a 3+ cage vertex, hold the
+        // two cyan dots that replace the single face-local inner vert — one on
+        // the face's back edge (shared with the previous face at the corner)
+        // and one on the face's fwd edge (shared with the next face). The
+        // face's inner region becomes a pentagon (or hexagon, heptagon, etc.
+        // if multiple corners are 3+), emitted as a single n-gon for
+        // coons_patch to route through the Gregory evaluator.
+        int[][][] cyanAt3Plus = new int[origFaceCount][][];  // [fi][k] -> {backCyan, fwdCyan} or null
+
+        // Per 3+ cage vertex: the N cyan dots in CCW order around the vertex.
+        // Used to emit one central n-sided fill face per 3+ corner.
+        Map<Integer, int[]> centralFillPerVertex = new HashMap<>();
+
+        // Which (cage edge, endpoint-vid) pairs got an allocated merge point
+        // (either a 2-face merge vert or a 3+-corner cyan dot) — used by the
+        // side-quad emission pass to drop side quads where BOTH endpoints
+        // have shared allocations.
         Set<Long> mergedEndpoint = new HashSet<>();
 
-        int nextVid = origVertCount;
+        int[] nextVidBox = {origVertCount};
 
         // Allocate inner verts per cage vertex. 2-face corners with a shared
         // cage edge get one merged vert on the edge curve (on the Coons surface
-        // by construction); everyone else gets a face-local (t,t)-type vert.
+        // by construction). 3+ corners emit N cyan dots on the shared cage
+        // edges around the corner plus a central n-gon fill. Everyone else
+        // gets a face-local (t,t)-type vert.
         for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
             int denseVid = entry.getKey();
             List<int[]> atV = entry.getValue();
             int n = atV.size();
             boolean merged = false;
+
+            if (n >= 3) {
+                // 3+ cage-corner: emit N cyan dots (one per shared edge
+                // emanating from v) at s=t along each edge's bezier curve.
+                // Each face at v gets 2 cyan dots at its corner-near-v (one
+                // on its back edge, one on its fwd edge), replacing the
+                // single face-local inner vert. Adjacent faces share one
+                // cyan dot each (the one on their common edge). All cyan
+                // dots at v form the boundary of a central n-gon fill.
+                allocate3PlusCorner(in, hStart, hEnd, denseVid, atV, sharedEdgeIds,
+                        oldToDense, t, extraPos, cyanAt3Plus, innerUV,
+                        centralFillPerVertex, mergedEndpoint, nextVidBox);
+                continue;
+            }
 
             if (n == 2) {
                 int[] a = atV.get(0);
@@ -248,7 +260,7 @@ public class CoonsInsetFacesNode implements MeshNode {
                 for (int pass = 0; pass < 2 && sharedEid < 0; pass++) {
                     boolean fwd = (pass == 0);
                     int candA = fwd ? eAfwd : eAback;
-                    if (!fullyMergeableEdges.contains(candA)) continue;
+                    if (!sharedEdgeIds.contains(candA)) continue;
                     if (candA == eBfwd || candA == eBback) {
                         sharedEid = candA;
                         fwdFromA = fwd;
@@ -258,7 +270,7 @@ public class CoonsInsetFacesNode implements MeshNode {
                 if (sharedEid >= 0) {
                     float[] uvA = edgePointUV(kA, t, fwdFromA);
                     Vector3f pos = evalFaceCoons(in, hStart, hEnd, fidA, uvA[0], uvA[1]);
-                    int newVid = nextVid++;
+                    int newVid = nextVidBox[0]++;
                     extraPos.add(pos.x); extraPos.add(pos.y); extraPos.add(pos.z);
                     innerVids[fiA][kA] = newVid;
                     innerVids[fiB][kB] = newVid;
@@ -280,7 +292,7 @@ public class CoonsInsetFacesNode implements MeshNode {
                     int fid = in.faceIdAt(fi);
                     float[] uv = faceLocalUV(k, t);
                     Vector3f pos = evalFaceCoons(in, hStart, hEnd, fid, uv[0], uv[1]);
-                    int newVid = nextVid++;
+                    int newVid = nextVidBox[0]++;
                     extraPos.add(pos.x); extraPos.add(pos.y); extraPos.add(pos.z);
                     innerVids[fi][k] = newVid;
                     innerUV[fi][2 * k] = uv[0];
@@ -359,9 +371,10 @@ public class CoonsInsetFacesNode implements MeshNode {
             positions[origVertCount * 3 + i] = extraPos.get(i);
         }
 
-        // Determine which cage edges get both endpoints merged — those drop
-        // both their side quads (2 per shared edge), and the two inner quads
-        // become directly edge-adjacent through the shared endpoint verts.
+        // Determine which shared cage edges get both endpoints merged (either
+        // via 2-face shared-vert or via 3+ cyan-dot). For these edges both
+        // side quads drop and the two inner polygons become edge-adjacent
+        // through the shared endpoint verts.
         Set<Integer> droppedSharedEdges = new HashSet<>();
         for (int eid : sharedEdgeIds) {
             int he = in.edgeHalfEdge(eid);
@@ -374,32 +387,24 @@ public class CoonsInsetFacesNode implements MeshNode {
                 droppedSharedEdges.add(eid);
             }
         }
-        int droppedSideQuads = 2 * droppedSharedEdges.size();
 
-        int outFaceCount = 0;
-        for (int fi = 0; fi < origFaceCount; fi++) {
-            outFaceCount += selected[fi] ? 5 : 1;
-        }
-        outFaceCount -= droppedSideQuads;
+        // Variable-vpf emission because 3+ cage-corner faces produce
+        // pentagons/hexagons/... inner regions plus central n-gon fills.
+        // coons_patch downstream routes n-gons through the Charrot-Gregory
+        // evaluator for smooth subdivision (MESH-47 phase A+B).
+        ArrayList<Integer> faceIdxList = new ArrayList<>();
+        ArrayList<Integer> faceVpfList = new ArrayList<>();
+        ArrayList<Boolean> generatedList = new ArrayList<>();
 
-        int[] faceIdx = new int[outFaceCount * 4];
-        boolean[] generated = new boolean[outFaceCount];
-
-        int w = 0;
-        int faceWriteIdx = 0;
         for (int fi = 0; fi < origFaceCount; fi++) {
             int fid = in.faceIdAt(fi);
             if (!selected[fi]) {
                 int fc = in.faceVertexCount(fid);
-                if (fc == 4) {
-                    for (int k = 0; k < 4; k++) {
-                        faceIdx[w++] = oldToDense.get(in.faceVertexAt(fid, k));
-                    }
-                    generated[faceWriteIdx++] = false;
-                } else {
-                    for (int k = 0; k < 4; k++) faceIdx[w++] = 0;
-                    generated[faceWriteIdx++] = false;
+                for (int k = 0; k < fc; k++) {
+                    faceIdxList.add(oldToDense.get(in.faceVertexAt(fid, k)));
                 }
+                faceVpfList.add(fc);
+                generatedList.add(false);
                 continue;
             }
             int[] dOrig = {
@@ -409,31 +414,68 @@ public class CoonsInsetFacesNode implements MeshNode {
                     oldToDense.get(in.faceVertexAt(fid, 3)),
             };
             int[] ni = innerVids[fi];
+            int[][] cyanPerCorner = cyanAt3Plus[fi];
 
-            // Inner face (generated — threaded into follow-up selections)
-            faceIdx[w++] = ni[0];
-            faceIdx[w++] = ni[1];
-            faceIdx[w++] = ni[2];
-            faceIdx[w++] = ni[3];
-            generated[faceWriteIdx++] = true;
+            // Inner face: walk corners in CCW order. At normal corners, emit
+            // one vert (ni[k]); at 3+ corners, emit two cyan dots (back, fwd)
+            // REPLACING the single ni[k]. Result is quad (no 3+ corners),
+            // pentagon (one 3+), hexagon (two), ..., octagon (all four).
+            int innerStartIdx = faceIdxList.size();
+            for (int k = 0; k < 4; k++) {
+                if (cyanPerCorner != null && cyanPerCorner[k] != null) {
+                    faceIdxList.add(cyanPerCorner[k][0]);  // back
+                    faceIdxList.add(cyanPerCorner[k][1]);  // fwd
+                } else {
+                    faceIdxList.add(ni[k]);
+                }
+            }
+            int innerVpf = faceIdxList.size() - innerStartIdx;
+            faceVpfList.add(innerVpf);
+            generatedList.add(true);
 
-            // Side quads: one per cage edge of this face, skipping those
-            // where both endpoint inner corners were merged on a shared edge.
+            // Side quads. For each cage edge k of this face:
+            //   left-end inner (at v_k): fwd-cyan if corner k is 3+, else ni[k]
+            //   right-end inner (at v_{k+1}): back-cyan if corner k+1 is 3+, else ni[k+1]
             for (int k = 0; k < 4; k++) {
                 int eid = in.faceEdgeAt(fid, k);
                 if (droppedSharedEdges.contains(eid)) continue;
                 int kNext = (k + 1) % 4;
-                faceIdx[w++] = dOrig[k];
-                faceIdx[w++] = dOrig[kNext];
-                faceIdx[w++] = ni[kNext];
-                faceIdx[w++] = ni[k];
-                generated[faceWriteIdx++] = false;
+                int leftInner = (cyanPerCorner != null && cyanPerCorner[k] != null)
+                        ? cyanPerCorner[k][1]  // fwd-cyan at corner k
+                        : ni[k];
+                int rightInner = (cyanPerCorner != null && cyanPerCorner[kNext] != null)
+                        ? cyanPerCorner[kNext][0]  // back-cyan at corner k+1
+                        : ni[kNext];
+                faceIdxList.add(dOrig[k]);
+                faceIdxList.add(dOrig[kNext]);
+                faceIdxList.add(rightInner);
+                faceIdxList.add(leftInner);
+                faceVpfList.add(4);
+                generatedList.add(false);
             }
         }
 
-        HalfEdgeMesh outMesh = HalfEdgeMesh.bulkAllocate(positions, faceIdx, 4);
+        // Central fill faces: one n-sided face per 3+ cage corner.
+        for (Map.Entry<Integer, int[]> e : centralFillPerVertex.entrySet()) {
+            int[] fill = e.getValue();
+            for (int v : fill) faceIdxList.add(v);
+            faceVpfList.add(fill.length);
+            generatedList.add(true);  // part of the inset's generated region
+        }
+
+        int[] faceIdxFlat = new int[faceIdxList.size()];
+        for (int i = 0; i < faceIdxList.size(); i++) faceIdxFlat[i] = faceIdxList.get(i);
+        int[] faceVpfArr = new int[faceVpfList.size()];
+        for (int i = 0; i < faceVpfList.size(); i++) faceVpfArr[i] = faceVpfList.get(i);
+        boolean allQuads = true;
+        for (int v : faceVpfArr) { if (v != 4) { allQuads = false; break; } }
+        HalfEdgeMesh outMesh = allQuads
+                ? HalfEdgeMesh.bulkAllocate(positions, faceIdxFlat, 4)
+                : HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceVpfArr, faceIdxFlat);
         outMesh.computeNormals();
 
+        boolean[] generated = new boolean[generatedList.size()];
+        for (int i = 0; i < generatedList.size(); i++) generated[i] = generatedList.get(i);
         float[][] handles = CoonsHandleBuilder.flushDirectedHandles(outMesh, dh);
         return new InsetResult(outMesh, handles, generated);
     }
@@ -444,6 +486,126 @@ public class CoonsInsetFacesNode implements MeshNode {
             if (m.faceIdAt(i) == fid) return i;
         }
         return -1;
+    }
+
+    /** Corner index within face {@code fid} whose vertex is {@code vid}, or -1. */
+    private static int findCornerAtVertex(MeshTopology m, int fid, int vid) {
+        int fvc = m.faceVertexCount(fid);
+        for (int k = 0; k < fvc; k++) {
+            if (m.faceVertexAt(fid, k) == vid) return k;
+        }
+        return -1;
+    }
+
+    /**
+     * Allocate cyan-dot verts + central-fill corner list for a 3+ cage
+     * vertex where 3 or more selected faces meet pairwise along shared cage
+     * edges. Walks the selected-face fan CCW around the vertex via shared
+     * edges; bails (leaving the corner face-local at all participating faces
+     * via a default fallback) if the fan doesn't form a complete pairwise-
+     * adjacent cycle.
+     */
+    private static void allocate3PlusCorner(MeshTopology in, float[] hStart, float[] hEnd,
+            int denseVid, List<int[]> atV, Set<Integer> sharedEdgeIds,
+            Map<Integer, Integer> oldToDense, float t,
+            ArrayList<Float> extraPos, int[][][] cyanAt3Plus, float[][] innerUV,
+            Map<Integer, int[]> centralFillPerVertex, Set<Long> mergedEndpoint,
+            int[] nextVidBox) {
+
+        int origVid = -1;
+        for (Map.Entry<Integer, Integer> e : oldToDense.entrySet()) {
+            if (e.getValue() == denseVid) { origVid = e.getKey(); break; }
+        }
+        if (origVid < 0) return;
+
+        int n = atV.size();
+        // Walk CCW around v from an arbitrary start face, collecting the fan
+        // of (fi, k_at_v) and the shared edges between consecutive faces.
+        int[] fiOrder = new int[n];
+        int[] kOrder = new int[n];
+        int[] sharedEdgeOrder = new int[n];  // sharedEdgeOrder[i] = shared edge between face i and face (i+1)%n
+        int startFi = atV.get(0)[0];
+        int startK = atV.get(0)[1];
+        fiOrder[0] = startFi;
+        kOrder[0] = startK;
+        int fanLen = 1;
+        int curFi = startFi;
+        int curK = startK;
+        for (int step = 0; step < n; step++) {
+            int curFid = in.faceIdAt(curFi);
+            int fwdEid = in.faceEdgeAt(curFid, curK);
+            if (!sharedEdgeIds.contains(fwdEid)) return;  // bail — fan is not pairwise-shared
+            int he = in.edgeHalfEdge(fwdEid);
+            int twin = in.halfEdgeTwin(he);
+            if (twin < 0) return;
+            int f1 = in.halfEdgeFace(he);
+            int f2 = in.halfEdgeFace(twin);
+            int neighFid = (f1 == curFid) ? f2 : f1;
+            if (neighFid == MeshTopology.NONE) return;
+            int neighFi = faceIndexOfId(in, neighFid);
+            if (neighFi < 0) return;
+            sharedEdgeOrder[step] = fwdEid;
+            if (neighFi == startFi) {
+                // Completed cycle.
+                if (fanLen != n) return;  // fan missed some faces — bail
+                break;
+            }
+            int neighK = findCornerAtVertex(in, neighFid, origVid);
+            if (neighK < 0) return;
+            if (fanLen >= n) return;  // fan walked past its expected length
+            fiOrder[fanLen] = neighFi;
+            kOrder[fanLen] = neighK;
+            fanLen++;
+            curFi = neighFi;
+            curK = neighK;
+        }
+        if (fanLen != n) return;  // didn't complete the cycle cleanly
+
+        // Allocate N cyan dots — one per shared edge in the fan.
+        // cyan[i] sits on sharedEdgeOrder[i], which is the fwd-edge of
+        // fiOrder[i] AND the back-edge of fiOrder[(i+1) % n].
+        int[] cyanVids = new int[n];
+        for (int i = 0; i < n; i++) {
+            int fi = fiOrder[i];
+            int k = kOrder[i];
+            int fid = in.faceIdAt(fi);
+            // cyan sits at s=t along fwd-edge from v, which in this face's
+            // uv-frame is edgePointUV(k, t, fwdEdge=true).
+            float[] uv = edgePointUV(k, t, true);
+            Vector3f pos = evalFaceCoons(in, hStart, hEnd, fid, uv[0], uv[1]);
+            int newVid = nextVidBox[0]++;
+            extraPos.add(pos.x); extraPos.add(pos.y); extraPos.add(pos.z);
+            cyanVids[i] = newVid;
+        }
+
+        // Each face gets (backCyan, fwdCyan) at its corner-at-v: fwd is the
+        // cyan on its fwd edge (sharedEdgeOrder[i]); back is the cyan on its
+        // back edge (sharedEdgeOrder[(i-1+n) % n]).
+        for (int i = 0; i < n; i++) {
+            int fi = fiOrder[i];
+            int k = kOrder[i];
+            int fwdCyan = cyanVids[i];
+            int backCyan = cyanVids[(i - 1 + n) % n];
+            if (cyanAt3Plus[fi] == null) cyanAt3Plus[fi] = new int[4][];
+            cyanAt3Plus[fi][k] = new int[]{backCyan, fwdCyan};
+
+            // Record mergedEndpoint for both this face's v-incident edges so
+            // the side-quad drop logic sees them as merged at this end.
+            int fid = in.faceIdAt(fi);
+            int fwdEid = in.faceEdgeAt(fid, k);
+            int backEid = in.faceEdgeAt(fid, (k + 3) % 4);
+            mergedEndpoint.add(packEdgeVertex(fwdEid, denseVid));
+            mergedEndpoint.add(packEdgeVertex(backEid, denseVid));
+        }
+
+        // Central fill CCW around v — traversed opposite to the face fan so
+        // each shared edge of the fill is traversed in the direction opposite
+        // to its neighbor pentagon's traversal (manifold).
+        int[] fillCCW = new int[n];
+        for (int i = 0; i < n; i++) {
+            fillCCW[i] = cyanVids[n - 1 - i];
+        }
+        centralFillPerVertex.put(denseVid, fillCCW);
     }
 
     /** Pack a (cage edge id, dense vertex id) pair into a long for hashset keys. */

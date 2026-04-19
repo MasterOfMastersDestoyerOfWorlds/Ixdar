@@ -62,10 +62,16 @@ public class AutoTagLhsTest {
 
     @Test
     public void chainedFeaturesAccumulateTags() throws Exception {
+        // Single-face selection keeps the inner face a quad (no 3+ corner
+        // cyan-dot emission, no central fill) so the chained
+        // coons_extrude_mesh's quad selection picks it up. Realistic voyage
+        // workflows select specific cage features, not every face.
         String dsl = String.join("\n",
                 "base = cube(size=1.0)",
                 "cage = assign_bezier_handles(geometry=base.mesh, weight=0.33)",
-                "eyes = coons_inset_faces(geometry=cage.geometry, inset=0.2)",
+                "fidx = input_face_index()",
+                "sel = compare(a=fidx.result, b=0.0, mode=EQUAL)",
+                "eyes = coons_inset_faces(geometry=cage.geometry, selection=sel.value, inset=0.2)",
                 "deeper = coons_extrude_mesh(geometry=eyes.geometry, selection=eyes.generated, offset=-0.1, region=true)",
                 ""
         );
