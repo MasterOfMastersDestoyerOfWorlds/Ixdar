@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.nodes.patch;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +17,8 @@ import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.ArrayMesh;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
@@ -33,7 +36,7 @@ public class CoonsPatchNode implements MeshNode {
 
     @Override
     public String description() {
-        return "Subdivides each quad face into a smooth bilinearly blended Coons patch using cubic Bezier edge boundaries, controlled by a subdivisions parameter.";
+        return "Subdivides each face into a smooth surface patch using cubic bezier edge boundaries. Quad faces use a bilinearly blended Coons patch; 3-sided and 5+-sided faces use a Charrot-Gregory patch (n-sided generalization of the C0 Coons patch). Controlled by a subdivisions parameter.";
     }
 
     @Override
@@ -94,13 +97,14 @@ public class CoonsPatchNode implements MeshNode {
         float[] hStart = slotFloat3(base, AssignBezierHandlesNode.SLOT_HANDLES_START, mesh);
         float[] hEnd = slotFloat3(base, AssignBezierHandlesNode.SLOT_HANDLES_END, mesh);
 
-        int faceCount = mesh.faceCount();
-        int maxVerts = faceCount * (n + 1) * (n + 1);
-        int maxQuads = faceCount * n * n;
-        float[] positions = new float[maxVerts * 3];
-        int[] faceIndices = new int[maxQuads * 4];
-        int vertCount = 0;
-        int quadCount = 0;
+        // Grow-able output buffers. A typical subdivided voyage cage fits in
+        // the default ArrayList capacity; non-quad n-gons produce triangles
+        // rather than quads so the output mesh is mixed-vpf (handled via
+        // HalfEdgeMeshEngine.bulkAllocateMixed).
+        java.util.ArrayList<Float> positionsList = new ArrayList<>();
+        java.util.ArrayList<Integer> faceIndicesList = new ArrayList<>();
+        java.util.ArrayList<Integer> faceVertexCountsList = new ArrayList<>();
+        int[] vertCountBox = new int[]{0};
 
         Vector3f tmp0 = new Vector3f();
         Vector3f tmp1 = new Vector3f();
@@ -127,89 +131,100 @@ public class CoonsPatchNode implements MeshNode {
 
         for (int fi = 0; fi < mesh.faceCount(); fi++) {
             int fid = mesh.faceIdAt(fi);
-            if (mesh.faceVertexCount(fid) != 4) {
-                continue;
-            }
-            int e0 = mesh.faceEdgeAt(fid, 0);
-            int e1 = mesh.faceEdgeAt(fid, 1);
-            int e2 = mesh.faceEdgeAt(fid, 2);
-            int e3 = mesh.faceEdgeAt(fid, 3);
-            int v0 = mesh.faceVertexAt(fid, 0);
-            int v1 = mesh.faceVertexAt(fid, 1);
-            int v3 = mesh.faceVertexAt(fid, 3);
+            int vpf = mesh.faceVertexCount(fid);
+            if (vpf == 4) {
+                // === Quad path: bilinear Coons patch, emitted as n² quads ===
+                int e0 = mesh.faceEdgeAt(fid, 0);
+                int e1 = mesh.faceEdgeAt(fid, 1);
+                int e2 = mesh.faceEdgeAt(fid, 2);
+                int e3 = mesh.faceEdgeAt(fid, 3);
+                int v0 = mesh.faceVertexAt(fid, 0);
+                int v1 = mesh.faceVertexAt(fid, 1);
+                int v3 = mesh.faceVertexAt(fid, 3);
 
-            evalFaceEdge(mesh, hStart, hEnd, e0, v0, 0f, p00, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2,
-                    tmp3);
-            evalFaceEdge(mesh, hStart, hEnd, e0, v0, 1f, p10, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2,
-                    tmp3);
-            evalFaceEdge(mesh, hStart, hEnd, e2, v3, 0f, p01, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2,
-                    tmp3);
-            evalFaceEdge(mesh, hStart, hEnd, e2, v3, 1f, p11, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2,
-                    tmp3);
+                evalFaceEdge(mesh, hStart, hEnd, e0, v0, 0f, p00, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
+                evalFaceEdge(mesh, hStart, hEnd, e0, v0, 1f, p10, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
+                evalFaceEdge(mesh, hStart, hEnd, e2, v3, 0f, p01, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
+                evalFaceEdge(mesh, hStart, hEnd, e2, v3, 1f, p11, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
 
-            int baseIdx = vertCount;
-            float invN = 1f / n;
+                int baseIdx = vertCountBox[0];
+                float invN = 1f / n;
+                for (int j = 0; j <= n; j++) {
+                    float v = j * invN;
+                    float vS = smootherStep(v);
+                    for (int i = 0; i <= n; i++) {
+                        float u = i * invN;
+                        float uS = smootherStep(u);
 
-            for (int j = 0; j <= n; j++) {
-                float v = j * invN;
-                float vS = smootherStep(v);
-                for (int i = 0; i <= n; i++) {
-                    float u = i * invN;
-                    float uS = smootherStep(u);
+                        evalFaceEdge(mesh, hStart, hEnd, e0, v0, u, bottom, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
+                        evalFaceEdge(mesh, hStart, hEnd, e2, v3, u, top, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
+                        evalFaceEdge(mesh, hStart, hEnd, e3, v0, v, left, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
+                        evalFaceEdge(mesh, hStart, hEnd, e1, v1, v, right, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
 
-                    evalFaceEdge(mesh, hStart, hEnd, e0, v0, u, bottom, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0,
-                            tmp1, tmp2, tmp3);
-                    evalFaceEdge(mesh, hStart, hEnd, e2, v3, u, top, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1,
-                            tmp2, tmp3);
-                    evalFaceEdge(mesh, hStart, hEnd, e3, v0, v, left, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0,
-                            tmp1, tmp2, tmp3);
-                    evalFaceEdge(mesh, hStart, hEnd, e1, v1, v, right, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0,
-                            tmp1, tmp2, tmp3);
+                        loftU.set(bottom).lerp(top, vS);
+                        loftV.set(left).lerp(right, uS);
+                        mix1.set(p00).lerp(p10, uS);
+                        mix2.set(p01).lerp(p11, uS);
+                        bilinear.set(mix1).lerp(mix2, vS);
+                        out.set(loftU).add(loftV).sub(bilinear);
 
-                    loftU.set(bottom).lerp(top, vS);
-                    loftV.set(left).lerp(right, uS);
-                    mix1.set(p00).lerp(p10, uS);
-                    mix2.set(p01).lerp(p11, uS);
-                    bilinear.set(mix1).lerp(mix2, vS);
-                    out.set(loftU).add(loftV).sub(bilinear);
-
-                    int po = vertCount * 3;
-                    positions[po] = out.x;
-                    positions[po + 1] = out.y;
-                    positions[po + 2] = out.z;
-                    vertCount++;
+                        positionsList.add(out.x);
+                        positionsList.add(out.y);
+                        positionsList.add(out.z);
+                        vertCountBox[0]++;
+                    }
                 }
-            }
-
-            for (int j = 0; j < n; j++) {
-                for (int i = 0; i < n; i++) {
-                    int i00 = baseIdx + j * (n + 1) + i;
-                    int i10 = i00 + 1;
-                    int i01 = i00 + (n + 1);
-                    int i11 = i01 + 1;
-                    int qo = quadCount * 4;
-                    faceIndices[qo] = i00;
-                    faceIndices[qo + 1] = i10;
-                    faceIndices[qo + 2] = i11;
-                    faceIndices[qo + 3] = i01;
-                    quadCount++;
+                for (int j = 0; j < n; j++) {
+                    for (int i = 0; i < n; i++) {
+                        int i00 = baseIdx + j * (n + 1) + i;
+                        int i10 = i00 + 1;
+                        int i01 = i00 + (n + 1);
+                        int i11 = i01 + 1;
+                        faceIndicesList.add(i00);
+                        faceIndicesList.add(i10);
+                        faceIndicesList.add(i11);
+                        faceIndicesList.add(i01);
+                        faceVertexCountsList.add(4);
+                    }
                 }
+            } else if (vpf >= 3) {
+                // === N-sided path: Charrot-Gregory patch, emitted as N·n tris ===
+                emitGregoryFan(mesh, hStart, hEnd, fid, vpf, n,
+                        positionsList, faceIndicesList, faceVertexCountsList, vertCountBox);
             }
+            // vpf < 3 is malformed; ignore.
         }
 
+        int vertCount = vertCountBox[0];
         if (vertCount == 0) {
             ctx.setOutput("geometry", base);
             return;
         }
 
-        if (vertCount * 3 < positions.length) {
-            positions = Arrays.copyOf(positions, vertCount * 3);
+        float[] positions = new float[positionsList.size()];
+        for (int i = 0; i < positionsList.size(); i++) positions[i] = positionsList.get(i);
+        int[] faceIdxFlat = new int[faceIndicesList.size()];
+        for (int i = 0; i < faceIndicesList.size(); i++) faceIdxFlat[i] = faceIndicesList.get(i);
+        int[] faceVertexCounts = new int[faceVertexCountsList.size()];
+        for (int i = 0; i < faceVertexCountsList.size(); i++) faceVertexCounts[i] = faceVertexCountsList.get(i);
+
+        // If every emitted face is a quad, keep the ArrayMesh output for
+        // bitwise-compatibility with downstream consumers. Mixed output uses
+        // HalfEdgeMesh via bulkAllocateMixed since ArrayMesh requires uniform vpf.
+        MeshTopology outMesh;
+        boolean allQuads = true;
+        for (int c : faceVertexCounts) {
+            if (c != 4) { allQuads = false; break; }
         }
-        if (quadCount * 4 < faceIndices.length) {
-            faceIndices = Arrays.copyOf(faceIndices, quadCount * 4);
+        if (allQuads) {
+            ArrayMesh am = new ArrayMesh(positions, null, faceIdxFlat, 4);
+            am.computeNormals();
+            outMesh = am;
+        } else {
+            HalfEdgeMesh hem = HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceVertexCounts, faceIdxFlat);
+            hem.computeNormals();
+            outMesh = hem;
         }
-        ArrayMesh outMesh = new ArrayMesh(positions, null, faceIndices, 4);
-        outMesh.computeNormals();
 
         HashMap<String, Object> nextSlots = new HashMap<>(base.slots());
         nextSlots.remove(AssignBezierHandlesNode.SLOT_HANDLES_START);
@@ -248,6 +263,142 @@ public class CoonsPatchNode implements MeshNode {
 
     private static float smootherStep(float t) {
         return t * t * t * (t * (t * 6f - 15f) + 10f);
+    }
+
+    /**
+     * Emit a Charrot-Gregory-subdivided n-sided fill patch for {@code fid}.
+     * Produces {@code N} triangles for the centroid fan at each subdivision
+     * ring; with subdivision level {@code n} that's {@code N · n} triangles
+     * and {@code 1 + N · n} vertices per face.
+     *
+     * <p>Sampling pattern:
+     * <ul>
+     *   <li>1 centroid vertex at canonical domain origin.
+     *   <li>N·n boundary-step vertices — {@code n} evenly spaced samples
+     *       along each canonical edge (from its start corner, excluding the
+     *       end corner which belongs to the next edge).
+     *   <li>Fan triangles: {@code (centroid, prev-sample, next-sample)} for
+     *       each adjacent pair of boundary samples, wrapping to sample 0 of
+     *       the next edge after the last sample of the current edge.
+     * </ul>
+     */
+    private static void emitGregoryFan(MeshTopology mesh, float[] hStart, float[] hEnd,
+                                       int fid, int N, int n,
+                                       java.util.ArrayList<Float> positionsList,
+                                       java.util.ArrayList<Integer> faceIndicesList,
+                                       java.util.ArrayList<Integer> faceVertexCountsList,
+                                       int[] vertCountBox) {
+        // Build N boundary bezier curves oriented face-CCW: each curve goes
+        // from face corner k to face corner (k+1) % N.
+        Vector3f[][] curves = new Vector3f[N][];
+        for (int k = 0; k < N; k++) {
+            int eid = mesh.faceEdgeAt(fid, k);
+            int startVid = mesh.faceVertexAt(fid, k);
+            int endVid = mesh.faceVertexAt(fid, (k + 1) % N);
+            curves[k] = extractOrientedBezier(mesh, hStart, hEnd, eid, startVid, endVid);
+        }
+
+        // Canonical n-gon vertices: on the unit circle at angles
+        // (i + 0.5) · 2π/N + π — matches CharrotGregoryPatch.
+        float twoPi = (float) (2.0 * Math.PI);
+        float pi = (float) Math.PI;
+        float[] vertsU = new float[N];
+        float[] vertsV = new float[N];
+        for (int k = 0; k < N; k++) {
+            float theta = (k + 0.5f) * twoPi / N + pi;
+            vertsU[k] = (float) Math.cos(theta);
+            vertsV[k] = (float) Math.sin(theta);
+        }
+
+        int baseIdx = vertCountBox[0];
+        int centroidIdx = baseIdx;
+        Vector3f sampled = new Vector3f();
+
+        // Centroid (domain origin).
+        CharrotGregoryPatch.evaluate(curves, 0f, 0f, sampled);
+        positionsList.add(sampled.x);
+        positionsList.add(sampled.y);
+        positionsList.add(sampled.z);
+        vertCountBox[0]++;
+
+        // N · n boundary-step samples. boundarySampleIdx[k * n + step] holds
+        // the flat position-array index of the sample at edge k, step /n.
+        int[] boundarySampleIdx = new int[N * n];
+        for (int k = 0; k < N; k++) {
+            float uA = vertsU[k];
+            float vA = vertsV[k];
+            float uB = vertsU[(k + 1) % N];
+            float vB = vertsV[(k + 1) % N];
+            for (int step = 0; step < n; step++) {
+                float s = (float) step / (float) n;
+                float u = uA + (uB - uA) * s;
+                float v = vA + (vB - vA) * s;
+                CharrotGregoryPatch.evaluate(curves, u, v, sampled);
+                positionsList.add(sampled.x);
+                positionsList.add(sampled.y);
+                positionsList.add(sampled.z);
+                boundarySampleIdx[k * n + step] = vertCountBox[0];
+                vertCountBox[0]++;
+            }
+        }
+
+        // Emit the fan triangles.
+        for (int k = 0; k < N; k++) {
+            for (int step = 0; step < n - 1; step++) {
+                int a = boundarySampleIdx[k * n + step];
+                int b = boundarySampleIdx[k * n + step + 1];
+                faceIndicesList.add(centroidIdx);
+                faceIndicesList.add(a);
+                faceIndicesList.add(b);
+                faceVertexCountsList.add(3);
+            }
+            // Wrap-around: last sample of edge k → first sample of edge (k+1).
+            int a = boundarySampleIdx[k * n + (n - 1)];
+            int b = boundarySampleIdx[((k + 1) % N) * n + 0];
+            faceIndicesList.add(centroidIdx);
+            faceIndicesList.add(a);
+            faceIndicesList.add(b);
+            faceVertexCountsList.add(3);
+        }
+    }
+
+    /**
+     * Build a cubic bezier curve's 4 control points oriented
+     * {@code startVid → endVid}, using the half-edge's canonical handles.
+     * Returns {P0, P1, P2, P3} where P0 = startVid's position and P3 = endVid's.
+     */
+    private static Vector3f[] extractOrientedBezier(MeshTopology mesh, float[] hStart, float[] hEnd,
+                                                    int eid, int startVid, int endVid) {
+        int he = mesh.edgeHalfEdge(eid);
+        int ca = mesh.halfEdgeVertex(he);
+        int cb = mesh.halfEdgeEndVertex(he);
+        int o = eid * 3;
+        Vector3f p0 = new Vector3f();
+        Vector3f p3 = new Vector3f();
+        mesh.vertexPosition(startVid, p0);
+        mesh.vertexPosition(endVid, p3);
+
+        Vector3f offStart = new Vector3f();
+        Vector3f offEnd = new Vector3f();
+        if (hStart != null && o + 3 <= hStart.length) {
+            offStart.set(hStart[o], hStart[o + 1], hStart[o + 2]);
+        }
+        if (hEnd != null && o + 3 <= hEnd.length) {
+            offEnd.set(hEnd[o], hEnd[o + 1], hEnd[o + 2]);
+        }
+
+        // Canonical handle direction is ca → cb. If we want startVid → endVid
+        // and startVid is cb (reversed), swap the offsets.
+        Vector3f p1 = new Vector3f(p0);
+        Vector3f p2 = new Vector3f(p3);
+        if (startVid == ca) {
+            p1.add(offStart);
+            p2.add(offEnd);
+        } else {
+            p1.add(offEnd);
+            p2.add(offStart);
+        }
+        return new Vector3f[]{p0, p1, p2, p3};
     }
 
     /**

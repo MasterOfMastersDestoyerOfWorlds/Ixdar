@@ -186,6 +186,55 @@ public class HalfEdgeMeshEngine {
     }
 
     /**
+     * Bulk-allocate with mixed polygon sizes. Each face's vertex count is given
+     * by {@code faceVertexCounts[i]}, and {@code faceIndicesFlat} packs all
+     * faces' indices end-to-end (face 0 occupies indices 0..counts[0]-1, etc.).
+     *
+     * <p>Used by the coons_cage pipeline when a single output mesh contains
+     * both quad inner regions and triangular or pentagonal central fills from
+     * 3+ cage-corner merges (MESH-47). The uniform {@link #bulkAllocate}
+     * variant stays the fast path for all-quad / all-tri meshes.
+     */
+    public static HalfEdgeMesh bulkAllocateMixed(float[] positions,
+                                                 int[] faceVertexCounts,
+                                                 int[] faceIndicesFlat) {
+        if (positions.length % HalfEdgeMesh.FLOATS_PER_VERTEX != 0) {
+            throw new IllegalArgumentException("Position data must be XYZ triples");
+        }
+        int totalFaceVerts = 0;
+        for (int c : faceVertexCounts) {
+            if (c < 3) {
+                throw new IllegalArgumentException("Face vertex count must be >= 3, got " + c);
+            }
+            totalFaceVerts += c;
+        }
+        if (totalFaceVerts != faceIndicesFlat.length) {
+            throw new IllegalArgumentException(
+                    "Flat face indices length " + faceIndicesFlat.length
+                            + " does not match sum of face vertex counts " + totalFaceVerts);
+        }
+        int v = positions.length / HalfEdgeMesh.FLOATS_PER_VERTEX;
+        int f = faceVertexCounts.length;
+        int e = totalFaceVerts / 2;
+        int he = totalFaceVerts;
+        int mapCap = he + 16;
+        HalfEdgeMesh mesh = new HalfEdgeMesh(v, e, f, he, mapCap);
+        for (int i = 0; i < v; i++) {
+            int o = i * HalfEdgeMesh.FLOATS_PER_VERTEX;
+            mesh.createVertexSlot(positions[o], positions[o + 1], positions[o + 2]);
+        }
+        int cursor = 0;
+        for (int fi = 0; fi < f; fi++) {
+            int count = faceVertexCounts[fi];
+            int[] face = new int[count];
+            System.arraycopy(faceIndicesFlat, cursor, face, 0, count);
+            addFaceInternal(mesh, face, false);
+            cursor += count;
+        }
+        return mesh;
+    }
+
+    /**
      * One level of linear quad subdivision (edge midpoints + face centroids).
      * Matches ArrayMeshEngine.subdivideQuadsOnce for uniform quad meshes.
      */
