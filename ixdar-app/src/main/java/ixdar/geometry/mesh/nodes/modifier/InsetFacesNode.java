@@ -21,6 +21,7 @@ import ixdar.geometry.mesh.data.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
@@ -232,22 +233,30 @@ public class InsetFacesNode implements MeshNode {
             }
         }
 
-        // Only merge shared edges where BOTH endpoints are 2-face corners.
-        // Partial merges (one endpoint 2-face, the other 3+) caused manifold
-        // violations downstream: the side quad kept on the 3+ end had the
-        // merged vert on one side and the face-local vert on the other, while
-        // its neighbor's inner quad ran along the merged edge — leaving two
-        // output faces claiming the same directed half-edge.
+        // Dry-run the 3+ fan walks first to determine which 3+ corners will
+        // successfully allocate cyan dots (complete pairwise-shared cycle
+        // around the vertex). 2-face merges are then restricted to shared
+        // edges where BOTH endpoints are allocated (n==2 corner OR succeeded
+        // 3+ fan); this prevents partial merges (one end merged, the other
+        // kept face-local on a failed 3+ fan) from producing duplicate-edge
+        // non-manifold output.
+        Set<Integer> succeeded3PlusVids = new HashSet<>();
+        for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
+            if (entry.getValue().size() >= 3
+                    && fanCompletes(topology, entry.getKey(), entry.getValue(), sharedEdgeIds)) {
+                succeeded3PlusVids.add(entry.getKey());
+            }
+        }
         Set<Integer> fullyMergeableEdges = new HashSet<>();
         for (int eid : sharedEdgeIds) {
             int he = topology.edgeHalfEdge(eid);
             int va = topology.halfEdgeVertex(he);
             int vb = topology.halfEdgeEndVertex(he);
-            List<int[]> atA = facesAtVertex.get(va);
-            List<int[]> atB = facesAtVertex.get(vb);
-            if (atA != null && atA.size() == 2 && atB != null && atB.size() == 2) {
-                fullyMergeableEdges.add(eid);
-            }
+            boolean aOk = succeeded3PlusVids.contains(va)
+                    || (facesAtVertex.get(va) != null && facesAtVertex.get(va).size() == 2);
+            boolean bOk = succeeded3PlusVids.contains(vb)
+                    || (facesAtVertex.get(vb) != null && facesAtVertex.get(vb).size() == 2);
+            if (aOk && bOk) fullyMergeableEdges.add(eid);
         }
 
         int[][] innerVerts = new int[faceCount][];
@@ -255,10 +264,19 @@ public class InsetFacesNode implements MeshNode {
             if (selected[fi]) innerVerts[fi] = new int[4];
         }
 
-        // New inner-vert positions; we don't know the final count ahead of time
-        // because merges reduce it below the 4*selectedCount upper bound.
+        // Per (face, corner): two cyan dots that replace the single face-local
+        // inner vert when the corner sits at a 3+ cage vertex (MESH-48).
+        int[][][] cyanAt3Plus = new int[faceCount][][];
+
+        // Central n-sided fill face per 3+ cage vertex — list of cyan dot
+        // dense vids in CCW order around the vertex (opposite of the face fan
+        // direction for manifold correctness).
+        Map<Integer, int[]> centralFillPerVertex = new HashMap<>();
+
+        // New inner-vert positions; growable because merges + 3+ corner cyan
+        // dots change the final count from the naive 4*selectedCount.
         ArrayList<Float> extraPos = new ArrayList<>();
-        int nextVid = vertCount;
+        int[] nextVidBox = {vertCount};
         Set<Long> mergedEndpoint = new HashSet<>();
 
         // Per-face centroid cache — for face-local lerp at 1-face and 3+ corners.
@@ -282,6 +300,19 @@ public class InsetFacesNode implements MeshNode {
             int denseVid = entry.getKey();
             List<int[]> atV = entry.getValue();
             int n = atV.size();
+
+            if (n >= 3) {
+                // 3+ corner emission — N cyan dots around the vertex on each
+                // shared cage edge, plus a central n-sided fill. Flat-lerp
+                // positions (straight line along the shared cage edge).
+                boolean ok = allocate3PlusCornerFlat(topology, denseVid, atV,
+                        sharedEdgeIds, srcPos, t, extraPos,
+                        cyanAt3Plus, centralFillPerVertex, mergedEndpoint, nextVidBox);
+                if (ok) continue;
+                // Fall through to face-local if the fan didn't form a clean
+                // cycle (non-manifold-ish configuration).
+            }
+
             boolean merged = false;
 
             if (n == 2) {
@@ -306,8 +337,6 @@ public class InsetFacesNode implements MeshNode {
                 }
 
                 if (sharedEid >= 0) {
-                    // Merged position: lerp from this corner toward the other
-                    // endpoint of the shared cage edge by fraction t.
                     int heS = topology.edgeHalfEdge(sharedEid);
                     int va = topology.halfEdgeVertex(heS);
                     int vb = topology.halfEdgeEndVertex(heS);
@@ -318,7 +347,7 @@ public class InsetFacesNode implements MeshNode {
                             + (srcPos[otherVid * 3 + 1] - srcPos[denseVid * 3 + 1]) * t;
                     float pz = srcPos[denseVid * 3 + 2]
                             + (srcPos[otherVid * 3 + 2] - srcPos[denseVid * 3 + 2]) * t;
-                    int newVid = nextVid++;
+                    int newVid = nextVidBox[0]++;
                     extraPos.add(px); extraPos.add(py); extraPos.add(pz);
                     innerVerts[fiA][kA] = newVid;
                     innerVerts[fiB][kB] = newVid;
@@ -328,7 +357,6 @@ public class InsetFacesNode implements MeshNode {
             }
 
             if (!merged) {
-                // Face-local: lerp corner toward face centroid by t.
                 for (int[] pair : atV) {
                     int fi = pair[0], k = pair[1];
                     float ox = srcPos[denseVid * 3];
@@ -337,7 +365,7 @@ public class InsetFacesNode implements MeshNode {
                     float cx = centroids[fi * 3];
                     float cy = centroids[fi * 3 + 1];
                     float cz = centroids[fi * 3 + 2];
-                    int newVid = nextVid++;
+                    int newVid = nextVidBox[0]++;
                     extraPos.add(ox + (cx - ox) * t);
                     extraPos.add(oy + (cy - oy) * t);
                     extraPos.add(oz + (cz - oz) * t);
@@ -346,7 +374,9 @@ public class InsetFacesNode implements MeshNode {
             }
         }
 
-        // Shared cage edges with BOTH endpoints merged → drop their 2 side quads.
+        // Shared cage edges with BOTH endpoints merged (2-face merge OR 3+
+        // cyan dot) → drop their 2 side quads. Inner polygons become
+        // edge-adjacent through the shared endpoint verts.
         Set<Integer> droppedSharedEdges = new HashSet<>();
         for (int eid : sharedEdgeIds) {
             int he = topology.edgeHalfEdge(eid);
@@ -357,64 +387,241 @@ public class InsetFacesNode implements MeshNode {
                 droppedSharedEdges.add(eid);
             }
         }
-        int droppedSideQuads = 2 * droppedSharedEdges.size();
 
-        int selectedCount = 0;
-        for (boolean s : selected) if (s) selectedCount++;
         int outV = vertCount + extraPos.size() / 3;
-        int outF = faceCount + selectedCount * 4 - droppedSideQuads;
         float[] outPos = new float[outV * 3];
-        int[] outFaces = new int[outF * 4];
-
         System.arraycopy(srcPos, 0, outPos, 0, vertCount * 3);
         for (int i = 0; i < extraPos.size(); i++) {
             outPos[vertCount * 3 + i] = extraPos.get(i);
         }
 
-        // Replace each selected face's slot with its inner quad; keep unselected
-        // face slots as pass-through.
-        int fWrite = 0;
+        // Variable-vpf output. Inner polygons may be pentagons / hexagons /
+        // octagons when one or more corners are 3+, and per-3+-corner central
+        // fill faces are n-sided.
+        ArrayList<Integer> faceIdxList = new ArrayList<>();
+        ArrayList<Integer> faceVpfList = new ArrayList<>();
+
         for (int fi = 0; fi < faceCount; fi++) {
-            int fo = fWrite * 4;
             if (selected[fi]) {
                 int[] iv = innerVerts[fi];
-                outFaces[fo] = iv[0];
-                outFaces[fo + 1] = iv[1];
-                outFaces[fo + 2] = iv[2];
-                outFaces[fo + 3] = iv[3];
+                int[][] cyanPerCorner = cyanAt3Plus[fi];
+                int innerStart = faceIdxList.size();
+                for (int k = 0; k < 4; k++) {
+                    if (cyanPerCorner != null && cyanPerCorner[k] != null) {
+                        faceIdxList.add(cyanPerCorner[k][0]);
+                        faceIdxList.add(cyanPerCorner[k][1]);
+                    } else {
+                        faceIdxList.add(iv[k]);
+                    }
+                }
+                faceVpfList.add(faceIdxList.size() - innerStart);
             } else {
                 int fb = fi * 4;
-                outFaces[fo] = srcFaces[fb];
-                outFaces[fo + 1] = srcFaces[fb + 1];
-                outFaces[fo + 2] = srcFaces[fb + 2];
-                outFaces[fo + 3] = srcFaces[fb + 3];
+                faceIdxList.add(srcFaces[fb]);
+                faceIdxList.add(srcFaces[fb + 1]);
+                faceIdxList.add(srcFaces[fb + 2]);
+                faceIdxList.add(srcFaces[fb + 3]);
+                faceVpfList.add(4);
             }
-            fWrite++;
         }
 
-        // Side quads: one per cage edge of each selected face, skipping shared
-        // edges where both endpoints merged (inner quads are now edge-adjacent).
+        // Side quads: one per non-dropped cage edge of each selected face.
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
             int fid = topology.faceIdAt(fi);
             int[] iv = innerVerts[fi];
+            int[][] cyanPerCorner = cyanAt3Plus[fi];
             int fb = fi * 4;
             for (int k = 0; k < 4; k++) {
                 int eid = topology.faceEdgeAt(fid, k);
                 if (droppedSharedEdges.contains(eid)) continue;
-                int next = (k + 1) & 3;
-                int fo = fWrite * 4;
-                outFaces[fo] = srcFaces[fb + k];
-                outFaces[fo + 1] = srcFaces[fb + next];
-                outFaces[fo + 2] = iv[next];
-                outFaces[fo + 3] = iv[k];
-                fWrite++;
+                int kNext = (k + 1) & 3;
+                int leftInner = (cyanPerCorner != null && cyanPerCorner[k] != null)
+                        ? cyanPerCorner[k][1]  // fwd-cyan at corner k
+                        : iv[k];
+                int rightInner = (cyanPerCorner != null && cyanPerCorner[kNext] != null)
+                        ? cyanPerCorner[kNext][0]  // back-cyan at corner k+1
+                        : iv[kNext];
+                faceIdxList.add(srcFaces[fb + k]);
+                faceIdxList.add(srcFaces[fb + kNext]);
+                faceIdxList.add(rightInner);
+                faceIdxList.add(leftInner);
+                faceVpfList.add(4);
             }
         }
 
-        ArrayMesh out = new ArrayMesh(outPos, null, outFaces, 4);
+        // Central fill faces: one n-sided face per 3+ cage corner.
+        for (Map.Entry<Integer, int[]> e : centralFillPerVertex.entrySet()) {
+            int[] fill = e.getValue();
+            for (int v : fill) faceIdxList.add(v);
+            faceVpfList.add(fill.length);
+        }
+
+        int[] faceIdxFlat = new int[faceIdxList.size()];
+        for (int i = 0; i < faceIdxList.size(); i++) faceIdxFlat[i] = faceIdxList.get(i);
+        int[] faceVpfArr = new int[faceVpfList.size()];
+        for (int i = 0; i < faceVpfList.size(); i++) faceVpfArr[i] = faceVpfList.get(i);
+        boolean allQuads = true;
+        for (int v : faceVpfArr) { if (v != 4) { allQuads = false; break; } }
+        if (allQuads) {
+            ArrayMesh out = new ArrayMesh(outPos, null, faceIdxFlat, 4);
+            out.computeNormals();
+            return out;
+        }
+        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(outPos, faceVpfArr, faceIdxFlat);
         out.computeNormals();
         return out;
+    }
+
+    /**
+     * Dry-run equivalent of the fan walk in {@link #allocate3PlusCornerFlat}.
+     * Returns whether the selected-face fan around {@code denseVid} would
+     * form a complete pairwise-shared-edge cycle, without allocating any
+     * cyan-dot verts. Used in a pre-pass so that 2-face merges can avoid
+     * partial-merge non-manifold configurations at shared edges adjacent to
+     * failed 3+ corners.
+     */
+    private static boolean fanCompletes(MeshTopology topology, int denseVid,
+                                        List<int[]> atV, Set<Integer> sharedEdgeIds) {
+        int n = atV.size();
+        int startFi = atV.get(0)[0];
+        int startK = atV.get(0)[1];
+        int curFi = startFi;
+        int curK = startK;
+        int fanLen = 1;
+        for (int step = 0; step < n; step++) {
+            int curFid = topology.faceIdAt(curFi);
+            int fwdEid = topology.faceEdgeAt(curFid, curK);
+            if (!sharedEdgeIds.contains(fwdEid)) return false;
+            int he = topology.edgeHalfEdge(fwdEid);
+            int twin = topology.halfEdgeTwin(he);
+            if (twin < 0) return false;
+            int f1 = topology.halfEdgeFace(he);
+            int f2 = topology.halfEdgeFace(twin);
+            int neighFid = (f1 == curFid) ? f2 : f1;
+            if (neighFid == MeshTopology.NONE) return false;
+            int neighFi = faceIndexOfId(topology, neighFid);
+            if (neighFi < 0) return false;
+            if (neighFi == startFi) return fanLen == n;
+            int neighK = -1;
+            int nfvc = topology.faceVertexCount(neighFid);
+            for (int k = 0; k < nfvc; k++) {
+                if (topology.faceVertexAt(neighFid, k) == denseVid) {
+                    neighK = k;
+                    break;
+                }
+            }
+            if (neighK < 0) return false;
+            if (fanLen >= n) return false;
+            fanLen++;
+            curFi = neighFi;
+            curK = neighK;
+        }
+        return fanLen == n;
+    }
+
+    /**
+     * 3+ corner allocation for plain inset_faces (flat-lerp). Mirror of the
+     * Coons variant in CoonsInsetFacesNode — walks the selected-face fan
+     * around the vertex via shared edges and emits N cyan dots on the shared
+     * cage edges + central fill face. Returns false if the fan doesn't form
+     * a complete pairwise-adjacent cycle (caller falls back to face-local).
+     */
+    private static boolean allocate3PlusCornerFlat(MeshTopology topology,
+            int denseVid, List<int[]> atV, Set<Integer> sharedEdgeIds,
+            float[] srcPos, float t, ArrayList<Float> extraPos,
+            int[][][] cyanAt3Plus, Map<Integer, int[]> centralFillPerVertex,
+            Set<Long> mergedEndpoint, int[] nextVidBox) {
+
+        int n = atV.size();
+        int[] fiOrder = new int[n];
+        int[] kOrder = new int[n];
+        int[] sharedEdgeOrder = new int[n];
+        int startFi = atV.get(0)[0];
+        int startK = atV.get(0)[1];
+        fiOrder[0] = startFi;
+        kOrder[0] = startK;
+        int fanLen = 1;
+        int curFi = startFi;
+        int curK = startK;
+        for (int step = 0; step < n; step++) {
+            int curFid = topology.faceIdAt(curFi);
+            int fwdEid = topology.faceEdgeAt(curFid, curK);
+            if (!sharedEdgeIds.contains(fwdEid)) return false;
+            int he = topology.edgeHalfEdge(fwdEid);
+            int twin = topology.halfEdgeTwin(he);
+            if (twin < 0) return false;
+            int f1 = topology.halfEdgeFace(he);
+            int f2 = topology.halfEdgeFace(twin);
+            int neighFid = (f1 == curFid) ? f2 : f1;
+            if (neighFid == MeshTopology.NONE) return false;
+            int neighFi = faceIndexOfId(topology, neighFid);
+            if (neighFi < 0) return false;
+            sharedEdgeOrder[step] = fwdEid;
+            if (neighFi == startFi) {
+                if (fanLen != n) return false;
+                break;
+            }
+            // Find the corner of neighFi that sits at denseVid.
+            int neighK = -1;
+            int nfvc = topology.faceVertexCount(neighFid);
+            for (int k = 0; k < nfvc; k++) {
+                if (topology.faceVertexAt(neighFid, k) == denseVid) {
+                    neighK = k;
+                    break;
+                }
+            }
+            if (neighK < 0) return false;
+            if (fanLen >= n) return false;
+            fiOrder[fanLen] = neighFi;
+            kOrder[fanLen] = neighK;
+            fanLen++;
+            curFi = neighFi;
+            curK = neighK;
+        }
+        if (fanLen != n) return false;
+
+        // Allocate N cyan dots — straight-line lerp along each shared edge
+        // at fraction t from the 3+ corner toward the other endpoint.
+        int[] cyanVids = new int[n];
+        for (int i = 0; i < n; i++) {
+            int eid = sharedEdgeOrder[i];
+            int he = topology.edgeHalfEdge(eid);
+            int va = topology.halfEdgeVertex(he);
+            int vb = topology.halfEdgeEndVertex(he);
+            int otherVid = (va == denseVid) ? vb : va;
+            float px = srcPos[denseVid * 3] + (srcPos[otherVid * 3] - srcPos[denseVid * 3]) * t;
+            float py = srcPos[denseVid * 3 + 1] + (srcPos[otherVid * 3 + 1] - srcPos[denseVid * 3 + 1]) * t;
+            float pz = srcPos[denseVid * 3 + 2] + (srcPos[otherVid * 3 + 2] - srcPos[denseVid * 3 + 2]) * t;
+            int newVid = nextVidBox[0]++;
+            extraPos.add(px); extraPos.add(py); extraPos.add(pz);
+            cyanVids[i] = newVid;
+        }
+
+        // Attach (backCyan, fwdCyan) to each face's corner-at-v. fwd = cyan
+        // on its fwd edge (sharedEdgeOrder[i]); back = cyan on its back edge
+        // (sharedEdgeOrder[(i-1+n) % n]).
+        for (int i = 0; i < n; i++) {
+            int fi = fiOrder[i];
+            int k = kOrder[i];
+            int fwdCyan = cyanVids[i];
+            int backCyan = cyanVids[(i - 1 + n) % n];
+            if (cyanAt3Plus[fi] == null) cyanAt3Plus[fi] = new int[4][];
+            cyanAt3Plus[fi][k] = new int[]{backCyan, fwdCyan};
+
+            int fid = topology.faceIdAt(fi);
+            int fwdEid = topology.faceEdgeAt(fid, k);
+            int backEid = topology.faceEdgeAt(fid, (k + 3) % 4);
+            mergedEndpoint.add(packEdgeVertex(fwdEid, denseVid));
+            mergedEndpoint.add(packEdgeVertex(backEid, denseVid));
+        }
+
+        // Central fill CCW — traversed opposite of the face fan so each edge
+        // opposes its neighbor pentagon's traversal (manifold).
+        int[] fillCCW = new int[n];
+        for (int i = 0; i < n; i++) fillCCW[i] = cyanVids[n - 1 - i];
+        centralFillPerVertex.put(denseVid, fillCCW);
+        return true;
     }
 
     /** Linear lookup of a face's sequence index by its face id. */

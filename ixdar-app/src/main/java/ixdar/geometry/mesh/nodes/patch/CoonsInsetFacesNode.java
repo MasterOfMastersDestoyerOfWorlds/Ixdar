@@ -187,6 +187,34 @@ public class CoonsInsetFacesNode implements MeshNode {
             }
         }
 
+        // Dry-run the 3+ fan walks first to determine which 3+ corners will
+        // successfully allocate cyan dots. 2-face merges restrict to shared
+        // edges where BOTH endpoints are allocated (n==2 OR succeeded 3+ fan);
+        // prevents partial-merge non-manifold output on inputs where some
+        // 3+ fans don't close (e.g. hand.dsl palm with mixed top/right digit
+        // selection).
+        Set<Integer> succeeded3PlusVids = new HashSet<>();
+        for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
+            if (entry.getValue().size() >= 3
+                    && fanCompletes(in, entry.getKey(), entry.getValue(), sharedEdgeIds, oldToDense)) {
+                succeeded3PlusVids.add(entry.getKey());
+            }
+        }
+        Set<Integer> fullyMergeableEdges = new HashSet<>();
+        for (int eid : sharedEdgeIds) {
+            int he = in.edgeHalfEdge(eid);
+            int va = in.halfEdgeVertex(he);
+            int vb = in.halfEdgeEndVertex(he);
+            Integer denseA = oldToDense.get(va);
+            Integer denseB = oldToDense.get(vb);
+            if (denseA == null || denseB == null) continue;
+            List<int[]> atA = facesAtVertex.get(denseA);
+            List<int[]> atB = facesAtVertex.get(denseB);
+            boolean aOk = succeeded3PlusVids.contains(denseA) || (atA != null && atA.size() == 2);
+            boolean bOk = succeeded3PlusVids.contains(denseB) || (atB != null && atB.size() == 2);
+            if (aOk && bOk) fullyMergeableEdges.add(eid);
+        }
+
         ArrayList<Float> extraPos = new ArrayList<>(selectedCount * 4 * 3);
         int[][] innerVids = new int[origFaceCount][];
         float[][] innerUV = new float[origFaceCount][];  // per face: [u0,v0, u1,v1, u2,v2, u3,v3]
@@ -260,7 +288,7 @@ public class CoonsInsetFacesNode implements MeshNode {
                 for (int pass = 0; pass < 2 && sharedEid < 0; pass++) {
                     boolean fwd = (pass == 0);
                     int candA = fwd ? eAfwd : eAback;
-                    if (!sharedEdgeIds.contains(candA)) continue;
+                    if (!fullyMergeableEdges.contains(candA)) continue;
                     if (candA == eBfwd || candA == eBback) {
                         sharedEid = candA;
                         fwdFromA = fwd;
@@ -495,6 +523,51 @@ public class CoonsInsetFacesNode implements MeshNode {
             if (m.faceVertexAt(fid, k) == vid) return k;
         }
         return -1;
+    }
+
+    /**
+     * Dry-run equivalent of the fan walk below. Returns whether the fan
+     * would close on the starting face without actually allocating cyan
+     * dots. Used to determine which 3+ corners will successfully allocate
+     * before doing the 2-face merge pass — so partial-merge non-manifold
+     * output is avoided at shared edges adjacent to failed 3+ corners.
+     */
+    private static boolean fanCompletes(MeshTopology in, int denseVid,
+                                        List<int[]> atV, Set<Integer> sharedEdgeIds,
+                                        Map<Integer, Integer> oldToDense) {
+        int origVid = -1;
+        for (Map.Entry<Integer, Integer> e : oldToDense.entrySet()) {
+            if (e.getValue() == denseVid) { origVid = e.getKey(); break; }
+        }
+        if (origVid < 0) return false;
+        int n = atV.size();
+        int startFi = atV.get(0)[0];
+        int startK = atV.get(0)[1];
+        int curFi = startFi;
+        int curK = startK;
+        int fanLen = 1;
+        for (int step = 0; step < n; step++) {
+            int curFid = in.faceIdAt(curFi);
+            int fwdEid = in.faceEdgeAt(curFid, curK);
+            if (!sharedEdgeIds.contains(fwdEid)) return false;
+            int he = in.edgeHalfEdge(fwdEid);
+            int twin = in.halfEdgeTwin(he);
+            if (twin < 0) return false;
+            int f1 = in.halfEdgeFace(he);
+            int f2 = in.halfEdgeFace(twin);
+            int neighFid = (f1 == curFid) ? f2 : f1;
+            if (neighFid == MeshTopology.NONE) return false;
+            int neighFi = faceIndexOfId(in, neighFid);
+            if (neighFi < 0) return false;
+            if (neighFi == startFi) return fanLen == n;
+            int neighK = findCornerAtVertex(in, neighFid, origVid);
+            if (neighK < 0) return false;
+            if (fanLen >= n) return false;
+            fanLen++;
+            curFi = neighFi;
+            curK = neighK;
+        }
+        return fanLen == n;
     }
 
     /**
