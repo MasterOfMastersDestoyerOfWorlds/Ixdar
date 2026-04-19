@@ -23,7 +23,7 @@ public class MeshToCurveNode implements MeshNode {
 
     private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort SOURCE = new InputPort("source", PortType.STRING, "ALL_EDGES");
-    private static final OutputPort CURVE = new OutputPort("curve", PortType.GEOMETRY_BUNDLE);
+    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -33,9 +33,9 @@ public class MeshToCurveNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "geometry", "Input mesh to extract curves from.",
-                "source", "Extraction mode: ALL_EDGES (every mesh edge as a 2-point segment) or BOUNDARY (ordered polyline around each open boundary).",
-                "curve", "Extracted curve geometry bundle."
+                // Shared input+output key — input is the source mesh, output is the extracted curve bundle.
+                "geometry", "Input: source mesh to extract curves from. Output: extracted curve geometry bundle (polylines).",
+                "source", "Extraction mode: ALL_EDGES (every mesh edge as a 2-point segment) or BOUNDARY (ordered polyline around each open boundary)."
         );
     }
 
@@ -46,19 +46,19 @@ public class MeshToCurveNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(CURVE);
+        return List.of(GEOMETRY_OUT);
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput("geometry", Object.class));
         if (gb == null) {
-            ctx.setOutput("curve", GeometryBundle.empty());
+            ctx.setOutput("geometry",GeometryBundle.empty());
             return;
         }
         MeshTopology mesh = gb.mesh();
         if (mesh == null || mesh.edgeCount() == 0) {
-            ctx.setOutput("curve", gb.withSlot("_curve", CurveGeometry.singlePolyline(new float[0])));
+            ctx.setOutput("geometry",gb.withSlot("_curve", CurveGeometry.singlePolyline(new float[0])));
             return;
         }
 
@@ -69,7 +69,7 @@ public class MeshToCurveNode implements MeshNode {
         if ("BOUNDARY".equalsIgnoreCase(source.trim())) {
             CurveGeometry boundary = boundaryPolyline(mesh);
             if (boundary != null && boundary.pointCount() >= 2) {
-                ctx.setOutput("curve", gb.withSlot("_curve", boundary));
+                ctx.setOutput("geometry",gb.withSlot("_curve", boundary));
                 return;
             }
         }
@@ -101,7 +101,7 @@ public class MeshToCurveNode implements MeshNode {
             off[i] = 2 * i;
         }
         CurveGeometry curve = new CurveGeometry(pos, off);
-        ctx.setOutput("curve", gb.withSlot("_curve", curve));
+        ctx.setOutput("geometry",gb.withSlot("_curve", curve));
     }
 
     /**

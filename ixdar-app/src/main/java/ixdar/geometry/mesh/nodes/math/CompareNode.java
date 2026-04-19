@@ -40,7 +40,7 @@ public class CompareNode implements MeshNode {
     private static final InputPort B = new InputPort("b", PortType.FLOAT, 0.0f, -1000f, 1000f);
     private static final InputPort EPSILON = new InputPort("epsilon", PortType.FLOAT, 1e-6f, 1e-8f, 1f);
     private static final InputPort MODE = new InputPort("mode", PortType.STRING, "EQUAL", MODE_CONSTRAINT);
-    private static final OutputPort RESULT = new OutputPort("result", PortType.BOOLEAN);
+    private static final OutputPort VALUE = new OutputPort("value", PortType.BOOLEAN);
 
     @Override
     public String description() {
@@ -54,7 +54,7 @@ public class CompareNode implements MeshNode {
                 "b", "Right operand.",
                 "epsilon", "Tolerance for EQUAL mode. EQUAL is |a - b| < epsilon; LESS/GREATER are strict when epsilon=0, otherwise include a tolerance band.",
                 "mode", "Comparison: EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL, NOT_EQUAL.",
-                "result", "Per-element BOOLEAN."
+                "value", "Per-element BOOLEAN."
         );
     }
 
@@ -65,7 +65,7 @@ public class CompareNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(RESULT);
+        return List.of(VALUE);
     }
 
     @Override
@@ -88,14 +88,14 @@ public class CompareNode implements MeshNode {
                 float epsilon = Math.abs(FieldBroadcast.floatAt(eo, i, 1e-6f));
                 out[i] = evalMode(mode, a, b, epsilon);
             }
-            ctx.setOutput("result", new BoolField(out));
+            ctx.setOutput("value",new BoolField(out));
             return;
         }
 
         float a = FieldBroadcast.floatScalarOrDefault(ao, 0f);
         float b = FieldBroadcast.floatScalarOrDefault(bo, 0f);
         float epsilon = Math.abs(FieldBroadcast.floatScalarOrDefault(eo, 1e-6f));
-        ctx.setOutput("result", evalMode(mode, a, b, epsilon));
+        ctx.setOutput("value",evalMode(mode, a, b, epsilon));
     }
 
     private static boolean evalMode(Mode mode, float a, float b, float epsilon) {

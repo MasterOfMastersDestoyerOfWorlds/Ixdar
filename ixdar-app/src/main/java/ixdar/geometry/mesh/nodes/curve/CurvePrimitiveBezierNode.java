@@ -38,7 +38,7 @@ public class CurvePrimitiveBezierNode implements MeshNode {
     private static final InputPort END = new InputPort("end", PortType.VECTOR3, DEFAULT_END);
     private static final InputPort MODE = new InputPort("mode", PortType.STRING, "CUBIC",
             new ModeConstraint("CUBIC", List.of("CUBIC", "QUADRATIC"), Map.of()));
-    private static final OutputPort CURVE = new OutputPort("curve", PortType.GEOMETRY_BUNDLE);
+    private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -54,7 +54,7 @@ public class CurvePrimitiveBezierNode implements MeshNode {
                 "handle_end", "Second control handle. For CUBIC, this is the end's incoming tangent endpoint. Ignored for QUADRATIC.",
                 "end", "Curve end point.",
                 "mode", "CUBIC (4 control points: start, handle_start, handle_end, end) or QUADRATIC (3 control points: start, handle_start, end).",
-                "curve", "Bezier polyline as a geometry bundle."
+                "geometry", "Bezier polyline as a geometry bundle."
         );
     }
 
@@ -65,7 +65,7 @@ public class CurvePrimitiveBezierNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(CURVE);
+        return List.of(GEOMETRY);
     }
 
     @Override
@@ -122,6 +122,6 @@ public class CurvePrimitiveBezierNode implements MeshNode {
         }
 
         CurveGeometry curve = CurveGeometry.singlePolyline(positions);
-        ctx.setOutput("curve", GeometryBundle.empty().withSlot("_curve", curve));
+        ctx.setOutput("geometry", GeometryBundle.empty().withSlot("_curve", curve));
     }
 }

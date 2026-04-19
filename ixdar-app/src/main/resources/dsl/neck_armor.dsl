@@ -7,7 +7,7 @@
 # → set_position Z offset from float_curve on Y
 # Ixdar circle is in XZ, so equivalent rotX = π/2 - 0.156 = 1.4148
 rail_a_circle = circle_curve(radius=0.13, resolution=73)
-rail_a_xf = transform_geometry(geometry=rail_a_circle.curve, translation=<0.0, 0.0, 0.37>, rotation=<1.4148, 0.0, 0.0>, scale=<1.26, 1.0, 1.0>)
+rail_a_xf = transform_geometry(geometry=rail_a_circle.geometry, translation=<0.0, 0.0, 0.37>, rotation=<1.4148, 0.0, 0.0>, scale=<1.26, 1.0, 1.0>)
 rail_a_fc = float_curve(points="0,0,0.645,0.058,1,0")
 rail_a = curve_deform(curve=rail_a_xf.geometry, closure=rail_a_fc.closure, source_axis=Y, target_axis=Z, from_min=-0.14, from_max=0.14)
 
@@ -15,7 +15,7 @@ rail_a = curve_deform(curve=rail_a_xf.geometry, closure=rail_a_fc.closure, sourc
 # Blender: circle r=0.08 in XY → rotZ=π/2 → translate(0,-0.02,0.48) rotX=0.407
 # Equivalent rotX = π/2 - 0.407 = 1.1638
 rail_b_circle = circle_curve(radius=0.08, resolution=73)
-rail_b = transform_geometry(geometry=rail_b_circle.curve, translation=<0.0, -0.02, 0.48>, rotation=<1.1638, 0.0, 0.0>)
+rail_b = transform_geometry(geometry=rail_b_circle.geometry, translation=<0.0, -0.02, 0.48>, rotation=<1.1638, 0.0, 0.0>)
 
 # ── Centre profile ───────────────────────────────────────────────────
 # Two quadratic Béziers joined at shared point (0, -0.09, 0.42), then rotate Y=π/2
@@ -23,8 +23,8 @@ rail_b = transform_geometry(geometry=rail_b_circle.curve, translation=<0.0, -0.0
 # Bézier B: (0,-0.09,0.42) → mid(0,-0.08,0.44) → (0,-0.09,0.45)
 cp_a = curve_bezier(resolution=40, start=<0.0, -0.14, 0.35>, handle_start=<0.0, -0.10, 0.395>, end=<0.0, -0.09, 0.42>, mode=QUADRATIC)
 cp_b = curve_bezier(resolution=40, start=<0.0, -0.09, 0.42>, handle_start=<0.0, -0.08, 0.44>, end=<0.0, -0.09, 0.45>, mode=QUADRATIC)
-cp_joined = join_curves(curve_a=cp_a.curve, curve_b=cp_b.curve)
-centre_profile = transform_geometry(geometry=cp_joined.curve, rotation=<0.0, 1.5708, 0.0>)
+cp_joined = join_curves(curve_a=cp_a.geometry, curve_b=cp_b.geometry)
+centre_profile = transform_geometry(geometry=cp_joined.geometry, rotation=<0.0, 1.5708, 0.0>)
 
 # ── Side profile ─────────────────────────────────────────────────────
 # Two quadratic Béziers joined at shared point (-0.085, 0, 0.47), then rotate X=1.5446
@@ -32,8 +32,8 @@ centre_profile = transform_geometry(geometry=cp_joined.curve, rotation=<0.0, 1.5
 # Bézier B: (-0.085,0,0.47) → mid(-0.065,0,0.49) → (-0.075,0,0.50)
 sp_a = curve_bezier(resolution=40, start=<-0.15, 0.0, 0.43>, handle_start=<-0.10, 0.0, 0.45>, end=<-0.085, 0.0, 0.47>, mode=QUADRATIC)
 sp_b = curve_bezier(resolution=40, start=<-0.085, 0.0, 0.47>, handle_start=<-0.065, 0.0, 0.49>, end=<-0.075, 0.0, 0.50>, mode=QUADRATIC)
-sp_joined = join_curves(curve_a=sp_a.curve, curve_b=sp_b.curve)
-side_profile = transform_geometry(geometry=sp_joined.curve, rotation=<1.5446, 0.0, 0.0>)
+sp_joined = join_curves(curve_a=sp_a.geometry, curve_b=sp_b.geometry)
+side_profile = transform_geometry(geometry=sp_joined.geometry, rotation=<1.5446, 0.0, 0.0>)
 
 # ── PingPong blend closure (centre→side→centre→side around collar) ───
 blend_fc = float_curve(points="0,0,0.25,1,0.5,0,0.75,1,1,0")
@@ -61,8 +61,8 @@ pipe_inner = curve_to_mesh(curve=collar_surface.iso_curve, radius=0.002, resolut
 rivet_pts_a = resample_curve(curve=collar_surface.boundary_a, length=0.035)
 rivet_pts_b = resample_curve(curve=collar_surface.boundary_b, length=0.035)
 rivet_ball = icosphere(radius=0.001, subdivisions=1)
-rivets_a = instance_on_points(points=rivet_pts_a.curve, instance=rivet_ball.mesh)
-rivets_b = instance_on_points(points=rivet_pts_b.curve, instance=rivet_ball.mesh)
+rivets_a = instance_on_points(points=rivet_pts_a.geometry, instance=rivet_ball.mesh)
+rivets_b = instance_on_points(points=rivet_pts_b.geometry, instance=rivet_ball.mesh)
 
 # ── Assembly (collar + 2 pipes + 2 rivet rows) ──────────────────────
 j1 = join_geometry(a=collar_surface.geometry, b=pipe_bottom.geometry)
@@ -74,4 +74,4 @@ j4 = join_geometry(a=j3.geometry, b=rivets_b.geometry)
 pos = input_position()
 pos_xyz = separate_xyz(vector=pos.vector)
 x_positive = compare(a=pos_xyz.x, b=0.0, mode=GREATER)
-collar_trimmed = delete_geometry(geometry=j4.geometry, selection=x_positive.result, domain=POINT)
+collar_trimmed = delete_geometry(geometry=j4.geometry, selection=x_positive.value, domain=POINT)

@@ -61,34 +61,34 @@ palm = transform_geometry(geometry=palm_cut.geometry, scale=palm_scale.vector)
 fidx = input_face_index()
 
 # Top faces 6-9: individual finger bases
-sel_6 = compare(a=fidx.index, b=6.0, mode=EQUAL)
-sel_7 = compare(a=fidx.index, b=7.0, mode=EQUAL)
-sel_8 = compare(a=fidx.index, b=8.0, mode=EQUAL)
-sel_9 = compare(a=fidx.index, b=9.0, mode=EQUAL)
-or_67 = boolean_math(a=sel_6.result, b=sel_7.result, mode=OR)
-or_678 = boolean_math(a=or_67.result, b=sel_8.result, mode=OR)
-finger_sel = boolean_math(a=or_678.result, b=sel_9.result, mode=OR)
+sel_6 = compare(a=fidx.result, b=6.0, mode=EQUAL)
+sel_7 = compare(a=fidx.result, b=7.0, mode=EQUAL)
+sel_8 = compare(a=fidx.result, b=8.0, mode=EQUAL)
+sel_9 = compare(a=fidx.result, b=9.0, mode=EQUAL)
+or_67 = boolean_math(a=sel_6.value, b=sel_7.value, mode=OR)
+or_678 = boolean_math(a=or_67.value, b=sel_8.value, mode=OR)
+finger_sel = boolean_math(a=or_678.value, b=sel_9.value, mode=OR)
 
 # Right face strip at palm base (face 11) for thumb
-sel_thumb = compare(a=fidx.index, b=11.0, mode=EQUAL)
+sel_thumb = compare(a=fidx.result, b=11.0, mode=EQUAL)
 
 # All digits for inset
-digit_sel = boolean_math(a=finger_sel.result, b=sel_thumb.result, mode=OR)
+digit_sel = boolean_math(a=finger_sel.value, b=sel_thumb.value, mode=OR)
 
 # Bottom faces 2-5 for forearm
-sel_2 = compare(a=fidx.index, b=2.0, mode=EQUAL)
-sel_3 = compare(a=fidx.index, b=3.0, mode=EQUAL)
-sel_4 = compare(a=fidx.index, b=4.0, mode=EQUAL)
-sel_5 = compare(a=fidx.index, b=5.0, mode=EQUAL)
-or_23 = boolean_math(a=sel_2.result, b=sel_3.result, mode=OR)
-or_234 = boolean_math(a=or_23.result, b=sel_4.result, mode=OR)
-forearm_sel = boolean_math(a=or_234.result, b=sel_5.result, mode=OR)
+sel_2 = compare(a=fidx.result, b=2.0, mode=EQUAL)
+sel_3 = compare(a=fidx.result, b=3.0, mode=EQUAL)
+sel_4 = compare(a=fidx.result, b=4.0, mode=EQUAL)
+sel_5 = compare(a=fidx.result, b=5.0, mode=EQUAL)
+or_23 = boolean_math(a=sel_2.value, b=sel_3.value, mode=OR)
+or_234 = boolean_math(a=or_23.value, b=sel_4.value, mode=OR)
+forearm_sel = boolean_math(a=or_234.value, b=sel_5.value, mode=OR)
 
 # ══════════════════════════════════════════════════════════════════════
 # INSET — gap between fingers/thumb before extrusion
 # ══════════════════════════════════════════════════════════════════════
 
-palm_inset = inset_faces(geometry=palm.geometry, inset=inset_amt.result, selection=digit_sel.result)
+palm_inset = inset_faces(geometry=palm.geometry, inset=inset_amt.result, selection=digit_sel.value)
 
 # ══════════════════════════════════════════════════════════════════════
 # PER-FINGER EXTRUSION — 3 segments each with taper insets
@@ -96,71 +96,71 @@ palm_inset = inset_faces(geometry=palm.geometry, inset=inset_amt.result, selecti
 # ══════════════════════════════════════════════════════════════════════
 
 # Pinky (face 6) — shortest finger
-ext_pk_1 = extrude_mesh(geometry=palm_inset.geometry, offset=pinky_1.result, selection=sel_6.result)
-taper_pk_1 = inset_faces(geometry=ext_pk_1.geometry, inset=finger_taper.result, selection=sel_6.result)
-ext_pk_2 = extrude_mesh(geometry=taper_pk_1.geometry, offset=pinky_2.result, selection=sel_6.result)
-taper_pk_2 = inset_faces(geometry=ext_pk_2.geometry, inset=finger_taper.result, selection=sel_6.result)
-ext_pk_3 = extrude_mesh(geometry=taper_pk_2.geometry, offset=pinky_3.result, selection=sel_6.result)
+ext_pk_1 = extrude_mesh(geometry=palm_inset.geometry, offset=pinky_1.result, selection=sel_6.value)
+taper_pk_1 = inset_faces(geometry=ext_pk_1.geometry, inset=finger_taper.result, selection=sel_6.value)
+ext_pk_2 = extrude_mesh(geometry=taper_pk_1.geometry, offset=pinky_2.result, selection=sel_6.value)
+taper_pk_2 = inset_faces(geometry=ext_pk_2.geometry, inset=finger_taper.result, selection=sel_6.value)
+ext_pk_3 = extrude_mesh(geometry=taper_pk_2.geometry, offset=pinky_3.result, selection=sel_6.value)
 
 # Ring (face 7)
-ext_rg_1 = extrude_mesh(geometry=ext_pk_3.geometry, offset=ring_1.result, selection=sel_7.result)
-taper_rg_1 = inset_faces(geometry=ext_rg_1.geometry, inset=finger_taper.result, selection=sel_7.result)
-ext_rg_2 = extrude_mesh(geometry=taper_rg_1.geometry, offset=ring_2.result, selection=sel_7.result)
-taper_rg_2 = inset_faces(geometry=ext_rg_2.geometry, inset=finger_taper.result, selection=sel_7.result)
-ext_rg_3 = extrude_mesh(geometry=taper_rg_2.geometry, offset=ring_3.result, selection=sel_7.result)
+ext_rg_1 = extrude_mesh(geometry=ext_pk_3.geometry, offset=ring_1.result, selection=sel_7.value)
+taper_rg_1 = inset_faces(geometry=ext_rg_1.geometry, inset=finger_taper.result, selection=sel_7.value)
+ext_rg_2 = extrude_mesh(geometry=taper_rg_1.geometry, offset=ring_2.result, selection=sel_7.value)
+taper_rg_2 = inset_faces(geometry=ext_rg_2.geometry, inset=finger_taper.result, selection=sel_7.value)
+ext_rg_3 = extrude_mesh(geometry=taper_rg_2.geometry, offset=ring_3.result, selection=sel_7.value)
 
 # Middle (face 8) — longest finger
-ext_md_1 = extrude_mesh(geometry=ext_rg_3.geometry, offset=middle_1.result, selection=sel_8.result)
-taper_md_1 = inset_faces(geometry=ext_md_1.geometry, inset=finger_taper.result, selection=sel_8.result)
-ext_md_2 = extrude_mesh(geometry=taper_md_1.geometry, offset=middle_2.result, selection=sel_8.result)
-taper_md_2 = inset_faces(geometry=ext_md_2.geometry, inset=finger_taper.result, selection=sel_8.result)
-ext_md_3 = extrude_mesh(geometry=taper_md_2.geometry, offset=middle_3.result, selection=sel_8.result)
+ext_md_1 = extrude_mesh(geometry=ext_rg_3.geometry, offset=middle_1.result, selection=sel_8.value)
+taper_md_1 = inset_faces(geometry=ext_md_1.geometry, inset=finger_taper.result, selection=sel_8.value)
+ext_md_2 = extrude_mesh(geometry=taper_md_1.geometry, offset=middle_2.result, selection=sel_8.value)
+taper_md_2 = inset_faces(geometry=ext_md_2.geometry, inset=finger_taper.result, selection=sel_8.value)
+ext_md_3 = extrude_mesh(geometry=taper_md_2.geometry, offset=middle_3.result, selection=sel_8.value)
 
 # Index (face 9)
-ext_ix_1 = extrude_mesh(geometry=ext_md_3.geometry, offset=index_1.result, selection=sel_9.result)
-taper_ix_1 = inset_faces(geometry=ext_ix_1.geometry, inset=finger_taper.result, selection=sel_9.result)
-ext_ix_2 = extrude_mesh(geometry=taper_ix_1.geometry, offset=index_2.result, selection=sel_9.result)
-taper_ix_2 = inset_faces(geometry=ext_ix_2.geometry, inset=finger_taper.result, selection=sel_9.result)
-ext_ix_3 = extrude_mesh(geometry=taper_ix_2.geometry, offset=index_3.result, selection=sel_9.result)
+ext_ix_1 = extrude_mesh(geometry=ext_md_3.geometry, offset=index_1.result, selection=sel_9.value)
+taper_ix_1 = inset_faces(geometry=ext_ix_1.geometry, inset=finger_taper.result, selection=sel_9.value)
+ext_ix_2 = extrude_mesh(geometry=taper_ix_1.geometry, offset=index_2.result, selection=sel_9.value)
+taper_ix_2 = inset_faces(geometry=ext_ix_2.geometry, inset=finger_taper.result, selection=sel_9.value)
+ext_ix_3 = extrude_mesh(geometry=taper_ix_2.geometry, offset=index_3.result, selection=sel_9.value)
 
 # ══════════════════════════════════════════════════════════════════════
 # THUMB EXTRUSION — 3 segments from right face strip (face 11, palm base)
 # ══════════════════════════════════════════════════════════════════════
 
-ext_t1 = extrude_mesh(geometry=ext_ix_3.geometry, offset=thumb_1.result, selection=sel_thumb.result)
-ext_t2 = extrude_mesh(geometry=ext_t1.geometry, offset=thumb_2.result, selection=sel_thumb.result)
-ext_t3 = extrude_mesh(geometry=ext_t2.geometry, offset=thumb_3.result, selection=sel_thumb.result)
+ext_t1 = extrude_mesh(geometry=ext_ix_3.geometry, offset=thumb_1.result, selection=sel_thumb.value)
+ext_t2 = extrude_mesh(geometry=ext_t1.geometry, offset=thumb_2.result, selection=sel_thumb.value)
+ext_t3 = extrude_mesh(geometry=ext_t2.geometry, offset=thumb_3.result, selection=sel_thumb.value)
 
 # ══════════════════════════════════════════════════════════════════════
 # FOREARM EXTRUSION — 4 segments (region mode)
 # ══════════════════════════════════════════════════════════════════════
 
-ext_a1 = extrude_mesh(geometry=ext_t3.geometry, offset=forearm_1.result, selection=forearm_sel.result, region=true)
-ext_a2 = extrude_mesh(geometry=ext_a1.geometry, offset=forearm_2.result, selection=forearm_sel.result, region=true)
-ext_a3 = extrude_mesh(geometry=ext_a2.geometry, offset=forearm_3.result, selection=forearm_sel.result, region=true)
-ext_a4 = extrude_mesh(geometry=ext_a3.geometry, offset=forearm_4.result, selection=forearm_sel.result, region=true)
+ext_a1 = extrude_mesh(geometry=ext_t3.geometry, offset=forearm_1.result, selection=forearm_sel.value, region=true)
+ext_a2 = extrude_mesh(geometry=ext_a1.geometry, offset=forearm_2.result, selection=forearm_sel.value, region=true)
+ext_a3 = extrude_mesh(geometry=ext_a2.geometry, offset=forearm_3.result, selection=forearm_sel.value, region=true)
+ext_a4 = extrude_mesh(geometry=ext_a3.geometry, offset=forearm_4.result, selection=forearm_sel.value, region=true)
 
 # ══════════════════════════════════════════════════════════════════════
 # MARK CREASE — sharp folds at knuckles, wrist, thumb base
 # Must be AFTER all topology changes, BEFORE subdivision
 # ══════════════════════════════════════════════════════════════════════
 
-crease_k = mark_crease(geometry=ext_a4.geometry, weight=crease_knuckle.result, selection=finger_sel.result, face_boundary=true)
-crease_w = mark_crease(geometry=crease_k.geometry, weight=crease_wrist.result, selection=forearm_sel.result, face_boundary=true)
-crease_t = mark_crease(geometry=crease_w.geometry, weight=crease_thumb.result, selection=sel_thumb.result, face_boundary=true)
+crease_k = mark_crease(geometry=ext_a4.geometry, weight=crease_knuckle.result, selection=finger_sel.value, face_boundary=true)
+crease_w = mark_crease(geometry=crease_k.geometry, weight=crease_wrist.result, selection=forearm_sel.value, face_boundary=true)
+crease_t = mark_crease(geometry=crease_w.geometry, weight=crease_thumb.result, selection=sel_thumb.value, face_boundary=true)
 
 # ══════════════════════════════════════════════════════════════════════
 # BONE WEIGHTS — reuse existing face selections
 # Applied before subdivision so weights are stored in GeometryBundle
 # ══════════════════════════════════════════════════════════════════════
 
-bone_palm = set_bone_weight(geometry=crease_t.geometry, bone_name="palm", weight=1.0, selection=finger_sel.result)
-bone_thumb = set_bone_weight(geometry=bone_palm.geometry, bone_name="thumb", weight=1.0, selection=sel_thumb.result)
-bone_forearm = set_bone_weight(geometry=bone_thumb.geometry, bone_name="forearm", weight=1.0, selection=forearm_sel.result)
-bone_pinky = set_bone_weight(geometry=bone_forearm.geometry, bone_name="pinky", weight=1.0, selection=sel_6.result)
-bone_ring = set_bone_weight(geometry=bone_pinky.geometry, bone_name="ring", weight=1.0, selection=sel_7.result)
-bone_middle = set_bone_weight(geometry=bone_ring.geometry, bone_name="middle", weight=1.0, selection=sel_8.result)
-bone_index = set_bone_weight(geometry=bone_middle.geometry, bone_name="index", weight=1.0, selection=sel_9.result)
+bone_palm = set_bone_weight(geometry=crease_t.geometry, bone_name="palm", weight=1.0, selection=finger_sel.value)
+bone_thumb = set_bone_weight(geometry=bone_palm.geometry, bone_name="thumb", weight=1.0, selection=sel_thumb.value)
+bone_forearm = set_bone_weight(geometry=bone_thumb.geometry, bone_name="forearm", weight=1.0, selection=forearm_sel.value)
+bone_pinky = set_bone_weight(geometry=bone_forearm.geometry, bone_name="pinky", weight=1.0, selection=sel_6.value)
+bone_ring = set_bone_weight(geometry=bone_pinky.geometry, bone_name="ring", weight=1.0, selection=sel_7.value)
+bone_middle = set_bone_weight(geometry=bone_ring.geometry, bone_name="middle", weight=1.0, selection=sel_8.value)
+bone_index = set_bone_weight(geometry=bone_middle.geometry, bone_name="index", weight=1.0, selection=sel_9.value)
 
 # ══════════════════════════════════════════════════════════════════════
 # CC SUBDIVISION

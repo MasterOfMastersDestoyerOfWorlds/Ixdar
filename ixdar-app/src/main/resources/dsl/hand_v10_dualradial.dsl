@@ -258,18 +258,18 @@ palm = transform_geometry(geometry=palm_cut.geometry, scale=palm_scale.vector)
 
 fidx = input_face_index()
 
-sel_2 = compare(a=fidx.index, b=2.0, mode=EQUAL)
-sel_3 = compare(a=fidx.index, b=3.0, mode=EQUAL)
-sel_4 = compare(a=fidx.index, b=4.0, mode=EQUAL)
-sel_5 = compare(a=fidx.index, b=5.0, mode=EQUAL)
-or_23 = boolean_math(a=sel_2.result, b=sel_3.result, mode=OR)
-or_234 = boolean_math(a=or_23.result, b=sel_4.result, mode=OR)
-forearm_sel = boolean_math(a=or_234.result, b=sel_5.result, mode=OR)
+sel_2 = compare(a=fidx.result, b=2.0, mode=EQUAL)
+sel_3 = compare(a=fidx.result, b=3.0, mode=EQUAL)
+sel_4 = compare(a=fidx.result, b=4.0, mode=EQUAL)
+sel_5 = compare(a=fidx.result, b=5.0, mode=EQUAL)
+or_23 = boolean_math(a=sel_2.value, b=sel_3.value, mode=OR)
+or_234 = boolean_math(a=or_23.value, b=sel_4.value, mode=OR)
+forearm_sel = boolean_math(a=or_234.value, b=sel_5.value, mode=OR)
 
-ext_a1 = extrude_mesh(geometry=palm.geometry, offset=forearm_1.result, selection=forearm_sel.result, region=true)
-ext_a2 = extrude_mesh(geometry=ext_a1.geometry, offset=forearm_2.result, selection=forearm_sel.result, region=true)
-ext_a3 = extrude_mesh(geometry=ext_a2.geometry, offset=forearm_3.result, selection=forearm_sel.result, region=true)
-ext_a4 = extrude_mesh(geometry=ext_a3.geometry, offset=forearm_4.result, selection=forearm_sel.result, region=true)
+ext_a1 = extrude_mesh(geometry=palm.geometry, offset=forearm_1.result, selection=forearm_sel.value, region=true)
+ext_a2 = extrude_mesh(geometry=ext_a1.geometry, offset=forearm_2.result, selection=forearm_sel.value, region=true)
+ext_a3 = extrude_mesh(geometry=ext_a2.geometry, offset=forearm_3.result, selection=forearm_sel.value, region=true)
+ext_a4 = extrude_mesh(geometry=ext_a3.geometry, offset=forearm_4.result, selection=forearm_sel.value, region=true)
 
 # ══════════════════════════════════════════════════════════════════════
 # JOIN ALL GEOMETRY
@@ -285,7 +285,7 @@ join_all = join_geometry(a=ext_a4.geometry, b=join_5digits.geometry)
 # CREASE + SUBDIVISION
 # ══════════════════════════════════════════════════════════════════════
 
-crease_w = mark_crease(geometry=join_all.geometry, weight=crease_wrist.result, selection=forearm_sel.result, face_boundary=true)
+crease_w = mark_crease(geometry=join_all.geometry, weight=crease_wrist.result, selection=forearm_sel.value, face_boundary=true)
 smooth = subdivision_surface(geometry=crease_w.geometry, levels=2)
 
 # ══════════════════════════════════════════════════════════════════════

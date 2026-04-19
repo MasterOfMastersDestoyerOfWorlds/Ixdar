@@ -39,50 +39,50 @@ pos_xyz = separate_xyz(vector=pos.vector)
 
 eye_x_left = compare(a=pos_xyz.x, b=0.3, mode=LESS)
 eye_x_right = compare(a=pos_xyz.x, b=0.3, mode=GREATER)
-eye_x_center = boolean_math(a=eye_x_left.result, b=eye_x_right.result, mode=OR)
+eye_x_center = boolean_math(a=eye_x_left.value, b=eye_x_right.value, mode=OR)
 
 eye_y_min = compare(a=pos_xyz.y, b=0.0, mode=GREATER)
 eye_y_max = compare(a=pos_xyz.y, b=0.5, mode=LESS)
-eye_y_range = boolean_math(a=eye_y_min.result, b=eye_y_max.result, mode=AND)
+eye_y_range = boolean_math(a=eye_y_min.value, b=eye_y_max.value, mode=AND)
 
-eye_sel = boolean_math(a=eye_x_center.result, b=eye_y_range.result, mode=AND)
+eye_sel = boolean_math(a=eye_x_center.value, b=eye_y_range.value, mode=AND)
 
-eye_inset = inset_faces(geometry=scaled.geometry, inset=eye_socket_depth.result, selection=eye_sel.result)
+eye_inset = inset_faces(geometry=scaled.geometry, inset=eye_socket_depth.result, selection=eye_sel.value)
 
 
 nasal_x_min = compare(a=pos_xyz.x, b=0.2, mode=GREATER)
 nasal_x_max = compare(a=pos_xyz.x, b=0.2, mode=LESS)
-nasal_x_center = boolean_math(a=nasal_x_min.result, b=nasal_x_max.result, mode=AND)
+nasal_x_center = boolean_math(a=nasal_x_min.value, b=nasal_x_max.value, mode=AND)
 nasal_y_min = compare(a=pos_xyz.y, b=0.0, mode=GREATER)
 nasal_y_max = compare(a=pos_xyz.y, b=0.5, mode=LESS)
-nasal_y_range = boolean_math(a=nasal_y_min.result, b=nasal_y_max.result, mode=AND)
+nasal_y_range = boolean_math(a=nasal_y_min.value, b=nasal_y_max.value, mode=AND)
 
-nasal_sel = boolean_math(a=nasal_x_center.result, b=nasal_y_range.result, mode=AND)
+nasal_sel = boolean_math(a=nasal_x_center.value, b=nasal_y_range.value, mode=AND)
 
-nasal_inset = inset_faces(geometry=eye_inset.geometry, inset=nasal_depth.result, selection=nasal_sel.result)
+nasal_inset = inset_faces(geometry=eye_inset.geometry, inset=nasal_depth.result, selection=nasal_sel.value)
 
 
 brow_y_min = compare(a=pos_xyz.y, b=0.3, mode=GREATER)
 brow_y_max = compare(a=pos_xyz.y, b=1.0, mode=LESS)
-brow_y_range = boolean_math(a=brow_y_min.result, b=brow_y_max.result, mode=AND)
+brow_y_range = boolean_math(a=brow_y_min.value, b=brow_y_max.value, mode=AND)
 brow_x_min = compare(a=pos_xyz.x, b=0.6, mode=GREATER)
 brow_x_max = compare(a=pos_xyz.x, b=0.6, mode=LESS)
-brow_x_range = boolean_math(a=brow_x_min.result, b=brow_x_max.result, mode=AND)
+brow_x_range = boolean_math(a=brow_x_min.value, b=brow_x_max.value, mode=AND)
 
-brow_sel = boolean_math(a=brow_y_range.result, b=brow_x_range.result, mode=AND)
+brow_sel = boolean_math(a=brow_y_range.value, b=brow_x_range.value, mode=AND)
 
-brow_extrude = extrude_mesh(geometry=nasal_inset.geometry, offset=brow_height.result, selection=brow_sel.result)
+brow_extrude = extrude_mesh(geometry=nasal_inset.geometry, offset=brow_height.result, selection=brow_sel.value)
 
 
 jaw_y_max = compare(a=pos_xyz.y, b=0.5, mode=LESS)
 jaw_x_min = compare(a=pos_xyz.x, b=0.8, mode=GREATER)
 jaw_x_max = compare(a=pos_xyz.x, b=0.8, mode=LESS)
-jaw_x_range = boolean_math(a=jaw_x_min.result, b=jaw_x_max.result, mode=AND)
+jaw_x_range = boolean_math(a=jaw_x_min.value, b=jaw_x_max.value, mode=AND)
 
-jaw_sel = boolean_math(a=jaw_y_max.result, b=jaw_x_range.result, mode=AND)
+jaw_sel = boolean_math(a=jaw_y_max.value, b=jaw_x_range.value, mode=AND)
 
 neg_jaw_depth = float_math(operation=SUBTRACT, a=0.0, b=jaw_depth.result)
-jaw_extrude = extrude_mesh(geometry=brow_extrude.geometry, offset=neg_jaw_depth.result, selection=jaw_sel.result)
+jaw_extrude = extrude_mesh(geometry=brow_extrude.geometry, offset=neg_jaw_depth.result, selection=jaw_sel.value)
 
 
 skull_tagged = tag_geometry(geometry=jaw_extrude.geometry, tags="skull,cranium,face,jaw,eye_sockets,nasal_cavity,brow_ridge")

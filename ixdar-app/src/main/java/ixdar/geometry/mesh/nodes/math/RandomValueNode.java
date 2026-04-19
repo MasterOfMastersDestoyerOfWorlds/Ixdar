@@ -34,7 +34,7 @@ public class RandomValueNode implements MeshNode {
     public static final Map<String, List<String>> OUTPUT_ACTIVATION_BY_MODE = Map.of(
             "FLOAT", List.of("float_out"),
             "INT", List.of("int_out"),
-            "VECTOR", List.of("vector_out"));
+            "VECTOR", List.of("vector"));
 
     private static final InputPort SEED = new InputPort("seed", PortType.INT, 0, 0f, 1000000f);
     private static final InputPort MIN = new InputPort("min", PortType.FLOAT, 0.0f, -1000f, 1000f);
@@ -42,7 +42,7 @@ public class RandomValueNode implements MeshNode {
     private static final InputPort MODE = new InputPort("mode", PortType.STRING, "FLOAT", MODE_CONSTRAINT);
     private static final OutputPort OUT_FLOAT = new OutputPort("float_out", PortType.FLOAT);
     private static final OutputPort OUT_INT = new OutputPort("int_out", PortType.INT);
-    private static final OutputPort OUT_VECTOR = new OutputPort("vector_out", PortType.VECTOR3);
+    private static final OutputPort OUT_VECTOR = new OutputPort("vector", PortType.VECTOR3);
 
     @Override
     public String description() {
@@ -58,7 +58,7 @@ public class RandomValueNode implements MeshNode {
                 "mode", "Output selector: FLOAT, INT, or VECTOR. Only the matching *_out port is active; the others are null.",
                 "float_out", "Active when mode=FLOAT; null otherwise.",
                 "int_out", "Active when mode=INT; null otherwise.",
-                "vector_out", "Active when mode=VECTOR; null otherwise."
+                "vector", "Active when mode=VECTOR; null otherwise."
         );
     }
 
@@ -90,7 +90,7 @@ public class RandomValueNode implements MeshNode {
 
         ctx.setOutput("float_out", null);
         ctx.setOutput("int_out", null);
-        ctx.setOutput("vector_out", null);
+        ctx.setOutput("vector", null);
 
         switch (mode) {
             case FLOAT -> {
@@ -113,7 +113,7 @@ public class RandomValueNode implements MeshNode {
                 float x = lo + rnd.nextFloat() * (hi - lo);
                 float y = lo + rnd.nextFloat() * (hi - lo);
                 float z = lo + rnd.nextFloat() * (hi - lo);
-                ctx.setOutput("vector_out", new Vector3Value(x, y, z));
+                ctx.setOutput("vector", new Vector3Value(x, y, z));
             }
         }
     }

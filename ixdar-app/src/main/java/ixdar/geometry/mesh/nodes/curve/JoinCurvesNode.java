@@ -25,7 +25,7 @@ public class JoinCurvesNode implements MeshNode {
     private static final InputPort CURVE_A = new InputPort("curve_a", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort CURVE_B = new InputPort("curve_b", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort DEDUPLICATE = new InputPort("deduplicate", PortType.BOOLEAN, true);
-    private static final OutputPort CURVE = new OutputPort("curve", PortType.GEOMETRY_BUNDLE);
+    private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -38,7 +38,7 @@ public class JoinCurvesNode implements MeshNode {
                 "curve_a", "First curve polyline.",
                 "curve_b", "Second curve polyline, appended after a's end.",
                 "deduplicate", "If true (default), drop b's start vertex when it coincides with a's end, keeping the join clean.",
-                "curve", "Combined curve."
+                "geometry", "Combined curve."
         );
     }
 
@@ -49,7 +49,7 @@ public class JoinCurvesNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(CURVE);
+        return List.of(GEOMETRY);
     }
 
     @Override
@@ -61,15 +61,15 @@ public class JoinCurvesNode implements MeshNode {
         CurveGeometry cgB = extractCurve(gbB);
 
         if (cgA == null && cgB == null) {
-            ctx.setOutput("curve", GeometryBundle.empty());
+            ctx.setOutput("geometry",GeometryBundle.empty());
             return;
         }
         if (cgA == null) {
-            ctx.setOutput("curve", GeometryBundle.empty().withSlot("_curve", cgB));
+            ctx.setOutput("geometry",GeometryBundle.empty().withSlot("_curve", cgB));
             return;
         }
         if (cgB == null) {
-            ctx.setOutput("curve", GeometryBundle.empty().withSlot("_curve", cgA));
+            ctx.setOutput("geometry",GeometryBundle.empty().withSlot("_curve", cgA));
             return;
         }
 
@@ -114,7 +114,7 @@ public class JoinCurvesNode implements MeshNode {
         System.arraycopy(posB, srcOffset, combined, dstOffset, copyCount);
 
         CurveGeometry joined = CurveGeometry.singlePolyline(combined);
-        ctx.setOutput("curve", GeometryBundle.empty().withSlot("_curve", joined));
+        ctx.setOutput("geometry",GeometryBundle.empty().withSlot("_curve", joined));
     }
 
     private static CurveGeometry extractCurve(GeometryBundle gb) {

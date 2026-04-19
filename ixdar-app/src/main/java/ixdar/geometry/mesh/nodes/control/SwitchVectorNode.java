@@ -21,7 +21,7 @@ public class SwitchVectorNode implements MeshNode {
     private static final InputPort SWITCH = new InputPort("switch", PortType.BOOLEAN, false);
     private static final InputPort FALSE_VAL = new InputPort("false", PortType.VECTOR3, ZERO);
     private static final InputPort TRUE_VAL = new InputPort("true", PortType.VECTOR3, ZERO);
-    private static final OutputPort RESULT = new OutputPort("result", PortType.VECTOR3);
+    private static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
 
     @Override
     public List<InputPort> inputs() {
@@ -30,7 +30,7 @@ public class SwitchVectorNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(RESULT);
+        return List.of(VECTOR);
     }
 
     @Override
@@ -44,7 +44,7 @@ public class SwitchVectorNode implements MeshNode {
                 "switch", "Per-element BOOLEAN selector.",
                 "false", "Vector used where switch is false.",
                 "true", "Vector used where switch is true.",
-                "result", "Per-element Vector3: switch ? true : false."
+                "vector", "Per-element Vector3: switch ? true : false."
         );
     }
 
@@ -77,13 +77,13 @@ public class SwitchVectorNode implements MeshNode {
                 out[3 * i + 1] = pick.y;
                 out[3 * i + 2] = pick.z;
             }
-            ctx.setOutput("result", new Vec3Field(out));
+            ctx.setOutput("vector",new Vec3Field(out));
             return;
         }
 
         Vector3Value fvv = FieldBroadcast.vector3ValueOrDefault(fa, ZERO);
         Vector3Value tvv = FieldBroadcast.vector3ValueOrDefault(tr, ZERO);
         boolean on = so instanceof Boolean bb && bb;
-        ctx.setOutput("result", on ? tvv : fvv);
+        ctx.setOutput("vector",on ? tvv : fvv);
     }
 }

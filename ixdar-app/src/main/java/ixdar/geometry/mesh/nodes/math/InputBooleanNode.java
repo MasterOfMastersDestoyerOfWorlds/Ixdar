@@ -13,7 +13,7 @@ import ixdar.annotations.meshnode.PortType;
 public class InputBooleanNode implements MeshNode {
     private static final InputPort NAME = new InputPort("name", PortType.STRING, "");
     private static final InputPort DEFAULT = new InputPort("default", PortType.BOOLEAN, false);
-    private static final OutputPort RESULT = new OutputPort("result", PortType.BOOLEAN);
+    private static final OutputPort VALUE = new OutputPort("value", PortType.BOOLEAN);
 
     @Override
     public String description() {
@@ -25,7 +25,7 @@ public class InputBooleanNode implements MeshNode {
         return java.util.Map.of(
                 "name", "Parameter name (shown in the UI, referenced by param_sweep / overrides).",
                 "default", "Initial value when not overridden.",
-                "result", "The (possibly-overridden) boolean value."
+                "value", "The (possibly-overridden) boolean value."
         );
     }
 
@@ -36,7 +36,7 @@ public class InputBooleanNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(RESULT);
+        return List.of(VALUE);
     }
 
     @Override
@@ -50,6 +50,6 @@ public class InputBooleanNode implements MeshNode {
         } else {
             b = false;
         }
-        ctx.setOutput("result", b);
+        ctx.setOutput("value",b);
     }
 }

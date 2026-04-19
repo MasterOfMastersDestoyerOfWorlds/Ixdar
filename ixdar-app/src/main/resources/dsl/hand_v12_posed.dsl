@@ -127,13 +127,13 @@ pk_cap = segment_cap(geometry=pk_dist.geometry, segments=seg_count.result)
 
 # Face index field for pinky (evaluated with pk_cap mesh context)
 pk_fidx = input_face_index()
-pk_mid_sel = compare(a=pk_fidx.index, b=mid_face_thresh.result, mode=GREATER)
-pk_dist_sel = compare(a=pk_fidx.index, b=dist_face_thresh.result, mode=GREATER)
+pk_mid_sel = compare(a=pk_fidx.result, b=mid_face_thresh.result, mode=GREATER)
+pk_dist_sel = compare(a=pk_fidx.result, b=dist_face_thresh.result, mode=GREATER)
 
 # Paint per-phalanx weights: prox=all, mid=mid+dist+cap, dist=dist+cap
 pk_w1 = set_bone_weight(geometry=pk_cap.geometry, bone_name="pk_prox", weight=1.0)
-pk_w2 = set_bone_weight(geometry=pk_w1.geometry, bone_name="pk_mid", weight=1.0, selection=pk_mid_sel.result)
-pk_w3 = set_bone_weight(geometry=pk_w2.geometry, bone_name="pk_dist", weight=1.0, selection=pk_dist_sel.result)
+pk_w2 = set_bone_weight(geometry=pk_w1.geometry, bone_name="pk_mid", weight=1.0, selection=pk_mid_sel.value)
+pk_w3 = set_bone_weight(geometry=pk_w2.geometry, bone_name="pk_dist", weight=1.0, selection=pk_dist_sel.value)
 
 pk_pos = combine_xyz(x=0.0, y=half_palm_y.result, z=neg_three_eighths.result)
 pk_finger = transform_geometry(geometry=pk_w3.geometry, translation=pk_pos.vector)
@@ -169,12 +169,12 @@ rg_dist = dual_radial_segment(
 rg_cap = segment_cap(geometry=rg_dist.geometry, segments=seg_count.result)
 
 rg_fidx = input_face_index()
-rg_mid_sel = compare(a=rg_fidx.index, b=mid_face_thresh.result, mode=GREATER)
-rg_dist_sel = compare(a=rg_fidx.index, b=dist_face_thresh.result, mode=GREATER)
+rg_mid_sel = compare(a=rg_fidx.result, b=mid_face_thresh.result, mode=GREATER)
+rg_dist_sel = compare(a=rg_fidx.result, b=dist_face_thresh.result, mode=GREATER)
 
 rg_w1 = set_bone_weight(geometry=rg_cap.geometry, bone_name="rg_prox", weight=1.0)
-rg_w2 = set_bone_weight(geometry=rg_w1.geometry, bone_name="rg_mid", weight=1.0, selection=rg_mid_sel.result)
-rg_w3 = set_bone_weight(geometry=rg_w2.geometry, bone_name="rg_dist", weight=1.0, selection=rg_dist_sel.result)
+rg_w2 = set_bone_weight(geometry=rg_w1.geometry, bone_name="rg_mid", weight=1.0, selection=rg_mid_sel.value)
+rg_w3 = set_bone_weight(geometry=rg_w2.geometry, bone_name="rg_dist", weight=1.0, selection=rg_dist_sel.value)
 
 rg_pos = combine_xyz(x=0.0, y=half_palm_y.result, z=neg_one_eighth.result)
 rg_finger = transform_geometry(geometry=rg_w3.geometry, translation=rg_pos.vector)
@@ -210,12 +210,12 @@ md_dist = dual_radial_segment(
 md_cap = segment_cap(geometry=md_dist.geometry, segments=seg_count.result)
 
 md_fidx = input_face_index()
-md_mid_sel = compare(a=md_fidx.index, b=mid_face_thresh.result, mode=GREATER)
-md_dist_sel = compare(a=md_fidx.index, b=dist_face_thresh.result, mode=GREATER)
+md_mid_sel = compare(a=md_fidx.result, b=mid_face_thresh.result, mode=GREATER)
+md_dist_sel = compare(a=md_fidx.result, b=dist_face_thresh.result, mode=GREATER)
 
 md_w1 = set_bone_weight(geometry=md_cap.geometry, bone_name="md_prox", weight=1.0)
-md_w2 = set_bone_weight(geometry=md_w1.geometry, bone_name="md_mid", weight=1.0, selection=md_mid_sel.result)
-md_w3 = set_bone_weight(geometry=md_w2.geometry, bone_name="md_dist", weight=1.0, selection=md_dist_sel.result)
+md_w2 = set_bone_weight(geometry=md_w1.geometry, bone_name="md_mid", weight=1.0, selection=md_mid_sel.value)
+md_w3 = set_bone_weight(geometry=md_w2.geometry, bone_name="md_dist", weight=1.0, selection=md_dist_sel.value)
 
 md_pos = combine_xyz(x=0.0, y=half_palm_y.result, z=pos_one_eighth.result)
 md_finger = transform_geometry(geometry=md_w3.geometry, translation=md_pos.vector)
@@ -251,12 +251,12 @@ ix_dist = dual_radial_segment(
 ix_cap = segment_cap(geometry=ix_dist.geometry, segments=seg_count.result)
 
 ix_fidx = input_face_index()
-ix_mid_sel = compare(a=ix_fidx.index, b=mid_face_thresh.result, mode=GREATER)
-ix_dist_sel = compare(a=ix_fidx.index, b=dist_face_thresh.result, mode=GREATER)
+ix_mid_sel = compare(a=ix_fidx.result, b=mid_face_thresh.result, mode=GREATER)
+ix_dist_sel = compare(a=ix_fidx.result, b=dist_face_thresh.result, mode=GREATER)
 
 ix_w1 = set_bone_weight(geometry=ix_cap.geometry, bone_name="ix_prox", weight=1.0)
-ix_w2 = set_bone_weight(geometry=ix_w1.geometry, bone_name="ix_mid", weight=1.0, selection=ix_mid_sel.result)
-ix_w3 = set_bone_weight(geometry=ix_w2.geometry, bone_name="ix_dist", weight=1.0, selection=ix_dist_sel.result)
+ix_w2 = set_bone_weight(geometry=ix_w1.geometry, bone_name="ix_mid", weight=1.0, selection=ix_mid_sel.value)
+ix_w3 = set_bone_weight(geometry=ix_w2.geometry, bone_name="ix_dist", weight=1.0, selection=ix_dist_sel.value)
 
 ix_pos = combine_xyz(x=0.0, y=half_palm_y.result, z=pos_three_eighths.result)
 ix_finger = transform_geometry(geometry=ix_w3.geometry, translation=ix_pos.vector)
@@ -292,12 +292,12 @@ th_dist = dual_radial_segment(
 th_cap = segment_cap(geometry=th_dist.geometry, segments=seg_count.result)
 
 th_fidx = input_face_index()
-th_mid_sel = compare(a=th_fidx.index, b=mid_face_thresh.result, mode=GREATER)
-th_dist_sel = compare(a=th_fidx.index, b=dist_face_thresh.result, mode=GREATER)
+th_mid_sel = compare(a=th_fidx.result, b=mid_face_thresh.result, mode=GREATER)
+th_dist_sel = compare(a=th_fidx.result, b=dist_face_thresh.result, mode=GREATER)
 
 th_w1 = set_bone_weight(geometry=th_cap.geometry, bone_name="th_prox", weight=1.0)
-th_w2 = set_bone_weight(geometry=th_w1.geometry, bone_name="th_mid", weight=1.0, selection=th_mid_sel.result)
-th_w3 = set_bone_weight(geometry=th_w2.geometry, bone_name="th_dist", weight=1.0, selection=th_dist_sel.result)
+th_w2 = set_bone_weight(geometry=th_w1.geometry, bone_name="th_mid", weight=1.0, selection=th_mid_sel.value)
+th_w3 = set_bone_weight(geometry=th_w2.geometry, bone_name="th_dist", weight=1.0, selection=th_dist_sel.value)
 
 th_tagged = tag_geometry(geometry=th_w3.geometry, tags="th_base")
 
@@ -327,33 +327,33 @@ th_finger = transform_geometry(geometry=th_tagged.geometry, translation=thumb_at
 
 fidx = input_face_index()
 
-sel_2 = compare(a=fidx.index, b=2.0, mode=EQUAL)
-sel_3 = compare(a=fidx.index, b=3.0, mode=EQUAL)
-sel_4 = compare(a=fidx.index, b=4.0, mode=EQUAL)
-sel_5 = compare(a=fidx.index, b=5.0, mode=EQUAL)
-or_23 = boolean_math(a=sel_2.result, b=sel_3.result, mode=OR)
-or_234 = boolean_math(a=or_23.result, b=sel_4.result, mode=OR)
-forearm_sel = boolean_math(a=or_234.result, b=sel_5.result, mode=OR)
+sel_2 = compare(a=fidx.result, b=2.0, mode=EQUAL)
+sel_3 = compare(a=fidx.result, b=3.0, mode=EQUAL)
+sel_4 = compare(a=fidx.result, b=4.0, mode=EQUAL)
+sel_5 = compare(a=fidx.result, b=5.0, mode=EQUAL)
+or_23 = boolean_math(a=sel_2.value, b=sel_3.value, mode=OR)
+or_234 = boolean_math(a=or_23.value, b=sel_4.value, mode=OR)
+forearm_sel = boolean_math(a=or_234.value, b=sel_5.value, mode=OR)
 
-ext_a1 = extrude_mesh(geometry=thumb_attach.geometry, offset=forearm_1.result, selection=forearm_sel.result, region=true)
-ext_a2 = extrude_mesh(geometry=ext_a1.geometry, offset=forearm_2.result, selection=forearm_sel.result, region=true)
-ext_a3 = extrude_mesh(geometry=ext_a2.geometry, offset=forearm_3.result, selection=forearm_sel.result, region=true)
-ext_a4 = extrude_mesh(geometry=ext_a3.geometry, offset=forearm_4.result, selection=forearm_sel.result, region=true)
+ext_a1 = extrude_mesh(geometry=thumb_attach.geometry, offset=forearm_1.result, selection=forearm_sel.value, region=true)
+ext_a2 = extrude_mesh(geometry=ext_a1.geometry, offset=forearm_2.result, selection=forearm_sel.value, region=true)
+ext_a3 = extrude_mesh(geometry=ext_a2.geometry, offset=forearm_3.result, selection=forearm_sel.value, region=true)
+ext_a4 = extrude_mesh(geometry=ext_a3.geometry, offset=forearm_4.result, selection=forearm_sel.value, region=true)
 
 # ══════════════════════════════════════════════════════════════════════
 # PALM HOLES — inset top 4 faces (6,7,8,9) for fingers
 # ══════════════════════════════════════════════════════════════════════
 
-sel_6 = compare(a=fidx.index, b=6.0, mode=EQUAL)
-sel_7 = compare(a=fidx.index, b=7.0, mode=EQUAL)
-sel_8 = compare(a=fidx.index, b=8.0, mode=EQUAL)
-sel_9 = compare(a=fidx.index, b=9.0, mode=EQUAL)
-or_67 = boolean_math(a=sel_6.result, b=sel_7.result, mode=OR)
-or_89 = boolean_math(a=sel_8.result, b=sel_9.result, mode=OR)
-top_sel = boolean_math(a=or_67.result, b=or_89.result, mode=OR)
+sel_6 = compare(a=fidx.result, b=6.0, mode=EQUAL)
+sel_7 = compare(a=fidx.result, b=7.0, mode=EQUAL)
+sel_8 = compare(a=fidx.result, b=8.0, mode=EQUAL)
+sel_9 = compare(a=fidx.result, b=9.0, mode=EQUAL)
+or_67 = boolean_math(a=sel_6.value, b=sel_7.value, mode=OR)
+or_89 = boolean_math(a=sel_8.value, b=sel_9.value, mode=OR)
+top_sel = boolean_math(a=or_67.value, b=or_89.value, mode=OR)
 
-palm_inset = inset_faces(geometry=ext_a4.geometry, inset=0.12, selection=top_sel.result)
-palm_holes = separate_geometry(geometry=palm_inset.geometry, selection=top_sel.result)
+palm_inset = inset_faces(geometry=ext_a4.geometry, inset=0.12, selection=top_sel.value)
+palm_holes = separate_geometry(geometry=palm_inset.geometry, selection=top_sel.value)
 
 # ══════════════════════════════════════════════════════════════════════
 # JOIN — palm with holes + all 5 tagged finger tubes
@@ -379,7 +379,7 @@ bridge_th = adaptive_bridge_loops(geometry=bridge_ix.geometry, loop_a_tag="th_ba
 # CREASE
 # ══════════════════════════════════════════════════════════════════════
 
-crease_w = mark_crease(geometry=bridge_th.geometry, weight=crease_wrist.result, selection=forearm_sel.result, face_boundary=true)
+crease_w = mark_crease(geometry=bridge_th.geometry, weight=crease_wrist.result, selection=forearm_sel.value, face_boundary=true)
 
 # ══════════════════════════════════════════════════════════════════════
 # POSE — FK bone chain on control cage (before subdivision)

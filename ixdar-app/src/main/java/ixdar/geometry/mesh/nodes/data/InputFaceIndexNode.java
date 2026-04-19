@@ -23,7 +23,7 @@ import ixdar.geometry.mesh.graph.MeshFieldContext;
 @MeshNodeAnnotation(id = "input_face_index")
 public class InputFaceIndexNode implements MeshNode {
 
-    private static final OutputPort INDEX = new OutputPort("index", PortType.FLOAT);
+    private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override
     public String description() {
@@ -33,7 +33,7 @@ public class InputFaceIndexNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "index", "Per-face FloatField where index[i] = i. Feed into compare + boolean_math to build per-face selection masks."
+                "result", "Per-face FloatField where result[i] = i. Feed into compare + boolean_math to build per-face selection masks."
         );
     }
 
@@ -44,7 +44,7 @@ public class InputFaceIndexNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(INDEX);
+        return List.of(RESULT);
     }
 
     @Override
@@ -58,13 +58,13 @@ public class InputFaceIndexNode implements MeshNode {
             n = fc.elementCount();
         }
         if (n == 0) {
-            ctx.setOutput("index", 0.0f);
+            ctx.setOutput("result",0.0f);
             return;
         }
         float[] data = new float[n];
         for (int i = 0; i < n; i++) {
             data[i] = i;
         }
-        ctx.setOutput("index", new FloatField(data));
+        ctx.setOutput("result",new FloatField(data));
     }
 }

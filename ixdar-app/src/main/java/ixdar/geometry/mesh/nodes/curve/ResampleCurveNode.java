@@ -21,7 +21,7 @@ public class ResampleCurveNode implements MeshNode {
 
     private static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
     private static final InputPort LENGTH = new InputPort("length", PortType.FLOAT, 0.1f, 0.001f, 100f);
-    private static final OutputPort CURVE_OUT = new OutputPort("curve", PortType.GEOMETRY_BUNDLE);
+    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -32,7 +32,8 @@ public class ResampleCurveNode implements MeshNode {
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
                 "curve", "Input curve polyline.",
-                "length", "Target segment length (world units). Smaller = more points, smoother sweeps. Ignored when the curve is already shorter than `length`."
+                "length", "Target segment length (world units). Smaller = more points, smoother sweeps. Ignored when the curve is already shorter than `length`.",
+                "geometry", "Resampled curve polyline (same curves, uniform segment lengths)."
         );
     }
 
@@ -43,27 +44,27 @@ public class ResampleCurveNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(CURVE_OUT);
+        return List.of(GEOMETRY_OUT);
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput("curve", Object.class));
         if (gb == null) {
-            ctx.setOutput("curve", GeometryBundle.empty());
+            ctx.setOutput("geometry",GeometryBundle.empty());
             return;
         }
         float segLen = FieldBroadcast.floatScalarOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, "length", LENGTH.defaultValue()),
                 0.1f);
         if (segLen <= 1e-20f) {
-            ctx.setOutput("curve", gb);
+            ctx.setOutput("geometry",gb);
             return;
         }
 
         Object raw = gb.slots().get("_curve");
         if (!(raw instanceof CurveGeometry cg)) {
-            ctx.setOutput("curve", gb);
+            ctx.setOutput("geometry",gb);
             return;
         }
 
@@ -95,7 +96,7 @@ public class ResampleCurveNode implements MeshNode {
         }
 
         if (out.isEmpty()) {
-            ctx.setOutput("curve", gb.withSlot("_curve", CurveGeometry.singlePolyline(new float[0])));
+            ctx.setOutput("geometry",gb.withSlot("_curve", CurveGeometry.singlePolyline(new float[0])));
             return;
         }
 
@@ -107,7 +108,7 @@ public class ResampleCurveNode implements MeshNode {
         for (int i = 0; i < newOff.size(); i++) {
             ofa[i] = newOff.get(i);
         }
-        ctx.setOutput("curve", gb.withSlot("_curve", new CurveGeometry(np, ofa)));
+        ctx.setOutput("geometry",gb.withSlot("_curve", new CurveGeometry(np, ofa)));
     }
 
     private static void appendResampled(Vector3f a, Vector3f b, float segLen, ArrayList<Float> out, boolean firstOfCurve) {

@@ -27,7 +27,7 @@ public class VectorMathNode implements MeshNode {
     private static final InputPort B = new InputPort("b", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
     private static final InputPort SCALE = new InputPort("scale", PortType.FLOAT, 1.0f, -1000f, 1000f);
     private static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
-    private static final OutputPort VALUE = new OutputPort("value", PortType.FLOAT);
+    private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override
     public String description() {
@@ -42,7 +42,7 @@ public class VectorMathNode implements MeshNode {
                 "b", "Right vector operand. Ignored for NORMALIZE and SCALE.",
                 "scale", "Scalar multiplier for SCALE mode. Ignored otherwise.",
                 "vector", "Vector result (for vector-valued ops). For DOT mode, this is (0, 0, 0).",
-                "value", "Scalar result: length of `vector` for vector-valued ops, dot product for DOT."
+                "result", "Scalar result: length of `vector` for vector-valued ops, dot product for DOT."
         );
     }
 
@@ -53,7 +53,7 @@ public class VectorMathNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(VECTOR, VALUE);
+        return List.of(VECTOR, RESULT);
     }
 
     @Override
@@ -87,7 +87,7 @@ public class VectorMathNode implements MeshNode {
                     dots[i] = a.dot(b);
                 }
                 ctx.setOutput("vector", ZERO);
-                ctx.setOutput("value", new FloatField(dots));
+                ctx.setOutput("result",new FloatField(dots));
                 return;
             }
 
@@ -119,7 +119,7 @@ public class VectorMathNode implements MeshNode {
                 lengths[i] = outVec.length();
             }
             ctx.setOutput("vector", new Vec3Field(out));
-            ctx.setOutput("value", new FloatField(lengths));
+            ctx.setOutput("result",new FloatField(lengths));
             return;
         }
 
@@ -132,7 +132,7 @@ public class VectorMathNode implements MeshNode {
         if ("DOT_PRODUCT".equals(op) || "DOT".equals(op)) {
             float dot = a.dot(b);
             ctx.setOutput("vector", ZERO);
-            ctx.setOutput("value", dot);
+            ctx.setOutput("result",dot);
             return;
         }
 
@@ -153,7 +153,7 @@ public class VectorMathNode implements MeshNode {
         }
 
         ctx.setOutput("vector", new Vector3Value(outVec.x, outVec.y, outVec.z));
-        ctx.setOutput("value", outVec.length());
+        ctx.setOutput("result",outVec.length());
     }
 
     private static Vector3f toVec(Vector3Value v) {

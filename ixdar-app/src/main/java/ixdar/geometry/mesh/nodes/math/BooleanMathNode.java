@@ -34,7 +34,7 @@ public class BooleanMathNode implements MeshNode {
     private static final InputPort A = new InputPort("a", PortType.BOOLEAN, false);
     private static final InputPort B = new InputPort("b", PortType.BOOLEAN, false);
     private static final InputPort MODE = new InputPort("mode", PortType.STRING, "AND", MODE_CONSTRAINT);
-    private static final OutputPort RESULT = new OutputPort("result", PortType.BOOLEAN);
+    private static final OutputPort VALUE = new OutputPort("value", PortType.BOOLEAN);
 
     @Override
     public String description() {
@@ -47,7 +47,7 @@ public class BooleanMathNode implements MeshNode {
                 "a", "Left operand (scalar bool or per-element BoolField).",
                 "b", "Right operand. Ignored for mode=NOT.",
                 "mode", "Operation: AND, OR, NOT (of a), XOR.",
-                "result", "Boolean result with broadcast shape of a/b."
+                "value", "Boolean result with broadcast shape of a/b."
         );
     }
 
@@ -58,7 +58,7 @@ public class BooleanMathNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(RESULT);
+        return List.of(VALUE);
     }
 
     @Override
@@ -77,11 +77,11 @@ public class BooleanMathNode implements MeshNode {
                 boolean b = FieldBroadcast.boolAt(bObj, i, false);
                 out[i] = apply(mode, a, b);
             }
-            ctx.setOutput("result", new BoolField(out));
+            ctx.setOutput("value",new BoolField(out));
         } else {
             boolean a = aObj instanceof Boolean ab ? ab : false;
             boolean b = bObj instanceof Boolean bb ? bb : false;
-            ctx.setOutput("result", apply(mode, a, b));
+            ctx.setOutput("value",apply(mode, a, b));
         }
     }
 

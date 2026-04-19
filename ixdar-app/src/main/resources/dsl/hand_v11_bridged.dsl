@@ -241,37 +241,37 @@ palm = transform_geometry(geometry=palm_cut.geometry, scale=palm_scale.vector)
 
 fidx = input_face_index()
 
-sel_2 = compare(a=fidx.index, b=2.0, mode=EQUAL)
-sel_3 = compare(a=fidx.index, b=3.0, mode=EQUAL)
-sel_4 = compare(a=fidx.index, b=4.0, mode=EQUAL)
-sel_5 = compare(a=fidx.index, b=5.0, mode=EQUAL)
-or_23 = boolean_math(a=sel_2.result, b=sel_3.result, mode=OR)
-or_234 = boolean_math(a=or_23.result, b=sel_4.result, mode=OR)
-forearm_sel = boolean_math(a=or_234.result, b=sel_5.result, mode=OR)
+sel_2 = compare(a=fidx.result, b=2.0, mode=EQUAL)
+sel_3 = compare(a=fidx.result, b=3.0, mode=EQUAL)
+sel_4 = compare(a=fidx.result, b=4.0, mode=EQUAL)
+sel_5 = compare(a=fidx.result, b=5.0, mode=EQUAL)
+or_23 = boolean_math(a=sel_2.value, b=sel_3.value, mode=OR)
+or_234 = boolean_math(a=or_23.value, b=sel_4.value, mode=OR)
+forearm_sel = boolean_math(a=or_234.value, b=sel_5.value, mode=OR)
 
-ext_a1 = extrude_mesh(geometry=palm.geometry, offset=forearm_1.result, selection=forearm_sel.result, region=true)
-ext_a2 = extrude_mesh(geometry=ext_a1.geometry, offset=forearm_2.result, selection=forearm_sel.result, region=true)
-ext_a3 = extrude_mesh(geometry=ext_a2.geometry, offset=forearm_3.result, selection=forearm_sel.result, region=true)
-ext_a4 = extrude_mesh(geometry=ext_a3.geometry, offset=forearm_4.result, selection=forearm_sel.result, region=true)
+ext_a1 = extrude_mesh(geometry=palm.geometry, offset=forearm_1.result, selection=forearm_sel.value, region=true)
+ext_a2 = extrude_mesh(geometry=ext_a1.geometry, offset=forearm_2.result, selection=forearm_sel.value, region=true)
+ext_a3 = extrude_mesh(geometry=ext_a2.geometry, offset=forearm_3.result, selection=forearm_sel.value, region=true)
+ext_a4 = extrude_mesh(geometry=ext_a3.geometry, offset=forearm_4.result, selection=forearm_sel.value, region=true)
 
 # ══════════════════════════════════════════════════════════════════════
 # PALM HOLES — inset top 4 faces (indices 6,7,8,9), remove inner faces
 # ══════════════════════════════════════════════════════════════════════
 
-sel_6 = compare(a=fidx.index, b=6.0, mode=EQUAL)
-sel_7 = compare(a=fidx.index, b=7.0, mode=EQUAL)
-sel_8 = compare(a=fidx.index, b=8.0, mode=EQUAL)
-sel_9 = compare(a=fidx.index, b=9.0, mode=EQUAL)
-or_67 = boolean_math(a=sel_6.result, b=sel_7.result, mode=OR)
-or_89 = boolean_math(a=sel_8.result, b=sel_9.result, mode=OR)
-top_sel = boolean_math(a=or_67.result, b=or_89.result, mode=OR)
+sel_6 = compare(a=fidx.result, b=6.0, mode=EQUAL)
+sel_7 = compare(a=fidx.result, b=7.0, mode=EQUAL)
+sel_8 = compare(a=fidx.result, b=8.0, mode=EQUAL)
+sel_9 = compare(a=fidx.result, b=9.0, mode=EQUAL)
+or_67 = boolean_math(a=sel_6.value, b=sel_7.value, mode=OR)
+or_89 = boolean_math(a=sel_8.value, b=sel_9.value, mode=OR)
+top_sel = boolean_math(a=or_67.value, b=or_89.value, mode=OR)
 
 # Thumb hole: face 10 is +X side near -Z
-sel_10 = compare(a=fidx.index, b=10.0, mode=EQUAL)
-hole_sel = boolean_math(a=top_sel.result, b=sel_10.result, mode=OR)
+sel_10 = compare(a=fidx.result, b=10.0, mode=EQUAL)
+hole_sel = boolean_math(a=top_sel.value, b=sel_10.value, mode=OR)
 
-palm_inset = inset_faces(geometry=ext_a4.geometry, inset=0.12, selection=hole_sel.result)
-palm_holes = separate_geometry(geometry=palm_inset.geometry, selection=hole_sel.result)
+palm_inset = inset_faces(geometry=ext_a4.geometry, inset=0.12, selection=hole_sel.value)
+palm_holes = separate_geometry(geometry=palm_inset.geometry, selection=hole_sel.value)
 
 # ══════════════════════════════════════════════════════════════════════
 # JOIN — palm with holes + all 5 tagged finger tubes (including thumb)
@@ -297,7 +297,7 @@ bridge_th = adaptive_bridge_loops(geometry=bridge_ix.geometry, loop_a_tag="th_ba
 # CREASE + SUBDIVISION
 # ══════════════════════════════════════════════════════════════════════
 
-crease_w = mark_crease(geometry=bridge_th.geometry, weight=crease_wrist.result, selection=forearm_sel.result, face_boundary=true)
+crease_w = mark_crease(geometry=bridge_th.geometry, weight=crease_wrist.result, selection=forearm_sel.value, face_boundary=true)
 smooth = subdivision_surface(geometry=crease_w.geometry, levels=2)
 
 # ══════════════════════════════════════════════════════════════════════

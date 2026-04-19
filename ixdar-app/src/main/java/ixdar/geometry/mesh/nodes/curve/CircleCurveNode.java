@@ -26,7 +26,7 @@ public class CircleCurveNode implements MeshNode {
     private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.1f, 0.001f, 100f);
     private static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 32, 2f, 256f);
     private static final InputPort CENTER = new InputPort("center", PortType.VECTOR3, new Vector3Value(0.0f, 0.0f, 0.0f));
-    private static final OutputPort CURVE = new OutputPort("curve", PortType.GEOMETRY_BUNDLE);
+    private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -39,7 +39,7 @@ public class CircleCurveNode implements MeshNode {
                 "radius", "Distance from center to each polyline vertex. The circle has diameter 2r in the XZ plane (extent 2r on those axes).",
                 "resolution", "Number of segments. 3 = triangle; 32 = near-circle; 128 = very smooth.",
                 "center", "World-space position of the circle's center.",
-                "curve", "Closed curve geometry bundle (polyline in XZ plane)."
+                "geometry", "Closed curve geometry bundle (polyline in XZ plane)."
         );
     }
 
@@ -50,7 +50,7 @@ public class CircleCurveNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(CURVE);
+        return List.of(GEOMETRY);
     }
 
     @Override
@@ -93,6 +93,6 @@ public class CircleCurveNode implements MeshNode {
         CurveGeometry curve = CurveGeometry.singlePolyline(closedPositions);
         GeometryBundle curveBundle = GeometryBundle.empty().withSlot("_curve", curve);
 
-        ctx.setOutput("curve", curveBundle);
+        ctx.setOutput("geometry", curveBundle);
     }
 }

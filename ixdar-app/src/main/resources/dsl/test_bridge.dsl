@@ -2,9 +2,9 @@
 
 palm_cube = cube(size=1.0)
 fidx = input_face_index()
-sel_top = compare(a=fidx.index, b=3.0, mode=EQUAL)
-palm_inset = inset_faces(geometry=palm_cube.mesh, inset=0.3, selection=sel_top.result)
-palm_with_hole = separate_geometry(geometry=palm_inset.geometry, selection=sel_top.result)
+sel_top = compare(a=fidx.result, b=3.0, mode=EQUAL)
+palm_inset = inset_faces(geometry=palm_cube.mesh, inset=0.3, selection=sel_top.value)
+palm_with_hole = separate_geometry(geometry=palm_inset.geometry, selection=sel_top.value)
 
 tube = dual_radial_segment(
     start_rx=0.2, start_ry=0.2, start_tx=0.0, start_ty=0.0,
