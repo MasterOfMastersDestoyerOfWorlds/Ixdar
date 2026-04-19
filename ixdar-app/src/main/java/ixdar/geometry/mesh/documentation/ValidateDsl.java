@@ -159,12 +159,21 @@ public final class ValidateDsl {
             try {
                 MeshNode instance = clazz.getDeclaredConstructor().newInstance();
                 MeshNodeSchema schema = MeshNodeSchema.from(instance);
-                List<String> names = new ArrayList<>();
+                // Prefer GEOMETRY_BUNDLE ports over MESH so the export sees the
+                // bundle's slots (bezier handles, auto-tags, etc.) — a plain
+                // MeshTopology output strips that metadata.
+                List<String> bundlePorts = new ArrayList<>();
+                List<String> meshPorts = new ArrayList<>();
                 for (OutputPort op : schema.outputs()) {
-                    if (op.type() == PortType.MESH || op.type() == PortType.GEOMETRY_BUNDLE) {
-                        names.add(op.name());
+                    if (op.type() == PortType.GEOMETRY_BUNDLE) {
+                        bundlePorts.add(op.name());
+                    } else if (op.type() == PortType.MESH) {
+                        meshPorts.add(op.name());
                     }
                 }
+                List<String> names = new ArrayList<>();
+                names.addAll(bundlePorts);
+                names.addAll(meshPorts);
                 if (!names.isEmpty()) {
                     return names;
                 }
@@ -337,8 +346,18 @@ public final class ValidateDsl {
         Map<String, List<Integer>> tagIndices = new LinkedHashMap<>();
         for (Map.Entry<String, boolean[]> e : tags.entrySet()) {
             boolean[] mask = e.getValue();
+            if (mask.length != vertexCount) {
+                // Skip tags whose per-vertex mask doesn't match the final mesh. This
+                // happens when a tag set before a vertex-count-changing op (e.g.
+                // coons_patch's subdivision) is carried forward; the indices would
+                // be meaningless or misleading in the sidecar.
+                System.err.println("[ValidateDsl] skipping tag '" + e.getKey()
+                        + "' (mask length " + mask.length + " != vertex count " + vertexCount
+                        + "); likely invalidated by a vertex-count-changing op upstream.");
+                continue;
+            }
             List<Integer> indices = new ArrayList<>();
-            for (int i = 0; i < mask.length && i < vertexCount; i++) {
+            for (int i = 0; i < vertexCount; i++) {
                 if (mask[i]) {
                     indices.add(i);
                 }

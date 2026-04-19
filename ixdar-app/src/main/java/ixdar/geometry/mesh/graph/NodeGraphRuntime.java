@@ -169,6 +169,7 @@ public class NodeGraphRuntime {
 
                 GraphNodeContext context = new GraphNodeContext();
                 context.setFieldContext(currentFieldContext);
+                context.setNodeAssignmentId(parsedData.id);
 
                 for (Map.Entry<String, Object> resolved : resolvedArgs.entrySet()) {
                     context.setInputValue(resolved.getKey(), resolved.getValue());
@@ -180,6 +181,7 @@ public class NodeGraphRuntime {
 
                 long nodeStart = System.nanoTime();
                 activeNode.evaluate(context);
+                AutoTagHook.applyIfApplicable(activeNode, context, parsedData.id);
                 long nodeMs = (System.nanoTime() - nodeStart) / 1_000_000;
                 lastTimingMs.put(parsedData.id + " (" + parsedData.type + ")", nodeMs);
 
@@ -299,12 +301,14 @@ public class NodeGraphRuntime {
 
                 lastContext = new GraphNodeContext();
                 lastContext.setFieldContext(localFieldContext);
+                lastContext.setNodeAssignmentId(bodyNode.id);
 
                 for (Map.Entry<String, Object> resolved : resolvedArgs.entrySet()) {
                     lastContext.setInputValue(resolved.getKey(), resolved.getValue());
                 }
 
                 activeNode.evaluate(lastContext);
+                AutoTagHook.applyIfApplicable(activeNode, lastContext, bodyNode.id);
             }
 
             MeshTopology meshOut = meshFromNodeOutputs(lastContext);

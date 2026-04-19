@@ -11,6 +11,16 @@ public class GraphNodeContext implements NodeContext {
     private final Map<String, Object> inputs = new HashMap<>();
     private final Map<String, Object> outputs = new HashMap<>();
     private FieldContext fieldContext;
+    private String nodeAssignmentId;
+
+    public void setNodeAssignmentId(String id) {
+        this.nodeAssignmentId = id;
+    }
+
+    @Override
+    public String nodeAssignmentId() {
+        return nodeAssignmentId;
+    }
 
     public void setInputValue(String portName, Object value) {
         inputs.put(portName, value);

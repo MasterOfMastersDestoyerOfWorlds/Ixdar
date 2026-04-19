@@ -21,4 +21,16 @@ public interface NodeContext {
     default Object getInputValue(String name) {
         return null;
     }
+
+    /**
+     * The DSL assignment's left-hand-side identifier for this node, or {@code null}
+     * when unknown (e.g. test contexts, synthetic intermediate nodes). For
+     * {@code eye_inset = coons_inset_faces(...)} this returns {@code "eye_inset"}.
+     * Used by the runtime's auto-tag hook to label newly-generated faces with the
+     * author's variable name, so mesh_compare_regions can report per-feature error
+     * using names that align with the written DSL.
+     */
+    default String nodeAssignmentId() {
+        return null;
+    }
 }
