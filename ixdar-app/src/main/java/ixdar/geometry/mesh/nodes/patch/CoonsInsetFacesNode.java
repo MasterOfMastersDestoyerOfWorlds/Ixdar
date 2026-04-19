@@ -2,8 +2,10 @@ package ixdar.geometry.mesh.nodes.patch;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.joml.Vector3f;
 
@@ -135,14 +137,12 @@ public class CoonsInsetFacesNode implements MeshNode {
             }
         }
 
-        // No-op / zero inset path.
         if (selectedCount == 0 || t <= 0f) {
             HalfEdgeMesh passThrough = copyMesh(in);
             float[][] passHandles = copyHandles(in, passThrough, hStart, hEnd);
             return new InsetResult(passThrough, passHandles, new boolean[passThrough.faceCount()]);
         }
 
-        // Assemble new mesh: original verts, then per-selected-face 4 inner verts.
         float[] origPos = new float[origVertCount * 3];
         Vector3f tmp = new Vector3f();
         for (int i = 0; i < origVertCount; i++) {
@@ -152,22 +152,145 @@ public class CoonsInsetFacesNode implements MeshNode {
             origPos[i * 3 + 1] = tmp.y;
             origPos[i * 3 + 2] = tmp.z;
         }
-        // Old vid → dense index so new vids are consistent even if input had id gaps.
         Map<Integer, Integer> oldToDense = new HashMap<>();
         for (int i = 0; i < origVertCount; i++) {
             oldToDense.put(in.vertexIdAt(i), i);
         }
 
+        // Shared cage edges: both incident faces selected → candidates for merge.
+        Set<Integer> sharedEdgeIds = new HashSet<>();
+        for (int ei = 0; ei < in.edgeCount(); ei++) {
+            int eid = in.edgeIdAt(ei);
+            if (in.isBoundaryEdge(eid)) continue;
+            int he = in.edgeHalfEdge(eid);
+            int twin = in.halfEdgeTwin(he);
+            int f1 = in.halfEdgeFace(he);
+            int f2 = twin >= 0 ? in.halfEdgeFace(twin) : MeshTopology.NONE;
+            if (f1 == MeshTopology.NONE || f2 == MeshTopology.NONE) continue;
+            int fi1 = faceIndexOfId(in, f1);
+            int fi2 = faceIndexOfId(in, f2);
+            if (fi1 >= 0 && fi2 >= 0 && selected[fi1] && selected[fi2]) {
+                sharedEdgeIds.add(eid);
+            }
+        }
+
+        // Map each cage vertex touched by a selected face to its (face, corner) occurrences.
+        Map<Integer, List<int[]>> facesAtVertex = new HashMap<>();
+        for (int fi = 0; fi < origFaceCount; fi++) {
+            if (!selected[fi]) continue;
+            int fid = in.faceIdAt(fi);
+            for (int k = 0; k < 4; k++) {
+                int vid = in.faceVertexAt(fid, k);
+                int dense = oldToDense.get(vid);
+                facesAtVertex.computeIfAbsent(dense, x -> new ArrayList<>()).add(new int[]{fi, k});
+            }
+        }
+
+        // Only merge shared edges where BOTH endpoints are 2-face corners.
+        // Partial merges (one endpoint 2-face, the other 3+) create manifold
+        // violations downstream because the side quad kept at the 3+ end
+        // claims an edge along the cage that the neighbor's inner quad also
+        // traverses in the same direction.
+        Set<Integer> fullyMergeableEdges = new HashSet<>();
+        for (int eid : sharedEdgeIds) {
+            int he = in.edgeHalfEdge(eid);
+            int va = in.halfEdgeVertex(he);
+            int vb = in.halfEdgeEndVertex(he);
+            Integer denseA = oldToDense.get(va);
+            Integer denseB = oldToDense.get(vb);
+            if (denseA == null || denseB == null) continue;
+            List<int[]> atA = facesAtVertex.get(denseA);
+            List<int[]> atB = facesAtVertex.get(denseB);
+            if (atA != null && atA.size() == 2 && atB != null && atB.size() == 2) {
+                fullyMergeableEdges.add(eid);
+            }
+        }
+
         ArrayList<Float> extraPos = new ArrayList<>(selectedCount * 4 * 3);
-        // Per-face: the 4 new inner vertex dense indices in face-winding order.
         int[][] innerVids = new int[origFaceCount][];
+        float[][] innerUV = new float[origFaceCount][];  // per face: [u0,v0, u1,v1, u2,v2, u3,v3]
+        for (int fi = 0; fi < origFaceCount; fi++) {
+            if (selected[fi]) {
+                innerVids[fi] = new int[4];
+                innerUV[fi] = new float[8];
+            }
+        }
 
-        // Directed handle map shared by all faces.
+        // Which (cage edge, endpoint-vid) pairs successfully merged? Used by the
+        // side-quad emission pass to drop side quads where BOTH endpoints merged.
+        Set<Long> mergedEndpoint = new HashSet<>();
+
+        int nextVid = origVertCount;
+
+        // Allocate inner verts per cage vertex. 2-face corners with a shared
+        // cage edge get one merged vert on the edge curve (on the Coons surface
+        // by construction); everyone else gets a face-local (t,t)-type vert.
+        for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
+            int denseVid = entry.getKey();
+            List<int[]> atV = entry.getValue();
+            int n = atV.size();
+            boolean merged = false;
+
+            if (n == 2) {
+                int[] a = atV.get(0);
+                int[] b = atV.get(1);
+                int fiA = a[0], kA = a[1];
+                int fiB = b[0], kB = b[1];
+                int fidA = in.faceIdAt(fiA);
+                int fidB = in.faceIdAt(fiB);
+                int eAfwd = in.faceEdgeAt(fidA, kA);
+                int eAback = in.faceEdgeAt(fidA, (kA + 3) % 4);
+                int eBfwd = in.faceEdgeAt(fidB, kB);
+                int eBback = in.faceEdgeAt(fidB, (kB + 3) % 4);
+
+                int sharedEid = -1;
+                boolean fwdFromA = false;
+                for (int pass = 0; pass < 2 && sharedEid < 0; pass++) {
+                    boolean fwd = (pass == 0);
+                    int candA = fwd ? eAfwd : eAback;
+                    if (!fullyMergeableEdges.contains(candA)) continue;
+                    if (candA == eBfwd || candA == eBback) {
+                        sharedEid = candA;
+                        fwdFromA = fwd;
+                    }
+                }
+
+                if (sharedEid >= 0) {
+                    float[] uvA = edgePointUV(kA, t, fwdFromA);
+                    Vector3f pos = evalFaceCoons(in, hStart, hEnd, fidA, uvA[0], uvA[1]);
+                    int newVid = nextVid++;
+                    extraPos.add(pos.x); extraPos.add(pos.y); extraPos.add(pos.z);
+                    innerVids[fiA][kA] = newVid;
+                    innerVids[fiB][kB] = newVid;
+                    innerUV[fiA][2 * kA] = uvA[0];
+                    innerUV[fiA][2 * kA + 1] = uvA[1];
+                    boolean fwdFromB = (sharedEid == eBfwd);
+                    float[] uvB = edgePointUV(kB, t, fwdFromB);
+                    innerUV[fiB][2 * kB] = uvB[0];
+                    innerUV[fiB][2 * kB + 1] = uvB[1];
+                    mergedEndpoint.add(packEdgeVertex(sharedEid, denseVid));
+                    merged = true;
+                }
+            }
+
+            if (!merged) {
+                for (int[] pair : atV) {
+                    int fi = pair[0];
+                    int k = pair[1];
+                    int fid = in.faceIdAt(fi);
+                    float[] uv = faceLocalUV(k, t);
+                    Vector3f pos = evalFaceCoons(in, hStart, hEnd, fid, uv[0], uv[1]);
+                    int newVid = nextVid++;
+                    extraPos.add(pos.x); extraPos.add(pos.y); extraPos.add(pos.z);
+                    innerVids[fi][k] = newVid;
+                    innerUV[fi][2 * k] = uv[0];
+                    innerUV[fi][2 * k + 1] = uv[1];
+                }
+            }
+        }
+
+        // Seed original edge handles into the directed-handle map.
         Map<Long, float[]> dh = new HashMap<>();
-
-        // First, seed the directed-handle map with ALL original edge handles
-        // (covers every edge that's kept unchanged — outer boundary of side
-        // quads, and all pass-through-face edges).
         for (int ei = 0; ei < in.edgeCount(); ei++) {
             int eid = in.edgeIdAt(ei);
             int he = in.edgeHalfEdge(eid);
@@ -182,76 +305,50 @@ public class CoonsInsetFacesNode implements MeshNode {
                     new float[]{hEnd[o], hEnd[o + 1], hEnd[o + 2]});
         }
 
-        int nextVid = origVertCount;
-
-        // Pass 1: for each selected face, compute 4 inner vertex positions on
-        // the Coons surface and record directional handles for new edges.
+        // Per-face handle computation: iso-curve handles for the 4 inner-quad
+        // edges, radial handles for the 4 cage-corner → inner-corner edges.
+        // Parameterized by innerUV so merged inner verts that sit on shared
+        // cage edges get their handles from the actual edge bezier sub-curves.
         for (int fi = 0; fi < origFaceCount; fi++) {
             if (!selected[fi]) continue;
             int fid = in.faceIdAt(fi);
+            int fv0 = in.faceVertexAt(fid, 0);
+            int fv1 = in.faceVertexAt(fid, 1);
+            int fv3 = in.faceVertexAt(fid, 3);
+            int fe0 = in.faceEdgeAt(fid, 0);
+            int fe1 = in.faceEdgeAt(fid, 1);
+            int fe2 = in.faceEdgeAt(fid, 2);
+            int fe3 = in.faceEdgeAt(fid, 3);
+            int[] dOrig = {
+                    oldToDense.get(in.faceVertexAt(fid, 0)),
+                    oldToDense.get(in.faceVertexAt(fid, 1)),
+                    oldToDense.get(in.faceVertexAt(fid, 2)),
+                    oldToDense.get(in.faceVertexAt(fid, 3)),
+            };
+            int[] ni = innerVids[fi];
+            float[] uv = innerUV[fi];
 
-            int v0 = in.faceVertexAt(fid, 0);
-            int v1 = in.faceVertexAt(fid, 1);
-            int v2 = in.faceVertexAt(fid, 2);
-            int v3 = in.faceVertexAt(fid, 3);
-            int e0 = in.faceEdgeAt(fid, 0);
-            int e1 = in.faceEdgeAt(fid, 1);
-            int e2 = in.faceEdgeAt(fid, 2);
-            int e3 = in.faceEdgeAt(fid, 3);
+            for (int k = 0; k < 4; k++) {
+                int kNext = (k + 1) % 4;
+                float uA = uv[2 * k];
+                float vA = uv[2 * k + 1];
+                float uB = uv[2 * kNext];
+                float vB = uv[2 * kNext + 1];
+                Vector3f pA = CoonsHandleBuilder.evalCoonsSurface(in, hStart, hEnd, fv0, fv1, fv3,
+                        fe0, fe1, fe2, fe3, uA, vA);
+                Vector3f pB = CoonsHandleBuilder.evalCoonsSurface(in, hStart, hEnd, fv0, fv1, fv3,
+                        fe0, fe1, fe2, fe3, uB, vB);
+                addIsoCurveHandles(in, hStart, hEnd, fv0, fv1, fv3, fe0, fe1, fe2, fe3,
+                        uA, vA, uB, vB, pA, pB, ni[k], ni[kNext], dh);
+            }
 
-            int d0 = oldToDense.get(v0);
-            int d1 = oldToDense.get(v1);
-            int d2 = oldToDense.get(v2);
-            int d3 = oldToDense.get(v3);
-
-            // Inner vertices at parameters (t, t), (1-t, t), (1-t, 1-t), (t, 1-t)
-            Vector3f n0 = CoonsHandleBuilder.evalCoonsSurface(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3, t, t);
-            Vector3f n1 = CoonsHandleBuilder.evalCoonsSurface(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3, 1f - t, t);
-            Vector3f n2 = CoonsHandleBuilder.evalCoonsSurface(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3, 1f - t, 1f - t);
-            Vector3f n3 = CoonsHandleBuilder.evalCoonsSurface(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3, t, 1f - t);
-
-            int nd0 = nextVid++; extraPos.add(n0.x); extraPos.add(n0.y); extraPos.add(n0.z);
-            int nd1 = nextVid++; extraPos.add(n1.x); extraPos.add(n1.y); extraPos.add(n1.z);
-            int nd2 = nextVid++; extraPos.add(n2.x); extraPos.add(n2.y); extraPos.add(n2.z);
-            int nd3 = nextVid++; extraPos.add(n3.x); extraPos.add(n3.y); extraPos.add(n3.z);
-            innerVids[fi] = new int[]{nd0, nd1, nd2, nd3};
-
-            // Inner-boundary edge handles via sub-curve approximation.
-            // Each inner-boundary edge is an iso-curve segment in (u, v) space
-            // with one parameter fixed. We approximate by sampling 4 points on
-            // the Coons surface and using the start/end tangent direction.
-            //
-            // n0 → n1: v fixed at t, u goes t → (1-t). Tangent direction =
-            //   S(t+ε, t) − S(t, t). Sub-curve length ≈ (1 − 2t)/3.
-            //
-            // n1 → n2: u fixed at (1-t), v goes t → (1-t).
-            // n2 → n3: v fixed at (1-t), u goes (1-t) → t.
-            // n3 → n0: u fixed at t, v goes (1-t) → t.
-            addIsoCurveHandles(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3,
-                    t, t, 1f - t, t, n0, n1, nd0, nd1, dh);   // n0→n1 along u, v=t
-            addIsoCurveHandles(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3,
-                    1f - t, t, 1f - t, 1f - t, n1, n2, nd1, nd2, dh); // n1→n2 along v, u=1-t
-            addIsoCurveHandles(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3,
-                    1f - t, 1f - t, t, 1f - t, n2, n3, nd2, nd3, dh); // n2→n3 along u reversed
-            addIsoCurveHandles(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3,
-                    t, 1f - t, t, t, n3, n0, nd3, nd0, dh);     // n3→n0 along v reversed
-
-            // Radial edges (outer corner → inner corner): cubic bezier fit
-            // using tangent samples at both ends. The path in (u, v) space is
-            // a diagonal from the corner to the inner-corner parameter, so
-            // tangents come from finite differences along that diagonal.
-            // v0 at (0, 0) → n0 at (t, t)
-            addRadialHandles(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3,
-                    0f, 0f, t, t, d0, nd0, dh);
-            // v1 at (1, 0) → n1 at (1-t, t)
-            addRadialHandles(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3,
-                    1f, 0f, 1f - t, t, d1, nd1, dh);
-            // v2 at (1, 1) → n2 at (1-t, 1-t)
-            addRadialHandles(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3,
-                    1f, 1f, 1f - t, 1f - t, d2, nd2, dh);
-            // v3 at (0, 1) → n3 at (t, 1-t)
-            addRadialHandles(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3,
-                    0f, 1f, t, 1f - t, d3, nd3, dh);
+            float[] cornerUV = {0f, 0f, 1f, 0f, 1f, 1f, 0f, 1f};
+            for (int k = 0; k < 4; k++) {
+                addRadialHandles(in, hStart, hEnd, fv0, fv1, fv3, fe0, fe1, fe2, fe3,
+                        cornerUV[2 * k], cornerUV[2 * k + 1],
+                        uv[2 * k], uv[2 * k + 1],
+                        dOrig[k], ni[k], dh);
+            }
         }
 
         // Pass 2: assemble output mesh topology.
@@ -262,12 +359,29 @@ public class CoonsInsetFacesNode implements MeshNode {
             positions[origVertCount * 3 + i] = extraPos.get(i);
         }
 
-        // Face count: each unselected face contributes 1 face; each selected
-        // face contributes 5 (inner quad + 4 side quads).
+        // Determine which cage edges get both endpoints merged — those drop
+        // both their side quads (2 per shared edge), and the two inner quads
+        // become directly edge-adjacent through the shared endpoint verts.
+        Set<Integer> droppedSharedEdges = new HashSet<>();
+        for (int eid : sharedEdgeIds) {
+            int he = in.edgeHalfEdge(eid);
+            int va = in.halfEdgeVertex(he);
+            int vb = in.halfEdgeEndVertex(he);
+            int denseA = oldToDense.get(va);
+            int denseB = oldToDense.get(vb);
+            if (mergedEndpoint.contains(packEdgeVertex(eid, denseA))
+                    && mergedEndpoint.contains(packEdgeVertex(eid, denseB))) {
+                droppedSharedEdges.add(eid);
+            }
+        }
+        int droppedSideQuads = 2 * droppedSharedEdges.size();
+
         int outFaceCount = 0;
         for (int fi = 0; fi < origFaceCount; fi++) {
             outFaceCount += selected[fi] ? 5 : 1;
         }
+        outFaceCount -= droppedSideQuads;
+
         int[] faceIdx = new int[outFaceCount * 4];
         boolean[] generated = new boolean[outFaceCount];
 
@@ -283,38 +397,38 @@ public class CoonsInsetFacesNode implements MeshNode {
                     }
                     generated[faceWriteIdx++] = false;
                 } else {
-                    // Non-quad fallback: skip; caller shouldn't feed coons_inset
-                    // non-quads anyway. Fill with degenerate so array lines up.
                     for (int k = 0; k < 4; k++) faceIdx[w++] = 0;
                     generated[faceWriteIdx++] = false;
                 }
                 continue;
             }
-            int v0 = in.faceVertexAt(fid, 0);
-            int v1 = in.faceVertexAt(fid, 1);
-            int v2 = in.faceVertexAt(fid, 2);
-            int v3 = in.faceVertexAt(fid, 3);
-            int d0 = oldToDense.get(v0);
-            int d1 = oldToDense.get(v1);
-            int d2 = oldToDense.get(v2);
-            int d3 = oldToDense.get(v3);
+            int[] dOrig = {
+                    oldToDense.get(in.faceVertexAt(fid, 0)),
+                    oldToDense.get(in.faceVertexAt(fid, 1)),
+                    oldToDense.get(in.faceVertexAt(fid, 2)),
+                    oldToDense.get(in.faceVertexAt(fid, 3)),
+            };
             int[] ni = innerVids[fi];
-            int nd0 = ni[0], nd1 = ni[1], nd2 = ni[2], nd3 = ni[3];
 
             // Inner face (generated — threaded into follow-up selections)
-            faceIdx[w++] = nd0; faceIdx[w++] = nd1; faceIdx[w++] = nd2; faceIdx[w++] = nd3;
+            faceIdx[w++] = ni[0];
+            faceIdx[w++] = ni[1];
+            faceIdx[w++] = ni[2];
+            faceIdx[w++] = ni[3];
             generated[faceWriteIdx++] = true;
 
-            // Side quads: each bridges an outer edge to its shrunk inner parallel.
-            // v0→v1 / nd1→nd0  becomes  v0, v1, nd1, nd0  (CCW in face winding)
-            faceIdx[w++] = d0; faceIdx[w++] = d1; faceIdx[w++] = nd1; faceIdx[w++] = nd0;
-            generated[faceWriteIdx++] = false;
-            faceIdx[w++] = d1; faceIdx[w++] = d2; faceIdx[w++] = nd2; faceIdx[w++] = nd1;
-            generated[faceWriteIdx++] = false;
-            faceIdx[w++] = d2; faceIdx[w++] = d3; faceIdx[w++] = nd3; faceIdx[w++] = nd2;
-            generated[faceWriteIdx++] = false;
-            faceIdx[w++] = d3; faceIdx[w++] = d0; faceIdx[w++] = nd0; faceIdx[w++] = nd3;
-            generated[faceWriteIdx++] = false;
+            // Side quads: one per cage edge of this face, skipping those
+            // where both endpoint inner corners were merged on a shared edge.
+            for (int k = 0; k < 4; k++) {
+                int eid = in.faceEdgeAt(fid, k);
+                if (droppedSharedEdges.contains(eid)) continue;
+                int kNext = (k + 1) % 4;
+                faceIdx[w++] = dOrig[k];
+                faceIdx[w++] = dOrig[kNext];
+                faceIdx[w++] = ni[kNext];
+                faceIdx[w++] = ni[k];
+                generated[faceWriteIdx++] = false;
+            }
         }
 
         HalfEdgeMesh outMesh = HalfEdgeMesh.bulkAllocate(positions, faceIdx, 4);
@@ -322,6 +436,75 @@ public class CoonsInsetFacesNode implements MeshNode {
 
         float[][] handles = CoonsHandleBuilder.flushDirectedHandles(outMesh, dh);
         return new InsetResult(outMesh, handles, generated);
+    }
+
+    /** Linear lookup of a face's sequence index by its face id. */
+    private static int faceIndexOfId(MeshTopology m, int fid) {
+        for (int i = 0; i < m.faceCount(); i++) {
+            if (m.faceIdAt(i) == fid) return i;
+        }
+        return -1;
+    }
+
+    /** Pack a (cage edge id, dense vertex id) pair into a long for hashset keys. */
+    private static long packEdgeVertex(int eid, int denseVid) {
+        return ((long) eid << 32) | (denseVid & 0xFFFFFFFFL);
+    }
+
+    /**
+     * (u,v) params for the face-local inner-corner position at corner {@code k}
+     * with inset amount {@code t}. Places the vert at {@code (t,t)} near corner 0,
+     * {@code (1-t, t)} near corner 1, and so on — matches the legacy single-face
+     * inset when no merge is happening.
+     */
+    private static float[] faceLocalUV(int k, float t) {
+        switch (k) {
+            case 0: return new float[]{t, t};
+            case 1: return new float[]{1f - t, t};
+            case 2: return new float[]{1f - t, 1f - t};
+            case 3: return new float[]{t, 1f - t};
+            default: throw new IllegalArgumentException("corner k=" + k);
+        }
+    }
+
+    /**
+     * (u,v) params for the point {@code s=t} along an edge incident to corner
+     * {@code k}. The "fwd" edge is {@code faceEdgeAt(fid, k)} (from corner k to
+     * k+1); the "back" edge is {@code faceEdgeAt(fid, (k+3)%4)} (from corner
+     * k-1 to k). Used when the inner vert at this corner is merged onto the
+     * shared edge's bezier curve — the resulting point lies on the Coons
+     * surface by construction.
+     */
+    private static float[] edgePointUV(int k, float t, boolean fwdEdge) {
+        if (fwdEdge) {
+            switch (k) {
+                case 0: return new float[]{t, 0f};
+                case 1: return new float[]{1f, t};
+                case 2: return new float[]{1f - t, 1f};
+                case 3: return new float[]{0f, 1f - t};
+                default: throw new IllegalArgumentException("corner k=" + k);
+            }
+        }
+        switch (k) {
+            case 0: return new float[]{0f, t};
+            case 1: return new float[]{1f - t, 0f};
+            case 2: return new float[]{1f, 1f - t};
+            case 3: return new float[]{t, 1f};
+            default: throw new IllegalArgumentException("corner k=" + k);
+        }
+    }
+
+    /** Small wrapper around {@link CoonsHandleBuilder#evalCoonsSurface} keyed by face id. */
+    private static Vector3f evalFaceCoons(MeshTopology in, float[] hStart, float[] hEnd,
+                                          int fid, float u, float v) {
+        int v0 = in.faceVertexAt(fid, 0);
+        int v1 = in.faceVertexAt(fid, 1);
+        int v3 = in.faceVertexAt(fid, 3);
+        int e0 = in.faceEdgeAt(fid, 0);
+        int e1 = in.faceEdgeAt(fid, 1);
+        int e2 = in.faceEdgeAt(fid, 2);
+        int e3 = in.faceEdgeAt(fid, 3);
+        return CoonsHandleBuilder.evalCoonsSurface(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3, u, v);
     }
 
     /**
