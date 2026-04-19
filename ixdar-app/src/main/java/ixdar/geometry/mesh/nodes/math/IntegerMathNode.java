@@ -41,7 +41,7 @@ public class IntegerMathNode implements MeshNode {
 
     private static final InputPort A = new InputPort("a", PortType.INT, 0, -1000f, 1000f);
     private static final InputPort B = new InputPort("b", PortType.INT, 0, -1000f, 1000f);
-    private static final InputPort MODE = new InputPort("mode", PortType.STRING, "ADD", MODE_CONSTRAINT);
+    private static final InputPort OPERATION = new InputPort("operation", PortType.STRING, "ADD", MODE_CONSTRAINT);
     private static final OutputPort RESULT = new OutputPort("result", PortType.INT);
 
     @Override
@@ -54,14 +54,14 @@ public class IntegerMathNode implements MeshNode {
         return java.util.Map.of(
                 "a", "Left integer operand.",
                 "b", "Right integer operand.",
-                "mode", "Operation: ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, MIN, MAX.",
+                "operation", "Operation: ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, MIN, MAX.",
                 "result", "Integer result."
         );
     }
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(A, B, MODE);
+        return List.of(A, B, OPERATION);
     }
 
     @Override
@@ -73,7 +73,7 @@ public class IntegerMathNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         Number aNum = ctx.getInput("a", Number.class);
         Number bNum = ctx.getInput("b", Number.class);
-        String modeStr = ctx.getInput("mode", String.class);
+        String modeStr = ctx.getInput("operation", String.class);
         int a = aNum == null ? 0 : aNum.intValue();
         int b = bNum == null ? 0 : bNum.intValue();
         Mode mode = Mode.parse(modeStr);

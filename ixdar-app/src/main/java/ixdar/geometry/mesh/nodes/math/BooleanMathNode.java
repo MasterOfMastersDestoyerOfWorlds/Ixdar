@@ -33,7 +33,7 @@ public class BooleanMathNode implements MeshNode {
 
     private static final InputPort A = new InputPort("a", PortType.BOOLEAN, false);
     private static final InputPort B = new InputPort("b", PortType.BOOLEAN, false);
-    private static final InputPort MODE = new InputPort("mode", PortType.STRING, "AND", MODE_CONSTRAINT);
+    private static final InputPort OPERATION = new InputPort("operation", PortType.STRING, "AND", MODE_CONSTRAINT);
     private static final OutputPort VALUE = new OutputPort("value", PortType.BOOLEAN);
 
     @Override
@@ -45,15 +45,15 @@ public class BooleanMathNode implements MeshNode {
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
                 "a", "Left operand (scalar bool or per-element BoolField).",
-                "b", "Right operand. Ignored for mode=NOT.",
-                "mode", "Operation: AND, OR, NOT (of a), XOR.",
+                "b", "Right operand. Ignored for operation=NOT.",
+                "operation", "Operation: AND, OR, NOT (of a), XOR.",
                 "value", "Boolean result with broadcast shape of a/b."
         );
     }
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(A, B, MODE);
+        return List.of(A, B, OPERATION);
     }
 
     @Override
@@ -65,8 +65,8 @@ public class BooleanMathNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         Object aObj = FieldBroadcast.getInputOrDefault(ctx, "a", A.defaultValue());
         Object bObj = FieldBroadcast.getInputOrDefault(ctx, "b", B.defaultValue());
-        String modeStr = ctx.getInput("mode", String.class);
-        Mode mode = Mode.parse(modeStr);
+        String opStr = ctx.getInput("operation", String.class);
+        Mode mode = Mode.parse(opStr);
 
         boolean hasField = aObj instanceof BoolField || bObj instanceof BoolField;
         if (hasField) {

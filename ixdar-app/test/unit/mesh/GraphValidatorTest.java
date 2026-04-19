@@ -51,7 +51,7 @@ public class GraphValidatorTest {
     @Test
     public void randomValueLinkEmitsWarning() {
         String dsl = "r = random_value(seed=1, min=0, max=1, mode=2.0)\n"
-                + "k = integer_math(a=r.int_out, b=1, mode=3.0)\n";
+                + "k = integer_math(a=r.int_out, b=1, operation=3.0)\n";
         PythonLexer lexer = new PythonLexer(dsl);
         PythonParser parser = new PythonParser(lexer);
         List<PythonParser.ParsedNode> ast = parser.parseGraph();

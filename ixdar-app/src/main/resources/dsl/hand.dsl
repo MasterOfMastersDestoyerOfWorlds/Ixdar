@@ -65,24 +65,24 @@ sel_6 = compare(a=fidx.result, b=6.0, mode=EQUAL)
 sel_7 = compare(a=fidx.result, b=7.0, mode=EQUAL)
 sel_8 = compare(a=fidx.result, b=8.0, mode=EQUAL)
 sel_9 = compare(a=fidx.result, b=9.0, mode=EQUAL)
-or_67 = boolean_math(a=sel_6.value, b=sel_7.value, mode=OR)
-or_678 = boolean_math(a=or_67.value, b=sel_8.value, mode=OR)
-finger_sel = boolean_math(a=or_678.value, b=sel_9.value, mode=OR)
+or_67 = boolean_math(a=sel_6.value, b=sel_7.value, operation=OR)
+or_678 = boolean_math(a=or_67.value, b=sel_8.value, operation=OR)
+finger_sel = boolean_math(a=or_678.value, b=sel_9.value, operation=OR)
 
 # Right face strip at palm base (face 11) for thumb
 sel_thumb = compare(a=fidx.result, b=11.0, mode=EQUAL)
 
 # All digits for inset
-digit_sel = boolean_math(a=finger_sel.value, b=sel_thumb.value, mode=OR)
+digit_sel = boolean_math(a=finger_sel.value, b=sel_thumb.value, operation=OR)
 
 # Bottom faces 2-5 for forearm
 sel_2 = compare(a=fidx.result, b=2.0, mode=EQUAL)
 sel_3 = compare(a=fidx.result, b=3.0, mode=EQUAL)
 sel_4 = compare(a=fidx.result, b=4.0, mode=EQUAL)
 sel_5 = compare(a=fidx.result, b=5.0, mode=EQUAL)
-or_23 = boolean_math(a=sel_2.value, b=sel_3.value, mode=OR)
-or_234 = boolean_math(a=or_23.value, b=sel_4.value, mode=OR)
-forearm_sel = boolean_math(a=or_234.value, b=sel_5.value, mode=OR)
+or_23 = boolean_math(a=sel_2.value, b=sel_3.value, operation=OR)
+or_234 = boolean_math(a=or_23.value, b=sel_4.value, operation=OR)
+forearm_sel = boolean_math(a=or_234.value, b=sel_5.value, operation=OR)
 
 # ══════════════════════════════════════════════════════════════════════
 # INSET — gap between fingers/thumb before extrusion

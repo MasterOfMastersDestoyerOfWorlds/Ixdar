@@ -40,13 +40,13 @@ public class MathNodesTest {
         assertEquals(true, evalBool(node, true, false, "XOR"));
     }
 
-    private static boolean evalBool(BooleanMathNode node, boolean a, boolean b, String mode) {
+    private static boolean evalBool(BooleanMathNode node, boolean a, boolean b, String op) {
         MapNodeContext ctx = new MapNodeContext(node);
         ctx.setInput("a", a);
         ctx.setInput("b", b);
-        ctx.setInput("mode", mode);
+        ctx.setInput("operation", op);
         node.evaluate(ctx);
-        return ctx.getOutput("result", Boolean.class);
+        return ctx.getOutput("value", Boolean.class);
     }
 
     @Test
@@ -63,11 +63,11 @@ public class MathNodesTest {
         assertEquals(9, evalInt(node, 2, 9, "MAX"));
     }
 
-    private static int evalInt(IntegerMathNode node, int a, int b, String mode) {
+    private static int evalInt(IntegerMathNode node, int a, int b, String op) {
         MapNodeContext ctx = new MapNodeContext(node);
         ctx.setInput("a", a);
         ctx.setInput("b", b);
-        ctx.setInput("mode", mode);
+        ctx.setInput("operation", op);
         node.evaluate(ctx);
         return ctx.getOutput("result", Integer.class);
     }
@@ -100,28 +100,28 @@ public class MathNodesTest {
         ctx.setInput("epsilon", 1e-6f);
         ctx.setInput("mode", "EQUAL");
         node.evaluate(ctx);
-        assertTrue(ctx.getOutput("result", Boolean.class));
+        assertTrue(ctx.getOutput("value", Boolean.class));
 
         ctx.setInput("a", 1.0f);
         ctx.setInput("b", 1.01f);
         ctx.setInput("epsilon", 1e-6f);
         ctx.setInput("mode", "LESS");
         node.evaluate(ctx);
-        assertTrue(ctx.getOutput("result", Boolean.class));
+        assertTrue(ctx.getOutput("value", Boolean.class));
 
         ctx.setInput("a", 1.0f);
         ctx.setInput("b", 1.0000005f);
         ctx.setInput("epsilon", 1e-6f);
         ctx.setInput("mode", "LESS");
         node.evaluate(ctx);
-        assertFalse(ctx.getOutput("result", Boolean.class));
+        assertFalse(ctx.getOutput("value", Boolean.class));
 
         ctx.setInput("a", 0.5f);
         ctx.setInput("b", 1.0f);
         ctx.setInput("epsilon", 1e-6f);
         ctx.setInput("mode", "LT");
         node.evaluate(ctx);
-        assertTrue(ctx.getOutput("result", Boolean.class));
+        assertTrue(ctx.getOutput("value", Boolean.class));
     }
 
     @Test
@@ -137,9 +137,9 @@ public class MathNodesTest {
         ctx.setInput("max", 1f);
         ctx.setInput("mode", "VECTOR");
         node.evaluate(ctx);
-        Vector3Value v1 = ctx.getOutput("vector_out", Vector3Value.class);
+        Vector3Value v1 = ctx.getOutput("vector", Vector3Value.class);
         node.evaluate(ctx);
-        Vector3Value v2 = ctx.getOutput("vector_out", Vector3Value.class);
+        Vector3Value v2 = ctx.getOutput("vector", Vector3Value.class);
         assertEquals(v1.x(), v2.x(), 0f);
         assertEquals(v1.y(), v2.y(), 0f);
         assertEquals(v1.z(), v2.z(), 0f);
@@ -187,7 +187,7 @@ public class MathNodesTest {
         MapNodeContext ctx = new MapNodeContext(b);
         ctx.setInput("a", true);
         ctx.setInput("b", false);
-        assertThrows(IllegalArgumentException.class, () -> ctx.setInput("mode", "NAND"));
+        assertThrows(IllegalArgumentException.class, () -> ctx.setInput("operation", "NAND"));
     }
 
     @Test

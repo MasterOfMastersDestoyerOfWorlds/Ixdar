@@ -2,6 +2,7 @@ package ixdar.annotations.meshnode;
 
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -94,5 +95,66 @@ public final class CanonicalPortNames {
             return false;
         }
         return name.equals(canonicalFor(type)) || allowedRoleNames(type).contains(name);
+    }
+
+    /**
+     * Semantic role of an input port. Used to enforce canonical input naming
+     * for input ports that play a well-known role across many nodes (e.g. the
+     * mode-selector string on {@code *_math} nodes).
+     *
+     * <p>Keep this enum conservative — every value is an explicit extension,
+     * not a generic allowlist. If a rule can't be derived from the port's
+     * declared shape ({@link PortType} + {@link ModeConstraint}), it probably
+     * doesn't belong here.
+     */
+    public enum InputRole {
+        /**
+         * A {@link PortType#STRING} input with a {@link ModeConstraint}
+         * selecting the operation to perform (e.g. {@code ADD}, {@code AND}).
+         * Canonical name: {@code "operation"}.
+         */
+        OPERATION_SELECTOR
+    }
+
+    private static final Map<InputRole, String> INPUT_CANONICAL = new EnumMap<>(InputRole.class);
+
+    static {
+        INPUT_CANONICAL.put(InputRole.OPERATION_SELECTOR, "operation");
+    }
+
+    /** Canonical (required) input port name for the given role. */
+    public static String canonicalForRole(InputRole role) {
+        String n = INPUT_CANONICAL.get(role);
+        if (n == null) {
+            throw new IllegalArgumentException("No canonical input name defined for role " + role);
+        }
+        return n;
+    }
+
+    /**
+     * Classify an input port's role, if it matches a known role signature.
+     *
+     * <p>Currently recognizes {@link InputRole#OPERATION_SELECTOR}: a
+     * {@link PortType#STRING} input with a {@link ModeConstraint} on a node
+     * whose id ends in {@code "_math"} (i.e. it selects which arithmetic or
+     * logical op to run). Other mode-bearing inputs across the catalog
+     * (axis selectors on {@code curve_deform}, mapping modes on
+     * {@code map_range}, output-type selectors on {@code random_value},
+     * etc.) are deliberately <em>not</em> covered here — they're
+     * semantically distinct and have their own natural names.
+     *
+     * <p>Extend cautiously — each role added here adds a build-time
+     * enforcement across every node in the registry.
+     */
+    public static Optional<InputRole> roleOf(String nodeId, InputPort port) {
+        if (port == null || nodeId == null) {
+            return Optional.empty();
+        }
+        if (nodeId.endsWith("_math")
+                && port.type() == PortType.STRING
+                && port.modes() != null) {
+            return Optional.of(InputRole.OPERATION_SELECTOR);
+        }
+        return Optional.empty();
     }
 }

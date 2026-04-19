@@ -100,10 +100,10 @@ seam_thresh = float_math(operation=MULTIPLY, a=norm_spacing.result, b=1.2)
 # --- Corner and seam detection ---
 is_corner_x = compare(a=dist_x.result, b=seam_thresh.result, mode=LESS_THAN)
 is_corner_y = compare(a=dist_y.result, b=seam_thresh.result, mode=LESS_THAN)
-is_corner = boolean_math(a=is_corner_x.value, b=is_corner_y.value, mode=AND)
+is_corner = boolean_math(a=is_corner_x.value, b=is_corner_y.value, operation=AND)
 on_seam = compare(a=dist.result, b=seam_thresh.result, mode=LESS_THAN)
-not_corner = boolean_math(a=is_corner.value, mode=NOT)
-start_verts = boolean_math(a=on_seam.value, b=not_corner.value, mode=AND)
+not_corner = boolean_math(a=is_corner.value, operation=NOT)
+start_verts = boolean_math(a=on_seam.value, b=not_corner.value, operation=AND)
 
 # --- Shortest paths and edge selection ---
 edge_cost = float_math(operation=ADD, a=dist.result, b=0.001)
@@ -116,9 +116,9 @@ dist_v1 = field_at_index(value=dist.result, index=edge_verts.vertex_a)
 dist_v2 = field_at_index(value=dist.result, index=edge_verts.vertex_b)
 v1_near = compare(a=dist_v1.result, b=seam_thresh.result, mode=LESS_THAN)
 v2_near = compare(a=dist_v2.result, b=seam_thresh.result, mode=LESS_THAN)
-both_near = boolean_math(a=v1_near.value, b=v2_near.value, mode=AND)
-stitch_sel = boolean_math(a=edge_sel.selection, b=both_near.value, mode=AND)
-inv_stitch = boolean_math(a=stitch_sel.value, mode=NOT)
+both_near = boolean_math(a=v1_near.value, b=v2_near.value, operation=AND)
+stitch_sel = boolean_math(a=edge_sel.selection, b=both_near.value, operation=AND)
+inv_stitch = boolean_math(a=stitch_sel.value, operation=NOT)
 
 # --- Delete non-stitch edges, merge, convert to curve ---
 deleted = delete_geometry(geometry=quilted.geometry, selection=inv_stitch.value, domain=EDGE)

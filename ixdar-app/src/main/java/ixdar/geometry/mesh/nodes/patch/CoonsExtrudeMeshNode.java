@@ -1,6 +1,9 @@
 package ixdar.geometry.mesh.nodes.patch;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,7 +74,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
                 "geometry", "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles upstream. Unhandled input passes through unchanged with a warning.",
                 "offset", "Signed distance to push extruded corners along the Coons surface normal. Positive = outward protrusion; negative = inward depression (e.g. eye socket).",
                 "selection", "Per-face BOOLEAN mask. Selected QUADS (non-quads pass through) get extruded.",
-                "region", "If true, adjacent selected faces share extruded vertices and average their surface normals at shared corners — single connected extrusion region. If false (default), each face extrudes independently, producing a separate protrusion per face.",
+                "region", "If true, each connected component of the selection (by face-face edge adjacency) extrudes as its own region — adjacent selected faces within the component share extruded vertices and average their surface normals at shared corners. Disconnected clusters in the same mask produce independent, correctly-formed regions (no cross-cluster averaging). If false (default), each face extrudes independently, producing a separate protrusion per face.",
                 "mesh", "Topology-only output.",
                 "generated", "Per-output-face BOOLEAN: true for the newly-created top face of each extrusion. Thread into the next op's selection to chain features (e.g. another coons_extrude inward for deeper recesses)."
         );
@@ -244,11 +247,14 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     }
 
     // ----------------------------------------------------------------------
-    // REGION mode: shared cage corners across adjacent selected faces map to
-    // one shared top vertex whose offset direction is the average of the
-    // incident faces' surface normals at that corner. Side walls only appear
-    // on edges where a selected face borders an unselected face (or mesh
-    // boundary).
+    // REGION mode: the selection is partitioned into connected components by
+    // face-face edge adjacency. Each component becomes its own extrusion with
+    // shared extruded vertices and per-vertex averaged surface normals — faces
+    // in different components never share top vertices, even when they touch
+    // the same cage vid at a pinch point. This prevents cross-cluster normal
+    // averaging that produces cheese-grater artifacts when a single mask
+    // covers multiple disjoint features (e.g. select_by_normal picking up
+    // tops of brow + maxilla + chin simultaneously).
     // ----------------------------------------------------------------------
 
     private static ExtrudeResult doExtrudeRegion(
@@ -280,27 +286,35 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             origPos[i * 3 + 2] = tmp.z;
         }
 
-        // Per original vertex id: list of (selected face id, corner index within face)
-        // so we can average surface normals at shared corners.
-        Map<Integer, List<int[]>> vertIncidence = new HashMap<>();
+        // Partition selected faces into connected components (edge adjacency).
+        int[] componentId = computeSelectionComponents(in, selected);
+
+        // Per (origVid, componentId): list of (selected face index, corner index)
+        // so top-vertex averaging stays scoped to a component.
+        Map<Long, List<int[]>> vertIncidence = new HashMap<>();
         for (int fi = 0; fi < origFaceCount; fi++) {
             if (!selected[fi]) continue;
+            int comp = componentId[fi];
             int fid = in.faceIdAt(fi);
             for (int k = 0; k < 4; k++) {
                 int vid = in.faceVertexAt(fid, k);
-                vertIncidence.computeIfAbsent(vid, x -> new ArrayList<>()).add(new int[]{fi, k});
+                long key = packVidComp(vid, comp);
+                vertIncidence.computeIfAbsent(key, x -> new ArrayList<>()).add(new int[]{fi, k});
             }
         }
 
-        // Allocate one top vertex per unique original vid that's incident to a selected face.
-        Map<Integer, Integer> origVidToTopDense = new HashMap<>();
+        // Allocate one top vertex per unique (origVid, componentId) pair. A vid
+        // shared by two disjoint components gets two top vertices — one per
+        // component — so each component's top face stays internally consistent.
+        Map<Long, Integer> topVidByVidComp = new HashMap<>();
         ArrayList<Float> extraPos = new ArrayList<>();
         int nextVid = origVertCount;
 
-        for (Map.Entry<Integer, List<int[]>> e : vertIncidence.entrySet()) {
-            int origVid = e.getKey();
+        for (Map.Entry<Long, List<int[]>> e : vertIncidence.entrySet()) {
+            long key = e.getKey();
+            int origVid = unpackVid(key);
             List<int[]> uses = e.getValue();
-            // Average surface normal across all incident selected faces.
+
             Vector3f avgN = new Vector3f();
             int count = 0;
             for (int[] use : uses) {
@@ -328,23 +342,21 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             extraPos.add(p.x + avgN.x * offset);
             extraPos.add(p.y + avgN.y * offset);
             extraPos.add(p.z + avgN.z * offset);
-            origVidToTopDense.put(origVid, nextVid++);
+            topVidByVidComp.put(key, nextVid++);
         }
 
-        // Seed original edge handles.
         Map<Long, float[]> dh = new HashMap<>();
         seedOriginalEdgeHandles(in, hStart, hEnd, oldToDense, dh);
 
-        // For each selected face: add handles for its 4 top-face edges (copied
-        // from bottom). Track faces for output assembly below.
         int[][] topVids = new int[origFaceCount][];
         for (int fi = 0; fi < origFaceCount; fi++) {
             if (!selected[fi]) continue;
+            int comp = componentId[fi];
             int fid = in.faceIdAt(fi);
             int[] tops = new int[4];
             for (int k = 0; k < 4; k++) {
                 int vid = in.faceVertexAt(fid, k);
-                tops[k] = origVidToTopDense.get(vid);
+                tops[k] = topVidByVidComp.get(packVidComp(vid, comp));
             }
             topVids[fi] = tops;
 
@@ -369,10 +381,11 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             }
         }
 
-        // Boundary edges between selected and unselected: get side quads + zero
-        // handles on the two new vertical edges.
+        // Boundary edges (selected face ↔ unselected face or mesh boundary):
+        // emit side quads using the OWNING face's component's top vertices.
         for (int fi = 0; fi < origFaceCount; fi++) {
             if (!selected[fi]) continue;
+            int comp = componentId[fi];
             int fid = in.faceIdAt(fi);
             for (int k = 0; k < 4; k++) {
                 int origA = in.faceVertexAt(fid, k);
@@ -381,8 +394,8 @@ public class CoonsExtrudeMeshNode implements MeshNode {
                 if (isBoundaryEdge(in, eid, selected)) {
                     int denseA = oldToDense.get(origA);
                     int denseB = oldToDense.get(origB);
-                    int topA = origVidToTopDense.get(origA);
-                    int topB = origVidToTopDense.get(origB);
+                    int topA = topVidByVidComp.get(packVidComp(origA, comp));
+                    int topB = topVidByVidComp.get(packVidComp(origB, comp));
                     dh.put(CoonsHandleBuilder.dirPack(denseA, topA), new float[3]);
                     dh.put(CoonsHandleBuilder.dirPack(topA, denseA), new float[3]);
                     dh.put(CoonsHandleBuilder.dirPack(denseB, topB), new float[3]);
@@ -392,7 +405,54 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         }
 
         return buildOutputRegion(in, origVertCount, origPos, extraPos, selected, topVids,
-                origVidToTopDense, oldToDense, dh);
+                componentId, topVidByVidComp, oldToDense, dh);
+    }
+
+    /**
+     * BFS-label selected faces into connected components by face-face edge
+     * adjacency. Returns an array indexed by face sequence index; unselected
+     * faces get component id -1. Pure topology walk; no position data consulted.
+     */
+    private static int[] computeSelectionComponents(MeshTopology in, boolean[] selected) {
+        int n = in.faceCount();
+        int[] comp = new int[n];
+        Arrays.fill(comp, -1);
+        int nextComp = 0;
+        Deque<Integer> stack = new ArrayDeque<>();
+        for (int seed = 0; seed < n; seed++) {
+            if (!selected[seed] || comp[seed] != -1) continue;
+            comp[seed] = nextComp;
+            stack.push(seed);
+            while (!stack.isEmpty()) {
+                int fi = stack.pop();
+                int fid = in.faceIdAt(fi);
+                int fvc = in.faceVertexCount(fid);
+                for (int k = 0; k < fvc; k++) {
+                    int eid = in.faceEdgeAt(fid, k);
+                    int he = in.edgeHalfEdge(eid);
+                    int twin = in.halfEdgeTwin(he);
+                    int f1 = in.halfEdgeFace(he);
+                    int f2 = twin >= 0 ? in.halfEdgeFace(twin) : MeshTopology.NONE;
+                    int neighFid = (f1 == fid) ? f2 : f1;
+                    if (neighFid == MeshTopology.NONE) continue;
+                    int neighFi = faceIndex(in, neighFid);
+                    if (neighFi < 0 || !selected[neighFi] || comp[neighFi] != -1) continue;
+                    comp[neighFi] = nextComp;
+                    stack.push(neighFi);
+                }
+            }
+            nextComp++;
+        }
+        return comp;
+    }
+
+    /** Packs (vertexId, componentId) into a long for use as a hash map key. */
+    private static long packVidComp(int vid, int compId) {
+        return ((long) vid << 32) | (compId & 0xFFFFFFFFL);
+    }
+
+    private static int unpackVid(long key) {
+        return (int) (key >>> 32);
     }
 
     // ----------------------------------------------------------------------
@@ -537,7 +597,8 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     private static ExtrudeResult buildOutputRegion(
             MeshTopology in, int origVertCount, float[] origPos, ArrayList<Float> extraPos,
             boolean[] selected, int[][] topVids,
-            Map<Integer, Integer> origVidToTopDense, Map<Integer, Integer> oldToDense,
+            int[] componentId,
+            Map<Long, Integer> topVidByVidComp, Map<Integer, Integer> oldToDense,
             Map<Long, float[]> dh) {
         int totalVerts = origVertCount + extraPos.size() / 3;
         float[] positions = new float[totalVerts * 3];
@@ -548,20 +609,17 @@ public class CoonsExtrudeMeshNode implements MeshNode {
 
         int origFaceCount = in.faceCount();
 
-        // Count boundary edges (each selected-face edge that borders an unselected
-        // face or a mesh boundary) — each becomes one side quad, deduplicating
-        // per-edge (not per-face).
-        // We track edges already visited to avoid emitting the same side quad
-        // twice when it borders two selected faces (shouldn't happen for true
-        // boundary edges, but guard anyway).
+        // Each boundary edge (selected face edge where the neighbor is
+        // unselected or out of mesh) becomes one side quad, owned by its
+        // selected-face side so the top-vert lookup uses that face's component.
         int[] boundarySideCount = new int[1];
         boolean[] sideEmitted = new boolean[in.edgeCount()];
 
-        // Gather boundary edges per face with the winding from that selected face.
         record SideEdge(int origA, int origB, int topA, int topB) {}
         ArrayList<SideEdge> sides = new ArrayList<>();
         for (int fi = 0; fi < origFaceCount; fi++) {
             if (!selected[fi]) continue;
+            int comp = componentId[fi];
             int fid = in.faceIdAt(fi);
             for (int k = 0; k < 4; k++) {
                 int eid = in.faceEdgeAt(fid, k);
@@ -573,8 +631,8 @@ public class CoonsExtrudeMeshNode implements MeshNode {
                 int origB = in.faceVertexAt(fid, (k + 1) % 4);
                 int denseA = oldToDense.get(origA);
                 int denseB = oldToDense.get(origB);
-                int topA = origVidToTopDense.get(origA);
-                int topB = origVidToTopDense.get(origB);
+                int topA = topVidByVidComp.get(packVidComp(origA, comp));
+                int topB = topVidByVidComp.get(packVidComp(origB, comp));
                 sides.add(new SideEdge(denseA, denseB, topA, topB));
                 boundarySideCount[0]++;
             }
