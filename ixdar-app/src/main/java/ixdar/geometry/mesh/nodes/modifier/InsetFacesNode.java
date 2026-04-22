@@ -242,7 +242,7 @@ public class InsetFacesNode implements MeshNode {
         // non-manifold output.
         Set<Integer> succeeded3PlusVids = new HashSet<>();
         for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
-            if (entry.getValue().size() >= 3
+            if (entry.getValue().size() == 3
                     && fanCompletes(topology, entry.getKey(), entry.getValue(), sharedEdgeIds)) {
                 succeeded3PlusVids.add(entry.getKey());
             }
@@ -301,10 +301,10 @@ public class InsetFacesNode implements MeshNode {
             List<int[]> atV = entry.getValue();
             int n = atV.size();
 
-            if (n >= 3) {
-                // 3+ corner emission — N cyan dots around the vertex on each
-                // shared cage edge, plus a central n-sided fill. Flat-lerp
-                // positions (straight line along the shared cage edge).
+            if (n == 3) {
+                // MESH-47/48: cube-corner 3-face emission (triangle fill).
+                // N=4+ falls through to face-local — current fan walk produces
+                // non-manifold output on subdivided-cage interior corners.
                 boolean ok = allocate3PlusCornerFlat(topology, denseVid, atV,
                         sharedEdgeIds, srcPos, t, extraPos,
                         cyanAt3Plus, centralFillPerVertex, mergedEndpoint, nextVidBox);

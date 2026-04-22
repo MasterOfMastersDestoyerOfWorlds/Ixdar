@@ -176,5 +176,27 @@ class AutomationClient:
             "dsl": dsl, "reference": reference, "resolution": resolution, "epsilon": epsilon
         })
 
+    def mesh_patches_decompose(self, path: str, resolution: int = 128) -> dict:
+        """Hybrid skeleton+curvature patch decomposition of a reference mesh."""
+        return self.request_json("/mesh/patches/decompose", {"path": path, "resolution": resolution})
+
+    def mesh_patches_render_multiview(self, path: str, out_path: str = "", resolution: int = 128) -> dict:
+        """Render an 8-view composite PNG of a mesh with patches colored by semantic decomposition."""
+        return self.request_json("/mesh/patches/render-multiview", {
+            "path": path, "out_path": out_path, "resolution": resolution
+        })
+
+    def mesh_patches_render_flat_multiview(self, path: str, out_path: str = "", resolution: int = 128) -> dict:
+        """Render an 8-view composite PNG with globally-unique, Lambert-free RGB per patch for VLM pixel-sampling."""
+        return self.request_json("/mesh/patches/render-flat-multiview", {
+            "path": path, "out_path": out_path, "resolution": resolution
+        })
+
+    def mesh_segment(self, path: str, method: str = "spatial", n_clusters: int = 6) -> dict:
+        """Legacy mesh segmentation in Java: method ∈ {components, curvature, spatial}."""
+        return self.request_json("/mesh/segment", {
+            "path": path, "method": method, "n_clusters": n_clusters
+        })
+
     def shutdown(self) -> dict:
         return self.request_json("/shutdown", {})

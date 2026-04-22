@@ -96,6 +96,10 @@ public class AutomationApiServer {
         server.createContext("/mesh/skeleton/compare", this::skeletonCompareHandler);
         server.createContext("/mesh/skeleton/sensitivity", this::skeletonSensitivityHandler);
         server.createContext("/mesh/skeleton", this::meshSkeletonHandler);
+        // New routes use the @AutomationRoute annotation for uniform handling.
+        // Legacy routes above keep their hand-written handlers until migrated
+        // (tracked in a separate follow-up ticket).
+        AutomationRouteRegistry.registerAll(server, runtime);
     }
 
     private void screenshotHandler(HttpExchange exchange) throws IOException {

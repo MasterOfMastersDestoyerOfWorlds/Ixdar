@@ -195,7 +195,7 @@ public class CoonsInsetFacesNode implements MeshNode {
         // selection).
         Set<Integer> succeeded3PlusVids = new HashSet<>();
         for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
-            if (entry.getValue().size() >= 3
+            if (entry.getValue().size() == 3
                     && fanCompletes(in, entry.getKey(), entry.getValue(), sharedEdgeIds, oldToDense)) {
                 succeeded3PlusVids.add(entry.getKey());
             }
@@ -257,14 +257,11 @@ public class CoonsInsetFacesNode implements MeshNode {
             int n = atV.size();
             boolean merged = false;
 
-            if (n >= 3) {
-                // 3+ cage-corner: emit N cyan dots (one per shared edge
-                // emanating from v) at s=t along each edge's bezier curve.
-                // Each face at v gets 2 cyan dots at its corner-near-v (one
-                // on its back edge, one on its fwd edge), replacing the
-                // single face-local inner vert. Adjacent faces share one
-                // cyan dot each (the one on their common edge). All cyan
-                // dots at v form the boundary of a central n-gon fill.
+            if (n == 3) {
+                // MESH-47: cube-style 3-corner cyan dot + central triangle fill.
+                // N=4+ (interior of subdivided cube faces) produces non-manifold
+                // topology in the current fan walk; those corners fall through
+                // to face-local emission.
                 allocate3PlusCorner(in, hStart, hEnd, denseVid, atV, sharedEdgeIds,
                         oldToDense, t, extraPos, cyanAt3Plus, innerUV,
                         centralFillPerVertex, mergedEndpoint, nextVidBox);

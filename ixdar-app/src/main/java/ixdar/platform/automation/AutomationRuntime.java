@@ -1472,4 +1472,179 @@ public class AutomationRuntime {
         }
         return result.toString();
     }
+
+    // ==================== Patch decomposition + segmentation (annotation-driven) ====================
+
+    @AutomationRoute(path = "/mesh/patches/decompose")
+    public JsonObject meshPatchesDecompose(JsonObject body) throws IOException {
+        String path = body.has("path") ? body.get("path").getAsString() : "";
+        int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
+        File f = resolvePath(path);
+        if (f == null) {
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", "File not found: " + path);
+            return err;
+        }
+        ixdar.geometry.mesh.data.ArrayMesh mesh =
+                ixdar.geometry.mesh.data.MeshLoader.load(f.getAbsolutePath());
+        ixdar.geometry.mesh.data.PatchDecomposition decomposition =
+                ixdar.geometry.mesh.data.SemanticPatchDecomposer.decompose(mesh, resolution);
+        JsonObject out = new JsonObject();
+        out.addProperty("ok", true);
+        out.addProperty("vertex_count", decomposition.vertexCount());
+        JsonArray patches = new JsonArray();
+        for (ixdar.geometry.mesh.data.Patch p : decomposition.patches()) {
+            JsonObject pj = new JsonObject();
+            pj.addProperty("id", p.id());
+            pj.addProperty("branch_id", p.branchId());
+            pj.addProperty("color", p.color());
+            pj.addProperty("curvature_mean", p.curvatureMean());
+            JsonArray centroid = new JsonArray();
+            for (float c : p.centroid()) centroid.add(c);
+            pj.add("centroid", centroid);
+            JsonArray verts = new JsonArray();
+            for (int v : p.vertexIndices()) verts.add(v);
+            pj.add("vertex_indices", verts);
+            JsonArray faces = new JsonArray();
+            for (int fi : p.faceIndices()) faces.add(fi);
+            pj.add("face_indices", faces);
+            patches.add(pj);
+        }
+        out.add("patches", patches);
+        return out;
+    }
+
+    @AutomationRoute(path = "/mesh/patches/render-flat-multiview")
+    public JsonObject meshPatchesRenderFlatMultiview(JsonObject body) throws IOException {
+        String path = body.has("path") ? body.get("path").getAsString() : "";
+        int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
+        String outPath = body.has("out_path") ? body.get("out_path").getAsString() : "";
+        File f = resolvePath(path);
+        if (f == null) {
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", "File not found: " + path);
+            return err;
+        }
+        ixdar.geometry.mesh.data.ArrayMesh mesh =
+                ixdar.geometry.mesh.data.MeshLoader.load(f.getAbsolutePath());
+        ixdar.geometry.mesh.data.PatchDecomposition decomposition =
+                ixdar.geometry.mesh.data.SemanticPatchDecomposer.decompose(mesh, resolution);
+        BufferedImage composite =
+                ixdar.geometry.mesh.data.PatchRenderer.renderMultiviewFlat(mesh, decomposition);
+        File out;
+        if (outPath == null || outPath.isBlank()) {
+            out = new File("screenshots/automation", "patches-flat-multiview-" + System.currentTimeMillis() + ".png");
+        } else {
+            out = new File(outPath);
+            if (!out.isAbsolute()) out = new File(System.getProperty("user.dir"), outPath);
+        }
+        File parent = out.getParentFile();
+        if (parent != null) parent.mkdirs();
+        ImageIO.write(composite, "PNG", out);
+        JsonObject result = new JsonObject();
+        result.addProperty("ok", true);
+        result.addProperty("path", out.getAbsolutePath());
+        result.addProperty("width", composite.getWidth());
+        result.addProperty("height", composite.getHeight());
+        result.addProperty("patch_count", decomposition.patches().size());
+        JsonArray palette = new JsonArray();
+        for (ixdar.geometry.mesh.data.Patch p : decomposition.patches()) {
+            JsonObject pj = new JsonObject();
+            pj.addProperty("id", p.id());
+            pj.addProperty("flat_color", ixdar.geometry.mesh.data.PatchRenderer.uniquePatchColorHex(p.id()));
+            pj.addProperty("vertex_count", p.vertexIndices().length);
+            palette.add(pj);
+        }
+        result.add("palette", palette);
+        return result;
+    }
+
+    @AutomationRoute(path = "/mesh/patches/render-multiview")
+    public JsonObject meshPatchesRenderMultiview(JsonObject body) throws IOException {
+        String path = body.has("path") ? body.get("path").getAsString() : "";
+        int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
+        String outPath = body.has("out_path") ? body.get("out_path").getAsString() : "";
+        File f = resolvePath(path);
+        if (f == null) {
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", "File not found: " + path);
+            return err;
+        }
+        ixdar.geometry.mesh.data.ArrayMesh mesh =
+                ixdar.geometry.mesh.data.MeshLoader.load(f.getAbsolutePath());
+        ixdar.geometry.mesh.data.PatchDecomposition decomposition =
+                ixdar.geometry.mesh.data.SemanticPatchDecomposer.decompose(mesh, resolution);
+        BufferedImage composite =
+                ixdar.geometry.mesh.data.PatchRenderer.renderMultiview(mesh, decomposition);
+
+        File out;
+        if (outPath == null || outPath.isBlank()) {
+            out = new File("screenshots/automation", "patches-multiview-" + System.currentTimeMillis() + ".png");
+        } else {
+            out = new File(outPath);
+            if (!out.isAbsolute()) out = new File(System.getProperty("user.dir"), outPath);
+        }
+        File parent = out.getParentFile();
+        if (parent != null) parent.mkdirs();
+        ImageIO.write(composite, "PNG", out);
+
+        JsonObject result = new JsonObject();
+        result.addProperty("ok", true);
+        result.addProperty("path", out.getAbsolutePath());
+        result.addProperty("width", composite.getWidth());
+        result.addProperty("height", composite.getHeight());
+        result.addProperty("patch_count", decomposition.patches().size());
+        return result;
+    }
+
+    @AutomationRoute(path = "/mesh/segment")
+    public JsonObject meshSegment(JsonObject body) throws IOException {
+        String path = body.has("path") ? body.get("path").getAsString() : "";
+        String method = body.has("method") ? body.get("method").getAsString() : "spatial";
+        int nClusters = body.has("n_clusters") ? body.get("n_clusters").getAsInt() : 6;
+        File f = resolvePath(path);
+        if (f == null) {
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", "File not found: " + path);
+            return err;
+        }
+        ixdar.geometry.mesh.data.ArrayMesh mesh =
+                ixdar.geometry.mesh.data.MeshLoader.load(f.getAbsolutePath());
+        java.util.Map<String, int[]> tags;
+        switch (method) {
+            case "components" -> tags = ixdar.geometry.mesh.data.MeshSegmenter.segmentComponents(mesh);
+            case "curvature" -> tags = ixdar.geometry.mesh.data.MeshSegmenter.segmentCurvature(mesh, nClusters);
+            case "spatial" -> tags = ixdar.geometry.mesh.data.MeshSegmenter.segmentSpatial(mesh, nClusters);
+            default -> {
+                JsonObject err = new JsonObject();
+                err.addProperty("ok", false);
+                err.addProperty("error", "Unknown method: " + method
+                        + " (expected components|curvature|spatial)");
+                return err;
+            }
+        }
+        JsonObject result = new JsonObject();
+        result.addProperty("ok", true);
+        result.addProperty("vertex_count", mesh.vertexCount());
+        result.addProperty("method", method);
+        JsonObject tagsJson = new JsonObject();
+        for (java.util.Map.Entry<String, int[]> e : tags.entrySet()) {
+            JsonArray arr = new JsonArray();
+            for (int v : e.getValue()) arr.add(v);
+            tagsJson.add(e.getKey(), arr);
+        }
+        result.add("tags", tagsJson);
+        return result;
+    }
+
+    private static File resolvePath(String path) {
+        if (path == null || path.isBlank()) return null;
+        File f = new File(path);
+        if (!f.isAbsolute()) f = new File(System.getProperty("user.dir"), path);
+        return f.exists() ? f : null;
+    }
 }
