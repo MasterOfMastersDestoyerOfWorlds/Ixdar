@@ -143,6 +143,13 @@ public class Camera3D implements Camera {
         updateCameraVectors();
     }
 
+    /** Sets yaw and pitch directly and rebuilds derived front/right/up/target vectors. */
+    public void setOrientation(float yawDegrees, float pitchDegrees) {
+        this.yaw = yawDegrees;
+        this.pitch = Math.max(-89f, Math.min(89f, pitchDegrees));
+        updateCameraVectors();
+    }
+
     @Override
     public float getScaleFactor() {
         return 1;

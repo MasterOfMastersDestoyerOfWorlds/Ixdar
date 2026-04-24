@@ -6,6 +6,7 @@ import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -581,6 +582,10 @@ public class AutomationRuntime {
      * drawScene() from within processMainThreadCommands(), which causes a hang.
      */
     public JsonObject captureMultiview(String outputPath, boolean inlineBase64) throws Exception {
+        return captureMultiview(outputPath, inlineBase64, null);
+    }
+
+    public JsonObject captureMultiview(String outputPath, boolean inlineBase64, JsonObject body) throws Exception {
         float[][] views = {
             {(float)(Math.PI / 2), 0},            // Front
             {0, 0},                                // Right
@@ -605,7 +610,10 @@ public class AutomationRuntime {
             saved[0] = orbit.getAzimuth();
             saved[1] = orbit.getElevation();
             saved[2] = orbit.getDistance();
-            saved[3] = Math.max(mvs.getMeshRadius() * 2.5f, 1.0f);
+            // Camera3D defaults to 45° FOV; captureMultiview renders through
+            // the main viewer's camera which is initialized at the same.
+            float distFactor = parseZoomPerspective(body, 45f);
+            saved[3] = Math.max(mvs.getMeshRadius() * distFactor, 1.0f);
             return new JsonObject();
         });
 
@@ -699,15 +707,54 @@ public class AutomationRuntime {
         }
         File parent = out.getParentFile();
         if (parent != null) parent.mkdirs();
-        ImageIO.write(composite, "PNG", out);
 
-        byte[] pngBytes = imageBytes(composite);
+        // Downscale composite so the long side fits under Claude's ~2000px
+        // image limit. 1920 aligns cleanly with 4 columns (480 per cell).
+        // Per-view PNGs below preserve native cellW × cellH for detail work.
+        BufferedImage toWrite = composite;
+        int compW = 4 * cellW;
+        int compH = 2 * cellH;
+        int longSide = Math.max(compW, compH);
+        final int maxSide = 1920;
+        if (longSide > maxSide) {
+            float scale = (float) maxSide / longSide;
+            int newW = Math.round(compW * scale);
+            int newH = Math.round(compH * scale);
+            BufferedImage scaled = new BufferedImage(newW, newH, BufferedImage.TYPE_INT_RGB);
+            Graphics2D sg = scaled.createGraphics();
+            sg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            sg.drawImage(composite, 0, 0, newW, newH, null);
+            sg.dispose();
+            toWrite = scaled;
+        }
+        ImageIO.write(toWrite, "PNG", out);
+
+        JsonArray perViewJson = new JsonArray();
+        String basename = out.getName();
+        int dot = basename.lastIndexOf('.');
+        String stem = dot > 0 ? basename.substring(0, dot) : basename;
+        File viewDir = out.getParentFile();
+        for (int i = 0; i < 8; i++) {
+            if (captures[i] == null) continue;
+            String slug = labels[i].toLowerCase().replaceAll("[^a-z0-9]+", "_").replaceAll("^_|_$", "");
+            File viewFile = new File(viewDir, stem + "-" + slug + ".png");
+            ImageIO.write(captures[i], "PNG", viewFile);
+            JsonObject vj = new JsonObject();
+            vj.addProperty("label", labels[i]);
+            vj.addProperty("path", viewFile.getAbsolutePath());
+            vj.addProperty("width", captures[i].getWidth());
+            vj.addProperty("height", captures[i].getHeight());
+            perViewJson.add(vj);
+        }
+
+        byte[] pngBytes = imageBytes(toWrite);
         JsonObject result = new JsonObject();
         result.addProperty("path", out.getAbsolutePath());
-        result.addProperty("width", 4 * cellW);
-        result.addProperty("height", 2 * cellH);
+        result.addProperty("width", toWrite.getWidth());
+        result.addProperty("height", toWrite.getHeight());
         result.addProperty("views", 8);
         result.addProperty("sha256", sha256(pngBytes));
+        result.add("per_view", perViewJson);
         if (inlineBase64) {
             result.addProperty("base64", Base64.getEncoder().encodeToString(pngBytes));
         }
@@ -1527,12 +1574,14 @@ public class AutomationRuntime {
             err.addProperty("error", "File not found: " + path);
             return err;
         }
+        float zoom = parseZoomCpu(body);
         ixdar.geometry.mesh.data.ArrayMesh mesh =
                 ixdar.geometry.mesh.data.MeshLoader.load(f.getAbsolutePath());
         ixdar.geometry.mesh.data.PatchDecomposition decomposition =
                 ixdar.geometry.mesh.data.SemanticPatchDecomposer.decompose(mesh, resolution);
-        BufferedImage composite =
-                ixdar.geometry.mesh.data.PatchRenderer.renderMultiviewFlat(mesh, decomposition);
+        ixdar.geometry.mesh.data.PatchRenderer.MultiviewResult mv =
+                ixdar.geometry.mesh.data.PatchRenderer.renderMultiviewWithPerView(mesh, decomposition, /*flat=*/ true, zoom);
+        BufferedImage composite = mv.composite();
         File out;
         if (outPath == null || outPath.isBlank()) {
             out = new File("screenshots/automation", "patches-flat-multiview-" + System.currentTimeMillis() + ".png");
@@ -1543,12 +1592,14 @@ public class AutomationRuntime {
         File parent = out.getParentFile();
         if (parent != null) parent.mkdirs();
         ImageIO.write(composite, "PNG", out);
+        JsonArray views = writePerViewPngs(out, mv);
         JsonObject result = new JsonObject();
         result.addProperty("ok", true);
         result.addProperty("path", out.getAbsolutePath());
         result.addProperty("width", composite.getWidth());
         result.addProperty("height", composite.getHeight());
         result.addProperty("patch_count", decomposition.patches().size());
+        result.add("views", views);
         JsonArray palette = new JsonArray();
         for (ixdar.geometry.mesh.data.Patch p : decomposition.patches()) {
             JsonObject pj = new JsonObject();
@@ -1573,12 +1624,14 @@ public class AutomationRuntime {
             err.addProperty("error", "File not found: " + path);
             return err;
         }
+        float zoom = parseZoomCpu(body);
         ixdar.geometry.mesh.data.ArrayMesh mesh =
                 ixdar.geometry.mesh.data.MeshLoader.load(f.getAbsolutePath());
         ixdar.geometry.mesh.data.PatchDecomposition decomposition =
                 ixdar.geometry.mesh.data.SemanticPatchDecomposer.decompose(mesh, resolution);
-        BufferedImage composite =
-                ixdar.geometry.mesh.data.PatchRenderer.renderMultiview(mesh, decomposition);
+        ixdar.geometry.mesh.data.PatchRenderer.MultiviewResult mv =
+                ixdar.geometry.mesh.data.PatchRenderer.renderMultiviewWithPerView(mesh, decomposition, /*flat=*/ false, zoom);
+        BufferedImage composite = mv.composite();
 
         File out;
         if (outPath == null || outPath.isBlank()) {
@@ -1590,6 +1643,7 @@ public class AutomationRuntime {
         File parent = out.getParentFile();
         if (parent != null) parent.mkdirs();
         ImageIO.write(composite, "PNG", out);
+        JsonArray views = writePerViewPngs(out, mv);
 
         JsonObject result = new JsonObject();
         result.addProperty("ok", true);
@@ -1597,7 +1651,163 @@ public class AutomationRuntime {
         result.addProperty("width", composite.getWidth());
         result.addProperty("height", composite.getHeight());
         result.addProperty("patch_count", decomposition.patches().size());
+        result.add("views", views);
         return result;
+    }
+
+    /**
+     * Diagnostic feature-edge overlay. Two modes:
+     *   - "stages": each feature-edge source (dihedral / principal-magnitude /
+     *     crest) drawn in a distinct color on a grey Lambert-shaded mesh.
+     *   - "patches_vs_crest": flat-colored patches with crest edges and
+     *     actual patch boundaries overlaid in three categories (boundary
+     *     only / crest ignored / crest honored).
+     * Uses the same per-view emission and 1920-cap as other patch multiview
+     * endpoints, so Claude can read the Right view at native 480×480.
+     */
+    @AutomationRoute(path = "/mesh/patches/render-feature-edges")
+    public JsonObject meshPatchesRenderFeatureEdges(JsonObject body) throws IOException {
+        String path = body.has("path") ? body.get("path").getAsString() : "";
+        int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
+        String outPath = body.has("out_path") ? body.get("out_path").getAsString() : "";
+        String modeStr = body.has("mode") ? body.get("mode").getAsString() : "stages";
+        ixdar.geometry.mesh.data.PatchRenderer.OverlayMode mode =
+                "patches_vs_crest".equalsIgnoreCase(modeStr)
+                        ? ixdar.geometry.mesh.data.PatchRenderer.OverlayMode.PATCHES_VS_CREST
+                        : ixdar.geometry.mesh.data.PatchRenderer.OverlayMode.STAGES;
+        File f = resolvePath(path);
+        if (f == null) {
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", "File not found: " + path);
+            return err;
+        }
+        float zoom = parseZoomCpu(body);
+        ixdar.geometry.mesh.data.ArrayMesh mesh =
+                ixdar.geometry.mesh.data.MeshLoader.load(f.getAbsolutePath());
+        ixdar.geometry.mesh.data.SemanticPatchDecomposer.DecompositionDiagnostics diag =
+                ixdar.geometry.mesh.data.SemanticPatchDecomposer.decomposeWithDiagnostics(mesh, resolution);
+        ixdar.geometry.mesh.data.PatchRenderer.MultiviewResult mv =
+                ixdar.geometry.mesh.data.PatchRenderer.renderFeatureEdgeMultiview(mesh, diag, mode, zoom);
+        BufferedImage composite = mv.composite();
+
+        File out;
+        if (outPath == null || outPath.isBlank()) {
+            String stem = mode == ixdar.geometry.mesh.data.PatchRenderer.OverlayMode.PATCHES_VS_CREST
+                    ? "feature-edges-patches-vs-crest-"
+                    : "feature-edges-stages-";
+            out = new File("screenshots/automation", stem + System.currentTimeMillis() + ".png");
+        } else {
+            out = new File(outPath);
+            if (!out.isAbsolute()) out = new File(System.getProperty("user.dir"), outPath);
+        }
+        File parent = out.getParentFile();
+        if (parent != null) parent.mkdirs();
+        ImageIO.write(composite, "PNG", out);
+        JsonArray views = writePerViewPngs(out, mv);
+
+        JsonObject result = new JsonObject();
+        result.addProperty("ok", true);
+        result.addProperty("path", out.getAbsolutePath());
+        result.addProperty("width", composite.getWidth());
+        result.addProperty("height", composite.getHeight());
+        result.addProperty("mode", mode.name().toLowerCase());
+        result.addProperty("patch_count", diag.decomposition().patches().size());
+        result.add("views", views);
+        JsonObject stats = new JsonObject();
+        stats.addProperty("dihedral_edges", diag.dihedralFeatureEdges().size());
+        stats.addProperty("principal_edges", diag.principalFeatureEdges().size());
+        stats.addProperty("crest_edges", diag.crestEdges().size());
+        stats.addProperty("union_edges", diag.unionFeatureEdges().size());
+        stats.addProperty("patch_boundary_edges", diag.patchBoundaryEdges().size());
+        int honored = 0;
+        for (long key : diag.crestEdges()) {
+            if (diag.patchBoundaryEdges().contains(key)) honored++;
+        }
+        stats.addProperty("crest_honored", honored);
+        stats.addProperty("crest_ignored", diag.crestEdges().size() - honored);
+        result.add("stats", stats);
+        return result;
+    }
+
+    /**
+     * Parse the {@code zoom} body field for the CPU patch renderers
+     * (orthographic). Accepts a float (1.0 = current margin, 2.0 = 2×
+     * closer) or the string {@code "fit"} which packs the mesh against
+     * the frame edges with a one-pixel safety margin. The CPU orthographic
+     * scale uses {@code 0.42f * zoom}; {@code fit} maps to ≈1.17 so the
+     * effective factor is ≈0.49.
+     */
+    private static float parseZoomCpu(JsonObject body) {
+        if (body == null || !body.has("zoom")) return 1.0f;
+        com.google.gson.JsonElement z = body.get("zoom");
+        if (z.isJsonPrimitive() && z.getAsJsonPrimitive().isString()
+                && "fit".equalsIgnoreCase(z.getAsString())) {
+            return 0.49f / 0.42f;
+        }
+        try {
+            return (float) z.getAsDouble();
+        } catch (Exception e) {
+            return 1.0f;
+        }
+    }
+
+    /**
+     * Parse {@code zoom} for perspective-projection endpoints (the live
+     * viewer {@code captureMultiview}). Returns the distance factor to
+     * multiply against {@code mesh_radius}. Default 2.5 matches the
+     * historical margin. {@code "fit"} returns {@code 1 / sin(fov/2)},
+     * the exact-fill distance; a numeric {@code zoom > 1} brings the
+     * camera closer by dividing 2.5 by that factor.
+     */
+    private static float parseZoomPerspective(JsonObject body, float fovDegrees) {
+        float baseFactor = 2.5f;
+        if (body == null || !body.has("zoom")) return baseFactor;
+        com.google.gson.JsonElement z = body.get("zoom");
+        if (z.isJsonPrimitive() && z.getAsJsonPrimitive().isString()
+                && "fit".equalsIgnoreCase(z.getAsString())) {
+            float half = (float) Math.toRadians(fovDegrees / 2.0);
+            // 2% safety margin so the silhouette isn't pixel-clipped.
+            return 1.02f / (float) Math.sin(half);
+        }
+        try {
+            float zoom = (float) z.getAsDouble();
+            if (zoom <= 0f) return baseFactor;
+            return baseFactor / zoom;
+        } catch (Exception e) {
+            return baseFactor;
+        }
+    }
+
+    /**
+     * Write each per-view render from a MultiviewResult next to the composite
+     * file, using its basename + "-<label>.png" (label lowercased, non-alnum → "_").
+     * Returns a JSON array of {label, path, width, height} for each per-view PNG.
+     * Lets a caller read a single view (e.g. Right) at native resolution when
+     * the composite's 4-way horizontal compression obscures fine detail.
+     */
+    private static JsonArray writePerViewPngs(File compositeOut,
+                                              ixdar.geometry.mesh.data.PatchRenderer.MultiviewResult mv) throws IOException {
+        String basename = compositeOut.getName();
+        int dot = basename.lastIndexOf('.');
+        String stem = dot > 0 ? basename.substring(0, dot) : basename;
+        File dir = compositeOut.getParentFile();
+        JsonArray views = new JsonArray();
+        for (int i = 0; i < mv.perView().length; i++) {
+            BufferedImage img = mv.perView()[i];
+            if (img == null) continue;
+            String label = mv.labels()[i];
+            String slug = label.toLowerCase().replaceAll("[^a-z0-9]+", "_").replaceAll("^_|_$", "");
+            File viewFile = new File(dir, stem + "-" + slug + ".png");
+            ImageIO.write(img, "PNG", viewFile);
+            JsonObject vj = new JsonObject();
+            vj.addProperty("label", label);
+            vj.addProperty("path", viewFile.getAbsolutePath());
+            vj.addProperty("width", img.getWidth());
+            vj.addProperty("height", img.getHeight());
+            views.add(vj);
+        }
+        return views;
     }
 
     @AutomationRoute(path = "/mesh/segment")

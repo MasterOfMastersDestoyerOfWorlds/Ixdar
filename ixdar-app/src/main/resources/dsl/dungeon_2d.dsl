@@ -1,0 +1,5 @@
+rooms = random_rooms(seed=42, grid_w=30, grid_h=30, count=15, min_size=3, max_size=8, max_attempts=2000)
+tri = delaunay_graph(rooms=rooms.rooms)
+mst = minimum_spanning_tree(edges=tri.edges, rooms=rooms.rooms, extra_edge_prob=0.125, seed=42)
+tiles = astar_corridors(rooms=rooms.rooms, edges=mst.edges, grid_w=30, grid_h=30, reuse_cost=1.0, empty_cost=5.0, room_cost=50.0)
+dungeon = dungeon_grid_to_mesh(tiles=tiles.tiles, cell_size=0.0667)

@@ -1,14 +1,22 @@
 package ixdar.scenes.mesh;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.ArrayMesh;
 import ixdar.geometry.mesh.data.MeshLoader;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.FeatureEdgeColors;
+import ixdar.geometry.mesh.data.Patch;
+import ixdar.geometry.mesh.data.PatchDecomposition;
+import ixdar.geometry.mesh.data.PatchRenderer;
+import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
@@ -45,6 +53,40 @@ public class MeshNodeViewerScene extends Scene {
     private volatile HalfEdgeMeshRuntime meshRuntime;
     private HalfEdgeMeshRuntime overlayRuntime;
     private NodeGraphRuntime lastGraphRuntime;
+
+    // VIEW-7: catalog + per-mesh decomposition cache + overlay state
+    private ModelCatalog modelCatalog;
+    private String currentModelKey;  // absolutePath for staging-dir entries, or "" for initial load
+    private String currentModelDisplayName = "(initial)";
+    private SemanticPatchDecomposer.DecompositionDiagnostics cachedDiagnostics;
+    private String cachedDiagnosticsKey;
+    private boolean patchOverlayEnabled = false;
+    private HalfEdgeMeshRuntime.ShaderMode shaderMode = HalfEdgeMeshRuntime.ShaderMode.LAMBERT;
+
+    /**
+     * Log a full state string to the terminal whenever the viewer state
+     * changes (model load, overlay toggle, shader mode toggle). macOS
+     * absolutely refuses glfwSetWindowTitle from any thread other than the
+     * actual OS main thread and even deferring to drawScene wasn't enough —
+     * drawScene is called off-thread in this platform wiring. Terminal
+     * log is thread-safe and user-visible. Proper pixel-space HUD is VIEW-8.
+     */
+    private void logState() {
+        StringBuilder sb = new StringBuilder("[mesh-viewer] STATE ");
+        sb.append("model=").append(currentModelDisplayName);
+        sb.append("  patches=").append(patchOverlayEnabled ? "ON" : "OFF");
+        if (patchOverlayEnabled) {
+            sb.append("  mode=").append(shaderMode.name());
+            if (cachedDiagnostics != null) {
+                sb.append("  patches=").append(cachedDiagnostics.decomposition().patches().size());
+            }
+        }
+        if (modelCatalog != null && !modelCatalog.entries().isEmpty()) {
+            sb.append("  [").append(modelCatalog.currentIndex() + 1)
+              .append('/').append(modelCatalog.entries().size()).append(']');
+        }
+        Platforms.get().log(sb.toString());
+    }
 
     /** Returns the NodeGraphRuntime from the most recent DSL execution (for timing data). */
     public NodeGraphRuntime getLastGraphRuntime() {
@@ -99,6 +141,18 @@ public class MeshNodeViewerScene extends Scene {
         bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         // Fallback: if reflection-based binding failed (TeaVM), wire callbacks directly
         bindInputDirect(Platforms.get(), keys, mouse);
+
+        // VIEW-7: scan the staging directory for selectable models.
+        modelCatalog = new ModelCatalog();
+        int catalogSize = modelCatalog.entries().size();
+        Platforms.get().log(
+                "[mesh-viewer] model catalog: " + catalogSize + " entries in " + modelCatalog.root()
+                        + " (populate via 'uv run sync-models')");
+        if (catalogSize > 0) {
+            Platforms.get().log("[mesh-viewer] cycle models with [ and ]; P = patch overlay; "
+                    + "Shift+P cycles shader mode (LAMBERT \u2192 FLAT \u2192 STAGES \u2192 CREST_VS_BOUNDARY)");
+        }
+        logState();
 
         if (objResource != null) {
             initObjViewer();
@@ -419,6 +473,273 @@ public class MeshNodeViewerScene extends Scene {
     /** Current mesh from the DSL graph, or null before async load completes. */
     public MeshTopology getMesh() {
         return mesh;
+    }
+
+    // ==================== VIEW-7 model switching + patch overlay ====================
+
+    public ModelCatalog getModelCatalog() {
+        return modelCatalog;
+    }
+
+    public void nextModel() {
+        if (modelCatalog == null || modelCatalog.entries().isEmpty()) return;
+        loadModelEntry(modelCatalog.next());
+    }
+
+    public void prevModel() {
+        if (modelCatalog == null || modelCatalog.entries().isEmpty()) return;
+        loadModelEntry(modelCatalog.prev());
+    }
+
+    public void loadModelEntry(ModelCatalog.ModelEntry entry) {
+        if (entry == null) return;
+        // Preserve current orbit across the reload so the user doesn't get
+        // yanked back to the default camera on every switch.
+        float savedAz = orbitMouse != null ? orbitMouse.getAzimuth() : CAMERA_AZIMUTH;
+        float savedEl = orbitMouse != null ? orbitMouse.getElevation() : CAMERA_ELEVATION;
+        float savedDist = orbitMouse != null ? orbitMouse.getDistance() : CAMERA_DISTANCE;
+        // Invalidate any cached decomposition — the mesh is changing.
+        cachedDiagnostics = null;
+        cachedDiagnosticsKey = null;
+        patchOverlayEnabled = false;
+        currentModelKey = entry.absolutePath().toString();
+        currentModelDisplayName = entry.displayName();
+        Platforms.get().log("[mesh-viewer] loading " + entry.displayName());
+        switch (entry.type()) {
+            case DSL -> loadDslFromAbsolutePath(entry.absolutePath().toString(), savedAz, savedEl, savedDist);
+            case OBJ -> loadObjFromAbsolutePath(entry.absolutePath().toString(), savedAz, savedEl, savedDist);
+        }
+        logState();
+    }
+
+    private void loadDslFromAbsolutePath(String absolutePath, float az, float el, float dist) {
+        // loadDsl() expects a resource-relative name, but the staging dir
+        // contains symlinks — read the file directly and execute the graph.
+        try {
+            String dslCode = new String(java.nio.file.Files.readAllBytes(java.nio.file.Path.of(absolutePath)));
+            disposeMeshRuntime();
+            PythonLexer lexer = new PythonLexer(dslCode);
+            PythonParser parser = new PythonParser(lexer);
+            List<PythonParser.ParsedNode> ast = parser.parseGraph();
+            NodeGraphRuntime runtime = new NodeGraphRuntime();
+            runtime.registerAllFromAnnotationRegistry();
+            runtime.registerFunctionDefs(parser.functionDefs());
+            lastGraphRuntime = runtime;
+            String resolvedNode = ast.get(ast.size() - 1).id;
+            mesh = runtime.executeGraphToMesh(ast, resolvedNode, DEFAULT_DSL_FINAL_PORT);
+            meshRuntime = new HalfEdgeMeshRuntime();
+            meshRuntime.upload(mesh);
+            meshRuntime.frameCamera(camera);
+            if (mesh != null) {
+                Platforms.get().log("[mesh-viewer] dsl loaded: " + absolutePath + " verts=" + mesh.vertexCount()
+                        + " faces=" + mesh.faceCount());
+                meshCenter.set(mesh.center(new Vector3f()));
+            } else {
+                meshCenter.set(0f, 0f, 0f);
+            }
+            if (orbitMouse != null) {
+                orbitMouse.setTarget(meshCenter);
+                orbitMouse.setOrbit(az, el, dist);
+            }
+        } catch (Exception e) {
+            Platforms.get().log("[mesh-viewer] DSL load failed for " + absolutePath + ": " + e.getMessage());
+        }
+    }
+
+    private void loadObjFromAbsolutePath(String absolutePath, float az, float el, float dist) {
+        try {
+            ArrayMesh arrayMesh = MeshLoader.load(absolutePath);
+            disposeMeshRuntime();
+            mesh = arrayMesh;
+            meshRuntime = new HalfEdgeMeshRuntime();
+            meshRuntime.upload(arrayMesh);
+            meshRuntime.frameCamera(camera);
+            Platforms.get().log("[mesh-viewer] obj loaded: " + absolutePath
+                    + " verts=" + arrayMesh.vertexCount() + " faces=" + arrayMesh.faceCount());
+            meshCenter.set(arrayMesh.center(new Vector3f()));
+            if (orbitMouse != null) {
+                orbitMouse.setTarget(meshCenter);
+                orbitMouse.setOrbit(az, el, dist);
+            }
+        } catch (Exception e) {
+            Platforms.get().log("[mesh-viewer] OBJ load failed for " + absolutePath + ": " + e.getMessage());
+        }
+    }
+
+    public void togglePatchOverlay() {
+        if (meshRuntime == null || mesh == null) {
+            Platforms.get().log("[mesh-viewer] patch overlay: no mesh loaded");
+            return;
+        }
+        patchOverlayEnabled = !patchOverlayEnabled;
+        if (!patchOverlayEnabled) {
+            meshRuntime.clearTags();
+            meshRuntime.clearFeatureEdgeOverlay();
+            Platforms.get().log("[mesh-viewer] patches: OFF");
+            logState();
+            return;
+        }
+        ensureDecomposition();
+        if (cachedDiagnostics == null) {
+            Platforms.get().log("[mesh-viewer] patch overlay: decomposition unavailable");
+            patchOverlayEnabled = false;
+            logState();
+            return;
+        }
+        applyCurrentOverlay();
+        applyFeatureEdgeOverlay();
+        Platforms.get().log("[mesh-viewer] patches: ON (" + cachedDiagnostics.decomposition().patches().size()
+                + " patches, mode=" + shaderMode + ")");
+        logState();
+    }
+
+    public void toggleShaderMode() {
+        HalfEdgeMeshRuntime.ShaderMode[] cycle = HalfEdgeMeshRuntime.ShaderMode.values();
+        shaderMode = cycle[(shaderMode.ordinal() + 1) % cycle.length];
+        if (meshRuntime != null) {
+            meshRuntime.setShaderMode(shaderMode);
+        }
+        if (patchOverlayEnabled && cachedDiagnostics != null) {
+            applyCurrentOverlay();  // rebuild tag colours for new mode
+            applyFeatureEdgeOverlay();  // (re)install overlay edges if needed
+        }
+        Platforms.get().log("[mesh-viewer] shader mode: " + shaderMode);
+        logState();
+    }
+
+    /**
+     * Compute the feature-edge categories appropriate for the current shader
+     * mode and push them to the runtime. Category assignment mirrors
+     * {@code PatchRenderer.drawFeatureEdgeOverlay} so the on-screen colors
+     * match the offline PNG diagnostic — the two paths must stay in lockstep.
+     */
+    private void applyFeatureEdgeOverlay() {
+        if (meshRuntime == null || cachedDiagnostics == null) return;
+        if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.STAGES) {
+            java.util.Set<Long> dih = cachedDiagnostics.dihedralFeatureEdges();
+            java.util.Set<Long> prin = cachedDiagnostics.principalFeatureEdges();
+            java.util.Set<Long> crest = cachedDiagnostics.crestEdges();
+            java.util.Set<Long> saddle = cachedDiagnostics.saddleSeparatorEdges();
+
+            java.util.Set<Long> all = new java.util.HashSet<>(dih);
+            all.addAll(prin);
+            all.addAll(crest);
+            all.addAll(saddle);
+
+            java.util.List<Long> dihOnly = new java.util.ArrayList<>();
+            java.util.List<Long> prinOnly = new java.util.ArrayList<>();
+            java.util.List<Long> crestOnly = new java.util.ArrayList<>();
+            java.util.List<Long> multi = new java.util.ArrayList<>();
+            for (long key : all) {
+                boolean d = dih.contains(key);
+                boolean p = prin.contains(key);
+                boolean c = crest.contains(key);
+                boolean s = saddle.contains(key);
+                int sourceCount = (d ? 1 : 0) + (p ? 1 : 0) + (c ? 1 : 0) + (s ? 1 : 0);
+                if (sourceCount >= 2) multi.add(key);
+                else if (d) dihOnly.add(key);
+                else if (p) prinOnly.add(key);
+                else if (c) crestOnly.add(key);
+                // saddle-only not drawn here; saddle drawn as a last pass below for emphasis.
+            }
+            java.util.List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new java.util.ArrayList<>();
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.DIHEDRAL, dihOnly));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.PRINCIPAL, prinOnly));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.CREST, crestOnly));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.MULTI_SOURCE, multi));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.SADDLE, saddle));
+            meshRuntime.setFeatureEdgeOverlay(cats);
+        } else if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.CREST_VS_BOUNDARY) {
+            java.util.Set<Long> crest = cachedDiagnostics.crestEdges();
+            java.util.Set<Long> boundary = cachedDiagnostics.patchBoundaryEdges();
+            java.util.List<Long> boundaryOnly = new java.util.ArrayList<>();
+            java.util.List<Long> crestIgnored = new java.util.ArrayList<>();
+            java.util.List<Long> aligned = new java.util.ArrayList<>();
+            java.util.Set<Long> union = new java.util.HashSet<>(crest);
+            union.addAll(boundary);
+            for (long key : union) {
+                boolean c = crest.contains(key);
+                boolean b = boundary.contains(key);
+                if (c && b) aligned.add(key);
+                else if (b) boundaryOnly.add(key);
+                else if (c) crestIgnored.add(key);
+            }
+            java.util.List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new java.util.ArrayList<>();
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.BOUNDARY_ONLY, boundaryOnly));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.CREST_IGNORED, crestIgnored));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.CREST_HONORED, aligned));
+            meshRuntime.setFeatureEdgeOverlay(cats);
+        } else {
+            meshRuntime.clearFeatureEdgeOverlay();
+        }
+    }
+
+    private void ensureDecomposition() {
+        if (mesh == null) return;
+        String key = currentModelKey != null ? currentModelKey : "dsl";
+        if (cachedDiagnostics != null && key.equals(cachedDiagnosticsKey)) return;
+        // TEMPORARY (MESH-49): until the node ecosystem canonicalizes output
+        // to ArrayMesh, convert on the fly here so patch overlay works on
+        // DSL-produced HalfEdgeMesh too. Once MESH-49 lands we can drop this
+        // conversion and require the upstream mesh to already be ArrayMesh.
+        ArrayMesh am = (mesh instanceof ArrayMesh existing)
+                ? existing
+                : SemanticPatchDecomposer.toArrayMesh(mesh);
+        if (!(mesh instanceof ArrayMesh)) {
+            // Re-upload the converted ArrayMesh so the runtime's EBO index
+            // space matches the Patch.vertexIndices we're about to install as
+            // tags. Without this, a HalfEdgeMesh's own compileSurfaceData
+            // uses a different vertex ordering and the tag masks would colour
+            // the wrong triangles.
+            mesh = am;
+            meshRuntime.upload(am);
+            Platforms.get().log("[mesh-viewer] converted HalfEdgeMesh\u2192ArrayMesh for patch overlay (MESH-49)");
+        }
+        Platforms.get().log("[mesh-viewer] decomposing " + key
+                + " (" + am.vertexCount() + " verts)...");
+        long start = System.currentTimeMillis();
+        cachedDiagnostics = SemanticPatchDecomposer.decomposeWithDiagnostics(am, 128);
+        cachedDiagnosticsKey = key;
+        long elapsed = System.currentTimeMillis() - start;
+        Platforms.get().log("[mesh-viewer] decomposed in " + elapsed + "ms: "
+                + cachedDiagnostics.decomposition().patches().size() + " patches"
+                + " (crest=" + cachedDiagnostics.crestEdges().size()
+                + " saddle=" + cachedDiagnostics.saddleSeparatorEdges().size()
+                + " boundary=" + cachedDiagnostics.patchBoundaryEdges().size() + ")");
+    }
+
+    private void applyCurrentOverlay() {
+        if (meshRuntime == null || cachedDiagnostics == null) return;
+        int vertexCount = mesh.vertexCount();
+        Map<String, boolean[]> tags = new HashMap<>();
+        meshRuntime.clearTagColors();
+        for (Patch p : cachedDiagnostics.decomposition().patches()) {
+            String name = "patch_" + p.id();
+            boolean[] mask = new boolean[vertexCount];
+            for (int v : p.vertexIndices()) {
+                if (v >= 0 && v < vertexCount) mask[v] = true;
+            }
+            tags.put(name, mask);
+            Vector4f color;
+            if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.FLAT) {
+                int rgb = PatchRenderer.uniquePatchColor(p.id());
+                color = new Vector4f(
+                        ((rgb >> 16) & 0xff) / 255f,
+                        ((rgb >> 8) & 0xff) / 255f,
+                        (rgb & 0xff) / 255f,
+                        1f);
+            } else {
+                int rgb = Integer.parseInt(p.color(), 16);
+                color = new Vector4f(
+                        ((rgb >> 16) & 0xff) / 255f,
+                        ((rgb >> 8) & 0xff) / 255f,
+                        (rgb & 0xff) / 255f,
+                        1f);
+            }
+            meshRuntime.setTagColor(name, color);
+        }
+        meshRuntime.setShaderMode(shaderMode);
+        meshRuntime.setTags(tags);
     }
 
     public void toggleMeshWireframe() {

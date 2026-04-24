@@ -124,7 +124,7 @@ public class AutomationApiServer {
         String outputPath = body.has("path") ? body.get("path").getAsString() : "";
         boolean inline = body.has("inline") && body.get("inline").getAsBoolean();
         try {
-            writeJson(exchange, runtime.captureMultiview(outputPath, inline));
+            writeJson(exchange, runtime.captureMultiview(outputPath, inline, body));
         } catch (Exception e) {
             writeError(exchange, 500, e.getMessage());
         }

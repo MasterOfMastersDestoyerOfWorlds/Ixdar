@@ -55,6 +55,8 @@ public abstract class ShaderProgram {
 
         MeshUnlit(MeshShader.class, "mesh.vs", "mesh_unlit.fs"),
 
+        MeshScalar(MeshShader.class, "mesh_scalar.vs", "mesh_scalar.fs"),
+
         BezierSDF(SDFShader.class, "font.vs", "sdf_bezier_simple.fs");
 
         public String vertexShaderLocation;

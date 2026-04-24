@@ -21,8 +21,22 @@ VIEWS = [
 
 
 def capture_multiview(client: AutomationClient, out_path: str = "/tmp/multiview.png",
-                      wireframe: bool = False, ortho: bool = False) -> dict:
-    """Capture 8 views and composite into a 4x2 grid PNG."""
+                      wireframe: bool = False, ortho: bool = False,
+                      max_side: int = 1920, zoom: float | str = 1.0) -> dict:
+    """Capture 8 views and composite into a 4x2 grid PNG.
+
+    Composite is downscaled so its long side fits under ``max_side`` (default
+    1920, which stays under Claude's ~2000px image limit). Per-view PNGs are
+    kept next to the composite at native cell resolution so individual views
+    (e.g. Right for checking teeth) can be read without grid compression.
+    Pass ``max_side=0`` to skip the downscale.
+
+    ``zoom`` controls camera distance relative to the current 2.5× margin.
+    ``1.0`` (default) keeps the historical framing. ``2.0`` = twice as close
+    (mouth fills the frame instead of being a 30px strip). ``"fit"`` packs
+    the mesh against the frame edges with a 2% safety margin using the
+    45° FOV.
+    """
     from PIL import Image, ImageDraw, ImageFont
     import base64
     import io
@@ -44,7 +58,17 @@ def capture_multiview(client: AutomationClient, out_path: str = "/tmp/multiview.
     saved_el = orbit.get("elevation", 0.419)
     saved_dist = orbit.get("distance", 3.5)
     mesh_radius = orbit.get("mesh_radius", 1.0)
-    view_dist = max(mesh_radius * 2.5, 1.0)
+    # Distance factor mirrors AutomationRuntime.parseZoomPerspective so the
+    # Python CLI and Java multiview endpoint produce identical framing. 45°
+    # FOV; "fit" = 1.02/sin(22.5°) ≈ 2.67; numeric zoom divides 2.5× default.
+    import math
+    if isinstance(zoom, str) and zoom.lower() == "fit":
+        dist_factor = 1.02 / math.sin(math.radians(22.5))
+    elif isinstance(zoom, (int, float)) and zoom > 0:
+        dist_factor = 2.5 / float(zoom)
+    else:
+        dist_factor = 2.5
+    view_dist = max(mesh_radius * dist_factor, 1.0)
 
     captures: list[tuple[Image.Image, str]] = []
     tmp_dir = "/tmp/multiview_frames"
@@ -89,9 +113,28 @@ def capture_multiview(client: AutomationClient, out_path: str = "/tmp/multiview.
         draw.text((dx + 9, dy + 5), label, fill=(0, 0, 0), font=font)
         draw.text((dx + 8, dy + 4), label, fill=(255, 255, 255), font=font)
 
+    comp_w, comp_h = composite.size
+    if max_side and max(comp_w, comp_h) > max_side:
+        scale = max_side / max(comp_w, comp_h)
+        composite = composite.resize(
+            (round(comp_w * scale), round(comp_h * scale)),
+            Image.Resampling.LANCZOS,
+        )
     composite.save(out_path)
 
-    # Clean up individual frames
+    out_dir = os.path.dirname(os.path.abspath(out_path))
+    stem, _ = os.path.splitext(os.path.basename(out_path))
+    per_view: list[dict] = []
+    import re
+    for i, (img, label) in enumerate(captures):
+        slug = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")
+        view_out = os.path.join(out_dir, f"{stem}-{slug}.png")
+        img.save(view_out)
+        per_view.append({"label": label, "path": view_out,
+                         "width": img.size[0], "height": img.size[1]})
+
+    # Clean up individual raw frame captures (the labeled per-view PNGs
+    # written above supersede them).
     for i in range(len(VIEWS)):
         frame_path = os.path.join(tmp_dir, f"view_{i}.png")
         if os.path.exists(frame_path):
@@ -99,9 +142,10 @@ def capture_multiview(client: AutomationClient, out_path: str = "/tmp/multiview.
 
     return {
         "path": out_path,
-        "width": 4 * cell_w,
-        "height": 2 * cell_h,
+        "width": composite.size[0],
+        "height": composite.size[1],
         "views": len(captures),
+        "per_view": per_view,
     }
 
 
@@ -111,7 +155,18 @@ if __name__ == "__main__":
     parser.add_argument("output", nargs="?", default="/tmp/multiview.png", help="Output PNG path")
     parser.add_argument("--wireframe", action="store_true", help="Capture in wireframe mode")
     parser.add_argument("--ortho", action="store_true", help="Use orthographic projection")
+    parser.add_argument("--max-side", type=int, default=1920,
+                        help="Downscale composite so its long side fits under this many pixels "
+                             "(default 1920, under Claude's ~2000px limit). Pass 0 to skip.")
+    parser.add_argument("--zoom", default="1.0",
+                        help="Camera distance multiplier. 1.0 = default 2.5x-radius framing; "
+                             "2.0 = twice as close (mouth fills frame); 'fit' = pack mesh "
+                             "against frame edges with 2% safety margin.")
     args = parser.parse_args()
+    try:
+        zoom_arg: float | str = float(args.zoom)
+    except ValueError:
+        zoom_arg = args.zoom  # "fit" or similar
     client = AutomationClient()
     flags = []
     if args.wireframe:
@@ -119,6 +174,7 @@ if __name__ == "__main__":
     if args.ortho:
         flags.append("ortho")
     mode = f" ({', '.join(flags)})" if flags else ""
-    print(f"Capturing 8 views{mode}...")
-    result = capture_multiview(client, args.output, wireframe=args.wireframe, ortho=args.ortho)
+    print(f"Capturing 8 views{mode} zoom={zoom_arg}...")
+    result = capture_multiview(client, args.output, wireframe=args.wireframe,
+                               ortho=args.ortho, max_side=args.max_side, zoom=zoom_arg)
     print(f"Saved: {result}")

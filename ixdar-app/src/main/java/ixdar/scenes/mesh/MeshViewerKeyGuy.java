@@ -10,6 +10,9 @@ import ixdar.platform.input.Keys;
 
 public class MeshViewerKeyGuy extends KeyGuy {
 
+    // GLFW modifier bit for the shift key.
+    private static final int MOD_SHIFT = 0x0001;
+
     private final MeshNodeViewerScene meshScene;
 
     public MeshViewerKeyGuy(MeshNodeViewerScene meshScene, Camera camera, Canvas3D canvas) {
@@ -20,8 +23,20 @@ public class MeshViewerKeyGuy extends KeyGuy {
     @Override
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
         Platforms.init(canvas.platform.getPlatformID());
-        if (active && action == ACTION_PRESS && key == Keys.Z) {
-            meshScene.toggleMeshWireframe();
+        if (active && action == ACTION_PRESS) {
+            switch (key) {
+                case Keys.Z -> meshScene.toggleMeshWireframe();
+                case Keys.P -> {
+                    if ((mods & MOD_SHIFT) != 0) {
+                        meshScene.toggleShaderMode();
+                    } else {
+                        meshScene.togglePatchOverlay();
+                    }
+                }
+                case Keys.LEFT_BRACKET -> meshScene.prevModel();
+                case Keys.RIGHT_BRACKET -> meshScene.nextModel();
+                default -> {}
+            }
         }
         super.keyCallback(window, key, scancode, action, mods);
     }

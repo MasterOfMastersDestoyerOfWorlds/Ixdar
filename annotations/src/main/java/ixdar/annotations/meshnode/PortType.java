@@ -10,7 +10,13 @@ public enum PortType {
     STRING(String.class),
     ROTATION(RotationValue.class),
     /** Float curve / closure payload (runtime object, e.g. FloatCurveKernel). */
-    CLOSURE(Object.class);
+    CLOSURE(Object.class),
+    /** Dungeon-generation room list (see ixdar.procgen.dungeon.values.RoomListValue). */
+    ROOM_LIST(Object.class),
+    /** Dungeon-generation edge graph (see ixdar.procgen.dungeon.values.EdgeGraphValue). */
+    EDGE_GRAPH(Object.class),
+    /** Dungeon-generation tile grid (see ixdar.procgen.dungeon.values.TileGridValue). */
+    TILE_GRID(Object.class);
 
     private final Class<?> valueType;
 

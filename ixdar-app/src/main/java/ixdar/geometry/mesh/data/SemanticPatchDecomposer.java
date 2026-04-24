@@ -3,8 +3,10 @@ package ixdar.geometry.mesh.data;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonJoint;
@@ -77,9 +79,121 @@ public final class SemanticPatchDecomposer {
 
     private SemanticPatchDecomposer() {}
 
-    public static PatchDecomposition decompose(ArrayMesh mesh, int resolution) {
+    /**
+     * Per-stage edge sets and the final face→patch mapping, for diagnosis.
+     * Edge encoding matches {@link #edgeKey(int, int)}: low-endpoint in high
+     * 32 bits, high-endpoint in low 32 bits.
+     *
+     * <ul>
+     *   <li>{@code dihedralFeatureEdges} — edges whose dihedral exceeds the
+     *       adaptive feature threshold used by {@code featureCutAdjacency}.</li>
+     *   <li>{@code principalFeatureEdges} — edges promoted by the per-vertex
+     *       principal-curvature magnitude test (both endpoints κ₁ or κ₂ above
+     *       {@code T_PRINCIPAL}).</li>
+     *   <li>{@code crestEdges} — edges on a traced ridge/valley polyline from
+     *       {@link CrestLineDetector}.</li>
+     *   <li>{@code unionFeatureEdges} — the union of the three sets above,
+     *       i.e. everything {@code featureCutAdjacency} will cut on.</li>
+     *   <li>{@code patchBoundaryEdges} — edges where the two adjacent faces
+     *       ended up in different final patches. Overlaying this with the
+     *       three above shows which feature signals were honored by the
+     *       decomposition and which were overridden downstream.</li>
+     * </ul>
+     */
+    public static record DecompositionDiagnostics(
+            PatchDecomposition decomposition,
+            int[] facePatchId,
+            Set<Long> dihedralFeatureEdges,
+            Set<Long> principalFeatureEdges,
+            Set<Long> crestEdges,
+            Set<Long> saddleSeparatorEdges,
+            Set<Long> unionFeatureEdges,
+            Set<Long> patchBoundaryEdges) {}
+
+    /**
+     * Overload that accepts any {@link MeshTopology} (e.g. a DSL-produced
+     * {@link HalfEdgeMesh}) and converts to an {@link ArrayMesh} of flat
+     * triangles before running the main decomposer. Fan-triangulates any
+     * n-gon face.
+     */
+    public static PatchDecomposition decompose(MeshTopology mesh, int resolution) {
+        if (mesh == null) return new PatchDecomposition(0, List.of());
+        if (mesh instanceof ArrayMesh am) return decompose(am, resolution);
+        return decompose(toArrayMesh(mesh), resolution);
+    }
+
+    /**
+     * Build an {@link ArrayMesh} from any {@link MeshTopology}. Uses only the
+     * interface API — works on {@link HalfEdgeMesh}, {@link ArrayMesh},
+     * and any future MeshTopology implementation.
+     */
+    public static ArrayMesh toArrayMesh(MeshTopology mesh) {
         int nv = mesh.vertexCount();
-        if (nv == 0) return new PatchDecomposition(0, List.of());
+        int nf = mesh.faceCount();
+        float[] positions = new float[nv * 3];
+        float[] normals = new float[nv * 3];
+        // Build id → compact-index mapping via vertexIdAt.
+        int[] idToIndex = new int[nv > 0 ? maxVertexId(mesh) + 1 : 1];
+        java.util.Arrays.fill(idToIndex, -1);
+        org.joml.Vector3f v = new org.joml.Vector3f();
+        for (int i = 0; i < nv; i++) {
+            int id = mesh.vertexIdAt(i);
+            idToIndex[id] = i;
+            mesh.vertexPosition(id, v);
+            positions[i * 3] = v.x;
+            positions[i * 3 + 1] = v.y;
+            positions[i * 3 + 2] = v.z;
+            mesh.vertexNormal(id, v);
+            normals[i * 3] = v.x;
+            normals[i * 3 + 1] = v.y;
+            normals[i * 3 + 2] = v.z;
+        }
+        // Walk faces, fan-triangulate.
+        int triIndexCount = 0;
+        for (int i = 0; i < nf; i++) {
+            int fid = mesh.faceIdAt(i);
+            int fv = mesh.faceVertexCount(fid);
+            if (fv >= 3) triIndexCount += (fv - 2) * 3;
+        }
+        int[] faceIndices = new int[triIndexCount];
+        int cursor = 0;
+        for (int i = 0; i < nf; i++) {
+            int fid = mesh.faceIdAt(i);
+            int fv = mesh.faceVertexCount(fid);
+            if (fv < 3) continue;
+            int v0 = idToIndex[mesh.faceVertexAt(fid, 0)];
+            for (int k = 1; k + 1 < fv; k++) {
+                faceIndices[cursor++] = v0;
+                faceIndices[cursor++] = idToIndex[mesh.faceVertexAt(fid, k)];
+                faceIndices[cursor++] = idToIndex[mesh.faceVertexAt(fid, k + 1)];
+            }
+        }
+        return new ArrayMesh(positions, normals, faceIndices, 3);
+    }
+
+    private static int maxVertexId(MeshTopology mesh) {
+        int max = -1;
+        int nv = mesh.vertexCount();
+        for (int i = 0; i < nv; i++) {
+            int id = mesh.vertexIdAt(i);
+            if (id > max) max = id;
+        }
+        return max;
+    }
+
+    public static PatchDecomposition decompose(ArrayMesh mesh, int resolution) {
+        return decomposeWithDiagnostics(mesh, resolution).decomposition();
+    }
+
+    public static DecompositionDiagnostics decomposeWithDiagnostics(ArrayMesh mesh, int resolution) {
+        int nv = mesh.vertexCount();
+        if (nv == 0) {
+            PatchDecomposition empty = new PatchDecomposition(0, List.of());
+            return new DecompositionDiagnostics(empty, new int[0],
+                    java.util.Collections.emptySet(), java.util.Collections.emptySet(),
+                    java.util.Collections.emptySet(), java.util.Collections.emptySet(),
+                    java.util.Collections.emptySet(), java.util.Collections.emptySet());
+        }
 
         int[] faceIdx = mesh.copyFaceIndices();
         int faceCount = faceIdx.length / 3;
@@ -107,12 +221,90 @@ public final class SemanticPatchDecomposer {
         float[][] principal = computePrincipalCurvatures(meanH, gaussK);
         float[] kappa1 = principal[0];
         float[] kappa2 = principal[1];
+        // Adaptive principal-magnitude threshold: the hardcoded
+        // T_PRINCIPAL=12/extent fired on ~34% of skull edges (25k of 75k),
+        // flooding the face with spurious feature cuts that fragment region
+        // growing into chaos. Use p95 of the per-vertex |κ₁| / −κ₂
+        // distributions so we only promote genuine top-tail curvature.
+        float ridgeT = percentileAbs(kappa1, 0.95f, /*positive=*/true);
+        float valleyT = percentileAbs(kappa2, 0.95f, /*positive=*/false);
+        // Safety floor so a mostly-flat mesh doesn't lose the signal.
+        float floor = T_PRINCIPAL * (1f / meshExtent);
+        ridgeT = Math.max(ridgeT, floor);
+        valleyT = Math.max(valleyT, floor);
         java.util.Set<Long> principalFeatureEdges = principalCurvatureFeatureEdges(
-                ed, kappa1, kappa2, T_PRINCIPAL * (1f / meshExtent));
+                ed, kappa1, kappa2, ridgeT, valleyT);
 
-        // Face adjacency (full + feature-cut variants).
+        // PATCH-11: crest-line detection via Yoshizawa-style NMS along the
+        // principal direction eigenvector. Produces continuous polylines
+        // along real ridges (nose rim, eye-socket rim, tooth gaps) that the
+        // magnitude-only principalFeatureEdges test was missing.
+        PrincipalDirectionField pdf = PrincipalDirectionField.compute(mesh, ed);
+        CrestLineDetector.CrestLines crest = CrestLineDetector.detect(mesh, ed, pdf);
+
+        // PATCH-13: saddle-point separator detection. At inter-tooth saddles
+        // where κ₁ > 0 and κ₂ < 0 with both magnitudes above p90, emit a
+        // short cut across the valley along dirMax. Yoshizawa tracing walks
+        // valleys in the dirMin direction (along the gum line) and so
+        // cannot produce these perpendicular cuts on its own.
+        SaddlePointDetector.SaddleSeparators saddle = SaddlePointDetector.detect(mesh, ed, pdf);
+
+        // PATCH-11: adaptive dihedral threshold — use the p85 of the per-mesh
+        // dihedral distribution instead of a hard-coded 0.20 rad. Safety-floored
+        // at T_FEATURE_RAD so a near-flat mesh doesn't completely eliminate the
+        // dihedral signal.
+        float adaptiveFeatureRad = Math.max(T_FEATURE_RAD, percentileDihedral(ed, 0.85f));
+
+        // Collect the dihedral feature-edge set for diagnostics.
+        Set<Long> dihedralFeatureEdges = new HashSet<>();
+        for (Map.Entry<Long, Float> e : ed.dihedralByEdge().entrySet()) {
+            if (e.getValue() > adaptiveFeatureRad) dihedralFeatureEdges.add(e.getKey());
+        }
+
+        // PATCH-14 agreement filter. Empirically, dihedral-only and crest-only
+        // edges are noise (visible as blue/red scatter in the STAGES overlay)
+        // and fragment region-growing into spurious cuts (horizontal strips
+        // through teeth). An edge is promoted into the cut-set iff:
+        //   (a) it is a saddle separator — topology-directed, always trusted
+        //       (PATCH-13 spec), OR
+        //   (b) it appears in ≥2 of {dihedral, principal, crest} — agreement
+        //       across independent detectors.
+        // All four source sets remain in DecompositionDiagnostics so the
+        // STAGES overlay keeps showing the raw per-source signal for
+        // diagnosis; only the cut-set fed into region-growing is filtered.
+        java.util.Set<Long> allFeatureEdges = new java.util.HashSet<>(saddle.separatorEdges);
+        java.util.Set<Long> candidates = new java.util.HashSet<>(principalFeatureEdges);
+        candidates.addAll(crest.crestEdges);
+        candidates.addAll(dihedralFeatureEdges);
+        for (long key : candidates) {
+            int sources = 0;
+            if (principalFeatureEdges.contains(key)) sources++;
+            if (crest.crestEdges.contains(key)) sources++;
+            if (dihedralFeatureEdges.contains(key)) sources++;
+            if (sources >= 2) allFeatureEdges.add(key);
+        }
+
+        // Saddle separators must survive the small-patch merge pass 2 just
+        // like crest edges — without this, adjacent teeth would be merged
+        // back together across the short separator bars.
+        java.util.Set<Long> highConfidenceEdges = new java.util.HashSet<>(crest.crestEdges);
+        highConfidenceEdges.addAll(saddle.separatorEdges);
+
+        // Face adjacency (full + feature-cut variants). Pass +infinity as the
+        // dihedral threshold because PATCH-14 already gates dihedral-only
+        // edges out of allFeatureEdges — letting featureCutAdjacency cut on
+        // raw dihedral would resurrect the noise we just filtered.
         int[][] adj = buildFaceAdjacency(faceIdx, faceCount, ed);
-        int[][] adjCut = featureCutAdjacency(adj, faceIdx, ed, T_FEATURE_RAD, principalFeatureEdges);
+        int[][] adjCut = featureCutAdjacency(adj, faceIdx, ed, Float.POSITIVE_INFINITY, allFeatureEdges);
+        // High-confidence-only cut adjacency: crest edges + saddle separators
+        // (PATCH-13) are the only signals severed. Used by the small-patch
+        // merge pass 2 so tiny fragments can absorb into neighbors across
+        // the over-permissive principal/dihedral signals (which flag ~34%
+        // of edges on the skull) but cannot cross high-confidence crest
+        // edges or inter-tooth saddle cuts, preserving anatomical
+        // boundaries like orbital rims and individual teeth.
+        int[][] adjCrestOnly = featureCutAdjacency(
+                adj, faceIdx, ed, Float.POSITIVE_INFINITY, highConfidenceEdges);
 
         // Face → skeleton bucket (majority vote over the 3 vertices).
         int[] faceBranches = new int[faceCount];
@@ -186,7 +378,10 @@ public final class SemanticPatchDecomposer {
         for (int i = 0; i < nextPatchId; i++) remap[i] = i;
 
         for (int pass = 0; pass < 2; pass++) {
-            int[][] walkAdj = pass == 0 ? adjCut : adj;
+            // Pass 0: absolutely no feature crossings. Pass 1: allow crossing
+            // over-permissive dihedral/principal signals to clean up orphan
+            // fragments, but still not across high-confidence crest edges.
+            int[][] walkAdj = pass == 0 ? adjCut : adjCrestOnly;
             for (int pid = 0; pid < nextPatchId; pid++) {
                 if (follow(remap, pid) != pid) continue;  // already merged
                 if (patchFaceCount[pid] >= MIN_PATCH_FACES) continue;
@@ -307,7 +502,33 @@ public final class SemanticPatchDecomposer {
                     color));
         }
 
-        return new PatchDecomposition(nv, out);
+        PatchDecomposition decomposition = new PatchDecomposition(nv, out);
+
+        // Patch-boundary edges: any edge whose two adjacent faces end up in
+        // different final patches. Compared against the three feature-edge
+        // sources, this is what lets a diagnostic caller see which signals
+        // were honored and which were overridden by downstream stages
+        // (concavity carve-out, skeleton bucketing, small-patch merge, PATCH-6
+        // quality split, Welsh-Powell coloring is cosmetic and doesn't affect
+        // this).
+        Set<Long> patchBoundaryEdges = new HashSet<>();
+        for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
+            int[] faces = e.getValue();
+            if (faces[0] < 0 || faces[1] < 0) continue;
+            int p0 = splitPatchId[faces[0]];
+            int p1 = splitPatchId[faces[1]];
+            if (p0 != p1) patchBoundaryEdges.add(e.getKey());
+        }
+
+        return new DecompositionDiagnostics(
+                decomposition,
+                splitPatchId,
+                dihedralFeatureEdges,
+                principalFeatureEdges,
+                crest.crestEdges,
+                saddle.separatorEdges,
+                allFeatureEdges,
+                patchBoundaryEdges);
     }
 
     // ---------- Step 1: nearest-branch vertex assignment ----------
@@ -496,6 +717,22 @@ public final class SemanticPatchDecomposer {
         return (float) Math.acos(dot);
     }
 
+    /**
+     * PATCH-11 helper: the p-th percentile of the per-edge dihedral
+     * distribution for adaptive feature thresholding.
+     */
+    private static float percentileDihedral(EdgeDihedrals ed, float p) {
+        Map<Long, Float> dihedrals = ed.dihedralByEdge();
+        int n = dihedrals.size();
+        if (n == 0) return 0f;
+        float[] values = new float[n];
+        int i = 0;
+        for (Float d : dihedrals.values()) values[i++] = d;
+        java.util.Arrays.sort(values);
+        int idx = Math.min(n - 1, Math.max(0, (int) (n * p)));
+        return values[idx];
+    }
+
     private static float computeMeshExtent(float[] positions) {
         float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
         float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
@@ -676,17 +913,36 @@ public final class SemanticPatchDecomposer {
      * {@code T / mesh_extent} to stay scale-invariant.
      */
     private static java.util.Set<Long> principalCurvatureFeatureEdges(
-            EdgeDihedrals ed, float[] kappa1, float[] kappa2, float threshold) {
+            EdgeDihedrals ed, float[] kappa1, float[] kappa2,
+            float ridgeThreshold, float valleyThreshold) {
         java.util.Set<Long> out = new java.util.HashSet<>();
         for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
             long key = e.getKey();
             int u = (int) (key >> 32);
             int v = (int) (key & 0xffffffffL);
-            boolean ridge = kappa1[u] > threshold && kappa1[v] > threshold;
-            boolean valley = kappa2[u] < -threshold && kappa2[v] < -threshold;
+            boolean ridge = kappa1[u] > ridgeThreshold && kappa1[v] > ridgeThreshold;
+            boolean valley = kappa2[u] < -valleyThreshold && kappa2[v] < -valleyThreshold;
             if (ridge || valley) out.add(key);
         }
         return out;
+    }
+
+    /**
+     * Percentile over either the positive side ({@code positive=true}, for
+     * {@code |κ₁|} / ridge magnitude) or the negated values ({@code
+     * positive=false}, for {@code −κ₂} / valley depth) of a per-vertex
+     * curvature array. Used to derive mesh-adaptive thresholds.
+     */
+    private static float percentileAbs(float[] values, float pct, boolean positive) {
+        int n = values.length;
+        if (n == 0) return 0f;
+        float[] copy = new float[n];
+        for (int i = 0; i < n; i++) {
+            copy[i] = positive ? Math.max(values[i], 0f) : Math.max(-values[i], 0f);
+        }
+        java.util.Arrays.sort(copy);
+        int idx = Math.min(n - 1, Math.max(0, Math.round((n - 1) * pct)));
+        return copy[idx];
     }
 
     /**

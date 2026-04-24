@@ -39,6 +39,7 @@ public final class PatchDecomposerCLI {
                 case "render-flat" -> renderFlat(args);
                 case "segment" -> segment(args);
                 case "stats" -> stats(args);
+                case "crest-lines" -> crestLines(args);
                 default -> {
                     System.err.println("Unknown command: " + args[0]);
                     usage();
@@ -244,6 +245,62 @@ public final class PatchDecomposerCLI {
         return (float) Math.acos(dot);
     }
 
+    /**
+     * PATCH-11: emit the detected crest lines as an OBJ with {@code l}
+     * line primitives so we can overlay them on the source mesh in Blender
+     * and sanity-check ridge / valley coverage.
+     */
+    private static void crestLines(String[] args) throws Exception {
+        if (args.length < 3) throw new IllegalArgumentException("crest-lines requires <obj_path> <out_obj>");
+        String path = args[1];
+        String outPath = args[2];
+        ArrayMesh mesh = MeshLoader.load(path);
+        SemanticPatchDecomposer.EdgeDihedrals ed = SemanticPatchDecomposer.computeEdgeDihedrals(mesh);
+        PrincipalDirectionField pdf = PrincipalDirectionField.compute(mesh, ed);
+        CrestLineDetector.CrestLines crest = CrestLineDetector.detect(mesh, ed, pdf);
+
+        File out = new File(outPath);
+        if (!out.isAbsolute()) out = new File(System.getProperty("user.dir"), outPath);
+        File parent = out.getParentFile();
+        if (parent != null) parent.mkdirs();
+        try (java.io.BufferedWriter w = java.nio.file.Files.newBufferedWriter(out.toPath())) {
+            w.write("# Crest lines for " + path + "\n");
+            w.write("# ridge polylines: " + crest.ridgePolylines.size()
+                    + "  valley polylines: " + crest.valleyPolylines.size() + "\n");
+            w.write("# object 'ridges' then 'valleys'\n");
+            // Vertex positions from the source mesh (indices preserved).
+            float[] positions = mesh.copyPositions();
+            for (int i = 0; i < positions.length; i += 3) {
+                w.write("v " + positions[i] + " " + positions[i + 1] + " " + positions[i + 2] + "\n");
+            }
+            w.write("o ridges\n");
+            writePolylines(w, crest.ridgePolylines);
+            w.write("o valleys\n");
+            writePolylines(w, crest.valleyPolylines);
+        }
+
+        JsonObject res = new JsonObject();
+        res.addProperty("ok", true);
+        res.addProperty("path", out.getAbsolutePath());
+        res.addProperty("ridge_polylines", crest.ridgePolylines.size());
+        res.addProperty("valley_polylines", crest.valleyPolylines.size());
+        res.addProperty("ridge_points", crest.ridgePolylines.stream().mapToInt(a -> a.length).sum());
+        res.addProperty("valley_points", crest.valleyPolylines.stream().mapToInt(a -> a.length).sum());
+        res.addProperty("crest_edges", crest.crestEdges.size());
+        System.out.println(res);
+    }
+
+    private static void writePolylines(java.io.BufferedWriter w, java.util.List<int[]> lines) throws Exception {
+        for (int[] line : lines) {
+            if (line.length < 2) continue;
+            // OBJ line primitives are 1-indexed.
+            StringBuilder sb = new StringBuilder("l");
+            for (int v : line) sb.append(" ").append(v + 1);
+            sb.append("\n");
+            w.write(sb.toString());
+        }
+    }
+
     private static void usage() {
         System.err.println("Usage:");
         System.err.println("  decompose <obj_path> [resolution]");
@@ -251,5 +308,6 @@ public final class PatchDecomposerCLI {
         System.err.println("  render-flat <obj_path> <out_png> [resolution]");
         System.err.println("  segment <method> <obj_path> [n_clusters]");
         System.err.println("  stats <obj_path>");
+        System.err.println("  crest-lines <obj_path> <out_obj>");
     }
 }

@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.documentation;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +11,7 @@ import com.google.gson.GsonBuilder;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
+import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
 import ixdar.annotations.meshnode.MeshNodeSchema;
 import ixdar.annotations.meshnode.ModeConstraint;
@@ -22,17 +24,30 @@ public final class MeshNodeCatalog {
     }
 
     public static String toJsonFromAnnotationRegistry() {
-        return toJson(MeshNodeRegistry_MeshNodes.MAP);
+        return toJson(MeshNodeRegistry_MeshNodes.MAP, null);
+    }
+
+    public static String toJsonFromAnnotationRegistry(String scope) {
+        return toJson(MeshNodeRegistry_MeshNodes.MAP, scope);
     }
 
     public static String toJson(Map<String, Supplier<? extends MeshNode>> registry) {
+        return toJson(registry, null);
+    }
+
+    public static String toJson(Map<String, Supplier<? extends MeshNode>> registry, String scope) {
         List<Map<String, Object>> nodes = new ArrayList<>();
         for (Map.Entry<String, Supplier<? extends MeshNode>> e : registry.entrySet()) {
             MeshNode n = e.getValue().get();
+            String[] scopes = scopesOf(n.getClass());
+            if (scope != null && !containsScope(scopes, scope)) {
+                continue;
+            }
             MeshNodeSchema schema = n.schema();
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("id", e.getKey());
             entry.put("category", categoryFromClass(n.getClass()));
+            entry.put("scopes", Arrays.asList(scopes));
             entry.put("inputs", serializeInputs(schema.inputs(), schema.socketDocs()));
             entry.put("outputs", serializeOutputs(schema.outputs(), schema.socketDocs()));
             String desc = n.description();
@@ -49,6 +64,21 @@ public final class MeshNodeCatalog {
             nodes.add(entry);
         }
         return new GsonBuilder().setPrettyPrinting().serializeNulls().create().toJson(Map.of("nodes", nodes));
+    }
+
+    private static String[] scopesOf(Class<?> clazz) {
+        MeshNodeAnnotation ann = clazz.getAnnotation(MeshNodeAnnotation.class);
+        if (ann == null) {
+            return new String[] { "mesh", "dungeon" };
+        }
+        return ann.scopes();
+    }
+
+    private static boolean containsScope(String[] scopes, String scope) {
+        for (String s : scopes) {
+            if (s.equals(scope)) return true;
+        }
+        return false;
     }
 
     private static String categoryFromClass(Class<?> clazz) {

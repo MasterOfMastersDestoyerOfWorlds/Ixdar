@@ -2,8 +2,10 @@ package ixdar.annotations.meshnode;
 
 import java.lang.annotation.*;
 
-@Retention(RetentionPolicy.CLASS)
+@Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface MeshNodeAnnotation {
     String id();
+
+    String[] scopes() default { "mesh", "dungeon" };
 }
