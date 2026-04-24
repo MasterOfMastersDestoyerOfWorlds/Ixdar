@@ -69,6 +69,19 @@ public final class SemanticPatchDecomposer {
                                                             // patch can't balloon into 20
     private static final int HARD_MAX_PATCH_VERTS = 5000;   // absolute safety ceiling
 
+    // PATCH-16 Coons reconstruction-error base case. A 4-sided patch is
+    // "done" iff a cubic Coons fit to its boundary sits within this
+    // fraction of the mesh bounding-sphere diameter at p95 per-vertex
+    // distance. 0.008 = the Coons surface must track the actual mesh to
+    // within 0.8% of the mesh size at 95% of the patch's vertices —
+    // generous enough that smooth cranium passes, tight enough that
+    // sockets/cavities get split.
+    private static final float T_COONS_ERROR_FRAC = 0.008f;
+    // Coons UV grid resolution. 16×16 = 256 samples per patch; linear
+    // nearest-neighbour scan per mesh vertex, fine for skull-scale
+    // meshes (~25k verts). Bump if we see quantization artifacts.
+    private static final int COONS_UV_SAMPLES = 16;
+
     // 20-colour distinguishable palette (hex without leading #).
     private static final String[] PALETTE = {
         "E84A5F", "FECEAB", "99B898", "2A363B", "FF847C",
@@ -108,7 +121,16 @@ public final class SemanticPatchDecomposer {
             Set<Long> crestEdges,
             Set<Long> saddleSeparatorEdges,
             Set<Long> unionFeatureEdges,
-            Set<Long> patchBoundaryEdges) {}
+            Set<Long> patchBoundaryEdges,
+            /** Per-vertex Coons reconstruction error (world units). 0 for
+             *  vertices that belong to a non-4-sided patch. See PATCH-16. */
+            float[] coonsError,
+            /** {@link #T_COONS_ERROR_FRAC} × mesh bounding-sphere diameter.
+             *  Use as "above this value is failing" when displaying the
+             *  error vector — typically feed to {@code
+             *  HalfEdgeMeshRuntime.setPerVertexScalar(err, 0, 2*threshold)}
+             *  so the threshold reads as the middle of the thermal ramp. */
+            float coonsErrorThreshold) {}
 
     /**
      * Overload that accepts any {@link MeshTopology} (e.g. a DSL-produced
@@ -192,7 +214,8 @@ public final class SemanticPatchDecomposer {
             return new DecompositionDiagnostics(empty, new int[0],
                     java.util.Collections.emptySet(), java.util.Collections.emptySet(),
                     java.util.Collections.emptySet(), java.util.Collections.emptySet(),
-                    java.util.Collections.emptySet(), java.util.Collections.emptySet());
+                    java.util.Collections.emptySet(), java.util.Collections.emptySet(),
+                    new float[0], 0f);
         }
 
         int[] faceIdx = mesh.copyFaceIndices();
@@ -435,7 +458,7 @@ public final class SemanticPatchDecomposer {
         // to split into left/right parietal etc.
         int[] splitPatchId = splitByQuality(
                 compactedFacePatch, compacted, faceIdx, faceCount,
-                positions, vertexCurvature, adj);
+                positions, vertexCurvature, adj, meshExtent);
         int newCompacted = 0;
         for (int pid : splitPatchId) if (pid + 1 > newCompacted) newCompacted = pid + 1;
 
@@ -520,6 +543,30 @@ public final class SemanticPatchDecomposer {
             if (p0 != p1) patchBoundaryEdges.add(e.getKey());
         }
 
+        // PATCH-16: compute per-vertex Coons reconstruction error across
+        // the final patch layout. For each patch that has 4 boundary
+        // sides, fit cubic Bezier edges + build a Coons grid + measure
+        // nearest-grid-point distance per vertex. Vertices in non-4-sided
+        // patches stay at 0 (no error metric defined for them).
+        float[] coonsError = new float[nv];
+        List<List<Integer>> finalFacesByPatch = new ArrayList<>();
+        for (int i = 0; i < newCompacted; i++) finalFacesByPatch.add(new ArrayList<>());
+        for (int f = 0; f < faceCount; f++) {
+            finalFacesByPatch.get(splitPatchId[f]).add(f);
+        }
+        for (int pid = 0; pid < newCompacted; pid++) {
+            List<Integer> patchFaces = finalFacesByPatch.get(pid);
+            if (patchFaces.isEmpty()) continue;
+            CoonsReconstructionError.PatchError perr = CoonsReconstructionError.compute(
+                    patchFaces, pid, splitPatchId, faceIdx, adj, positions, nv, COONS_UV_SAMPLES);
+            if (!perr.fourSided()) continue;
+            float[] pe = perr.vertexError();
+            for (int v = 0; v < nv; v++) {
+                if (pe[v] > coonsError[v]) coonsError[v] = pe[v];
+            }
+        }
+        float coonsThreshold = T_COONS_ERROR_FRAC * meshExtent;
+
         return new DecompositionDiagnostics(
                 decomposition,
                 splitPatchId,
@@ -528,7 +575,9 @@ public final class SemanticPatchDecomposer {
                 crest.crestEdges,
                 saddle.separatorEdges,
                 allFeatureEdges,
-                patchBoundaryEdges);
+                patchBoundaryEdges,
+                coonsError,
+                coonsThreshold);
     }
 
     // ---------- Step 1: nearest-branch vertex assignment ----------
@@ -1222,7 +1271,8 @@ public final class SemanticPatchDecomposer {
      */
     private static int[] splitByQuality(
             int[] facePatch, int patchCount, int[] faceIdx, int faceCount,
-            float[] positions, float[] vertexCurvature, int[][] adj) {
+            float[] positions, float[] vertexCurvature, int[][] adj,
+            float meshExtent) {
         // 1. Group faces + vertices by patch id.
         List<java.util.BitSet> vertsByPatch = new ArrayList<>();
         List<List<Integer>> facesByPatch = new ArrayList<>();
@@ -1251,6 +1301,23 @@ public final class SemanticPatchDecomposer {
             int sides = boundarySideCount(faces, facePatch, pid, faceIdx, adj, positions);
             float isoRatio = isoperimetricRatio(faces, facePatch, pid, faceIdx, adj, positions);
 
+            // PATCH-16: direct Coons reconstruction-error base case. The
+            // walker picks the 4 strongest corners regardless of the raw
+            // side count, so we try the Coons fit on anything whose
+            // boundary is a simple manifold ring of ≥4 vertices. For
+            // non-simply-connected boundaries the fit returns fourSided
+            // = false and we keep shape-proxy-only behavior.
+            float coonsP95 = 0f;
+            boolean coonsOk = true;
+            int meshVertCount = positions.length / 3;
+            CoonsReconstructionError.PatchError err = CoonsReconstructionError.compute(
+                    faces, pid, facePatch, faceIdx, adj, positions,
+                    meshVertCount, COONS_UV_SAMPLES);
+            if (err.fourSided()) {
+                coonsP95 = err.p95Error();
+                coonsOk = coonsP95 <= T_COONS_ERROR_FRAC * meshExtent;
+            }
+
             // Pass criteria: a patch is "done" when ALL of these agree.
             // 3..MAX_SIDES_BEFORE_SPLIT covers triangles through mildly
             // irregular Coons candidates.
@@ -1259,7 +1326,7 @@ public final class SemanticPatchDecomposer {
             boolean compact    = isoRatio >= T_ISO_RATIO;
             boolean withinSize = vertCount <= HARD_MAX_PATCH_VERTS;
 
-            if (flat && goodSides && compact && withinSize) continue;
+            if (flat && goodSides && compact && withinSize && coonsOk) continue;
 
             // Split. k is picked from whichever metric is loudest, then
             // capped at MAX_K_PER_SPLIT so a pathological patch can't
@@ -1270,7 +1337,15 @@ public final class SemanticPatchDecomposer {
             int kBySize  = vertCount > HARD_MAX_PATCH_VERTS
                     ? (int) Math.ceil(vertCount / 2500.0)
                     : 2;
-            int k = Math.max(2, Math.max(kBySides, kBySize));
+            // PATCH-16: Coons error drives k when shape-proxies pass but
+            // the patch can't be Coons-fit. Ratio of p95 error to the
+            // acceptable threshold = how many bands over budget we are.
+            int kByCoons = 2;
+            if (!coonsOk && meshExtent > 1e-6f) {
+                float ratio = coonsP95 / (T_COONS_ERROR_FRAC * meshExtent);
+                kByCoons = Math.max(2, (int) Math.ceil(ratio));
+            }
+            int k = Math.max(2, Math.max(kBySides, Math.max(kBySize, kByCoons)));
             k = Math.min(k, MAX_K_PER_SPLIT);
             if (k < 2) continue;
 

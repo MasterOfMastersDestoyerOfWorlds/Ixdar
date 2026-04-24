@@ -106,28 +106,19 @@ public class DungeonViewerScene extends Scene {
         float radius = Math.max(0.1f, mesh.radius());
         // Start above the dungeon at ~1.2x radius elevation, looking down-forward.
         camera.position.set(center.x, center.y + radius * 1.2f, center.z + radius * 1.0f);
+        // Tune WASD speed to the mesh scale so motion is visible on a unit-scale dungeon but
+        // not insta-teleport across it. Roughly: cross the dungeon in ~6 seconds.
+        camera.setMovementSpeed(Math.max(0.05f, radius * 0.35f));
         // Face -Z toward the dungeon center and tilt down.
         camera.setOrientation(-90f, -45f);
         camera.updateViewFirstPerson();
     }
-
-    private int diagFrame = 0;
 
     @Override
     public void drawScene() {
         if (meshRuntime == null) return;
         camera.resetView();
         meshRuntime.render(camera);
-        if ((diagFrame++ % 30) == 0) {
-            try {
-                java.nio.file.Files.write(
-                        java.nio.file.Path.of("/tmp/dungeon-viewer.log"),
-                        String.format("pos=(%.3f,%.3f,%.3f)%n",
-                                camera.position.x, camera.position.y, camera.position.z).getBytes(),
-                        java.nio.file.StandardOpenOption.CREATE,
-                        java.nio.file.StandardOpenOption.APPEND);
-            } catch (Exception ignored) { }
-        }
     }
 
     @Override

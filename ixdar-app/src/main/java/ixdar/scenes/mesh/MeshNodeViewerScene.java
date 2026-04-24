@@ -150,7 +150,8 @@ public class MeshNodeViewerScene extends Scene {
                         + " (populate via 'uv run sync-models')");
         if (catalogSize > 0) {
             Platforms.get().log("[mesh-viewer] cycle models with [ and ]; P = patch overlay; "
-                    + "Shift+P cycles shader mode (LAMBERT \u2192 FLAT \u2192 STAGES \u2192 CREST_VS_BOUNDARY)");
+                    + "Shift+P cycles shader mode "
+                    + "(LAMBERT \u2192 FLAT \u2192 STAGES \u2192 CREST_VS_BOUNDARY \u2192 SCALAR/Coons-error)");
         }
         logState();
 
@@ -575,6 +576,7 @@ public class MeshNodeViewerScene extends Scene {
         if (!patchOverlayEnabled) {
             meshRuntime.clearTags();
             meshRuntime.clearFeatureEdgeOverlay();
+            meshRuntime.clearPerVertexScalar();
             Platforms.get().log("[mesh-viewer] patches: OFF");
             logState();
             return;
@@ -588,6 +590,7 @@ public class MeshNodeViewerScene extends Scene {
         }
         applyCurrentOverlay();
         applyFeatureEdgeOverlay();
+        applyScalarOverlay();
         Platforms.get().log("[mesh-viewer] patches: ON (" + cachedDiagnostics.decomposition().patches().size()
                 + " patches, mode=" + shaderMode + ")");
         logState();
@@ -602,9 +605,32 @@ public class MeshNodeViewerScene extends Scene {
         if (patchOverlayEnabled && cachedDiagnostics != null) {
             applyCurrentOverlay();  // rebuild tag colours for new mode
             applyFeatureEdgeOverlay();  // (re)install overlay edges if needed
+            applyScalarOverlay();  // upload coonsError when entering SCALAR mode
         }
         Platforms.get().log("[mesh-viewer] shader mode: " + shaderMode);
         logState();
+    }
+
+    /**
+     * Feed the per-vertex Coons reconstruction error (PATCH-16) into the
+     * SCALAR shader pipeline (PATCH-15) when the user cycles into SCALAR
+     * mode. Ramp is scaled so the pass/fail threshold reads as the middle
+     * of the thermal gradient — dark ≤ threshold (Coons-fit OK), bright
+     * > threshold (Coons-fit failing).
+     */
+    private void applyScalarOverlay() {
+        if (meshRuntime == null || cachedDiagnostics == null) return;
+        if (shaderMode != HalfEdgeMeshRuntime.ShaderMode.SCALAR) {
+            meshRuntime.clearPerVertexScalar();
+            return;
+        }
+        float[] errors = cachedDiagnostics.coonsError();
+        if (errors == null || errors.length == 0) {
+            meshRuntime.clearPerVertexScalar();
+            return;
+        }
+        float rampMax = Math.max(2f * cachedDiagnostics.coonsErrorThreshold(), 1e-6f);
+        meshRuntime.setPerVertexScalar(errors, 0f, rampMax);
     }
 
     /**

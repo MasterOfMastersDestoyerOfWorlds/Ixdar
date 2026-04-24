@@ -12,7 +12,13 @@ import ixdar.platform.Platforms;
 
 public class Camera3D implements Camera {
 
-    private static final float MovementSpeed = 2.5f;
+    private static final float DEFAULT_MOVEMENT_SPEED = 2.5f;
+    private float movementSpeed = DEFAULT_MOVEMENT_SPEED;
+
+    /** Units-per-second the camera travels when {@link #move(Direction)} is called. */
+    public void setMovementSpeed(float speed) {
+        this.movementSpeed = speed;
+    }
     private static final float ZOOM_SPEED = 1f;
     public Vector3f position;
     public Vector3f target;
@@ -100,7 +106,7 @@ public class Camera3D implements Camera {
 
     @Override
     public void move(Direction direction) {
-        float velocity = MovementSpeed * (float) Clock.deltaTime();
+        float velocity = movementSpeed * (float) Clock.deltaTime();
         if (direction == Direction.FORWARD)
             position.add(front.mul(velocity));
         else if (direction == Direction.BACKWARD)
