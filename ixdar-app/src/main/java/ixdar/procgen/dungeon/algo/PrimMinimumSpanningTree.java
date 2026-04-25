@@ -10,6 +10,7 @@ import java.util.Set;
 import ixdar.procgen.dungeon.values.EdgeGraphValue;
 import ixdar.procgen.dungeon.values.RoomListValue;
 import ixdar.procgen.dungeon.values.RoomListValue.Room;
+import ixdar.procgen.dungeon.values.RoomListValue3D;
 
 /**
  * Minimum spanning tree over Delaunay edges weighted by Euclidean distance between room
@@ -39,15 +40,40 @@ public final class PrimMinimumSpanningTree {
                                        RoomListValue rooms,
                                        double extraEdgeProb,
                                        long seed) {
+        double[] weights = new double[delaunayEdges.edgeCount()];
+        for (int i = 0; i < delaunayEdges.edgeCount(); i++) {
+            int[] e = delaunayEdges.edge(i);
+            weights[i] = distance(rooms.get(e[0]), rooms.get(e[1]));
+        }
+        return buildWithWeights(delaunayEdges, weights, extraEdgeProb, seed);
+    }
+
+    /** 3D analog: weights are 3D Euclidean distances between {@link RoomListValue3D.Room} centers. */
+    public static EdgeGraphValue build3D(EdgeGraphValue delaunayEdges,
+                                         RoomListValue3D rooms,
+                                         double extraEdgeProb,
+                                         long seed) {
+        double[] weights = new double[delaunayEdges.edgeCount()];
+        for (int i = 0; i < delaunayEdges.edgeCount(); i++) {
+            int[] e = delaunayEdges.edge(i);
+            weights[i] = distance3D(rooms.get(e[0]), rooms.get(e[1]));
+        }
+        return buildWithWeights(delaunayEdges, weights, extraEdgeProb, seed);
+    }
+
+    private static EdgeGraphValue buildWithWeights(EdgeGraphValue delaunayEdges,
+                                                   double[] weights,
+                                                   double extraEdgeProb,
+                                                   long seed) {
         int n = delaunayEdges.nodeCount();
         if (n <= 1) return new EdgeGraphValue(n, new int[0][]);
 
-        // Build weighted adjacency indexed by room. adj.get(v) is in original Delaunay order.
+        // Build weighted adjacency indexed by node. adj.get(v) is in original Delaunay order.
         List<List<WeightedEdge>> adj = new ArrayList<>(n);
         for (int i = 0; i < n; i++) adj.add(new ArrayList<>());
         for (int i = 0; i < delaunayEdges.edgeCount(); i++) {
             int[] e = delaunayEdges.edge(i);
-            double w = distance(rooms.get(e[0]), rooms.get(e[1]));
+            double w = weights[i];
             adj.get(e[0]).add(new WeightedEdge(e[1], w, i));
             adj.get(e[1]).add(new WeightedEdge(e[0], w, i));
         }
@@ -96,6 +122,13 @@ public final class PrimMinimumSpanningTree {
         double dx = a.centerX() - b.centerX();
         double dy = a.centerY() - b.centerY();
         return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    private static double distance3D(RoomListValue3D.Room a, RoomListValue3D.Room b) {
+        double dx = a.centerX() - b.centerX();
+        double dy = a.centerY() - b.centerY();
+        double dz = a.centerZ() - b.centerZ();
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     private record WeightedEdge(int neighbor, double weight, int edgeIdx) { }

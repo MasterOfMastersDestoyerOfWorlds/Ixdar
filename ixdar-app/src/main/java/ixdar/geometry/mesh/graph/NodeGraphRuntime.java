@@ -32,6 +32,18 @@ public class NodeGraphRuntime {
         return lastTotalMs;
     }
 
+    /**
+     * Returns the output value of a previously-executed node, or {@code null} if the node never
+     * ran or the port doesn't exist. Used by viewer scenes that need to grab intermediate
+     * values from the DSL graph (e.g. the dungeon viewer wiring the {@code TileGrid} produced
+     * by {@code astar_corridors_3d} into the player controller's collision world).
+     */
+    public Object getNodeOutput(String nodeId, String outputPortName) {
+        GraphNodeContext ctx = evaluatedNodes.get(nodeId);
+        if (ctx == null) return null;
+        return ctx.getOutput(outputPortName);
+    }
+
     public void registerNode(String type, Class<? extends MeshNode> nodeClass) {
         nodeRegistry.put(type, nodeClass);
     }

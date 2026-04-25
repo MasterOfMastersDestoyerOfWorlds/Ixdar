@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.data;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -13,8 +14,15 @@ import java.util.Set;
  * convert a mesh patch's outline into the four sides a Coons fit
  * expects.
  *
- * <p>Parallels the logic in {@code SemanticPatchDecomposer.boundarySideCount}
- * but produces ordered polylines instead of just a corner count.
+ * <p>PATCH-20 extended the walker to handle patches with holes
+ * (multiple disconnected boundary rings) and with vertices that have
+ * more than two boundary neighbours (patch pinch points, three-way
+ * junctions). For multi-ring patches we keep only the outermost ring —
+ * the one with the most boundary vertices — on the assumption that
+ * inner rings bound concavity-carved holes we don't want to fit. For
+ * multi-neighbour vertices the walker picks the next step that makes
+ * the sharpest turn consistent with a simple ring; this breaks ties
+ * deterministically but may still miss pathological boundaries.
  */
 public final class PatchBoundaryWalker {
 
@@ -29,14 +37,13 @@ public final class PatchBoundaryWalker {
     /**
      * Extract the ordered boundary polyline sides for one patch.
      *
-     * @return the sides + corner vertices, or {@code null} if the
-     *         boundary can't be walked cleanly (disconnected, a vertex
-     *         has more than 2 boundary neighbours, etc.) — caller
-     *         should fall back to shape-proxy heuristics.
+     * @return the sides (4) + corner vertices (4), or {@code null} if
+     *         no simple boundary ring of length ≥ 4 could be found —
+     *         caller should fall back to shape-proxy heuristics.
      */
     public static BoundarySides extract(List<Integer> faces, int[] facePatch, int patchId,
                                         int[] faceIdx, int[][] adj, float[] positions) {
-        Map<Integer, int[]> neighbours = new HashMap<>();
+        Map<Integer, List<Integer>> neighbours = new HashMap<>();
         for (int f : faces) {
             for (int e = 0; e < 3; e++) {
                 int nb = adj[f][e];
@@ -49,52 +56,33 @@ public final class PatchBoundaryWalker {
         }
         if (neighbours.isEmpty()) return null;
 
-        // Sanity: every boundary vertex should have exactly 2 boundary
-        // neighbours. More than 2 means a non-manifold junction (e.g.
-        // two boundary loops pinched at a vertex) — bail, caller uses
-        // shape proxies.
-        for (int[] pair : neighbours.values()) {
-            if (pair[0] < 0 || pair[1] < 0) return null;
+        // Pick the largest ring from all reachable rings starting at any
+        // still-unvisited boundary vertex. Small rings are assumed to
+        // bound holes inside the patch (concavity carve-outs) and are
+        // ignored — the Coons fit is meant to approximate the outer
+        // shape only.
+        Set<Integer> globallyVisited = new HashSet<>();
+        int[] bestRing = null;
+        for (Integer start : neighbours.keySet()) {
+            if (globallyVisited.contains(start)) continue;
+            int[] ring = walkRing(start, neighbours, globallyVisited, positions);
+            if (ring == null) continue;
+            if (bestRing == null || ring.length > bestRing.length) bestRing = ring;
         }
-
-        // Walk: start at an arbitrary vertex, hop to one neighbour, and
-        // keep stepping to the "other" neighbour at each node until we
-        // close the ring. Bail if we revisit before closing.
-        int start = neighbours.keySet().iterator().next();
-        int total = neighbours.size();
-        if (total < 4) return null;  // can't 4-corner a triangle-boundary or shorter
-        int[] ring = new int[total];
-        Set<Integer> visited = new HashSet<>();
-        ring[0] = start;
-        visited.add(start);
-        int prev = -1;
-        int cur = start;
-        for (int step = 1; step < total; step++) {
-            int[] nbs = neighbours.get(cur);
-            int next = (nbs[0] == prev) ? nbs[1] : nbs[0];
-            if (visited.contains(next)) return null;
-            ring[step] = next;
-            visited.add(next);
-            prev = cur;
-            cur = next;
-        }
-        // Closure check — the last vertex's other neighbour must be the start.
-        int[] lastNbs = neighbours.get(cur);
-        int closing = (lastNbs[0] == prev) ? lastNbs[1] : lastNbs[0];
-        if (closing != start) return null;
+        if (bestRing == null || bestRing.length < 4) return null;
+        int total = bestRing.length;
 
         // Corner detection: turn angle at each ring vertex. Same
-        // straight-line-deviation test as boundarySideCount. Then the
-        // walker always returns the **four strongest** corners so mesh-
-        // sampling noise (triangulation wobble on an otherwise-smooth
-        // boundary) doesn't inflate side count above 4. Coons needs
-        // exactly 4; any more and we couldn't fit.
+        // straight-line-deviation test as boundarySideCount. The walker
+        // always returns the **four strongest** corners so mesh-sampling
+        // noise (triangulation wobble on an otherwise-smooth boundary)
+        // doesn't inflate side count above 4.
         float[] deviationStrength = new float[total];
         List<Integer> allCorners = new ArrayList<>();
         for (int i = 0; i < total; i++) {
-            int at = ring[i];
-            int before = ring[(i - 1 + total) % total];
-            int after = ring[(i + 1) % total];
+            int at = bestRing[i];
+            int before = bestRing[(i - 1 + total) % total];
+            int after = bestRing[(i + 1) % total];
             float[] da = unitDir(positions, at, before);
             float[] db = unitDir(positions, at, after);
             float dot = da[0] * db[0] + da[1] * db[1] + da[2] * db[2];
@@ -103,63 +91,121 @@ public final class PatchBoundaryWalker {
             deviationStrength[i] = deviation;
             if (deviation > T_CORNER_RAD) allCorners.add(i);
         }
-        if (allCorners.isEmpty()) return null;
 
-        // If the raw threshold gave us more than 4 corners, prune to the
-        // 4 sharpest; if fewer than 4, promote additional high-deviation
-        // ring positions until we have 4. Either way: four sides out, in
-        // circular order around the ring.
         List<Integer> corners;
         if (allCorners.size() >= 4) {
             Integer[] sorted = allCorners.toArray(new Integer[0]);
-            java.util.Arrays.sort(sorted, (a, b) ->
+            Arrays.sort(sorted, (a, b) ->
                     Float.compare(deviationStrength[b], deviationStrength[a]));
             corners = new ArrayList<>();
             for (int i = 0; i < 4; i++) corners.add(sorted[i]);
         } else {
-            // Rank all ring positions by deviation; take top 4. At least
-            // T_CORNER_RAD for the ones we found; the extras we promote
-            // are genuinely softer turns so Coons fit may be looser there
-            // — that's fine, the error metric catches over-soft corners.
             Integer[] all = new Integer[total];
             for (int i = 0; i < total; i++) all[i] = i;
-            java.util.Arrays.sort(all, (a, b) ->
+            Arrays.sort(all, (a, b) ->
                     Float.compare(deviationStrength[b], deviationStrength[a]));
             corners = new ArrayList<>();
             for (int i = 0; i < 4; i++) corners.add(all[i]);
         }
-        // Re-sort corners into ring order (ascending index) so sides are
-        // emitted in traversal order.
         java.util.Collections.sort(corners);
 
-        // Slice the ring at corners into sides. Each side's first
-        // vertex is a corner; the last vertex of side K equals the
-        // first vertex of side K+1.
-        int cornerCount = corners.size();
-        int[] cornerVerts = new int[cornerCount];
-        for (int i = 0; i < cornerCount; i++) cornerVerts[i] = ring[corners.get(i)];
-        List<int[]> sides = new ArrayList<>(cornerCount);
-        for (int c = 0; c < cornerCount; c++) {
+        int[] cornerVerts = new int[4];
+        for (int i = 0; i < 4; i++) cornerVerts[i] = bestRing[corners.get(i)];
+        List<int[]> sides = new ArrayList<>(4);
+        for (int c = 0; c < 4; c++) {
             int from = corners.get(c);
-            int to = corners.get((c + 1) % cornerCount);
+            int to = corners.get((c + 1) % 4);
             int len = (to - from + total) % total + 1;  // include both endpoints
             int[] side = new int[len];
-            for (int k = 0; k < len; k++) side[k] = ring[(from + k) % total];
+            for (int k = 0; k < len; k++) side[k] = bestRing[(from + k) % total];
             sides.add(side);
         }
         return new BoundarySides(sides, cornerVerts);
     }
 
-    private static void addNeighbour(Map<Integer, int[]> m, int at, int other) {
-        int[] pair = m.get(at);
-        if (pair == null) {
-            m.put(at, new int[]{other, -1});
-        } else if (pair[1] == -1 && pair[0] != other) {
-            pair[1] = other;
+    /**
+     * Walk one closed ring starting at {@code start} using the
+     * neighbour map. At each step picks the neighbour that (a) hasn't
+     * been visited in this ring already (except closing back to start)
+     * and (b) minimises the direction change from the previous edge,
+     * to keep multi-neighbour junctions tracking the smoother local
+     * boundary. Returns {@code null} if the ring can't close.
+     */
+    private static int[] walkRing(int start, Map<Integer, List<Integer>> neighbours,
+                                  Set<Integer> globallyVisited, float[] positions) {
+        List<Integer> ring = new ArrayList<>();
+        Set<Integer> ringVisited = new HashSet<>();
+        int cur = start;
+        int prev = -1;
+        ring.add(cur);
+        ringVisited.add(cur);
+        while (true) {
+            List<Integer> nbs = neighbours.get(cur);
+            if (nbs == null || nbs.isEmpty()) return null;
+            int next = pickNext(cur, prev, nbs, ringVisited, start, positions);
+            if (next < 0) return null;
+            if (next == start) {
+                // Successful closure.
+                globallyVisited.addAll(ringVisited);
+                int[] out = new int[ring.size()];
+                for (int i = 0; i < out.length; i++) out[i] = ring.get(i);
+                return out;
+            }
+            ring.add(next);
+            ringVisited.add(next);
+            prev = cur;
+            cur = next;
+            // Defensive cap — a ring the size of all mesh vertices is
+            // almost certainly broken; bail rather than spin forever.
+            if (ring.size() > neighbours.size() + 2) return null;
         }
-        // Triplet+ collisions are dropped here (stay -1 / -1) and the
-        // caller's "both must be ≥ 0" check will mark the boundary
-        // non-manifold. That's the right escape hatch.
+    }
+
+    /**
+     * Pick the next ring step from {@code cur}'s neighbour list. Prefer
+     * unvisited neighbours; among those, pick the one that continues
+     * most straight (smallest turn). If no unvisited option but
+     * {@code start} is a neighbour, close the ring there.
+     */
+    private static int pickNext(int cur, int prev, List<Integer> nbs,
+                                 Set<Integer> ringVisited, int start, float[] positions) {
+        float[] incoming = prev >= 0 ? unitDir(positions, cur, prev) : null;
+        int bestUnvisited = -1;
+        float bestUnvisitedDot = Float.NEGATIVE_INFINITY;
+        boolean startReachable = false;
+        for (int n : nbs) {
+            if (n == prev) continue;
+            if (n == start) {
+                startReachable = true;
+                continue;
+            }
+            if (ringVisited.contains(n)) continue;
+            float score;
+            if (incoming == null) {
+                score = 0f;
+            } else {
+                float[] outgoing = unitDir(positions, cur, n);
+                float dot = incoming[0] * outgoing[0] + incoming[1] * outgoing[1]
+                        + incoming[2] * outgoing[2];
+                // Ring walking wants the edge that continues STRAIGHT, i.e.
+                // whose unit vector FROM cur is anti-parallel to the
+                // incoming unit vector (dot ≈ −1). Score = −dot so higher
+                // score = more-opposite = better continuation.
+                score = -dot;
+            }
+            if (score > bestUnvisitedDot) {
+                bestUnvisitedDot = score;
+                bestUnvisited = n;
+            }
+        }
+        if (bestUnvisited >= 0) return bestUnvisited;
+        if (startReachable) return start;
+        return -1;
+    }
+
+    private static void addNeighbour(Map<Integer, List<Integer>> m, int at, int other) {
+        List<Integer> list = m.computeIfAbsent(at, k -> new ArrayList<>(2));
+        if (!list.contains(other)) list.add(other);
     }
 
     private static float[] unitDir(float[] positions, int from, int to) {

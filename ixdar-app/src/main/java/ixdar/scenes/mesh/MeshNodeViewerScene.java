@@ -64,6 +64,14 @@ public class MeshNodeViewerScene extends Scene {
     private HalfEdgeMeshRuntime.ShaderMode shaderMode = HalfEdgeMeshRuntime.ShaderMode.LAMBERT;
 
     /**
+     * PATCH-26: which decomposer's output drives the patch overlay. Both
+     * pipelines coexist; D toggles. SEMANTIC defaults — the decomposer
+     * the project shipped before MSC.
+     */
+    public enum DecomposerKind { SEMANTIC, MORSE_SMALE }
+    private DecomposerKind activeDecomposer = DecomposerKind.SEMANTIC;
+
+    /**
      * Log a full state string to the terminal whenever the viewer state
      * changes (model load, overlay toggle, shader mode toggle). macOS
      * absolutely refuses glfwSetWindowTitle from any thread other than the
@@ -77,6 +85,7 @@ public class MeshNodeViewerScene extends Scene {
         sb.append("  patches=").append(patchOverlayEnabled ? "ON" : "OFF");
         if (patchOverlayEnabled) {
             sb.append("  mode=").append(shaderMode.name());
+            sb.append("  decomposer=").append(activeDecomposer.name());
             if (cachedDiagnostics != null) {
                 sb.append("  patches=").append(cachedDiagnostics.decomposition().patches().size());
             }
@@ -151,7 +160,8 @@ public class MeshNodeViewerScene extends Scene {
         if (catalogSize > 0) {
             Platforms.get().log("[mesh-viewer] cycle models with [ and ]; P = patch overlay; "
                     + "Shift+P cycles shader mode "
-                    + "(LAMBERT \u2192 FLAT \u2192 STAGES \u2192 CREST_VS_BOUNDARY \u2192 SCALAR/Coons-error)");
+                    + "(LAMBERT \u2192 FLAT \u2192 STAGES \u2192 CREST_VS_BOUNDARY \u2192 SCALAR/Coons-error \u2192 MSC); "
+                    + "D toggles decomposer (SEMANTIC \u2194 MORSE_SMALE)");
         }
         logState();
 
@@ -596,6 +606,27 @@ public class MeshNodeViewerScene extends Scene {
         logState();
     }
 
+    /**
+     * PATCH-26: cycle the active decomposer. Invalidates the cache so
+     * the next overlay-on triggers a recompute via the new decomposer;
+     * if patches are already on, recompute eagerly so the user sees the
+     * swap immediately.
+     */
+    public void toggleDecomposer() {
+        DecomposerKind[] cycle = DecomposerKind.values();
+        activeDecomposer = cycle[(activeDecomposer.ordinal() + 1) % cycle.length];
+        cachedDiagnostics = null;
+        cachedDiagnosticsKey = null;
+        Platforms.get().log("[mesh-viewer] decomposer: " + activeDecomposer);
+        if (patchOverlayEnabled && meshRuntime != null && mesh != null) {
+            ensureDecomposition();
+            applyCurrentOverlay();
+            applyFeatureEdgeOverlay();
+            applyScalarOverlay();
+        }
+        logState();
+    }
+
     public void toggleShaderMode() {
         HalfEdgeMeshRuntime.ShaderMode[] cycle = HalfEdgeMeshRuntime.ShaderMode.values();
         shaderMode = cycle[(shaderMode.ordinal() + 1) % cycle.length];
@@ -695,6 +726,32 @@ public class MeshNodeViewerScene extends Scene {
             cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.CREST_IGNORED, crestIgnored));
             cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.CREST_HONORED, aligned));
             meshRuntime.setFeatureEdgeOverlay(cats);
+        } else if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.MSC) {
+            ixdar.geometry.mesh.data.MorseSmaleComplex.Result msc = cachedDiagnostics.morseSmale();
+            if (msc != null) {
+                // Convert each MSC arc polyline into mesh edges; push as
+                // a single black-colored category. Critical-point dots
+                // are CPU-only for now (live-viewer point sprites are
+                // future work — the arcs alone already give the topology
+                // structure on screen).
+                java.util.List<Long> arcEdges = new java.util.ArrayList<>();
+                for (var arc : msc.arcs()) {
+                    int[] verts = arc.vertices();
+                    for (int i = 0; i + 1 < verts.length; i++) {
+                        int u = verts[i];
+                        int v = verts[i + 1];
+                        long key = u < v
+                                ? ((long) u << 32) | (v & 0xffffffffL)
+                                : ((long) v << 32) | (u & 0xffffffffL);
+                        arcEdges.add(key);
+                    }
+                }
+                java.util.List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new java.util.ArrayList<>();
+                cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(0x000000, arcEdges));
+                meshRuntime.setFeatureEdgeOverlay(cats);
+            } else {
+                meshRuntime.clearFeatureEdgeOverlay();
+            }
         } else {
             meshRuntime.clearFeatureEdgeOverlay();
         }
@@ -724,7 +781,9 @@ public class MeshNodeViewerScene extends Scene {
         Platforms.get().log("[mesh-viewer] decomposing " + key
                 + " (" + am.vertexCount() + " verts)...");
         long start = System.currentTimeMillis();
-        cachedDiagnostics = SemanticPatchDecomposer.decomposeWithDiagnostics(am, 128);
+        cachedDiagnostics = (activeDecomposer == DecomposerKind.MORSE_SMALE)
+                ? ixdar.geometry.mesh.data.MorseSmaleDecomposer.decomposeWithDiagnostics(am, 128)
+                : SemanticPatchDecomposer.decomposeWithDiagnostics(am, 128);
         cachedDiagnosticsKey = key;
         long elapsed = System.currentTimeMillis() - start;
         Platforms.get().log("[mesh-viewer] decomposed in " + elapsed + "ms: "

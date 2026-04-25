@@ -109,6 +109,11 @@ public class HeadlessPlatform implements Platform {
     }
 
     @Override
+    public void setCursorMode(CursorMode mode) {
+        // no-op — headless has no window or cursor
+    }
+
+    @Override
     public FontAtlasDTO parseFontAtlas(String json) {
         return new Gson().fromJson(json, FontAtlasDTO.class);
     }

@@ -29,6 +29,20 @@ public interface Platform {
 
     void setScrollCallback(ScrollCallback callback);
 
+    /**
+     * Cursor visibility / capture state.
+     *
+     * <ul>
+     *   <li>{@link CursorMode#NORMAL} — OS cursor visible, free movement (default).</li>
+     *   <li>{@link CursorMode#CAPTURED} — cursor hidden and locked to the window. Cursor-pos
+     *       callbacks deliver raw deltas regardless of how far the cursor would have moved.
+     *       Used for FPS mouse-look — see {@code DungeonViewerScene} player mode.</li>
+     * </ul>
+     */
+    void setCursorMode(CursorMode mode);
+
+    enum CursorMode { NORMAL, CAPTURED }
+
     FontAtlasDTO parseFontAtlas(String json);
 
     void exit(int code);

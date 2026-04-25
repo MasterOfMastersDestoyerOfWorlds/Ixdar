@@ -72,11 +72,13 @@ public final class SemanticPatchDecomposer {
     // PATCH-16 Coons reconstruction-error base case. A 4-sided patch is
     // "done" iff a cubic Coons fit to its boundary sits within this
     // fraction of the mesh bounding-sphere diameter at p95 per-vertex
-    // distance. 0.008 = the Coons surface must track the actual mesh to
-    // within 0.8% of the mesh size at 95% of the patch's vertices —
-    // generous enough that smooth cranium passes, tight enough that
-    // sockets/cavities get split.
-    private static final float T_COONS_ERROR_FRAC = 0.008f;
+    // distance. Raised to 0.025 after PATCH-19 recursive split landed:
+    // at 0.008 the recursion over-fragments the skull into ~5600 sub-
+    // patches because organic curvature can't be Coons-fit that tightly
+    // without cutting down to ~20-face tiles. 0.025 ≈ 2.5% of mesh
+    // diameter lets anatomical patches settle at 4-sided Coons-able
+    // scale (~100-500 patches on a skull).
+    private static final float T_COONS_ERROR_FRAC = 0.025f;
     // Coons UV grid resolution. 16×16 = 256 samples per patch; linear
     // nearest-neighbour scan per mesh vertex, fine for skull-scale
     // meshes (~25k verts). Bump if we see quantization artifacts.
@@ -130,7 +132,12 @@ public final class SemanticPatchDecomposer {
              *  error vector — typically feed to {@code
              *  HalfEdgeMeshRuntime.setPerVertexScalar(err, 0, 2*threshold)}
              *  so the threshold reads as the middle of the thermal ramp. */
-            float coonsErrorThreshold) {}
+            float coonsErrorThreshold,
+            /** PATCH-22 Phase A: Morse-Smale critical points + integral arcs
+             *  computed from the signed mean-curvature field. Diagnostic-only
+             *  for this phase; Phase B will build a parallel decomposer on
+             *  top of this infrastructure. May be null when MSC is disabled. */
+            MorseSmaleComplex.Result morseSmale) {}
 
     /**
      * Overload that accepts any {@link MeshTopology} (e.g. a DSL-produced
@@ -215,7 +222,7 @@ public final class SemanticPatchDecomposer {
                     java.util.Collections.emptySet(), java.util.Collections.emptySet(),
                     java.util.Collections.emptySet(), java.util.Collections.emptySet(),
                     java.util.Collections.emptySet(), java.util.Collections.emptySet(),
-                    new float[0], 0f);
+                    new float[0], 0f, null);
         }
 
         int[] faceIdx = mesh.copyFaceIndices();
@@ -456,11 +463,25 @@ public final class SemanticPatchDecomposer {
         // smooth (low curvature variance) but has many boundary sides where
         // it meets face/temporal/occipital — the side-count metric forces it
         // to split into left/right parietal etc.
-        int[] splitPatchId = splitByQuality(
-                compactedFacePatch, compacted, faceIdx, faceCount,
-                positions, vertexCurvature, adj, meshExtent);
-        int newCompacted = 0;
-        for (int pid : splitPatchId) if (pid + 1 > newCompacted) newCompacted = pid + 1;
+        // PATCH-19: recursive split. splitByQuality only runs once per call
+        // — a patch that fails Coons gets k-split into sub-patches that may
+        // themselves still fail. Loop until no additional splits happen or
+        // we hit the safety cap. In practice 3-5 passes converge for a
+        // skull; the cap prevents pathological infinite recursion.
+        final int MAX_SPLIT_PASSES = 6;
+        int[] splitPatchId = compactedFacePatch;
+        int currentPatchCount = compacted;
+        for (int pass = 0; pass < MAX_SPLIT_PASSES; pass++) {
+            int[] next = splitByQuality(
+                    splitPatchId, currentPatchCount, faceIdx, faceCount,
+                    positions, vertexCurvature, adj, adjCrestOnly, meshExtent);
+            int nextCount = 0;
+            for (int pid : next) if (pid + 1 > nextCount) nextCount = pid + 1;
+            if (nextCount <= currentPatchCount) break;  // converged
+            splitPatchId = next;
+            currentPatchCount = nextCount;
+        }
+        int newCompacted = currentPatchCount;
 
         // Welsh-Powell 4-coloring over the patch-adjacency graph. Neighboring
         // patches always get different palette indices, so the human render
@@ -567,6 +588,13 @@ public final class SemanticPatchDecomposer {
         }
         float coonsThreshold = T_COONS_ERROR_FRAC * meshExtent;
 
+        // PATCH-22 Phase A: compute Morse-Smale critical points + arcs
+        // on the already-computed mean-curvature field for diagnostic
+        // overlay. Does NOT affect the decomposition itself (Phase B
+        // will build a parallel pipeline that does).
+        MorseSmaleComplex.Result mscResult = MorseSmaleComplex.compute(
+                mesh, meanH, gaussK, ed, 0.10f);
+
         return new DecompositionDiagnostics(
                 decomposition,
                 splitPatchId,
@@ -577,7 +605,8 @@ public final class SemanticPatchDecomposer {
                 allFeatureEdges,
                 patchBoundaryEdges,
                 coonsError,
-                coonsThreshold);
+                coonsThreshold,
+                mscResult);
     }
 
     // ---------- Step 1: nearest-branch vertex assignment ----------
@@ -1272,7 +1301,7 @@ public final class SemanticPatchDecomposer {
     private static int[] splitByQuality(
             int[] facePatch, int patchCount, int[] faceIdx, int faceCount,
             float[] positions, float[] vertexCurvature, int[][] adj,
-            float meshExtent) {
+            int[][] adjCrestOnly, float meshExtent) {
         // 1. Group faces + vertices by patch id.
         List<java.util.BitSet> vertsByPatch = new ArrayList<>();
         List<List<Integer>> facesByPatch = new ArrayList<>();
@@ -1318,15 +1347,26 @@ public final class SemanticPatchDecomposer {
                 coonsOk = coonsP95 <= T_COONS_ERROR_FRAC * meshExtent;
             }
 
-            // Pass criteria: a patch is "done" when ALL of these agree.
-            // 3..MAX_SIDES_BEFORE_SPLIT covers triangles through mildly
-            // irregular Coons candidates.
+            // Pass criteria: when a Coons fit exists and passes, accept
+            // the patch immediately — shape proxies (sides, iso ratio,
+            // flatness) are SUBORDINATE to the direct reconstruction
+            // question per PATCH-16's design. They still act as belt-and-
+            // braces when Coons isn't applicable (e.g. boundary too
+            // broken to walk).
             boolean flat       = curvStddev <= T_FLAT;
             boolean goodSides  = sides >= 3 && sides <= MAX_SIDES_BEFORE_SPLIT;
             boolean compact    = isoRatio >= T_ISO_RATIO;
             boolean withinSize = vertCount <= HARD_MAX_PATCH_VERTS;
 
-            if (flat && goodSides && compact && withinSize && coonsOk) continue;
+            if (err.fourSided()) {
+                // Coons metric available → it's authoritative. Still enforce
+                // the absolute vertex-count ceiling so a huge patch with
+                // low error doesn't balloon memory downstream.
+                if (coonsOk && withinSize) continue;
+            } else {
+                // Fall back to the classical shape-proxy stack.
+                if (flat && goodSides && compact && withinSize) continue;
+            }
 
             // Split. k is picked from whichever metric is loudest, then
             // capped at MAX_K_PER_SPLIT so a pathological patch can't
@@ -1349,17 +1389,53 @@ public final class SemanticPatchDecomposer {
             k = Math.min(k, MAX_K_PER_SPLIT);
             if (k < 2) continue;
 
-            // Collect face centroids and positional k-means.
+            // Collect face centroids.
             int n = faces.size();
             float[] centroids = new float[n * 3];
+            float[] faceError = new float[n];  // PATCH-19: per-face max-vertex error
             for (int i = 0; i < n; i++) {
                 int f = faces.get(i);
                 int a = faceIdx[f * 3], b = faceIdx[f * 3 + 1], c = faceIdx[f * 3 + 2];
                 centroids[i * 3]     = (positions[a * 3]     + positions[b * 3]     + positions[c * 3])     / 3f;
                 centroids[i * 3 + 1] = (positions[a * 3 + 1] + positions[b * 3 + 1] + positions[c * 3 + 1]) / 3f;
                 centroids[i * 3 + 2] = (positions[a * 3 + 2] + positions[b * 3 + 2] + positions[c * 3 + 2]) / 3f;
+                if (err.fourSided()) {
+                    float e = Math.max(err.vertexError()[a],
+                                       Math.max(err.vertexError()[b], err.vertexError()[c]));
+                    faceError[i] = e;
+                }
             }
-            int[] labels = kmeansXyz(centroids, n, k, 0x53D5L ^ pid);
+
+            // PATCH-19 + PATCH-21: when the split is Coons-triggered, seed
+            // at the k highest-error face centroids (with spatial stride to
+            // avoid clustering seeds in one bright spot), then region-grow
+            // by BFS across `adjCrestOnly` — the feature-cut adjacency
+            // that severs saddle + crest edges. Sub-patches therefore
+            // respect anatomical boundaries by construction: saddle-
+            // separated tooth gaps, orbital rims, nose aperture rings all
+            // stop the growth. Orphans (faces unreachable from any seed
+            // because every path crosses a crest/saddle) fall back to
+            // nearest-seed-by-Euclidean so they still get assigned.
+            //
+            // When Coons didn't trigger (or fit wasn't possible for this
+            // patch), fall back to the positional k-means++ path — the
+            // patch's badness is shape-proxy driven and feature edges may
+            // not be informative.
+            int[] labels;
+            if (!coonsOk && err.fourSided()) {
+                Integer[] sortedIdx = new Integer[n];
+                for (int i = 0; i < n; i++) sortedIdx[i] = i;
+                Arrays.sort(sortedIdx, (a, b) -> Float.compare(faceError[b], faceError[a]));
+                int[] seedFaceIds = new int[k];
+                int stride = Math.max(1, n / (k * 3));
+                for (int c = 0; c < k; c++) {
+                    int srcIdx = sortedIdx[Math.min(c * stride, n - 1)];
+                    seedFaceIds[c] = faces.get(srcIdx);
+                }
+                labels = bfsRegionGrow(faces, seedFaceIds, adjCrestOnly, centroids);
+            } else {
+                labels = kmeansXyz(centroids, n, k, 0x53D5L ^ pid);
+            }
             int[] idMap = new int[k];
             idMap[0] = pid;  // first cluster keeps the original id
             for (int c = 1; c < k; c++) idMap[c] = nextId++;
@@ -1483,6 +1559,128 @@ public final class SemanticPatchDecomposer {
         double cy = az * bx - ax * bz;
         double cz = ax * by - ay * bx;
         return 0.5 * Math.sqrt(cx * cx + cy * cy + cz * cz);
+    }
+
+    /**
+     * PATCH-21: feature-aware multi-source BFS that replaces Euclidean
+     * k-means when the split is Coons-error-triggered. Each face in the
+     * patch is assigned to the seed face that reaches it first via
+     * {@code adjCrestOnly} (face adjacency with saddle + crest edges
+     * severed). Grown regions therefore cannot cross high-confidence
+     * anatomical boundaries, so the split respects ridges and tooth gaps
+     * by construction rather than cutting perpendicular to them.
+     *
+     * <p>Faces the BFS can't reach from any seed (orphans — fully
+     * enclosed by saddle/crest walls inside the patch) fall back to the
+     * nearest seed by face-centroid Euclidean distance, so every face
+     * still gets labeled.
+     *
+     * @param faces patch's faces in list order; {@code labels[i]}
+     *              corresponds to {@code faces.get(i)}.
+     * @param seedFaceIds k seed face ids (global mesh face indices).
+     * @param adjCrestOnly face-face adjacency with saddle/crest cut to -1.
+     * @param centroids flat float[n*3] of face centroids in list order.
+     * @return int[n] labels 0..k-1.
+     */
+    private static int[] bfsRegionGrow(List<Integer> faces, int[] seedFaceIds,
+                                        int[][] adjCrestOnly, float[] centroids) {
+        int n = faces.size();
+        int k = seedFaceIds.length;
+        Map<Integer, Integer> faceToListIdx = new HashMap<>(n * 2);
+        for (int i = 0; i < n; i++) faceToListIdx.put(faces.get(i), i);
+
+        int[] labels = new int[n];
+        Arrays.fill(labels, -1);
+        java.util.ArrayDeque<int[]> queue = new java.util.ArrayDeque<>();
+        for (int c = 0; c < k; c++) {
+            Integer seedListIdx = faceToListIdx.get(seedFaceIds[c]);
+            if (seedListIdx == null) continue;
+            if (labels[seedListIdx] < 0) {
+                labels[seedListIdx] = c;
+                queue.add(new int[]{seedListIdx, c});
+            }
+        }
+        while (!queue.isEmpty()) {
+            int[] head = queue.poll();
+            int listIdx = head[0];
+            int label = head[1];
+            int faceId = faces.get(listIdx);
+            for (int nb : adjCrestOnly[faceId]) {
+                if (nb < 0) continue;  // saddle/crest cut — don't cross
+                Integer nbListIdx = faceToListIdx.get(nb);
+                if (nbListIdx == null) continue;  // neighbor outside this patch
+                if (labels[nbListIdx] >= 0) continue;  // already claimed
+                labels[nbListIdx] = label;
+                queue.add(new int[]{nbListIdx, label});
+            }
+        }
+
+        // Orphan fallback — faces enclosed by saddle/crest walls in every
+        // direction. Assign to the nearest seed by Euclidean distance of
+        // centroid so we don't lose them; they may still sit inside one
+        // of the seed regions once Welsh-Powell coloring happens.
+        for (int i = 0; i < n; i++) {
+            if (labels[i] >= 0) continue;
+            int bestSeed = 0;
+            float bestDist = Float.MAX_VALUE;
+            for (int c = 0; c < k; c++) {
+                Integer seedListIdx = faceToListIdx.get(seedFaceIds[c]);
+                if (seedListIdx == null) continue;
+                float dx = centroids[i * 3]     - centroids[seedListIdx * 3];
+                float dy = centroids[i * 3 + 1] - centroids[seedListIdx * 3 + 1];
+                float dz = centroids[i * 3 + 2] - centroids[seedListIdx * 3 + 2];
+                float d = dx * dx + dy * dy + dz * dz;
+                if (d < bestDist) { bestDist = d; bestSeed = c; }
+            }
+            labels[i] = bestSeed;
+        }
+        return labels;
+    }
+
+    /**
+     * Variant of {@link #kmeansXyz} that accepts pre-computed seed
+     * centroid positions instead of k-means++ sampling. Used by PATCH-19
+     * to seed the split at the highest-Coons-error face centroids so
+     * the split is informed by "where the fit fails" rather than
+     * arbitrary spatial bisection.
+     */
+    private static int[] kmeansXyzWithSeeds(float[] pts, int n, int k, float[] seedXyz) {
+        float[] centroids = seedXyz.clone();
+        int[] labels = new int[n];
+        float[] newCentroids = new float[k * 3];
+        int[] counts = new int[k];
+        for (int iter = 0; iter < 30; iter++) {
+            boolean changed = false;
+            for (int i = 0; i < n; i++) {
+                int best = 0;
+                float bestD = Float.MAX_VALUE;
+                for (int c = 0; c < k; c++) {
+                    float dx = pts[i * 3]     - centroids[c * 3];
+                    float dy = pts[i * 3 + 1] - centroids[c * 3 + 1];
+                    float dz = pts[i * 3 + 2] - centroids[c * 3 + 2];
+                    float dd = dx * dx + dy * dy + dz * dz;
+                    if (dd < bestD) { bestD = dd; best = c; }
+                }
+                if (labels[i] != best) { changed = true; labels[i] = best; }
+            }
+            if (!changed && iter > 0) break;
+            Arrays.fill(newCentroids, 0f);
+            Arrays.fill(counts, 0);
+            for (int i = 0; i < n; i++) {
+                int c = labels[i];
+                counts[c]++;
+                newCentroids[c * 3]     += pts[i * 3];
+                newCentroids[c * 3 + 1] += pts[i * 3 + 1];
+                newCentroids[c * 3 + 2] += pts[i * 3 + 2];
+            }
+            for (int c = 0; c < k; c++) {
+                if (counts[c] == 0) continue;
+                centroids[c * 3]     = newCentroids[c * 3]     / counts[c];
+                centroids[c * 3 + 1] = newCentroids[c * 3 + 1] / counts[c];
+                centroids[c * 3 + 2] = newCentroids[c * 3 + 2] / counts[c];
+            }
+        }
+        return labels;
     }
 
     private static int[] kmeansXyz(float[] pts, int n, int k, long seed) {

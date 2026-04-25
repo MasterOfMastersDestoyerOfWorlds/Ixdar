@@ -138,6 +138,8 @@ public final class AStarCorridorPathfinder2D {
             case HALLWAY -> w.hallwayReuseCost();
             case EMPTY   -> w.emptyCellCost();
             case ROOM    -> w.throughRoomCost();
+            // Stair cells should not appear in 2D output but treat them as expensive if seen.
+            case STAIR_UP, STAIR_DOWN -> w.throughRoomCost();
         };
     }
 

@@ -5,54 +5,84 @@ import ixdar.procgen.dungeon.values.CellType;
 import ixdar.procgen.dungeon.values.TileGridValue;
 
 /**
- * Converts a {@link TileGridValue} into an {@link ArrayMesh} suitable for rendering a walkable
- * dungeon. Every non-empty cell emits one axis-aligned box (8 vertices, 6 quad faces). ROOM
- * cells emit a full unit-height box; HALLWAY cells emit a flatter box so the two types are
- * visually distinguishable in the fly-cam viewer. Cells with {@link CellType#EMPTY} produce no
- * geometry.
+ * Converts a {@link TileGridValue} into an {@link ArrayMesh} of <em>hollow</em> rooms — every
+ * non-empty cell contributes a floor and ceiling, plus a wall on each side adjacent to an EMPTY
+ * cell or grid edge. Walls between two non-empty cells are NOT emitted, so the player can walk
+ * through ROOM/HALLWAY transitions without phasing through geometry.
  *
- * <p>The emitted mesh is centered at the world origin — cell (gridW/2, gridH/2) lands near
- * (0, 0, 0) and the mesh spans roughly {@code [-gridW*cellSize/2, +gridW*cellSize/2]} in X/Z.
- * This matches the Ixdar mesh convention (primitives like {@code cube(size=1)} span {@code ±0.5}),
- * so downstream transforms and the fly-cam viewer see a "unit-ish" object. The grid Y axis
- * maps to world Z; world Y is wall-height. Quad winding matches {@code CubeMeshNode} so
- * normals-from-quads produces outward-facing normals.
+ * <p>Quad winding is INWARD (normals point into the cell), so the inside of each wall is the
+ * front face. Player stands inside the dungeon and sees walls on all sides.
  *
- * <p>Option B (instanced rendering via InstanceOnPointsNode) is deferred — unit tests in this
- * ticket only verify vertex / face counts and basic well-formedness.
+ * <p>The mesh is centered at the world origin. All non-empty cells share a single height
+ * ({@code cellSize}) — visual distinction between ROOM and HALLWAY is dropped so the geometry
+ * is simple and walkable. (Per-cell-type height variation can come back via partial walls at
+ * height transitions when player physics lands.)
  */
 public final class GridToMesh2D {
-
-    /** Relative height of a HALLWAY cell box (1.0 = same as ROOM). */
-    public static final float HALLWAY_HEIGHT_FRACTION = 0.4f;
 
     private GridToMesh2D() {
     }
 
     public static ArrayMesh emit(TileGridValue grid, float cellSize) {
-        int filled = 0;
-        for (int i = 0; i < grid.cellCount(); i++) {
-            if (grid.cells()[i] != CellType.EMPTY) filled++;
-        }
-        float[] positions = new float[filled * 8 * 3];
-        int[] quads = new int[filled * 6 * 4];
-        // Offset so the mesh is centered on the world origin (Ixdar mesh convention).
+        // Each visible boundary emits TWO quads (inward + outward winding) so the dungeon is
+        // visible both when the camera is inside a room and when it's flying over from above.
+        // Doubles vertex/face count but keeps the renderer happy without touching shaders or
+        // backface-cull state. countFaces returns the count of boundary FACES; we multiply by 2
+        // for the two windings.
+        int faces = countFaces(grid) * 2;
+        float[] positions = new float[faces * 4 * 3];
+        int[] quads = new int[faces * 4];
         float offsetX = -grid.width() * cellSize * 0.5f;
         float offsetZ = -grid.height() * cellSize * 0.5f;
-        int vOff = 0;
-        int fOff = 0;
-        int boxIdx = 0;
+
+        int vIdx = 0; // index of the next vertex to write (in vertex slots, not float slots)
+        int qIdx = 0; // index of the next quad index to write
+        int writeFloats = 0;
+
         for (int y = 0; y < grid.height(); y++) {
             for (int x = 0; x < grid.width(); x++) {
                 CellType c = grid.at(x, y);
                 if (c == CellType.EMPTY) continue;
-                float heightFrac = (c == CellType.HALLWAY) ? HALLWAY_HEIGHT_FRACTION : 1.0f;
-                writeBox(positions, vOff, quads, fOff, boxIdx,
-                        offsetX + x * cellSize, 0f, offsetZ + y * cellSize,
-                        cellSize, cellSize * heightFrac, cellSize);
-                vOff += 8 * 3;
-                fOff += 6 * 4;
-                boxIdx++;
+                float minX = offsetX + x * cellSize;
+                float maxX = minX + cellSize;
+                float minZ = offsetZ + y * cellSize;
+                float maxZ = minZ + cellSize;
+                float minY = 0f;
+                float maxY = cellSize;
+
+                // Floor (-Y face, inward normal +Y)
+                writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
+                        minX, minY, maxZ,  maxX, minY, maxZ,  maxX, minY, minZ,  minX, minY, minZ);
+                vIdx += 8; qIdx += 8;
+                // Ceiling (+Y face, inward normal -Y)
+                writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
+                        maxX, maxY, minZ,  maxX, maxY, maxZ,  minX, maxY, maxZ,  minX, maxY, minZ);
+                vIdx += 8; qIdx += 8;
+
+                // -X wall (inward normal +X)
+                if (x == 0 || grid.at(x - 1, y) == CellType.EMPTY) {
+                    writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
+                            minX, maxY, minZ,  minX, maxY, maxZ,  minX, minY, maxZ,  minX, minY, minZ);
+                    vIdx += 8; qIdx += 8;
+                }
+                // +X wall (inward normal -X)
+                if (x == grid.width() - 1 || grid.at(x + 1, y) == CellType.EMPTY) {
+                    writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
+                            maxX, minY, maxZ,  maxX, maxY, maxZ,  maxX, maxY, minZ,  maxX, minY, minZ);
+                    vIdx += 8; qIdx += 8;
+                }
+                // -Z wall (inward normal +Z)
+                if (y == 0 || grid.at(x, y - 1) == CellType.EMPTY) {
+                    writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
+                            maxX, minY, minZ,  maxX, maxY, minZ,  minX, maxY, minZ,  minX, minY, minZ);
+                    vIdx += 8; qIdx += 8;
+                }
+                // +Z wall (inward normal -Z)
+                if (y == grid.height() - 1 || grid.at(x, y + 1) == CellType.EMPTY) {
+                    writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
+                            minX, maxY, maxZ,  maxX, maxY, maxZ,  maxX, minY, maxZ,  minX, minY, maxZ);
+                    vIdx += 8; qIdx += 8;
+                }
             }
         }
         ArrayMesh mesh = ArrayMesh.fromQuads(positions, quads);
@@ -60,37 +90,47 @@ public final class GridToMesh2D {
         return mesh;
     }
 
-    /** Writes 8 vertex positions and 6 quad indices for one axis-aligned box. */
-    private static void writeBox(float[] positions, int vOff, int[] quads, int fOff, int boxIdx,
-                                 float minX, float minY, float minZ,
-                                 float sx, float sy, float sz) {
-        float maxX = minX + sx;
-        float maxY = minY + sy;
-        float maxZ = minZ + sz;
-        // Match CubeMeshNode vertex ordering (-Z face first, then +Z, winding CCW from outside):
-        //   0:(-x,-y,-z) 1:(+x,-y,-z) 2:(+x,+y,-z) 3:(-x,+y,-z)
-        //   4:(-x,-y,+z) 5:(+x,-y,+z) 6:(+x,+y,+z) 7:(-x,+y,+z)
-        int v = vOff;
-        positions[v++] = minX; positions[v++] = minY; positions[v++] = minZ;
-        positions[v++] = maxX; positions[v++] = minY; positions[v++] = minZ;
-        positions[v++] = maxX; positions[v++] = maxY; positions[v++] = minZ;
-        positions[v++] = minX; positions[v++] = maxY; positions[v++] = minZ;
-        positions[v++] = minX; positions[v++] = minY; positions[v++] = maxZ;
-        positions[v++] = maxX; positions[v++] = minY; positions[v++] = maxZ;
-        positions[v++] = maxX; positions[v++] = maxY; positions[v++] = maxZ;
-        positions[v++] = minX; positions[v++] = maxY; positions[v++] = maxZ;
-        int base = boxIdx * 8;
-        // 6 quads, same winding as CubeMeshNode (outward-facing).
-        int[] box = {
-                0, 3, 2, 1,   // Back (-Z)
-                4, 5, 6, 7,   // Front (+Z)
-                0, 1, 5, 4,   // Bottom (-Y)
-                3, 7, 6, 2,   // Top   (+Y)
-                1, 2, 6, 5,   // Right (+X)
-                0, 4, 7, 3,   // Left  (-X)
-        };
-        for (int i = 0; i < 24; i++) {
-            quads[fOff + i] = base + box[i];
+    /** Counts the number of quads we'll emit so we can size arrays exactly. */
+    private static int countFaces(TileGridValue grid) {
+        int count = 0;
+        for (int y = 0; y < grid.height(); y++) {
+            for (int x = 0; x < grid.width(); x++) {
+                CellType c = grid.at(x, y);
+                if (c == CellType.EMPTY) continue;
+                count += 2; // floor + ceiling
+                if (x == 0 || grid.at(x - 1, y) == CellType.EMPTY) count++;
+                if (x == grid.width() - 1 || grid.at(x + 1, y) == CellType.EMPTY) count++;
+                if (y == 0 || grid.at(x, y - 1) == CellType.EMPTY) count++;
+                if (y == grid.height() - 1 || grid.at(x, y + 1) == CellType.EMPTY) count++;
+            }
         }
+        return count;
+    }
+
+    /** Writes one quad in the given winding plus a second quad in reverse winding (both sides). */
+    private static int writeQuad(float[] positions, int p, int[] quads, int q, int vBase,
+                                 float ax, float ay, float az,
+                                 float bx, float by, float bz,
+                                 float cx, float cy, float cz,
+                                 float dx, float dy, float dz) {
+        // Inward face (a, b, c, d).
+        positions[p++] = ax; positions[p++] = ay; positions[p++] = az;
+        positions[p++] = bx; positions[p++] = by; positions[p++] = bz;
+        positions[p++] = cx; positions[p++] = cy; positions[p++] = cz;
+        positions[p++] = dx; positions[p++] = dy; positions[p++] = dz;
+        quads[q]     = vBase;
+        quads[q + 1] = vBase + 1;
+        quads[q + 2] = vBase + 2;
+        quads[q + 3] = vBase + 3;
+        // Outward face (reversed: a, d, c, b).
+        positions[p++] = ax; positions[p++] = ay; positions[p++] = az;
+        positions[p++] = dx; positions[p++] = dy; positions[p++] = dz;
+        positions[p++] = cx; positions[p++] = cy; positions[p++] = cz;
+        positions[p++] = bx; positions[p++] = by; positions[p++] = bz;
+        quads[q + 4] = vBase + 4;
+        quads[q + 5] = vBase + 5;
+        quads[q + 6] = vBase + 6;
+        quads[q + 7] = vBase + 7;
+        return p;
     }
 }

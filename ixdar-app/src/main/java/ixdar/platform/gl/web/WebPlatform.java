@@ -197,6 +197,21 @@ public class WebPlatform implements Platform {
         this.scrollCallback = callback;
     }
 
+    @Override
+    public void setCursorMode(CursorMode mode) {
+        if (canvas == null) return;
+        switch (mode) {
+            case CAPTURED -> requestPointerLock(canvas);
+            case NORMAL -> exitPointerLock();
+        }
+    }
+
+    @JSBody(params = "el", script = "if (el.requestPointerLock) el.requestPointerLock();")
+    private static native void requestPointerLock(HTMLCanvasElement el);
+
+    @JSBody(script = "if (document.exitPointerLock) document.exitPointerLock();")
+    private static native void exitPointerLock();
+
     private interface JsRect extends JSObject {
         @JSProperty
         double getLeft();

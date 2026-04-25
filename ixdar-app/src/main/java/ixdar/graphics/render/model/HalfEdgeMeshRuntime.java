@@ -41,9 +41,13 @@ public class HalfEdgeMeshRuntime {
      *       {@link #setPerVertexScalar(float[])} and is interpolated
      *       across the triangle. Used for heat-map diagnostics such as
      *       Coons reconstruction error or curvature magnitude.</li>
+     *   <li>{@link #MSC} — Morse-Smale complex overlay (PATCH-23): arcs
+     *       drawn as black polylines through the feature-edge overlay
+     *       infrastructure so they get PATCH-17 depth-aware occlusion.
+     *       Critical-point dots are still CPU-only for now.</li>
      * </ul>
      */
-    public enum ShaderMode { LAMBERT, FLAT, STAGES, CREST_VS_BOUNDARY, SCALAR }
+    public enum ShaderMode { LAMBERT, FLAT, STAGES, CREST_VS_BOUNDARY, SCALAR, MSC }
 
     /**
      * A contiguous range inside the current EBO that all belongs to one tag.
@@ -217,6 +221,9 @@ public class HalfEdgeMeshRuntime {
         active.setMat4("view", camera.view);
         active.setMat4("projection", projectionMatrix);
         active.setVec4("solidColor", solidColor);
+        // PATCH-17: faces always render at zero depth bias; only the
+        // overlay pass in renderFeatureEdgeOverlay sets a positive bias.
+        active.setFloat("depthBias", 0f);
 
         if (shaderMode == ShaderMode.LAMBERT || shaderMode == ShaderMode.STAGES) {
             // Light follows camera so visible faces are always lit.
@@ -260,7 +267,9 @@ public class HalfEdgeMeshRuntime {
         if (wireframe) {
             renderEdges(camera);
         }
-        if (shaderMode == ShaderMode.STAGES || shaderMode == ShaderMode.CREST_VS_BOUNDARY) {
+        if (shaderMode == ShaderMode.STAGES
+                || shaderMode == ShaderMode.CREST_VS_BOUNDARY
+                || shaderMode == ShaderMode.MSC) {
             renderFeatureEdgeOverlay(camera);
         }
     }
@@ -435,19 +444,23 @@ public class HalfEdgeMeshRuntime {
         meshUnlitShader.setMat4("model", modelMatrix.identity());
         meshUnlitShader.setMat4("view", camera.view);
         meshUnlitShader.setMat4("projection", projectionMatrix);
+        // PATCH-17: leave depth test on so back-facing overlay edges get
+        // occluded by front-facing faces. A small clip-space bias shifts
+        // overlay vertices toward the camera just enough to beat z-fight
+        // against the coplanar face triangles they sit on.
+        meshUnlitShader.setFloat("depthBias", 0.0003f);
         meshVao.bind();
         GL gl = Platforms.gl();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), featureEdgeEbo);
-        // Disable depth test so overlay edges aren't clipped by the
-        // faces they sit on; matches the wireframe overlay's technique.
-        gl.disable(gl.DEPTH_TEST());
         gl.lineWidth(2.5f);
         for (FeatureEdgeRange r : featureEdgeRanges) {
             meshUnlitShader.setVec4("solidColor", r.color());
             gl.drawElements(gl.LINES(), r.indexCount(), gl.UNSIGNED_INT(),
                     r.indexStart() * Integer.BYTES);
         }
-        gl.enable(gl.DEPTH_TEST());
+        // Reset so a subsequent face draw in the same frame doesn't
+        // inherit the overlay bias.
+        meshUnlitShader.setFloat("depthBias", 0f);
     }
 
     public void renderEdges(Camera3D camera) {

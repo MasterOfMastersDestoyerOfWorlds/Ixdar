@@ -4,27 +4,40 @@ import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import static ixdar.platform.input.Keys.MOUSE_BUTTON_LEFT;
 
+import java.util.function.BooleanSupplier;
+
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.MouseTrap;
 
 /**
- * First-person mouse look, drag-to-rotate. Hold left mouse button and move the cursor to yaw/pitch
- * the camera; release to stop. Passive hover does NOT rotate the view (matches typical DCC tools
- * and avoids the aggressive always-on look that base {@link MouseTrap} produces).
+ * First-person mouse look. Two operating modes via {@code captureSupplier}:
  *
- * <p>Reuses {@link Camera3D#mouseMove(float, float, float, float)} for the actual yaw/pitch math
- * so the sensitivity/clamp behavior matches the rest of the engine.
+ * <ul>
+ *   <li><b>Drag-to-rotate</b> (supplier returns {@code false}): hold left mouse button and move
+ *       the cursor to yaw/pitch the camera. Used in fly-cam mode.</li>
+ *   <li><b>Capture</b> (supplier returns {@code true}): every cursor delta rotates the camera,
+ *       no button needed. Used in player mode together with
+ *       {@link Platform.CursorMode#CAPTURED}.</li>
+ * </ul>
+ *
+ * <p>Reuses {@link Camera3D#mouseMove(float, float, float, float)} for the yaw/pitch math.
  */
 public class FlyCamMouseTrap extends MouseTrap {
 
     private final Camera3D fpCamera;
+    private final BooleanSupplier captureSupplier;
     private boolean leftDown = false;
 
     public FlyCamMouseTrap(Camera3D camera, Canvas3D canvas) {
+        this(camera, canvas, () -> false);
+    }
+
+    public FlyCamMouseTrap(Camera3D camera, Canvas3D canvas, BooleanSupplier captureSupplier) {
         super(null, camera, canvas);
         this.fpCamera = camera;
+        this.captureSupplier = captureSupplier;
     }
 
     @Override
@@ -42,8 +55,13 @@ public class FlyCamMouseTrap extends MouseTrap {
 
     @Override
     public void mousePos(float x, float y) {
-        // Passive hover: just track position, no rotation.
         if (!active) return;
+        if (captureSupplier.getAsBoolean()) {
+            // FPS-capture: rotate on every cursor event without requiring a button press.
+            if (lastX != Integer.MIN_VALUE && lastY != Integer.MIN_VALUE) {
+                fpCamera.mouseMove(lastX, lastY, x, y);
+            }
+        }
         lastX = (int) x;
         lastY = (int) y;
     }
@@ -62,8 +80,14 @@ public class FlyCamMouseTrap extends MouseTrap {
 
     @Override
     public void moveOrDrag(long window, float x, float y) {
-        if (leftDown) {
-            mouseDragged(x, y);
+        // In capture mode, treat every move as drag-style rotation; otherwise honor LMB-gate.
+        if (captureSupplier.getAsBoolean() || leftDown) {
+            // Capture path goes through mousePos to use the no-LMB rotation branch above.
+            if (captureSupplier.getAsBoolean()) {
+                mousePos(x, y);
+            } else {
+                mouseDragged(x, y);
+            }
         } else {
             mousePos(x, y);
         }

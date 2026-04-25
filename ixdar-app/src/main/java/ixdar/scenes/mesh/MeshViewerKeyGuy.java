@@ -35,6 +35,7 @@ public class MeshViewerKeyGuy extends KeyGuy {
                 }
                 case Keys.LEFT_BRACKET -> meshScene.prevModel();
                 case Keys.RIGHT_BRACKET -> meshScene.nextModel();
+                case Keys.D -> meshScene.toggleDecomposer();
                 default -> {}
             }
         }

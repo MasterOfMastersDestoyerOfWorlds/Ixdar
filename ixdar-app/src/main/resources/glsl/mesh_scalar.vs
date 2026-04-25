@@ -18,9 +18,13 @@ out float vScalar;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
+// PATCH-17: see mesh.vs — kept symmetric so future overlay passes in
+// SCALAR mode inherit the same depth-bias handling for free.
+uniform float depthBias;
 
 void main() {
     gl_Position = projection * view * model * vec4(aPos, 1.0);
+    gl_Position.z -= depthBias * gl_Position.w;
     Normal = mat3(transpose(inverse(model))) * aNormal;
     TexCoords = aTexCoords;
     vScalar = aScalar;

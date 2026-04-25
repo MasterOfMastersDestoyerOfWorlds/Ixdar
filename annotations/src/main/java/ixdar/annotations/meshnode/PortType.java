@@ -16,7 +16,11 @@ public enum PortType {
     /** Dungeon-generation edge graph (see ixdar.procgen.dungeon.values.EdgeGraphValue). */
     EDGE_GRAPH(Object.class),
     /** Dungeon-generation tile grid (see ixdar.procgen.dungeon.values.TileGridValue). */
-    TILE_GRID(Object.class);
+    TILE_GRID(Object.class),
+    /** 3D dungeon-generation room list (see ixdar.procgen.dungeon.values.RoomListValue3D). */
+    ROOM_LIST_3D(Object.class),
+    /** 3D dungeon-generation tile grid (see ixdar.procgen.dungeon.values.TileGridValue3D). */
+    TILE_GRID_3D(Object.class);
 
     private final Class<?> valueType;
 

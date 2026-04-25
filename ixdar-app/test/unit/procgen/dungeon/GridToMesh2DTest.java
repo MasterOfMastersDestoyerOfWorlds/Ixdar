@@ -26,30 +26,43 @@ public class GridToMesh2DTest {
     }
 
     @Test
-    public void singleRoomCellEmitsOneBox() {
+    public void singleRoomCellEmitsHollowBox() {
         CellType[] cells = new CellType[4];
         java.util.Arrays.fill(cells, CellType.EMPTY);
         cells[0] = CellType.ROOM;
         TileGridValue grid = new TileGridValue(2, 2, cells);
         ArrayMesh mesh = GridToMesh2D.emit(grid, 1.0f);
-        assertEquals(8, mesh.vertexCount(), "one box = 8 vertices");
-        assertEquals(6, mesh.faceCount(), "one box = 6 quad faces");
+        // One isolated cell: 6 boundary faces, each emitted with both windings = 12 quads.
+        assertEquals(12, mesh.faceCount());
+        assertEquals(12 * 4, mesh.vertexCount());
+    }
+
+    @Test
+    public void adjacentCellsShareNoInternalWall() {
+        // Two ROOM cells side by side: shared boundary should NOT have a wall.
+        // Each cell: 5 boundary faces (3 walls EMPTY + floor + ceiling) -> 10 boundaries
+        // -> 20 quads after the inward+outward double-emit.
+        CellType[] cells = { CellType.ROOM, CellType.ROOM };
+        TileGridValue grid = new TileGridValue(2, 1, cells);
+        ArrayMesh mesh = GridToMesh2D.emit(grid, 1.0f);
+        assertEquals(20, mesh.faceCount(),
+                "two adjacent cells should share their internal boundary (no wall there)");
     }
 
     @Test
     public void vertexAndFaceCountScaleWithNonEmptyCells() {
-        // 3 rooms + 2 hallway = 5 non-empty cells -> 5 boxes -> 40 verts, 30 quads.
+        // 5 isolated non-empty cells (no adjacency): 5 * 6 = 30 boundaries -> 60 quads.
         CellType[] cells = new CellType[9];
         java.util.Arrays.fill(cells, CellType.EMPTY);
         cells[0] = CellType.ROOM;
-        cells[1] = CellType.ROOM;
-        cells[2] = CellType.HALLWAY;
+        cells[2] = CellType.ROOM;
         cells[4] = CellType.HALLWAY;
+        cells[6] = CellType.HALLWAY;
         cells[8] = CellType.ROOM;
         TileGridValue grid = new TileGridValue(3, 3, cells);
         ArrayMesh mesh = GridToMesh2D.emit(grid, 2.0f);
-        assertEquals(5 * 8, mesh.vertexCount());
-        assertEquals(5 * 6, mesh.faceCount());
+        assertEquals(5 * 6 * 2, mesh.faceCount());
+        assertEquals(5 * 6 * 2 * 4, mesh.vertexCount());
     }
 
     @Test
@@ -84,14 +97,17 @@ public class GridToMesh2DTest {
     }
 
     @Test
-    public void hallwayBoxIsFlatterThanRoomBox() {
+    public void roomAndHallwayCellsHaveSameHeight() {
+        // Hollow-room refactor uses a uniform cell height across types so that adjacent
+        // ROOM/HALLWAY cells form a continuous walkable space without ceiling jumps.
         CellType[] cellsRoom = { CellType.ROOM };
         CellType[] cellsHall = { CellType.HALLWAY };
         ArrayMesh meshRoom = GridToMesh2D.emit(new TileGridValue(1, 1, cellsRoom), 1f);
         ArrayMesh meshHall = GridToMesh2D.emit(new TileGridValue(1, 1, cellsHall), 1f);
         float heightRoom = bbox(meshRoom)[3];
         float heightHall = bbox(meshHall)[3];
-        assertTrue(heightHall < heightRoom, "hallway should be visually shorter than room");
+        assertEquals(heightRoom, heightHall, 1e-4f,
+                "ROOM and HALLWAY now use the same height for walkable interiors");
     }
 
     @Test

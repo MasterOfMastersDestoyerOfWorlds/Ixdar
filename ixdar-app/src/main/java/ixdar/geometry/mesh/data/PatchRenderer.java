@@ -134,7 +134,13 @@ public final class PatchRenderer {
      * so you can see at a glance which crest signals were honored and
      * which were overridden downstream.
      */
-    public enum OverlayMode { STAGES, PATCHES_VS_CREST }
+    public enum OverlayMode { STAGES, PATCHES_VS_CREST, MSC }
+
+    // PATCH-22: Morse-Smale overlay colors.
+    private static final int MSC_ARC_COLOR       = 0x000000; // black arcs
+    private static final int MSC_MAX_DOT_COLOR   = 0xFF3040; // red — tooth tips, ridge peaks
+    private static final int MSC_MIN_DOT_COLOR   = 0x3080FF; // blue — socket interiors
+    private static final int MSC_SADDLE_DOT_COLOR = 0xFFD700; // yellow — inter-tooth, ridge-saddle
 
     // Colors moved to FeatureEdgeColors so the live GL viewer shares them.
     private static final int EDGE_COLOR_DIHEDRAL      = FeatureEdgeColors.DIHEDRAL;
@@ -301,7 +307,43 @@ public final class PatchRenderer {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 
-        if (mode == OverlayMode.STAGES) {
+        if (mode == OverlayMode.MSC) {
+            MorseSmaleComplex.Result msc = diag.morseSmale();
+            if (msc != null) {
+                // Arcs first so dots sit on top of their endpoints.
+                g.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.setColor(new Color(MSC_ARC_COLOR));
+                for (MorseSmaleComplex.Arc arc : msc.arcs()) {
+                    int[] verts = arc.vertices();
+                    for (int i = 0; i + 1 < verts.length; i++) {
+                        int arcU = verts[i];
+                        int arcV = verts[i + 1];
+                        float dotU = vertexNormals[arcU * 3] * fwdX + vertexNormals[arcU * 3 + 1] * fwdY + vertexNormals[arcU * 3 + 2] * fwdZ;
+                        float dotV = vertexNormals[arcV * 3] * fwdX + vertexNormals[arcV * 3 + 1] * fwdY + vertexNormals[arcV * 3 + 2] * fwdZ;
+                        if (dotU > 0.1f && dotV > 0.1f) continue;
+                        g.drawLine(Math.round(vx[arcU]), Math.round(vy[arcU]),
+                                Math.round(vx[arcV]), Math.round(vy[arcV]));
+                    }
+                }
+                // Dots last. Back-face cull using vertex normal.
+                for (MorseSmaleComplex.CriticalPoint cp : msc.critical()) {
+                    int cpV = cp.vertex();
+                    float cpDot = vertexNormals[cpV * 3] * fwdX + vertexNormals[cpV * 3 + 1] * fwdY + vertexNormals[cpV * 3 + 2] * fwdZ;
+                    if (cpDot > 0.2f) continue;  // back-facing
+                    int color = switch (cp.type()) {
+                        case MAX    -> MSC_MAX_DOT_COLOR;
+                        case MIN    -> MSC_MIN_DOT_COLOR;
+                        case SADDLE -> MSC_SADDLE_DOT_COLOR;
+                    };
+                    g.setColor(new Color(color));
+                    int dotX = Math.round(vx[cpV]);
+                    int dotY = Math.round(vy[cpV]);
+                    g.fillOval(dotX - 4, dotY - 4, 9, 9);
+                    g.setColor(Color.BLACK);
+                    g.drawOval(dotX - 4, dotY - 4, 9, 9);  // outline for contrast
+                }
+            }
+        } else if (mode == OverlayMode.STAGES) {
             Set<Long> dih = diag.dihedralFeatureEdges();
             Set<Long> prin = diag.principalFeatureEdges();
             Set<Long> crest = diag.crestEdges();
@@ -396,6 +438,11 @@ public final class PatchRenderer {
             x = drawSwatch(g, x, y, EDGE_COLOR_CREST,     "crest");
             x = drawSwatch(g, x, y, EDGE_COLOR_SADDLE,    "saddle");
             x = drawSwatch(g, x, y, EDGE_COLOR_MULTI,     "multi-source");
+        } else if (mode == OverlayMode.MSC) {
+            x = drawSwatch(g, x, y, MSC_MAX_DOT_COLOR,    "max");
+            x = drawSwatch(g, x, y, MSC_MIN_DOT_COLOR,    "min");
+            x = drawSwatch(g, x, y, MSC_SADDLE_DOT_COLOR, "saddle");
+            x = drawSwatch(g, x, y, MSC_ARC_COLOR,        "integral arc");
         } else {
             x = drawSwatch(g, x, y, EDGE_COLOR_BOUNDARY_ONLY, "boundary only");
             x = drawSwatch(g, x, y, EDGE_COLOR_CREST_ONLY,    "crest ignored");

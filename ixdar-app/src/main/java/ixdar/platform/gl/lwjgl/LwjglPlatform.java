@@ -1,8 +1,15 @@
 package ixdar.platform.gl.lwjgl;
 
 import static org.lwjgl.glfw.GLFW.glfwGetWindowSize;
+import static org.lwjgl.glfw.GLFW.GLFW_CURSOR;
+import static org.lwjgl.glfw.GLFW.GLFW_CURSOR_DISABLED;
+import static org.lwjgl.glfw.GLFW.GLFW_CURSOR_NORMAL;
+import static org.lwjgl.glfw.GLFW.GLFW_RAW_MOUSE_MOTION;
+import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
+import static org.lwjgl.glfw.GLFW.glfwRawMouseMotionSupported;
 import static org.lwjgl.glfw.GLFW.glfwSetCharCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetCursorPosCallback;
+import static org.lwjgl.glfw.GLFW.glfwSetInputMode;
 import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetScrollCallback;
@@ -117,6 +124,21 @@ public class LwjglPlatform implements Platform {
     @Override
     public void setScrollCallback(ScrollCallback callback) {
         glfwSetScrollCallback(window, (w, x, y) -> inputQueue.add(() -> callback.onScroll(x, y)));
+    }
+
+    @Override
+    public void setCursorMode(CursorMode mode) {
+        switch (mode) {
+            case CAPTURED -> {
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                // Raw motion bypasses OS cursor acceleration — better for FPS look. Not all
+                // hardware supports it; falls through silently when unavailable.
+                if (glfwRawMouseMotionSupported()) {
+                    glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+                }
+            }
+            case NORMAL -> glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        }
     }
 
     @Override

@@ -1,0 +1,690 @@
+package ixdar.geometry.mesh.data;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import ixdar.geometry.mesh.data.SemanticPatchDecomposer.EdgeDihedrals;
+
+/**
+ * Morse-Smale complex (MSC) on a triangle mesh (PATCH-22 Phase A —
+ * diagnostic only). Given a per-vertex scalar ("Morse function" H, e.g.
+ * signed mean curvature), classifies vertices as local maxima / minima
+ * / saddles and traces integral arcs connecting saddles to the nearest
+ * max and min via steepest ascent / descent.
+ *
+ * <p>Phase A ships a simplified pipeline:
+ * <ul>
+ *   <li>Classifier: local comparison on 1-ring + Gaussian-curvature
+ *       sign test for saddle disambiguation. Doesn't yet count lower-
+ *       link connected components (requires ordered 1-ring); good
+ *       enough to see whether MSC matches anatomy on the skull.</li>
+ *   <li>Filter: prominence threshold per extremum family. Replaced by
+ *       proper persistence pairing only if Phase A visual output shows
+ *       too many spurious dots.</li>
+ *   <li>Arc tracing: steepest ascent / descent on the mesh graph,
+ *       terminating at the first retained critical point reached or a
+ *       hard step cap.</li>
+ * </ul>
+ *
+ * <p>Phase B (separate ticket PATCH-23) will build a real decomposer on
+ * top of this infrastructure; Phase A just renders arcs + critical
+ * points so we can see them before committing to MSC as the
+ * foundation.
+ */
+public final class MorseSmaleComplex {
+
+    private static final int MAX_TRACE_STEPS = 512;
+
+    public enum CriticalType { MAX, MIN, SADDLE }
+
+    public record CriticalPoint(int vertex, CriticalType type, float value) {}
+
+    /**
+     * An integral curve from a saddle to either a maximum (ascending
+     * arc) or minimum (descending arc). {@code vertices[0]} is always
+     * the saddle; {@code vertices[length-1]} is the terminating
+     * extremum (or the last vertex reached before the step cap).
+     */
+    public record Arc(int saddle, int extremum, CriticalType extremumType, int[] vertices) {}
+
+    public record Result(List<CriticalPoint> critical, List<Arc> arcs,
+                         /** PATCH-24: the smoothed scalar field that produced
+                          *  the classification, exposed so cell-assembly
+                          *  algorithms ascend on the SAME field that was
+                          *  classified. Mismatched scalars produce face
+                          *  labels that don't align with the visible
+                          *  arcs. {@code null} if the computer didn't
+                          *  retain it. */
+                         float[] smoothedScalar) {}
+
+    private MorseSmaleComplex() {}
+
+    /**
+     * @param mesh the input mesh
+     * @param scalar per-vertex Morse function values (length == mesh.vertexCount())
+     * @param gaussK per-vertex Gaussian curvature (angle defect / area);
+     *        negative values indicate saddle-shaped regions, used as a
+     *        secondary signal for saddle classification.
+     * @param ed edge/dihedral map; we reuse its {@code edgeFaces} to build
+     *        a 1-ring neighbour list cheaply.
+     * @param prominenceFrac extrema kept only if their scalar value
+     *        deviates from the mesh mean by at least this fraction of
+     *        the scalar's p5..p95 range. 0.10 ≈ "top/bottom decile
+     *        bumps only." Tune based on Phase A screenshots.
+     */
+    public static Result compute(ArrayMesh mesh, float[] scalarIn, float[] gaussKIn,
+                                 EdgeDihedrals ed, float prominenceFrac) {
+        return compute(mesh, scalarIn, gaussKIn, ed, prominenceFrac, /*useB1Classifier=*/true);
+    }
+
+    /**
+     * Phase B1 entry point. {@code useB1Classifier} switches between the
+     * Phase A simplified classifier (1-ring + Gauss test + 2-ring NMS,
+     * approximate but fast) and the Phase B1 classifier (ordered 1-ring
+     * with lower-link connected-component count, correct on multi-
+     * saddles). Defaults to B1 once it lands; the Phase A path stays
+     * available behind the flag for A/B comparison and as a fallback on
+     * meshes the B1 ordered-ring builder bails on (e.g. non-manifold).
+     */
+    public static Result compute(ArrayMesh mesh, float[] scalarIn, float[] gaussKIn,
+                                 EdgeDihedrals ed, float prominenceFrac,
+                                 boolean useB1Classifier) {
+        int nv = mesh.vertexCount();
+        int[][] ring = buildOneRing(ed, nv);
+
+        // Laplacian-smooth the scalar field before classification. A raw
+        // per-vertex curvature on a real mesh has triangulation noise at
+        // every vertex that looks like a local extremum; heavy smoothing
+        // merges noise bumps back into their parent macroscopic feature.
+        // 25 iterations empirically balances "removes triangulation
+        // noise" vs "doesn't destroy anatomical features on a ~25k-vert
+        // skull" — real features persist because they're broad-support.
+        float[] scalar = smoothScalar(scalarIn, ring, 50);
+        float[] gaussK = smoothScalar(gaussKIn, ring, 30);
+
+        if (useB1Classifier) {
+            int[][] orderedRing = buildOrderedOneRing(mesh, ed, nv);
+            return computeB1(mesh, scalar, ring, orderedRing, prominenceFrac);
+        }
+
+        // Scalar stats for the prominence filter.
+        float[] sortedScalar = scalar.clone();
+        Arrays.sort(sortedScalar);
+        float p5 = sortedScalar[(int) (nv * 0.05f)];
+        float p95 = sortedScalar[(int) (nv * 0.95f)];
+        float span = Math.max(p95 - p5, 1e-6f);
+        float meanVal = 0f;
+        for (float v : scalar) meanVal += v;
+        meanVal /= nv;
+        float maxThreshold = meanVal + prominenceFrac * span;
+        float minThreshold = meanVal - prominenceFrac * span;
+        // Gaussian curvature threshold for saddle. A saddle requires
+        // genuinely negative K (saddle shape). Use the p10 of the K
+        // distribution — only the most strongly saddle-shaped 10% of
+        // vertices qualify. Tune down (toward p5) if too few saddles,
+        // up (toward p25) if too many.
+        float[] sortedK = gaussK.clone();
+        Arrays.sort(sortedK);
+        float saddleGaussT = sortedK[Math.max(0, (int) (nv * 0.10f))];
+
+        // Pass 1: raw classification via 1-ring comparison + Gaussian.
+        CriticalType[] label = new CriticalType[nv];
+        for (int v = 0; v < nv; v++) {
+            int[] nbs = ring[v];
+            if (nbs == null || nbs.length < 3) continue;
+            int higher = 0;
+            int lower = 0;
+            for (int u : nbs) {
+                if (scalar[u] > scalar[v]) higher++;
+                else if (scalar[u] < scalar[v]) lower++;
+            }
+            if (higher == 0 && lower > 0) {
+                if (scalar[v] >= maxThreshold) label[v] = CriticalType.MAX;
+            } else if (lower == 0 && higher > 0) {
+                if (scalar[v] <= minThreshold) label[v] = CriticalType.MIN;
+            } else if (lower >= 2 && higher >= 2 && gaussK[v] < saddleGaussT) {
+                label[v] = CriticalType.SADDLE;
+            }
+        }
+
+        // Pass 2: suppress extrema within a 2-ring radius of a stronger
+        // extremum of the same type. 1-ring is too small for a noisy
+        // mesh: adjacent shoulders of a real peak still both classify
+        // as "local max" because neither has each other as a neighbour.
+        // 2-ring (neighbour-of-neighbour) dramatically reduces that
+        // clumping. Also dedupes saddles that fire on every face of a
+        // densely-triangulated valley.
+        label = suppressWithin2Ring(label, scalar, ring, CriticalType.MAX, true);
+        label = suppressWithin2Ring(label, scalar, ring, CriticalType.MIN, false);
+        label = suppressWithin2Ring(label, gaussK, ring, CriticalType.SADDLE, false);  // deepest (most negative) saddle wins
+
+        List<CriticalPoint> critical = new ArrayList<>();
+        List<Integer> maxima = new ArrayList<>();
+        List<Integer> minima = new ArrayList<>();
+        List<Integer> saddles = new ArrayList<>();
+        for (int v = 0; v < nv; v++) {
+            CriticalType t = label[v];
+            if (t == null) continue;
+            critical.add(new CriticalPoint(v, t, scalar[v]));
+            switch (t) {
+                case MAX -> maxima.add(v);
+                case MIN -> minima.add(v);
+                case SADDLE -> saddles.add(v);
+            }
+        }
+
+        // Trace two ascending + two descending arcs from each saddle.
+        // "Two" comes from the saddle-local 1-ring split into higher
+        // and lower neighbours: we pick the highest ascending neighbour
+        // as seed #1, then the second-highest on the opposite side of
+        // the 1-ring (if we could order it, we'd pick symmetrically;
+        // lacking that, we fall back to "other highest not adjacent to
+        // seed #1"). For Phase A this approximation is fine — real MSC
+        // tracing will come in Phase B.
+        List<Arc> arcs = new ArrayList<>();
+        boolean[] isMax = new boolean[nv];
+        boolean[] isMin = new boolean[nv];
+        for (int m : maxima) isMax[m] = true;
+        for (int m : minima) isMin[m] = true;
+
+        for (int saddle : saddles) {
+            int[] nbs = ring[saddle];
+            int[] ascSeeds = topTwoOnSide(nbs, scalar, saddle, /*ascending=*/true);
+            int[] descSeeds = topTwoOnSide(nbs, scalar, saddle, /*ascending=*/false);
+            for (int seed : ascSeeds) {
+                if (seed < 0) continue;
+                Arc arc = traceArc(saddle, seed, scalar, ring, isMax, isMin,
+                        /*ascending=*/true);
+                if (arc != null) arcs.add(arc);
+            }
+            for (int seed : descSeeds) {
+                if (seed < 0) continue;
+                Arc arc = traceArc(saddle, seed, scalar, ring, isMax, isMin,
+                        /*ascending=*/false);
+                if (arc != null) arcs.add(arc);
+            }
+        }
+
+        return new Result(critical, arcs, scalar);
+    }
+
+    /**
+     * Pick the two best seed neighbours of {@code saddle} on either the
+     * ascending or descending side (depending on {@code ascending}).
+     * Returns two vertex ids or -1 for slots where no suitable neighbour
+     * exists. The two seeds attempt to land on opposite arms of the
+     * saddle by picking the highest/lowest, then the next-best whose
+     * edge vector isn't parallel to the first seed's edge vector.
+     */
+    private static int[] topTwoOnSide(int[] ring, float[] scalar, int saddle,
+                                      boolean ascending) {
+        int best = -1;
+        float bestVal = ascending ? Float.NEGATIVE_INFINITY : Float.POSITIVE_INFINITY;
+        for (int u : ring) {
+            boolean side = ascending ? (scalar[u] > scalar[saddle]) : (scalar[u] < scalar[saddle]);
+            if (!side) continue;
+            if (ascending ? scalar[u] > bestVal : scalar[u] < bestVal) {
+                bestVal = scalar[u];
+                best = u;
+            }
+        }
+        if (best < 0) return new int[]{-1, -1};
+        // Second seed: among opposite-side candidates that are on the
+        // other "arm", take the one most anti-parallel to best's edge.
+        // Without a full 1-ring order we approximate using the signed
+        // scalar-difference rank and skip anything too close to `best`.
+        int second = -1;
+        float secondVal = ascending ? Float.NEGATIVE_INFINITY : Float.POSITIVE_INFINITY;
+        for (int u : ring) {
+            if (u == best) continue;
+            boolean side = ascending ? (scalar[u] > scalar[saddle]) : (scalar[u] < scalar[saddle]);
+            if (!side) continue;
+            if (ascending ? scalar[u] > secondVal : scalar[u] < secondVal) {
+                secondVal = scalar[u];
+                second = u;
+            }
+        }
+        return new int[]{best, second};
+    }
+
+    /**
+     * Walk steepest-ascent (ascending=true) or steepest-descent (false)
+     * from {@code seed} until hitting a critical point of the matching
+     * extremum type, revisiting a ring vertex, or running out of steps.
+     */
+    private static Arc traceArc(int saddle, int seed, float[] scalar, int[][] ring,
+                                boolean[] isMax, boolean[] isMin, boolean ascending) {
+        List<Integer> path = new ArrayList<>();
+        path.add(saddle);
+        path.add(seed);
+        int cur = seed;
+        for (int step = 0; step < MAX_TRACE_STEPS; step++) {
+            if (ascending && isMax[cur]) {
+                return new Arc(saddle, cur, CriticalType.MAX, toIntArray(path));
+            }
+            if (!ascending && isMin[cur]) {
+                return new Arc(saddle, cur, CriticalType.MIN, toIntArray(path));
+            }
+            int next = -1;
+            float bestVal = ascending ? Float.NEGATIVE_INFINITY : Float.POSITIVE_INFINITY;
+            for (int u : ring[cur]) {
+                if (path.contains(u)) continue;  // cheap cycle break
+                float v = scalar[u];
+                boolean better = ascending ? (v > scalar[cur] && v > bestVal)
+                                           : (v < scalar[cur] && v < bestVal);
+                if (better) { bestVal = v; next = u; }
+            }
+            if (next < 0) return null;  // arc didn't reach an extremum
+            path.add(next);
+            cur = next;
+        }
+        return null;  // hit step cap without reaching an extremum
+    }
+
+    private static int[] toIntArray(List<Integer> list) {
+        int[] out = new int[list.size()];
+        for (int i = 0; i < list.size(); i++) out[i] = list.get(i);
+        return out;
+    }
+
+    /**
+     * Non-max (or non-min) suppression within a 2-ring neighbourhood.
+     * Drops any labeled vertex that has a stronger-scoring labeled
+     * vertex of the same type within 2 graph hops.
+     *
+     * @param wantHigher true for MAX (higher = stronger), false for MIN
+     *        / SADDLE (lower = stronger, saddle uses negative K so "more
+     *        negative" = deeper = stronger).
+     */
+    private static CriticalType[] suppressWithin2Ring(CriticalType[] label, float[] score,
+                                                       int[][] ring, CriticalType type,
+                                                       boolean wantHigher) {
+        int nv = label.length;
+        CriticalType[] out = label.clone();
+        for (int v = 0; v < nv; v++) {
+            if (out[v] != type) continue;
+            boolean suppressed = false;
+            for (int u : ring[v]) {
+                if (u == v) continue;
+                if (out[u] == type) {
+                    if (wantHigher ? score[u] > score[v] : score[u] < score[v]) {
+                        suppressed = true;
+                        break;
+                    }
+                }
+                for (int w : ring[u]) {
+                    if (w == v) continue;
+                    if (out[w] == type) {
+                        if (wantHigher ? score[w] > score[v] : score[w] < score[v]) {
+                            suppressed = true;
+                            break;
+                        }
+                    }
+                }
+                if (suppressed) break;
+            }
+            if (suppressed) out[v] = null;
+        }
+        return out;
+    }
+
+    /**
+     * Iterated 1-ring Laplacian smoothing of a per-vertex scalar field.
+     * Each iteration replaces {@code scalar[v]} with the simple mean of
+     * {@code v} and its 1-ring neighbours. Used as a noise filter before
+     * critical-point classification — real anatomical extrema survive,
+     * triangulation-noise bumps merge into the surrounding field.
+     */
+    private static float[] smoothScalar(float[] scalar, int[][] ring, int iterations) {
+        int nv = scalar.length;
+        float[] cur = scalar.clone();
+        float[] next = new float[nv];
+        for (int it = 0; it < iterations; it++) {
+            for (int v = 0; v < nv; v++) {
+                int[] nbs = ring[v];
+                float sum = cur[v];
+                int count = 1;
+                for (int u : nbs) {
+                    sum += cur[u];
+                    count++;
+                }
+                next[v] = sum / count;
+            }
+            float[] tmp = cur;
+            cur = next;
+            next = tmp;
+        }
+        return cur;
+    }
+
+    /**
+     * Phase B1 classifier path. Uses the ordered 1-ring + lower-link
+     * connected-component count to classify critical points correctly
+     * (handles 1-saddles and detects multi-saddles), then traces arcs
+     * via steepest descent like Phase A but with a correct critical
+     * set so termination is reliable.
+     */
+    private static Result computeB1(ArrayMesh mesh, float[] scalar,
+                                    int[][] ring, int[][] orderedRing,
+                                    float prominenceFrac) {
+        int nv = mesh.vertexCount();
+
+        // Statistics for the prominence post-filter — used after the
+        // structural classifier to drop flat-plateau false positives.
+        float[] sortedScalar = scalar.clone();
+        Arrays.sort(sortedScalar);
+        float p5 = sortedScalar[(int) (nv * 0.05f)];
+        float p95 = sortedScalar[(int) (nv * 0.95f)];
+        float span = Math.max(p95 - p5, 1e-6f);
+
+        CriticalType[] label = new CriticalType[nv];
+        int[] saddleMultiplicity = new int[nv];
+        for (int v = 0; v < nv; v++) {
+            int[] ord = orderedRing[v];
+            if (ord == null || ord.length < 3) continue;  // boundary or degenerate
+            int lowerComponents = countLinkComponents(v, ord, scalar, /*lower=*/true);
+            int upperComponents = countLinkComponents(v, ord, scalar, /*lower=*/false);
+            if (lowerComponents == 0 && upperComponents > 0) {
+                label[v] = CriticalType.MIN;
+            } else if (upperComponents == 0 && lowerComponents > 0) {
+                label[v] = CriticalType.MAX;
+            } else if (lowerComponents >= 2 && upperComponents >= 2) {
+                label[v] = CriticalType.SADDLE;
+                saddleMultiplicity[v] = lowerComponents - 1;  // 1 for ordinary 1-saddle
+            }
+            // else regular (lower=1, upper=1) — leave unlabeled
+        }
+
+        // Prominence filter: drop extrema whose scalar value is too
+        // close to the mesh median. Real anatomical bumps stick out;
+        // plateau noise extrema sit near the median.
+        float median = sortedScalar[nv / 2];
+        for (int v = 0; v < nv; v++) {
+            if (label[v] == CriticalType.MAX
+                    && (scalar[v] - median) < prominenceFrac * span) {
+                label[v] = null;
+            } else if (label[v] == CriticalType.MIN
+                    && (median - scalar[v]) < prominenceFrac * span) {
+                label[v] = null;
+            }
+        }
+
+        // Heuristic persistence: walk steepest-ascent from each saddle
+        // to the first MAX it reaches; persistence = scalar(max) -
+        // scalar(saddle). Drop pairs below threshold by also unlabeling
+        // the max IF that's its only short-persistence partner. Same
+        // dually for saddle-to-min.
+        boolean[] isMax = new boolean[nv];
+        boolean[] isMin = new boolean[nv];
+        for (int v = 0; v < nv; v++) {
+            if (label[v] == CriticalType.MAX) isMax[v] = true;
+            if (label[v] == CriticalType.MIN) isMin[v] = true;
+        }
+        float persistThresh = prominenceFrac * span * 0.5f;  // half of prominence-equivalent
+        for (int v = 0; v < nv; v++) {
+            if (label[v] != CriticalType.SADDLE) continue;
+            int reachedMax = walkToExtremum(v, scalar, ring, isMax, true);
+            int reachedMin = walkToExtremum(v, scalar, ring, isMin, false);
+            float persUp = reachedMax >= 0 ? Math.abs(scalar[reachedMax] - scalar[v]) : 0f;
+            float persDn = reachedMin >= 0 ? Math.abs(scalar[v] - scalar[reachedMin]) : 0f;
+            if (persUp < persistThresh && persDn < persistThresh) {
+                label[v] = null;  // saddle has no significant persistence pair
+            }
+        }
+
+        // Collect surviving critical set.
+        List<CriticalPoint> critical = new ArrayList<>();
+        List<Integer> saddles = new ArrayList<>();
+        java.util.Arrays.fill(isMax, false);
+        java.util.Arrays.fill(isMin, false);
+        for (int v = 0; v < nv; v++) {
+            if (label[v] == null) continue;
+            critical.add(new CriticalPoint(v, label[v], scalar[v]));
+            if (label[v] == CriticalType.MAX) isMax[v] = true;
+            else if (label[v] == CriticalType.MIN) isMin[v] = true;
+            else if (label[v] == CriticalType.SADDLE) saddles.add(v);
+        }
+
+        // Trace arcs from each saddle via steepest ascent / descent,
+        // terminating only at retained critical points. Each saddle
+        // emits up to 4 arcs (2 ascending + 2 descending) using the
+        // ordered link's component split.
+        List<Arc> arcs = new ArrayList<>();
+        for (int saddle : saddles) {
+            int[] ord = orderedRing[saddle];
+            if (ord == null) continue;
+            int[] ascSeeds = bestSeedsPerLinkComponent(ord, scalar, saddle, /*upper=*/true);
+            int[] descSeeds = bestSeedsPerLinkComponent(ord, scalar, saddle, /*upper=*/false);
+            for (int seed : ascSeeds) {
+                if (seed < 0) continue;
+                Arc arc = traceArc(saddle, seed, scalar, ring, isMax, isMin, true);
+                if (arc != null) arcs.add(arc);
+            }
+            for (int seed : descSeeds) {
+                if (seed < 0) continue;
+                Arc arc = traceArc(saddle, seed, scalar, ring, isMax, isMin, false);
+                if (arc != null) arcs.add(arc);
+            }
+        }
+        return new Result(critical, arcs, scalar);
+    }
+
+    /**
+     * Count connected components of the lower (or upper) link of
+     * vertex {@code v} using its cyclic ordered 1-ring. A component is
+     * a maximal run of consecutive ring vertices whose scalar is below
+     * (lower=true) or above (lower=false) {@code scalar[v]}; the cycle
+     * wraps so the last and first runs may merge. Tie-breaking by
+     * vertex index keeps classification deterministic on plateaus.
+     */
+    private static int countLinkComponents(int v, int[] ord, float[] scalar, boolean lower) {
+        int n = ord.length;
+        boolean[] inSet = new boolean[n];
+        for (int i = 0; i < n; i++) {
+            float fu = scalar[ord[i]];
+            float fv = scalar[v];
+            if (fu == fv) {
+                inSet[i] = lower ? (ord[i] < v) : (ord[i] > v);  // tie-break by index
+            } else {
+                inSet[i] = lower ? (fu < fv) : (fu > fv);
+            }
+        }
+        int comp = 0;
+        boolean inRun = false;
+        for (int i = 0; i < n; i++) {
+            if (inSet[i] && !inRun) { comp++; inRun = true; }
+            else if (!inSet[i]) inRun = false;
+        }
+        // Cyclic merge: if the ring starts and ends in the set, those
+        // two runs are actually the same component.
+        if (comp >= 2 && inSet[0] && inSet[n - 1]) comp--;
+        return comp;
+    }
+
+    /**
+     * For a saddle, identify one seed per upper-link (or lower-link)
+     * component — the vertex within each component with the highest
+     * (or lowest, respectively) scalar value. Returns up to 4 seeds
+     * (slots set to -1 if the component count is lower).
+     */
+    private static int[] bestSeedsPerLinkComponent(int[] ord, float[] scalar, int saddle, boolean upper) {
+        int n = ord.length;
+        boolean[] inSet = new boolean[n];
+        for (int i = 0; i < n; i++) {
+            float fu = scalar[ord[i]];
+            float fv = scalar[saddle];
+            if (fu == fv) inSet[i] = upper ? (ord[i] > saddle) : (ord[i] < saddle);
+            else inSet[i] = upper ? (fu > fv) : (fu < fv);
+        }
+        // Walk the cycle, identifying runs and the best vertex in each.
+        int[] seeds = new int[]{-1, -1, -1, -1};
+        int slot = 0;
+        int bestInRun = -1;
+        float bestVal = upper ? Float.NEGATIVE_INFINITY : Float.POSITIVE_INFINITY;
+        // Start scan such that we don't split a run that wraps the seam.
+        int start = 0;
+        if (inSet[0] && inSet[n - 1]) {
+            for (int i = 1; i < n; i++) {
+                if (!inSet[i]) { start = i; break; }
+            }
+        }
+        for (int k = 0; k < n; k++) {
+            int i = (start + k) % n;
+            int u = ord[i];
+            if (inSet[i]) {
+                float val = scalar[u];
+                if (bestInRun < 0
+                        || (upper ? val > bestVal : val < bestVal)) {
+                    bestInRun = u;
+                    bestVal = val;
+                }
+            } else if (bestInRun >= 0) {
+                if (slot < seeds.length) seeds[slot++] = bestInRun;
+                bestInRun = -1;
+                bestVal = upper ? Float.NEGATIVE_INFINITY : Float.POSITIVE_INFINITY;
+            }
+        }
+        // Tail run if we ended inside the set.
+        if (bestInRun >= 0 && slot < seeds.length) seeds[slot++] = bestInRun;
+        return seeds;
+    }
+
+    /**
+     * Steepest-ascent (or descent) walk to the nearest critical point
+     * of the matching extremum type, used by the persistence heuristic
+     * during B1. Same pattern as {@link #traceArc} but returns just
+     * the terminal vertex.
+     */
+    private static int walkToExtremum(int from, float[] scalar, int[][] ring,
+                                       boolean[] isExtremum, boolean ascending) {
+        int cur = from;
+        java.util.Set<Integer> visited = new java.util.HashSet<>();
+        visited.add(cur);
+        for (int step = 0; step < MAX_TRACE_STEPS; step++) {
+            if (isExtremum[cur] && cur != from) return cur;
+            int next = -1;
+            float bestVal = ascending ? Float.NEGATIVE_INFINITY : Float.POSITIVE_INFINITY;
+            for (int u : ring[cur]) {
+                if (visited.contains(u)) continue;
+                boolean better = ascending ? scalar[u] > bestVal && scalar[u] > scalar[cur]
+                                           : scalar[u] < bestVal && scalar[u] < scalar[cur];
+                if (better) { bestVal = scalar[u]; next = u; }
+            }
+            if (next < 0) return -1;
+            visited.add(next);
+            cur = next;
+        }
+        return -1;
+    }
+
+    /**
+     * Build an ORDERED 1-ring per vertex by walking incident faces in
+     * cyclic order. Returns a 2D array where {@code orderedRing[v]} is
+     * the cyclic sequence of v's 1-ring neighbours (or {@code null} if
+     * v's incident faces don't form a clean cycle, e.g. boundary or
+     * non-manifold). The ring is used by the lower-link component
+     * classifier, which depends on the cyclic order.
+     */
+    private static int[][] buildOrderedOneRing(ArrayMesh mesh, EdgeDihedrals ed, int nv) {
+        int[] faceIdx = mesh.copyFaceIndices();
+        int faceCount = faceIdx.length / 3;
+
+        // Vertex → list of (faceId, vPositionInFace) inverse index.
+        java.util.List<int[]>[] vertFaces = new java.util.List[nv];
+        for (int i = 0; i < nv; i++) vertFaces[i] = new ArrayList<>(6);
+        for (int f = 0; f < faceCount; f++) {
+            for (int p = 0; p < 3; p++) {
+                int v = faceIdx[f * 3 + p];
+                if (v >= 0 && v < nv) vertFaces[v].add(new int[]{f, p});
+            }
+        }
+
+        java.util.Map<Long, int[]> edgeFaces = ed.edgeFaces();
+        int[][] out = new int[nv][];
+        for (int v = 0; v < nv; v++) {
+            java.util.List<int[]> incident = vertFaces[v];
+            if (incident.isEmpty()) { out[v] = null; continue; }
+            // Start at any incident face; orient: v at position p, "left"
+            // is at (p+2)%3, "right" is at (p+1)%3 (assuming consistent
+            // counter-clockwise face winding). Chain via the right edge.
+            int[] startFp = incident.get(0);
+            int curFace = startFp[0];
+            int curPos = startFp[1];
+            java.util.List<Integer> ringList = new ArrayList<>(incident.size());
+            java.util.Set<Integer> visitedFaces = new java.util.HashSet<>();
+            int safety = 0;
+            int firstNeighbour = -1;
+            while (safety++ < incident.size() + 2) {
+                if (visitedFaces.contains(curFace)) break;
+                visitedFaces.add(curFace);
+                int leftV  = faceIdx[curFace * 3 + (curPos + 2) % 3];
+                int rightV = faceIdx[curFace * 3 + (curPos + 1) % 3];
+                if (firstNeighbour < 0) {
+                    ringList.add(leftV);
+                    firstNeighbour = leftV;
+                }
+                ringList.add(rightV);
+                long key = edgeKey(v, rightV);
+                int[] adj = edgeFaces.get(key);
+                if (adj == null) { out[v] = null; break; }
+                int nextFace = (adj[0] == curFace) ? adj[1] : adj[0];
+                if (nextFace < 0) { out[v] = null; break; }
+                if (nextFace == startFp[0]) {
+                    // Closed ring; the rightV we just added equals the
+                    // first neighbour in the chain, drop the duplicate.
+                    if (!ringList.isEmpty()
+                            && ringList.get(ringList.size() - 1) == firstNeighbour) {
+                        ringList.remove(ringList.size() - 1);
+                    }
+                    int[] arr = new int[ringList.size()];
+                    for (int i = 0; i < ringList.size(); i++) arr[i] = ringList.get(i);
+                    out[v] = arr;
+                    break;
+                }
+                // Find v's position in next face.
+                int nextPos = -1;
+                for (int p = 0; p < 3; p++) {
+                    if (faceIdx[nextFace * 3 + p] == v) { nextPos = p; break; }
+                }
+                if (nextPos < 0) { out[v] = null; break; }
+                curFace = nextFace;
+                curPos = nextPos;
+            }
+            if (out[v] == null && ringList.size() >= 3) {
+                // Open fan or non-manifold; emit unclosed ring as best-effort.
+                int[] arr = new int[ringList.size()];
+                for (int i = 0; i < ringList.size(); i++) arr[i] = ringList.get(i);
+                out[v] = arr;
+            }
+        }
+        return out;
+    }
+
+    private static long edgeKey(int u, int v) {
+        return u < v ? ((long) u << 32) | (v & 0xffffffffL)
+                     : ((long) v << 32) | (u & 0xffffffffL);
+    }
+
+    private static int[][] buildOneRing(EdgeDihedrals ed, int nv) {
+        List<List<Integer>> tmp = new ArrayList<>(nv);
+        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(6));
+        for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
+            long key = e.getKey();
+            int u = (int) (key >> 32);
+            int v = (int) (key & 0xffffffffL);
+            tmp.get(u).add(v);
+            tmp.get(v).add(u);
+        }
+        int[][] out = new int[nv][];
+        for (int i = 0; i < nv; i++) {
+            List<Integer> list = tmp.get(i);
+            int[] arr = new int[list.size()];
+            for (int j = 0; j < list.size(); j++) arr[j] = list.get(j);
+            out[i] = arr;
+        }
+        return out;
+    }
+}
