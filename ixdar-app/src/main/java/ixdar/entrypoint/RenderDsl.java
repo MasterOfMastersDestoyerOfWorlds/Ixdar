@@ -1,4 +1,4 @@
-package ixdar.cli;
+package ixdar.entrypoint;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -19,7 +19,7 @@ import ixdar.platform.gl.headless.HeadlessPlatform;
 /**
  * Headless DSL renderer CLI.
  *
- * Usage: java -XstartOnFirstThread -cp ... ixdar.cli.RenderDsl &lt;file.dsl&gt; &lt;output.png&gt; [options]
+ * Usage: java -XstartOnFirstThread -cp ... ixdar.entrypoint.RenderDsl &lt;file.dsl&gt; &lt;output.png&gt; [options]
  *
  * Options:
  *   --node &lt;id&gt;    Final node ID (default: last node in graph)
@@ -39,7 +39,7 @@ public class RenderDsl {
 
     public static void main(String[] args) {
         if (args.length < 2) {
-            System.err.println("Usage: java -XstartOnFirstThread -cp ... ixdar.cli.RenderDsl <file.dsl> <output.png> [options]");
+            System.err.println("Usage: java -XstartOnFirstThread -cp ... ixdar.entrypoint.RenderDsl <file.dsl> <output.png> [options]");
             System.err.println("  --node <id>    Final node ID (default: last node in graph)");
             System.err.println("  --port <name>  Output port name (default: auto-detect)");
             System.err.println("  --width <N>    Image width (default: 512)");

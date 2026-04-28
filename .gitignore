@@ -12,6 +12,9 @@ ixdar-app/hs_err_*.log
 .cursor/logs/
 ixdar-app/tmp/*.png
 *.obj
+# Quad-layout test fixtures: small reference meshes (Hand-30k, rocker-arm,
+# metriko's hand-quad output) are required at runtime by tests + CLIs.
+!ixdar-app/test/resources/quadlayout/**/*.obj
 ixdar_automation_cli.egg-info/dependency_links.txt
 ixdar_automation_cli.egg-info/PKG-INFO
 ixdar_automation_cli.egg-info/SOURCES.txt

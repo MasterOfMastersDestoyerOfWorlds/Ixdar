@@ -1,4 +1,4 @@
-package ixdar.cli;
+package ixdar.entrypoint;
 
 import java.awt.Color;
 import java.awt.Font;
@@ -32,7 +32,7 @@ import ixdar.platform.gl.headless.HeadlessPlatform;
  * Headless CLI that renders multiple DSL files into a labeled grid image.
  * Designed for VLM tournament consumption (VOYAGE-3).
  *
- * Usage: java -XstartOnFirstThread -cp ... ixdar.cli.RenderGrid [options]
+ * Usage: java -XstartOnFirstThread -cp ... ixdar.entrypoint.RenderGrid [options]
  *
  * Options:
  *   --inputs &lt;dir&gt;       Directory containing .dsl files (required)

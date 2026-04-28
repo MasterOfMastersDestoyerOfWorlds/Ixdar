@@ -1,4 +1,4 @@
-package ixdar.cli;
+package ixdar.entrypoint;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,7 +20,7 @@ import ixdar.parsing.python.PythonParser;
  * CLI that runs DAG analysis on a .dsl file and outputs JSON.
  * Finds seam nodes (natural abstraction boundaries) for skill extraction.
  *
- * Usage: java -cp ... ixdar.cli.AnalyzeGraph &lt;file.dsl&gt; [options]
+ * Usage: java -cp ... ixdar.entrypoint.AnalyzeGraph &lt;file.dsl&gt; [options]
  *
  * Options:
  *   --output &lt;path&gt;      Write JSON to file (default: stdout)
