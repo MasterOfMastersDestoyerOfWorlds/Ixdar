@@ -25,49 +25,196 @@ import ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization;
  */
 public final class TMesh {
 
+    /**
+     * Lyon §4.3 Eq.(4) layout-deviation constraint. For an offending crash
+     * (|α_ij| &gt; α), the constraint says: sum of q over arcs in {@code arcs}
+     * must be ≥ 1, where {@code arcs} is the S_ij arc set — arcs of the
+     * crasher motorcycle from its singularity start to the intersection node.
+     */
+    public record LayoutConstraint(int[] arcIds, double absAlphaIj) {}
+
     private final List<TNode> nodes;
     private final List<TArc> arcs;
     private final List<TPatch> patches;
+    private final List<LayoutConstraint> layoutConstraints;
 
-    private TMesh(List<TNode> nodes, List<TArc> arcs, List<TPatch> patches) {
+    private TMesh(List<TNode> nodes, List<TArc> arcs, List<TPatch> patches,
+                  List<LayoutConstraint> layoutConstraints) {
         this.nodes = nodes;
         this.arcs = arcs;
         this.patches = patches;
+        this.layoutConstraints = layoutConstraints;
     }
 
     public List<TNode> nodes() { return nodes; }
     public List<TArc> arcs() { return arcs; }
     public List<TPatch> patches() { return patches; }
+    public List<LayoutConstraint> layoutConstraints() { return layoutConstraints; }
+
+    /** Test-only factory: assemble a TMesh from explicit component lists. */
+    public static TMesh fromComponents(List<TNode> nodes, List<TArc> arcs,
+                                        List<TPatch> patches) {
+        return new TMesh(nodes, arcs, patches, java.util.Collections.emptyList());
+    }
 
     public static TMesh build(MotorcycleGraph.Result graph,
                               SeamlessParameterization param) {
         List<TNode> nodes = new ArrayList<>(graph.nodes());
         List<TArc> arcs = new ArrayList<>();
+        // PATCH-87: per-motorcycle list of TArc IDs in walk order, indexed
+        // by motorcycle id. Used to compute S_ij arc sets for Eq.(4) layout
+        // constraints. arcsByMotorcycle.get(mId) gives [tarc0, tarc1, ...]
+        // representing the splits of motorcycle mId from singularity outward.
+        java.util.HashMap<Integer, java.util.ArrayList<Integer>> arcsByMotorcycle =
+                new java.util.HashMap<>();
+        // For each motorcycle, the END node of each TArc — used to identify
+        // which prefix of arcs reaches a given intersection node.
+        java.util.HashMap<Integer, java.util.ArrayList<Integer>> endNodesByMotorcycle =
+                new java.util.HashMap<>();
 
-        // Per-motorcycle interior crash nodes (created by later motorcycles
-        // that crashed INTO this one). We collect these as (segmentIdx, t,
-        // nodeId) triples by scanning every later motorcycle's final node and
-        // checking which earlier motorcycle's segment contains it.
-        // For simplicity we keep arcs as one per motorcycle and just note the
-        // start/end node.
+        // PATCH-60: bucket crashes by victim motorcycle so each motorcycle's
+        // trace can be split into multiple TArcs at every crash point —
+        // mirroring metriko's split_segment in motorcycle.h. When motorcycle
+        // B crashes into A's trace at step k, A's trace is divided at the
+        // crash point: an arc up to step k, an arc from step k onward.
+        java.util.HashMap<Integer, java.util.List<MotorcycleGraph.Crash>> crashesByVictim =
+                new java.util.HashMap<>();
+        for (MotorcycleGraph.Crash c : graph.crashes()) {
+            crashesByVictim.computeIfAbsent(c.victimMotorcycleId(), k -> new ArrayList<>())
+                    .add(c);
+        }
+
         for (Motorcycle m : graph.traces()) {
             if (m.trace().isEmpty()) continue;
-            int startNode = findSingularityNode(nodes, m, param);
+            // PATCH-68: prefer the singVertex→nodeId map from the graph
+            // (avoids per-face uv-match drift on multi-port launches).
+            // Falls back to the legacy uv-match for older callers.
+            Integer mapped = graph.singVertexToNode() == null ? null
+                    : graph.singVertexToNode().get(m.singularityVertexId());
+            int singularityNode = mapped != null
+                    ? mapped
+                    : findSingularityNode(nodes, m, param);
             int endNode = m.finalNodeId();
-            ArrayList<int[]> faceCrossings = new ArrayList<>();
-            float parametricLength = 0f;
             // direction in {0,1,2,3} = {+u, +v, -u, -v} — measure |Δu| for
-            // u-axis arcs (0,2) and |Δv| for v-axis arcs (1,3). The arc moves
-            // along one cardinal of the parametric domain by construction.
+            // u-axis arcs (0,2) and |Δv| for v-axis arcs (1,3).
             boolean uAxis = (m.direction() & 1) == 0;
-            for (Motorcycle.Step s : m.trace()) {
-                faceCrossings.add(new int[]{s.meshFaceId(), s.exitEdgeIndex()});
-                parametricLength += uAxis
-                        ? Math.abs(s.uOut() - s.uIn())
-                        : Math.abs(s.vOut() - s.vIn());
+
+            java.util.ArrayList<Integer> mArcs =
+                    arcsByMotorcycle.computeIfAbsent(m.id(), k -> new ArrayList<>());
+            java.util.ArrayList<Integer> mEndNodes =
+                    endNodesByMotorcycle.computeIfAbsent(m.id(), k -> new ArrayList<>());
+
+            java.util.List<MotorcycleGraph.Crash> myCrashes =
+                    crashesByVictim.get(m.id());
+            if (myCrashes == null || myCrashes.isEmpty()) {
+                ArrayList<int[]> faceCrossings = new ArrayList<>();
+                ArrayList<float[]> stepUvs = new ArrayList<>();
+                float parametricLength = 0f;
+                for (Motorcycle.Step s : m.trace()) {
+                    faceCrossings.add(new int[]{s.meshFaceId(), s.exitEdgeIndex()});
+                    stepUvs.add(new float[]{s.uIn(), s.vIn(), s.uOut(), s.vOut()});
+                    parametricLength += uAxis
+                            ? Math.abs(s.uOut() - s.uIn())
+                            : Math.abs(s.vOut() - s.vIn());
+                }
+                int newArcId = arcs.size();
+                arcs.add(new TArc(newArcId, singularityNode, endNode,
+                        faceCrossings, stepUvs, m.direction(), parametricLength));
+                mArcs.add(newArcId);
+                mEndNodes.add(endNode);
+                continue;
             }
-            arcs.add(new TArc(arcs.size(), startNode, endNode,
-                    faceCrossings, m.direction(), parametricLength));
+
+            // Sort crashes by (stepIndex, distance-from-step-start) so we
+            // can walk the trace and emit one TArc per (cut → next-cut)
+            // window. Cut 0 = singularity start, cut N+1 = trace end.
+            myCrashes.sort((a, b) -> {
+                int dStep = Integer.compare(a.victimStepIndex(), b.victimStepIndex());
+                if (dStep != 0) return dStep;
+                Motorcycle.Step st = m.trace().get(a.victimStepIndex());
+                float distA = uAxis
+                        ? Math.abs(a.victimCrashU() - st.uIn())
+                        : Math.abs(a.victimCrashV() - st.vIn());
+                float distB = uAxis
+                        ? Math.abs(b.victimCrashU() - st.uIn())
+                        : Math.abs(b.victimCrashV() - st.vIn());
+                return Float.compare(distA, distB);
+            });
+
+            int startNodeForArc = singularityNode;
+            int crashIdx = 0;
+            ArrayList<int[]> faceCrossings = new ArrayList<>();
+            ArrayList<float[]> stepUvs = new ArrayList<>();
+            float parametricLength = 0f;
+            int totalSteps = m.trace().size();
+            for (int stepIdx = 0; stepIdx < totalSteps; stepIdx++) {
+                Motorcycle.Step step = m.trace().get(stepIdx);
+                float stepStartU = step.uIn(), stepStartV = step.vIn();
+
+                // Drain crashes that fall on the current step.
+                while (crashIdx < myCrashes.size()
+                        && myCrashes.get(crashIdx).victimStepIndex() == stepIdx) {
+                    MotorcycleGraph.Crash c = myCrashes.get(crashIdx);
+                    parametricLength += uAxis
+                            ? Math.abs(c.victimCrashU() - stepStartU)
+                            : Math.abs(c.victimCrashV() - stepStartV);
+                    faceCrossings.add(new int[]{step.meshFaceId(), -1});
+                    stepUvs.add(new float[]{stepStartU, stepStartV,
+                            c.victimCrashU(), c.victimCrashV()});
+                    int newArcId = arcs.size();
+                    arcs.add(new TArc(newArcId, startNodeForArc,
+                            c.intersectionNodeId(),
+                            faceCrossings, stepUvs, m.direction(), parametricLength));
+                    mArcs.add(newArcId);
+                    mEndNodes.add(c.intersectionNodeId());
+                    startNodeForArc = c.intersectionNodeId();
+                    faceCrossings = new ArrayList<>();
+                    stepUvs = new ArrayList<>();
+                    parametricLength = 0f;
+                    stepStartU = c.victimCrashU();
+                    stepStartV = c.victimCrashV();
+                    crashIdx++;
+                }
+                faceCrossings.add(new int[]{step.meshFaceId(), step.exitEdgeIndex()});
+                stepUvs.add(new float[]{stepStartU, stepStartV, step.uOut(), step.vOut()});
+                parametricLength += uAxis
+                        ? Math.abs(step.uOut() - stepStartU)
+                        : Math.abs(step.vOut() - stepStartV);
+            }
+            // Trailing arc (from last crash to trace end).
+            if (!faceCrossings.isEmpty()) {
+                int newArcId = arcs.size();
+                arcs.add(new TArc(newArcId, startNodeForArc, endNode,
+                        faceCrossings, stepUvs, m.direction(), parametricLength));
+                mArcs.add(newArcId);
+                mEndNodes.add(endNode);
+            }
+        }
+
+        // PATCH-87 §4.3: build Eq.(4) layout constraints. For each "offending"
+        // crash (|α_ij| above some user-α), the arcs of the crasher motorcycle
+        // from its start to the intersection node form S_ij; the constraint
+        // is Σ q_a ≥ 1 over those arcs.
+        ArrayList<LayoutConstraint> layoutConstraints = new ArrayList<>();
+        double layoutAlpha = MotorcycleGraph.defaultAlpha();
+        for (MotorcycleGraph.Crash c : graph.crashes()) {
+            if (c.absAlphaIj() <= layoutAlpha + 1e-9) continue;   // not offending
+            if (c.crasherMotorcycleId() < 0) continue;
+            java.util.ArrayList<Integer> mArcs = arcsByMotorcycle.get(c.crasherMotorcycleId());
+            java.util.ArrayList<Integer> mEnds = endNodesByMotorcycle.get(c.crasherMotorcycleId());
+            if (mArcs == null || mEnds == null) continue;
+            // Find prefix of mArcs ending AT (or before) the intersection node.
+            int prefixEnd = -1;
+            for (int i = 0; i < mEnds.size(); i++) {
+                if (mEnds.get(i).intValue() == c.intersectionNodeId()) {
+                    prefixEnd = i;
+                    break;
+                }
+            }
+            if (prefixEnd < 0) continue;
+            int[] sIjArcs = new int[prefixEnd + 1];
+            for (int i = 0; i <= prefixEnd; i++) sIjArcs[i] = mArcs.get(i);
+            layoutConstraints.add(new LayoutConstraint(sIjArcs, c.absAlphaIj()));
         }
 
         // Best-effort patch enumeration — count connected regions in the arc
@@ -76,7 +223,7 @@ public final class TMesh {
         // walk once the Lyon survival rule lands.
         List<TPatch> patches = enumerateFourCycles(nodes, arcs);
 
-        return new TMesh(nodes, arcs, patches);
+        return new TMesh(nodes, arcs, patches, layoutConstraints);
     }
 
     private static int findSingularityNode(List<TNode> nodes, Motorcycle m,
@@ -95,71 +242,8 @@ public final class TMesh {
         return -1;
     }
 
-    /** Return all minimal 4-cycles in the undirected arc graph. */
+    /** Return TPatches via planar-graph face enumeration (PATCH-68). */
     private static List<TPatch> enumerateFourCycles(List<TNode> nodes, List<TArc> arcs) {
-        // Adjacency: node -> list of (neighbour, arcId)
-        HashMap<Integer, List<int[]>> adj = new HashMap<>();
-        for (TArc a : arcs) {
-            if (a.startNode() < 0 || a.endNode() < 0) continue;
-            adj.computeIfAbsent(a.startNode(), k -> new ArrayList<>())
-                    .add(new int[]{a.endNode(), a.id()});
-            adj.computeIfAbsent(a.endNode(), k -> new ArrayList<>())
-                    .add(new int[]{a.startNode(), a.id()});
-        }
-        ArrayList<TPatch> patches = new ArrayList<>();
-        HashSet<String> seen = new HashSet<>();
-        for (int a : adj.keySet()) {
-            for (int[] ab : adj.getOrDefault(a, Collections.emptyList())) {
-                int b = ab[0]; int arcAB = ab[1];
-                if (b == a) continue;
-                for (int[] bc : adj.getOrDefault(b, Collections.emptyList())) {
-                    int c = bc[0]; int arcBC = bc[1];
-                    if (c == a || c == b || arcBC == arcAB) continue;
-                    for (int[] cd : adj.getOrDefault(c, Collections.emptyList())) {
-                        int d = cd[0]; int arcCD = cd[1];
-                        if (d == a || d == b || d == c) continue;
-                        if (arcCD == arcAB || arcCD == arcBC) continue;
-                        for (int[] da : adj.getOrDefault(d, Collections.emptyList())) {
-                            int e = da[0]; int arcDA = da[1];
-                            if (e != a) continue;
-                            if (arcDA == arcAB || arcDA == arcBC || arcDA == arcCD) continue;
-                            int[] corners = sortedCycle(a, b, c, d);
-                            int[] arcsCycle = {arcAB, arcBC, arcCD, arcDA};
-                            java.util.Arrays.sort(arcsCycle);
-                            String key = corners[0] + "_" + corners[1] + "_"
-                                    + corners[2] + "_" + corners[3] + "|"
-                                    + arcsCycle[0] + "_" + arcsCycle[1] + "_"
-                                    + arcsCycle[2] + "_" + arcsCycle[3];
-                            if (seen.add(key)) {
-                                patches.add(new TPatch(patches.size(),
-                                        new int[]{arcAB, arcBC, arcCD, arcDA},
-                                        new int[]{a, b, c, d}));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return patches;
-    }
-
-    private static int[] sortedCycle(int a, int b, int c, int d) {
-        int[] arr = {a, b, c, d};
-        // Canonicalize: rotate so smallest is first, then pick lex-smaller
-        // direction.
-        int min = 0;
-        for (int i = 1; i < 4; i++) if (arr[i] < arr[min]) min = i;
-        int[] fwd = new int[4];
-        int[] bwd = new int[4];
-        for (int i = 0; i < 4; i++) {
-            fwd[i] = arr[(min + i) % 4];
-            bwd[i] = arr[(min - i + 4) % 4];
-        }
-        for (int i = 0; i < 4; i++) {
-            if (fwd[i] != bwd[i]) {
-                return fwd[i] < bwd[i] ? fwd : bwd;
-            }
-        }
-        return fwd;
+        return TPatchEnumerator.enumerate(nodes, arcs);
     }
 }

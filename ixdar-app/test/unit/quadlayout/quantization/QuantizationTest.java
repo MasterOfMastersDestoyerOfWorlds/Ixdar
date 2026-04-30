@@ -114,8 +114,8 @@ public class QuantizationTest {
     void freeArcsRoundIndependently() throws Exception {
         TNode a = new TNode(0, TNode.NodeKind.SINGULARITY, 0, 0f, 0f);
         TNode b = new TNode(1, TNode.NodeKind.SINGULARITY, 0, 1f, 0f);
-        TArc loose1 = new TArc(0, a.id(), b.id(), new ArrayList<>(), 0, 2.7f);
-        TArc loose2 = new TArc(1, a.id(), b.id(), new ArrayList<>(), 1, 0.2f);
+        TArc loose1 = TArc.simple(0, a.id(), b.id(), new ArrayList<>(), 0, 2.7f);
+        TArc loose2 = TArc.simple(1, a.id(), b.id(), new ArrayList<>(), 1, 0.2f);
         TMesh tmesh = newTMesh(Arrays.asList(a, b), Arrays.asList(loose1, loose2),
                 java.util.Collections.emptyList());
 
@@ -143,7 +143,7 @@ public class QuantizationTest {
         // Verticals: v[i] = arc bl[i] -> tl[i], length 2.
         TArc[] v = new TArc[4];
         for (int i = 0; i < 4; i++) {
-            v[i] = new TArc(i, bl[i].id(), tl[i].id(),
+            v[i] = TArc.simple(i, bl[i].id(), tl[i].id(),
                     new ArrayList<>(), 1, 2f);
         }
         // Horizontals top: h_top[i] = tl[i] -> tl[i+1], length 2.
@@ -151,9 +151,9 @@ public class QuantizationTest {
         TArc[] hTop = new TArc[3];
         TArc[] hBot = new TArc[3];
         for (int i = 0; i < 3; i++) {
-            hTop[i] = new TArc(4 + i,     tl[i].id(), tl[i + 1].id(),
+            hTop[i] = TArc.simple(4 + i,     tl[i].id(), tl[i + 1].id(),
                     new ArrayList<>(), 0, 2f);
-            hBot[i] = new TArc(7 + i,     bl[i].id(), bl[i + 1].id(),
+            hBot[i] = TArc.simple(7 + i,     bl[i].id(), bl[i + 1].id(),
                     new ArrayList<>(), 0, 2f);
         }
         java.util.List<TNode> nodes = new ArrayList<>();
@@ -166,7 +166,7 @@ public class QuantizationTest {
 
         java.util.List<TPatch> patches = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
-            patches.add(new TPatch(i,
+            patches.add(TPatch.single(i,
                     new int[]{v[i].id(), hTop[i].id(), v[i + 1].id(), hBot[i].id()},
                     new int[]{bl[i].id(), bl[i + 1].id(), tl[i + 1].id(), tl[i].id()}));
         }
@@ -252,13 +252,13 @@ public class QuantizationTest {
         List<TNode> nodes = Arrays.asList(bl, br, tr, tl);
 
         // Direction codes: 0=+u, 1=+v, 2=-u, 3=-v.
-        TArc left   = new TArc(0, bl.id(), tl.id(), new ArrayList<>(), /*+v*/1, lLen);
-        TArc top    = new TArc(1, tl.id(), tr.id(), new ArrayList<>(), /*+u*/0, tLen);
-        TArc right  = new TArc(2, br.id(), tr.id(), new ArrayList<>(), /*+v*/1, rLen);
-        TArc bottom = new TArc(3, bl.id(), br.id(), new ArrayList<>(), /*+u*/0, bLen);
+        TArc left   = new TArc(0, bl.id(), tl.id(), new ArrayList<>(), new ArrayList<>(), /*+v*/1, lLen);
+        TArc top    = new TArc(1, tl.id(), tr.id(), new ArrayList<>(), new ArrayList<>(), /*+u*/0, tLen);
+        TArc right  = new TArc(2, br.id(), tr.id(), new ArrayList<>(), new ArrayList<>(), /*+v*/1, rLen);
+        TArc bottom = new TArc(3, bl.id(), br.id(), new ArrayList<>(), new ArrayList<>(), /*+u*/0, bLen);
         List<TArc> arcs = Arrays.asList(left, top, right, bottom);
 
-        TPatch patch = new TPatch(0,
+        TPatch patch = TPatch.single(0,
                 new int[]{left.id(), top.id(), right.id(), bottom.id()},
                 new int[]{bl.id(), br.id(), tr.id(), tl.id()});
         return newTMesh(nodes, arcs, List.of(patch));
@@ -273,30 +273,26 @@ public class QuantizationTest {
         TNode f = new TNode(5, TNode.NodeKind.SINGULARITY, 0, 6f, 2f);
         List<TNode> nodes = Arrays.asList(a, b, c, d, e, f);
 
-        TArc ad = new TArc(0, a.id(), d.id(), new ArrayList<>(), 1, 2f);  // left of P1
-        TArc de = new TArc(1, d.id(), e.id(), new ArrayList<>(), 0, 3f);  // top of P1
-        TArc be = new TArc(2, b.id(), e.id(), new ArrayList<>(), 1, 2f);  // right of P1 = left of P2
-        TArc ab = new TArc(3, a.id(), b.id(), new ArrayList<>(), 0, 3f);  // bottom of P1
-        TArc ef = new TArc(4, e.id(), f.id(), new ArrayList<>(), 0, 3f);  // top of P2
-        TArc cf = new TArc(5, c.id(), f.id(), new ArrayList<>(), 1, 2f);  // right of P2
-        TArc bc = new TArc(6, b.id(), c.id(), new ArrayList<>(), 0, 3f);  // bottom of P2
+        TArc ad = TArc.simple(0, a.id(), d.id(), new ArrayList<>(), 1, 2f);  // left of P1
+        TArc de = TArc.simple(1, d.id(), e.id(), new ArrayList<>(), 0, 3f);  // top of P1
+        TArc be = TArc.simple(2, b.id(), e.id(), new ArrayList<>(), 1, 2f);  // right of P1 = left of P2
+        TArc ab = TArc.simple(3, a.id(), b.id(), new ArrayList<>(), 0, 3f);  // bottom of P1
+        TArc ef = TArc.simple(4, e.id(), f.id(), new ArrayList<>(), 0, 3f);  // top of P2
+        TArc cf = TArc.simple(5, c.id(), f.id(), new ArrayList<>(), 1, 2f);  // right of P2
+        TArc bc = TArc.simple(6, b.id(), c.id(), new ArrayList<>(), 0, 3f);  // bottom of P2
         List<TArc> arcs = Arrays.asList(ad, de, be, ab, ef, cf, bc);
 
-        TPatch p1 = new TPatch(0,
+        TPatch p1 = TPatch.single(0,
                 new int[]{ad.id(), de.id(), be.id(), ab.id()},
                 new int[]{a.id(), b.id(), e.id(), d.id()});
-        TPatch p2 = new TPatch(1,
+        TPatch p2 = TPatch.single(1,
                 new int[]{be.id(), ef.id(), cf.id(), bc.id()},
                 new int[]{b.id(), c.id(), f.id(), e.id()});
         return newTMesh(nodes, arcs, List.of(p1, p2));
     }
 
-    /** Reflective access to TMesh's private constructor for synthetic builds. */
-    private static TMesh newTMesh(List<TNode> nodes, List<TArc> arcs, List<TPatch> patches)
-            throws Exception {
-        Constructor<TMesh> ctor = TMesh.class.getDeclaredConstructor(
-                List.class, List.class, List.class);
-        ctor.setAccessible(true);
-        return ctor.newInstance(nodes, arcs, patches);
+    /** Synthetic TMesh build via the public test factory. */
+    private static TMesh newTMesh(List<TNode> nodes, List<TArc> arcs, List<TPatch> patches) {
+        return TMesh.fromComponents(nodes, arcs, patches);
     }
 }

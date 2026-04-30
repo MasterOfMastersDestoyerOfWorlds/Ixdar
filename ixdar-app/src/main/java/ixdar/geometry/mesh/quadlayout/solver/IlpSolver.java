@@ -101,8 +101,24 @@ public final class IlpSolver {
     }
 
     public double[] solve() {
+        return solveWithTimeLimit(0L);
+    }
+
+    /**
+     * Solve with a wall-clock time limit (milliseconds). On expiry, ojAlgo
+     * returns the best feasible incumbent found so far if any, else throws.
+     * Pass 0 for no limit.
+     */
+    public double[] solveWithTimeLimit(long timeoutMillis) {
         if (objectiveCoeffs == null) {
             throw new IllegalStateException("setObjective() not called");
+        }
+        if (timeoutMillis > 0) {
+            // ojAlgo: configure both abort (terminate) and suffice (accept
+            // incumbent) windows to the same wall-clock bound.
+            org.ojalgo.type.CalendarDateUnit u = org.ojalgo.type.CalendarDateUnit.MILLIS;
+            model.options.time_abort = timeoutMillis;
+            model.options.time_suffice = timeoutMillis;
         }
         Optimisation.Result result = (sense == Sense.MAXIMIZE) ? model.maximise() : model.minimise();
         if (!result.getState().isFeasible()) {

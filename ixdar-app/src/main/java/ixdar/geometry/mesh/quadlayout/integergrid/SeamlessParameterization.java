@@ -62,6 +62,43 @@ public final class SeamlessParameterization {
     }
 
     /**
+     * PATCH-59: build a SeamlessParameterization from externally-supplied
+     * per-corner UVs (e.g. metriko's {@code stage2_uv_corners.tsv}).
+     * Bypasses the IGM solve entirely and just stores the given UV map
+     * so downstream stages (motorcycle / T-mesh / QEx) can be exercised
+     * with a known-good input.
+     *
+     * @param mesh underlying triangle mesh
+     * @param uCorner per-corner u, length {@code 3 * F}
+     * @param vCorner per-corner v, length {@code 3 * F}
+     * @param injective {@code true} if caller guarantees no flipped triangles
+     *                  in the input UVs (metriko stage2 is)
+     */
+    public static SeamlessParameterization fromExternal(ArrayMesh mesh,
+                                                        float[] uCorner,
+                                                        float[] vCorner,
+                                                        boolean injective) {
+        return new SeamlessParameterization(mesh.faceCount(), uCorner, vCorner, injective);
+    }
+
+    /** Private "external" constructor — bypasses the IGM solve. */
+    private SeamlessParameterization(int faceCount, float[] uCorner, float[] vCorner,
+                                     boolean injective) {
+        this.faceCount = faceCount;
+        int C = faceCount * 3;
+        if (uCorner.length != C || vCorner.length != C) {
+            throw new IllegalArgumentException("UV corner arrays must be 3 * faceCount = " + C);
+        }
+        this.uCorner = uCorner.clone();
+        this.vCorner = vCorner.clone();
+        this.singularityCorner = new boolean[C];
+        this.uPinned = new boolean[C];
+        this.vPinned = new boolean[C];
+        this.iterationCount = 0;
+        this.injective = injective;
+    }
+
+    /**
      * Test/bootstrap-friendly variant: cap the iterative-rounding loop at
      * {@code maxRoundingIter} pins. Each pin attempt re-solves the IGM Hessian,
      * which on large meshes (Hand-30k+) goes through the MTJ iterative solver

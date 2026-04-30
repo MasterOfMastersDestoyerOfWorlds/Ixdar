@@ -264,6 +264,81 @@ public final class PrecomputedFieldImporter {
         return out;
     }
 
+    /**
+     * Per-corner UVs from a metriko-style stage2 file (PATCH-59).
+     * Format: {@code 3 * F} lines, each {@code u\tv}. Lines are listed in
+     * face-major corner order: {@code line[3*f + c] = (u, v)} for face f,
+     * corner c in 0..2. Returns {@code [uCorner, vCorner]} as parallel
+     * float arrays of length {@code 3 * F}.
+     */
+    public static float[][] loadStage2Uv(Path stage2Tsv, int faceCount) throws IOException {
+        int expected = 3 * faceCount;
+        float[] u = new float[expected];
+        float[] v = new float[expected];
+        try (BufferedReader r = new BufferedReader(new FileReader(stage2Tsv.toFile()))) {
+            String line;
+            int row = 0;
+            while ((line = r.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) continue;
+                if (row >= expected) {
+                    throw new IOException(stage2Tsv + " has more rows than expected " + expected);
+                }
+                String[] tok = line.split("\t");
+                if (tok.length < 2) {
+                    throw new IOException(stage2Tsv + " row " + row + " missing v: " + line);
+                }
+                u[row] = (float) Double.parseDouble(tok[0]);
+                v[row] = (float) Double.parseDouble(tok[1]);
+                row++;
+            }
+            if (row != expected) {
+                throw new IOException(stage2Tsv + " row count " + row + " != expected " + expected);
+            }
+        }
+        return new float[][]{u, v};
+    }
+
+    /**
+     * Per-arc parametric lengths from a metriko stage3 file (PATCH-59).
+     * Format: one float per line. Returns the float vector indexed by
+     * metriko's arc id.
+     */
+    public static double[] loadStage3ArcLengths(Path stage3RTsv) throws IOException {
+        ArrayList<Double> tmp = new ArrayList<>();
+        try (BufferedReader r = new BufferedReader(new FileReader(stage3RTsv.toFile()))) {
+            String line;
+            while ((line = r.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) continue;
+                tmp.add(Double.parseDouble(line));
+            }
+        }
+        double[] out = new double[tmp.size()];
+        for (int i = 0; i < tmp.size(); i++) out[i] = tmp.get(i);
+        return out;
+    }
+
+    /**
+     * Per-arc integer quantization from a metriko stage4 file (PATCH-59).
+     * Format: one integer per line. Returns the int vector indexed by
+     * metriko's arc id — the ground truth for our quantization solver.
+     */
+    public static int[] loadStage4Quantization(Path stage4XTsv) throws IOException {
+        ArrayList<Integer> tmp = new ArrayList<>();
+        try (BufferedReader r = new BufferedReader(new FileReader(stage4XTsv.toFile()))) {
+            String line;
+            while ((line = r.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) continue;
+                tmp.add(Integer.parseInt(line));
+            }
+        }
+        int[] out = new int[tmp.size()];
+        for (int i = 0; i < tmp.size(); i++) out[i] = tmp.get(i);
+        return out;
+    }
+
     private static List<Singularity> readSingularities(Path p, int vertexCount) throws IOException {
         ArrayList<Singularity> out = new ArrayList<>();
         try (BufferedReader r = new BufferedReader(new FileReader(p.toFile()))) {

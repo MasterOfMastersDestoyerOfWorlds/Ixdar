@@ -20,10 +20,14 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
  * field; when one crashes into a previously-laid trace it stops and a node is
  * recorded.
  *
- * <p>v1 ships the simple "first motorcycle to a cell wins" variant: traces are
- * processed sequentially, and each new motorcycle treats already-laid traces
- * as walls.  The Lyon 2021 angular-bound modification (motorcycles surviving
- * crashes) is deferred to PATCH-44.
+ * <p><b>PATCH-44 — Lyon 2021 §3 stopping rule.</b> Motorcycles SURVIVE crashes
+ * (a regular valence-4 node is recorded, the prior trace is split, and the
+ * crashing motorcycle continues). A motorcycle stops only after it has
+ * crossed two prior traces t_k and t_l with α_ik ∈ [0, α] AND α_il ∈ [-α, 0],
+ * where α_ij is the signed CCW angle of the right-triangle formed by
+ * singularity i, intersection node n_ij, and singularity j (see paper §3
+ * Stopping Criterion). The classical Eppstein "first-crash-stops" behavior
+ * is recoverable by passing {@code alpha = 0}.
  *
  * <p>Defensive: faces with {@code uvSignedArea <= 0} are skipped — PATCH-48
  * leaves a handful of degenerate or flipped triangles on the cube which we
@@ -38,16 +42,77 @@ public final class MotorcycleGraph {
     /** Hard cap on per-motorcycle step count — guards against infinite loops. */
     private static final int MAX_STEPS = 10_000;
 
-    public record Result(List<Motorcycle> traces, List<TNode> nodes) {}
+    /** PATCH-91 H1 diagnostic: per-singularity launch-count histogram (index = #motorcycles launched). */
+    public static int[] statSingLaunchCount = new int[16];
+    /** Total singularities scanned. */
+    public static int statSingTotal;
+    /** Singularities where ≥1 face wedge had a cardinal exactly on its boundary
+     *  (the under-launch failure mode of cardinalInFaceWedge). */
+    public static int statSingBoundaryCardinals;
+
+    /**
+     * One crash event: motorcycle {@code crasher} terminated at the crash
+     * point, but the prior motorcycle {@code victim} was passing through
+     * here too. Both must be split — TMesh.build subdivides {@code victim}'s
+     * trace at this point so the resulting T-mesh has an arc ending here.
+     *
+     * <p>{@code crasherMotorcycleId} and {@code crasherStepIndex} identify
+     * the crashing motorcycle and the step on its trace where the crash
+     * occurred (post-PATCH-44 each crash also splits the crasher's trace).
+     *
+     * <p>{@code absAlphaIj} is |α_ij| (radians) — the magnitude of the
+     * signed CCW angle of the right-triangle (i, n_ij, j) at singularity i.
+     * Used by Lyon §4.3 Eq.(4) layout constraints when |α_ij| &gt; α.
+     */
+    public record Crash(int victimMotorcycleId,
+                        int victimStepIndex,
+                        float victimCrashU,
+                        float victimCrashV,
+                        int intersectionNodeId,
+                        int crasherMotorcycleId,
+                        int crasherStepIndex,
+                        double absAlphaIj) {}
+
+    public record Result(List<Motorcycle> traces,
+                         List<TNode> nodes,
+                         List<Crash> crashes,
+                         /** PATCH-68: vertex id → SINGULARITY-kind TNode id.
+                          *  Lets downstream code (TMesh.build) resolve a
+                          *  motorcycle's start node without doing the
+                          *  per-face uv-match dance, which fails for
+                          *  multi-port launches from different faces. */
+                         java.util.Map<Integer, Integer> singVertexToNode) {}
 
     private MotorcycleGraph() {}
+
+    /** Default α-bound (radians) for Lyon §3 stopping criterion when none
+     *  is specified. Override at runtime via {@code -Dixdar.lyon.alphaDeg=N}. */
+    public static double defaultAlpha() {
+        String prop = System.getProperty("ixdar.lyon.alphaDeg");
+        double deg = (prop != null) ? Double.parseDouble(prop) : 45.0;
+        return Math.toRadians(deg);
+    }
 
     public static Result trace(SeamlessParameterization param,
                                ArrayMesh mesh,
                                FaceRosyField field,
                                CombedField combed,
                                List<Singularity> singularities) {
-        Builder b = new Builder(param, mesh, field, combed, singularities);
+        return trace(param, mesh, field, combed, singularities, defaultAlpha());
+    }
+
+    /**
+     * Trace with explicit α-bound (radians). {@code alpha = 0} reverts to
+     * Eppstein-classical "first crash stops". Lyon paper uses α ∈ [5°, 45°];
+     * smaller α = longer surviving traces = more arcs and patches.
+     */
+    public static Result trace(SeamlessParameterization param,
+                               ArrayMesh mesh,
+                               FaceRosyField field,
+                               CombedField combed,
+                               List<Singularity> singularities,
+                               double alpha) {
+        Builder b = new Builder(param, mesh, field, combed, singularities, alpha);
         return b.run();
     }
 
@@ -58,22 +123,28 @@ public final class MotorcycleGraph {
         final FaceRosyField field;
         final CombedField combed;
         final List<Singularity> singularities;
+        final double alpha;                 // PATCH-44 stopping bound (radians)
         final List<Motorcycle> motorcycles = new ArrayList<>();
         final List<TNode> nodes = new ArrayList<>();
+        final List<Crash> crashes = new ArrayList<>();
         // Per-mesh-face list of trace segments laid down so far. Each entry:
         // {motorcycleId, stepIndex, uA, vA, uB, vB} stored flat.
         final ArrayList<float[]>[] facePaths;
         // Map mesh edgeId -> interior edge index in the FaceRosyField.
         final int[] meshEdgeToInterior;
+        // Per-motorcycle cumulative parametric length up to start of step k.
+        // motorcycleCumLength[m] is filled out as motorcycle m runs.
+        final ArrayList<float[]> motorcycleCumLength = new ArrayList<>();
 
         @SuppressWarnings("unchecked")
         Builder(SeamlessParameterization param, ArrayMesh mesh, FaceRosyField field,
-                CombedField combed, List<Singularity> singularities) {
+                CombedField combed, List<Singularity> singularities, double alpha) {
             this.param = param;
             this.mesh = mesh;
             this.field = field;
             this.combed = combed;
             this.singularities = singularities;
+            this.alpha = alpha;
             int F = mesh.faceCount();
             this.facePaths = (ArrayList<float[]>[]) new ArrayList<?>[F];
             for (int i = 0; i < F; i++) facePaths[i] = new ArrayList<>();
@@ -108,18 +179,81 @@ public final class MotorcycleGraph {
                 }
             }
 
-            // 2) Launch four motorcycles per singularity. Sequential simulation:
-            //    each motorcycle treats already-laid traces as walls.
+            // 2) PATCH-60: Multi-port launch. For each singularity vertex,
+            //    walk all incident faces; for each face, launch one motorcycle
+            //    per cardinal direction that points strictly INTO that face's
+            //    parametric wedge at the vertex. Mirrors metriko's gen_ports
+            //    in motorcycle.h: 4-ish ports per regular singularity (more
+            //    for cone-like singularities), instead of 4 launches all from
+            //    a single face which produces only 1-2 valid traces.
+            // PATCH-91 H1: reset per-call diagnostic counters.
+            java.util.Arrays.fill(statSingLaunchCount, 0);
+            statSingTotal = 0;
+            statSingBoundaryCardinals = 0;
             for (Singularity s : singularities) {
-                int[] fc = singVertexToFaceCorner.get(s.vertexId());
-                if (fc == null) continue;          // sing vertex on a degen face only
-                int startNode = singVertexToNode.get(s.vertexId());
-                for (int dir = 0; dir < 4; dir++) {
-                    Motorcycle m = launch(s.vertexId(), fc[0], fc[1], dir, startNode);
-                    if (m != null) motorcycles.add(m);
+                Integer startNode = singVertexToNode.get(s.vertexId());
+                if (startNode == null) continue;
+                int vId = s.vertexId();
+                statSingTotal++;
+                int launchedFromThisSing = 0;
+                boolean boundaryCardinal = false;
+                int outCount = mesh.vertexOutgoingHalfEdgeCount(vId);
+                for (int oh = 0; oh < outCount; oh++) {
+                    int he = mesh.vertexOutgoingHalfEdgeAt(vId, oh);
+                    int faceId = mesh.halfEdgeFace(he);
+                    if (faceId < 0) continue;
+                    int cV = he % 3;                       // corner of v in this face
+                    int cN = mesh.halfEdgeNext(he) % 3;
+                    int cP = mesh.halfEdgePrev(he) % 3;
+                    float vU = param.u(faceId, cV);
+                    float vV = param.v(faceId, cV);
+                    float nU = param.u(faceId, cN);
+                    float nV = param.v(faceId, cN);
+                    float pU = param.u(faceId, cP);
+                    float pV = param.v(faceId, cP);
+                    double e1x = nU - vU, e1y = nV - vV;
+                    double e2x = pU - vU, e2y = pV - vV;
+                    for (int dir = 0; dir < 4; dir++) {
+                        double dx = (dir == 0) ? 1 : (dir == 2 ? -1 : 0);
+                        double dy = (dir == 1) ? 1 : (dir == 3 ? -1 : 0);
+                        // H1 instrumentation: detect cardinals exactly on a wedge boundary.
+                        double c1 = e1x * dy - e1y * dx;
+                        double c2 = dx * e2y - dy * e2x;
+                        if (Math.abs(c1) < 1e-7 || Math.abs(c2) < 1e-7) {
+                            boundaryCardinal = true;
+                        }
+                        if (!cardinalInFaceWedge(e1x, e1y, e2x, e2y, dx, dy)) continue;
+                        Motorcycle m = launch(vId, faceId, cV, dir, startNode);
+                        if (m != null && !m.trace().isEmpty()) {
+                            motorcycles.add(m);
+                            launchedFromThisSing++;
+                        }
+                    }
                 }
+                int bucket = Math.min(launchedFromThisSing, statSingLaunchCount.length - 1);
+                statSingLaunchCount[bucket]++;
+                if (boundaryCardinal) statSingBoundaryCardinals++;
             }
-            return new Result(motorcycles, nodes);
+            return new Result(motorcycles, nodes, crashes, singVertexToNode);
+        }
+
+        /** Is cardinal {@code (dx, dy)} strictly inside the face wedge bounded
+         *  by {@code (e1x, e1y)} and {@code (e2x, e2y)} (CCW from e1 to e2)? */
+        private static boolean cardinalInFaceWedge(double e1x, double e1y,
+                                                    double e2x, double e2y,
+                                                    double dx, double dy) {
+            // Wedge total cross > 0 means CCW wedge < 180°.
+            double cTotal = e1x * e2y - e1y * e2x;
+            double c1 = e1x * dy - e1y * dx;
+            double c2 = dx * e2y - dy * e2x;
+            double eps = 1e-9;
+            if (cTotal > 0) {
+                return c1 > eps && c2 > eps;
+            } else {
+                // Reflex wedge (cone singularity > 180°): inside iff NOT in the
+                // complementary acute wedge.
+                return !(c1 < -eps && c2 < -eps);
+            }
         }
 
         /**
@@ -134,6 +268,15 @@ public final class MotorcycleGraph {
             ArrayList<Motorcycle.Step> trace = new ArrayList<>();
             int finalNode = -1;
             int motorcycleId = motorcycles.size();
+            // PATCH-44 Lyon §3: track per-side α-bound hits to know when to stop.
+            // leftHit = saw a crash where the prior trace t_j is rotated +90°
+            // CCW from this motorcycle's direction (j is on the "right" side
+            // of t_i in seamless param) AND |α_ij| ≤ alpha.
+            // rightHit is the symmetric flag.
+            boolean leftHit = false;
+            boolean rightHit = false;
+            // Cumulative parametric length up to start of current step.
+            float cumLen = 0f;
 
             for (int step = 0; step < MAX_STEPS; step++) {
                 if (curFace < 0 || param.uvSignedArea(curFace) <= 0) {
@@ -154,6 +297,7 @@ public final class MotorcycleGraph {
                 // segment in this face — the closest one wins.
                 float bestT = Float.POSITIVE_INFINITY;
                 int bestPriorMotorcycle = -1;
+                int bestPriorStep = -1;
                 for (float[] seg : facePaths[curFace]) {
                     int priorId = (int) seg[0];
                     if (priorId == motorcycleId) continue;     // own trace; skip
@@ -162,6 +306,7 @@ public final class MotorcycleGraph {
                     if (t > STEP_EPS && t < bestT) {
                         bestT = t;
                         bestPriorMotorcycle = priorId;
+                        bestPriorStep = (int) seg[1];
                     }
                 }
 
@@ -184,19 +329,74 @@ public final class MotorcycleGraph {
                     }
                 }
 
-                // If a prior motorcycle's trace is closer than the face edge,
-                // crash here.
+                // PATCH-44: handle crash with Lyon §3 survival rule.
                 if (bestPriorMotorcycle >= 0 && bestT <= exitT) {
                     float crashU = u + bestT * du;
                     float crashV = v + bestT * dv;
-                    finalNode = recordNode(TNode.NodeKind.INTERSECTION, curFace,
-                            crashU, crashV);
+
+                    // Classify the crash by α_ij sign + magnitude (Lyon §3).
+                    Motorcycle prior = motorcycles.get(bestPriorMotorcycle);
+                    Motorcycle.Step priorStep = prior.trace().get(bestPriorStep);
+                    double priorDu = priorStep.uOut() - priorStep.uIn();
+                    double priorDv = priorStep.vOut() - priorStep.vIn();
+                    // cross > 0  ⇒ t_j (prior) is rotated +90° CCW from t_i
+                    //              (our motorcycle); j is on our right side.
+                    // cross < 0  ⇒ rotated −90°; j is on our left side.
+                    double cross = (double) du * priorDv - (double) dv * priorDu;
+
+                    // l_ij = parametric distance from i to crash along t_i.
+                    float lIj = cumLen + bestT;
+                    // l_ji = parametric distance from j to crash along t_j.
+                    float lJi = cumulativeLengthToCrash(bestPriorMotorcycle,
+                            bestPriorStep, crashU, crashV);
+                    // |α_ij| = atan(l_ji / l_ij). Both sides positive parametric.
+                    double absAlphaIj = (lIj < 1e-9f)
+                            ? Math.PI / 2
+                            : Math.atan((double) lJi / (double) lIj);
+
+                    if (alpha > 1e-9 && absAlphaIj <= alpha + 1e-9) {
+                        if (cross < 0) leftHit = true;
+                        else if (cross > 0) rightHit = true;
+                    }
+
+                    int crashNodeId = recordNode(TNode.NodeKind.INTERSECTION,
+                            curFace, crashU, crashV);
                     Motorcycle.Step s = new Motorcycle.Step(curFace, u, v,
                             crashU, crashV, -1);
                     trace.add(s);
                     facePaths[curFace].add(new float[]{
                             motorcycleId, step, u, v, crashU, crashV});
-                    break;
+                    // Crash on the prior trace: TMesh.build will split t_j
+                    // at the intersection. Record |α_ij| for Lyon §4.3 Eq.(4).
+                    crashes.add(new Crash(bestPriorMotorcycle, bestPriorStep,
+                            crashU, crashV, crashNodeId,
+                            motorcycleId, step, absAlphaIj));
+
+                    boolean stop = (alpha <= 1e-9)            // Eppstein mode
+                            || (leftHit && rightHit);          // Lyon both-sides
+                    if (stop) {
+                        finalNode = crashNodeId;
+                        break;
+                    }
+
+                    // Survive — but ALSO record a self-crash so TMesh.build
+                    // splits OUR trace at this intersection. Without this,
+                    // the surviving motorcycle's trace remains a single
+                    // TArc traversing the valence-4 node, which breaks
+                    // planar face enumeration (the half-arc graph isn't
+                    // a true planar DCEL anymore).
+                    crashes.add(new Crash(motorcycleId, step,
+                            crashU, crashV, crashNodeId,
+                            motorcycleId, step, absAlphaIj));
+
+                    // Advance past the crash by a tiny epsilon and continue
+                    // the raycast in the same direction. The split step we
+                    // just added closes the previous arc-section; the next
+                    // step starts fresh from the crash point.
+                    cumLen += bestT;
+                    u = crashU;
+                    v = crashV;
+                    continue;
                 }
 
                 if (exitEdgeIdx < 0 || !Float.isFinite(exitT)) {
@@ -212,6 +412,7 @@ public final class MotorcycleGraph {
                 trace.add(st);
                 facePaths[curFace].add(new float[]{
                         motorcycleId, step, u, v, exitU, exitV});
+                cumLen += exitT;
 
                 // Transition into the neighbor face.
                 int faceMeshEdge = mesh.faceEdgeAt(curFace, exitEdgeIdx);
@@ -299,6 +500,37 @@ public final class MotorcycleGraph {
             TNode n = new TNode(nodes.size(), kind, faceId, u, v);
             nodes.add(n);
             return n.id();
+        }
+
+        /** Walk prior motorcycle's trace from its origin, summing per-step
+         *  parametric lengths up to and into step {@code crashStepIdx}, where
+         *  the crash sits at {@code (crashU, crashV)} within that step. */
+        float cumulativeLengthToCrash(int priorMotorcycleId, int crashStepIdx,
+                                       float crashU, float crashV) {
+            Motorcycle prior = motorcycles.get(priorMotorcycleId);
+            float sum = 0f;
+            var trace = prior.trace();
+            for (int k = 0; k < crashStepIdx && k < trace.size(); k++) {
+                Motorcycle.Step s = trace.get(k);
+                float du = s.uOut() - s.uIn();
+                float dv = s.vOut() - s.vIn();
+                sum += (float) Math.hypot(du, dv);
+            }
+            if (crashStepIdx >= 0 && crashStepIdx < trace.size()) {
+                Motorcycle.Step s = trace.get(crashStepIdx);
+                float du = s.uOut() - s.uIn();
+                float dv = s.vOut() - s.vIn();
+                sum += (float) Math.hypot(crashU - s.uIn(), crashV - s.vIn());
+                // Cap at full step length (numerical safety).
+                float stepLen = (float) Math.hypot(du, dv);
+                if (sum > 0 && stepLen > 0
+                        && Math.hypot(crashU - s.uIn(), crashV - s.vIn()) > stepLen) {
+                    // Crash measured to be past step end — clamp.
+                    sum = sum - (float) Math.hypot(crashU - s.uIn(), crashV - s.vIn())
+                            + stepLen;
+                }
+            }
+            return sum;
         }
 
         int neighborFace(int faceId, int meshEdgeId) {
