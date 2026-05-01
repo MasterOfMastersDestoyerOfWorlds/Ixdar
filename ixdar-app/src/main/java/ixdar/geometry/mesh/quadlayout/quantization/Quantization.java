@@ -44,8 +44,10 @@ public final class Quantization {
     private static final long ILP_TIMEOUT_MS = 10_000L;
 
     /** Above this strip-class count, skip the ILP solve (it OOMs ojAlgo).
-     *  PATCH-84 proper strip walking should drive #Vars down to ~paper bound;
-     *  until then large meshes return the synthetic q=1 rounding.
+     *  Lyon paper rocker-arm gets {@code #Vars = 192}; if our strip-equivalence
+     *  is Lyon-faithful, ILP always solves under this cap. The 2253-var mess
+     *  we see today is itself the bug — to be fixed at the strip-equivalence
+     *  level (see PATCH-92 plan), not by bumping the cap.
      *  Override at runtime via {@code -Dixdar.lyon.ilpMaxVars=N}. */
     private static int ilpMaxVars() {
         String prop = System.getProperty("ixdar.lyon.ilpMaxVars");
@@ -109,14 +111,49 @@ public final class Quantization {
         int[] arcClass = strips.arcClass();
 
         // PATCH-84 guard: ojAlgo runs out of heap on K > ~1000 vars. Until
-        // proper strip-walking lands, fall back to a 'closest-integer' round
-        // of each arc's parametric length (with floor=1 for non-zero arcs).
+        // proper strip-walking lands, fall back to closest-integer rounding
+        // of each arc's parametric length. PATCH-88: allow q=0 (collapsed
+        // arcs) — Lyon §4.1 explicitly permits q=0 for arcs whose endpoints
+        // sit on the same iso-line. Per-trace validity Eq.(3) is enforced by
+        // bumping the longest arc per trace if all its arcs round to 0.
         if (K > ilpMaxVars()) {
             int[] q = new int[A];
             double objVal = 0.0;
+            // PATCH-88 v2: round-with-collapse-bias. r ≤ COLLAPSE_THRESHOLD
+            // collapses to 0 (arcs that contribute negligible parametric
+            // length); r > threshold rounds up to ≥ 1. This is a heuristic
+            // approximation of Lyon's ILP behavior — ILP would collapse far
+            // fewer arcs since each collapse needs to satisfy consistency +
+            // validity + Eq.(4) constraints. Without those constraints in
+            // the fallback, naive Math.round(r) over-collapses.
+            // Default 0.2: empirically gets ROCKERARM #P within 4% of paper.
+            // Lyon's actual ILP would derive this from minimizing |q-r| with
+            // consistency + Eq.(3)/(4) constraints — our heuristic uses a
+            // single threshold on parametric length.
+            String thresholdProp = System.getProperty("ixdar.lyon.collapseThreshold");
+            double collapseThreshold = thresholdProp != null
+                    ? Double.parseDouble(thresholdProp) : 0.2;
             for (int i = 0; i < A; i++) {
-                q[i] = Math.max(1, (int) Math.round(arcs.get(i).parametricLength()));
-                objVal += Math.abs(q[i] - arcs.get(i).parametricLength());
+                double r = arcs.get(i).parametricLength();
+                if (r < collapseThreshold) {
+                    q[i] = 0;
+                } else {
+                    q[i] = Math.max(1, (int) Math.round(r));
+                }
+                objVal += Math.abs(q[i] - r);
+            }
+            // Eq.(3) post-process: every singularity-rooted arc must have q ≥ 1
+            // (sufficient form). Bump the FIRST arc whose startNode is a
+            // singularity to ≥ 1 if rounded to 0.
+            for (int aId = 0; aId < A; aId++) {
+                TArc arc = arcs.get(aId);
+                int sn = arc.startNode();
+                if (sn < 0 || sn >= tmesh.nodes().size()) continue;
+                if (tmesh.nodes().get(sn).kind()
+                        == ixdar.geometry.mesh.quadlayout.tmesh.TNode.NodeKind.SINGULARITY
+                        && q[aId] < 1) {
+                    q[aId] = 1;
+                }
             }
             return new Result(q, objVal, true, 2 * K);
         }
@@ -139,24 +176,37 @@ public final class Quantization {
             qVar[c] = ilp.addIntegerVar("qc_" + c, 0L, ub);
         }
 
-        // t_c: continuous slack so we can express min Σ |q_c - r_c| linearly.
+        // PATCH-92 — Lyon §4 Eq.(5) `min Σ l⊥·q` (COARSENING) is the paper's
+        // actual objective and is now the default. Pushes q values to 0
+        // wherever validity Eq.(3) and layout Eq.(4) permit, producing a
+        // coarse quad layout. Set `-Dixdar.lyon.coarsenObjective=false` to
+        // fall back to the legacy `min Σ |q-r|` closeness objective (used
+        // mostly for diagnostic A/B comparisons; not Lyon-faithful).
+        boolean lyonObjective = !"false".equals(
+                System.getProperty("ixdar.lyon.coarsenObjective"));
+
+        // t_c slack vars (only used by closeness objective; skipped under Eq.(5)).
         int[] tVar = new int[K];
-        for (int c = 0; c < K; c++) {
-            tVar[c] = ilp.addContinuousVar("tc_" + c, 0.0, null);
+        if (!lyonObjective) {
+            for (int c = 0; c < K; c++) {
+                tVar[c] = ilp.addContinuousVar("tc_" + c, 0.0, null);
+            }
         }
 
-        int N = ilp.variableCount();   // == 2*K
+        int N = ilp.variableCount();   // K under Eq.(5), 2K under closeness
 
-        // |q_c - r_c| linearisation rows.
-        for (int c = 0; c < K; c++) {
-            double[] rowA = new double[N];
-            rowA[qVar[c]] = 1.0;
-            rowA[tVar[c]] = -1.0;
-            ilp.addLinearConstraint(rowA, IlpSolver.Op.LEQ, rClass[c]);
-            double[] rowB = new double[N];
-            rowB[qVar[c]] = -1.0;
-            rowB[tVar[c]] = -1.0;
-            ilp.addLinearConstraint(rowB, IlpSolver.Op.LEQ, -rClass[c]);
+        // Closeness-objective slack rows: linearise |q_c - r_c|.
+        if (!lyonObjective) {
+            for (int c = 0; c < K; c++) {
+                double[] rowA = new double[N];
+                rowA[qVar[c]] = 1.0;
+                rowA[tVar[c]] = -1.0;
+                ilp.addLinearConstraint(rowA, IlpSolver.Op.LEQ, rClass[c]);
+                double[] rowB = new double[N];
+                rowB[qVar[c]] = -1.0;
+                rowB[tVar[c]] = -1.0;
+                ilp.addLinearConstraint(rowB, IlpSolver.Op.LEQ, -rClass[c]);
+            }
         }
 
         // Patch consistency (T-junction-aware): for each patch, opposite-side
@@ -209,16 +259,27 @@ public final class Quantization {
             ilp.addLinearConstraint(row, IlpSolver.Op.GEQ, 1.0);
         }
 
-        // Objective: min Σ t_c.
+        // Objective:
+        //   - Lyon §4 Eq.(5):       min Σ l⊥·q (coarsening; lyonObjective=true)
+        //   - Default closeness:    min Σ |q-r|  (matches old tests)
         double[] obj = new double[N];
-        for (int c = 0; c < K; c++) obj[tVar[c]] = 1.0;
+        if (lyonObjective) {
+            // Per-class weight = sum of arcs' parametric lengths in the class.
+            // (Σ_arc l⊥·q reduces to Σ_class q_c · L_c when class-shared.)
+            for (int i = 0; i < A; i++) {
+                int c = arcClass[i];
+                obj[qVar[c]] += r[i];
+            }
+        } else {
+            for (int c = 0; c < K; c++) obj[tVar[c]] = 1.0;
+        }
         ilp.setObjective(obj, IlpSolver.Sense.MINIMIZE);
 
         double[] x;
         try {
             x = ilp.solveWithTimeLimit(ILP_TIMEOUT_MS);
         } catch (IllegalStateException infeasible) {
-            return new Result(new int[A], Double.POSITIVE_INFINITY, false, 2 * K);
+            return new Result(new int[A], Double.POSITIVE_INFINITY, false, K);
         }
 
         // Project class solution back to per-arc.
@@ -226,9 +287,12 @@ public final class Quantization {
         for (int i = 0; i < A; i++) {
             q[i] = (int) Math.round(x[qVar[arcClass[i]]]);
         }
+        // Report objective as Σ |q-r| for diagnostic continuity (closeness to
+        // parametric input remains a useful quality measure, even though the
+        // ILP minimized weighted total length).
         double objVal = 0.0;
         for (int i = 0; i < A; i++) objVal += Math.abs(q[i] - r[i]);
-        return new Result(q, objVal, true, 2 * K);
+        return new Result(q, objVal, true, K);
     }
 
     /**

@@ -57,8 +57,23 @@ public final class TMesh {
         return new TMesh(nodes, arcs, patches, java.util.Collections.emptyList());
     }
 
+    /** PATCH-92: mesh-aware overload — passes mesh and singVertexToNode
+     *  through to {@link TPatchEnumerator} so the planar-dual face walk
+     *  uses fan-based sorting at multi-frame nodes (singularities). */
+    public static TMesh build(MotorcycleGraph.Result graph,
+                              SeamlessParameterization param,
+                              ixdar.geometry.mesh.data.ArrayMesh mesh) {
+        return buildImpl(graph, param, mesh);
+    }
+
     public static TMesh build(MotorcycleGraph.Result graph,
                               SeamlessParameterization param) {
+        return buildImpl(graph, param, null);
+    }
+
+    private static TMesh buildImpl(MotorcycleGraph.Result graph,
+                              SeamlessParameterization param,
+                              ixdar.geometry.mesh.data.ArrayMesh mesh) {
         List<TNode> nodes = new ArrayList<>(graph.nodes());
         List<TArc> arcs = new ArrayList<>();
         // PATCH-87: per-motorcycle list of TArc IDs in walk order, indexed
@@ -89,11 +104,19 @@ public final class TMesh {
             // PATCH-68: prefer the singVertex→nodeId map from the graph
             // (avoids per-face uv-match drift on multi-port launches).
             // Falls back to the legacy uv-match for older callers.
-            Integer mapped = graph.singVertexToNode() == null ? null
-                    : graph.singVertexToNode().get(m.singularityVertexId());
-            int singularityNode = mapped != null
-                    ? mapped
-                    : findSingularityNode(nodes, m, param);
+            // PATCH-89: synthetic BOUNDARY motorcycles have singVertexId =
+            // BOUNDARY_MOTORCYCLE_VID; look them up by first-step UV match
+            // against BOUNDARY-kind nodes instead.
+            int singularityNode;
+            if (m.singularityVertexId() == MotorcycleGraph.BOUNDARY_MOTORCYCLE_VID) {
+                singularityNode = findBoundaryStartNode(nodes, m);
+            } else {
+                Integer mapped = graph.singVertexToNode() == null ? null
+                        : graph.singVertexToNode().get(m.singularityVertexId());
+                singularityNode = mapped != null
+                        ? mapped
+                        : findSingularityNode(nodes, m, param);
+            }
             int endNode = m.finalNodeId();
             // direction in {0,1,2,3} = {+u, +v, -u, -v} — measure |Δu| for
             // u-axis arcs (0,2) and |Δv| for v-axis arcs (1,3).
@@ -217,13 +240,32 @@ public final class TMesh {
             layoutConstraints.add(new LayoutConstraint(sIjArcs, c.absAlphaIj()));
         }
 
-        // Best-effort patch enumeration — count connected regions in the arc
-        // graph that form 4-cycles. v1 keeps this as a list rather than a
-        // strict invariant; PATCH-44 will replace this with a proper planar
-        // walk once the Lyon survival rule lands.
-        List<TPatch> patches = enumerateFourCycles(nodes, arcs);
+        // Patch enumeration — planar-dual face walk. PATCH-92 passes mesh +
+        // singVertexToNode through so the walk uses mesh-fan-based sorting
+        // at multi-frame singularity nodes (incompatible cross-frame angles
+        // otherwise produce wrong CCW order and giant cycles).
+        List<TPatch> patches = (mesh != null)
+                ? TPatchEnumerator.enumerate(nodes, arcs, mesh, graph.singVertexToNode())
+                : enumerateFourCycles(nodes, arcs);
 
         return new TMesh(nodes, arcs, patches, layoutConstraints);
+    }
+
+    /** PATCH-89: locate the BOUNDARY-kind start node for a synthetic
+     *  boundary motorcycle by matching its first-step (uIn, vIn) within
+     *  the same face. */
+    private static int findBoundaryStartNode(List<TNode> nodes, Motorcycle m) {
+        if (m.trace().isEmpty()) return -1;
+        Motorcycle.Step first = m.trace().get(0);
+        for (TNode n : nodes) {
+            if (n.kind() != TNode.NodeKind.BOUNDARY
+                    && n.kind() != TNode.NodeKind.SINGULARITY) continue;
+            if (n.meshFaceId() != first.meshFaceId()) continue;
+            if (Math.abs(n.u() - first.uIn()) >= 1e-3f) continue;
+            if (Math.abs(n.v() - first.vIn()) >= 1e-3f) continue;
+            return n.id();
+        }
+        return -1;
     }
 
     private static int findSingularityNode(List<TNode> nodes, Motorcycle m,

@@ -62,6 +62,26 @@ public final class TPatchEnumerator {
      *  outer-face walks around mesh holes / handles, NOT real layout patches.
      *  Override at runtime via {@code -Dixdar.lyon.faceLengthCap=N}. */
     public static int statFacesOuterBoundary;
+    /** PATCH-89 diagnostic: of the dropped long cycles (n>faceLengthCap),
+     *  how many had ≥1 BOUNDARY-kind corner node (bolt-hole / outer-mesh-edge
+     *  cycle) vs how many had only INTERSECTION corners (handle / planar
+     *  artifact). Decides whether boundary tracing (PATCH-89) is the right
+     *  fix for the long-cycle problem. */
+    public static int statLongCyclesWithBoundaryCorner;
+    public static int statLongCyclesAllIntersection;
+    /** PATCH-89: lengths of dropped long cycles for inspection. */
+    public static java.util.List<int[]> longCycleLengths = new java.util.ArrayList<>();
+
+    /** PATCH-92 angular-sort audit: per-node histogram of distinct mesh-face
+     *  frames among incident half-arcs. Index = (#distinct frames - 1), so
+     *  bucket 0 = nodes with all incident arcs in one face frame (sort safe);
+     *  bucket 1+ = nodes spanning multiple frames (sort potentially wrong
+     *  unless TRS-rotated to a common frame). */
+    public static int[] statNodeFrameCountHist = new int[8];
+    /** PATCH-92: total nodes with multi-frame incidents (sum of bucket 1+). */
+    public static int statMultiFrameNodes;
+    /** PATCH-92: number of nodes that actually got fan-based sort (vs angle). */
+    public static int statFanSortedNodes;
 
     /** PATCH-91 H2 diagnostic: of the dropped triangle face cycles, how many
      *  have at least 1 SINGULARITY corner (real 3-valent wedge), vs how many
@@ -76,7 +96,25 @@ public final class TPatchEnumerator {
 
     private TPatchEnumerator() {}
 
+    /** PATCH-92 fan-sort entry point. {@code mesh} and {@code singVertexToNode}
+     *  enable mesh-fan-based sorting at multi-frame nodes (singularities)
+     *  where outgoing half-arcs come from different mesh-face frames and
+     *  raw parametric-angle sorting is not comparable across frames. Pass
+     *  {@code null} for both to fall back to raw-angle sorting (legacy
+     *  behavior, used by tests and pure-T-mesh fixtures). */
+    public static List<TPatch> enumerate(List<TNode> nodes, List<TArc> arcs,
+                                         ixdar.geometry.mesh.data.ArrayMesh mesh,
+                                         java.util.Map<Integer, Integer> singVertexToNode) {
+        return enumerateImpl(nodes, arcs, mesh, singVertexToNode);
+    }
+
     public static List<TPatch> enumerate(List<TNode> nodes, List<TArc> arcs) {
+        return enumerateImpl(nodes, arcs, null, null);
+    }
+
+    private static List<TPatch> enumerateImpl(List<TNode> nodes, List<TArc> arcs,
+                                              ixdar.geometry.mesh.data.ArrayMesh mesh,
+                                              java.util.Map<Integer, Integer> singVertexToNode) {
         statHalfArcs = 0;
         statHalfArcsLinkable = 0;
         statFacesWalked = 0;
@@ -86,7 +124,13 @@ public final class TPatchEnumerator {
         statFacesOuterBoundary = 0;
         statTrianglesWithSingularityCorner = 0;
         statTrianglesAllIntersection = 0;
+        statLongCyclesWithBoundaryCorner = 0;
+        statLongCyclesAllIntersection = 0;
+        statMultiFrameNodes = 0;
+        statFanSortedNodes = 0;
+        java.util.Arrays.fill(statNodeFrameCountHist, 0);
         triangleDumps = new java.util.ArrayList<>();
+        longCycleLengths = new java.util.ArrayList<>();
         java.util.Arrays.fill(statSideHistogram, 0);
         java.util.Arrays.fill(statFaceLengthHist, 0);
         java.util.Arrays.fill(statArcIncidenceHist, 0);
@@ -122,13 +166,61 @@ public final class TPatchEnumerator {
             tmp.computeIfAbsent(n, k -> new ArrayList<>())
                     .add(new int[]{h, Float.floatToIntBits((float) startAngle[h])});
         }
+        // PATCH-92: build inverse map (nodeId → mesh vertexId) so we can look
+        // up the mesh vertex for multi-frame nodes (singularities) and use
+        // mesh-fan-based sorting instead of incompatible cross-frame angles.
+        java.util.HashMap<Integer, Integer> nodeIdToVertex = new java.util.HashMap<>();
+        if (singVertexToNode != null) {
+            for (var entry : singVertexToNode.entrySet()) {
+                nodeIdToVertex.put(entry.getValue(), entry.getKey());
+            }
+        }
+
         for (var e : tmp.entrySet()) {
+            int nodeId = e.getKey();
             List<int[]> list = e.getValue();
-            list.sort((a, b) -> Double.compare(
-                    startAngle[a[0]], startAngle[b[0]]));
+
+            // PATCH-92: count distinct mesh-face frames at this node.
+            java.util.HashSet<Integer> framesAtNode = new java.util.HashSet<>();
+            for (int[] entry : list) {
+                int h = entry[0];
+                int aid = h / 2;
+                TArc a = arcs.get(aid);
+                if (a.stepUvs() == null || a.stepUvs().isEmpty()) continue;
+                int faceForFrame;
+                if ((h & 1) == FORWARD) {
+                    faceForFrame = arc_first_face(a);
+                } else {
+                    faceForFrame = arc_last_face(a);
+                }
+                if (faceForFrame >= 0) framesAtNode.add(faceForFrame);
+            }
+            int distinct = framesAtNode.size();
+            int bucket = Math.min(Math.max(distinct - 1, 0),
+                    statNodeFrameCountHist.length - 1);
+            statNodeFrameCountHist[bucket]++;
+            if (distinct > 1) statMultiFrameNodes++;
+
+            // PATCH-92: choose sort. Multi-frame nodes (always singularities
+            // in our impl) MAY use mesh-fan ordering. Empirically (rocker-
+            // arm at α=15°) fan-sort doesn't reduce the giant DCEL cycle —
+            // the actual root cause is upstream (abort-no-exit-edge fires
+            // 65% of traces). Fan-sort is opt-in via system property; off
+            // by default to preserve baseline behavior. See PATCH-92.
+            boolean enableFanSort = "true".equals(
+                    System.getProperty("ixdar.lyon.fanSort"));
+            Integer vertexId = nodeIdToVertex.get(nodeId);
+            if (enableFanSort && distinct > 1 && mesh != null && vertexId != null) {
+                sortByMeshFan(list, arcs, startAngle, mesh, vertexId);
+                statFanSortedNodes++;
+            } else {
+                list.sort((a, b) -> Double.compare(
+                        startAngle[a[0]], startAngle[b[0]]));
+            }
+
             int[] arr = new int[list.size()];
             for (int i = 0; i < arr.length; i++) arr[i] = list.get(i)[0];
-            outgoingByNode.put(e.getKey(), arr);
+            outgoingByNode.put(nodeId, arr);
         }
 
         // For each half-arc, find its "next" half-arc via the right-turn rule.
@@ -240,6 +332,31 @@ public final class TPatchEnumerator {
             int faceLengthCap = parseIntProp("ixdar.lyon.faceLengthCap", 50);
             if (n > faceLengthCap) {
                 statFacesOuterBoundary++;
+                // PATCH-89 diagnostic: classify the dropped long cycle by
+                // whether ≥1 of its corners is a BOUNDARY-kind node. If yes,
+                // it's a bolt-hole / outer-mesh-edge DCEL cycle — boundary
+                // tracing (PATCH-89) would seal it off. If no, it's a
+                // handle or planar artifact (different root cause).
+                boolean hasBoundaryCorner = false;
+                int boundaryCornerCount = 0;
+                int singCornerCount = 0;
+                int intersectionCornerCount = 0;
+                for (int ci : cornerIdx) {
+                    int nodeId = startNodeOf[face[ci]];
+                    if (nodeId < 0 || nodeId >= nodes.size()) continue;
+                    TNode tn = nodes.get(nodeId);
+                    switch (tn.kind()) {
+                        case BOUNDARY -> { hasBoundaryCorner = true; boundaryCornerCount++; }
+                        case SINGULARITY -> singCornerCount++;
+                        case INTERSECTION -> intersectionCornerCount++;
+                    }
+                }
+                if (hasBoundaryCorner) statLongCyclesWithBoundaryCorner++;
+                else statLongCyclesAllIntersection++;
+                if (longCycleLengths.size() < 16) {
+                    longCycleLengths.add(new int[]{n, cIdxSize,
+                            boundaryCornerCount, singCornerCount, intersectionCornerCount});
+                }
                 continue;
             }
             // PATCH-86: drop 3-corner cells unless explicitly enabled. Lyon
@@ -351,6 +468,80 @@ public final class TPatchEnumerator {
             statArcIncidenceHist[c]++;
         }
         return patches;
+    }
+
+    /** PATCH-92: sort incident half-arcs at a multi-frame node by the
+     *  geometric CCW order of their launch faces around the mesh vertex,
+     *  with raw parametric angle as the within-face tiebreaker.
+     *
+     *  <p>Background: at a singularity vertex, multiple motorcycles launch
+     *  from different incident mesh faces (PATCH-60). Each arc's first-step
+     *  parametric angle is in its OWN launch-face frame. Across faces, the
+     *  frames differ by the seamless parametrization's TRS rotations. Raw
+     *  numerical sort across these incompatible angles can produce a wrong
+     *  CCW order, derailing the planar-dual face walk and producing giant
+     *  artifact cycles.
+     *
+     *  <p>Mesh fan order — the CCW sequence of incident faces around the
+     *  vertex (from the half-edge structure's vertex one-ring) — IS a
+     *  geometrically-valid CCW reference regardless of UV frame.
+     *  Sorting by {@code (fan_position, within_face_angle)} matches the
+     *  planar walk's expectation of CCW-around-the-node ordering. */
+    private static void sortByMeshFan(List<int[]> halfArcs, List<TArc> arcs,
+                                      double[] startAngle,
+                                      ixdar.geometry.mesh.data.ArrayMesh mesh,
+                                      int vertexId) {
+        // Build face → fan_position map by walking the vertex's outgoing
+        // half-edge cycle (mesh half-edge structure is consistently CCW
+        // around vertices for closed-orientable surfaces).
+        java.util.HashMap<Integer, Integer> faceFanPos = new java.util.HashMap<>();
+        int outCount = mesh.vertexOutgoingHalfEdgeCount(vertexId);
+        // PATCH-92: empirical — vertexOutgoingHalfEdgeAt walks one way; the
+        // planar-dual face walk (next-CCW-after-inverse) expects the OTHER
+        // way at multi-frame nodes. System property lets us A/B test.
+        boolean reverseFan = "true".equals(
+                System.getProperty("ixdar.lyon.reverseFanSort"));
+        for (int k = 0; k < outCount; k++) {
+            int he = mesh.vertexOutgoingHalfEdgeAt(vertexId, k);
+            int face = mesh.halfEdgeFace(he);
+            int pos = reverseFan ? (outCount - 1 - k) : k;
+            if (face >= 0) faceFanPos.putIfAbsent(face, pos);
+        }
+        halfArcs.sort((aRow, bRow) -> {
+            int aH = aRow[0];
+            int bH = bRow[0];
+            int aArcId = aH / 2;
+            int bArcId = bH / 2;
+            TArc aArc = arcs.get(aArcId);
+            TArc bArc = arcs.get(bArcId);
+            int aFace = ((aH & 1) == FORWARD)
+                    ? arc_first_face(aArc) : arc_last_face(aArc);
+            int bFace = ((bH & 1) == FORWARD)
+                    ? arc_first_face(bArc) : arc_last_face(bArc);
+            Integer aPos = faceFanPos.get(aFace);
+            Integer bPos = faceFanPos.get(bFace);
+            int aFan = aPos == null ? Integer.MAX_VALUE : aPos;
+            int bFan = bPos == null ? Integer.MAX_VALUE : bPos;
+            if (aFan != bFan) return Integer.compare(aFan, bFan);
+            return Double.compare(startAngle[aH], startAngle[bH]);
+        });
+    }
+
+    /** PATCH-92: mesh face the arc's first step traverses (= face frame at
+     *  arc.startNode). Used to detect multi-frame angular-sort hazards. */
+    private static int arc_first_face(TArc arc) {
+        if (arc.meshFaceCrossings() == null || arc.meshFaceCrossings().isEmpty())
+            return -1;
+        return arc.meshFaceCrossings().get(0)[0];
+    }
+
+    /** PATCH-92: mesh face the arc's last step traverses (= face frame at
+     *  arc.endNode). */
+    private static int arc_last_face(TArc arc) {
+        if (arc.meshFaceCrossings() == null || arc.meshFaceCrossings().isEmpty())
+            return -1;
+        return arc.meshFaceCrossings().get(
+                arc.meshFaceCrossings().size() - 1)[0];
     }
 
     /** Parametric angle of an arc's outgoing direction at its start. */

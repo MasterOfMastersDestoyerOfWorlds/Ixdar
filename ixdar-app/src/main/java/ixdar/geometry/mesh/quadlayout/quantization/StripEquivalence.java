@@ -54,37 +54,22 @@ public final class StripEquivalence {
         }
     }
 
-    /** Per-arc patch incidence record: where this arc sits in a patch. */
-    private record ArcInPatch(int patchIdx, int side, int posOnSide) {}
-
     public static Result compute(TMesh tmesh) {
         int n = tmesh.arcs().size();
         int[] parent = new int[n];
         for (int i = 0; i < n; i++) parent[i] = i;
 
         List<TPatch> patches = tmesh.patches();
-        // Build arc → list of (patch, side, position) incidences.
-        @SuppressWarnings("unchecked")
-        List<ArcInPatch>[] arcIncidence = new List[n];
-        for (int pi = 0; pi < patches.size(); pi++) {
-            TPatch p = patches.get(pi);
-            int[][] sides = p.arcsBySide();
-            if (sides == null || sides.length != 4) continue;
-            for (int s = 0; s < 4; s++) {
-                int[] sideArcs = sides[s];
-                for (int k = 0; k < sideArcs.length; k++) {
-                    int aId = sideArcs[k];
-                    if (aId < 0 || aId >= n) continue;
-                    if (arcIncidence[aId] == null) {
-                        arcIncidence[aId] = new ArrayList<>(2);
-                    }
-                    arcIncidence[aId].add(new ArcInPatch(pi, s, k));
-                }
-            }
-        }
 
-        // For each (patch, side-pair), if both opposing sides have the same
-        // arc count, union by reversed-position correspondence.
+        // ====================================================================
+        // PASS 1 — Lyon §5.2 patch-level strip equivalence (the canonical
+        // case from the paper). For each 4-sided patch, union opposite-side
+        // arcs by reversed-position correspondence. Across-strip arcs
+        // (perpendicular to the strip's bounding traces) chain through
+        // adjacent patches via shared arcs, building strip equivalence
+        // classes. ALL arcs in 4-sided patches participate; this pass alone
+        // gives the correct answer on the toy 2x2 grid test.
+        // ====================================================================
         for (int pi = 0; pi < patches.size(); pi++) {
             TPatch p = patches.get(pi);
             int[][] sides = p.arcsBySide();
@@ -93,37 +78,82 @@ public final class StripEquivalence {
             unionByReversedPosition(parent, sides[1], sides[3]);
         }
 
-        // Strip-walking: for each arc, walk through its other patch's
-        // opposite side. This propagates the union across patch chains
-        // (Lyon §5.2 strip walking). The seed unions above prime the
-        // reachability; this pass closes the chain.
-        boolean changed = true;
-        int safety = n * 4;
-        while (changed && safety-- > 0) {
-            changed = false;
-            for (int aId = 0; aId < n; aId++) {
-                List<ArcInPatch> incidences = arcIncidence[aId];
-                if (incidences == null || incidences.size() < 2) continue;
-                // Take the two patches sharing this arc; for each, check that
-                // the opposite side's arc(s) are in the same equivalence class.
-                for (ArcInPatch ip : incidences) {
-                    int[][] sides = patches.get(ip.patchIdx).arcsBySide();
-                    if (sides == null || sides.length != 4) continue;
-                    int[] sideA = sides[ip.side];
-                    int[] sideB = sides[(ip.side + 2) % 4];
-                    if (sideA == null || sideB == null) continue;
-                    if (sideA.length != sideB.length) continue;
-                    int n2 = sideA.length;
-                    int j = n2 - 1 - ip.posOnSide;
-                    if (j < 0 || j >= n2) continue;
-                    int otherArc = sideB[j];
-                    if (otherArc < 0 || otherArc >= n) continue;
-                    int rA = find(parent, aId);
-                    int rB = find(parent, otherArc);
-                    if (rA != rB) {
-                        parent[rA] = rB;
-                        changed = true;
-                    }
+        // ====================================================================
+        // PASS 2 — PATCH-92: node-level trace-continuation union for ARCS
+        // NOT IN ANY 4-SIDED PATCH (orphans + arcs in non-rectangular cells).
+        //
+        // Pass 1 alone leaves 1457 of 2753 arcs (53% on rocker-arm) as
+        // singleton classes because they sit inside long DCEL cycles, multi-
+        // corner cells, or triangle wedges — none of which Pass 1 walks.
+        // Per Lyon §3 these arcs SHOULD be in rectangular patches; the fact
+        // they aren't is a T-mesh-topology issue. Until that's fixed
+        // upstream, we approximate Lyon's strip equivalence at the NODE
+        // level: at each TNode, an arc arriving in cardinal X (incoming-X)
+        // and an arc leaving in cardinal X (outgoing-X) are collinear
+        // continuations of one motorcycle trace. Eq.(2) on the surrounding
+        // (possibly-virtual) patch implies q(incoming) = q(outgoing).
+        // Union them.
+        //
+        // This is NOT Lyon's full strip equivalence (which would put across-
+        // strip perpendicular arcs in the same class via patch chaining),
+        // but it captures the trace-continuation portion that Pass 1 misses
+        // for orphan arcs. Result: every arc in the T-mesh ends up in some
+        // class, giving #Vars closer to Lyon's bound.
+        // ====================================================================
+        boolean[] inFourSidedPatch = new boolean[n];
+        for (TPatch p : patches) {
+            int[][] sides = p.arcsBySide();
+            if (sides == null || sides.length != 4) continue;
+            for (int s = 0; s < 4; s++) {
+                for (int aId : sides[s]) {
+                    if (aId >= 0 && aId < n) inFourSidedPatch[aId] = true;
+                }
+            }
+        }
+
+        List<ixdar.geometry.mesh.quadlayout.tmesh.TArc> arcs = tmesh.arcs();
+        List<ixdar.geometry.mesh.quadlayout.tmesh.TNode> nodes = tmesh.nodes();
+        int nodeCount = nodes.size();
+
+        @SuppressWarnings("unchecked")
+        List<int[]>[] arcsAtNode = new List[nodeCount];
+        for (int aId = 0; aId < n; aId++) {
+            ixdar.geometry.mesh.quadlayout.tmesh.TArc arc = arcs.get(aId);
+            int sn = arc.startNode();
+            int en = arc.endNode();
+            int dirS = arc.directionAtStart();
+            int dirE = arc.directionAtEnd();
+            if (sn >= 0 && sn < nodeCount) {
+                if (arcsAtNode[sn] == null) arcsAtNode[sn] = new ArrayList<>(4);
+                arcsAtNode[sn].add(new int[]{aId, dirS, 0});
+            }
+            if (en >= 0 && en < nodeCount) {
+                if (arcsAtNode[en] == null) arcsAtNode[en] = new ArrayList<>(4);
+                arcsAtNode[en].add(new int[]{aId, dirE, 1});
+            }
+        }
+
+        for (int nId = 0; nId < nodeCount; nId++) {
+            List<int[]> incident = arcsAtNode[nId];
+            if (incident == null || incident.size() < 2) continue;
+            int[] outArcAtCard = {-1, -1, -1, -1};
+            int[] inArcAtCard  = {-1, -1, -1, -1};
+            for (int[] e : incident) {
+                int aId = e[0], card = e[1], role = e[2];
+                if (card < 0 || card > 3) continue;
+                // Skip arcs already in a 4-sided patch — Pass 1 handled them.
+                if (inFourSidedPatch[aId]) continue;
+                if (role == 0) {
+                    if (outArcAtCard[card] < 0) outArcAtCard[card] = aId;
+                } else {
+                    if (inArcAtCard[card] < 0) inArcAtCard[card] = aId;
+                }
+            }
+            for (int x = 0; x < 4; x++) {
+                int in = inArcAtCard[x];
+                int out = outArcAtCard[x];
+                if (in >= 0 && out >= 0) {
+                    union(parent, in, out);
                 }
             }
         }
@@ -144,7 +174,11 @@ public final class StripEquivalence {
         return new Result(classOf, classCount);
     }
 
-    /** Union arc[k] on sideA with arc[N-1-k] on sideB when counts match. */
+    /** Pass 1 helper: union arc[k] on sideA with arc[N-1-k] on sideB
+     *  when arc counts match. Opposite sides walk in reversed parametric
+     *  direction so the i-th arc on side A pairs with the (N-1-i)-th on
+     *  side B. Patch chaining via shared arcs propagates strip class
+     *  equivalence across patch boundaries. */
     private static void unionByReversedPosition(int[] parent,
                                                   int[] sideA, int[] sideB) {
         if (sideA == null || sideB == null) return;

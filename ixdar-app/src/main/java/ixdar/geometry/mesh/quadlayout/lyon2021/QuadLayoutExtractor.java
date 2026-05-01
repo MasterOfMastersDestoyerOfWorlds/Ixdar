@@ -40,6 +40,18 @@ public final class QuadLayoutExtractor {
                          int conformingPatches,
                          List<Integer> skippedPatchIds) {}
 
+    /** PATCH-92 diagnostic: per-bail counters in {@link #extractImpl}.
+     *  Reset on each call, exposed for benchmark scripts. */
+    public static int statTPatchesIn;
+    public static int statAllSingleArcEmit;
+    public static int statBailEmptySide;
+    public static int statBailNoMultiArcSide;
+    public static int statBailEqTwoViolated;       // sideLen != oppLen
+    public static int statBailNoMatchNoSplit;
+    public static int statBailDegenerateSplit;
+    public static int statTJunctionExactMatch;     // PATCH-77 success path
+    public static int statTJunctionArcSplit;       // PATCH-80 success path
+
     /** Worklist entry: a (possibly partially-resolved) patch under
      *  consideration, in LayoutArc-id terms. */
     private record WorkPatch(int sourceTPatchId,
@@ -92,6 +104,17 @@ public final class QuadLayoutExtractor {
         // Build worklist of WorkPatch entries (one per TPatch initially).
         Deque<WorkPatch> work = new ArrayDeque<>();
         ArrayList<Integer> skipped = new ArrayList<>();
+        // PATCH-92 diagnostic: reset counters.
+        statTPatchesIn = 0;
+        statAllSingleArcEmit = 0;
+        statBailEmptySide = 0;
+        statBailNoMultiArcSide = 0;
+        statBailEqTwoViolated = 0;
+        statBailNoMatchNoSplit = 0;
+        statBailDegenerateSplit = 0;
+        statTJunctionExactMatch = 0;
+        statTJunctionArcSplit = 0;
+
         ArrayList<TrianglePatch> triangles = new ArrayList<>();
         for (TPatch tp : tmesh.patches()) {
             int[][] tSides = tp.arcsBySide();
@@ -114,6 +137,7 @@ public final class QuadLayoutExtractor {
             int[][] sides = new int[4][];
             for (int s = 0; s < 4; s++) sides[s] = tSides[s].clone();
             work.push(new WorkPatch(tp.id(), sides, tp.cornerNodeIds().clone()));
+            statTPatchesIn++;
         }
 
         // Resolve.
@@ -129,12 +153,14 @@ public final class QuadLayoutExtractor {
             if (allSingleArc(p.sides)) {
                 patches.add(new QuadLayoutPatch(patches.size(),
                         deepCopy(p.sides), p.corners.clone()));
+                statAllSingleArcEmit++;
                 continue;
             }
             // Find first multi-arc side. If any side is length 0 (malformed
             // input), skip the patch.
             if (hasEmptySide(p.sides)) {
                 skipped.add(p.sourceTPatchId);
+                statBailEmptySide++;
                 continue;
             }
             int s = firstMultiArcSide(p.sides);
@@ -142,6 +168,7 @@ public final class QuadLayoutExtractor {
                 // allSingleArc() was false but no side has >1 arc — shouldn't
                 // happen given the empty-side guard above, but be defensive.
                 skipped.add(p.sourceTPatchId);
+                statBailNoMultiArcSide++;
                 continue;
             }
             int opp = (s + 2) % 4;
@@ -150,6 +177,7 @@ public final class QuadLayoutExtractor {
             if (sideLen != oppLen) {
                 // Inconsistent quantization for this patch — bail.
                 skipped.add(p.sourceTPatchId);
+                statBailEqTwoViolated++;
                 continue;
             }
 
@@ -194,6 +222,7 @@ public final class QuadLayoutExtractor {
             if (matchIdx < -1 && splitForwardIdx < 0) {
                 // No exact match and no candidate to split — degenerate.
                 skipped.add(p.sourceTPatchId);
+                statBailNoMatchNoSplit++;
                 continue;
             }
 
@@ -209,8 +238,10 @@ public final class QuadLayoutExtractor {
                 if (leftQ <= 0 || rightQ <= 0) {
                     // Degenerate split — bail.
                     skipped.add(p.sourceTPatchId);
+                    statBailDegenerateSplit++;
                     continue;
                 }
+                statTJunctionArcSplit++;
                 // FORWARD-walk start node of this arc on side opp:
                 int forwardWalkStart = (splitForwardIdx == 0)
                         ? p.corners[opp]
@@ -317,6 +348,8 @@ public final class QuadLayoutExtractor {
             layoutArcs.add(interior);
             layoutArcQ.add(targetDistFromS);
             tJunctionsResolved++;
+            // PATCH-92: track exact-match path separately from arc-split path.
+            if (splitForwardIdx < 0) statTJunctionExactMatch++;
 
             // Split p into two children on the new interior arc.
             WorkPatch[] children = splitPatch(p, s, opp, matchIdx, newArcId,

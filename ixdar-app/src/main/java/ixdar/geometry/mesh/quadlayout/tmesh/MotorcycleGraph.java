@@ -49,6 +49,29 @@ public final class MotorcycleGraph {
     /** Singularities where ≥1 face wedge had a cardinal exactly on its boundary
      *  (the under-launch failure mode of cardinalInFaceWedge). */
     public static int statSingBoundaryCardinals;
+    /** PATCH-89: number of boundary motorcycles synthesized + boundary nodes
+     *  created. Each boundary mesh edge becomes one synthetic α=0 motorcycle. */
+    public static int statBoundaryMotorcycles;
+    public static int statBoundaryNodesCreated;
+    /** PATCH-89: synthetic-motorcycle marker. Boundary motorcycles store this
+     *  in their {@code singularityVertexId} field so consumers (TMesh.build,
+     *  the survival rule in launch()) can identify them. */
+    public static final int BOUNDARY_MOTORCYCLE_VID = -2;
+
+    /** PATCH-92 abort-cause counters: where motorcycles terminated. Lyon's
+     *  framework expects traces to stop at α-bound survival or at proper
+     *  trace intersections. Aborts at degenerate parametrization triangles
+     *  or unmappable seam crossings indicate INPUT QUALITY issues that
+     *  cascade into giant DCEL cycles. */
+    public static int statAbortDegenStartFace;     // line 371: curFace<0 or uvSignedArea≤0
+    public static int statAbortBoundaryEdge;       // line 514: isBoundaryEdge or faceMeshEdge<0
+    public static int statAbortNoNeighborFace;     // line 520: nbrFace<0
+    public static int statAbortNoSharedCorners;    // sharedCorner lookup failed
+    public static int statAbortNoExitEdge;         // raycast couldn't find exit
+    public static int statTraceProperStop;         // Lyon survival or Eppstein normal stop
+    /** PATCH-93 diagnostic: dump first N no-exit-edge abort events. */
+    public static java.util.List<String> abortDumps = new java.util.ArrayList<>();
+    private static final int ABORT_DUMP_LIMIT = 8;
 
     /**
      * One crash event: motorcycle {@code crasher} terminated at the crash
@@ -179,6 +202,87 @@ public final class MotorcycleGraph {
                 }
             }
 
+            // 1.5) PATCH-89 — Phase 0: trace mesh boundary edges as α=0
+            //      synthetic motorcycles BEFORE singularity launches. Each
+            //      boundary half-edge becomes one one-step "motorcycle" whose
+            //      Step crosses the boundary edge in its interior face's UV
+            //      frame. They are added to {@code facePaths} so regular
+            //      motorcycles see them as walls (raySegmentIntersect picks
+            //      them up). On crash, the survival rule in launch() force-
+            //      stops the crasher (boundary = mesh edge, off-mesh past it).
+            //
+            //      Lyon §4.4 motivation: "feature edges and boundary edges
+            //      should be represented as arcs in the layout" — represented
+            //      here as boundary motorcycles whose traces become layout
+            //      arcs by the same TMesh.build splitting path.
+            statBoundaryMotorcycles = 0;
+            statBoundaryNodesCreated = 0;
+            HashMap<Integer, Integer> boundaryVertexToNode = new HashMap<>();
+            int E = mesh.edgeCount();
+            for (int e = 0; e < E; e++) {
+                if (!mesh.isBoundaryEdge(e)) continue;
+                int he = mesh.edgeHalfEdge(e);
+                // Boundary half-edge: twin is NONE; this `he` is the interior
+                // side directly.
+                int faceB = mesh.halfEdgeFace(he);
+                if (faceB < 0 || param.uvSignedArea(faceB) <= 0) continue;
+                int startVid = mesh.halfEdgeVertex(he);
+                int endVid = mesh.halfEdgeEndVertex(he);
+                int cStart = -1, cEnd = -1;
+                for (int c = 0; c < 3; c++) {
+                    int vid = mesh.faceVertexAt(faceB, c);
+                    if (vid == startVid) cStart = c;
+                    else if (vid == endVid) cEnd = c;
+                }
+                if (cStart < 0 || cEnd < 0) continue;
+                float uIn = param.u(faceB, cStart);
+                float vIn = param.v(faceB, cStart);
+                float uOut = param.u(faceB, cEnd);
+                float vOut = param.v(faceB, cEnd);
+
+                // Resolve start/end nodes: prefer SINGULARITY if vertex is one,
+                // otherwise create/reuse BOUNDARY node at this UV position.
+                int startNode = singVertexToNode.containsKey(startVid)
+                        ? singVertexToNode.get(startVid)
+                        : getOrCreateBoundaryNode(boundaryVertexToNode, startVid,
+                                faceB, uIn, vIn);
+                int endNode = singVertexToNode.containsKey(endVid)
+                        ? singVertexToNode.get(endVid)
+                        : getOrCreateBoundaryNode(boundaryVertexToNode, endVid,
+                                faceB, uOut, vOut);
+
+                // Closest-cardinal direction for downstream classifyCardinal /
+                // arc.directionAtStart fallbacks. Boundary edges may not align
+                // perfectly with cardinals — the inferred direction is the
+                // best-fit; TArc.directionAtStart/End reads stepUvs deltas.
+                double du = uOut - uIn, dv = vOut - vIn;
+                int dir;
+                if (Math.abs(du) >= Math.abs(dv)) dir = du >= 0 ? 0 : 2;
+                else dir = dv >= 0 ? 1 : 3;
+
+                int mId = motorcycles.size();
+                ArrayList<Motorcycle.Step> trace = new ArrayList<>();
+                trace.add(new Motorcycle.Step(faceB, uIn, vIn, uOut, vOut, -1));
+                Motorcycle bm = new Motorcycle(mId, BOUNDARY_MOTORCYCLE_VID,
+                        dir, trace, endNode);
+                motorcycles.add(bm);
+                facePaths[faceB].add(new float[]{mId, 0, uIn, vIn, uOut, vOut});
+
+                // Register boundary node start under its mesh-vertex key so
+                // TMesh.build can look it up via the same singVertexToNode map.
+                // We use the synthetic motorcycle's record-keeping to drive
+                // singularityNode assignment in TMesh.build; concretely, we
+                // remember start node by overloading singVertexToNode with a
+                // boundary entry only if vertex isn't already a singularity.
+                if (!singVertexToNode.containsKey(startVid)) {
+                    singVertexToNode.putIfAbsent(startVid, startNode);
+                }
+                if (!singVertexToNode.containsKey(endVid)) {
+                    singVertexToNode.putIfAbsent(endVid, endNode);
+                }
+                statBoundaryMotorcycles++;
+            }
+
             // 2) PATCH-60: Multi-port launch. For each singularity vertex,
             //    walk all incident faces; for each face, launch one motorcycle
             //    per cardinal direction that points strictly INTO that face's
@@ -190,6 +294,13 @@ public final class MotorcycleGraph {
             java.util.Arrays.fill(statSingLaunchCount, 0);
             statSingTotal = 0;
             statSingBoundaryCardinals = 0;
+            statAbortDegenStartFace = 0;
+            statAbortBoundaryEdge = 0;
+            statAbortNoNeighborFace = 0;
+            statAbortNoSharedCorners = 0;
+            statAbortNoExitEdge = 0;
+            statTraceProperStop = 0;
+            abortDumps = new java.util.ArrayList<>();
             for (Singularity s : singularities) {
                 Integer startNode = singVertexToNode.get(s.vertexId());
                 if (startNode == null) continue;
@@ -282,6 +393,7 @@ public final class MotorcycleGraph {
                 if (curFace < 0 || param.uvSignedArea(curFace) <= 0) {
                     // Stepped onto a degen / flipped triangle. Abort cleanly.
                     finalNode = recordNode(TNode.NodeKind.BOUNDARY, curFace, u, v);
+                    statAbortDegenStartFace++;
                     break;
                 }
                 // Direction unit vector in face's UV frame.
@@ -372,10 +484,17 @@ public final class MotorcycleGraph {
                             crashU, crashV, crashNodeId,
                             motorcycleId, step, absAlphaIj));
 
+                    // PATCH-89: if the prior trace is a synthetic BOUNDARY
+                    // motorcycle, force-stop regardless of α-bound. Past the
+                    // mesh boundary is off-mesh — no continuation is valid.
+                    boolean priorIsBoundary = prior.singularityVertexId() == BOUNDARY_MOTORCYCLE_VID;
+
                     boolean stop = (alpha <= 1e-9)            // Eppstein mode
-                            || (leftHit && rightHit);          // Lyon both-sides
+                            || (leftHit && rightHit)          // Lyon both-sides
+                            || priorIsBoundary;                // PATCH-89
                     if (stop) {
                         finalNode = crashNodeId;
+                        statTraceProperStop++;
                         break;
                     }
 
@@ -400,9 +519,57 @@ public final class MotorcycleGraph {
                 }
 
                 if (exitEdgeIdx < 0 || !Float.isFinite(exitT)) {
-                    // Could not find an exit edge — degenerate face. Abort.
-                    finalNode = recordNode(TNode.NodeKind.BOUNDARY, curFace, u, v);
-                    break;
+                    // PATCH-93: empirically (rocker-arm at α=15°) 65% of trace
+                    // launches abort here because precision drift accumulates
+                    // across seam crossings, eventually placing the entry on
+                    // an edge with the cardinal direction pointing slightly
+                    // OUTWARD from the triangle. Recovery: nudge entry toward
+                    // the face centroid by a small epsilon and re-raycast.
+                    // Lyon's algorithm assumes traces extend until α-bound
+                    // stop or a real intersection — dead-ends from precision
+                    // are not a Lyon-paper concept and produce the giant
+                    // DCEL artifact cycles we've been chasing.
+                    float cx = (u0 + u1 + u2) / 3f;
+                    float cy = (v0 + v1 + v2) / 3f;
+                    // Bigger nudge (1% toward centroid) to escape tangent /
+                    // on-edge cases; the nudge is geometrically tiny but
+                    // larger than STEP_EPS so raycast finds an exit.
+                    float nudgeFrac = 0.01f;
+                    float uN = u + nudgeFrac * (cx - u);
+                    float vN = v + nudgeFrac * (cy - v);
+                    float[][] cuRetry = {{u0, v0}, {u1, v1}, {u2, v2}};
+                    final float STEP_EPS_RECOVERY = 1e-7f;
+                    for (int e = 0; e < 3; e++) {
+                        float[] a = cuRetry[e];
+                        float[] b = cuRetry[(e + 1) % 3];
+                        float t = raySegmentIntersect(uN, vN, du, dv,
+                                a[0], a[1], b[0], b[1]);
+                        if (t > STEP_EPS_RECOVERY && t < exitT) {
+                            exitT = t;
+                            exitEdgeIdx = e;
+                        }
+                    }
+                    if (exitEdgeIdx >= 0) {
+                        // Recovered. Use nudged position for the step.
+                        u = uN;
+                        v = vN;
+                    } else {
+                        // Recovery failed too — genuine abort.
+                        if (abortDumps.size() < ABORT_DUMP_LIMIT) {
+                            float u0d = param.u(curFace, 0), v0d = param.v(curFace, 0);
+                            float u1d = param.u(curFace, 1), v1d = param.v(curFace, 1);
+                            float u2d = param.u(curFace, 2), v2d = param.v(curFace, 2);
+                            abortDumps.add(String.format(
+                                    "no-exit: motoId=%d step=%d face=%d entry=(%.4f,%.4f) dir=(%.2f,%.2f) "
+                                    + "corners=[(%.4f,%.4f),(%.4f,%.4f),(%.4f,%.4f)] uvArea=%.6f",
+                                    motorcycleId, step, curFace, u, v, du, dv,
+                                    u0d, v0d, u1d, v1d, u2d, v2d,
+                                    param.uvSignedArea(curFace)));
+                        }
+                        finalNode = recordNode(TNode.NodeKind.BOUNDARY, curFace, u, v);
+                        statAbortNoExitEdge++;
+                        break;
+                    }
                 }
 
                 float exitU = u + exitT * du;
@@ -419,12 +586,14 @@ public final class MotorcycleGraph {
                 if (faceMeshEdge < 0 || mesh.isBoundaryEdge(faceMeshEdge)) {
                     finalNode = recordNode(TNode.NodeKind.BOUNDARY, curFace,
                             exitU, exitV);
+                    statAbortBoundaryEdge++;
                     break;
                 }
                 int nbrFace = neighborFace(curFace, faceMeshEdge);
                 if (nbrFace < 0) {
                     finalNode = recordNode(TNode.NodeKind.BOUNDARY, curFace,
                             exitU, exitV);
+                    statAbortNoNeighborFace++;
                     break;
                 }
                 int interiorEdge = meshEdgeToInterior[faceMeshEdge];
@@ -449,6 +618,7 @@ public final class MotorcycleGraph {
                 if (sharedCornerCur == null || sharedCornerNbr == null) {
                     finalNode = recordNode(TNode.NodeKind.BOUNDARY, curFace,
                             exitU, exitV);
+                    statAbortNoSharedCorners++;
                     break;
                 }
                 int va = mesh.faceVertexAt(curFace, sharedCornerCur[0]);
@@ -500,6 +670,21 @@ public final class MotorcycleGraph {
             TNode n = new TNode(nodes.size(), kind, faceId, u, v);
             nodes.add(n);
             return n.id();
+        }
+
+        /** PATCH-89: get or create a BOUNDARY-kind TNode at a mesh boundary
+         *  vertex's parametric position in {@code face}. Reused across
+         *  multiple boundary-edge synthesis calls that share a vertex. */
+        int getOrCreateBoundaryNode(HashMap<Integer, Integer> map, int vid,
+                                     int face, float u, float v) {
+            Integer existing = map.get(vid);
+            if (existing != null) return existing;
+            TNode bn = new TNode(nodes.size(), TNode.NodeKind.BOUNDARY,
+                    face, u, v);
+            nodes.add(bn);
+            map.put(vid, bn.id());
+            statBoundaryNodesCreated++;
+            return bn.id();
         }
 
         /** Walk prior motorcycle's trace from its origin, summing per-step

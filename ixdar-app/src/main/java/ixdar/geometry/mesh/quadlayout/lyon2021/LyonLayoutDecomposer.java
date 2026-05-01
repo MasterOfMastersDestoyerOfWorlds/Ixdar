@@ -104,52 +104,124 @@ public final class LyonLayoutDecomposer {
             }
         }
 
-        // Phase 2: nearest-centroid for unlabeled faces.
-        Vector3f[] patchCentroid = new Vector3f[totalPatches];
-        int[] centroidCount = new int[totalPatches];
-        for (int i = 0; i < totalPatches; i++) patchCentroid[i] = new Vector3f();
-        Vector3f tmp = new Vector3f();
-        for (int f = 0; f < faceCount; f++) {
-            int p = faceLabels[f];
-            if (p < 0) continue;
-            faceCentroid(mesh, f, tmp);
-            patchCentroid[p].add(tmp);
-            centroidCount[p]++;
-        }
-        for (int p = 0; p < totalPatches; p++) {
-            if (centroidCount[p] > 0) patchCentroid[p].mul(1f / centroidCount[p]);
-        }
+        // PATCH-81: Phase 2 — flood-fill from labeled boundary faces, blocked
+        // by mesh half-edges any layout arc crosses. Each unlabeled face
+        // inherits the label of the boundary face it floods from. This
+        // replaces the prior nearest-centroid heuristic which produced
+        // visible "blob streaks" across patch boundaries.
 
-        // For each unlabeled face, find nearest patch centroid.
-        for (int f = 0; f < faceCount; f++) {
-            if (faceLabels[f] >= 0) continue;
-            faceCentroid(mesh, f, tmp);
-            int best = -1;
-            float bestSq = Float.POSITIVE_INFINITY;
-            for (int p = 0; p < totalPatches; p++) {
-                if (centroidCount[p] == 0) continue;
-                float d2 = tmp.distanceSquared(patchCentroid[p]);
-                if (d2 < bestSq) {
-                    bestSq = d2;
-                    best = p;
-                }
+        // Build the blocked half-edge set: for each layout arc, walk its
+        // underlying TArc's per-step exitEdgeIndex; both the exit half-edge
+        // and its twin are blocked (the arc crosses through that mesh edge).
+        java.util.HashSet<Integer> blockedHalfEdges = new java.util.HashSet<>();
+        for (LayoutArc la : layout.layoutArcs()) {
+            if (la.variant() == LayoutArc.Variant.INTERIOR) {
+                // INTERIOR arcs traverse face interiors, not edges — but they
+                // do cross face-to-face boundaries via SplitEdge transitions.
+                // For now we don't block on INTERIOR boundaries; PATCH-77
+                // INTERIOR arcs are rare and tiny.
+                continue;
             }
-            if (best >= 0) faceLabels[f] = best;
+            TArc tarc = tmesh.arcs().get(la.underlyingTArcId());
+            for (int[] cross : tarc.meshFaceCrossings()) {
+                int faceId = cross[0];
+                int exitEdge = cross[1];
+                if (faceId < 0 || exitEdge < 0 || exitEdge > 2) continue;
+                int he = faceId * 3 + exitEdge;
+                blockedHalfEdges.add(he);
+                int twin = mesh.halfEdgeTwin(he);
+                if (twin >= 0) blockedHalfEdges.add(twin);
+            }
         }
 
-        // Build Patch records.
-        List<List<Integer>> facesPerPatch = new ArrayList<>(totalPatches);
-        for (int i = 0; i < totalPatches; i++) facesPerPatch.add(new ArrayList<>());
+        // BFS flood-fill from each labeled face.
+        java.util.ArrayDeque<Integer> queue = new java.util.ArrayDeque<>();
         for (int f = 0; f < faceCount; f++) {
-            int p = faceLabels[f];
-            if (p >= 0 && p < totalPatches) facesPerPatch.get(p).add(f);
+            if (faceLabels[f] >= 0) queue.add(f);
+        }
+        while (!queue.isEmpty()) {
+            int f = queue.poll();
+            int label = faceLabels[f];
+            if (label < 0) continue;
+            // Try each of f's 3 half-edges to find unlabeled neighbors.
+            for (int c = 0; c < 3; c++) {
+                int he = f * 3 + c;
+                if (blockedHalfEdges.contains(he)) continue;
+                int twin = mesh.halfEdgeTwin(he);
+                if (twin < 0) continue;
+                int nbr = mesh.halfEdgeFace(twin);
+                if (nbr < 0 || nbr >= faceCount) continue;
+                if (faceLabels[nbr] >= 0) continue;   // already labeled
+                faceLabels[nbr] = label;
+                queue.add(nbr);
+            }
         }
 
-        List<Patch> outPatches = new ArrayList<>(totalPatches);
+        // Phase 3 fallback: any face still unlabeled after flood-fill is in
+        // a "topology gap" — no layout arc reachable. Fall back to nearest
+        // labeled-face label (BFS from labeled faces ignoring blocked edges).
+        // Without this, the visual has large grey holes which obscures the
+        // patch structure of the rest. Once topology is paper-rectangular
+        // (no gaps), this fallback should rarely fire.
+        java.util.ArrayDeque<Integer> fallbackQueue = new java.util.ArrayDeque<>();
+        for (int f = 0; f < faceCount; f++) {
+            if (faceLabels[f] >= 0) fallbackQueue.add(f);
+        }
+        while (!fallbackQueue.isEmpty()) {
+            int f = fallbackQueue.poll();
+            int label = faceLabels[f];
+            if (label < 0) continue;
+            for (int c = 0; c < 3; c++) {
+                int he = f * 3 + c;
+                int twin = mesh.halfEdgeTwin(he);
+                if (twin < 0) continue;
+                int nbr = mesh.halfEdgeFace(twin);
+                if (nbr < 0 || nbr >= faceCount) continue;
+                if (faceLabels[nbr] >= 0) continue;
+                faceLabels[nbr] = label;
+                fallbackQueue.add(nbr);
+            }
+        }
+
+        // PATCH-88: remap raw patch IDs to merged-component IDs (Lyon §6 ¶1
+        // arc-collapse). Patches connected via q=0 layout arcs share a
+        // component; the visual shows the conforming layout, not the raw
+        // T-mesh.
+        var merge = layout.mergedPatchAssignment();
+        int totalComponents = merge.distinctCount();
+        int[] rawToComponent = new int[totalPatches];
+        for (int i = 0; i < merge.quadPatchToComponent().length; i++) {
+            rawToComponent[i] = merge.quadPatchToComponent()[i];
+        }
+        for (int i = 0; i < merge.trianglePatchToComponent().length; i++) {
+            rawToComponent[triOffset + i] = merge.trianglePatchToComponent()[i];
+        }
+        // Remap face labels in-place.
+        for (int f = 0; f < faceCount; f++) {
+            int raw = faceLabels[f];
+            if (raw >= 0 && raw < rawToComponent.length) {
+                faceLabels[f] = rawToComponent[raw];
+            }
+        }
+        // Track which components contain a triangle for color desaturation.
+        boolean[] componentHasTriangle = new boolean[totalComponents];
+        for (int i = 0; i < merge.trianglePatchToComponent().length; i++) {
+            componentHasTriangle[merge.trianglePatchToComponent()[i]] = true;
+        }
+
+        // Build Patch records — one per merged component.
+        List<List<Integer>> facesPerPatch = new ArrayList<>(totalComponents);
+        for (int i = 0; i < totalComponents; i++) facesPerPatch.add(new ArrayList<>());
+        for (int f = 0; f < faceCount; f++) {
+            int c = faceLabels[f];
+            if (c >= 0 && c < totalComponents) facesPerPatch.get(c).add(f);
+        }
+
+        List<Patch> outPatches = new ArrayList<>(totalComponents);
         int[] faceIdxArr = mesh.copyFaceIndices();
         float[] positions = mesh.copyPositions();
-        for (int p = 0; p < totalPatches; p++) {
-            List<Integer> faceList = facesPerPatch.get(p);
+        for (int c = 0; c < totalComponents; c++) {
+            List<Integer> faceList = facesPerPatch.get(c);
             int[] faces = faceList.stream().mapToInt(Integer::intValue).toArray();
             // Vertex indices = unique vertices touched.
             Set<Integer> verts = new HashSet<>();
@@ -168,8 +240,8 @@ public final class LyonLayoutDecomposer {
                 }
                 cx /= vertexIds.length; cy /= vertexIds.length; cz /= vertexIds.length;
             }
-            String color = colorForPatch(p, p >= triOffset);
-            outPatches.add(new Patch(p, vertexIds, faces, /*branchId*/ p,
+            String color = colorForPatch(c, componentHasTriangle[c]);
+            outPatches.add(new Patch(c, vertexIds, faces, /*branchId*/ c,
                     new float[]{cx, cy, cz}, /*curvatureMean*/ 0f, color));
         }
 

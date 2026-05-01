@@ -57,10 +57,28 @@ public final class BenchmarkRockerArmLyon {
         long tMcg = System.currentTimeMillis() - t1;
 
         long t2 = System.currentTimeMillis();
-        TMesh tmesh = TMesh.build(graph, param);
+        TMesh tmesh = TMesh.build(graph, param, mesh);
         long tTmesh = System.currentTimeMillis() - t2;
         System.out.printf("[bench-lyon] motorcycle=%dms traces=%d crashes=%d%n",
                 tMcg, graph.traces().size(), graph.crashes().size());
+        // PATCH-89: boundary-motorcycle stats.
+        System.out.printf("[bench-lyon] boundary motorcycles=%d nodes-created=%d%n",
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statBoundaryMotorcycles,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statBoundaryNodesCreated);
+        // PATCH-92 motorcycle abort-cause census.
+        System.out.printf("[bench-lyon] trace-stop census: proper-Lyon-stop=%d  "
+                + "abort-degen-face=%d abort-no-exit-edge=%d "
+                + "abort-boundary-edge=%d abort-no-neighbor=%d "
+                + "abort-no-shared-corners=%d%n",
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statTraceProperStop,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortDegenStartFace,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortNoExitEdge,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortBoundaryEdge,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortNoNeighborFace,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortNoSharedCorners);
+        for (String d : ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.abortDumps) {
+            System.out.println("[bench-lyon]   " + d);
+        }
         // PATCH-91 H1 diagnostic.
         System.out.printf("[bench-lyon] sing-launch-count hist (idx=#motorcycles): %s  total=%d boundary=%d%n",
                 java.util.Arrays.toString(
@@ -79,13 +97,30 @@ public final class BenchmarkRockerArmLyon {
         System.out.println("[bench-lyon] side-count hist=" +
                 java.util.Arrays.toString(
                         ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statSideHistogram));
-        System.out.printf("[bench-lyon] enum stats: halfArcs=%d linkable=%d facesWalked=%d short=%d nonQuad=%d emitted=%d%n",
+        System.out.printf("[bench-lyon] enum stats: halfArcs=%d linkable=%d facesWalked=%d short=%d nonQuad=%d emitted=%d outerBoundary=%d%n",
                 ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statHalfArcs,
                 ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statHalfArcsLinkable,
                 ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statFacesWalked,
                 ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statFacesShortCycle,
                 ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statFacesNonQuad,
-                ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statFacesEmittedAsPatches);
+                ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statFacesEmittedAsPatches,
+                ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statFacesOuterBoundary);
+        // PATCH-92 angular-sort audit: distinct mesh-face frames per node.
+        // Bucket 0 = single-frame nodes (sort safe), bucket 1+ = multi-frame
+        // nodes (potential angular-sort hazard for the planar-dual walk).
+        System.out.printf("[bench-lyon] node-frame hist (idx=#frames-1): %s  multi-frame-total=%d  fan-sorted=%d%n",
+                java.util.Arrays.toString(
+                    ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statNodeFrameCountHist),
+                ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statMultiFrameNodes,
+                ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statFanSortedNodes);
+        // PATCH-89 diagnostic: which dropped long cycles touch a mesh BOUNDARY?
+        System.out.printf("[bench-lyon] long-cycle classification: with-boundary=%d  all-intersection=%d%n",
+                ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statLongCyclesWithBoundaryCorner,
+                ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statLongCyclesAllIntersection);
+        for (int[] r : ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.longCycleLengths) {
+            System.out.printf("[bench-lyon]   long-cycle: nHalfArcs=%d nCorners=%d boundaryCorners=%d singCorners=%d intersectionCorners=%d%n",
+                    r[0], r[1], r[2], r[3], r[4]);
+        }
 
         long t3 = System.currentTimeMillis();
         StripEquivalence.Result strips = StripEquivalence.compute(tmesh);
@@ -123,10 +158,93 @@ public final class BenchmarkRockerArmLyon {
         QuadLayoutExtractor.Result lr = QuadLayoutExtractor.extract(tmesh, q,
                 mesh, uv[0], uv[1], trs);
         long tLayout = System.currentTimeMillis() - t4;
-        System.out.printf("[bench-lyon] layout=%dms #P=%d skipped=%d tJunctions=%d%n",
-                tLayout, lr.layout().patchCount(),
+        int mergedPatchCount = lr.layout().mergedPatchCount();
+        System.out.printf("[bench-lyon] layout=%dms #P=%d (merged=%d) skipped=%d tJunctions=%d%n",
+                tLayout, lr.layout().patchCount(), mergedPatchCount,
                 lr.skippedPatchIds().size(),
                 lr.layout().tJunctionsResolved());
+        // PATCH-92 — T-junction extension bail diagnostics.
+        var qle = ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayoutExtractor.class;
+        System.out.printf("[bench-lyon] T-junction stats: in=%d emit-clean=%d "
+                + "extend-exact=%d extend-split=%d "
+                + "bail-emptyside=%d bail-no-multiarc=%d "
+                + "bail-eq2-violation=%d bail-no-match=%d bail-degen-split=%d%n",
+                ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayoutExtractor.statTPatchesIn,
+                ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayoutExtractor.statAllSingleArcEmit,
+                ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayoutExtractor.statTJunctionExactMatch,
+                ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayoutExtractor.statTJunctionArcSplit,
+                ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayoutExtractor.statBailEmptySide,
+                ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayoutExtractor.statBailNoMultiArcSide,
+                ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayoutExtractor.statBailEqTwoViolated,
+                ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayoutExtractor.statBailNoMatchNoSplit,
+                ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayoutExtractor.statBailDegenerateSplit);
+
+        // PATCH-92: TRUE T-junction count by Lyon §5.2 definition — the
+        // terminal node of every motorcycle trace IS a T-junction. Classify
+        // by whether it appears as the interior point of a 4-sided patch's
+        // multi-arc side (visible to QuadLayoutExtractor) or hidden inside
+        // a non-4-sided cell / dropped DCEL cycle.
+        int totalTraceTJunctions = 0;
+        java.util.HashSet<Integer> tJunctionNodeIds = new java.util.HashSet<>();
+        for (var mc : graph.traces()) {
+            if (mc.singularityVertexId()
+                    == ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.BOUNDARY_MOTORCYCLE_VID) continue;
+            int term = mc.finalNodeId();
+            if (term >= 0) {
+                totalTraceTJunctions++;
+                tJunctionNodeIds.add(term);
+            }
+        }
+        // Of those T-junction nodes, how many appear as a CORNER of a 4-sided
+        // TPatch (visible) vs only in non-4-sided cells (hidden)?
+        java.util.HashSet<Integer> visibleInQuad = new java.util.HashSet<>();
+        java.util.HashSet<Integer> presentInNonQuad = new java.util.HashSet<>();
+        for (var tp : tmesh.patches()) {
+            int[] corners = tp.cornerNodeIds();
+            int[][] sides = tp.arcsBySide();
+            boolean isQuad = sides != null && sides.length == 4;
+            if (corners != null) {
+                for (int c : corners) {
+                    if (tJunctionNodeIds.contains(c)) {
+                        if (isQuad) visibleInQuad.add(c);
+                        else presentInNonQuad.add(c);
+                    }
+                }
+            }
+        }
+        // Also: T-junctions appearing as INTERIOR points of multi-arc sides
+        // (the actual "exposed for extension" condition).
+        int exposedAsMultiArc = 0;
+        for (var tp : tmesh.patches()) {
+            int[][] sides = tp.arcsBySide();
+            if (sides == null || sides.length != 4) continue;
+            for (int s = 0; s < 4; s++) {
+                if (sides[s] == null || sides[s].length <= 1) continue;
+                // Interior nodes of this multi-arc side: end of arc[0..n-2].
+                for (int k = 0; k < sides[s].length - 1; k++) {
+                    int arcId = sides[s][k];
+                    if (arcId < 0 || arcId >= tmesh.arcs().size()) continue;
+                    var arc = tmesh.arcs().get(arcId);
+                    int n1 = arc.startNode();
+                    int n2 = arc.endNode();
+                    if (tJunctionNodeIds.contains(n1)) exposedAsMultiArc++;
+                    if (tJunctionNodeIds.contains(n2)) exposedAsMultiArc++;
+                }
+            }
+        }
+        int hiddenInNonQuad = presentInNonQuad.size() - visibleInQuad.size();
+        if (hiddenInNonQuad < 0) hiddenInNonQuad = presentInNonQuad.size();
+        int orphanTJunctions = totalTraceTJunctions - tJunctionNodeIds.size();   // duplicates
+        int notInAnyPatch = tJunctionNodeIds.size()
+                - visibleInQuad.size() - hiddenInNonQuad;
+        if (notInAnyPatch < 0) notInAnyPatch = 0;
+        System.out.printf("[bench-lyon] T-junction census: total=%d (motorcycle endpoints) "
+                + "unique-nodes=%d visible-in-4sided-patch=%d hidden-in-non-4sided=%d "
+                + "in-no-emitted-patch=%d exposed-as-multi-arc-interior=%d "
+                + "extended-by-extractor=%d%n",
+                totalTraceTJunctions, tJunctionNodeIds.size(),
+                visibleInQuad.size(), hiddenInNonQuad, notInAnyPatch,
+                exposedAsMultiArc, lr.layout().tJunctionsResolved());
 
         long t5 = System.currentTimeMillis();
         LyonMetrics.Result m = LyonMetrics.compute(lr.layout(), tmesh, mesh, trs);
@@ -205,9 +323,12 @@ public final class BenchmarkRockerArmLyon {
         System.out.printf("  #Vars    : %s (ours %d, paper %d)%n",
                 band.apply((double) strips.classCount(), 192.0),
                 strips.classCount(), 192);
-        System.out.printf("  #P       : %s (ours %d, paper %d)%n",
+        System.out.printf("  #P (raw) : %s (ours %d, paper %d)%n",
                 band.apply((double) lr.layout().patchCount(), 159.0),
                 lr.layout().patchCount(), 159);
+        System.out.printf("  #P (merged after q=0 collapse): %s (ours %d, paper %d)%n",
+                band.apply((double) mergedPatchCount, 159.0),
+                mergedPatchCount, 159);
         System.out.printf("Lyon-stage pipeline (motorcycle→metrics) = %d ms%n",
                 total - tBoot);
         System.out.println();
