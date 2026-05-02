@@ -11,6 +11,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import ixdar.platform.automation.endpoints.AutomationRuntime;
+
 public class AutomationReplayEngine {
     public enum ReplayMode {
         ABSTRACT,
@@ -68,7 +70,8 @@ public class AutomationReplayEngine {
                 file = new File(System.getProperty("user.dir"), filePath);
             }
             JsonObject root = GSON.fromJson(new FileReader(file), JsonObject.class);
-            JsonArray source = mode == ReplayMode.RAW ? root.getAsJsonArray("rawEvents") : root.getAsJsonArray("abstractActions");
+            JsonArray source = mode == ReplayMode.RAW ? root.getAsJsonArray("rawEvents")
+                    : root.getAsJsonArray("abstractActions");
             List<JsonObject> events = new ArrayList<>();
             for (JsonElement element : source) {
                 events.add(element.getAsJsonObject());

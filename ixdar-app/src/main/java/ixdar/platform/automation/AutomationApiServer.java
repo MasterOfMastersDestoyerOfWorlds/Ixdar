@@ -1,5 +1,12 @@
 package ixdar.platform.automation;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+import ixdar.platform.automation.endpoints.AutomationRuntime;
+import ixdar.scenes.mesh.MeshNodeViewerScene;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
@@ -7,28 +14,25 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
-
 public class AutomationApiServer {
-    private static final Gson GSON = new Gson();
+
 
     private final AutomationRuntime runtime;
     private final int port;
     private final HttpServer server;
     private final ExecutorService executor;
 
-    public AutomationApiServer(AutomationRuntime runtime, int port) throws IOException {
+    public AutomationApiServer(AutomationRuntime runtime, int port)
+        throws IOException {
         this.runtime = runtime;
         this.port = port;
-        this.server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+        this.server = HttpServer.create(
+            new InetSocketAddress("127.0.0.1", port),
+            0
+        );
         this.executor = Executors.newCachedThreadPool();
         this.server.setExecutor(executor);
-        routes();
+        AutomationRouteRegistry.registerAll(server, runtime);
     }
 
     public int port() {
@@ -44,515 +48,29 @@ public class AutomationApiServer {
         executor.shutdownNow();
     }
 
-    private void routes() {
-        server.createContext("/health", exchange -> {
-            if (!requireMethod(exchange, "GET")) {
-                return;
-            }
-            writeJson(exchange, runtime.health());
-        });
-        server.createContext("/ui/state", exchange -> {
-            if (!requireMethod(exchange, "GET")) {
-                return;
-            }
-            writeJson(exchange, runtime.uiState());
-        });
-        server.createContext("/ui/mesh/fingerprint", exchange -> {
-            if (!requireMethod(exchange, "GET")) {
-                return;
-            }
-            writeJson(exchange, runtime.meshFingerprint());
-        });
-        server.createContext("/ui/screenshot", this::screenshotHandler);
-        server.createContext("/ui/multiview", this::multiviewHandler);
-        server.createContext("/ui/orbit", this::orbitHandler);
-        server.createContext("/ui/projection", this::projectionHandler);
-        server.createContext("/input/click", this::clickHandler);
-        server.createContext("/input/hover", this::hoverHandler);
-        server.createContext("/input/hover/clear", this::hoverClearHandler);
-        server.createContext("/input/scroll", this::scrollHandler);
-        server.createContext("/input/key", this::keyHandler);
-        server.createContext("/input/type", this::typeHandler);
-        server.createContext("/shutdown", this::shutdownHandler);
-        server.createContext("/record/start", this::recordStartHandler);
-        server.createContext("/record/stop", this::recordStopHandler);
-        server.createContext("/record/status", exchange -> {
-            if (!requireMethod(exchange, "GET")) {
-                return;
-            }
-            writeJson(exchange, runtime.recorder().status());
-        });
-        server.createContext("/replay/start", this::replayStartHandler);
-        server.createContext("/replay/status", this::replayStatusHandler);
-        server.createContext("/replay/pause", this::replayPauseHandler);
-        server.createContext("/replay/resume", this::replayResumeHandler);
-        server.createContext("/replay/cancel", this::replayCancelHandler);
-        server.createContext("/mesh/dsl/validate", this::dslValidateHandler);
-        server.createContext("/mesh/dsl", this::dslLoadHandler);
-        server.createContext("/mesh/timing", this::meshTimingHandler);
-        server.createContext("/mesh/compare", this::compareMeshHandler);
-        server.createContext("/mesh/overlay", this::meshOverlayHandler);
-        server.createContext("/mesh/skeleton/compare-detailed", this::skeletonCompareDetailedHandler);
-        server.createContext("/mesh/skeleton/compare", this::skeletonCompareHandler);
-        server.createContext("/mesh/skeleton/sensitivity", this::skeletonSensitivityHandler);
-        server.createContext("/mesh/skeleton", this::meshSkeletonHandler);
-        // New routes use the @AutomationRoute annotation for uniform handling.
-        // Legacy routes above keep their hand-written handlers until migrated
-        // (tracked in a separate follow-up ticket).
-        AutomationRouteRegistry.registerAll(server, runtime);
-    }
-
-    private void screenshotHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        JsonObject body = readBodyJson(exchange);
-        String outputPath = body.has("path") ? body.get("path").getAsString() : "";
-        boolean inline = body.has("inline") && body.get("inline").getAsBoolean();
-        try {
-            writeJson(exchange, runtime.captureScreenshot(outputPath, inline));
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void multiviewHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        JsonObject body = readBodyJson(exchange);
-        String outputPath = body.has("path") ? body.get("path").getAsString() : "";
-        boolean inline = body.has("inline") && body.get("inline").getAsBoolean();
-        try {
-            writeJson(exchange, runtime.captureMultiview(outputPath, inline, body));
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void orbitHandler(HttpExchange exchange) throws IOException {
-        String method = exchange.getRequestMethod().toUpperCase();
-        if ("GET".equals(method)) {
-            writeJson(exchange, runtime.getOrbit());
-        } else if ("POST".equals(method)) {
-            try {
-                JsonObject body = readBodyJson(exchange);
-                float azimuth = body.has("azimuth") ? body.get("azimuth").getAsFloat() : 0f;
-                float elevation = body.has("elevation") ? body.get("elevation").getAsFloat() : 0f;
-                float distance = body.has("distance") ? body.get("distance").getAsFloat() : 3.5f;
-                writeJson(exchange, runtime.setOrbit(azimuth, elevation, distance));
-            } catch (Exception e) {
-                writeError(exchange, 500, e.getMessage());
-            }
-        } else {
-            writeError(exchange, 405, "Method not allowed; expected GET or POST");
-        }
-    }
-
-    private void projectionHandler(HttpExchange exchange) throws IOException {
-        String method = exchange.getRequestMethod().toUpperCase();
-        if ("GET".equals(method)) {
-            writeJson(exchange, runtime.getProjection());
-        } else if ("POST".equals(method)) {
-            try {
-                JsonObject body = readBodyJson(exchange);
-                boolean ortho = body.has("orthographic") && body.get("orthographic").getAsBoolean();
-                writeJson(exchange, runtime.setProjection(ortho));
-            } catch (Exception e) {
-                writeError(exchange, 500, e.getMessage());
-            }
-        } else {
-            writeError(exchange, 405, "Method not allowed; expected GET or POST");
-        }
-    }
-
-    private void clickHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            float x = body.has("x") ? body.get("x").getAsFloat() : 0f;
-            float y = body.has("y") ? body.get("y").getAsFloat() : 0f;
-            boolean normalized = body.has("normalized") && body.get("normalized").getAsBoolean();
-            int button = body.has("button") ? body.get("button").getAsInt() : 0;
-            writeJson(exchange, runtime.injectClick(x, y, normalized, button));
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void scrollHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            double delta = body.has("delta") ? body.get("delta").getAsDouble() : 0;
-            writeJson(exchange, runtime.injectScroll(delta));
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void hoverHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            float x = body.has("x") ? body.get("x").getAsFloat() : 0f;
-            float y = body.has("y") ? body.get("y").getAsFloat() : 0f;
-            boolean normalized = body.has("normalized") && body.get("normalized").getAsBoolean();
-            boolean persistent = !body.has("persistent") || body.get("persistent").getAsBoolean();
-            writeJson(exchange, runtime.injectHover(x, y, normalized, persistent));
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void hoverClearHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        writeJson(exchange, runtime.clearHoverLock());
-    }
-
-    private void keyHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            int key = body.has("key") ? body.get("key").getAsInt() : 0;
-            int action = body.has("action") ? body.get("action").getAsInt() : 1;
-            int mods = body.has("mods") ? body.get("mods").getAsInt() : 0;
-            int scancode = body.has("scancode") ? body.get("scancode").getAsInt() : 0;
-            writeJson(exchange, runtime.injectKey(key, action, mods, scancode));
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void typeHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            String text = body.has("text") ? body.get("text").getAsString() : "";
-            writeJson(exchange, runtime.injectType(text));
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void recordStartHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        runtime.recorder().start();
-        JsonObject result = runtime.recorder().status();
-        result.addProperty("ok", true);
-        writeJson(exchange, result);
-    }
-
-    private void recordStopHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        JsonObject body = readBodyJson(exchange);
-        String path = body.has("path") ? body.get("path").getAsString() : "";
-        try {
-            writeJson(exchange, runtime.recorder().stop(path));
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void replayStartHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            String file = body.has("file") ? body.get("file").getAsString() : "";
-            String mode = body.has("mode") ? body.get("mode").getAsString() : "abstract";
-            AutomationReplayEngine.ReplayMode replayMode = "raw".equalsIgnoreCase(mode) ? AutomationReplayEngine.ReplayMode.RAW
-                    : AutomationReplayEngine.ReplayMode.ABSTRACT;
-            boolean started = runtime.replayEngine().startReplay(file, replayMode);
-            JsonObject result = new JsonObject();
-            result.addProperty("ok", started);
-            result.addProperty("mode", replayMode.name().toLowerCase());
-            writeJson(exchange, result);
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void replayStatusHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "GET")) {
-            return;
-        }
-        JsonObject result = new JsonObject();
-        result.addProperty("replaying", runtime.replayEngine().isReplaying());
-        result.addProperty("status", runtime.replayEngine().getLastReplayStatus());
-        result.addProperty("file", runtime.replayEngine().getLastReplayFile());
-        result.addProperty("paused", runtime.replayEngine().isPaused());
-        writeJson(exchange, result);
-    }
-
-    private void replayPauseHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        JsonObject result = new JsonObject();
-        runtime.replayEngine().pause();
-        result.addProperty("ok", true);
-        result.addProperty("paused", true);
-        writeJson(exchange, result);
-    }
-
-    private void replayResumeHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        JsonObject result = new JsonObject();
-        runtime.replayEngine().resume();
-        result.addProperty("ok", true);
-        result.addProperty("paused", runtime.replayEngine().isPaused());
-        writeJson(exchange, result);
-    }
-
-    private void replayCancelHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        JsonObject result = new JsonObject();
-        runtime.replayEngine().cancel();
-        result.addProperty("ok", true);
-        writeJson(exchange, result);
-    }
-
-    private void shutdownHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        writeJson(exchange, runtime.requestShutdown());
-    }
-
-    private void dslValidateHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            String dslSource = body.has("dsl") ? body.get("dsl").getAsString() : "";
-            String exportPath = body.has("export") ? body.get("export").getAsString() : null;
-
-            if (dslSource.isEmpty()) {
-                writeError(exchange, 400, "Missing required field: dsl (DSL source text)");
-                return;
-            }
-
-            String skillDir = System.getProperty("user.home") + "/.ix/voyage/skills";
-            java.util.Map<String, Object> result =
-                    ixdar.geometry.mesh.documentation.ValidateDsl.validate(dslSource, skillDir, exportPath);
-            writeJson(exchange, GSON.toJsonTree(result).getAsJsonObject());
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void dslLoadHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            String dslName = body.has("name") ? body.get("name").getAsString() : "";
-            String node = body.has("node") ? body.get("node").getAsString() : "";
-            String port = body.has("port") ? body.get("port").getAsString() : "geometry";
-
-            if (dslName.isEmpty()) {
-                writeError(exchange, 400, "Missing required field: name");
-                return;
-            }
-
-            JsonObject result = runtime.loadDsl(dslName, node, port);
-            writeJson(exchange, result);
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void meshTimingHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "GET")) {
-            return;
-        }
-        try {
-            writeJson(exchange, runtime.getTiming());
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void compareMeshHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            String referencePath = body.has("reference") ? body.get("reference").getAsString() : "";
-            String distanceType = body.has("distance_type") ? body.get("distance_type").getAsString() : "HAUSDORFF";
-            float scale = body.has("scale") ? body.get("scale").getAsFloat() : 1.0f;
-            boolean normalize = body.has("normalize") && body.get("normalize").getAsBoolean();
-
-            if (referencePath.isEmpty()) {
-                writeError(exchange, 400, "Missing required field: reference");
-                return;
-            }
-
-            JsonObject result = runtime.meshCompare(referencePath, distanceType, scale, normalize);
-            writeJson(exchange, result);
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void meshOverlayHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            boolean clear = body.has("clear") && body.get("clear").getAsBoolean();
-            String path = body.has("path") ? body.get("path").getAsString() : "";
-
-            if (!clear && path.isEmpty()) {
-                writeError(exchange, 400, "Provide 'path' to load overlay or 'clear':true to remove");
-                return;
-            }
-
-            JsonObject result = runtime.meshOverlay(path, clear);
-            writeJson(exchange, result);
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void meshSkeletonHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            String path = body.has("path") ? body.get("path").getAsString() : "";
-            int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
-            if (path.isEmpty()) {
-                writeError(exchange, 400, "Provide 'path' to mesh OBJ file");
-                return;
-            }
-            writeJson(exchange, runtime.meshSkeleton(path, resolution));
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void skeletonCompareHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            String generated = body.has("generated") ? body.get("generated").getAsString() : "";
-            String reference = body.has("reference") ? body.get("reference").getAsString() : "";
-            int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
-            if (generated.isEmpty() || reference.isEmpty()) {
-                writeError(exchange, 400, "Provide 'generated' and 'reference' OBJ paths");
-                return;
-            }
-            writeJson(exchange, runtime.skeletonCompare(generated, reference, resolution));
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void skeletonCompareDetailedHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            String generated = body.has("generated") ? body.get("generated").getAsString() : "";
-            String reference = body.has("reference") ? body.get("reference").getAsString() : "";
-            int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
-            if (generated.isEmpty() || reference.isEmpty()) {
-                writeError(exchange, 400, "Provide 'generated' and 'reference' OBJ paths");
-                return;
-            }
-            writeJson(exchange, runtime.skeletonCompareDetailed(generated, reference, resolution));
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
-    private void skeletonSensitivityHandler(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST")) {
-            return;
-        }
-        try {
-            JsonObject body = readBodyJson(exchange);
-            String dsl = body.has("dsl") ? body.get("dsl").getAsString() : "";
-            String reference = body.has("reference") ? body.get("reference").getAsString() : "";
-            int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
-            float epsilon = body.has("epsilon") ? body.get("epsilon").getAsFloat() : 0;
-            if (dsl.isEmpty() || reference.isEmpty()) {
-                writeError(exchange, 400, "Provide 'dsl' name and 'reference' OBJ path");
-                return;
-            }
-            writeJson(exchange, runtime.skeletonSensitivity(dsl, reference, resolution, epsilon));
-        } catch (Exception e) {
-            writeError(exchange, 500, e.getMessage());
-        }
-    }
-
     private JsonObject readBodyJson(HttpExchange exchange) throws IOException {
         InputStream bodyStream = exchange.getRequestBody();
         if (bodyStream == null) {
             return new JsonObject();
         }
-        String body = new String(bodyStream.readAllBytes(), StandardCharsets.UTF_8);
+        String body = new String(
+            bodyStream.readAllBytes(),
+            StandardCharsets.UTF_8
+        );
         if (body.isBlank()) {
             return new JsonObject();
         }
         return JsonParser.parseString(body).getAsJsonObject();
     }
 
-    private void writeError(HttpExchange exchange, int statusCode, String message) throws IOException {
-        JsonObject error = new JsonObject();
-        error.addProperty("ok", false);
-        error.addProperty("error", message == null ? "" : message);
-        writeJson(exchange, statusCode, error);
-    }
-
-    private void writeJson(HttpExchange exchange, JsonObject payload) throws IOException {
-        writeJson(exchange, 200, payload);
-    }
-
-    private void writeJson(HttpExchange exchange, int code, JsonObject payload) throws IOException {
+    private void writeJson(HttpExchange exchange, int code, JsonObject payload)
+        throws IOException {
         byte[] response = GSON.toJson(payload).getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+        exchange
+            .getResponseHeaders()
+            .set("Content-Type", "application/json; charset=utf-8");
         exchange.sendResponseHeaders(code, response.length);
         exchange.getResponseBody().write(response);
         exchange.close();
-    }
-
-    private boolean requireMethod(HttpExchange exchange, String expected) throws IOException {
-        if (expected.equalsIgnoreCase(exchange.getRequestMethod())) {
-            return true;
-        }
-        writeError(exchange, 405, "Method not allowed; expected " + expected);
-        return false;
     }
 }

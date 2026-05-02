@@ -1,6 +1,7 @@
 package ixdar.platform.automation;
 
 import ixdar.platform.Platforms;
+import ixdar.platform.automation.endpoints.AutomationRuntime;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;

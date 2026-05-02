@@ -1,19 +1,6 @@
 package ixdar.geometry.mesh.documentation;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
-import org.joml.Vector3f;
-
 import com.google.gson.GsonBuilder;
-
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeSchema;
@@ -26,6 +13,16 @@ import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.joml.Vector3f;
 
 /**
  * CLI entry point that validates a .dsl file against the mesh node registry.
@@ -43,9 +40,14 @@ public final class ValidateDsl {
      * and the automation server endpoint. Returns a result map matching the
      * standard JSON schema (valid, nodeCount, errors, warnings, meshProbe, ...).
      */
-    public static Map<String, Object> validate(String source, String skillDir, String exportPath) {
+    public static Map<String, Object> validate(
+        String source,
+        String skillDir,
+        String exportPath
+    ) {
         // Load skill library if provided (optional — validation works without it)
-        ixdar.geometry.mesh.graph.SkillLibrary skillLib = new ixdar.geometry.mesh.graph.SkillLibrary();
+        ixdar.geometry.mesh.graph.SkillLibrary skillLib =
+            new ixdar.geometry.mesh.graph.SkillLibrary();
         if (skillDir != null && !skillDir.isEmpty()) {
             try {
                 skillLib.loadDirectory(Path.of(skillDir));
@@ -54,7 +56,8 @@ public final class ValidateDsl {
             }
         }
 
-        Map<String, Class<? extends MeshNode>> registry = NodeGraphRuntime.annotationRegistryClasses();
+        Map<String, Class<? extends MeshNode>> registry =
+            NodeGraphRuntime.annotationRegistryClasses();
 
         List<PythonParser.ParsedNode> parsed;
         Map<String, PythonParser.FunctionDef> funcDefs;
@@ -62,9 +65,13 @@ public final class ValidateDsl {
             PythonParser parser = new PythonParser(new PythonLexer(source));
             if (!skillLib.getSkills().isEmpty()) {
                 String preamble = skillLib.toDslPreamble();
-                PythonParser preambleParser = new PythonParser(new PythonLexer(preamble));
+                PythonParser preambleParser = new PythonParser(
+                    new PythonLexer(preamble)
+                );
                 preambleParser.parseGraph();
-                funcDefs = new java.util.HashMap<>(preambleParser.functionDefs());
+                funcDefs = new java.util.HashMap<>(
+                    preambleParser.functionDefs()
+                );
                 parsed = parser.parseGraph();
                 funcDefs.putAll(parser.functionDefs());
             } else {
@@ -73,16 +80,29 @@ public final class ValidateDsl {
             }
         } catch (RuntimeException e) {
             return Map.of(
-                    "valid", false,
-                    "nodeCount", 0,
-                    "parseError", e.getMessage(),
-                    "errors", List.of(),
-                    "warnings", List.of());
+                "valid",
+                false,
+                "nodeCount",
+                0,
+                "parseError",
+                e.getMessage(),
+                "errors",
+                List.of(),
+                "warnings",
+                List.of()
+            );
         }
 
         java.util.Set<String> functionNames = funcDefs.keySet();
-        List<String> errors = GraphValidator.validate(parsed, registry, functionNames);
-        List<String> warnings = GraphValidator.validateWithRandomValueWarnings(parsed, registry);
+        List<String> errors = GraphValidator.validate(
+            parsed,
+            registry,
+            functionNames
+        );
+        List<String> warnings = GraphValidator.validateWithRandomValueWarnings(
+            parsed,
+            registry
+        );
 
         boolean valid = errors.isEmpty();
         Map<String, Object> result = new LinkedHashMap<>();
@@ -92,22 +112,42 @@ public final class ValidateDsl {
         result.put("warnings", warnings);
 
         if (valid && !parsed.isEmpty()) {
-            Map<String, Object> probe = runMeshProbe(parsed, registry, funcDefs);
+            Map<String, Object> probe = runMeshProbe(
+                parsed,
+                registry,
+                funcDefs
+            );
             result.put("meshProbe", probe);
 
-            if (exportPath != null && !exportPath.isEmpty()
-                    && Boolean.TRUE.equals(probe.get("ok"))) {
+            if (
+                exportPath != null &&
+                !exportPath.isEmpty() &&
+                Boolean.TRUE.equals(probe.get("ok"))
+            ) {
                 try {
-                    ExportResult er = executeForExport(parsed, registry, funcDefs);
+                    ExportResult er = executeForExport(
+                        parsed,
+                        registry,
+                        funcDefs
+                    );
                     if (er != null && er.mesh != null) {
                         Path out = Path.of(exportPath);
-                        if (out.getParent() != null) Files.createDirectories(out.getParent());
+                        if (out.getParent() != null) Files.createDirectories(
+                            out.getParent()
+                        );
                         writeObj(er.mesh, out);
                         probe.put("exportedObj", exportPath);
 
                         if (er.tags != null && !er.tags.isEmpty()) {
-                            Path tagsPath = Path.of(exportPath.replaceAll("\\.obj$", "") + ".tags.json");
-                            writeTagsJson(er.tags, er.mesh.vertexCount(), tagsPath);
+                            Path tagsPath = Path.of(
+                                exportPath.replaceAll("\\.obj$", "") +
+                                    ".tags.json"
+                            );
+                            writeTagsJson(
+                                er.tags,
+                                er.mesh.vertexCount(),
+                                tagsPath
+                            );
                             probe.put("exportedTags", tagsPath.toString());
                         }
                     }
@@ -116,7 +156,10 @@ public final class ValidateDsl {
                 }
             }
         } else {
-            result.put("meshProbe", meshProbeSkipped("graph has validation errors or is empty"));
+            result.put(
+                "meshProbe",
+                meshProbeSkipped("graph has validation errors or is empty")
+            );
         }
 
         return result;
@@ -140,7 +183,9 @@ public final class ValidateDsl {
 
         Map<String, Object> result = validate(source, skillDirProp, exportPath);
 
-        System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(result));
+        System.out.println(
+            new GsonBuilder().setPrettyPrinting().create().toJson(result)
+        );
         boolean valid = Boolean.TRUE.equals(result.get("valid"));
         System.exit(valid ? 0 : 1);
     }
@@ -152,12 +197,16 @@ public final class ValidateDsl {
         return m;
     }
 
-    private static List<String> candidateMeshPorts(PythonParser.ParsedNode last,
-            Map<String, Class<? extends MeshNode>> registry) {
+    private static List<String> candidateMeshPorts(
+        PythonParser.ParsedNode last,
+        Map<String, Class<? extends MeshNode>> registry
+    ) {
         Class<? extends MeshNode> clazz = registry.get(last.type);
         if (clazz != null) {
             try {
-                MeshNode instance = clazz.getDeclaredConstructor().newInstance();
+                MeshNode instance = clazz
+                    .getDeclaredConstructor()
+                    .newInstance();
                 MeshNodeSchema schema = MeshNodeSchema.from(instance);
                 // Prefer GEOMETRY_BUNDLE ports over MESH so the export sees the
                 // bundle's slots (bezier handles, auto-tags, etc.) — a plain
@@ -177,15 +226,16 @@ public final class ValidateDsl {
                 if (!names.isEmpty()) {
                     return names;
                 }
-            } catch (ReflectiveOperationException ignored) {
-            }
+            } catch (ReflectiveOperationException ignored) {}
         }
         return List.of("geometry", "mesh");
     }
 
-    private static Map<String, Object> runMeshProbe(List<PythonParser.ParsedNode> parsed,
-            Map<String, Class<? extends MeshNode>> registry,
-            Map<String, PythonParser.FunctionDef> funcDefs) {
+    private static Map<String, Object> runMeshProbe(
+        List<PythonParser.ParsedNode> parsed,
+        Map<String, Class<? extends MeshNode>> registry,
+        Map<String, PythonParser.FunctionDef> funcDefs
+    ) {
         Map<String, Object> probe = new LinkedHashMap<>();
         probe.put("attempted", true);
 
@@ -206,7 +256,10 @@ public final class ValidateDsl {
             } catch (Exception e) {
                 probe.put("ok", false);
                 probe.put("outputPort", port);
-                probe.put("error", "Execution failed on port " + port + ": " + e.getMessage());
+                probe.put(
+                    "error",
+                    "Execution failed on port " + port + ": " + e.getMessage()
+                );
                 return probe;
             }
             if (mesh != null && mesh.vertexCount() > 0) {
@@ -217,7 +270,12 @@ public final class ValidateDsl {
 
         if (mesh == null || mesh.vertexCount() <= 0) {
             probe.put("ok", false);
-            probe.put("error", "Last node '" + last.id + "' produced no mesh with positive vertex count.");
+            probe.put(
+                "error",
+                "Last node '" +
+                    last.id +
+                    "' produced no mesh with positive vertex count."
+            );
             return probe;
         }
 
@@ -231,7 +289,14 @@ public final class ValidateDsl {
             probe.put("ok", false);
             probe.put("faceCount", mesh.faceCount());
             probe.put("vertexCount", mesh.vertexCount());
-            probe.put("error", "DSL execution took " + executionMs + "ms (limit " + MAX_EXECUTION_MS + "ms)");
+            probe.put(
+                "error",
+                "DSL execution took " +
+                    executionMs +
+                    "ms (limit " +
+                    MAX_EXECUTION_MS +
+                    "ms)"
+            );
             return probe;
         }
 
@@ -240,7 +305,13 @@ public final class ValidateDsl {
         if (mesh.faceCount() > MAX_FACE_COUNT) {
             probe.put("ok", false);
             probe.put("faceCount", mesh.faceCount());
-            probe.put("error", "Mesh face count (" + mesh.faceCount() + ") exceeds limit of " + MAX_FACE_COUNT);
+            probe.put(
+                "error",
+                "Mesh face count (" +
+                    mesh.faceCount() +
+                    ") exceeds limit of " +
+                    MAX_FACE_COUNT
+            );
             return probe;
         }
 
@@ -258,10 +329,15 @@ public final class ValidateDsl {
         probe.put("boundaryEdges", boundaryEdges);
         probe.put("watertight", boundaryEdges == 0);
 
-        boolean requireWatertight = Boolean.parseBoolean(System.getProperty("dsl.requireWatertight", "false"));
+        boolean requireWatertight = Boolean.parseBoolean(
+            System.getProperty("dsl.requireWatertight", "false")
+        );
         if (requireWatertight && boundaryEdges > 0) {
             probe.put("ok", false);
-            probe.put("error", "Mesh has " + boundaryEdges + " boundary edges (not watertight)");
+            probe.put(
+                "error",
+                "Mesh has " + boundaryEdges + " boundary edges (not watertight)"
+            );
             return probe;
         }
 
@@ -300,7 +376,9 @@ public final class ValidateDsl {
     }
 
     private static boolean vec3Finite(Vector3f v) {
-        return Float.isFinite(v.x) && Float.isFinite(v.y) && Float.isFinite(v.z);
+        return (
+            Float.isFinite(v.x) && Float.isFinite(v.y) && Float.isFinite(v.z)
+        );
     }
 
     private static List<Double> vec3Json(Vector3f v) {
@@ -311,11 +389,16 @@ public final class ValidateDsl {
         return Float.isFinite(f) ? Double.valueOf(f) : null;
     }
 
-    private record ExportResult(MeshTopology mesh, Map<String, boolean[]> tags) {}
+    private record ExportResult(
+        MeshTopology mesh,
+        Map<String, boolean[]> tags
+    ) {}
 
-    private static ExportResult executeForExport(List<PythonParser.ParsedNode> parsed,
-            Map<String, Class<? extends MeshNode>> registry,
-            Map<String, PythonParser.FunctionDef> funcDefs) {
+    private static ExportResult executeForExport(
+        List<PythonParser.ParsedNode> parsed,
+        Map<String, Class<? extends MeshNode>> registry,
+        Map<String, PythonParser.FunctionDef> funcDefs
+    ) {
         PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
         List<String> ports = candidateMeshPorts(last, registry);
         NodeGraphRuntime runtime = new NodeGraphRuntime();
@@ -335,13 +418,16 @@ public final class ValidateDsl {
                 if (mesh != null && mesh.vertexCount() > 0) {
                     return new ExportResult(mesh, tags);
                 }
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
         }
         return null;
     }
 
-    private static void writeTagsJson(Map<String, boolean[]> tags, int vertexCount, Path out) throws IOException {
+    private static void writeTagsJson(
+        Map<String, boolean[]> tags,
+        int vertexCount,
+        Path out
+    ) throws IOException {
         Map<String, Object> doc = new LinkedHashMap<>();
         Map<String, List<Integer>> tagIndices = new LinkedHashMap<>();
         for (Map.Entry<String, boolean[]> e : tags.entrySet()) {
@@ -351,9 +437,15 @@ public final class ValidateDsl {
                 // happens when a tag set before a vertex-count-changing op (e.g.
                 // coons_patch's subdivision) is carried forward; the indices would
                 // be meaningless or misleading in the sidecar.
-                System.err.println("[ValidateDsl] skipping tag '" + e.getKey()
-                        + "' (mask length " + mask.length + " != vertex count " + vertexCount
-                        + "); likely invalidated by a vertex-count-changing op upstream.");
+                System.err.println(
+                    "[ValidateDsl] skipping tag '" +
+                        e.getKey() +
+                        "' (mask length " +
+                        mask.length +
+                        " != vertex count " +
+                        vertexCount +
+                        "); likely invalidated by a vertex-count-changing op upstream."
+                );
                 continue;
             }
             List<Integer> indices = new ArrayList<>();
@@ -366,10 +458,14 @@ public final class ValidateDsl {
         }
         doc.put("tags", tagIndices);
         doc.put("vertex_count", vertexCount);
-        Files.writeString(out, new GsonBuilder().setPrettyPrinting().create().toJson(doc));
+        Files.writeString(
+            out,
+            new GsonBuilder().setPrettyPrinting().create().toJson(doc)
+        );
     }
 
-    private static void writeObj(MeshTopology mesh, Path out) throws IOException {
+    private static void writeObj(MeshTopology mesh, Path out)
+        throws IOException {
         try (BufferedWriter w = Files.newBufferedWriter(out)) {
             Vector3f p = new Vector3f();
             Map<Integer, Integer> vidToIdx = new HashMap<>();
