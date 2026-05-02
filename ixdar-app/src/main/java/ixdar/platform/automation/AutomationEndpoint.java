@@ -21,7 +21,7 @@ import ixdar.platform.automation.endpoints.AutomationRuntime;
 public class AutomationEndpoint {
     
     protected AutomationRuntime runtime;
-    private static final Gson GSON = new Gson();
+    public static final Gson GSON = new Gson();
     
     public JsonObject readBodyJson(HttpExchange exchange) throws IOException {
         InputStream bodyStream = exchange.getRequestBody();

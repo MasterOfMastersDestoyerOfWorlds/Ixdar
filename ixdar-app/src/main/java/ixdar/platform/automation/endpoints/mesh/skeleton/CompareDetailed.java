@@ -7,7 +7,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
@@ -25,14 +24,18 @@ import ixdar.platform.automation.AutomationEndpoint;
 @AutomationRouteAnnotation(path = "mesh/skeleton/compare-detailed", method = APIMethod.POST)
 public class CompareDetailed extends AutomationEndpoint implements AutomationRoute {
     @Override
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
-            JsonObject body = readBodyJson(exchange);
             String generatedPath = body.has("generated") ? body.get("generated").getAsString() : "";
             String referencePath = body.has("reference") ? body.get("reference").getAsString() : "";
             int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
             if (generatedPath.isEmpty() || referencePath.isEmpty()) {
-                return writeError(exchange, 400, "Provide 'generated' and 'reference' OBJ paths");
+                JsonObject err = new JsonObject();
+                err.addProperty("ok", false);
+                err.addProperty(
+                        "error",
+                        "Provide 'generated' and 'reference' OBJ paths");
+                return err;
             }
             File genFile = new File(generatedPath);
             if (!genFile.isAbsolute())
@@ -80,7 +83,10 @@ public class CompareDetailed extends AutomationEndpoint implements AutomationRou
 
             return result;
         } catch (Exception e) {
-            return writeError(exchange, 500, e.getMessage());
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", e.getMessage());
+            return err;
         }
     }
 }

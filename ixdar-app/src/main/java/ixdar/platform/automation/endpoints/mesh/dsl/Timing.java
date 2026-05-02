@@ -4,7 +4,6 @@ import java.io.IOException;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
@@ -15,7 +14,7 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 @AutomationRouteAnnotation(path = "mesh/dsl/timing", method = APIMethod.GET)
 public class Timing extends AutomationEndpoint implements AutomationRoute {
 
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject result = new JsonObject();
         if (!(runtime.canvas instanceof MeshNodeViewerScene mvs)) {
             result.addProperty("ok", false);

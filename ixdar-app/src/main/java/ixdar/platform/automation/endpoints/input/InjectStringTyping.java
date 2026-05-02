@@ -3,7 +3,6 @@ package ixdar.platform.automation.endpoints.input;
 import java.io.IOException;
 
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
@@ -13,9 +12,8 @@ import ixdar.platform.input.KeyGuy;
 
 @AutomationRouteAnnotation(path = "input/type", method = APIMethod.POST)
 public class InjectStringTyping extends AutomationEndpoint implements AutomationRoute {
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
-            JsonObject body = readBodyJson(exchange);
             String text = body.has("text")
                     ? body.get("text").getAsString()
                     : "";
@@ -44,7 +42,10 @@ public class InjectStringTyping extends AutomationEndpoint implements Automation
                 return error;
             }
         } catch (Exception e) {
-            return writeError(exchange, 500, e.getMessage());
+            JsonObject error = new JsonObject();
+            error.addProperty("ok", false);
+            error.addProperty("error", e.getMessage());
+            return error;
         }
     }
 }

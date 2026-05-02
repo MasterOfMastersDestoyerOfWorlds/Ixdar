@@ -1,9 +1,11 @@
 package ixdar.platform.automation.endpoints.input;
 
+import static ixdar.platform.input.Keys.ACTION_PRESS;
+import static ixdar.platform.input.Keys.ACTION_RELEASE;
+
 import java.io.IOException;
 
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
@@ -12,14 +14,10 @@ import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.TradeMouseTrap;
 
-import static ixdar.platform.input.Keys.ACTION_PRESS;
-import static ixdar.platform.input.Keys.ACTION_RELEASE;
-
 @AutomationRouteAnnotation(path = "input/click", method = APIMethod.POST)
 public class InjectClick extends AutomationEndpoint implements AutomationRoute {
 
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
-        JsonObject body = readBodyJson(exchange);
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         float x = body.has("x") ? body.get("x").getAsFloat() : 0f;
         float y = body.has("y") ? body.get("y").getAsFloat() : 0f;
         boolean normalized = body.has("normalized") && body.get("normalized").getAsBoolean();

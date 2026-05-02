@@ -3,7 +3,6 @@ package ixdar.platform.automation.endpoints;
 import java.io.IOException;
 
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
@@ -13,7 +12,7 @@ import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "shutdown", method = APIMethod.POST)
 public class Shutdown extends AutomationEndpoint implements AutomationRoute {
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject result = new JsonObject();
         result.addProperty("ok", true);
         result.addProperty("accepted", true);

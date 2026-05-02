@@ -12,12 +12,12 @@ import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "replay/resume", method = APIMethod.POST)
 public class Resume extends AutomationEndpoint implements AutomationRoute {
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject result = new JsonObject();
         runtime.replayEngine().resume();
         result.addProperty("ok", true);
         result.addProperty("paused", runtime.replayEngine().isPaused());
-        return writeJson(exchange, result);
+        return result;
 
     }
 }

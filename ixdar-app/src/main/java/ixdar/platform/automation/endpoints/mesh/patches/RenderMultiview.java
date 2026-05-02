@@ -7,18 +7,16 @@ import java.io.IOException;
 import javax.imageio.ImageIO;
 
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
-import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "/mesh/patches/render-multiview", method = APIMethod.POST)
 public class RenderMultiview extends AutomationEndpoint implements AutomationRoute {
     @Override
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
-        JsonObject body = readBodyJson(exchange);
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         String path = body.has("path") ? body.get("path").getAsString() : "";
         int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
         String outPath = body.has("out_path") ? body.get("out_path").getAsString() : "";

@@ -3,7 +3,6 @@ package ixdar.platform.automation.endpoints.ui;
 import java.io.IOException;
 
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
@@ -15,8 +14,7 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 @AutomationRouteAnnotation(path = "ui/orbit", method = APIMethod.POST)
 public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
     @Override
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
-        JsonObject body = readBodyJson(exchange);
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         float azimuth = body.has("azimuth")
                 ? body.get("azimuth").getAsFloat()
                 : 0f;

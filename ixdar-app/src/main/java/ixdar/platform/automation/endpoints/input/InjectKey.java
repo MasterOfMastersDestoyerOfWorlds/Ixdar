@@ -3,7 +3,6 @@ package ixdar.platform.automation.endpoints.input;
 import java.io.IOException;
 
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
@@ -13,8 +12,7 @@ import ixdar.platform.input.KeyGuy;
 
 @AutomationRouteAnnotation(path = "input/key", method = APIMethod.POST)
 public class InjectKey extends AutomationEndpoint implements AutomationRoute {
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
-        JsonObject body = readBodyJson(exchange);
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         int key = body.has("key") ? body.get("key").getAsInt() : 0;
         int action = body.has("action") ? body.get("action").getAsInt() : 1;
         int mods = body.has("mods") ? body.get("mods").getAsInt() : 0;

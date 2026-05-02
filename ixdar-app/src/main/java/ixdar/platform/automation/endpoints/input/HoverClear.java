@@ -3,7 +3,6 @@ package ixdar.platform.automation.endpoints.input;
 import java.io.IOException;
 
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
@@ -14,7 +13,7 @@ import ixdar.platform.input.TradeMouseTrap;
 
 @AutomationRouteAnnotation(path = "input/hover/clear", method = APIMethod.POST)
 public class HoverClear extends AutomationEndpoint implements AutomationRoute {
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
             return runtime.runOnMainThread(() -> {
                 MouseTrap mouse = runtime.activeMouse();
@@ -32,7 +31,10 @@ public class HoverClear extends AutomationEndpoint implements AutomationRoute {
                 return result;
             });
         } catch (Exception e) {
-            return writeError(exchange, 500, e.getMessage());
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", e.getMessage());
+            return err;
         }
     }
 }

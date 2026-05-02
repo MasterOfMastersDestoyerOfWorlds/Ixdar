@@ -1,26 +1,25 @@
 package ixdar.platform.automation.endpoints.ui;
 
-import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
-
-import ixdar.annotations.automation.APIMethod;
-import ixdar.platform.Platforms;
-import ixdar.platform.automation.AutomationEndpoint;
-import ixdar.annotations.automation.AutomationRoute;
-import ixdar.annotations.automation.AutomationRouteAnnotation;
-
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.Base64;
+
 import javax.imageio.ImageIO;
+
+import com.google.gson.JsonObject;
+
+import ixdar.annotations.automation.APIMethod;
+import ixdar.annotations.automation.AutomationRoute;
+import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.platform.Platforms;
+import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "/ui/screenshot", method = APIMethod.POST)
 public class Screenshot extends AutomationEndpoint implements AutomationRoute {
 
     @Override
-    public JsonObject endpointHandler(HttpExchange exchange)
+    public JsonObject endpointHandler(JsonObject body)
             throws Exception {
-        JsonObject body = readBodyJson(exchange);
         String outputPath = body.has("path")
                 ? body.get("path").getAsString()
                 : "";

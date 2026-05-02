@@ -26,9 +26,8 @@ import ixdar.platform.automation.AutomationEndpoint;
 @AutomationRouteAnnotation(path = "mesh/skeleton/compare", method = APIMethod.POST)
 public class Compare extends AutomationEndpoint implements AutomationRoute {
     @Override
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
-            JsonObject body = readBodyJson(exchange);
             String generatedPath = body.has("generated")
                     ? body.get("generated").getAsString()
                     : "";
@@ -39,11 +38,12 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                     ? body.get("resolution").getAsInt()
                     : 128;
             if (generatedPath.isEmpty() || referencePath.isEmpty()) {
-                writeError(
-                        exchange,
-                        400,
+                JsonObject err = new JsonObject();
+                err.addProperty("ok", false);
+                err.addProperty(
+                        "error",
                         "Provide 'generated' and 'reference' OBJ paths");
-                return writeError(exchange, 400, "Provide 'generated' and 'reference' OBJ paths");
+                return err;
             }
             // Resolve and validate generated mesh path
             File genFile = new File(generatedPath);
@@ -93,7 +93,10 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
 
             return result;
         } catch (Exception e) {
-            return writeError(exchange, 500, e.getMessage());
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", e.getMessage());
+            return err;
         }
     }
 }

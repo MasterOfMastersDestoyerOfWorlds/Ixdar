@@ -3,7 +3,6 @@ package ixdar.platform.automation.endpoints.mesh;
 import java.io.IOException;
 
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
@@ -17,7 +16,7 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 public class Fingerprint extends AutomationEndpoint implements AutomationRoute {
 
     @Override
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
             return runtime.runOnMainThread(() -> {
                 JsonObject result = new JsonObject();

@@ -2,7 +2,6 @@ package ixdar.platform.automation.endpoints.mesh;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.platform.automation.AutomationEndpoint;
@@ -20,8 +19,7 @@ import java.util.Map;
 public class Segmentation extends AutomationEndpoint implements AutomationRoute {
 
     @Override
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
-        JsonObject body = readBodyJson(exchange);
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         String path = body.has("path") ? body.get("path").getAsString() : "";
         String method = body.has("method")
                 ? body.get("method").getAsString()

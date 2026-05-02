@@ -4,11 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
@@ -26,15 +23,19 @@ import ixdar.platform.automation.AutomationEndpoint;
 @AutomationRouteAnnotation(path = "/mesh/skeleton/sensitivity", method = APIMethod.POST)
 public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
     @Override
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
-            JsonObject body = readBodyJson(exchange);
             String dslName = body.has("dsl") ? body.get("dsl").getAsString() : "";
             String referencePath = body.has("reference") ? body.get("reference").getAsString() : "";
             int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
             float epsilon = body.has("epsilon") ? body.get("epsilon").getAsFloat() : 0;
             if (dslName.isEmpty() || referencePath.isEmpty()) {
-                return writeError(exchange, 400, "Provide 'dsl' name and 'reference' OBJ path");
+                JsonObject err = new JsonObject();
+                err.addProperty("ok", false);
+                err.addProperty(
+                        "error",
+                        "Provide 'dsl' name and 'reference' OBJ path");
+                return err;
             }
             try {
                 // Resolve DSL file — try multiple locations
@@ -138,7 +139,10 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
                 return err;
             }
         } catch (Exception e) {
-            return writeError(exchange, 500, e.getMessage());
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", e.getMessage());
+            return err;
         }
     }
 }

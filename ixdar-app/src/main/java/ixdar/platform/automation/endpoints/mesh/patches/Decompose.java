@@ -1,22 +1,21 @@
 package ixdar.platform.automation.endpoints.mesh.patches;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
-
-import ixdar.annotations.automation.APIMethod;
-import ixdar.platform.automation.AutomationEndpoint;
-import ixdar.annotations.automation.AutomationRoute;
 import java.io.File;
 import java.io.IOException;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
+import ixdar.annotations.automation.APIMethod;
+import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "/mesh/patches/decompose", method = APIMethod.POST)
 public class Decompose extends AutomationEndpoint implements AutomationRoute {
 
     @Override
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
-        JsonObject body = readBodyJson(exchange);
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         String path = body.has("path") ? body.get("path").getAsString() : "";
         int resolution = body.has("resolution")
                 ? body.get("resolution").getAsInt()

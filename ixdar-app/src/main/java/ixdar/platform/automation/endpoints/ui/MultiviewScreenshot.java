@@ -33,8 +33,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
      * which causes a hang.
      */
     @Override
-    public JsonObject endpointHandler(HttpExchange exchange) throws Exception {
-        JsonObject body = readBodyJson(exchange);
+    public JsonObject endpointHandler(JsonObject body) throws Exception {
         String outputPath = body.has("path") ? body.get("path").getAsString() : "";
         boolean inline = body.has("inline") && body.get("inline").getAsBoolean();
         try {

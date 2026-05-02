@@ -6,7 +6,6 @@ import java.util.Map;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
@@ -29,7 +28,7 @@ import ixdar.scenes.trade.TradeScene;
 @AutomationRouteAnnotation(path = "ui/state", method = APIMethod.GET)
 public class State extends AutomationEndpoint implements AutomationRoute {
     @Override
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject root = new JsonObject();
         root.addProperty("timestamp", Instant.now().toString());
         root.addProperty("windowWidth", Platforms.get().getWindowWidth());

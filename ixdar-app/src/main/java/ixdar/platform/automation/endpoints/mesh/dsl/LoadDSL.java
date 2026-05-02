@@ -1,23 +1,22 @@
 package ixdar.platform.automation.endpoints.mesh.dsl;
 
+import java.io.IOException;
+
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
-import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.annotations.automation.AutomationRoute;
+import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.automation.endpoints.AutomationRuntime;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
-import java.io.IOException;
-import ixdar.annotations.automation.AutomationRouteAnnotation;
 
 @AutomationRouteAnnotation(path = "mesh/dsl", method = APIMethod.POST)
 public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
 
     @Override
-    public JsonObject endpointHandler(HttpExchange exchange)
+    public JsonObject endpointHandler(JsonObject body)
             throws IOException {
-        JsonObject body = readBodyJson(exchange);
         String dslName = body.has("name") ? body.get("name").getAsString() : "";
         String node = body.has("node") ? body.get("node").getAsString() : "";
         String port = body.has("port")
@@ -25,7 +24,10 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
                 : "geometry";
 
         if (dslName.isEmpty()) {
-            return writeError(exchange, 400, "Missing required field: name");
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", "Missing required field: name");
+            return err;
 
         }
 

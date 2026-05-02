@@ -3,7 +3,6 @@ package ixdar.platform.automation.endpoints.mesh;
 import java.io.IOException;
 
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
@@ -17,9 +16,8 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 public class Compare extends AutomationEndpoint implements AutomationRoute {
 
     @Override
-    public JsonObject endpointHandler(HttpExchange exchange) throws IOException {
+    public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
-            JsonObject body = readBodyJson(exchange);
             String referencePath = body.has("reference")
                     ? body.get("reference").getAsString()
                     : "";
@@ -32,7 +30,10 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
             boolean normalize = body.has("normalize") && body.get("normalize").getAsBoolean();
 
             if (referencePath.isEmpty()) {
-                return writeError(exchange, 400, "Missing required field: reference");
+                JsonObject err = new JsonObject();
+                err.addProperty("ok", false);
+                err.addProperty("error", "Missing required field: reference");
+                return err;
             }
 
             try {
@@ -125,7 +126,10 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                 return err;
             }
         } catch (Exception e) {
-            return writeError(exchange, 500, e.getMessage());
+            JsonObject err = new JsonObject();
+            err.addProperty("ok", false);
+            err.addProperty("error", e.getMessage());
+            return err;
         }
     }
 }
