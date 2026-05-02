@@ -42,39 +42,21 @@ public final class AlignedParameterization {
     private final ArrayMesh mesh;
     private final FaceRosyField field;
     private final CombedField combed;
-    private final boolean applyLogBarrier;
 
     private final int faceCount;
     private final float[] uCorner;
     private final float[] vCorner;
     private double energy;
-    private int barrierIterations;
-    private boolean barrierInjective;
 
     public AlignedParameterization(ArrayMesh mesh, FaceRosyField field, CombedField combed) {
-        this(mesh, field, combed, false);
-    }
-
-    /**
-     * @param applyLogBarrier if true, run a Gauss-Newton log-barrier refinement
-     *                        (PATCH-49) on top of the linear-solve result to
-     *                        push degenerate / flipped triangles back to
-     *                        positive UV signed area.
-     */
-    public AlignedParameterization(ArrayMesh mesh, FaceRosyField field, CombedField combed,
-                                   boolean applyLogBarrier) {
         this.mesh = mesh;
         this.field = field;
         this.combed = combed;
-        this.applyLogBarrier = applyLogBarrier;
         this.faceCount = mesh.faceCount();
         this.uCorner = new float[faceCount * 3];
         this.vCorner = new float[faceCount * 3];
         solve();
     }
-
-    public int barrierIterations() { return barrierIterations; }
-    public boolean barrierInjective() { return barrierInjective; }
 
     public float u(int faceId, int cornerIdx) {
         return uCorner[faceId * 3 + cornerIdx];
@@ -123,18 +105,6 @@ public final class AlignedParameterization {
             }
         }
         energy = computeEnergy(H);
-
-        // PATCH-49: optional log-barrier refinement.
-        if (applyLogBarrier) {
-            LogBarrier.Result br = LogBarrier.refine(
-                    H, uCorner, vCorner,
-                    null, null, null, null,
-                    LogBarrier.DEFAULT_WEIGHT);
-            System.arraycopy(br.u, 0, uCorner, 0, uCorner.length);
-            System.arraycopy(br.v, 0, vCorner, 0, vCorner.length);
-            this.barrierIterations = br.iterations;
-            this.barrierInjective = br.injective;
-        }
     }
 
     private double computeEnergy(IgmHessian H) {

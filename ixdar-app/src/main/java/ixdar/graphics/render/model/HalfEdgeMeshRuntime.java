@@ -217,7 +217,7 @@ public class HalfEdgeMeshRuntime {
             active.setFloat("scalarMin", scalarMin);
             active.setFloat("scalarMax", scalarMax);
         }
-        active.setMat4("model", modelMatrix.identity());
+        active.setMat4("model", modelMatrix);
         active.setMat4("view", camera.view);
         active.setMat4("projection", projectionMatrix);
         active.setVec4("solidColor", solidColor);
@@ -441,7 +441,7 @@ public class HalfEdgeMeshRuntime {
     private void renderFeatureEdgeOverlay(Camera3D camera) {
         if (featureEdgeRanges.isEmpty() || meshUnlitShader.ID < 0) return;
         meshUnlitShader.use();
-        meshUnlitShader.setMat4("model", modelMatrix.identity());
+        meshUnlitShader.setMat4("model", modelMatrix);
         meshUnlitShader.setMat4("view", camera.view);
         meshUnlitShader.setMat4("projection", projectionMatrix);
         // PATCH-17: leave depth test on so back-facing overlay edges get
@@ -468,7 +468,7 @@ public class HalfEdgeMeshRuntime {
             return;
         }
         meshUnlitShader.use();
-        meshUnlitShader.setMat4("model", modelMatrix.identity());
+        meshUnlitShader.setMat4("model", modelMatrix);
         meshUnlitShader.setMat4("view", camera.view);
         meshUnlitShader.setMat4("projection", projectionMatrix);
         meshVao.bind();
@@ -508,6 +508,15 @@ public class HalfEdgeMeshRuntime {
 
     public void setSolidColor(float r, float g, float b, float a) {
         solidColor.set(r, g, b, a);
+    }
+
+    /** Per-instance world transform applied to mesh vertices. Defaults to identity. */
+    public void setModelMatrix(Matrix4f m) {
+        modelMatrix.set(m);
+    }
+
+    public void setModelIdentity() {
+        modelMatrix.identity();
     }
 
     /**

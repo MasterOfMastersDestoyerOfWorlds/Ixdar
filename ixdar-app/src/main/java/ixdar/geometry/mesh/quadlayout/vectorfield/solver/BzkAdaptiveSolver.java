@@ -44,7 +44,12 @@ public final class BzkAdaptiveSolver {
         public boolean useCg = true;             // Jacobi-PCG (PATCH-101 default)
         public int gsMaxIter = 5000;
         public double gsTolerance = 1e-6;
-        public int cgMaxIter = 5000;
+        // PATCH-103: cgMaxIter default bumped to 20000. With batch pinning,
+        //   we have only ~7 outer solves on a 20K-face mesh; the unconstrained
+        //   bootstrap solve genuinely needs ~5000-7000 iters of Jacobi-PCG
+        //   on the full subspace. 20000 gives safety margin without hurting
+        //   the constrained cases (which converge in <1000 iters anyway).
+        public int cgMaxIter = 20000;
         public double cgTolerance = 1e-7;
         public int iccMaxIter = 2000;
         public double iccTolerance = 1e-7;

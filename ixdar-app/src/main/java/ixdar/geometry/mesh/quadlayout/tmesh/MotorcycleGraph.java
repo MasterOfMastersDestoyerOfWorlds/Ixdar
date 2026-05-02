@@ -46,6 +46,14 @@ public final class MotorcycleGraph {
     public static int[] statSingLaunchCount = new int[16];
     /** Total singularities scanned. */
     public static int statSingTotal;
+    /** PATCH-110: singularities passed in vs successfully assigned a launch
+     *  TNode. statSingsInputCount = singularities.size() (whatever sing finder
+     *  produced). statSingsNoNode = sings whose vertex had no incident face
+     *  with uvSignedArea > 0 in the parametrization, so we couldn't pick a
+     *  launch face → no motorcycles launched from them. Drives understanding
+     *  of the trace-launch gap (Lyon 144 vs ours 128). */
+    public static int statSingsInputCount;
+    public static int statSingsNoNode;
     /** Singularities where ≥1 face wedge had a cardinal exactly on its boundary
      *  (the under-launch failure mode of cardinalInFaceWedge). */
     public static int statSingBoundaryCardinals;
@@ -86,6 +94,19 @@ public final class MotorcycleGraph {
      *  itself"). We currently skip them, which causes traces to run to
      *  MAX_STEPS on genus-positive surfaces. */
     public static int statRealSelfCrashes;
+    /** PATCH-105: per-cause classification of MAX_STEPS aborts. After
+     *  trace() returns, count how many of the {@code statAbortMaxSteps}
+     *  motorcycles fall into each diagnostic bucket. */
+    public static int statMaxStepsZeroCrashes;        // never crashed at all (sanitization / predicate gap)
+    public static int statMaxStepsOneSidedAlpha;      // crashed but never both sides of α-cone
+    public static int statMaxStepsTwoSidedNeverFired; // had both sides AND in-α — but stop didn't trigger (shouldn't happen)
+    public static int statMaxStepsHitFlippedFace;     // entered ≥1 fold-over face along the way
+    public static int statMaxStepsUsedNudge;          // PATCH-93 recovery fired ≥1 time
+    /** PATCH-107 oscillation probe — uniqueFaces visited per max-stepped motorcycle.
+     *  Buckets [≤10, 11-50, 51-200, 201-1000, 1001-5000, 5001+]. If most aborts are
+     *  in low buckets, the motorcycle is oscillating (NOT genuinely traversing the
+     *  mesh) — implies our intersection detector misses the self-loop. */
+    public static int[] statMaxStepsUniqueFacesHist = new int[6];
     /** PATCH-94: motorcycles that experienced at least one real self-crash. */
     public static int statMotorcyclesWithSelfCrash;
     /** PATCH-95 H1 diagnostic: histogram of |α_ij| at every other-trace crash.
@@ -137,10 +158,17 @@ public final class MotorcycleGraph {
     private MotorcycleGraph() {}
 
     /** Default α-bound (radians) for Lyon §3 stopping criterion when none
-     *  is specified. Override at runtime via {@code -Dixdar.lyon.alphaDeg=N}. */
+     *  is specified. Lyon Table 1 uses α=15° for ROCKERARM (PATCH-104).
+     *  Override at runtime via {@code -Dixdar.lyon.alphaDeg=N}.
+     *
+     *  <p>Per Lyon §3 (page 308): tighter α forces motorcycles to extend
+     *  further before finding a valid stop pair (αik ∈ [0, α], αil ∈ [-α, 0])
+     *  → more arcs in the T-mesh. Bigger α = traces stop on any nearby crash
+     *  → fewer arcs. With our previous default 45°, ROCKERARM yielded 656
+     *  arcs vs Lyon paper's 2742. */
     public static double defaultAlpha() {
         String prop = System.getProperty("ixdar.lyon.alphaDeg");
-        double deg = (prop != null) ? Double.parseDouble(prop) : 45.0;
+        double deg = (prop != null) ? Double.parseDouble(prop) : 15.0;
         return Math.toRadians(deg);
     }
 
@@ -188,6 +216,21 @@ public final class MotorcycleGraph {
         boolean rightHit = false;
         float cumLen = 0f;
         boolean active = true;
+
+        // PATCH-105 per-motorcycle diagnostics for MAX_STEPS abort triage.
+        int crashesRecorded = 0;       // total crashes this trace registered
+        int crashesLeftAlpha = 0;      // crashes with cross<0 AND |αij|≤α
+        int crashesRightAlpha = 0;     // crashes with cross>0 AND |αij|≤α
+        int enteredFlippedFace = 0;    // faces with uvSignedArea ≤ 0 visited
+        int nudgeRecoveryFires = 0;    // PATCH-93 recovery firings
+        java.util.HashSet<Integer> uniqueFaces = new java.util.HashSet<>();  // PATCH-107 oscillation probe
+        /** PATCH-107 cycle-detection: visited (face, dirInFace) tuples. EGKT08
+         *  spirit: motorcycle stops when "particle meets a vertex previously
+         *  traversed by itself" — generalized here to "re-enters a face in
+         *  the same direction as before". Catches oscillation that the
+         *  segment-intersection self-stop misses (parallel cardinal traces
+         *  in the same face don't intersect). */
+        java.util.HashSet<Long> visitedFaceDir = new java.util.HashSet<>();
 
         MotorcycleState(int motorcycleId, int singVid, int direction, int startNode,
                         int face, float uIn, float vIn) {
@@ -374,6 +417,12 @@ public final class MotorcycleGraph {
             statAbortNoExitEdge = 0;
             statTraceProperStop = 0;
             statAbortMaxSteps = 0;
+            statMaxStepsZeroCrashes = 0;       // PATCH-105
+            statMaxStepsOneSidedAlpha = 0;
+            statMaxStepsTwoSidedNeverFired = 0;
+            statMaxStepsHitFlippedFace = 0;
+            statMaxStepsUsedNudge = 0;
+            for (int i = 0; i < statMaxStepsUniqueFacesHist.length; i++) statMaxStepsUniqueFacesHist[i] = 0;
             statSelfCrashesSkipped = 0;
             statRealSelfCrashes = 0;
             statMotorcyclesWithSelfCrash = 0;
@@ -389,10 +438,16 @@ public final class MotorcycleGraph {
             int nextMotorcycleId = motorcycles.size();
             // Per-singularity launched count for H1 stat (counted at end).
             int[] launchedPerSingIdx = new int[singularities.size()];
+            statSingsInputCount = singularities.size();
+            statSingsNoNode = 0;
             int sIdx = 0;
             for (Singularity s : singularities) {
                 Integer startNode = singVertexToNode.get(s.vertexId());
-                if (startNode == null) { sIdx++; continue; }
+                if (startNode == null) {
+                    statSingsNoNode++;
+                    sIdx++;
+                    continue;
+                }
                 int vId = s.vertexId();
                 statSingTotal++;
                 boolean boundaryCardinal = false;
@@ -460,10 +515,43 @@ public final class MotorcycleGraph {
             for (MotorcycleState st : states) {
                 if (st.finalNode < 0) {
                     // Round-robin terminated without a stop firing — MAX_STEPS.
+                    // PATCH-107: per uniqueFaces probe, ALL such motorcycles
+                    //   are stuck oscillating in a small face set, NOT
+                    //   genuinely traversing the mesh. Per EGKT08 spirit,
+                    //   stop the trace at its current position with a
+                    //   self-stop INTERSECTION node so downstream T-mesh
+                    //   build splits the trace correctly (rather than
+                    //   leaving a trailing BOUNDARY node that downstream
+                    //   stages can't consume). This converts our 53
+                    //   "abort-max-steps" into proper terminations.
                     statAbortMaxSteps++;
                     motorcycleOutcomes.add("MAX_STEPS id=" + st.motorcycleId);
-                    st.finalNode = recordNode(TNode.NodeKind.BOUNDARY,
+                    int cycleNodeId = recordNode(TNode.NodeKind.INTERSECTION,
                             st.curFace, st.u, st.v);
+                    crashes.add(new Crash(st.motorcycleId, st.step,
+                            st.u, st.v, cycleNodeId,
+                            st.motorcycleId, st.step, Math.PI / 2));
+                    // PATCH-105 per-cause classification.
+                    if (st.crashesRecorded == 0) {
+                        statMaxStepsZeroCrashes++;
+                    } else if (st.crashesLeftAlpha > 0 && st.crashesRightAlpha > 0) {
+                        statMaxStepsTwoSidedNeverFired++;
+                    } else {
+                        statMaxStepsOneSidedAlpha++;
+                    }
+                    if (st.enteredFlippedFace > 0) statMaxStepsHitFlippedFace++;
+                    if (st.nudgeRecoveryFires > 0) statMaxStepsUsedNudge++;
+                    int uf = st.uniqueFaces.size();
+                    int b = (uf <= 10) ? 0
+                          : (uf <= 50) ? 1
+                          : (uf <= 200) ? 2
+                          : (uf <= 1000) ? 3
+                          : (uf <= 5000) ? 4 : 5;
+                    statMaxStepsUniqueFacesHist[b]++;
+                    // PATCH-107: use the INTERSECTION node we just created
+                    //   (not a BOUNDARY node) so T-mesh treats it as a
+                    //   genuine endpoint, not a trail-into-boundary failure.
+                    st.finalNode = cycleNodeId;
                 }
                 if (st.trace.isEmpty()) continue;
                 motorcycles.add(new Motorcycle(st.motorcycleId, st.singVid,
@@ -520,11 +608,21 @@ public final class MotorcycleGraph {
             // === BEGIN body of original launch() for-loop body ===
             do {
                 if (curFace < 0 || param.uvSignedArea(curFace) <= 0) {
+                    // PATCH-105: count flipped-face encounters before abort.
+                    if (curFace >= 0) st.enteredFlippedFace++;
                     // Stepped onto a degen / flipped triangle. Abort cleanly.
                     finalNode = recordNode(TNode.NodeKind.BOUNDARY, curFace, u, v);
                     statAbortDegenStartFace++;
                     break;
                 }
+                st.uniqueFaces.add(curFace);                // PATCH-107 oscillation probe
+                // PATCH-107 cycle detection (deferred): track but don't act
+                //   on (face, dir) revisits during the trace — cardinal
+                //   trace can legitimately re-enter (face, dir) on a
+                //   different parametric path. Decision moved to MAX_STEPS
+                //   handler at end of run.
+                long faceDirKey = ((long) curFace << 4) | (dirInFace & 0xF);
+                st.visitedFaceDir.add(faceDirKey);
                 // Direction unit vector in face's UV frame.
                 float du = (dirInFace == 0) ? 1f : (dirInFace == 2 ? -1f : 0f);
                 float dv = (dirInFace == 1) ? 1f : (dirInFace == 3 ? -1f : 0f);
@@ -661,9 +759,16 @@ public final class MotorcycleGraph {
                         statAlphaIjHist[bucket]++;
                     }
 
+                    // PATCH-105: per-motorcycle crash + sided-alpha counters.
+                    st.crashesRecorded++;
                     if (alpha > 1e-9 && absAlphaIj <= alpha + 1e-9) {
-                        if (cross < 0) leftHit = true;
-                        else if (cross > 0) rightHit = true;
+                        if (cross < 0) {
+                            leftHit = true;
+                            st.crashesLeftAlpha++;
+                        } else if (cross > 0) {
+                            rightHit = true;
+                            st.crashesRightAlpha++;
+                        }
                     }
 
                     int crashNodeId = recordNode(TNode.NodeKind.INTERSECTION,
@@ -755,6 +860,7 @@ public final class MotorcycleGraph {
                         // Recovered. Use nudged position for the step.
                         u = uN;
                         v = vN;
+                        st.nudgeRecoveryFires++;   // PATCH-105
                     } else {
                         // Recovery failed too — genuine abort.
                         if (abortDumps.size() < ABORT_DUMP_LIMIT) {
@@ -834,23 +940,29 @@ public final class MotorcycleGraph {
                     nbrA = sharedCornerNbr[1];
                     nbrB = sharedCornerNbr[0];
                 }
-                float curAu = param.u(curFace, sharedCornerCur[0]);
-                float curAv = param.v(curFace, sharedCornerCur[0]);
-                float curBu = param.u(curFace, sharedCornerCur[1]);
-                float curBv = param.v(curFace, sharedCornerCur[1]);
-                float dxU = curBu - curAu, dxV = curBv - curAv;
-                float denom = dxU * dxU + dxV * dxV;
-                float frac = (denom > 1e-30f)
+                // PATCH-107 probe (double-precision per-step transition).
+                //   Per-corner UVs come in as float, but barycentric
+                //   interpolation along the shared edge accumulates roundoff
+                //   that would otherwise put the new entry point microscopically
+                //   off the edge in the destination face — triggering the
+                //   raycast no-exit case and the PATCH-93 nudge-recovery hack.
+                double curAu = param.u(curFace, sharedCornerCur[0]);
+                double curAv = param.v(curFace, sharedCornerCur[0]);
+                double curBu = param.u(curFace, sharedCornerCur[1]);
+                double curBv = param.v(curFace, sharedCornerCur[1]);
+                double dxU = curBu - curAu, dxV = curBv - curAv;
+                double denom = dxU * dxU + dxV * dxV;
+                double frac = (denom > 1e-30)
                         ? ((exitU - curAu) * dxU + (exitV - curAv) * dxV) / denom
-                        : 0f;
-                if (frac < 0f) frac = 0f;
-                if (frac > 1f) frac = 1f;
-                float nbrAu = param.u(nbrFace, nbrA);
-                float nbrAv = param.v(nbrFace, nbrA);
-                float nbrBu = param.u(nbrFace, nbrB);
-                float nbrBv = param.v(nbrFace, nbrB);
-                float newU = nbrAu + frac * (nbrBu - nbrAu);
-                float newV = nbrAv + frac * (nbrBv - nbrAv);
+                        : 0.0;
+                if (frac < 0.0) frac = 0.0;
+                if (frac > 1.0) frac = 1.0;
+                double nbrAu = param.u(nbrFace, nbrA);
+                double nbrAv = param.v(nbrFace, nbrA);
+                double nbrBu = param.u(nbrFace, nbrB);
+                double nbrBv = param.v(nbrFace, nbrB);
+                float newU = (float) (nbrAu + frac * (nbrBu - nbrAu));
+                float newV = (float) (nbrAv + frac * (nbrBv - nbrAv));
 
                 u = newU;
                 v = newV;
@@ -995,16 +1107,22 @@ public final class MotorcycleGraph {
      */
     static float raySegmentIntersect(float ox, float oy, float dx, float dy,
                                      float ax, float ay, float bx, float by) {
-        float ex = bx - ax;
-        float ey = by - ay;
-        float det = dx * ey - dy * ex;
-        if (Math.abs(det) < 1e-12f) return Float.POSITIVE_INFINITY;
-        float rx = ax - ox;
-        float ry = ay - oy;
-        float t = (rx * ey - ry * ex) / det;
-        float s = (rx * dy - ry * dx) / det;
+        // PATCH-107 probe: do the intersection in DOUBLE precision to absorb
+        //   per-step transition drift before resorting to QEx §3.2 sanitization.
+        //   The inputs are float (per-corner UVs from SeamlessParameterization),
+        //   but the cumulative trace position drifts after many seam crossings;
+        //   double arithmetic gives us ~7 more decimal digits of headroom and
+        //   eliminates the false-no-exit cases that drove PATCH-93 nudge-recovery.
+        double exd = (double) bx - ax;
+        double eyd = (double) by - ay;
+        double det = (double) dx * eyd - (double) dy * exd;
+        if (Math.abs(det) < 1e-20) return Float.POSITIVE_INFINITY;
+        double rxd = (double) ax - ox;
+        double ryd = (double) ay - oy;
+        double t = (rxd * eyd - ryd * exd) / det;
+        double s = (rxd * dy - ryd * dx) / det;
         if (t < -EPS) return Float.POSITIVE_INFINITY;
-        if (s < -EPS || s > 1f + EPS) return Float.POSITIVE_INFINITY;
-        return t;
+        if (s < -EPS || s > 1.0 + EPS) return Float.POSITIVE_INFINITY;
+        return (float) t;
     }
 }

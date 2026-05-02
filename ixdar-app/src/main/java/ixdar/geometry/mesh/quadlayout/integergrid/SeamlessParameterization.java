@@ -17,13 +17,18 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
  *
  * <p>Builds on {@link AlignedParameterization} (PATCH-40 v2): the relaxed
  * real-valued solve produces continuous (u, v) per corner but admits triangle
- * flips. This class iteratively rounds singularity corners to integer (u, v)
- * and grows a pin set greedily, committing each pin only if injectivity
- * (positive UV signed area on every triangle) is preserved.
+ * flips. PATCH-114 added BZK09 §5.4 {@link LocalStiffening} IRLS as the
+ * post-relaxation step (replacing PATCH-49's never-paper-faithful log-barrier);
+ * the iterative-rounding stage then drives singularity corners to integer
+ * (u, v), committing each pin only if injectivity (positive UV signed area
+ * on every triangle) is preserved.
  *
  * <h3>Algorithm</h3>
  * <ol>
  *   <li>Solve the relaxed system (PATCH-40).</li>
+ *   <li>Run BZK09 §5.4 {@link LocalStiffening} IRLS — re-weight per-face
+ *       energy by the Hormann-Lévy-Sheffer distortion measure, re-solve,
+ *       repeat until injective and isometric (PATCH-114).</li>
  *   <li>Pin every corner that touches a singularity vertex to the integer
  *       (u, v) closest to its relaxed value. Re-solve.</li>
  *   <li>Iteratively pin the unpinned corner whose floating UV is closest to
@@ -31,11 +36,6 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
  *       (corner, axis), continue with the next-closest. Stop when no candidate
  *       pin can be committed.</li>
  * </ol>
- *
- * <p>For v1 we use reject-and-retry instead of the log-barrier formulation
- * from the paper. Reject-and-retry is sufficient on small inputs (cube,
- * subdivided cube); log-barrier is a perf improvement deferred to a later
- * PATCH.
  *
  * <h3>Public API</h3>
  * Same getters as {@link AlignedParameterization} ({@link #u}, {@link #v},
@@ -135,13 +135,21 @@ public final class SeamlessParameterization {
         double q = computeGlobalScale(mesh);
         double scale = 1.0 / q;
 
+        // PATCH-110 diagnostic: per-stage timing so we can see which stage is slow.
+        boolean diag = "true".equals(System.getProperty("ixdar.lyon.paramDiag"));
+        long ts0 = System.currentTimeMillis();
         // Single shared Hessian — built once with the chosen scale; re-used
         // by the relaxed solve, the log-barrier Newton refinement, and the
         // iterative rounding loop.
         IgmHessian H = new IgmHessian(mesh, field, combed, scale);
+        if (diag) System.err.printf("[seamparam-diag] built IgmHessian: %dms%n",
+                System.currentTimeMillis() - ts0);
 
         // Step 1: relaxed solve (no pins).
+        long ts1 = System.currentTimeMillis();
         double[] xRelax = H.solveWithPins(null, null, null, null);
+        if (diag) System.err.printf("[seamparam-diag] step 1 relaxed solve: %dms%n",
+                System.currentTimeMillis() - ts1);
         float[] uRelax = new float[C];
         float[] vRelax = new float[C];
         // Project chart-vertex solution back to per-corner. PATCH-54: variable
@@ -167,25 +175,26 @@ public final class SeamlessParameterization {
             vRelax[i] *= postScale;
         }
 
-        // Step 2: log-barrier Gauss-Newton refinement (Bommes 2013 Sec 4).
-        // Drives any degenerate / flipped triangles in the relaxed solve back
-        // to strict positivity before integer rounding takes over. The barrier
-        // operates on a Hessian whose targets are pre-multiplied by the same
-        // post-scale so the linearisation point matches.
-        IgmHessian barrierH = new IgmHessian(mesh, field, combed, scale * postScale);
-        LogBarrier.Result barrier = LogBarrier.refine(
-                barrierH, uRelax, vRelax,
-                null, null, null, null,
-                LogBarrier.DEFAULT_WEIGHT);
-        float[] uStart = barrier.u;
-        float[] vStart = barrier.v;
+        // Step 2: BZK09 §5.4 LocalStiffening (PATCH-114). IRLS reweighting
+        // drives flipped / heavily-distorted triangles back toward isometry
+        // before integer rounding takes over. Each iteration is a convex QP,
+        // so unlike the old log-barrier path it can't diverge to NaN. Operates
+        // on a Hessian whose targets are pre-multiplied by the post-scale so
+        // the IRLS distortion measure matches the (u, v) magnitudes.
+        long ts2 = System.currentTimeMillis();
+        IgmHessian stiffenedH = new IgmHessian(mesh, field, combed, scale * postScale);
+        LocalStiffening.Result stiff = LocalStiffening.refine(stiffenedH, uRelax, vRelax);
+        if (diag) System.err.printf("[seamparam-diag] step 2 local-stiffening: %dms injective=%s iters=%d%n",
+                System.currentTimeMillis() - ts2, stiff.injective, stiff.iterations);
+        float[] uStart = stiff.u;
+        float[] vStart = stiff.v;
         // The iterative-rounding Hessian must use the post-scale also, so its
         // re-solves preserve the magnitude that integer pins are anchored to.
-        H = barrierH;
+        // The stiffening weights left installed by LocalStiffening carry into
+        // the rounding stage — BZK09's intent: distortion-aware weighting all
+        // the way through.
+        H = stiffenedH;
 
-        // Step 3: iterative rounding loop on top of the now-injective relaxed
-        // solve (or, if the barrier failed to converge, on the relaxed result
-        // directly — reject-and-retry will still work, just less effectively).
         IterativeRounding loop = new IterativeRounding(H);
         int[] singArr = singVerts.stream().mapToInt(Integer::intValue).toArray();
         loop.seedSingularityPins(singArr, uStart, vStart);
@@ -200,7 +209,10 @@ public final class SeamlessParameterization {
         // the natural cap run; ojAlgo SparseLu handles each re-solve in <1s.
         long naturalCap = (long) loop.numCV() * 4L;
         int cap = (int) Math.min(naturalCap, maxRoundingIter);
+        long ts3 = System.currentTimeMillis();
         IterativeRounding.Result result = loop.run(cap);
+        if (diag) System.err.printf("[seamparam-diag] step 3 iterative rounding: %dms (cap=%d) injective=%s%n",
+                System.currentTimeMillis() - ts3, cap, result.injective);
         this.uCorner = result.uCorner != null ? result.uCorner : uStart;
         this.vCorner = result.vCorner != null ? result.vCorner : vStart;
         // Project chart-vertex pin state back to per-corner.

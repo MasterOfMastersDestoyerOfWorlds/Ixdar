@@ -17,10 +17,12 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
+import ixdar.procgen.dungeon.camera.ThirdPersonCamera;
 import ixdar.procgen.dungeon.physics.Vec3f;
 import ixdar.procgen.dungeon.player.PlayerController;
 import ixdar.procgen.dungeon.player.PlayerSpawner;
 import ixdar.procgen.dungeon.player.SpawnPoint;
+import ixdar.procgen.dungeon.render.DebugCapsuleRuntime;
 import ixdar.procgen.dungeon.values.RoomListValue3D;
 import ixdar.procgen.dungeon.values.TileGridValue3D;
 import ixdar.scenes.Scene;
@@ -63,6 +65,11 @@ public class DungeonViewerScene extends Scene {
     private PlayerController player;
     private boolean playerMode = true; // default to player walking per ticket DoD
 
+    public enum ViewMode { FIRST_PERSON, THIRD_PERSON }
+    private ViewMode viewMode = ViewMode.FIRST_PERSON;
+    private ThirdPersonCamera thirdPersonCamera;
+    private DebugCapsuleRuntime capsuleRuntime;
+
     public DungeonViewerScene() {
         String v = System.getProperty("ixdar.mesh.dsl");
         String pick = (v != null && !v.isEmpty()) ? v : DEFAULT_DSL_RESOURCE;
@@ -74,12 +81,31 @@ public class DungeonViewerScene extends Scene {
         super.initGL();
         Platforms.gl().setWindowTitle("Ixdar : Dungeon Viewer");
         MenuBox.menuVisible = false;
-        keys = new DungeonKeyGuy(camera, this, () -> playerMode, this::togglePlayerMode);
+        keys = new DungeonKeyGuy(camera, this, () -> playerMode,
+                this::togglePlayerMode, this::toggleViewMode);
         // Mouse-look in player mode rotates without a button press; in fly-cam mode it
-        // requires LMB-drag like a DCC tool.
-        mouse = new FlyCamMouseTrap(camera, this, () -> playerMode);
+        // requires LMB-drag like a DCC tool. Third-person sends deltas to the orbit camera
+        // instead of the FPS camera, and consumes scroll for zoom.
+        FlyCamMouseTrap.DeltaHandler onDelta = (lx, ly, x, y) -> {
+            if (playerMode && viewMode == ViewMode.THIRD_PERSON && thirdPersonCamera != null) {
+                thirdPersonCamera.applyMouseDelta(x - lx, y - ly);
+            } else {
+                camera.mouseMove(lx, ly, x, y);
+            }
+        };
+        java.util.function.IntConsumer onScroll = ticks -> {
+            if (playerMode && viewMode == ViewMode.THIRD_PERSON && thirdPersonCamera != null) {
+                thirdPersonCamera.applyZoom(ticks, playerCellSize);
+            }
+        };
+        mouse = new FlyCamMouseTrap(camera, this, () -> playerMode, onDelta, onScroll);
         bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         bindInputDirect(Platforms.get(), keys, mouse);
+        try {
+            capsuleRuntime = new DebugCapsuleRuntime();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to create debug capsule runtime", e);
+        }
         // Cursor capture follows player mode.
         applyCursorModeForCurrentMode();
 
@@ -221,8 +247,26 @@ public class DungeonViewerScene extends Scene {
         Platforms.get().log("[dungeon-viewer] mode -> " + (playerMode ? "player" : "fly-cam"));
         applyCursorModeForCurrentMode();
         if (playerMode) {
+            // Default back to first-person on (re-)entering player mode.
+            viewMode = ViewMode.FIRST_PERSON;
             spawnPlayerAtRoomZero();
         }
+    }
+
+    /** Swap between first- and third-person while in player mode. No-op outside player mode. */
+    private void toggleViewMode() {
+        if (!playerMode || player == null) return;
+        if (viewMode == ViewMode.FIRST_PERSON) {
+            if (thirdPersonCamera == null) {
+                thirdPersonCamera = new ThirdPersonCamera();
+            }
+            thirdPersonCamera.enterFromCurrentCamera(camera, playerCellSize);
+            viewMode = ViewMode.THIRD_PERSON;
+        } else {
+            // Camera yaw/pitch already track the third-person azimuth/elevation, so 1P is smooth.
+            viewMode = ViewMode.FIRST_PERSON;
+        }
+        Platforms.get().log("[dungeon-viewer] view -> " + viewMode);
     }
 
     /** Player mode = cursor captured (FPS look). Fly-cam = cursor visible (drag to rotate). */
@@ -238,21 +282,40 @@ public class DungeonViewerScene extends Scene {
         // Run the player physics (in player mode) before refreshing the view matrix.
         if (playerMode && player != null) {
             float dt = (float) Math.min(0.1, Clock.deltaTime()); // clamp to avoid huge dt on stalls
-            player.update(dt, keys.pressedKeys, camera.yaw);
-            Vec3f eye = player.cameraEyePosition();
-            camera.position.set(eye.x(), eye.y(), eye.z());
+            if (viewMode == ViewMode.THIRD_PERSON && thirdPersonCamera != null) {
+                // Update camera FIRST so player.update sees the new yaw and WASD direction
+                // remains screen-relative.
+                thirdPersonCamera.update(player, playerGrid, playerCellSize, camera);
+                player.update(dt, keys.pressedKeys, camera.yaw);
+            } else {
+                player.update(dt, keys.pressedKeys, camera.yaw);
+                Vec3f eye = player.cameraEyePosition();
+                camera.position.set(eye.x(), eye.y(), eye.z());
+            }
         }
         camera.resetView();
         camera.updateViewFirstPerson();
         meshRuntime.render(camera);
+        if (playerMode && viewMode == ViewMode.THIRD_PERSON && player != null && capsuleRuntime != null) {
+            Vec3f p = player.position();
+            float yawRad = (float) Math.toRadians(player.facingYawDegrees());
+            capsuleRuntime.render(camera, p.x(), p.y(), p.z(), yawRad,
+                    player.radius(), player.halfHeight());
+        }
     }
 
     @Override
     public void activate(boolean state) {
         super.activate(state);
-        if (!state && meshRuntime != null) {
-            meshRuntime.dispose();
-            meshRuntime = null;
+        if (!state) {
+            if (meshRuntime != null) {
+                meshRuntime.dispose();
+                meshRuntime = null;
+            }
+            if (capsuleRuntime != null) {
+                capsuleRuntime.dispose();
+                capsuleRuntime = null;
+            }
         }
     }
 
@@ -261,6 +324,10 @@ public class DungeonViewerScene extends Scene {
         if (meshRuntime != null) {
             meshRuntime.dispose();
             meshRuntime = null;
+        }
+        if (capsuleRuntime != null) {
+            capsuleRuntime.dispose();
+            capsuleRuntime = null;
         }
         // Release the cursor so the user can interact with the OS again.
         Platforms.get().setCursorMode(Platform.CursorMode.NORMAL);

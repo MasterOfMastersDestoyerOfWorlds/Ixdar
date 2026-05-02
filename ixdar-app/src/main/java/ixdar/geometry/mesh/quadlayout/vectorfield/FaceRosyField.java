@@ -12,6 +12,7 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.alignment.DirectionalConstrain
 import ixdar.geometry.mesh.quadlayout.vectorfield.alignment.GeodesicCurvature;
 import ixdar.geometry.mesh.quadlayout.vectorfield.alignment.PrincipalCurvatureField;
 import ixdar.geometry.mesh.quadlayout.vectorfield.alignment.SmoothRegions;
+import ixdar.geometry.mesh.quadlayout.vectorfield.dvpsh.DvpshCrossFieldSolver;
 import ixdar.geometry.mesh.quadlayout.vectorfield.greedy.GreedyRounding;
 import ixdar.geometry.mesh.quadlayout.vectorfield.solver.BzkAdaptiveSolver;
 import ixdar.geometry.mesh.quadlayout.vectorfield.solver.BzkSystem;
@@ -127,9 +128,28 @@ public final class FaceRosyField extends BaseField {
             boolean[] smoothFaces = GeodesicCurvature.computeSmoothFaces(mesh, kappaG, pdf);
             double significanceDeg = principalThreshold;                        // re-purposed: now degrees
             int[] regionId = SmoothRegions.detect(mesh, smoothFaces, pdf, significanceDeg);
-            DirectionalConstraints.Result dc = DirectionalConstraints.compute(this, pdf, regionId);
+            DirectionalConstraints.Result dc = DirectionalConstraints.compute(mesh, this, pdf, regionId);
             thetaConstraint = dc.thetaConstraint;
             constrained = dc.constrained;
+        }
+
+        // PATCH-125: route through DVPSH14 complex-polynomial solver when
+        //   -Dixdar.lyon.crossFieldSolver=dvpsh. Default still BZK09. DVPSH is
+        //   the paper-faithful cross-field path for CIE*16 §4.1 hard
+        //   constraints (4-RoSy invariant by construction); BZK09's
+        //   θ-pin formulation leaks m_e=±1 jumps at smooth-region predicate
+        //   boundaries on rocker-arm-scale meshes.
+        String solverChoice = System.getProperty("ixdar.lyon.crossFieldSolver", "bzk09");
+        if ("dvpsh".equals(solverChoice)) {
+            DvpshCrossFieldSolver.Result dres = DvpshCrossFieldSolver.solve(
+                    F, E, edgeFaceA, edgeFaceB, kappa, thetaConstraint, constrained);
+            for (int i = 0; i < F; i++) theta[i] = dres.theta[i];
+            periodJump = dres.periodJump;
+            // The bench's lastResult() introspection accessor expects a
+            // GreedyRounding.Result; supply a placeholder for DVPSH.
+            lastResult = null;
+            solved = true;
+            return;
         }
 
         BzkAdaptiveSolver.Options solverOpts = readSolverOptions();

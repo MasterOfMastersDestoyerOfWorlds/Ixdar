@@ -8,11 +8,13 @@ import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
 
 /**
- * Dungeon-viewer key handler. Adds two behaviors on top of base {@link KeyGuy}:
+ * Dungeon-viewer key handler. Adds three behaviors on top of base {@link KeyGuy}:
  *
  * <ul>
  *   <li>Edge-detected <kbd>F</kbd> press toggles between fly-cam and player-walk modes via the
  *       supplied callback (only fires on the leading edge — holding F doesn't repeat).</li>
+ *   <li>Edge-detected <kbd>V</kbd> press swaps between first- and third-person view inside
+ *       player mode (no-op in fly-cam).</li>
  *   <li>When in player mode, the parent's WASD-to-camera-move loop is suppressed so the
  *       {@code PlayerController} owns horizontal motion. Otherwise behaves like base
  *       {@link KeyGuy} (fly-cam fallback).</li>
@@ -21,35 +23,42 @@ import ixdar.platform.input.Keys;
 public class DungeonKeyGuy extends KeyGuy {
 
     private final BooleanSupplier inPlayerMode;
-    private final Runnable toggleMode;
+    private final Runnable togglePlayerMode;
+    private final Runnable toggleViewMode;
     private boolean lastFState = false;
+    private boolean lastVState = false;
     private boolean lastEscState = false;
 
     public DungeonKeyGuy(Camera camera, Canvas3D canvas,
-                         BooleanSupplier inPlayerMode, Runnable toggleMode) {
+                         BooleanSupplier inPlayerMode,
+                         Runnable togglePlayerMode,
+                         Runnable toggleViewMode) {
         super(camera, canvas);
         this.inPlayerMode = inPlayerMode;
-        this.toggleMode = toggleMode;
+        this.togglePlayerMode = togglePlayerMode;
+        this.toggleViewMode = toggleViewMode;
     }
 
     @Override
     public void paintUpdate(float shiftMod) {
-        // Edge-detect F so a hold doesn't oscillate the mode.
         boolean fNow = pressedKeys.contains(Keys.F);
         if (fNow && !lastFState) {
-            toggleMode.run();
+            togglePlayerMode.run();
         }
         lastFState = fNow;
 
-        // Edge-detect Escape: in player mode, releases cursor capture by toggling to fly-cam.
-        // In fly-cam mode it's a no-op (leaves room for other Escape handlers).
+        boolean vNow = pressedKeys.contains(Keys.V);
+        if (vNow && !lastVState && inPlayerMode.getAsBoolean()) {
+            toggleViewMode.run();
+        }
+        lastVState = vNow;
+
         boolean escNow = pressedKeys.contains(Keys.ESCAPE);
         if (escNow && !lastEscState && inPlayerMode.getAsBoolean()) {
-            toggleMode.run();
+            togglePlayerMode.run();
         }
         lastEscState = escNow;
 
-        // In player mode, the PlayerController owns motion — don't let base KeyGuy fly the camera.
         if (inPlayerMode.getAsBoolean()) {
             return;
         }

@@ -131,6 +131,13 @@ final class IterativeRounding {
         return positive;
     }
 
+    /** PATCH-110 adaptive-threshold batch pinning thresholds. Mirror of
+     *  PATCH-103 / GreedyRounding.solve(). Each pass commits all candidates
+     *  with frac < threshold simultaneously; on injectivity failure, falls
+     *  back to per-pin reject-and-retry within just that batch's candidates. */
+    private static final double[] BATCH_FRAC_THRESHOLDS = {
+            0.01, 0.05, 0.10, 0.25, 0.50};
+
     Result run(int maxIterations) {
         // Initial solve with the singularity pins.
         if (!resolveAndExtract()) {
@@ -138,64 +145,119 @@ final class IterativeRounding {
         }
 
         int iter = 0;
-        while (iter < maxIterations) {
-            int bestCV = -1;
-            int bestAxis = -1; // 0 = u, 1 = v
-            double bestFrac = Double.POSITIVE_INFINITY;
+        for (double thresh : BATCH_FRAC_THRESHOLDS) {
+            if (iter >= maxIterations) break;
+
+            // Collect candidates: (cv, axis, rounded) for all unpinned,
+            // un-blacklisted variables with frac < thresh.
+            int[] candCv = new int[2 * numCV];
+            int[] candAxis = new int[2 * numCV];
+            double[] candRounded = new double[2 * numCV];
+            int candN = 0;
             for (int cv = 0; cv < numCV; cv++) {
                 if (!uPinned[cv] && !uBlacklist[cv]) {
                     double frac = fracDist(uCV[cv]);
-                    if (frac < bestFrac) {
-                        bestFrac = frac;
-                        bestCV = cv;
-                        bestAxis = 0;
+                    if (frac < thresh) {
+                        candCv[candN] = cv;
+                        candAxis[candN] = 0;
+                        candRounded[candN] = Math.round(uCV[cv]);
+                        candN++;
                     }
                 }
                 if (!vPinned[cv] && !vBlacklist[cv]) {
                     double frac = fracDist(vCV[cv]);
-                    if (frac < bestFrac) {
-                        bestFrac = frac;
-                        bestCV = cv;
-                        bestAxis = 1;
+                    if (frac < thresh) {
+                        candCv[candN] = cv;
+                        candAxis[candN] = 1;
+                        candRounded[candN] = Math.round(vCV[cv]);
+                        candN++;
                     }
                 }
             }
-            if (bestCV < 0) break;
+            if (candN == 0) continue;
 
-            float currentVal = (bestAxis == 0) ? uCV[bestCV] : vCV[bestCV];
-            double rounded = Math.round(currentVal);
+            // Snapshot state for whole-batch revert.
             float[] uBackup = uCV;
             float[] vBackup = vCV;
             float[] uCornerBackup = uCornerCurrent;
             float[] vCornerBackup = vCornerCurrent;
+            boolean[] wasUPinned = uPinned.clone();
+            double[] wasUPinVal = uPinVal.clone();
+            boolean[] wasVPinned = vPinned.clone();
+            double[] wasVPinVal = vPinVal.clone();
             int prevPos = countPositive(uCornerCurrent, vCornerCurrent);
-            if (bestAxis == 0) {
-                uPinned[bestCV] = true;
-                uPinVal[bestCV] = rounded;
-            } else {
-                vPinned[bestCV] = true;
-                vPinVal[bestCV] = rounded;
-            }
-            iter++;
 
+            // Tentatively pin all candidates in this batch.
+            for (int k = 0; k < candN; k++) {
+                int cv = candCv[k];
+                if (candAxis[k] == 0) {
+                    uPinned[cv] = true;
+                    uPinVal[cv] = candRounded[k];
+                } else {
+                    vPinned[cv] = true;
+                    vPinVal[cv] = candRounded[k];
+                }
+            }
+            iter += candN;
             boolean ok = resolveAndExtract();
             if (ok && countPositive(uCornerCurrent, vCornerCurrent) >= prevPos) {
+                // Batch committed successfully.
                 continue;
             }
-            // Revert pin and blacklist this axis.
-            if (bestAxis == 0) {
-                uPinned[bestCV] = false;
-                uPinVal[bestCV] = 0.0;
-                uBlacklist[bestCV] = true;
-            } else {
-                vPinned[bestCV] = false;
-                vPinVal[bestCV] = 0.0;
-                vBlacklist[bestCV] = true;
-            }
+
+            // Batch failed injectivity → revert, then fall back to per-pin
+            // reject-and-retry within just this batch's candidates.
+            System.arraycopy(wasUPinned, 0, uPinned, 0, numCV);
+            System.arraycopy(wasUPinVal, 0, uPinVal, 0, numCV);
+            System.arraycopy(wasVPinned, 0, vPinned, 0, numCV);
+            System.arraycopy(wasVPinVal, 0, vPinVal, 0, numCV);
             uCV = uBackup;
             vCV = vBackup;
             uCornerCurrent = uCornerBackup;
             vCornerCurrent = vCornerBackup;
+            // Restore solver state by re-solving with original pins.
+            if (!resolveAndExtract()) {
+                // Defensive: if we can't even re-establish prior state, stop.
+                break;
+            }
+
+            for (int k = 0; k < candN; k++) {
+                if (iter >= maxIterations) break;
+                int cv = candCv[k];
+                int axis = candAxis[k];
+                if (axis == 0 && (uPinned[cv] || uBlacklist[cv])) continue;
+                if (axis == 1 && (vPinned[cv] || vBlacklist[cv])) continue;
+
+                float[] uBack2 = uCV;
+                float[] vBack2 = vCV;
+                float[] uCB2 = uCornerCurrent;
+                float[] vCB2 = vCornerCurrent;
+                int prevPos2 = countPositive(uCornerCurrent, vCornerCurrent);
+                if (axis == 0) {
+                    uPinned[cv] = true;
+                    uPinVal[cv] = candRounded[k];
+                } else {
+                    vPinned[cv] = true;
+                    vPinVal[cv] = candRounded[k];
+                }
+                boolean ok2 = resolveAndExtract();
+                if (ok2 && countPositive(uCornerCurrent, vCornerCurrent) >= prevPos2) {
+                    continue;
+                }
+                if (axis == 0) {
+                    uPinned[cv] = false;
+                    uPinVal[cv] = 0.0;
+                    uBlacklist[cv] = true;
+                } else {
+                    vPinned[cv] = false;
+                    vPinVal[cv] = 0.0;
+                    vBlacklist[cv] = true;
+                }
+                uCV = uBack2;
+                vCV = vBack2;
+                uCornerCurrent = uCB2;
+                vCornerCurrent = vCB2;
+            }
         }
 
         boolean injective = allPositiveOrient(uCornerCurrent, vCornerCurrent);

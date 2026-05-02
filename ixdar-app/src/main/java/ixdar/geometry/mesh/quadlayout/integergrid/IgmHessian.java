@@ -74,9 +74,13 @@ final class IgmHessian {
     final double[] vTarget;
     final double[] areaWeight;
 
+    /** PATCH-114: per-face stiffness multiplier on the energy weight, used by
+     *  BZK09 §5.4 LocalStiffening. Null = all 1.0. When set, baseH is rebuilt. */
+    private double[] perFaceStiffening;
+
     /** Cached symmetric Hessian without pins/gauge (rebuilt on solve via copy). */
-    private final SparseMatrix baseH;
-    private final double[] baseRhs;
+    private SparseMatrix baseH;
+    private double[] baseRhs;
 
     IgmHessian(ArrayMesh mesh, FaceRosyField field, CombedField combed) {
         this(mesh, field, combed, 1.0);
@@ -150,6 +154,16 @@ final class IgmHessian {
 
         // Build the base (energy + seam + Tikhonov) once. Pin / gauge layers
         // are added per solve, copying from this template.
+        rebuildBase();
+    }
+
+    /**
+     * (Re)build the cached base Hessian + RHS using the current
+     * {@link #perFaceStiffening} weights. Called once from the constructor
+     * and again whenever {@link #setStiffening} swaps the per-face weights —
+     * BZK09 §5.4 LocalStiffening exercises this path.
+     */
+    private void rebuildBase() {
         this.baseH = N > 0 ? new SparseMatrix(N, N) : null;
         this.baseRhs = new double[Math.max(N, 1)];
         if (N > 0) {
@@ -157,6 +171,21 @@ final class IgmHessian {
             addEnergyTerms(baseH, baseRhs);
             addSeamTerms(baseH);
         }
+    }
+
+    /**
+     * Install per-face stiffness multipliers (BZK09 §5.4 LocalStiffening) and
+     * rebuild the cached base Hessian + RHS. {@code weights[f]} multiplies the
+     * face's energy weight (default = 1). Pass {@code null} to revert to
+     * uniform weighting.
+     */
+    void setStiffening(double[] weights) {
+        if (weights != null && weights.length != faceCount) {
+            throw new IllegalArgumentException(
+                    "stiffening length " + weights.length + " != faceCount " + faceCount);
+        }
+        this.perFaceStiffening = weights;
+        rebuildBase();
     }
 
     private void addEnergyTerms(SparseMatrix H, double[] rhs) {
@@ -175,6 +204,7 @@ final class IgmHessian {
             bi[1] = (q2v - q0v) * inv2A; ci[1] = (q0u - q2u) * inv2A;
             bi[2] = (q0v - q1v) * inv2A; ci[2] = (q1u - q0u) * inv2A;
             double w = Math.abs(sa);
+            if (perFaceStiffening != null) w *= perFaceStiffening[f];
 
             int cv0 = chart.chartVertexAt(f, 0);
             int cv1 = chart.chartVertexAt(f, 1);
@@ -337,8 +367,8 @@ final class IgmHessian {
 
     /**
      * Copy the cached base Hessian and RHS into a freshly-allocated system —
-     * exposed so {@link LogBarrier} can layer per-Newton-iteration log-barrier
-     * rows on top without rebuilding the energy + seam terms each iteration.
+     * exposed so callers (e.g. {@link IterativeRounding}) can layer pin /
+     * gauge rows on top without rebuilding the energy + seam terms each solve.
      */
     void copyBaseInto(SparseMatrix H, double[] rhs) {
         if (baseH == null) return;

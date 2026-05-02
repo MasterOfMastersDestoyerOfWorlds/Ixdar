@@ -58,29 +58,76 @@ public final class BenchmarkRockerArmLyon {
         // metriko-baseline precomputed (32 sing).
         boolean recomputeField = "true".equals(
                 System.getProperty("ixdar.lyon.recomputeField"));
+        ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField mcField = boot.field();
+        ixdar.geometry.mesh.quadlayout.vectorfield.CombedField mcCombed = boot.combed();
+        java.util.List<ixdar.geometry.mesh.quadlayout.vectorfield.Singularity> mcSings = boot.singularities();
+        ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization mcParam = param;
         if (recomputeField) {
             long tField0 = System.currentTimeMillis();
-            // CIE*16 §3.2 ¶4 default significance threshold = 70°.
-            //   The legacy property name `ixdar.lyon.principalTau` is preserved for
-            //   call-site compatibility, but its meaning changed in Phase B from
-            //   BZK09 §3 anisotropy (∈[0,1]) to CIE*16 significance angle (degrees).
+            // PATCH-115: default principalTau=Infinity → CIE*16 alignment chain
+            //   DISABLED. With CIE*16 at 70° our cross-field over-counted to
+            //   ~700 sings (verified 2026-05-02 bench); with CIE*16 off, pure
+            //   BZK09 produces 36 sings, matching Lyon Table 1 exactly. The
+            //   metriko reference also runs unconstrained BZK09 (32 sings).
+            //   Re-enable for diagnosis via -Dixdar.lyon.principalTau=70 once
+            //   the CIE*16 over-constraint bug (PATCH-117) is fixed. The
+            //   property name is preserved for call-site compatibility — its
+            //   meaning is the CIE*16 §3.2 ¶4 significance angle in degrees,
+            //   not the deleted BZK09 §3 anisotropy from PATCH-96.
             double significanceDeg = Double.parseDouble(
-                    System.getProperty("ixdar.lyon.principalTau", "70"));
+                    System.getProperty("ixdar.lyon.principalTau", "Infinity"));
             var ourField = new ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField(mesh, significanceDeg);
             ourField.solve();
             var ourSings = ourField.findSingularities();
             long tField = System.currentTimeMillis() - tField0;
             var lr = ourField.lastResult();
-            System.out.printf("[bench-lyon] our-FaceRosyField (BZK09 §4 + CIE*16 ∠F=%.1f°): "
-                    + "sing=%d (metriko-precomp=%d, paper=36) tSolve=%dms "
-                    + "gs-conv=%d cg-conv=%d direct-fb=%d cg-iters=%d%n",
-                    significanceDeg, ourSings.size(), boot.singularities().size(), tField,
-                    lr.gsConverged, lr.cgConverged, lr.directFallbacks, lr.totalCgIters);
+            String solverTag = System.getProperty("ixdar.lyon.crossFieldSolver", "bzk09");
+            if (lr != null) {
+                System.out.printf("[bench-lyon] our-FaceRosyField (%s + CIE*16 ∠F=%.1f°): "
+                        + "sing=%d (metriko-precomp=%d, paper=36) tSolve=%dms "
+                        + "gs-conv=%d cg-conv=%d direct-fb=%d cg-iters=%d%n",
+                        solverTag, significanceDeg, ourSings.size(), boot.singularities().size(), tField,
+                        lr.gsConverged, lr.cgConverged, lr.directFallbacks, lr.totalCgIters);
+            } else {
+                System.out.printf("[bench-lyon] our-FaceRosyField (%s + CIE*16 ∠F=%.1f°): "
+                        + "sing=%d (metriko-precomp=%d, paper=36) tSolve=%dms%n",
+                        solverTag, significanceDeg, ourSings.size(), boot.singularities().size(), tField);
+            }
+            // PATCH-115 diagnostic: index4 histogram. metriko reference = all ±1
+            //   (16 of each). If we report many |index4| ≥ 2, that's the line-field
+            //   sign-ambiguity feeding spurious m_e = ±2 hypothesis.
+            int[] idxHist = new int[9]; // [-4,-3,-2,-1,0,+1,+2,+3,+4] mapped to 0..8
+            for (var s : ourSings) {
+                int b = Math.max(-4, Math.min(4, s.index4())) + 4;
+                idxHist[b]++;
+            }
+            System.out.printf("[bench-lyon] index4 histogram (-4..-1, +1..+4): %d %d %d %d | %d %d %d %d  (metriko: 0 0 0 16 | 16 0 0 0)%n",
+                    idxHist[0], idxHist[1], idxHist[2], idxHist[3],
+                    idxHist[5], idxHist[6], idxHist[7], idxHist[8]);
+
+            // PATCH-114: BZK09 §5.4 LocalStiffening replaces the old log-barrier
+            //   step. Route our (field, combed, sings, param) tuple through the
+            //   motorcycle stage if SeamlessParameterization produces an injective
+            //   output.
+            long tParam0 = System.currentTimeMillis();
+            var ourCombed = ixdar.geometry.mesh.quadlayout.vectorfield.CombedField.comb(ourField);
+            int paramMaxRoundingIter = Integer.getInteger(
+                    "ixdar.lyon.paramMaxRoundingIter", Integer.MAX_VALUE);
+            var ourParam = new ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization(
+                    mesh, ourField, ourCombed, ourSings, paramMaxRoundingIter);
+            long tParam = System.currentTimeMillis() - tParam0;
+            System.out.printf("[bench-lyon] our-SeamlessParameterization (BZK09 §5/§5.4, PATCH-110/114): "
+                    + "iterRounded=%d injective=%s tParam=%dms%n",
+                    ourParam.iterationCount(), ourParam.injectiveOnAllTriangles(), tParam);
+            mcField = ourField;
+            mcCombed = ourCombed;
+            mcSings = ourSings;
+            mcParam = ourParam;
         }
 
         long t1 = System.currentTimeMillis();
         MotorcycleGraph.Result graph = MotorcycleGraph.trace(
-                param, mesh, boot.field(), boot.combed(), boot.singularities());
+                mcParam, mesh, mcField, mcCombed, mcSings);
         long tMcg = System.currentTimeMillis() - t1;
 
         long t2 = System.currentTimeMillis();
@@ -112,6 +159,18 @@ public final class BenchmarkRockerArmLyon {
                 ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortNoNeighborFace,
                 ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortNoSharedCorners,
                 ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortMaxSteps);
+        // PATCH-105: per-cause classification of MAX_STEPS aborts.
+        System.out.printf("[bench-lyon] MAX_STEPS triage: zero-crashes=%d  one-sided-α=%d  "
+                + "two-sided-never-fired=%d  hit-flipped-face=%d  used-nudge=%d%n",
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statMaxStepsZeroCrashes,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statMaxStepsOneSidedAlpha,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statMaxStepsTwoSidedNeverFired,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statMaxStepsHitFlippedFace,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statMaxStepsUsedNudge);
+        // PATCH-107 oscillation probe: per-max-stepped uniqueFaces histogram.
+        System.out.printf("[bench-lyon] MAX_STEPS uniqueFaces hist [≤10, 11-50, 51-200, 201-1000, 1001-5000, 5001+]: %s%n",
+                java.util.Arrays.toString(
+                    ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statMaxStepsUniqueFacesHist));
         for (String d : ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.abortDumps) {
             System.out.println("[bench-lyon]   " + d);
         }
@@ -143,6 +202,12 @@ public final class BenchmarkRockerArmLyon {
                     ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statSingLaunchCount),
                 ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statSingTotal,
                 ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statSingBoundaryCardinals);
+        // PATCH-110 launch-gap probe: how many input singularities couldn't
+        //   be assigned a launch node (no incident face with uvSignedArea > 0)?
+        System.out.printf("[bench-lyon] launch-gap: input-sings=%d  no-node-skipped=%d  launched=%d%n",
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statSingsInputCount,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statSingsNoNode,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statSingTotal);
         // PATCH-91 H2 diagnostic.
         System.out.printf("[bench-lyon] triangles: with-sing-corner=%d  all-intersection=%d%n",
                 ixdar.geometry.mesh.quadlayout.tmesh.TPatchEnumerator.statTrianglesWithSingularityCorner,

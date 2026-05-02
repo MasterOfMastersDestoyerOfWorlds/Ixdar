@@ -32,6 +32,9 @@ public class PlayerController {
     /** Default gravity in world-units / sec². Suitable for unit-scale dungeons. */
     public static final float DEFAULT_GRAVITY = 9.8f;
 
+    /** Maximum angular speed when rotating to face the movement direction (Dark Souls feel). */
+    private static final float TURN_RATE_DEG_PER_SEC = 720f;
+
     private final TileGridValue3D grid;
     private final float cellSize;
     private final float halfHeight;
@@ -43,6 +46,7 @@ public class PlayerController {
     private Vec3f position;
     private Vec3f velocity;
     private boolean grounded;
+    private float facingYawDegrees;
 
     public PlayerController(TileGridValue3D grid, float cellSize, Vec3f spawnCenter,
                             float halfHeight, float radius,
@@ -57,6 +61,7 @@ public class PlayerController {
         this.position = spawnCenter;
         this.velocity = Vec3f.ZERO;
         this.grounded = false;
+        this.facingYawDegrees = 0f;
     }
 
     public Vec3f position() { return position; }
@@ -96,8 +101,17 @@ public class PlayerController {
         // Normalize so diagonal movement isn't faster.
         float horizLen = (float) Math.sqrt(horizX * horizX + horizZ * horizZ);
         if (horizLen > 1e-6f) {
-            horizX = horizX / horizLen * moveSpeed;
-            horizZ = horizZ / horizLen * moveSpeed;
+            float invLen = 1f / horizLen;
+            float dirX = horizX * invLen;
+            float dirZ = horizZ * invLen;
+            horizX = dirX * moveSpeed;
+            horizZ = dirZ * moveSpeed;
+            // Dark Souls turning: rotate facing toward the movement direction at a bounded rate.
+            float targetYaw = (float) Math.toDegrees(Math.atan2(dirZ, dirX));
+            float diff = wrapAngle180(targetYaw - facingYawDegrees);
+            float maxStep = TURN_RATE_DEG_PER_SEC * dt;
+            float clamped = Math.max(-maxStep, Math.min(maxStep, diff));
+            facingYawDegrees = wrapAngle180(facingYawDegrees + clamped);
         }
 
         // Vertical velocity: gravity each frame, jump on press while grounded.
@@ -137,4 +151,17 @@ public class PlayerController {
 
     public float halfHeight() { return halfHeight; }
     public float radius() { return radius; }
+
+    /**
+     * Yaw of the player's body in degrees, in the same convention as {@code Camera3D.yaw}:
+     * 0° faces +X, 90° faces +Z. Updated only on movement (Dark Souls-style: idle keeps last facing).
+     */
+    public float facingYawDegrees() { return facingYawDegrees; }
+
+    private static float wrapAngle180(float deg) {
+        float a = deg % 360f;
+        if (a > 180f) a -= 360f;
+        if (a < -180f) a += 360f;
+        return a;
+    }
 }

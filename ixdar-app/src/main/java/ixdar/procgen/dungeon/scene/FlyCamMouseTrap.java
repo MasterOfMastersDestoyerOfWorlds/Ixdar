@@ -5,39 +5,47 @@ import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import static ixdar.platform.input.Keys.MOUSE_BUTTON_LEFT;
 
 import java.util.function.BooleanSupplier;
+import java.util.function.IntConsumer;
 
 import ixdar.canvas.Canvas3D;
-import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.cameras.Camera;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.MouseTrap;
 
 /**
- * First-person mouse look. Two operating modes via {@code captureSupplier}:
+ * Mouse-look trap with two operating modes (selected by {@code captureSupplier}):
  *
  * <ul>
- *   <li><b>Drag-to-rotate</b> (supplier returns {@code false}): hold left mouse button and move
- *       the cursor to yaw/pitch the camera. Used in fly-cam mode.</li>
- *   <li><b>Capture</b> (supplier returns {@code true}): every cursor delta rotates the camera,
- *       no button needed. Used in player mode together with
- *       {@link Platform.CursorMode#CAPTURED}.</li>
+ *   <li><b>Drag-to-rotate</b> ({@code false}): hold left mouse and move to rotate. Used in fly-cam.</li>
+ *   <li><b>Capture</b> ({@code true}): every cursor delta rotates without a button press. Used in
+ *       player mode together with {@link ixdar.platform.gl.Platform.CursorMode#CAPTURED}.</li>
  * </ul>
  *
- * <p>Reuses {@link Camera3D#mouseMove(float, float, float, float)} for the yaw/pitch math.
+ * <p>Where the deltas go is decided by the caller via {@code onDelta} — first-person sends them
+ * to the camera's mouse-look math; third-person sends them to a {@link
+ * ixdar.procgen.dungeon.camera.ThirdPersonCamera}'s azimuth / elevation. Scroll ticks are routed
+ * through {@code onScroll} (only meaningful in third-person zoom).
  */
 public class FlyCamMouseTrap extends MouseTrap {
 
-    private final Camera3D fpCamera;
+    @FunctionalInterface
+    public interface DeltaHandler {
+        void apply(float lastX, float lastY, float x, float y);
+    }
+
+    private final DeltaHandler onDelta;
+    private final IntConsumer onScroll;
     private final BooleanSupplier captureSupplier;
     private boolean leftDown = false;
 
-    public FlyCamMouseTrap(Camera3D camera, Canvas3D canvas) {
-        this(camera, canvas, () -> false);
-    }
-
-    public FlyCamMouseTrap(Camera3D camera, Canvas3D canvas, BooleanSupplier captureSupplier) {
+    public FlyCamMouseTrap(Camera camera, Canvas3D canvas,
+                           BooleanSupplier captureSupplier,
+                           DeltaHandler onDelta,
+                           IntConsumer onScroll) {
         super(null, camera, canvas);
-        this.fpCamera = camera;
         this.captureSupplier = captureSupplier;
+        this.onDelta = onDelta;
+        this.onScroll = onScroll;
     }
 
     @Override
@@ -57,9 +65,8 @@ public class FlyCamMouseTrap extends MouseTrap {
     public void mousePos(float x, float y) {
         if (!active) return;
         if (captureSupplier.getAsBoolean()) {
-            // FPS-capture: rotate on every cursor event without requiring a button press.
             if (lastX != Integer.MIN_VALUE && lastY != Integer.MIN_VALUE) {
-                fpCamera.mouseMove(lastX, lastY, x, y);
+                onDelta.apply(lastX, lastY, x, y);
             }
         }
         lastX = (int) x;
@@ -73,16 +80,14 @@ public class FlyCamMouseTrap extends MouseTrap {
             mousePos(x, y);
             return;
         }
-        fpCamera.mouseMove(lastX, lastY, x, y);
+        onDelta.apply(lastX, lastY, x, y);
         lastX = (int) x;
         lastY = (int) y;
     }
 
     @Override
     public void moveOrDrag(long window, float x, float y) {
-        // In capture mode, treat every move as drag-style rotation; otherwise honor LMB-gate.
         if (captureSupplier.getAsBoolean() || leftDown) {
-            // Capture path goes through mousePos to use the no-LMB rotation branch above.
             if (captureSupplier.getAsBoolean()) {
                 mousePos(x, y);
             } else {
@@ -95,7 +100,12 @@ public class FlyCamMouseTrap extends MouseTrap {
 
     @Override
     public void paintUpdate(float shiftMod) {
-        // Fly-cam has no per-frame state to tick — yaw/pitch are updated on drag, and WASD
-        // movement is handled by KeyGuy -> Camera2DInputController -> camera.move().
+        if (queuedMouseWheelTicks != 0 && onScroll != null) {
+            int ticks = queuedMouseWheelTicks;
+            queuedMouseWheelTicks = 0;
+            onScroll.accept(ticks);
+        } else {
+            queuedMouseWheelTicks = 0;
+        }
     }
 }
