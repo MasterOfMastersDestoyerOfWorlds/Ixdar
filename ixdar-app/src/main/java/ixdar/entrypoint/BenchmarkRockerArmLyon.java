@@ -51,6 +51,33 @@ public final class BenchmarkRockerArmLyon {
         System.out.printf("[bench-lyon] bootstrap (load+stage1+stage2)=%dms F=%d V=%d sing=%d%n",
                 tBoot, mesh.faceCount(), mesh.vertexCount(), boot.singularities().size());
 
+        // PATCH-97/98: with CG fallback in MiGreedyRounding, FaceRosyField
+        // is now usable on 20K-face rocker-arm. Opt in via
+        // -Dixdar.lyon.recomputeField=true to rebuild cross-field from
+        // scratch with our BZK09 + §3 (PATCH-96) implementation. Default is
+        // metriko-baseline precomputed (32 sing).
+        boolean recomputeField = "true".equals(
+                System.getProperty("ixdar.lyon.recomputeField"));
+        if (recomputeField) {
+            long tField0 = System.currentTimeMillis();
+            // CIE*16 §3.2 ¶4 default significance threshold = 70°.
+            //   The legacy property name `ixdar.lyon.principalTau` is preserved for
+            //   call-site compatibility, but its meaning changed in Phase B from
+            //   BZK09 §3 anisotropy (∈[0,1]) to CIE*16 significance angle (degrees).
+            double significanceDeg = Double.parseDouble(
+                    System.getProperty("ixdar.lyon.principalTau", "70"));
+            var ourField = new ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField(mesh, significanceDeg);
+            ourField.solve();
+            var ourSings = ourField.findSingularities();
+            long tField = System.currentTimeMillis() - tField0;
+            var lr = ourField.lastResult();
+            System.out.printf("[bench-lyon] our-FaceRosyField (BZK09 §4 + CIE*16 ∠F=%.1f°): "
+                    + "sing=%d (metriko-precomp=%d, paper=36) tSolve=%dms "
+                    + "gs-conv=%d cg-conv=%d direct-fb=%d cg-iters=%d%n",
+                    significanceDeg, ourSings.size(), boot.singularities().size(), tField,
+                    lr.gsConverged, lr.cgConverged, lr.directFallbacks, lr.totalCgIters);
+        }
+
         long t1 = System.currentTimeMillis();
         MotorcycleGraph.Result graph = MotorcycleGraph.trace(
                 param, mesh, boot.field(), boot.combed(), boot.singularities());
@@ -65,20 +92,51 @@ public final class BenchmarkRockerArmLyon {
         System.out.printf("[bench-lyon] boundary motorcycles=%d nodes-created=%d%n",
                 ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statBoundaryMotorcycles,
                 ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statBoundaryNodesCreated);
-        // PATCH-92 motorcycle abort-cause census.
+        // PATCH-95 H1: |α_ij| histogram at all crashes. Buckets in degrees:
+        // [0-5], [5-15], [15-30], [30-45], [45-60], [60-75], [75-90], [90+].
+        // Lyon α=15° qualifies bucket 0 + bucket 1 only.
+        System.out.printf("[bench-lyon] |α_ij| hist (deg buckets 0-5, 5-15, 15-30, 30-45, 45-60, 60-75, 75-90, 90+): %s%n",
+                java.util.Arrays.toString(
+                    ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAlphaIjHist));
+        // PATCH-92/94 motorcycle abort-cause census.
         System.out.printf("[bench-lyon] trace-stop census: proper-Lyon-stop=%d  "
+                + "self-stop=%d "
                 + "abort-degen-face=%d abort-no-exit-edge=%d "
                 + "abort-boundary-edge=%d abort-no-neighbor=%d "
-                + "abort-no-shared-corners=%d%n",
+                + "abort-no-shared-corners=%d abort-max-steps=%d%n",
                 ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statTraceProperStop,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statRealSelfCrashes,
                 ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortDegenStartFace,
                 ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortNoExitEdge,
                 ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortBoundaryEdge,
                 ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortNoNeighborFace,
-                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortNoSharedCorners);
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortNoSharedCorners,
+                ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.statAbortMaxSteps);
         for (String d : ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.abortDumps) {
             System.out.println("[bench-lyon]   " + d);
         }
+        // PATCH-94: dump motorcycle outcomes by id to see if MAX_STEPS aborts
+        // correlate with launch order (sequential-launching hypothesis).
+        var outcomes = ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph.motorcycleOutcomes;
+        int nMaxSteps = 0;
+        java.util.List<Integer> maxStepsIds = new java.util.ArrayList<>();
+        java.util.List<Integer> properStopIds = new java.util.ArrayList<>();
+        for (String o : outcomes) {
+            int idStart = o.indexOf("id=") + 3;
+            int idEnd = o.indexOf(' ', idStart);
+            if (idEnd < 0) idEnd = o.length();
+            int id = Integer.parseInt(o.substring(idStart, idEnd));
+            if (o.startsWith("MAX_STEPS")) {
+                maxStepsIds.add(id);
+                nMaxSteps++;
+            } else if (o.startsWith("PROPER_STOP")) {
+                properStopIds.add(id);
+            }
+        }
+        System.out.printf("[bench-lyon] MAX_STEPS motorcycle ids (first 20 of %d): %s%n",
+                nMaxSteps, maxStepsIds.subList(0, Math.min(20, maxStepsIds.size())));
+        System.out.printf("[bench-lyon] PROPER_STOP motorcycle ids (first 20 of %d): %s%n",
+                properStopIds.size(), properStopIds.subList(0, Math.min(20, properStopIds.size())));
         // PATCH-91 H1 diagnostic.
         System.out.printf("[bench-lyon] sing-launch-count hist (idx=#motorcycles): %s  total=%d boundary=%d%n",
                 java.util.Arrays.toString(

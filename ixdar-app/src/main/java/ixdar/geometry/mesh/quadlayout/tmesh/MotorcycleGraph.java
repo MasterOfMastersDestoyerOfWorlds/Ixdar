@@ -69,6 +69,34 @@ public final class MotorcycleGraph {
     public static int statAbortNoSharedCorners;    // sharedCorner lookup failed
     public static int statAbortNoExitEdge;         // raycast couldn't find exit
     public static int statTraceProperStop;         // Lyon survival or Eppstein normal stop
+    /** PATCH-94 diagnostic: how many trace launches hit MAX_STEPS without
+     *  triggering any stop condition (Lyon's both-sides α-hit, Eppstein
+     *  first-crash, boundary, or our raycast nudge-recovery's fallback abort). */
+    public static int statAbortMaxSteps;
+    /** PATCH-94: count self-intersection events the current code SKIPS
+     *  ({@code priorId == motorcycleId}). On genus-positive surfaces a
+     *  motorcycle's iso-line can loop back to itself; today we ignore those
+     *  events and the trace runs forever (well, until MAX_STEPS). */
+    public static int statSelfCrashesSkipped;
+    /** PATCH-94 geometric self-crash detector: count steps where the ray
+     *  WOULD HIT an own segment (excluding the immediately-prior segment
+     *  in the same face) within positive {@code t > STEP_EPS}. Per EGKT08
+     *  the canonical Eppstein behavior is to STOP at such events
+     *  ("particle meets a vertex that has previously been traversed by
+     *  itself"). We currently skip them, which causes traces to run to
+     *  MAX_STEPS on genus-positive surfaces. */
+    public static int statRealSelfCrashes;
+    /** PATCH-94: motorcycles that experienced at least one real self-crash. */
+    public static int statMotorcyclesWithSelfCrash;
+    /** PATCH-95 H1 diagnostic: histogram of |α_ij| at every other-trace crash.
+     *  Buckets in degrees: 0-5°, 5-15° (Lyon's α=15° boundary), 15-30°, 30-45°,
+     *  45-60°, 60-75°, 75-90°. If most crashes are in 30-60° range, the
+     *  α-bound rarely qualifies them as Lyon stop hits, explaining why
+     *  motorcycles run far without stopping. */
+    public static int[] statAlphaIjHist = new int[8];
+    /** PATCH-94: per-motorcycle final outcome (PROPER_STOP / MAX_STEPS /
+     *  ABORT_*). Index = motorcycle id. */
+    public static java.util.List<String> motorcycleOutcomes = new java.util.ArrayList<>();
     /** PATCH-93 diagnostic: dump first N no-exit-edge abort events. */
     public static java.util.List<String> abortDumps = new java.util.ArrayList<>();
     private static final int ABORT_DUMP_LIMIT = 8;
@@ -139,6 +167,41 @@ public final class MotorcycleGraph {
         return b.run();
     }
 
+    /** PATCH-95: per-motorcycle state for round-robin (step-locked parallel)
+     *  propagation per EGKT08 §5 line 312 ("in a sequence of time steps,
+     *  move each particle along the edge"). All motorcycles advance one
+     *  triangle-step per round; each motorcycle becomes inactive when it
+     *  satisfies a stop condition (Lyon §3 both-side α-bound, EGKT08 self-
+     *  intersection, mesh boundary, or our raycast no-exit-edge fallback). */
+    private static final class MotorcycleState {
+        final int motorcycleId;
+        final int singVid;
+        final int direction;
+        final int startNode;
+        int curFace;
+        float u, v;
+        int dirInFace;
+        int step = 0;
+        final ArrayList<Motorcycle.Step> trace = new ArrayList<>();
+        int finalNode = -1;
+        boolean leftHit = false;
+        boolean rightHit = false;
+        float cumLen = 0f;
+        boolean active = true;
+
+        MotorcycleState(int motorcycleId, int singVid, int direction, int startNode,
+                        int face, float uIn, float vIn) {
+            this.motorcycleId = motorcycleId;
+            this.singVid = singVid;
+            this.direction = direction;
+            this.startNode = startNode;
+            this.curFace = face;
+            this.dirInFace = direction;
+            this.u = uIn;
+            this.v = vIn;
+        }
+    }
+
     /** Mutable trace-building scratchpad. */
     private static final class Builder {
         final SeamlessParameterization param;
@@ -150,6 +213,12 @@ public final class MotorcycleGraph {
         final List<Motorcycle> motorcycles = new ArrayList<>();
         final List<TNode> nodes = new ArrayList<>();
         final List<Crash> crashes = new ArrayList<>();
+        // PATCH-95: state lookup by motorcycleId during round-robin.
+        // Synthetic boundary motorcycles live in `motorcycles` (added before
+        // round-robin starts). Regular motorcycles live in `stateById`
+        // until they're converted to Motorcycle objects at the end.
+        final java.util.HashMap<Integer, MotorcycleState> stateById = new java.util.HashMap<>();
+        int numBoundaryMotorcycles = 0;
         // Per-mesh-face list of trace segments laid down so far. Each entry:
         // {motorcycleId, stepIndex, uA, vA, uB, vB} stored flat.
         final ArrayList<float[]>[] facePaths;
@@ -282,6 +351,10 @@ public final class MotorcycleGraph {
                 }
                 statBoundaryMotorcycles++;
             }
+            // PATCH-95: lock in the boundary-motorcycle count. IDs below
+            // this are synthetic boundary motorcycles in `motorcycles`;
+            // IDs ≥ this are regular round-robin motorcycles in stateById.
+            numBoundaryMotorcycles = motorcycles.size();
 
             // 2) PATCH-60: Multi-port launch. For each singularity vertex,
             //    walk all incident faces; for each face, launch one motorcycle
@@ -300,20 +373,35 @@ public final class MotorcycleGraph {
             statAbortNoSharedCorners = 0;
             statAbortNoExitEdge = 0;
             statTraceProperStop = 0;
+            statAbortMaxSteps = 0;
+            statSelfCrashesSkipped = 0;
+            statRealSelfCrashes = 0;
+            statMotorcyclesWithSelfCrash = 0;
+            java.util.Arrays.fill(statAlphaIjHist, 0);
             abortDumps = new java.util.ArrayList<>();
+            motorcycleOutcomes = new java.util.ArrayList<>();
+            // PATCH-95: collect initial motorcycle states (one per launch),
+            // then drive them all forward in step-locked rounds (EGKT08
+            // §5 line 312 parallel propagation). Synthetic boundary
+            // motorcycles (PATCH-89) are already in `motorcycles` and
+            // not part of the active step-driven set.
+            List<MotorcycleState> states = new ArrayList<>();
+            int nextMotorcycleId = motorcycles.size();
+            // Per-singularity launched count for H1 stat (counted at end).
+            int[] launchedPerSingIdx = new int[singularities.size()];
+            int sIdx = 0;
             for (Singularity s : singularities) {
                 Integer startNode = singVertexToNode.get(s.vertexId());
-                if (startNode == null) continue;
+                if (startNode == null) { sIdx++; continue; }
                 int vId = s.vertexId();
                 statSingTotal++;
-                int launchedFromThisSing = 0;
                 boolean boundaryCardinal = false;
                 int outCount = mesh.vertexOutgoingHalfEdgeCount(vId);
                 for (int oh = 0; oh < outCount; oh++) {
                     int he = mesh.vertexOutgoingHalfEdgeAt(vId, oh);
                     int faceId = mesh.halfEdgeFace(he);
                     if (faceId < 0) continue;
-                    int cV = he % 3;                       // corner of v in this face
+                    int cV = he % 3;
                     int cN = mesh.halfEdgeNext(he) % 3;
                     int cP = mesh.halfEdgePrev(he) % 3;
                     float vU = param.u(faceId, cV);
@@ -327,23 +415,59 @@ public final class MotorcycleGraph {
                     for (int dir = 0; dir < 4; dir++) {
                         double dx = (dir == 0) ? 1 : (dir == 2 ? -1 : 0);
                         double dy = (dir == 1) ? 1 : (dir == 3 ? -1 : 0);
-                        // H1 instrumentation: detect cardinals exactly on a wedge boundary.
                         double c1 = e1x * dy - e1y * dx;
                         double c2 = dx * e2y - dy * e2x;
                         if (Math.abs(c1) < 1e-7 || Math.abs(c2) < 1e-7) {
                             boundaryCardinal = true;
                         }
                         if (!cardinalInFaceWedge(e1x, e1y, e2x, e2y, dx, dy)) continue;
-                        Motorcycle m = launch(vId, faceId, cV, dir, startNode);
-                        if (m != null && !m.trace().isEmpty()) {
-                            motorcycles.add(m);
-                            launchedFromThisSing++;
-                        }
+                        if (faceId < 0 || param.uvSignedArea(faceId) <= 0) continue;
+                        MotorcycleState ms = new MotorcycleState(
+                                nextMotorcycleId++, vId, dir, startNode, faceId,
+                                param.u(faceId, cV), param.v(faceId, cV));
+                        states.add(ms);
+                        stateById.put(ms.motorcycleId, ms);
+                        launchedPerSingIdx[sIdx]++;
                     }
                 }
-                int bucket = Math.min(launchedFromThisSing, statSingLaunchCount.length - 1);
+                int bucket = Math.min(launchedPerSingIdx[sIdx], statSingLaunchCount.length - 1);
                 statSingLaunchCount[bucket]++;
                 if (boundaryCardinal) statSingBoundaryCardinals++;
+                sIdx++;
+            }
+
+            // PATCH-95: round-robin propagation. Each round, every active
+            // motorcycle takes one step (one triangle traversal). Stops fire
+            // inside stepMotorcycle. Loop ends when no motorcycle is active.
+            int safetyRounds = MAX_STEPS;
+            boolean anyActive = true;
+            while (anyActive && safetyRounds-- > 0) {
+                anyActive = false;
+                for (MotorcycleState st : states) {
+                    if (!st.active) continue;
+                    if (st.step >= MAX_STEPS) {
+                        // Per-motorcycle step cap reached; mark inactive.
+                        st.active = false;
+                        continue;
+                    }
+                    boolean stillActive = stepMotorcycle(st);
+                    st.active = stillActive;
+                    if (stillActive) anyActive = true;
+                }
+            }
+
+            // Convert states to Motorcycle objects.
+            for (MotorcycleState st : states) {
+                if (st.finalNode < 0) {
+                    // Round-robin terminated without a stop firing — MAX_STEPS.
+                    statAbortMaxSteps++;
+                    motorcycleOutcomes.add("MAX_STEPS id=" + st.motorcycleId);
+                    st.finalNode = recordNode(TNode.NodeKind.BOUNDARY,
+                            st.curFace, st.u, st.v);
+                }
+                if (st.trace.isEmpty()) continue;
+                motorcycles.add(new Motorcycle(st.motorcycleId, st.singVid,
+                        st.direction, st.trace, st.finalNode));
             }
             return new Result(motorcycles, nodes, crashes, singVertexToNode);
         }
@@ -368,28 +492,33 @@ public final class MotorcycleGraph {
         }
 
         /**
-         * Trace one motorcycle from singularity vertex {@code singVid} starting
-         * at corner {@code (face, corner)} heading along cardinal {@code dir}.
+         * PATCH-95: take one triangle-step on motorcycle {@code st}. Returns
+         * {@code true} if the motorcycle is still active (will continue next
+         * round); {@code false} if it stopped during this step (finalNode
+         * has been set).
+         *
+         * <p>This is the body of the previous {@code launch()} for-loop,
+         * lifted to operate on per-motorcycle {@link MotorcycleState}.
+         * Step-locked round-robin (EGKT08 §5 line 312) means each motorcycle
+         * advances ONE step per round, so all motorcycles see the cumulative
+         * trace state from prior rounds — the parallel propagation Lyon
+         * implicitly assumes via the EGKT08 reference.
          */
-        Motorcycle launch(int singVid, int face, int corner, int dir, int startNode) {
-            float u = param.u(face, corner);
-            float v = param.v(face, corner);
-            int dirInFace = dir;
-            int curFace = face;
-            ArrayList<Motorcycle.Step> trace = new ArrayList<>();
+        boolean stepMotorcycle(MotorcycleState st) {
+            int motorcycleId = st.motorcycleId;
+            int curFace = st.curFace;
+            float u = st.u;
+            float v = st.v;
+            int dirInFace = st.dirInFace;
+            int step = st.step;
+            ArrayList<Motorcycle.Step> trace = st.trace;
+            float cumLen = st.cumLen;
+            boolean leftHit = st.leftHit;
+            boolean rightHit = st.rightHit;
             int finalNode = -1;
-            int motorcycleId = motorcycles.size();
-            // PATCH-44 Lyon §3: track per-side α-bound hits to know when to stop.
-            // leftHit = saw a crash where the prior trace t_j is rotated +90°
-            // CCW from this motorcycle's direction (j is on the "right" side
-            // of t_i in seamless param) AND |α_ij| ≤ alpha.
-            // rightHit is the symmetric flag.
-            boolean leftHit = false;
-            boolean rightHit = false;
-            // Cumulative parametric length up to start of current step.
-            float cumLen = 0f;
 
-            for (int step = 0; step < MAX_STEPS; step++) {
+            // === BEGIN body of original launch() for-loop body ===
+            do {
                 if (curFace < 0 || param.uvSignedArea(curFace) <= 0) {
                     // Stepped onto a degen / flipped triangle. Abort cleanly.
                     finalNode = recordNode(TNode.NodeKind.BOUNDARY, curFace, u, v);
@@ -407,14 +536,29 @@ public final class MotorcycleGraph {
 
                 // First, check intersection with any pre-existing trace
                 // segment in this face — the closest one wins.
+                //
+                // PATCH-94: own-trace segments now count as self-crashes per
+                // EGKT08's canonical motorcycle-graph algorithm: "particle
+                // meets a vertex that has previously been traversed by
+                // itself, ... it stops". Lyon §3's survival modification
+                // applies to OTHER-trace crashes only — self-crashes follow
+                // the EGKT08 default. The previous skip-self filter caused
+                // 75/128 motorcycles on rocker-arm to run to MAX_STEPS.
                 float bestT = Float.POSITIVE_INFINITY;
                 int bestPriorMotorcycle = -1;
                 int bestPriorStep = -1;
                 for (float[] seg : facePaths[curFace]) {
                     int priorId = (int) seg[0];
-                    if (priorId == motorcycleId) continue;     // own trace; skip
                     float t = raySegmentIntersect(u, v, du, dv,
                             seg[2], seg[3], seg[4], seg[5]);
+                    if (priorId == motorcycleId) {
+                        statSelfCrashesSkipped++;
+                        // For self-segments, only the IMMEDIATELY-PRIOR step
+                        // shares the current position (its endpoint is our
+                        // current u, v, t≈0 — filtered by STEP_EPS). Any
+                        // earlier own segment with t > STEP_EPS is a real
+                        // self-crossing.
+                    }
                     if (t > STEP_EPS && t < bestT) {
                         bestT = t;
                         bestPriorMotorcycle = priorId;
@@ -446,9 +590,45 @@ public final class MotorcycleGraph {
                     float crashU = u + bestT * du;
                     float crashV = v + bestT * dv;
 
+                    // PATCH-94: self-crash → EGKT08 canonical stop. Lyon's
+                    // survival rule applies only to OTHER-trace crashes;
+                    // self-crashes follow EGKT08's default (terminate at
+                    // the self-intersection, record an INTERSECTION node).
+                    if (bestPriorMotorcycle == motorcycleId) {
+                        int selfNodeId = recordNode(TNode.NodeKind.INTERSECTION,
+                                curFace, crashU, crashV);
+                        Motorcycle.Step ss = new Motorcycle.Step(curFace, u, v,
+                                crashU, crashV, -1);
+                        trace.add(ss);
+                        facePaths[curFace].add(new float[]{
+                                motorcycleId, step, u, v, crashU, crashV});
+                        // Self-crash with α_ij undefined (cross=0 against own
+                        // trace). We record it for TMesh.build splitting but
+                        // tag absAlphaIj = π/2 so it's NEVER an "offending"
+                        // intersection in Lyon §4.3 Eq.(4).
+                        crashes.add(new Crash(motorcycleId, bestPriorStep,
+                                crashU, crashV, selfNodeId,
+                                motorcycleId, step, Math.PI / 2));
+                        statRealSelfCrashes++;
+                        finalNode = selfNodeId;
+                        motorcycleOutcomes.add("SELF_STOP id=" + motorcycleId
+                                + " step=" + step);
+                        break;
+                    }
+
                     // Classify the crash by α_ij sign + magnitude (Lyon §3).
-                    Motorcycle prior = motorcycles.get(bestPriorMotorcycle);
-                    Motorcycle.Step priorStep = prior.trace().get(bestPriorStep);
+                    // PATCH-95: prior motorcycle may be a synthetic boundary
+                    // (in `motorcycles`) or a regular round-robin motorcycle
+                    // (in `stateById`). Resolve via lookupPriorStep.
+                    Motorcycle.Step priorStep = lookupPriorStep(
+                            bestPriorMotorcycle, bestPriorStep);
+                    if (priorStep == null) {
+                        // Shouldn't happen — bail defensively as a boundary.
+                        finalNode = recordNode(TNode.NodeKind.BOUNDARY,
+                                curFace, u, v);
+                        statAbortNoSharedCorners++;
+                        break;
+                    }
                     double priorDu = priorStep.uOut() - priorStep.uIn();
                     double priorDv = priorStep.vOut() - priorStep.vIn();
                     // cross > 0  ⇒ t_j (prior) is rotated +90° CCW from t_i
@@ -465,6 +645,21 @@ public final class MotorcycleGraph {
                     double absAlphaIj = (lIj < 1e-9f)
                             ? Math.PI / 2
                             : Math.atan((double) lJi / (double) lIj);
+
+                    // PATCH-95 H1: bucket |α_ij| (degrees) for diagnostic.
+                    {
+                        double degs = Math.toDegrees(absAlphaIj);
+                        int bucket;
+                        if (degs < 5) bucket = 0;
+                        else if (degs < 15) bucket = 1;     // Lyon α=15° boundary
+                        else if (degs < 30) bucket = 2;
+                        else if (degs < 45) bucket = 3;
+                        else if (degs < 60) bucket = 4;
+                        else if (degs < 75) bucket = 5;
+                        else if (degs < 90) bucket = 6;
+                        else bucket = 7;
+                        statAlphaIjHist[bucket]++;
+                    }
 
                     if (alpha > 1e-9 && absAlphaIj <= alpha + 1e-9) {
                         if (cross < 0) leftHit = true;
@@ -487,7 +682,8 @@ public final class MotorcycleGraph {
                     // PATCH-89: if the prior trace is a synthetic BOUNDARY
                     // motorcycle, force-stop regardless of α-bound. Past the
                     // mesh boundary is off-mesh — no continuation is valid.
-                    boolean priorIsBoundary = prior.singularityVertexId() == BOUNDARY_MOTORCYCLE_VID;
+                    boolean priorIsBoundary = bestPriorMotorcycle < numBoundaryMotorcycles
+                            && motorcycles.get(bestPriorMotorcycle).singularityVertexId() == BOUNDARY_MOTORCYCLE_VID;
 
                     boolean stop = (alpha <= 1e-9)            // Eppstein mode
                             || (leftHit && rightHit)          // Lyon both-sides
@@ -495,27 +691,33 @@ public final class MotorcycleGraph {
                     if (stop) {
                         finalNode = crashNodeId;
                         statTraceProperStop++;
+                        motorcycleOutcomes.add("PROPER_STOP id=" + motorcycleId
+                                + " step=" + step);
                         break;
                     }
 
                     // Survive — but ALSO record a self-crash so TMesh.build
-                    // splits OUR trace at this intersection. Without this,
-                    // the surviving motorcycle's trace remains a single
-                    // TArc traversing the valence-4 node, which breaks
-                    // planar face enumeration (the half-arc graph isn't
-                    // a true planar DCEL anymore).
+                    // splits OUR trace at this intersection.
                     crashes.add(new Crash(motorcycleId, step,
                             crashU, crashV, crashNodeId,
                             motorcycleId, step, absAlphaIj));
 
-                    // Advance past the crash by a tiny epsilon and continue
-                    // the raycast in the same direction. The split step we
-                    // just added closes the previous arc-section; the next
-                    // step starts fresh from the crash point.
+                    // PATCH-95: survival advances the motorcycle past the
+                    // crash; the NEXT round picks up from the new position.
+                    // (Old code did this via for-loop `continue`; we now
+                    // write state back and return true to keep motorcycle
+                    // active for the next round.)
                     cumLen += bestT;
                     u = crashU;
                     v = crashV;
-                    continue;
+                    st.curFace = curFace;
+                    st.u = u; st.v = v;
+                    st.dirInFace = dirInFace;
+                    st.step = step + 1;
+                    st.cumLen = cumLen;
+                    st.leftHit = leftHit;
+                    st.rightHit = rightHit;
+                    return true;   // still active
                 }
 
                 if (exitEdgeIdx < 0 || !Float.isFinite(exitT)) {
@@ -574,9 +776,9 @@ public final class MotorcycleGraph {
 
                 float exitU = u + exitT * du;
                 float exitV = v + exitT * dv;
-                Motorcycle.Step st = new Motorcycle.Step(curFace, u, v,
+                Motorcycle.Step exitStep = new Motorcycle.Step(curFace, u, v,
                         exitU, exitV, exitEdgeIdx);
-                trace.add(st);
+                trace.add(exitStep);
                 facePaths[curFace].add(new float[]{
                         motorcycleId, step, u, v, exitU, exitV});
                 cumLen += exitT;
@@ -654,16 +856,35 @@ public final class MotorcycleGraph {
                 v = newV;
                 curFace = nbrFace;
                 dirInFace = nbrDir;
-            }
+                // === END normal step path: motorcycle transitioned to nbrFace.
+                // Fall through to writeback + return-true below.
+            } while (false);
+            // === END body of original launch() for-loop body ===
 
-            if (finalNode < 0) {
-                finalNode = recordNode(TNode.NodeKind.BOUNDARY, curFace, u, v);
+            // PATCH-95: writeback per-step state + return.
+            //   - finalNode >= 0  → motorcycle stopped this step; return false.
+            //   - finalNode < 0   → motorcycle still active; persist state and
+            //                       return true (next round picks up here).
+            if (finalNode >= 0) {
+                st.finalNode = finalNode;
+                st.curFace = curFace;
+                st.u = u; st.v = v;
+                st.dirInFace = dirInFace;
+                st.step = step + 1;
+                st.cumLen = cumLen;
+                st.leftHit = leftHit;
+                st.rightHit = rightHit;
+                return false;
             }
-            // Drop motorcycles that never made it past the first face — they
-            // either started on a degenerate triangle or hit an immediate seam
-            // we cannot transition. v1 records a node but no arc.
-            if (trace.isEmpty()) return null;
-            return new Motorcycle(motorcycleId, singVid, dir, trace, finalNode);
+            // Active: persist state for next round.
+            st.curFace = curFace;
+            st.u = u; st.v = v;
+            st.dirInFace = dirInFace;
+            st.step = step + 1;
+            st.cumLen = cumLen;
+            st.leftHit = leftHit;
+            st.rightHit = rightHit;
+            return true;
         }
 
         int recordNode(TNode.NodeKind kind, int faceId, float u, float v) {
@@ -687,14 +908,36 @@ public final class MotorcycleGraph {
             return bn.id();
         }
 
+        /** PATCH-95: resolve a (motorcycleId, stepIndex) to its Step, looking
+         *  in either {@code motorcycles} (synthetic boundaries, IDs &lt;
+         *  {@code numBoundaryMotorcycles}) or {@code stateById} (regular
+         *  round-robin motorcycles, IDs ≥ {@code numBoundaryMotorcycles}). */
+        Motorcycle.Step lookupPriorStep(int priorMotorcycleId, int stepIdx) {
+            List<Motorcycle.Step> trace = lookupPriorTrace(priorMotorcycleId);
+            if (trace == null || stepIdx < 0 || stepIdx >= trace.size()) return null;
+            return trace.get(stepIdx);
+        }
+
+        /** PATCH-95: resolve a motorcycleId to its trace list (synthetic or
+         *  in-progress round-robin state). */
+        List<Motorcycle.Step> lookupPriorTrace(int priorMotorcycleId) {
+            if (priorMotorcycleId < numBoundaryMotorcycles) {
+                if (priorMotorcycleId < 0 || priorMotorcycleId >= motorcycles.size())
+                    return null;
+                return motorcycles.get(priorMotorcycleId).trace();
+            }
+            MotorcycleState s = stateById.get(priorMotorcycleId);
+            return s == null ? null : s.trace;
+        }
+
         /** Walk prior motorcycle's trace from its origin, summing per-step
          *  parametric lengths up to and into step {@code crashStepIdx}, where
          *  the crash sits at {@code (crashU, crashV)} within that step. */
         float cumulativeLengthToCrash(int priorMotorcycleId, int crashStepIdx,
                                        float crashU, float crashV) {
-            Motorcycle prior = motorcycles.get(priorMotorcycleId);
+            List<Motorcycle.Step> trace = lookupPriorTrace(priorMotorcycleId);
+            if (trace == null) return 0f;
             float sum = 0f;
-            var trace = prior.trace();
             for (int k = 0; k < crashStepIdx && k < trace.size(); k++) {
                 Motorcycle.Step s = trace.get(k);
                 float du = s.uOut() - s.uIn();

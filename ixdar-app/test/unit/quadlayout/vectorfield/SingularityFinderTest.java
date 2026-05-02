@@ -40,6 +40,22 @@ public class SingularityFinderTest {
     }
 
     @Test
+    void subdividedSphereWithCurvatureConstraintsStillStable() {
+        // PATCH-96: opt into BZK09 §3 salient-curvature constraints on a
+        // subdivided sphere. Sphere has uniform curvature (anisotropy ≈ 0
+        // everywhere), so τ_min = 0.8 should constrain ZERO faces — the
+        // result should match the unconstrained sphere case.
+        ArrayMesh mesh = subdividedSphere(3);
+        FaceRosyField field = new FaceRosyField(mesh, 0.8);   // opt-in
+        field.solve();
+        List<Singularity> sings = field.findSingularities();
+        int sumIdx4 = 0;
+        for (Singularity s : sings) sumIdx4 += s.index4();
+        assertEquals(8, sumIdx4,
+                "constraints opt-in must not break Euler characteristic");
+    }
+
+    @Test
     void coarseTetrahedronProducesAtLeastSomeSingularities() {
         // Tetrahedron has chi=2 but K(v)=pi at every vertex (4 corner angles
         // sum to 60*3 = 180 deg = pi -> defect = pi). 2K/pi = 2 per vertex,

@@ -110,50 +110,20 @@ public final class Quantization {
         int K = strips.classCount();
         int[] arcClass = strips.arcClass();
 
-        // PATCH-84 guard: ojAlgo runs out of heap on K > ~1000 vars. Until
-        // proper strip-walking lands, fall back to closest-integer rounding
-        // of each arc's parametric length. PATCH-88: allow q=0 (collapsed
-        // arcs) — Lyon §4.1 explicitly permits q=0 for arcs whose endpoints
-        // sit on the same iso-line. Per-trace validity Eq.(3) is enforced by
-        // bumping the longest arc per trace if all its arcs round to 0.
+        // PATCH-84 guard: ojAlgo runs out of heap on K > ~1000 vars. The
+        // fallback is non-Lyon-faithful by definition (we can't satisfy
+        // Eq.(2)/(3)/(4) without the ILP), so we just produce a validity-
+        // floor result: q_i = max(1, round(r_i)). No threshold-based
+        // collapse — Lyon's algorithm would let the ILP decide collapses
+        // via Eq.(5) min Σ l⊥·q + constraints, and we can't approximate
+        // that without solving the ILP.
         if (K > ilpMaxVars()) {
             int[] q = new int[A];
             double objVal = 0.0;
-            // PATCH-88 v2: round-with-collapse-bias. r ≤ COLLAPSE_THRESHOLD
-            // collapses to 0 (arcs that contribute negligible parametric
-            // length); r > threshold rounds up to ≥ 1. This is a heuristic
-            // approximation of Lyon's ILP behavior — ILP would collapse far
-            // fewer arcs since each collapse needs to satisfy consistency +
-            // validity + Eq.(4) constraints. Without those constraints in
-            // the fallback, naive Math.round(r) over-collapses.
-            // Default 0.2: empirically gets ROCKERARM #P within 4% of paper.
-            // Lyon's actual ILP would derive this from minimizing |q-r| with
-            // consistency + Eq.(3)/(4) constraints — our heuristic uses a
-            // single threshold on parametric length.
-            String thresholdProp = System.getProperty("ixdar.lyon.collapseThreshold");
-            double collapseThreshold = thresholdProp != null
-                    ? Double.parseDouble(thresholdProp) : 0.2;
             for (int i = 0; i < A; i++) {
                 double r = arcs.get(i).parametricLength();
-                if (r < collapseThreshold) {
-                    q[i] = 0;
-                } else {
-                    q[i] = Math.max(1, (int) Math.round(r));
-                }
+                q[i] = Math.max(1, (int) Math.round(r));
                 objVal += Math.abs(q[i] - r);
-            }
-            // Eq.(3) post-process: every singularity-rooted arc must have q ≥ 1
-            // (sufficient form). Bump the FIRST arc whose startNode is a
-            // singularity to ≥ 1 if rounded to 0.
-            for (int aId = 0; aId < A; aId++) {
-                TArc arc = arcs.get(aId);
-                int sn = arc.startNode();
-                if (sn < 0 || sn >= tmesh.nodes().size()) continue;
-                if (tmesh.nodes().get(sn).kind()
-                        == ixdar.geometry.mesh.quadlayout.tmesh.TNode.NodeKind.SINGULARITY
-                        && q[aId] < 1) {
-                    q[aId] = 1;
-                }
             }
             return new Result(q, objVal, true, 2 * K);
         }

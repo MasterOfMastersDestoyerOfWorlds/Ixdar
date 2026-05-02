@@ -8,52 +8,37 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.quadlayout.vectorfield.alignment.DirectionalConstraints;
+import ixdar.geometry.mesh.quadlayout.vectorfield.alignment.GeodesicCurvature;
+import ixdar.geometry.mesh.quadlayout.vectorfield.alignment.PrincipalCurvatureField;
+import ixdar.geometry.mesh.quadlayout.vectorfield.alignment.SmoothRegions;
+import ixdar.geometry.mesh.quadlayout.vectorfield.greedy.GreedyRounding;
+import ixdar.geometry.mesh.quadlayout.vectorfield.solver.BzkAdaptiveSolver;
+import ixdar.geometry.mesh.quadlayout.vectorfield.solver.BzkSystem;
 
 /**
- * Smooth 4-RoSy cross field on a triangulated 2-manifold via the Campen 2014
- * angle-based mixed-integer formulation (thesis Eq. 4.6):
+ * Smooth 4-RoSy cross field on a triangulated 2-manifold via Bommes-Zimmer-Kobbelt
+ * 2009 ("Mixed-Integer Quadrangulation"):
  *
  * <pre>
- *   min  sum over interior edges  ( theta_i - theta_j + kappa_ij + m_ij * pi/2 )^2
+ *   min  Σ_{e ∈ E_int} ( θ_a − θ_b + κ_e + (π/2)·m_e )²
  * </pre>
  *
- * with theta_i in R per face and m_ij in Z on a face-cycle basis (one per
- * non-spanning-tree edge of the dual graph, per Bommes-Zimmer-Kobbelt 2009).
+ * with θ ∈ ℝ^F per face and m ∈ ℤ on the chord set of a dual spanning tree
+ * (one integer per non-tree interior edge, the cycle-space basis). Tree
+ * edges are gauged to m=0; their integer values are recovered post-greedy
+ * from the residual at the final θ.
  *
- * <h3>Solver schedule (BZK12 greedy round-and-resolve)</h3>
- * The integer DOFs live on the chord set of a dual spanning tree (one m per
- * non-tree interior edge, the cycle-space basis). Tree edges are fixed at
- * m=0 in the gauge. The greedy loop is implemented in
- * {@link MiGreedyRounding}:
- * <ol>
- *   <li>Solve the joint LSQ on (theta, m_chord) with m_chord relaxed to R.</li>
- *   <li>Pick the unpinned chord whose relaxed value is closest to an integer.</li>
- *   <li>Pin it to the nearest integer and re-solve.</li>
- *   <li>Repeat until every chord is pinned.</li>
- * </ol>
- * After convergence, integer m for tree edges is recovered as the nearest
- * multiple of pi/2 to the residual at the final theta — required by
- * downstream matching/holonomy detection ({@link CombedField},
- * {@link SingularityFinder}).
- *
- * <p>Outputs:
+ * <p>This class is the orchestrator. It builds:
  * <ul>
- *   <li>{@code theta(faceId)} — per-face angle (radians) in the face's local
- *       frame defined by {@link BaseField}.
- *   <li>{@code periodJump(interiorEdgeIndex)} — integer m on each interior
- *       edge (rounded tree residual, or pinned chord value).
- *   <li>{@link Singularity} list — vertices where face-cycle holonomy is
- *       non-zero modulo 2*pi.
+ *   <li>per-face local frames (via {@link BaseField}),</li>
+ *   <li>interior-edge adjacency,</li>
+ *   <li>per-edge κ_e (parallel-transport angle between adjacent face frames),</li>
+ *   <li>a dual spanning tree to identify chord vs tree edges,</li>
  * </ul>
- *
- * <p>Assumes a clean, noise-free input mesh (per thesis Sec 4.4); noisy input
- * blows up the singularity count.
- *
- * <p>Scaling note: the joint solve runs on (F + C) variables where C is the
- * chord count (= E_int - F + 1 per connected component). Each greedy step
- * pins one chord and triggers a fresh sparse LDL/LU decompose; total cost is
- * O(C * solve(F+C)). Adequate for meshes up to ~10k faces. Beyond that,
- * pattern-preserving refactor or a CHOLMOD-class solver becomes necessary.
+ * then hands off to {@link BzkSystem} (immutable CSR matrix) and
+ * {@link GreedyRounding} (mixed-integer outer loop, BZK09 §2.1 adaptive
+ * solver ladder).
  */
 public final class FaceRosyField extends BaseField {
 
@@ -70,16 +55,25 @@ public final class FaceRosyField extends BaseField {
     private int[] periodJump;
 
     private boolean solved;
+    private GreedyRounding.Result lastResult;
 
     public FaceRosyField(ArrayMesh mesh) {
         this(mesh, Double.POSITIVE_INFINITY);
     }
 
     /**
-     * @param principalThreshold curvature anisotropy threshold above which a
-     *     face's theta is hard-fixed to the principal direction. Set to
-     *     {@code Double.POSITIVE_INFINITY} to disable principal-direction
-     *     alignment (default; v1 keeps it disabled per the ticket).
+     * @param principalThreshold CIE*16 §3.2 ¶4 significance angle threshold,
+     *     in degrees (default 70°). When finite, activates the CIE*16
+     *     directional-constraint chain
+     *     ({@link PrincipalCurvatureField} → {@link GeodesicCurvature} →
+     *     {@link SmoothRegions} → {@link DirectionalConstraints}).
+     *     Set to {@link Double#POSITIVE_INFINITY} to disable directional
+     *     alignment entirely (constraints become optional per CIE*16 §4.1
+     *     {0, ∞} weight semantics).
+     *     <p>NOTE: this parameter was previously the BZK09 §3 anisotropy
+     *     threshold τ_min ∈ [0,1] (PATCH-96, deleted). The constructor
+     *     signature is preserved for backward compatibility but the value's
+     *     meaning has changed.
      */
     public FaceRosyField(ArrayMesh mesh, double principalThreshold) {
         super(mesh);
@@ -110,12 +104,78 @@ public final class FaceRosyField extends BaseField {
             return;
         }
 
-        MiGreedyRounding greedy = new MiGreedyRounding(
-                F, E, edgeFaceA, edgeFaceB, kappa, isTreeEdge);
-        MiGreedyRounding.Result res = greedy.solve();
+        BzkSystem sys = new BzkSystem(F, E, edgeFaceA, edgeFaceB, kappa, isTreeEdge);
+
+        double[] thetaConstraint = null;
+        boolean[] constrained = null;
+        if (Double.isFinite(principalThreshold)) {
+            // CIE*16 §3 + §4.1 directional alignment chain:
+            //   1. ACDLD03 §2.1 + CIE*16 §3.2 ¶1: per-face principal curvature.
+            //   2. CIE*16 §3.2 ¶3: per-edge geodesic curvature κ^g.
+            //   3. CIE*16 §3.1 + §3.2 ¶4: smooth regions + significance filter (∠F ≥ threshold).
+            //   4. CIE*16 §4.1: hard θ-constraints inside kept regions (line-field projected into face frame).
+            // Replaces PATCH-96's half-implementation of BZK09 §3 (single-radius shape
+            // operator without validation interval) — the failure mode Campen-thesis
+            // §4.4 ¶4 "Noise" describes (excess singularities on noisy or scale-dependent
+            // input — observed 1019 vs paper's 36 on rocker-arm in May 2026 bench).
+            double rGeoFraction = Double.parseDouble(
+                    System.getProperty("ixdar.cie16.geoRadiusFraction", "0.01"));
+            double bbox = boundingBoxDiagonal();
+            double rGeo = bbox * rGeoFraction;                                  // ACDLD03 §2.1 ¶3 default = bbox/100
+            var pdf = PrincipalCurvatureField.compute(mesh, rGeo);
+            double[] kappaG = GeodesicCurvature.computePerEdge(mesh, pdf);
+            boolean[] smoothFaces = GeodesicCurvature.computeSmoothFaces(mesh, kappaG, pdf);
+            double significanceDeg = principalThreshold;                        // re-purposed: now degrees
+            int[] regionId = SmoothRegions.detect(mesh, smoothFaces, pdf, significanceDeg);
+            DirectionalConstraints.Result dc = DirectionalConstraints.compute(this, pdf, regionId);
+            thetaConstraint = dc.thetaConstraint;
+            constrained = dc.constrained;
+        }
+
+        BzkAdaptiveSolver.Options solverOpts = readSolverOptions();
+        GreedyRounding.Options opts = new GreedyRounding.Options(
+                solverOpts, thetaConstraint, constrained);
+        GreedyRounding.Result res = GreedyRounding.solve(sys, opts);
         for (int i = 0; i < F; i++) theta[i] = res.theta[i];
         periodJump = res.periodJump;
+        lastResult = res;
         solved = true;
+    }
+
+    private static BzkAdaptiveSolver.Options readSolverOptions() {
+        BzkAdaptiveSolver.Options o = new BzkAdaptiveSolver.Options();
+        o.useGs = "true".equals(System.getProperty("ixdar.bzk09.useGs"));
+        o.useIcc = !"false".equals(System.getProperty("ixdar.bzk09.useIcc"));   // PATCH-103 default
+        o.useCg = !"false".equals(System.getProperty("ixdar.bzk09.useCg"));
+        o.cgMaxIter = Integer.getInteger("ixdar.bzk09.cgMaxIter", o.cgMaxIter);
+        o.cgTolerance = Double.parseDouble(
+                System.getProperty("ixdar.bzk09.cgTol", String.valueOf(o.cgTolerance)));
+        o.iccMaxIter = Integer.getInteger("ixdar.bzk09.iccMaxIter", o.iccMaxIter);
+        o.iccTolerance = Double.parseDouble(
+                System.getProperty("ixdar.bzk09.iccTol", String.valueOf(o.iccTolerance)));
+        return o;
+    }
+
+    /** Solver convergence stats from the last {@link #solve()} call. Null
+     *  before solve(), or for the no-op F=0 case. Used by bench introspection. */
+    public GreedyRounding.Result lastResult() { return lastResult; }
+
+    /** Mesh bounding box diagonal — used by ACDLD03 §2.1 ¶3 default radius. */
+    private double boundingBoxDiagonal() {
+        int V = mesh.vertexCount();
+        if (V == 0) return 0.0;
+        Vector3f p = new Vector3f();
+        mesh.vertexPosition(0, p);
+        float minX = p.x, minY = p.y, minZ = p.z;
+        float maxX = p.x, maxY = p.y, maxZ = p.z;
+        for (int v = 1; v < V; v++) {
+            mesh.vertexPosition(v, p);
+            if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+            if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+            if (p.z < minZ) minZ = p.z; if (p.z > maxZ) maxZ = p.z;
+        }
+        double dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ;
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     private void buildEdgeStructure() {
@@ -172,14 +232,9 @@ public final class FaceRosyField extends BaseField {
             if (tl > 1e-30f) tangentInB.mul(1f / tl);
             double alphaB = Math.atan2(tangentInB.dot(vB), tangentInB.dot(uB));
 
-            // Same 3D direction expressed in two frames. Smooth field requires
-            // theta_A - theta_B = alpha_B - alpha_A; so kappa_AB = alpha_B - alpha_A
-            // makes the residual (theta_A - theta_B + kappa_AB) zero for a
-            // parallel field across the edge.
             kappa[e] = alphaB - alphaA;
         }
 
-        // Build dual spanning tree by BFS over faces.
         isTreeEdge = new boolean[interiorEdgeCount];
         int[][] faceEdgeNbr = buildFaceAdjacency(F);
 
@@ -224,7 +279,6 @@ public final class FaceRosyField extends BaseField {
         return adj;
     }
 
-    /** Smoothness energy = sum over edges of residual^2. Useful for tests. */
     public double smoothnessEnergy() {
         if (!solved) throw new IllegalStateException("solve() not called");
         double E = 0.0;
@@ -244,19 +298,10 @@ public final class FaceRosyField extends BaseField {
     public double principalThreshold() { return principalThreshold; }
 
     /**
-     * Bypass the BZK12 solver and inject externally-computed per-face theta and
-     * per-interior-edge integer periodJump values. Used by
-     * {@code ixdar.geometry.mesh.quadlayout.field.PrecomputedFieldImporter} (PATCH-51) to
-     * load metriko's known-good stage1 cross field for downstream regression
-     * testing of PATCH-40 / PATCH-41 in parallel with PATCH-50 (the in-flight
-     * solver rewrite). The returned field's edge structure (interior edge list,
-     * kappa, tree flags) is built from {@code mesh} the same way the regular
-     * solver does, so all downstream getters remain valid.
-     *
-     * @param mesh        triangle mesh
-     * @param theta       per-face angle in the face's local frame (length F)
-     * @param periodJump  per-interior-edge integer rotation count (length E,
-     *                    where E = built {@code interiorEdgeCount()})
+     * Bypass the BZK solver and inject externally-computed per-face θ and
+     * per-interior-edge integer periodJump. Used by
+     * {@code ixdar.geometry.mesh.quadlayout.field.PrecomputedFieldImporter} to
+     * load metriko's known-good stage1 cross field for downstream regression.
      */
     public static FaceRosyField fromExternal(ArrayMesh mesh, double[] theta, int[] periodJump) {
         FaceRosyField f = new FaceRosyField(mesh);
