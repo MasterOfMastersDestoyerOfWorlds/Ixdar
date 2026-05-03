@@ -63,61 +63,88 @@ final class ChartVertexMap {
 
     /**
      * Build the chart-vertex map for {@code mesh} using the seam edges from
-     * {@code combed}. Non-seam interior edges glue their two faces into the
-     * same chart; seam edges leave them in distinct charts.
+     * {@code combed}. The chart is the connected component of FACE-CORNERS
+     * around each mesh vertex under non-seam edges (PATCH-133 wedge-split):
+     * two corners at the same mesh vertex on two faces sharing a non-seam edge
+     * belong to the same wedge; corners on faces separated by seam edges (or
+     * with no edge between them at that vertex) are in different wedges.
+     *
+     * <p>For non-singular vertices, all incident faces are connected by
+     * non-seam edges and produce ONE chart-vertex per mesh-vertex (same as
+     * the pre-PATCH-133 layout). For singular vertices, the seams incident
+     * to the vertex split it into multiple wedges, each with its own chart
+     * vertex — giving the parametrization the DOFs needed to encode the cone
+     * winding (the source of PATCH-127's 40-50% flipped-triangle rate on
+     * cube and rocker-arm).
      */
     static ChartVertexMap build(ArrayMesh mesh, FaceRosyField field, CombedField combed) {
         int F = mesh.faceCount();
         int Ei = field.interiorEdgeCount();
 
-        // 1. Union-find over faces with non-seam interior edges.
-        int[] parent = new int[F];
-        int[] rank = new int[F];
-        for (int i = 0; i < F; i++) parent[i] = i;
+        // 1. Face-level union-find over non-seam edges → faceChart.
+        //    Pre-PATCH-133 semantics; preserved for callers that ask "are
+        //    these two faces in the same connected component after seam cuts?"
+        int[] faceParent = new int[F];
+        int[] faceRank = new int[F];
+        for (int i = 0; i < F; i++) faceParent[i] = i;
         for (int e = 0; e < Ei; e++) {
             if (combed.isSeamEdge(e)) continue;
-            int fa = field.edgeFaceA(e);
-            int fb = field.edgeFaceB(e);
-            unite(parent, rank, fa, fb);
+            unite(faceParent, faceRank, field.edgeFaceA(e), field.edgeFaceB(e));
         }
-
-        // 2. Compact chart ids.
         int[] faceChart = new int[F];
         int[] rootToChart = new int[F];
         java.util.Arrays.fill(rootToChart, -1);
         int chartCount = 0;
         for (int f = 0; f < F; f++) {
-            int r = find(parent, f);
+            int r = find(faceParent, f);
             if (rootToChart[r] < 0) rootToChart[r] = chartCount++;
             faceChart[f] = rootToChart[r];
         }
 
-        // 3. Allocate chart-vertex id per (mesh_vertex, chart) pair as we
-        //    walk every face corner. HashMap<long, int> keyed by packed
-        //    ((long) meshVert << 32) | chart.
-        HashMap<Long, Integer> dedupe = new HashMap<>();
-        int[] cornerChartVertex = new int[F * 3];
-        // Worst case: every corner is unique. Right-size lazily via ArrayList.
-        java.util.ArrayList<Integer> cvMesh = new java.util.ArrayList<>(F * 3);
-        java.util.ArrayList<Integer> cvChart = new java.util.ArrayList<>(F * 3);
+        // 2. Corner-level union-find over non-seam edges → cornerChartVertex.
+        //    PATCH-133: corners at the SAME mesh vertex on faces sharing a
+        //    non-seam edge are in the SAME wedge → SAME chart-vertex. Seam
+        //    edges leave them in distinct wedges. This gives singular vertices
+        //    multiple chart-vertices (one per cone wedge), which is the DOF
+        //    the parametrization needs to encode the cone winding.
+        int C = F * 3;
+        int[] cornerParent = new int[C];
+        int[] cornerRank = new int[C];
+        for (int i = 0; i < C; i++) cornerParent[i] = i;
+        for (int e = 0; e < Ei; e++) {
+            if (combed.isSeamEdge(e)) continue;
+            int fa = field.edgeFaceA(e);
+            int fb = field.edgeFaceB(e);
+            int meshEdge = field.edgeMeshId(e);
+            int he = mesh.edgeHalfEdge(meshEdge);
+            int v0 = mesh.halfEdgeVertex(he);
+            int v1 = mesh.halfEdgeEndVertex(he);
+            int cA0 = cornerOfVertex(mesh, fa, v0);
+            int cA1 = cornerOfVertex(mesh, fa, v1);
+            int cB0 = cornerOfVertex(mesh, fb, v0);
+            int cB1 = cornerOfVertex(mesh, fb, v1);
+            if (cA0 >= 0 && cB0 >= 0) unite(cornerParent, cornerRank, fa * 3 + cA0, fb * 3 + cB0);
+            if (cA1 >= 0 && cB1 >= 0) unite(cornerParent, cornerRank, fa * 3 + cA1, fb * 3 + cB1);
+        }
+        int[] cornerChartVertex = new int[C];
+        int[] rootToCv = new int[C];
+        java.util.Arrays.fill(rootToCv, -1);
+        java.util.ArrayList<Integer> cvMesh = new java.util.ArrayList<>(C);
+        java.util.ArrayList<Integer> cvChart = new java.util.ArrayList<>(C);
         for (int f = 0; f < F; f++) {
-            int chart = faceChart[f];
             for (int c = 0; c < 3; c++) {
-                int mv = mesh.faceVertexAt(f, c);
-                long key = ((long) mv << 32) | (chart & 0xffffffffL);
-                Integer existing = dedupe.get(key);
-                if (existing == null) {
-                    int id = cvMesh.size();
-                    dedupe.put(key, id);
-                    cvMesh.add(mv);
-                    cvChart.add(chart);
-                    cornerChartVertex[f * 3 + c] = id;
-                } else {
-                    cornerChartVertex[f * 3 + c] = existing;
+                int corner = f * 3 + c;
+                int r = find(cornerParent, corner);
+                int cv = rootToCv[r];
+                if (cv < 0) {
+                    cv = cvMesh.size();
+                    rootToCv[r] = cv;
+                    cvMesh.add(mesh.faceVertexAt(f, c));
+                    cvChart.add(faceChart[f]);
                 }
+                cornerChartVertex[corner] = cv;
             }
         }
-
         int chartVertexCount = cvMesh.size();
         int[] chartVertexMesh = new int[chartVertexCount];
         int[] chartVertexChart = new int[chartVertexCount];
@@ -128,6 +155,15 @@ final class ChartVertexMap {
 
         return new ChartVertexMap(faceChart, chartCount, cornerChartVertex,
                 chartVertexCount, chartVertexMesh, chartVertexChart);
+    }
+
+    /** Find the corner index c in face f such that faceVertexAt(f, c) == v.
+     *  Returns -1 if the vertex is not a corner of the face. */
+    private static int cornerOfVertex(ArrayMesh mesh, int f, int v) {
+        for (int c = 0; c < 3; c++) {
+            if (mesh.faceVertexAt(f, c) == v) return c;
+        }
+        return -1;
     }
 
     /** Convenience: chart-vertex id at {@code corner} of face {@code f}. */

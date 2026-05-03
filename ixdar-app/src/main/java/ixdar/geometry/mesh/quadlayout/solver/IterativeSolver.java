@@ -37,7 +37,16 @@ import no.uib.cipr.matrix.sparse.SSOR;
 public final class IterativeSolver {
 
     public static final double DEFAULT_TOL = 1e-6;
-    public static final int DEFAULT_MAX_ITER = 1000;
+    /** PATCH-134: bumped from 1000 to 10000. The IGM Hessian relaxed solve
+     *  on rocker-arm-20k (N=22852) hit the 1000 cap WITHOUT converging,
+     *  returning a partial iterate with residuals 1.4-3.4x larger than the
+     *  target magnitude — that was the root cause of the 41% relaxed-solve
+     *  flip rate (PATCH-127/128/130/132 traced this). Convergent solves
+     *  still finish in 600-1000 iters on these meshes, so the bump costs
+     *  almost nothing on those; it gives the harder relaxed solve room to
+     *  reach tolerance. Override via -Dixdar.quadlayout.solver.maxIter=N. */
+    public static final int DEFAULT_MAX_ITER =
+            Integer.getInteger("ixdar.quadlayout.solver.maxIter", 10000);
 
     /**
      * Preconditioner choice. {@code AUTO} picks ICC (fast SPD path); set via

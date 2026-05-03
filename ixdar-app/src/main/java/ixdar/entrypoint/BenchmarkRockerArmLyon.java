@@ -4,20 +4,24 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import ixdar.geometry.mesh.data.ArrayMesh;
-import ixdar.geometry.mesh.quadlayout.field.PrecomputedFieldImporter;
+import ixdar.geometry.mesh.data.MeshLoader;
 import ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.lyon2021.LyonMetrics;
 import ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayoutExtractor;
 import ixdar.geometry.mesh.quadlayout.quantization.StripEquivalence;
 import ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.tmesh.TMesh;
+import ixdar.geometry.mesh.quadlayout.vectorfield.CombedField;
+import ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField;
+import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
 
 /**
- * Lyon-Table-1 pipeline benchmark on ROCKERARM, using metriko's
- * precomputed stage1/stage2 outputs (cross field, matching, seam,
- * singularities, IGM). This bypasses our (currently slow) cross-field +
- * IGM stages so we can measure the Lyon-specific stages (motorcycle,
- * T-mesh, strip reduction, layout, metrics) on a paper benchmark mesh.
+ * Lyon-Table-1 pipeline benchmark on ROCKERARM, end-to-end on our own pipeline.
+ *
+ * <p>Loads only the OBJ mesh, then recomputes cross-field (BZK09 §4 + optional
+ * CIE*16), parametrization (BZK09 §5 + PATCH-114 LocalStiffening), motorcycle
+ * graph (Lyon §3), T-mesh, ILP quantization, layout, and metrics. No external
+ * (metriko / libigl) bootstrap data is consumed.
  *
  * <pre>
  *   mvn -pl ixdar-app exec:java \
@@ -29,105 +33,62 @@ public final class BenchmarkRockerArmLyon {
     private BenchmarkRockerArmLyon() {}
 
     public static void main(String[] args) throws Exception {
-        Path baseline = args.length > 0
+        Path objPath = args.length > 0
                 ? Paths.get(args[0])
-                : Paths.get("ixdar-app/test/resources/quadlayout/baseline-rocker-arm");
-
-        Path obj = baseline.resolve("rocker-arm.obj");
-        Path stage1Field = baseline.resolve("stage1_extrinsic_field.tsv");
-        Path stage1Match = baseline.resolve("stage1_matching.txt");
-        Path stage1Seam  = baseline.resolve("stage1_seam.txt");
-        Path stage1Sing  = baseline.resolve("stage1_singular.txt");
-        Path stage2 = baseline.resolve("stage2_uv_corners.tsv");
+                : Paths.get("ixdar-app/test/resources/quadlayout/baseline-rocker-arm/rocker-arm.obj");
 
         long t0 = System.currentTimeMillis();
-        PrecomputedFieldImporter.Result boot = PrecomputedFieldImporter.load(
-                obj, stage1Field, stage1Match, stage1Seam, stage1Sing);
-        ArrayMesh mesh = boot.mesh();
-        float[][] uv = PrecomputedFieldImporter.loadStage2Uv(stage2, mesh.faceCount());
-        SeamlessParameterization param = SeamlessParameterization.fromExternal(
-                mesh, uv[0], uv[1], true);
-        long tBoot = System.currentTimeMillis() - t0;
-        System.out.printf("[bench-lyon] bootstrap (load+stage1+stage2)=%dms F=%d V=%d sing=%d%n",
-                tBoot, mesh.faceCount(), mesh.vertexCount(), boot.singularities().size());
+        ArrayMesh mesh = MeshLoader.load(objPath.toString());
+        long tLoad = System.currentTimeMillis() - t0;
+        System.out.printf("[bench-lyon] mesh load=%dms F=%d V=%d%n",
+                tLoad, mesh.faceCount(), mesh.vertexCount());
 
-        // PATCH-97/98: with CG fallback in MiGreedyRounding, FaceRosyField
-        // is now usable on 20K-face rocker-arm. Opt in via
-        // -Dixdar.lyon.recomputeField=true to rebuild cross-field from
-        // scratch with our BZK09 + §3 (PATCH-96) implementation. Default is
-        // metriko-baseline precomputed (32 sing).
-        boolean recomputeField = "true".equals(
-                System.getProperty("ixdar.lyon.recomputeField"));
-        ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField mcField = boot.field();
-        ixdar.geometry.mesh.quadlayout.vectorfield.CombedField mcCombed = boot.combed();
-        java.util.List<ixdar.geometry.mesh.quadlayout.vectorfield.Singularity> mcSings = boot.singularities();
-        ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization mcParam = param;
-        if (recomputeField) {
-            long tField0 = System.currentTimeMillis();
-            // PATCH-115: default principalTau=Infinity → CIE*16 alignment chain
-            //   DISABLED. With CIE*16 at 70° our cross-field over-counted to
-            //   ~700 sings (verified 2026-05-02 bench); with CIE*16 off, pure
-            //   BZK09 produces 36 sings, matching Lyon Table 1 exactly. The
-            //   metriko reference also runs unconstrained BZK09 (32 sings).
-            //   Re-enable for diagnosis via -Dixdar.lyon.principalTau=70 once
-            //   the CIE*16 over-constraint bug (PATCH-117) is fixed. The
-            //   property name is preserved for call-site compatibility — its
-            //   meaning is the CIE*16 §3.2 ¶4 significance angle in degrees,
-            //   not the deleted BZK09 §3 anisotropy from PATCH-96.
-            double significanceDeg = Double.parseDouble(
-                    System.getProperty("ixdar.lyon.principalTau", "Infinity"));
-            var ourField = new ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField(mesh, significanceDeg);
-            ourField.solve();
-            var ourSings = ourField.findSingularities();
-            long tField = System.currentTimeMillis() - tField0;
-            var lr = ourField.lastResult();
-            String solverTag = System.getProperty("ixdar.lyon.crossFieldSolver", "bzk09");
-            if (lr != null) {
-                System.out.printf("[bench-lyon] our-FaceRosyField (%s + CIE*16 ∠F=%.1f°): "
-                        + "sing=%d (metriko-precomp=%d, paper=36) tSolve=%dms "
-                        + "gs-conv=%d cg-conv=%d direct-fb=%d cg-iters=%d%n",
-                        solverTag, significanceDeg, ourSings.size(), boot.singularities().size(), tField,
-                        lr.gsConverged, lr.cgConverged, lr.directFallbacks, lr.totalCgIters);
-            } else {
-                System.out.printf("[bench-lyon] our-FaceRosyField (%s + CIE*16 ∠F=%.1f°): "
-                        + "sing=%d (metriko-precomp=%d, paper=36) tSolve=%dms%n",
-                        solverTag, significanceDeg, ourSings.size(), boot.singularities().size(), tField);
-            }
-            // PATCH-115 diagnostic: index4 histogram. metriko reference = all ±1
-            //   (16 of each). If we report many |index4| ≥ 2, that's the line-field
-            //   sign-ambiguity feeding spurious m_e = ±2 hypothesis.
-            int[] idxHist = new int[9]; // [-4,-3,-2,-1,0,+1,+2,+3,+4] mapped to 0..8
-            for (var s : ourSings) {
-                int b = Math.max(-4, Math.min(4, s.index4())) + 4;
-                idxHist[b]++;
-            }
-            System.out.printf("[bench-lyon] index4 histogram (-4..-1, +1..+4): %d %d %d %d | %d %d %d %d  (metriko: 0 0 0 16 | 16 0 0 0)%n",
-                    idxHist[0], idxHist[1], idxHist[2], idxHist[3],
-                    idxHist[5], idxHist[6], idxHist[7], idxHist[8]);
-
-            // PATCH-114: BZK09 §5.4 LocalStiffening replaces the old log-barrier
-            //   step. Route our (field, combed, sings, param) tuple through the
-            //   motorcycle stage if SeamlessParameterization produces an injective
-            //   output.
-            long tParam0 = System.currentTimeMillis();
-            var ourCombed = ixdar.geometry.mesh.quadlayout.vectorfield.CombedField.comb(ourField);
-            int paramMaxRoundingIter = Integer.getInteger(
-                    "ixdar.lyon.paramMaxRoundingIter", Integer.MAX_VALUE);
-            var ourParam = new ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization(
-                    mesh, ourField, ourCombed, ourSings, paramMaxRoundingIter);
-            long tParam = System.currentTimeMillis() - tParam0;
-            System.out.printf("[bench-lyon] our-SeamlessParameterization (BZK09 §5/§5.4, PATCH-110/114): "
-                    + "iterRounded=%d injective=%s tParam=%dms%n",
-                    ourParam.iterationCount(), ourParam.injectiveOnAllTriangles(), tParam);
-            mcField = ourField;
-            mcCombed = ourCombed;
-            mcSings = ourSings;
-            mcParam = ourParam;
+        // Stage 1: cross-field. PATCH-115: default principalTau=Infinity →
+        //   CIE*16 alignment chain DISABLED (over-constrains and breaks BZK09;
+        //   PATCH-116 to investigate). With CIE*16 off, pure BZK09 produces
+        //   sing=36 on rocker-arm, matching Lyon Table 1.
+        long tField0 = System.currentTimeMillis();
+        double significanceDeg = Double.parseDouble(
+                System.getProperty("ixdar.lyon.principalTau", "Infinity"));
+        FaceRosyField field = new FaceRosyField(mesh, significanceDeg);
+        field.solve();
+        java.util.List<Singularity> sings = field.findSingularities();
+        long tField = System.currentTimeMillis() - tField0;
+        var fieldStats = field.lastResult();
+        String solverTag = System.getProperty("ixdar.lyon.crossFieldSolver", "bzk09");
+        if (fieldStats != null) {
+            System.out.printf("[bench-lyon] cross-field (%s, CIE*16 ∠F=%.1f°): sing=%d (paper=36) tSolve=%dms "
+                    + "gs-conv=%d cg-conv=%d direct-fb=%d cg-iters=%d%n",
+                    solverTag, significanceDeg, sings.size(), tField,
+                    fieldStats.gsConverged, fieldStats.cgConverged, fieldStats.directFallbacks, fieldStats.totalCgIters);
+        } else {
+            System.out.printf("[bench-lyon] cross-field (%s, CIE*16 ∠F=%.1f°): sing=%d (paper=36) tSolve=%dms%n",
+                    solverTag, significanceDeg, sings.size(), tField);
         }
+        int[] idxHist = new int[9];
+        for (Singularity s : sings) {
+            int b = Math.max(-4, Math.min(4, s.index4())) + 4;
+            idxHist[b]++;
+        }
+        System.out.printf("[bench-lyon] index4 histogram (-4..-1, +1..+4): %d %d %d %d | %d %d %d %d%n",
+                idxHist[0], idxHist[1], idxHist[2], idxHist[3],
+                idxHist[5], idxHist[6], idxHist[7], idxHist[8]);
+
+        // Stage 2: parametrization (BZK09 §5 + PATCH-114 LocalStiffening +
+        //   PATCH-110 batch iterative rounding).
+        long tParam0 = System.currentTimeMillis();
+        CombedField combed = CombedField.comb(field);
+        int paramMaxRoundingIter = Integer.getInteger(
+                "ixdar.lyon.paramMaxRoundingIter", Integer.MAX_VALUE);
+        SeamlessParameterization param = new SeamlessParameterization(
+                mesh, field, combed, sings, paramMaxRoundingIter);
+        long tParam = System.currentTimeMillis() - tParam0;
+        System.out.printf("[bench-lyon] parametrization: iterRounded=%d injective=%s tParam=%dms%n",
+                param.iterationCount(), param.injectiveOnAllTriangles(), tParam);
 
         long t1 = System.currentTimeMillis();
         MotorcycleGraph.Result graph = MotorcycleGraph.trace(
-                mcParam, mesh, mcField, mcCombed, mcSings);
+                param, mesh, field, combed, sings);
         long tMcg = System.currentTimeMillis() - t1;
 
         long t2 = System.currentTimeMillis();
@@ -276,10 +237,21 @@ public final class BenchmarkRockerArmLyon {
                 tIlpMs, qres.feasible(), qres.objectiveValue());
 
         long t4 = System.currentTimeMillis();
+        // Pack per-corner UVs from param for TransitionMatrix (which expects
+        // flat float[] arrays of length 3*F).
+        int F = mesh.faceCount();
+        float[] uFlat = new float[F * 3];
+        float[] vFlat = new float[F * 3];
+        for (int f = 0; f < F; f++) {
+            for (int c = 0; c < 3; c++) {
+                uFlat[f * 3 + c] = param.u(f, c);
+                vFlat[f * 3 + c] = param.v(f, c);
+            }
+        }
         var trs = ixdar.geometry.mesh.quadlayout.extraction.TransitionMatrix.compute(
-                mesh, uv[0], uv[1], boot.combed());
+                mesh, uFlat, vFlat, combed);
         QuadLayoutExtractor.Result lr = QuadLayoutExtractor.extract(tmesh, q,
-                mesh, uv[0], uv[1], trs);
+                mesh, uFlat, vFlat, trs);
         long tLayout = System.currentTimeMillis() - t4;
         int mergedPatchCount = lr.layout().mergedPatchCount();
         System.out.printf("[bench-lyon] layout=%dms #P=%d (merged=%d) skipped=%d tJunctions=%d%n",
@@ -404,7 +376,7 @@ public final class BenchmarkRockerArmLyon {
         System.out.println("-------------+-----------------+----------");
         System.out.printf("%-12s | %-15d | %-10d%n", "#Faces", mesh.faceCount(), 20088);
         System.out.printf("%-12s | %-15d | %-10d%n", "#Sing",
-                boot.singularities().size(), 36);
+                sings.size(), 36);
         System.out.printf("%-12s | %-15d | %-10d%n", "#Traces",
                 graph.traces().size(), 144);
         System.out.printf("%-12s | %-15d | %-10d%n", "#Arcs",
@@ -435,8 +407,8 @@ public final class BenchmarkRockerArmLyon {
         System.out.println();
         System.out.println("PATCH-83 parity check:");
         System.out.printf("  #Sing    : %s (ours %d, paper %d)%n",
-                band.apply((double) boot.singularities().size(), 36.0),
-                boot.singularities().size(), 36);
+                band.apply((double) sings.size(), 36.0),
+                sings.size(), 36);
         System.out.printf("  #Traces  : %s (ours %d, paper %d)%n",
                 band.apply((double) graph.traces().size(), 144.0),
                 graph.traces().size(), 144);
@@ -453,7 +425,7 @@ public final class BenchmarkRockerArmLyon {
                 band.apply((double) mergedPatchCount, 159.0),
                 mergedPatchCount, 159);
         System.out.printf("Lyon-stage pipeline (motorcycle→metrics) = %d ms%n",
-                total - tBoot);
+                total - tLoad);
         System.out.println();
         System.out.println("Reference comparison vs metriko (same input, scale=0.03):");
         System.out.println("  metriko: nTE=256 (arcs), nTQ=96 (T-mesh patches)");

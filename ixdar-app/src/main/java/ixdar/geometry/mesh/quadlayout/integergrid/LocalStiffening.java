@@ -43,7 +43,10 @@ final class LocalStiffening {
     static final int MAX_ITER = 15;
     /** BZK09 §5.4 stiffness-update constant c. */
     static final double STIFFEN_C = 1.0;
-    /** BZK09 §5.4 stiffness-update cap d. */
+    /** BZK09 §5.4 stiffness-update cap d. PATCH-117 confirmed empirically
+     *  that bumping this up to 100 makes IRLS oscillate without improving
+     *  convergence on 20k+ meshes — the dense-flip regime can't be cleaned
+     *  up by reweighting alone. Stay at paper default. */
     static final double STIFFEN_D = 5.0;
     /** BZK09 §5.4 "a few uniform smoothing steps". */
     static final int SMOOTH_PASSES = 3;

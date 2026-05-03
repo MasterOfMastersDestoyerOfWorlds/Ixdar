@@ -175,6 +175,196 @@ public final class SeamlessParameterization {
             vRelax[i] *= postScale;
         }
 
+        // PATCH-127 diagnostic: characterize the relaxed solve's flip
+        //   distribution. For each face, check signed UV area; for flipped
+        //   ones, classify by adjacency to a seam edge or a singularity vertex.
+        if (diag) {
+            int flipCount = 0;
+            int flipNearSeam = 0;
+            int flipNearSing = 0;
+            int flipNearBoth = 0;
+            int flipFarFromBoth = 0;
+            HashSet<Integer> singVertSet = new HashSet<>();
+            for (Singularity s : singularities) singVertSet.add(s.vertexId());
+            for (int f = 0; f < faceCount; f++) {
+                int o = f * 3;
+                float u0 = uRelax[o], v0 = vRelax[o];
+                float u1 = uRelax[o + 1], v1 = vRelax[o + 1];
+                float u2 = uRelax[o + 2], v2 = vRelax[o + 2];
+                float sa = 0.5f * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+                if (sa > 0) continue;
+                flipCount++;
+                boolean nearSing = false;
+                for (int c = 0; c < 3; c++) {
+                    if (singVertSet.contains(mesh.faceVertexAt(f, c))) {
+                        nearSing = true;
+                        break;
+                    }
+                }
+                boolean nearSeam = false;
+                int faceHe = mesh.faceHalfEdgeAt(f, 0);
+                for (int c = 0; c < 3; c++) {
+                    int he = mesh.faceHalfEdgeAt(f, c);
+                    int meshEdge = mesh.halfEdgeEdge(he);
+                    int Ei = field.interiorEdgeCount();
+                    for (int ie = 0; ie < Ei; ie++) {
+                        if (field.edgeMeshId(ie) == meshEdge && combed.isSeamEdge(ie)) {
+                            nearSeam = true;
+                            break;
+                        }
+                    }
+                    if (nearSeam) break;
+                }
+                if (nearSing && nearSeam) flipNearBoth++;
+                else if (nearSing) flipNearSing++;
+                else if (nearSeam) flipNearSeam++;
+                else flipFarFromBoth++;
+            }
+            System.err.printf("[seamparam-diag] PATCH-127: flippedFaces=%d (%.1f%%): "
+                    + "nearSing=%d nearSeam=%d nearBoth=%d farFromBoth=%d%n",
+                    flipCount, 100.0 * flipCount / faceCount,
+                    flipNearSing, flipNearSeam, flipNearBoth, flipFarFromBoth);
+
+            // PATCH-127 second diagnostic: distribution of UV signed area
+            //   magnitudes. If most flips have area ≈ -1 (consistent), the
+            //   energy is systematically inverting orientation. If they're
+            //   all near zero, faces are degenerate (zero-area), suggesting
+            //   field-target mismatch causing collapse.
+            double[] flipAreas = new double[flipCount];
+            int fi = 0;
+            for (int f = 0; f < faceCount; f++) {
+                int o = f * 3;
+                float u0 = uRelax[o], v0 = vRelax[o];
+                float u1 = uRelax[o + 1], v1 = vRelax[o + 1];
+                float u2 = uRelax[o + 2], v2 = vRelax[o + 2];
+                float sa = 0.5f * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+                if (sa <= 0) flipAreas[fi++] = sa;
+            }
+            // Mean flipped-area, mean positive-area for comparison.
+            double sumFlip = 0;
+            for (double a : flipAreas) sumFlip += a;
+            double meanFlip = sumFlip / Math.max(flipCount, 1);
+            double sumPos = 0;
+            int posCount = 0;
+            for (int f = 0; f < faceCount; f++) {
+                int o = f * 3;
+                float u0 = uRelax[o], v0 = vRelax[o];
+                float u1 = uRelax[o + 1], v1 = vRelax[o + 1];
+                float u2 = uRelax[o + 2], v2 = vRelax[o + 2];
+                float sa = 0.5f * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+                if (sa > 0) { sumPos += sa; posCount++; }
+            }
+            double meanPos = sumPos / Math.max(posCount, 1);
+            System.err.printf("[seamparam-diag] PATCH-127 area dist: meanFlipArea=%.4f  meanPosArea=%.4f  ratio=%.3f%n",
+                    meanFlip, meanPos, Math.abs(meanFlip) / Math.max(meanPos, 1e-12));
+
+            // PATCH-127 third diagnostic: also check the SAME flipped-area
+            // measure against the LOCAL-FRAME signed area (the 3D-to-2D
+            // projection's orientation). If the local frame and the UV-frame
+            // disagree per-face, the energy formulation is incoherent.
+            int localPosUvFlip = 0;
+            int localNegUvFlip = 0;
+            for (int f = 0; f < faceCount; f++) {
+                int o = f * 3;
+                float u0 = uRelax[o], v0 = vRelax[o];
+                float u1 = uRelax[o + 1], v1 = vRelax[o + 1];
+                float u2 = uRelax[o + 2], v2 = vRelax[o + 2];
+                float uvSa = 0.5f * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+                if (uvSa > 0) continue;
+                int oQ = f * 6;
+                float q1u = H.localQ[oQ + 2], q1v = H.localQ[oQ + 3];
+                float q2u = H.localQ[oQ + 4], q2v = H.localQ[oQ + 5];
+                float localSa = 0.5f * (q1u * q2v - q2u * q1v);
+                if (localSa > 0) localPosUvFlip++;
+                else localNegUvFlip++;
+            }
+            System.err.printf("[seamparam-diag] PATCH-127 frame check: of %d uv-flipped faces, "
+                    + "localFrame +area=%d, localFrame -area=%d (any -area suggests bad frame)%n",
+                    flipCount, localPosUvFlip, localNegUvFlip);
+
+            // PATCH-134 NOTE: an earlier per-face residual diagnostic was here
+            //   but compared post-rescaled gradients against pre-rescale targets,
+            //   making it misleading. Removed. The actual fix from PATCH-134
+            //   was bumping IterativeSolver.DEFAULT_MAX_ITER from 1000 to 10000
+            //   so the relaxed solve converges (was hitting the cap with
+            //   ok=false and returning a partial iterate). Convergence now
+            //   confirmed via -Dixdar.quadlayout.solver.profile=true: relaxed
+            //   IGM solve takes ~3700 iterations and converges to tolerance.
+
+            // PATCH-131: chart structure summary.
+            System.err.printf("[seamparam-diag] PATCH-131 chart structure: chartCount=%d  chartVertexCount=%d  seamEdgeCount=%d  N=%d (uBase=%d vBase=%d jBase=%d kBase=%d)%n",
+                    H.chart.chartCount, H.chart.chartVertexCount,
+                    H.seamEdgeCount, H.N, H.uBase, H.vBase, H.jBase, H.kBase);
+
+            // PATCH-132: dump (j, k) post-solve values for small meshes.
+            //   These should be small (near 0 or small integers); pathological
+            //   large values suggest the relaxed solve is using them to absorb
+            //   distortions.
+            if (faceCount <= 100 && H.seamEdgeCount > 0) {
+                System.err.println("[seamparam-diag] PATCH-132 (j, k) post-solve values:");
+                int Ei = field.interiorEdgeCount();
+                for (int ie = 0; ie < Ei; ie++) {
+                    int slot = H.seamSlot[ie];
+                    if (slot < 0) continue;
+                    double j = xRelax[H.jBase + slot] / postScale;
+                    double k = xRelax[H.kBase + slot] / postScale;
+                    int fa = field.edgeFaceA(ie), fb = field.edgeFaceB(ie);
+                    int chartA = H.chart.faceChart[fa];
+                    int chartB = H.chart.faceChart[fb];
+                    int r = combed.matching(ie);
+                    System.err.printf("  edge=%d (fA=%d/chartA=%d  fB=%d/chartB=%d  r=%d):  j=%.4f  k=%.4f%n",
+                            ie, fa, chartA, fb, chartB, r, j, k);
+                }
+            }
+
+            // PATCH-132: corner -> chart-vertex map for small meshes. Verify
+            //   each mesh vertex maps to ONE chart-vertex within the same chart.
+            if (faceCount <= 12) {
+                System.err.println("[seamparam-diag] PATCH-132 corner -> chartVertex map:");
+                for (int f = 0; f < faceCount; f++) {
+                    System.err.printf("  f=%d:", f);
+                    for (int c = 0; c < 3; c++) {
+                        int meshV = mesh.faceVertexAt(f, c);
+                        int cv = H.chart.chartVertexAt(f, c);
+                        System.err.printf("  c%d:meshV=%d→cv=%d", c, meshV, cv);
+                    }
+                    System.err.println();
+                }
+            }
+
+            // PATCH-131: per-face Jacobian dump (only for small meshes — would
+            //   spam the log on rocker-arm). Compares solved Jacobian vs target.
+            if (faceCount <= 100) {
+                System.err.printf("[seamparam-diag] PATCH-131 per-face dump (F=%d):%n", faceCount);
+                for (int f = 0; f < faceCount; f++) {
+                    int o = f * 3;
+                    int oQ = f * 6;
+                    float q1u = H.localQ[oQ + 2], q1v = H.localQ[oQ + 3];
+                    float q2u = H.localQ[oQ + 4], q2v = H.localQ[oQ + 5];
+                    double sa = 0.5 * (q1u * q2v - q2u * q1v);
+                    double inv2A = 1.0 / (2.0 * sa);
+                    double b0 = (q1v - q2v) * inv2A, c0 = (q2u - q1u) * inv2A;
+                    double b1 = (q2v - 0)   * inv2A, c1 = (0 - q2u)   * inv2A;
+                    double b2 = (0 - q1v)   * inv2A, c2 = (q1u - 0)   * inv2A;
+                    double u0 = uRelax[o], u1 = uRelax[o + 1], u2 = uRelax[o + 2];
+                    double v0 = vRelax[o], v1 = vRelax[o + 1], v2 = vRelax[o + 2];
+                    double dudx = u0 * b0 + u1 * b1 + u2 * b2;
+                    double dudy = u0 * c0 + u1 * c1 + u2 * c2;
+                    double dvdx = v0 * b0 + v1 * b1 + v2 * b2;
+                    double dvdy = v0 * c0 + v1 * c1 + v2 * c2;
+                    double det = dudx * dvdy - dudy * dvdx;
+                    double tx = H.uTarget[f * 2], ty = H.uTarget[f * 2 + 1];
+                    double tvx = H.vTarget[f * 2], tvy = H.vTarget[f * 2 + 1];
+                    double targetDet = tx * tvy - ty * tvx;
+                    int chart = H.chart.faceChart[f];
+                    System.err.printf("  f=%2d chart=%d  J=[%.3f %.3f; %.3f %.3f] det=%.3f  "
+                            + "target=[%.3f %.3f; %.3f %.3f] tdet=%.3f%n",
+                            f, chart, dudx, dudy, dvdx, dvdy, det,
+                            tx, ty, tvx, tvy, targetDet);
+                }
+            }
+        }
+
         // Step 2: BZK09 §5.4 LocalStiffening (PATCH-114). IRLS reweighting
         // drives flipped / heavily-distorted triangles back toward isometry
         // before integer rounding takes over. Each iteration is a convex QP,
