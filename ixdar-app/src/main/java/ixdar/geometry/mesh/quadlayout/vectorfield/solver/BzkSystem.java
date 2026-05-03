@@ -9,18 +9,20 @@ package ixdar.geometry.mesh.quadlayout.vectorfield.solver;
  * </pre>
  *
  * where θ ∈ ℝ^F per face and m ∈ ℤ on the chord set of a dual spanning tree
- * (one integer per non-tree interior edge — the cycle-space basis). Tree
- * edges are gauged to m=0; their integer is recovered post-hoc from the
- * solved θ.
+ * (one integer per non-tree interior edge — the cycle-space basis). Tree edges
+ * are gauged to m=0; their integer is recovered post-hoc from the solved θ.
  *
- * <p>Variables are packed as {@code [θ_0 ... θ_{F-1}, m_chord_0 ... m_chord_{C-1}]}
- * for a total dimension {@code N = F + C}.
+ * <p>
+ * Variables are packed as
+ * {@code [θ_0 ... θ_{F-1}, m_chord_0 ... m_chord_{C-1}]} for a total dimension
+ * {@code N = F + C}.
  *
- * <p>The matrix A and base RHS b are built ONCE from edge metadata and
- * stored in CSR (off-diagonal entries) plus a separate diagonal array. They
- * are immutable for the lifetime of this object — pinned variables (gauge,
- * directional constraints, chord pins) are eliminated by substitution at
- * solve time, never by penalty terms or rebuilding the matrix.
+ * <p>
+ * The matrix A and base RHS b are built ONCE from edge metadata and stored in
+ * CSR (off-diagonal entries) plus a separate diagonal array. They are immutable
+ * for the lifetime of this object — pinned variables (gauge, directional
+ * constraints, chord pins) are eliminated by substitution at solve time, never
+ * by penalty terms or rebuilding the matrix.
  */
 public final class BzkSystem {
 
@@ -47,8 +49,8 @@ public final class BzkSystem {
     private final double[] baseRhs;
 
     public BzkSystem(int F, int E,
-                     int[] edgeFaceA, int[] edgeFaceB,
-                     double[] kappa, boolean[] isTreeEdge) {
+            int[] edgeFaceA, int[] edgeFaceB,
+            double[] kappa, boolean[] isTreeEdge) {
         this.F = F;
         this.E = E;
         this.edgeFaceA = edgeFaceA;
@@ -57,7 +59,9 @@ public final class BzkSystem {
         this.isTreeEdge = isTreeEdge;
 
         int chords = 0;
-        for (int e = 0; e < E; e++) if (!isTreeEdge[e]) chords++;
+        for (int e = 0; e < E; e++)
+            if (!isTreeEdge[e])
+                chords++;
         this.C = chords;
         this.N = F + C;
         this.chordOfEdge = new int[E];
@@ -87,7 +91,8 @@ public final class BzkSystem {
             }
         }
         rowStart = new int[N + 1];
-        for (int k = 0; k < N; k++) rowStart[k + 1] = rowStart[k] + deg[k];
+        for (int k = 0; k < N; k++)
+            rowStart[k + 1] = rowStart[k] + deg[k];
         int totalNnz = rowStart[N];
         rowCol = new int[totalNnz];
         rowVal = new double[totalNnz];
@@ -97,12 +102,12 @@ public final class BzkSystem {
 
         // Pass 2: assemble.
         // Energy gradient w.r.t. θ_a, θ_b, m_chord:
-        //   row θ_a: diag += 1, A[a,b] -= 1, rhs[a] -= κ
-        //            if chord: A[a,m_c] += π/2
-        //   row θ_b: diag += 1, A[b,a] -= 1, rhs[b] += κ
-        //            if chord: A[b,m_c] -= π/2
-        //   if chord row m_c: diag += (π/2)², A[m_c,a] += π/2, A[m_c,b] -= π/2,
-        //                     rhs[m_c] -= π/2 · κ
+        // row θ_a: diag += 1, A[a,b] -= 1, rhs[a] -= κ
+        // if chord: A[a,m_c] += π/2
+        // row θ_b: diag += 1, A[b,a] -= 1, rhs[b] += κ
+        // if chord: A[b,m_c] -= π/2
+        // if chord row m_c: diag += (π/2)², A[m_c,a] += π/2, A[m_c,b] -= π/2,
+        // rhs[m_c] -= π/2 · κ
         for (int e = 0; e < E; e++) {
             int fa = edgeFaceA[e];
             int fb = edgeFaceB[e];
@@ -111,40 +116,91 @@ public final class BzkSystem {
 
             diag[fa] += 1.0;
             diag[fb] += 1.0;
-            rowCol[cursor[fa]] = fb; rowVal[cursor[fa]++] = -1.0;
-            rowCol[cursor[fb]] = fa; rowVal[cursor[fb]++] = -1.0;
+            rowCol[cursor[fa]] = fb;
+            rowVal[cursor[fa]++] = -1.0;
+            rowCol[cursor[fb]] = fa;
+            rowVal[cursor[fb]++] = -1.0;
             baseRhs[fa] -= k;
             baseRhs[fb] += k;
             if (chordIdx >= 0) {
                 int mc = F + chordIdx;
-                rowCol[cursor[fa]] = mc; rowVal[cursor[fa]++] = PI_HALF;
-                rowCol[cursor[mc]] = fa; rowVal[cursor[mc]++] = PI_HALF;
-                rowCol[cursor[fb]] = mc; rowVal[cursor[fb]++] = -PI_HALF;
-                rowCol[cursor[mc]] = fb; rowVal[cursor[mc]++] = -PI_HALF;
+                rowCol[cursor[fa]] = mc;
+                rowVal[cursor[fa]++] = PI_HALF;
+                rowCol[cursor[mc]] = fa;
+                rowVal[cursor[mc]++] = PI_HALF;
+                rowCol[cursor[fb]] = mc;
+                rowVal[cursor[fb]++] = -PI_HALF;
+                rowCol[cursor[mc]] = fb;
+                rowVal[cursor[mc]++] = -PI_HALF;
                 diag[mc] += PI_HALF * PI_HALF;
                 baseRhs[mc] -= PI_HALF * k;
             }
         }
     }
 
-    public int faceCount() { return F; }
-    public int edgeCount() { return E; }
-    public int chordCount() { return C; }
-    public int variableCount() { return N; }
+    public int faceCount() {
+        return F;
+    }
 
-    public int chordOfEdge(int e) { return chordOfEdge[e]; }
-    public int edgeOfChord(int c) { return edgeOfChord[c]; }
-    public boolean isTreeEdge(int e) { return isTreeEdge[e]; }
-    public int edgeFaceA(int e) { return edgeFaceA[e]; }
-    public int edgeFaceB(int e) { return edgeFaceB[e]; }
-    public double kappa(int e) { return kappa[e]; }
+    public int edgeCount() {
+        return E;
+    }
 
-    public int rowStart(int k) { return rowStart[k]; }
-    public int rowEnd(int k) { return rowStart[k + 1]; }
-    public int rowCol(int p) { return rowCol[p]; }
-    public double rowVal(int p) { return rowVal[p]; }
-    public double diag(int k) { return diag[k]; }
-    public double baseRhs(int k) { return baseRhs[k]; }
+    public int chordCount() {
+        return C;
+    }
+
+    public int variableCount() {
+        return N;
+    }
+
+    public int chordOfEdge(int e) {
+        return chordOfEdge[e];
+    }
+
+    public int edgeOfChord(int c) {
+        return edgeOfChord[c];
+    }
+
+    public boolean isTreeEdge(int e) {
+        return isTreeEdge[e];
+    }
+
+    public int edgeFaceA(int e) {
+        return edgeFaceA[e];
+    }
+
+    public int edgeFaceB(int e) {
+        return edgeFaceB[e];
+    }
+
+    public double kappa(int e) {
+        return kappa[e];
+    }
+
+    public int rowStart(int k) {
+        return rowStart[k];
+    }
+
+    public int rowEnd(int k) {
+        return rowStart[k + 1];
+    }
+
+    public int rowCol(int p) {
+        return rowCol[p];
+    }
+
+    public double rowVal(int p) {
+        return rowVal[p];
+    }
+
+    public double diag(int k) {
+        return diag[k];
+    }
+
+    public double baseRhs(int k) {
+        return baseRhs[k];
+    }
 
     /**
      * Compute y = A·x for one row of A. Off-diagonals from CSR + diagonal
@@ -156,14 +212,15 @@ public final class BzkSystem {
         int re = rowStart[k + 1];
         for (int p = rs; p < re; p++) {
             int j = rowCol[p];
-            if (!pinned[j]) s += rowVal[p] * x[j];
+            if (!pinned[j])
+                s += rowVal[p] * x[j];
         }
         return s;
     }
 
     /**
-     * Effective RHS for unpinned variable k, eliminating pinned columns:
-     *   b_eff[k] = baseRhs[k] − Σ_{j pinned} A[k,j] · pinVal[j]
+     * Effective RHS for unpinned variable k, eliminating pinned columns: b_eff[k] =
+     * baseRhs[k] − Σ_{j pinned} A[k,j] · pinVal[j]
      */
     public double effectiveRhs(int k, boolean[] pinned, double[] pinVal) {
         double b = baseRhs[k];
@@ -171,7 +228,8 @@ public final class BzkSystem {
         int re = rowStart[k + 1];
         for (int p = rs; p < re; p++) {
             int j = rowCol[p];
-            if (pinned[j]) b -= rowVal[p] * pinVal[j];
+            if (pinned[j])
+                b -= rowVal[p] * pinVal[j];
         }
         return b;
     }

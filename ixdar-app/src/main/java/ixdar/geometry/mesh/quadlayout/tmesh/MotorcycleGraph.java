@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 
 import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.vectorfield.CombedField;
 import ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField;
@@ -156,6 +157,11 @@ public final class MotorcycleGraph {
                          java.util.Map<Integer, Integer> singVertexToNode) {}
 
     private MotorcycleGraph() {}
+
+    public MotorcycleGraph(HalfEdgeMesh mesh, SeamlessParameterization seamlessParameterization,
+            List<Singularity> singularities, float alpha) {
+        //TODO Auto-generated constructor stub
+    }
 
     /** Default α-bound (radians) for Lyon §3 stopping criterion when none
      *  is specified. Lyon Table 1 uses α=15° for ROCKERARM (PATCH-104).
@@ -1124,5 +1130,11 @@ public final class MotorcycleGraph {
         if (t < -EPS) return Float.POSITIVE_INFINITY;
         if (s < -EPS || s > 1.0 + EPS) return Float.POSITIVE_INFINITY;
         return (float) t;
+    }
+
+    public MotorcycleGraph build() {
+        // T = (N nodes, A arcs, P patches), each arc has parametric length and
+        // axis (u or v). Each trace is recorded with its origin singularity and
+        // the ordered list of arcs along it.
     }
 }

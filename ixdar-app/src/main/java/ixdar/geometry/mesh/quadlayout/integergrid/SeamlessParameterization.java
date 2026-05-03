@@ -7,6 +7,8 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.CrossField;
 import ixdar.geometry.mesh.quadlayout.vectorfield.CombedField;
 import ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField;
 import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
@@ -412,6 +414,10 @@ public final class SeamlessParameterization {
         this.injective = result.injective;
     }
 
+    public SeamlessParameterization(HalfEdgeMesh mesh, CrossField crossField, List<Singularity> singularities) {
+        //TODO Auto-generated constructor stub
+    }
+
     /** Map chart-vertex pin flags back to per-corner array used by the public API. */
     private static boolean[] projectPinsCV(boolean[] pinnedCV, IgmHessian H) {
         int F = H.faceCount;
@@ -553,5 +559,15 @@ public final class SeamlessParameterization {
             if (vCorner[i] > vMax) vMax = vCorner[i];
         }
         return new float[]{uMin, uMax, vMin, vMax};
+    }
+
+    public SeamlessParameterization build() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'build'");
+    }
+
+    public SeamlessParameterization makeExactlySeamless() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'makeExactlySeamless'");
     }
 }

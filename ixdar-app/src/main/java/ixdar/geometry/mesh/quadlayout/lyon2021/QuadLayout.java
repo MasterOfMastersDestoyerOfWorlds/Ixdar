@@ -4,6 +4,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
+import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.QuantizedMeshGrid;
+import ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization;
+import ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph;
+
 /**
  * The output of Lyon 2021's algorithm: a conforming quad layout
  * (paper §6 first paragraph).
@@ -32,6 +37,11 @@ public record QuadLayout(List<QuadLayoutPatch> patches,
                           int[] tArcQuantization,
                           int[] layoutArcQuantization,
                           int tJunctionsResolved) {
+
+    public QuadLayout(HalfEdgeMesh mesh, SeamlessParameterization seamlessParameterization,
+            MotorcycleGraph motorcycleGraph, QuantizedMeshGrid quantizedMeshGrid) {
+        //TODO Auto-generated constructor stub
+    }
 
     /** Pre-merge patch count = quad TPatches + triangle wedges. */
     public int patchCount() { return patches.size() + triangles.size(); }
@@ -128,5 +138,16 @@ public record QuadLayout(List<QuadLayoutPatch> patches,
         int ra = find(parent, a);
         int rb = find(parent, b);
         if (ra != rb) parent[ra] = rb;
+    }
+
+    public QuadLayout build() {
+        // L is the explicit conforming quad layout (nodes = singularities,
+        // arcs = embedded paths on M).
+        return this;
+    }
+
+    public HalfEdgeMesh toHalfEdgeMesh() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'toHalfEdgeMesh'");
     }
 }
