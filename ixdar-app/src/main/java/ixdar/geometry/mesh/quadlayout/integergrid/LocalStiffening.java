@@ -39,8 +39,13 @@ import java.util.Arrays;
  */
 final class LocalStiffening {
 
-    /** Hard cap on IRLS iterations. BZK09 doesn't specify; 15 is generous. */
-    static final int MAX_ITER = 15;
+    /** Hard cap on IRLS iterations. BZK09 doesn't specify; 15 was original;
+     *  PATCH-134 raised to 50 — with the IterativeSolver maxIter fix, each
+     *  iteration's solve actually converges, so IRLS makes monotonic progress
+     *  on dense-flip starting states (rocker-arm-20k went 8086 → 4964 in 15
+     *  iters, suggesting more iters can keep reducing). Each iter ≈ 1.5s on
+     *  a 20k-face mesh, so 50 iters ≈ 75s. */
+    static final int MAX_ITER = 50;
     /** BZK09 §5.4 stiffness-update constant c. */
     static final double STIFFEN_C = 1.0;
     /** BZK09 §5.4 stiffness-update cap d. PATCH-117 confirmed empirically
