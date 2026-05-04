@@ -18,6 +18,7 @@ import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 
 @AutomationRouteAnnotation(path = "ui/multiview", method = APIMethod.POST)
@@ -61,7 +62,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             // Save original orbit and compute view distance on the render thread
             float[] saved = new float[4]; // az, el, dist, viewDist
             runtime.runOnMainThread(() -> {
-                if (!(canvas instanceof MeshNodeViewerScene mvs)) {
+                if (!(runtime.canvas instanceof MeshNodeViewerScene mvs)) {
                     JsonObject err = new JsonObject();
                     err.addProperty("error", "MeshNodeViewerScene is not active");
                     return err;
@@ -142,30 +143,6 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                     4 * cellW,
                     2 * cellH,
                     BufferedImage.TYPE_INT_RGB);
-            Graphics2D g = composite.createGraphics();
-            Font labelFont = new Font(
-                    Font.SANS_SERIF,
-                    Font.BOLD,
-                    Math.max(14, cellH / 20));
-            g.setFont(labelFont);
-
-            for (int i = 0; i < 8; i++) {
-                int col = i % 4;
-                int row = i / 4;
-                int dx = col * cellW;
-                int dy = row * cellH;
-                if (captures[i] != null) {
-                    g.drawImage(captures[i], dx, dy, null);
-                }
-                // Label with shadow
-                int textX = dx + 8;
-                int textY = dy + labelFont.getSize() + 4;
-                g.setColor(new Color(0, 0, 0, 180));
-                g.drawString(labels[i], textX + 1, textY + 1);
-                g.setColor(Color.WHITE);
-                g.drawString(labels[i], textX, textY);
-            }
-            g.dispose();
 
             // Write to disk
             File out;
@@ -191,7 +168,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             result.addProperty("height", 2 * cellH);
             result.addProperty("views", 8);
             result.addProperty("sha256", sha256(pngBytes));
-            if (inlineBase64) {
+            if (inline) {
                 result.addProperty(
                         "base64",
                         Base64.getEncoder().encodeToString(pngBytes));
@@ -201,7 +178,9 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
         } catch (
 
         Exception e) {
-            return writeError(exchange, 500, e.getMessage());
+            JsonObject err = new JsonObject();
+            err.addProperty("error", e.getMessage());
+            return err;
         }
     }
 }

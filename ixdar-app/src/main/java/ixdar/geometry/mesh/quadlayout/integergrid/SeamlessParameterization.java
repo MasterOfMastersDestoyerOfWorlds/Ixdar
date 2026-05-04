@@ -414,9 +414,9 @@ public final class SeamlessParameterization {
         this.injective = result.injective;
     }
 
-    public SeamlessParameterization(HalfEdgeMesh mesh, CrossField crossField, List<Singularity> singularities) {
-        //TODO Auto-generated constructor stub
-    }
+    //public SeamlessParameterization(HalfEdgeMesh mesh, CrossField crossField, List<Singularity> singularities) {
+    //    //TODO Auto-generated constructor stub
+    //}
 
     /** Map chart-vertex pin flags back to per-corner array used by the public API. */
     private static boolean[] projectPinsCV(boolean[] pinnedCV, IgmHessian H) {

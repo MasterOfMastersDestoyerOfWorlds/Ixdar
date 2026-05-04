@@ -1,6 +1,5 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
@@ -14,7 +13,7 @@
   <packaging>jar</packaging>
 
   <build>
-      <sourceDirectory>src/main/java</sourceDirectory>
+    <sourceDirectory>src/main/java</sourceDirectory>
     <testSourceDirectory>test</testSourceDirectory>
 
     <resources>
@@ -49,6 +48,7 @@
       </resource>
     </resources>
     <plugins>
+
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
@@ -838,14 +838,15 @@
             <executions>
               <execution>
                 <id>require-jdk21-for-teavm</id>
-                <goals><goal>enforce</goal></goals>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
                 <configuration>
                   <rules>
                     <requireJavaVersion>
                       <version>[21,22)</version>
                       <message>
-TeaVM 0.9.2 requires JDK 21.  Run:
-  JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn package -pl ixdar-app -P web-teavm -DskipTests
+TeaVM 0.9.2 requires JDK 21.  Run: JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn package -pl ixdar-app -P web-teavm -DskipTests
 or use:
   ./tools/teavm-build.sh
                       </message>
@@ -889,7 +890,9 @@ or use:
               <execution>
                 <id>patch-teavm-reflection-stubs</id>
                 <phase>package</phase>
-                <goals><goal>exec</goal></goals>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
                 <configuration>
                   <executable>python3</executable>
                   <workingDirectory>${project.basedir}</workingDirectory>
@@ -1131,11 +1134,11 @@ or use:
     </dependencies>
   </dependencyManagement>
   <dependencies>
-      <dependency>
-        <groupId>IXDAR</groupId>
-        <artifactId>annotations</artifactId>
-        <version>0.0.1</version>
-      </dependency>
+    <dependency>
+      <groupId>IXDAR</groupId>
+      <artifactId>annotations</artifactId>
+      <version>0.0.1</version>
+    </dependency>
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
@@ -1153,18 +1156,27 @@ or use:
       <version>4.5.0-M1</version>
     </dependency>
     <dependency>
-        <groupId>org.junit.jupiter</groupId>
-        <artifactId>junit-jupiter-engine</artifactId>
-        <version>5.10.2</version>
-        <scope>test</scope>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
-        <groupId>org.junit.jupiter</groupId>
-        <artifactId>junit-jupiter-api</artifactId>
-        <version>5.10.2</version>
-        <scope>test</scope>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
     </dependency>
-
+    <dependency>
+      <groupId>org.ejml</groupId>
+      <artifactId>ejml-ddense</artifactId>
+      <version>0.43.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.ejml</groupId>
+      <artifactId>ejml-dsparse</artifactId>
+      <version>0.43.1</version>
+    </dependency>
 
     <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
     <dependency>

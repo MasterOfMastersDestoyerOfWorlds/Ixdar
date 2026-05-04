@@ -29,7 +29,7 @@ import ixdar.platform.automation.AutomationApiServer;
 import ixdar.platform.automation.AutomationRecorder;
 import ixdar.platform.automation.AutomationReplayEngine;
 import ixdar.platform.automation.AutomationReplayEngine.ReplayMode;
-import ixdar.platform.automation.AutomationRoute;
+import ixdar.platform.automation.endpoints.input.InjectKey;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.OrbitMouseTrap;
@@ -150,8 +150,8 @@ public class AutomationRuntime {
         payload.addProperty("mods", mods);
         payload.addProperty("xPx", x);
         payload.addProperty("yPx", y);
-        payload.addProperty("xNorm", normalizeX(x));
-        payload.addProperty("yNorm", normalizeY(y));
+        // payload.addProperty("xNorm", normalizeX(x));
+        // payload.addProperty("yNorm", normalizeY(y));
         recorder.recordRaw("mouse_button", payload);
     }
 
@@ -159,8 +159,8 @@ public class AutomationRuntime {
         JsonObject payload = new JsonObject();
         payload.addProperty("xPx", x);
         payload.addProperty("yPx", y);
-        payload.addProperty("xNorm", normalizeX(x));
-        payload.addProperty("yNorm", normalizeY(y));
+        // payload.addProperty("xNorm", normalizeX(x));
+        // payload.addProperty("yNorm", normalizeY(y));
         recorder.recordRaw("mouse_move", payload);
     }
 
@@ -405,17 +405,17 @@ public class AutomationRuntime {
             float yNorm = payload.has("yNorm")
                     ? payload.get("yNorm").getAsFloat()
                     : payload.get("yNormalized").getAsFloat();
-            injectClick(xNorm, yNorm, true, payload.get("button").getAsInt());
+            // injectClick(xNorm, yNorm, true, payload.get("button").getAsInt());
         } else if ("type".equals(type)) {
-            injectType(payload.get("text").getAsString());
+            // injectType(payload.get("text").getAsString());
         } else if ("scroll".equals(type)) {
-            injectScroll(payload.get("delta").getAsDouble());
+            // injectScroll(payload.get("delta").getAsDouble());
         } else if ("key".equals(type)) {
-            injectKey(
-                    payload.get("key").getAsInt(),
-                    payload.get("action").getAsInt(),
-                    payload.get("mods").getAsInt(),
-                    payload.get("scancode").getAsInt());
+            // InjectKey.endpointHandler(
+            //         payload.get("key").getAsInt(),
+            //         payload.get("action").getAsInt(),
+            //         payload.get("mods").getAsInt(),
+            //         payload.get("scancode").getAsInt());
         }
     }
 

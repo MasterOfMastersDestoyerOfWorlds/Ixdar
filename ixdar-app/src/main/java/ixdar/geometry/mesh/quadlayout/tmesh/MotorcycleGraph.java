@@ -1132,9 +1132,9 @@ public final class MotorcycleGraph {
         return (float) t;
     }
 
-    public MotorcycleGraph build() {
+    //public MotorcycleGraph build() {
         // T = (N nodes, A arcs, P patches), each arc has parametric length and
         // axis (u or v). Each trace is recorded with its origin singularity and
         // the ordered list of arcs along it.
-    }
+    //}
 }

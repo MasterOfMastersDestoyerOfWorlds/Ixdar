@@ -1,14 +1,9 @@
 package ixdar.geometry.mesh.quadlayout;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 
 import ixdar.geometry.mesh.data.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayout;
-import ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
 
 public final class QuadLayoutEngine {
 
@@ -67,24 +62,27 @@ public final class QuadLayoutEngine {
                 return (L, Q)
             """;
 
-    public static Entry<QuadLayout, HalfEdgeMesh> pipeline(HalfEdgeMesh mesh, float alpha) {
+    public static CrossField pipeline(HalfEdgeMesh mesh, float alpha) {
         CrossField crossField = new CrossField(mesh).build();
 
-        List<Singularity> singularities = crossField.extractSingularities();
-        System.out.println("Singularities: " + singularities.size());
-        // SeamlessParameterization seamlessParameterization = new SeamlessParameterization(mesh, crossField,
-        //         singularities).build();
+        System.out.println("Singularities: " + crossField.singularities.size());
+        // SeamlessParameterization seamlessParameterization = new
+        // SeamlessParameterization(mesh, crossField,
+        // singularities).build();
         // seamlessParameterization = seamlessParameterization.makeExactlySeamless();
-        
-        // MotorcycleGraph motorcycleGraph = new MotorcycleGraph(mesh, seamlessParameterization, singularities, alpha)
-        //         .build();
-        
-        // QuantizedMeshGrid quantizedMeshGrid = new QuantizedMeshGrid(motorcycleGraph, alpha).build();
-        
-        // QuadLayout quadLayout = new QuadLayout(mesh, seamlessParameterization, motorcycleGraph, quantizedMeshGrid)
-        //         .build();
+
+        // MotorcycleGraph motorcycleGraph = new MotorcycleGraph(mesh,
+        // seamlessParameterization, singularities, alpha)
+        // .build();
+
+        // QuantizedMeshGrid quantizedMeshGrid = new QuantizedMeshGrid(motorcycleGraph,
+        // alpha).build();
+
+        // QuadLayout quadLayout = new QuadLayout(mesh, seamlessParameterization,
+        // motorcycleGraph, quantizedMeshGrid)
+        // .build();
         // HalfEdgeMesh quadMesh = quadLayout.toHalfEdgeMesh();
-        
-        return null;
+
+        return crossField;
     }
 }

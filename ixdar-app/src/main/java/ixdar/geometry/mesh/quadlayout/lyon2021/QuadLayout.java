@@ -38,10 +38,10 @@ public record QuadLayout(List<QuadLayoutPatch> patches,
                           int[] layoutArcQuantization,
                           int tJunctionsResolved) {
 
-    public QuadLayout(HalfEdgeMesh mesh, SeamlessParameterization seamlessParameterization,
-            MotorcycleGraph motorcycleGraph, QuantizedMeshGrid quantizedMeshGrid) {
-        //TODO Auto-generated constructor stub
-    }
+    // public QuadLayout(HalfEdgeMesh mesh, SeamlessParameterization seamlessParameterization,
+    //         MotorcycleGraph motorcycleGraph, QuantizedMeshGrid quantizedMeshGrid) {
+    //     //TODO Auto-generated constructor stub
+    // }
 
     /** Pre-merge patch count = quad TPatches + triangle wedges. */
     public int patchCount() { return patches.size() + triangles.size(); }

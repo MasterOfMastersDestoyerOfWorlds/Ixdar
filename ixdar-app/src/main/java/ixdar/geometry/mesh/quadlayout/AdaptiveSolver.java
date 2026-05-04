@@ -95,17 +95,30 @@ public final class AdaptiveSolver {
     /**
      * Solver statistics for one adaptive update.
      *
-     * @param method          method that returned the solution
-     * @param converged       whether the returned solution met its method tolerance
-     * @param localIterations local Gauss-Seidel updates performed
-     * @param cgIterations    conjugate-gradient iterations performed
-     * @param residualNorm    final Euclidean residual norm over free variables
+     * @param method           method that returned the solution
+     * @param converged        whether the returned solution met its method
+     *                         tolerance
+     * @param localIterations  local Gauss-Seidel updates performed
+     * @param cgIterations     conjugate-gradient iterations performed
+     * @param residualNorm     final Euclidean residual norm over free variables
+     * @param localHitCap      whether local Gauss-Seidel stopped at its iteration
+     *                         cap
+     * @param initialQueueSize variables seeded into the local queue
+     * @param maxQueueSize     maximum queue size reached during local GS
+     * @param capResidualNorm  largest absolute queued residual when local GS hit
+     *                         its iteration cap
+     * @param capResidualRow   row producing {@code capResidualNorm}, or -1
      */
     public record Stats(Method method,
             boolean converged,
             int localIterations,
             int cgIterations,
-            double residualNorm) {
+            double residualNorm,
+            boolean localHitCap,
+            int initialQueueSize,
+            int maxQueueSize,
+            double capResidualNorm,
+            int capResidualRow) {
     }
 
     /**
@@ -164,60 +177,100 @@ public final class AdaptiveSolver {
             boolean[] fixed,
             int roundedVariable,
             Options options) {
+        int[] roundedVariables = roundedVariable >= 0 ? new int[] { roundedVariable } : null;
+        return solveAfterRounding(matrix, rhs, warmStart, fixed, roundedVariables,
+                roundedVariable >= 0 ? 1 : 0, options);
+    }
+
+    /**
+     * Solve after one or more independent integer variables have been rounded and
+     * fixed. The local Gauss-Seidel seed is the union of each rounded variable's
+     * immediate dependency patch.
+     *
+     * @param matrix           symmetric system matrix A
+     * @param rhs              right-hand side b
+     * @param warmStart        previous/full solution estimate; fixed values are
+     *                         read from this array
+     * @param fixed            fixed[i] means x[i] is held at warmStart[i]
+     * @param roundedVariables variables rounded since the last update
+     * @param roundedCount     number of valid entries in {@code roundedVariables}
+     * @param options          solver tolerances and iteration caps
+     * @return solution and stats
+     */
+    public static Result solveAfterRounding(Matrix matrix,
+            double[] rhs,
+            double[] warmStart,
+            boolean[] fixed,
+            int[] roundedVariables,
+            int roundedCount,
+            Options options) {
         validateInputs(matrix, rhs, warmStart, fixed);
         Options opts = options == null ? new Options() : options;
         double[] x = warmStart.clone();
 
-        LocalResult local = roundedVariable >= 0
-                ? localGaussSeidel(matrix, rhs, x, fixed, roundedVariable, opts)
-                : new LocalResult(x, 0, false);
+        if (roundedCount <= 0) {
+            BootstrapResult bootstrap = bootstrapSolve(matrix, rhs, x, fixed);
+            double resNorm = residualNorm(matrix, rhs, bootstrap.x, fixed);
+            System.err.printf("[bootstrap] residualNorm=%.3e%n", resNorm);
+            return new Result(bootstrap.x, new Stats(
+                    bootstrap.method, bootstrap.converged, 0, 0,
+                    bootstrap.residualNorm, false, 0, 0, 0.0, -1));
+
+        }
+
+        LocalResult local = localGaussSeidel(matrix, rhs, x, fixed,
+                roundedVariables, roundedCount, opts);
         if (local.converged) {
             double residual = residualNorm(matrix, rhs, local.x, fixed);
             return new Result(local.x, new Stats(
-                    Method.LOCAL_GAUSS_SEIDEL, true, local.iterations, 0, residual));
+                    Method.LOCAL_GAUSS_SEIDEL, true, local.iterations, 0, residual,
+                    local.hitCap, local.initialQueueSize, local.maxQueueSize,
+                    local.capResidualNorm, local.capResidualRow));
         }
 
         CgResult cg = conjugateGradient(matrix, rhs, local.x, fixed, opts);
         if (cg.converged) {
             double residual = residualNorm(matrix, rhs, cg.x, fixed);
             return new Result(cg.x, new Stats(
-                    Method.CONJUGATE_GRADIENT, true, local.iterations, cg.iterations, residual));
+                    Method.CONJUGATE_GRADIENT, true, local.iterations, cg.iterations, residual,
+                    local.hitCap, local.initialQueueSize, local.maxQueueSize,
+                    local.capResidualNorm, local.capResidualRow));
         }
 
         if (opts.useDirectFallback) {
             double[] direct = directSolve(matrix, rhs, cg.x, fixed);
             double residual = residualNorm(matrix, rhs, direct, fixed);
             return new Result(direct, new Stats(
-                    Method.DIRECT, true, local.iterations, cg.iterations, residual));
+                    Method.DIRECT, true, local.iterations, cg.iterations, residual,
+                    local.hitCap, local.initialQueueSize, local.maxQueueSize,
+                    local.capResidualNorm, local.capResidualRow));
         }
 
         double residual = residualNorm(matrix, rhs, cg.x, fixed);
         return new Result(cg.x, new Stats(
-                Method.FAILED, false, local.iterations, cg.iterations, residual));
+                Method.FAILED, false, local.iterations, cg.iterations, residual,
+                local.hitCap, local.initialQueueSize, local.maxQueueSize,
+                local.capResidualNorm, local.capResidualRow));
     }
 
     private static LocalResult localGaussSeidel(Matrix matrix,
             double[] rhs,
             double[] start,
             boolean[] fixed,
-            int roundedVariable,
+            int[] roundedVariables,
+            int roundedCount,
             Options options) {
         int n = matrix.size();
         double[] x = start.clone();
         ArrayDeque<Integer> queue = new ArrayDeque<>();
         boolean[] inQueue = new boolean[n];
 
-        if (roundedVariable >= 0) {
-            enqueueDependents(matrix, roundedVariable, fixed, queue, inQueue);
-        } else {
-            for (int i = 0; i < n; i++) {
-                if (!fixed[i]) {
-                    queue.add(i);
-                    inQueue[i] = true;
-                }
-            }
+        for (int i = 0; i < roundedCount; i++) {
+            enqueueDependents(matrix, roundedVariables[i], fixed, queue, inQueue);
         }
 
+        int initialQueueSize = queue.size();
+        int maxQueueSize = initialQueueSize;
         int iterations = 0;
         while (!queue.isEmpty() && iterations < options.localMaxIterations) {
             iterations++;
@@ -234,14 +287,70 @@ public final class AdaptiveSolver {
 
             double diag = matrix.diag(row);
             if (Math.abs(diag) < 1e-30) {
-                return new LocalResult(x, iterations, false);
+                return new LocalResult(x, iterations, false, false, initialQueueSize,
+                        maxQueueSize, 0.0, -1);
             }
 
-            x[row] += residual / diag;
-            enqueueDependents(matrix, row, fixed, queue, inQueue);
+            double delta = residual / diag;
+            x[row] += 1.7 * delta;
+            if (Math.abs(delta) > options.localTolerance) {
+                enqueueDependents(matrix, row, fixed, queue, inQueue);
+            }
+            maxQueueSize = Math.max(maxQueueSize, queue.size());
         }
 
-        return new LocalResult(x, iterations, queue.isEmpty());
+        boolean hitCap = !queue.isEmpty();
+        CapResidual capResidual = hitCap
+                ? maxQueuedResidual(matrix, rhs, x, fixed, queue)
+                : new CapResidual(0.0, -1);
+        return new LocalResult(x, iterations, queue.isEmpty(), hitCap, initialQueueSize,
+                maxQueueSize, capResidual.norm, capResidual.row);
+    }
+
+    /**
+     * Fill {@code patch} with the two-hop dependency patch used by callers to test
+     * whether batched rounded variables are locally independent.
+     *
+     * <p>
+     * The caller owns {@code marked}; this method sets entries for variables in the
+     * patch and does not clear them. It returns the number of appended entries in
+     * {@code patch}. Pass a fresh or already-cleared marker array when the returned
+     * patch should be independent from previous calls.
+     *
+     * @param matrix          symmetric system matrix A
+     * @param roundedVariable variable considered for rounding
+     * @param fixed           fixed[i] variables are not added except for the center
+     * @param patch           output variable indices
+     * @param marked          scratch/accumulated marker array
+     * @return number of entries written to {@code patch}
+     */
+    public static int collectAffectedPatch(Matrix matrix,
+            int roundedVariable,
+            boolean[] fixed,
+            int[] patch,
+            boolean[] marked) {
+        if (roundedVariable < 0 || roundedVariable >= matrix.size()) {
+            return 0;
+        }
+        int count = addPatchVariable(roundedVariable, patch, marked, 0);
+        int firstRingStart = count;
+        for (int c = matrix.rowStart(roundedVariable); c < matrix.rowEnd(roundedVariable); c++) {
+            int col = matrix.column(c);
+            if (!fixed[col]) {
+                count = addPatchVariable(col, patch, marked, count);
+            }
+        }
+        int firstRingEnd = count;
+        for (int i = firstRingStart; i < firstRingEnd; i++) {
+            int row = patch[i];
+            for (int c = matrix.rowStart(row); c < matrix.rowEnd(row); c++) {
+                int col = matrix.column(c);
+                if (!fixed[col]) {
+                    count = addPatchVariable(col, patch, marked, count);
+                }
+            }
+        }
+        return count;
     }
 
     private static CgResult conjugateGradient(Matrix matrix,
@@ -336,6 +445,8 @@ public final class AdaptiveSolver {
             double[] start,
             boolean[] fixed) {
         int n = matrix.size();
+
+        // Step 1: identify free variables (the ones we actually solve for)
         int[] compactOf = new int[n];
         int[] fullOf = new int[n];
         Arrays.fill(compactOf, -1);
@@ -351,30 +462,172 @@ public final class AdaptiveSolver {
             return start.clone();
         }
 
-        SparseMatrix compact = new SparseMatrix(freeCount, freeCount);
-        double[] compactRhs = new double[freeCount];
-        for (int u = 0; u < freeCount; u++) {
-            int row = fullOf[u];
+        // Step 2: build adjacency list of the compact (free-only) matrix
+        // for the reordering algorithm
+        int[][] adj = buildAdjacency(matrix, fixed, compactOf, freeCount);
+
+        // Step 3: compute reordering using Reverse Cuthill-McKee
+        int[] perm = reverseCuthillMcKee(adj);
+        int[] invPerm = new int[freeCount];
+        for (int i = 0; i < freeCount; i++) {
+            invPerm[perm[i]] = i;
+        }
+
+        // Step 4: build the permuted matrix (in new variable order) for EJML.
+        // EJML's Cholesky needs the upper triangle in CSC format.
+        org.ejml.data.DMatrixSparseTriplet triplets = new org.ejml.data.DMatrixSparseTriplet(freeCount, freeCount, 0);
+        double[] permRhs = new double[freeCount];
+        for (int newRow = 0; newRow < freeCount; newRow++) {
+            int oldU = perm[newRow]; // compact-index in old order
+            int row = fullOf[oldU]; // full-index into matrix
             double value = rhs[row];
-            compact.add(u, u, matrix.diag(row));
+            triplets.addItem(newRow, newRow, matrix.diag(row));
             for (int c = matrix.rowStart(row); c < matrix.rowEnd(row); c++) {
                 int col = matrix.column(c);
                 double a = matrix.value(c);
                 if (fixed[col]) {
                     value -= a * start[col];
                 } else {
-                    compact.add(u, compactOf[col], a);
+                    int oldV = compactOf[col];
+                    int newCol = invPerm[oldV];
+                    if (newRow < newCol) { // upper triangle only
+                        triplets.addItem(newRow, newCol, a);
+                    }
                 }
             }
-            compactRhs[u] = value;
+            permRhs[newRow] = value;
         }
 
-        double[] compactX = compact.solveLeft(compactRhs);
+        org.ejml.data.DMatrixSparseCSC csc = new org.ejml.data.DMatrixSparseCSC(freeCount, freeCount,
+                triplets.nz_length);
+        org.ejml.ops.DConvertMatrixStruct.convert(triplets, csc);
+
+        // Step 5: factorize and solve
+        var solver = org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC
+                .cholesky(org.ejml.sparse.FillReducing.NONE);
+        if (!solver.setA(csc)) {
+            throw new IllegalStateException("Cholesky factorization failed");
+        }
+        org.ejml.data.DMatrixRMaj b = new org.ejml.data.DMatrixRMaj(freeCount, 1, true, permRhs);
+        org.ejml.data.DMatrixRMaj solX = new org.ejml.data.DMatrixRMaj(freeCount, 1);
+        solver.solve(b, solX);
+
+        // Step 6: unpermute the solution back into the full-size answer
         double[] x = start.clone();
-        for (int u = 0; u < freeCount; u++) {
-            x[fullOf[u]] = compactX[u];
+        for (int newRow = 0; newRow < freeCount; newRow++) {
+            int oldU = perm[newRow];
+            x[fullOf[oldU]] = solX.get(newRow, 0);
         }
         return x;
+    }
+
+    /** Build adjacency list of the compact symmetric matrix (free vars only). */
+    private static int[][] buildAdjacency(Matrix matrix,
+            boolean[] fixed,
+            int[] compactOf,
+            int freeCount) {
+        int n = matrix.size();
+        int[] degree = new int[freeCount];
+        for (int i = 0; i < n; i++) {
+            if (fixed[i])
+                continue;
+            int u = compactOf[i];
+            for (int c = matrix.rowStart(i); c < matrix.rowEnd(i); c++) {
+                int col = matrix.column(c);
+                if (!fixed[col] && col != i) {
+                    degree[u]++;
+                }
+            }
+        }
+        int[][] adj = new int[freeCount][];
+        for (int u = 0; u < freeCount; u++) {
+            adj[u] = new int[degree[u]];
+        }
+        int[] cursor = new int[freeCount];
+        for (int i = 0; i < n; i++) {
+            if (fixed[i])
+                continue;
+            int u = compactOf[i];
+            for (int c = matrix.rowStart(i); c < matrix.rowEnd(i); c++) {
+                int col = matrix.column(c);
+                if (!fixed[col] && col != i) {
+                    adj[u][cursor[u]++] = compactOf[col];
+                }
+            }
+        }
+        return adj;
+    }
+
+    /** Reverse Cuthill-McKee ordering. Returns perm[newIndex] = oldIndex. */
+    private static int[] reverseCuthillMcKee(int[][] adj) {
+        int n = adj.length;
+        int[] perm = new int[n];
+        boolean[] visited = new boolean[n];
+        int filled = 0;
+
+        while (filled < n) {
+            // Find unvisited node of minimum degree as the BFS start
+            int start = -1;
+            int minDeg = Integer.MAX_VALUE;
+            for (int i = 0; i < n; i++) {
+                if (!visited[i] && adj[i].length < minDeg) {
+                    minDeg = adj[i].length;
+                    start = i;
+                }
+            }
+
+            // BFS, sorting each level's neighbors by degree
+            java.util.ArrayDeque<Integer> queue = new java.util.ArrayDeque<>();
+            queue.add(start);
+            visited[start] = true;
+            while (!queue.isEmpty()) {
+                int u = queue.poll();
+                perm[filled++] = u;
+                int[] nbrs = adj[u].clone();
+                // Sort unvisited neighbors by ascending degree
+                Integer[] boxed = new Integer[nbrs.length];
+                for (int i = 0; i < nbrs.length; i++)
+                    boxed[i] = nbrs[i];
+                java.util.Arrays.sort(boxed, (a, b) -> adj[a].length - adj[b].length);
+                for (int v : boxed) {
+                    if (!visited[v]) {
+                        visited[v] = true;
+                        queue.add(v);
+                    }
+                }
+            }
+        }
+
+        // Reverse the order
+        int[] reversed = new int[n];
+        for (int i = 0; i < n; i++) {
+            reversed[i] = perm[n - 1 - i];
+        }
+        return reversed;
+    }
+
+    private static BootstrapResult bootstrapSolve(Matrix matrix,
+            double[] rhs,
+            double[] start,
+            boolean[] fixed) {
+        double[] direct = directSolve(matrix, rhs, start, fixed);
+        double residual = residualNorm(matrix, rhs, direct, fixed);
+        return new BootstrapResult(direct, Method.DIRECT, true, residual);
+    }
+
+    private static int addPatchVariable(int variable,
+            int[] patch,
+            boolean[] marked,
+            int count) {
+        if (variable < 0 || variable >= marked.length || marked[variable]) {
+            return count;
+        }
+        if (count >= patch.length) {
+            throw new IllegalArgumentException("patch output array is too small");
+        }
+        marked[variable] = true;
+        patch[count] = variable;
+        return count + 1;
     }
 
     private static void enqueueDependents(Matrix matrix,
@@ -401,6 +654,26 @@ public final class AdaptiveSolver {
             sum += matrix.value(c) * x[matrix.column(c)];
         }
         return sum;
+    }
+
+    private static CapResidual maxQueuedResidual(Matrix matrix,
+            double[] rhs,
+            double[] x,
+            boolean[] fixed,
+            ArrayDeque<Integer> queue) {
+        double maxResidual = 0.0;
+        int maxRow = -1;
+        for (int row : queue) {
+            if (fixed[row]) {
+                continue;
+            }
+            double residual = Math.abs(rhs[row] - rowDot(matrix, row, x));
+            if (residual > maxResidual) {
+                maxResidual = residual;
+                maxRow = row;
+            }
+        }
+        return new CapResidual(maxResidual, maxRow);
     }
 
     private static double residualNorm(Matrix matrix, double[] rhs, double[] x, boolean[] fixed) {
@@ -432,9 +705,22 @@ public final class AdaptiveSolver {
         }
     }
 
-    private record LocalResult(double[] x, int iterations, boolean converged) {
+    private record LocalResult(double[] x,
+            int iterations,
+            boolean converged,
+            boolean hitCap,
+            int initialQueueSize,
+            int maxQueueSize,
+            double capResidualNorm,
+            int capResidualRow) {
+    }
+
+    private record BootstrapResult(double[] x, Method method, boolean converged, double residualNorm) {
     }
 
     private record CgResult(double[] x, int iterations, boolean converged) {
+    }
+
+    private record CapResidual(double norm, int row) {
     }
 }

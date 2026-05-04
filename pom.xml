@@ -1,13 +1,97 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>IXDAR</groupId>
   <artifactId>IXDAR-parent</artifactId>
   <version>0.0.1</version>
-  <packaging>pom</packaging> 
+  <packaging>pom</packaging>
   <modules>
     <module>annotations</module>
     <module>ixdar-app</module>
   </modules>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.6.0</version>
+        <configuration>
+          <configLocation>checkstyle.xml</configLocation>
+          <failOnViolation>true</failOnViolation>
+          <outputFileFormat>xml</outputFileFormat>
+        </configuration>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>10.20.1</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <execution>
+            <id>checkstyle-validate</id>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+  <profiles>
+    <profile>
+      <id>autofix</id>
+      <dependencies>
+        <dependency>
+          <groupId>IXDAR</groupId>
+          <artifactId>autofix-tool</artifactId>
+          <version>0.0.1</version>
+        </dependency>
+      </dependencies>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-checkstyle-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>checkstyle-report</id>
+                <phase>initialize</phase>
+                <goals>
+                  <goal>checkstyle</goal>
+                </goals>
+                <configuration>
+                  <failOnViolation>false</failOnViolation>
+                  <outputFile>${project.build.directory}/checkstyle-result.xml</outputFile>
+                  <outputFileFormat>xml</outputFileFormat>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.5.0</version>
+            <executions>
+              <execution>
+                <id>run-autofix</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+                <configuration>
+                  <mainClass>ixdar.autofix.Autofix</mainClass>
+                  <arguments>
+                    <argument>${project.build.directory}/checkstyle-result.xml</argument>
+                    <argument>${project.basedir}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

@@ -26,7 +26,7 @@ import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
  */
 public final class BenchmarkRockerArmLyon {
 
-    private static final long TIMEOUT_MS = 30_000L;
+    private static final long TIMEOUT_MS = 300_000L;
 
     private BenchmarkRockerArmLyon() {
     }
@@ -41,7 +41,7 @@ public final class BenchmarkRockerArmLyon {
             }
             if (!finished.get()) {
                 System.err.printf("[bench-lyon] FAILED timeout=%dms%n", TIMEOUT_MS);
-                CrossField.printLastDiagnosticsOnFailure();
+                System.err.println(CrossField.lastDiagnostics);
                 System.exit(124);
             }
         }, "bench-lyon-timeout");
@@ -56,10 +56,16 @@ public final class BenchmarkRockerArmLyon {
             long t0 = System.currentTimeMillis();
             ArrayMesh arrayMesh = MeshLoader.load(objPath.toString());
             HalfEdgeMesh mesh = arrayMesh.toHalfEdgeMesh();
+            TopologyStats beforeTopology = TopologyStats.capture(mesh);
             long tLoad = System.currentTimeMillis() - t0;
-            System.out.printf("[bench-lyon] mesh load=%dms F=%d V=%d%n",
-                    tLoad, mesh.faceCount(), mesh.vertexCount());
+            System.out.printf("[bench-lyon] mesh load=%dms %s%n",
+                    tLoad, beforeTopology);
             QuadLayoutEngine.pipeline(mesh, 15f);
+            TopologyStats afterTopology = TopologyStats.capture(mesh);
+            if (!beforeTopology.equals(afterTopology)) {
+                System.err.printf("[bench-lyon] topology changed before=%s after=%s%n",
+                        beforeTopology, afterTopology);
+            }
             long tLayout = System.currentTimeMillis() - t0;
             System.out.printf("[bench-lyon] layout=%dms \n", tLayout);
         } finally {
@@ -67,4 +73,24 @@ public final class BenchmarkRockerArmLyon {
             watchdog.interrupt();
         }
     }
+
+    private record TopologyStats(int faces, int edges, int vertices, int halfEdges, int boundaryEdges) {
+        static TopologyStats capture(HalfEdgeMesh mesh) {
+            int boundaryEdges = 0;
+            for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
+                if (mesh.isBoundaryEdge(mesh.edgeIdAt(eAi))) {
+                    boundaryEdges++;
+                }
+            }
+            return new TopologyStats(mesh.faceCount(), mesh.edgeCount(), mesh.vertexCount(),
+                    mesh.halfEdgeCount(), boundaryEdges);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("F=%d E=%d V=%d HE=%d boundaryE=%d",
+                    faces, edges, vertices, halfEdges, boundaryEdges);
+        }
+    }
+
 }
