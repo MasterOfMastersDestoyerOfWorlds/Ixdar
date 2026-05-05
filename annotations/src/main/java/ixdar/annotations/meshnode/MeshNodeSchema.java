@@ -9,6 +9,12 @@ public record MeshNodeSchema(
         boolean destructive,
         List<String> consumes,
         Map<String, String> socketDocs) {
+    /**
+     * Capture an immutable snapshot of {@code node}'s port shape and lifecycle flags.
+     *
+     * @param node node to snapshot; its lists and maps are defensively copied
+     * @return schema holding copies of the node's inputs, outputs, destructive flag, consumed slots, and socket docs
+     */
     public static MeshNodeSchema from(MeshNode node) {
         return new MeshNodeSchema(
                 List.copyOf(node.inputs()),

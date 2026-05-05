@@ -18,6 +18,10 @@ import ixdar.annotations.RegistryProcessor;
 @SupportedAnnotationTypes("ixdar.annotations.meshnode.MeshNodeAnnotation")
 public class MeshNodeRegistry extends RegistryProcessor {
 
+    /**
+     * Wire the processor to discover {@link MeshNodeAnnotation}-tagged classes and emit
+     * {@code MeshNodeRegistry_MeshNodes}, a map of node id to a {@link MeshNode} supplier.
+     */
     public MeshNodeRegistry() {
         super(
                 MeshNodeAnnotation.class,
@@ -25,6 +29,13 @@ public class MeshNodeRegistry extends RegistryProcessor {
                 "MeshNodes");
     }
 
+    /**
+     * Delegate to {@link RegistryProcessor#process} to emit the generated mesh nodes registry.
+     *
+     * @param annotations annotation types requested for this round
+     * @param roundEnv round environment supplying annotated elements
+     * @return {@code true} to claim the supported annotations
+     */
     @Override
     public boolean process(Set<? extends TypeElement> annotations,
             RoundEnvironment roundEnv) {

@@ -18,6 +18,10 @@ import ixdar.annotations.RegistryProcessor;
 @SupportedAnnotationTypes("ixdar.annotations.geometry.GeometryAnnotation")
 public class GeometryRegistry extends RegistryProcessor {
 
+    /**
+     * Wire the processor to discover {@link GeometryAnnotation}-tagged classes and emit
+     * {@code GeometryRegistry_Geometries}, a map of geometry id to a {@link Geometry} supplier.
+     */
     public GeometryRegistry() {
         super(
                 GeometryAnnotation.class,
@@ -25,6 +29,13 @@ public class GeometryRegistry extends RegistryProcessor {
                 "Geometries");
     }
 
+    /**
+     * Delegate to {@link RegistryProcessor#process} to emit the generated geometries registry.
+     *
+     * @param annotations annotation types requested for this round
+     * @param roundEnv round environment supplying annotated elements
+     * @return {@code true} to claim the supported annotations
+     */
     @Override
     public boolean process(Set<? extends TypeElement> annotations,
             RoundEnvironment roundEnv) {

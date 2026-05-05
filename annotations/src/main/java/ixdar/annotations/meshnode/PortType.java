@@ -28,6 +28,14 @@ public enum PortType {
         this.valueType = valueType;
     }
 
+    /**
+     * True if {@code value} is assignable to this port type. Numeric, boolean, vector, and
+     * rotation types also accept their corresponding packed-field forms (e.g. {@link FloatField}
+     * for {@link #FLOAT}). Null is always accepted.
+     *
+     * @param value candidate value (may be null)
+     * @return whether {@code value} is compatible with this type
+     */
     public boolean accepts(Object value) {
         if (value == null) {
             return true;
@@ -50,6 +58,14 @@ public enum PortType {
         return valueType.isInstance(value);
     }
 
+    /**
+     * Throw if {@code value} is not compatible with this port type, naming {@code portName}
+     * in the error message.
+     *
+     * @param portName port name to include in the diagnostic
+     * @param value candidate value (may be null, which is always accepted)
+     * @throws IllegalArgumentException if {@code value} is not assignable to this type
+     */
     public void validate(String portName, Object value) {
         if (!accepts(value)) {
             throw new IllegalArgumentException(

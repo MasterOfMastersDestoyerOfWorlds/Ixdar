@@ -18,6 +18,17 @@ public final class ModeConstraint {
     private final List<String> canonicalIds;
     private final Map<String, String> aliasToCanonical;
 
+    /**
+     * Build a constraint from a canonical-id set and an alias map. All ids are normalized
+     * (trimmed and uppercased) before storage.
+     *
+     * @param defaultCanonicalId canonical id used when the input value is null or empty;
+     *                           must appear in {@code canonicalIds} after normalization
+     * @param canonicalIds allowed canonical ids; must be non-empty
+     * @param aliases mapping of alias to canonical id; every target must appear in {@code canonicalIds}
+     * @throws IllegalArgumentException if {@code canonicalIds} is empty, if {@code defaultCanonicalId}
+     *         is not present in {@code canonicalIds}, or if any alias targets an id not in {@code canonicalIds}
+     */
     public ModeConstraint(String defaultCanonicalId, List<String> canonicalIds, Map<String, String> aliases) {
         Objects.requireNonNull(defaultCanonicalId, "defaultCanonicalId");
         Objects.requireNonNull(canonicalIds, "canonicalIds");
@@ -47,18 +58,41 @@ public final class ModeConstraint {
         this.aliasToCanonical = Collections.unmodifiableMap(aliasMap);
     }
 
+    /**
+     * Default canonical id, in normalized (trimmed, uppercased) form.
+     *
+     * @return the default canonical id used when no value is supplied
+     */
     public String defaultCanonicalId() {
         return defaultCanonicalId;
     }
 
+    /**
+     * Allowed canonical ids in declaration order, normalized and immutable.
+     *
+     * @return unmodifiable list of canonical ids
+     */
     public List<String> canonicalIds() {
         return canonicalIds;
     }
 
+    /**
+     * Alias to canonical-id lookup, normalized and immutable.
+     *
+     * @return unmodifiable map from alias to canonical id
+     */
     public Map<String, String> aliasToCanonical() {
         return aliasToCanonical;
     }
 
+    /**
+     * Normalize {@code raw} to a canonical id: trim and uppercase, resolve aliases, and
+     * fall back to the default for null or empty input.
+     *
+     * @param raw value to normalize (may be null)
+     * @throws IllegalArgumentException if {@code raw} matches neither a canonical id nor a registered alias
+     * @return matching canonical id, or {@link #defaultCanonicalId()} if {@code raw} is null/blank
+     */
     public String normalize(String raw) {
         if (raw == null) {
             return defaultCanonicalId;
@@ -78,6 +112,15 @@ public final class ModeConstraint {
                         + (aliasToCanonical.isEmpty() ? "" : "; aliases: " + aliasToCanonical.keySet()));
     }
 
+    /**
+     * Validate that a port's declared default value is compatible with this constraint:
+     * it must be a String that {@link #normalize(String)} accepts. Null is treated as
+     * "no default supplied" and passes.
+     *
+     * @param defaultValue declared default for the owning port (may be null)
+     * @throws IllegalArgumentException if {@code defaultValue} is non-null and not a String,
+     *         or if its string form is not a known canonical id or alias
+     */
     public void validateDefault(Object defaultValue) {
         if (defaultValue == null) {
             return;

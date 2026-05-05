@@ -16,6 +16,7 @@ import javax.lang.model.element.TypeElement;
 import javax.tools.JavaFileObject;
 
 public abstract class RegistryProcessor extends AbstractProcessor {
+    private static final String STR = "_";
 
     private boolean generated;
     private String fqcn;
@@ -23,6 +24,17 @@ public abstract class RegistryProcessor extends AbstractProcessor {
     private Class<?> typeClass;
     private String collectionName;
 
+    /**
+     * Configure the processor to scan for {@code annotationClass} and emit a registry
+     * class whose {@code MAP} is keyed by id and produces instances of {@code typeClass}.
+     *
+     * @param annotationClass marker annotation whose {@code @interface} declares an {@code id} element;
+     *        every class carrying this annotation contributes one entry to the generated map
+     * @param typeClass common supertype of the registered classes; used as the value bound on the
+     *        generated {@code Map<String, Supplier<? extends T>>}
+     * @param collectionName suffix appended to the processor's class name to form the generated
+     *        registry's simple name (e.g. {@code "Commands"} yields {@code XxxRegistry_Commands})
+     */
     public RegistryProcessor(Class<? extends Annotation> annotationClass, Class<?> typeClass,
             String collectionName) {
         this.fqcn = this.getClass().getCanonicalName();
@@ -31,6 +43,19 @@ public abstract class RegistryProcessor extends AbstractProcessor {
         this.collectionName = collectionName;
     }
 
+    /**
+     * Generate the registry source file on the first round that has work to do. Walks every class
+     * annotated with {@code annotationClass} and writes a {@code static} initializer that puts
+     * {@code id -> ClassName::new} into a {@code Map<String, Supplier<? extends T>>}. The id
+     * defaults to the simple class name and is overridden by the annotation's {@code id} element
+     * when non-blank.
+     *
+     * @param annotations annotation types requested for this round (unused; the configured
+     *        {@code annotationClass} drives discovery)
+     * @param roundEnv round environment used to collect elements annotated with the configured
+     *        annotation
+     * @return {@code true} to claim the supported annotations for this round
+     */
     @Override
     public boolean process(Set<? extends TypeElement> annotations,
             RoundEnvironment roundEnv) {
@@ -38,8 +63,8 @@ public abstract class RegistryProcessor extends AbstractProcessor {
             return false;
         }
         try {
-            String fqcn = this.fqcn + "_" + this.collectionName;
-            String genClassName = this.getClass().getSimpleName() + "_" + this.collectionName;
+            String fqcn = this.fqcn + STR + this.collectionName;
+            String genClassName = this.getClass().getSimpleName() + STR + this.collectionName;
             JavaFileObject file = processingEnv.getFiler().createSourceFile(fqcn);
             try (Writer out = file.openWriter()) {
                 out.write("package " + this.getClass().getPackageName() + ";\n\n");

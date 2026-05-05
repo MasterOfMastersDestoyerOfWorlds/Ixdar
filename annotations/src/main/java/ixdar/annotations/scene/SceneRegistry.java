@@ -18,6 +18,10 @@ import ixdar.annotations.RegistryProcessor;
 @SupportedAnnotationTypes("ixdar.annotations.scene.SceneAnnotation")
 public class SceneRegistry extends RegistryProcessor {
 
+    /**
+     * Wire the processor to discover {@link SceneAnnotation}-tagged classes and emit
+     * {@code SceneRegistry_Scenes}, a map of scene id to a {@link SceneDrawable} supplier.
+     */
     public SceneRegistry() {
         super(
                 SceneAnnotation.class,
@@ -25,6 +29,13 @@ public class SceneRegistry extends RegistryProcessor {
                 "Scenes");
     }
 
+    /**
+     * Delegate to {@link RegistryProcessor#process} to emit the generated scenes registry.
+     *
+     * @param annotations annotation types requested for this round
+     * @param roundEnv round environment supplying annotated elements
+     * @return {@code true} to claim the supported annotations
+     */
     @Override
     public boolean process(Set<? extends TypeElement> annotations,
             RoundEnvironment roundEnv) {
