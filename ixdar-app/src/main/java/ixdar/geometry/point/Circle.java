@@ -7,6 +7,11 @@ import ixdar.annotations.geometry.Geometry;
 import ixdar.annotations.geometry.GeometryAnnotation;
 import ixdar.common.exceptions.TerminalParseException;
 
+/**
+ * Regular polygon sampled around a center, exposed on the terminal as
+ * {@code add circ} (also {@code c} / {@code circle}). Stores center, radius,
+ * vertex count, and rotation, and produces evenly-spaced points on the circle.
+ */
 @GeometryAnnotation(id = "circ")
 public class Circle implements Geometry, PointCollection {
     public static final String CIRCLE = "circle";
@@ -26,7 +31,8 @@ public class Circle implements Geometry, PointCollection {
     ArrayList<PointND> points;
 
     /**
-     * TODO: document {@code Circle}.
+     * Default circle: centered at the origin, radius and vertex count both
+     * {@value #NUM_10}, zero rotation. Realizes its points eagerly.
      */
     public Circle() {
         xCenter = 0.0;
@@ -38,13 +44,13 @@ public class Circle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code Circle}.
+     * Build a circle from explicit parameters and realize its vertices.
      *
-     * @param xCenter TODO: describe
-     * @param yCenter TODO: describe
-     * @param radius TODO: describe
-     * @param numPoints TODO: describe
-     * @param rotation TODO: describe
+     * @param xCenter x of the center
+     * @param yCenter y of the center
+     * @param radius circle radius
+     * @param numPoints number of evenly-spaced vertices to sample
+     * @param rotation starting-angle offset in radians
      */
     public Circle(double xCenter, double yCenter, double radius, int numPoints, double rotation) {
         this.xCenter = xCenter;
@@ -56,12 +62,12 @@ public class Circle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parse}.
+     * Convenience that parses the args and returns just the realized vertices.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args full terminal argument array
+     * @param startIdx index of the first argument belonging to the circle
+     * @return the sampled points of the parsed circle
+     * @throws TerminalParseException if the slice is malformed
      */
     public static ArrayList<PointND> parse(String[] args, int startIdx) throws TerminalParseException {
         Circle c = parseCircle(args, startIdx);
@@ -69,12 +75,14 @@ public class Circle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parseCircle}.
+     * Parse a {@code Circle} from {@code [xCenter, yCenter, radius, numPoints,
+     * rotationDeg]}. With zero trailing args, returns a default {@link #Circle()};
+     * the rotation argument is given in degrees and converted to radians.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args full terminal argument array
+     * @param startIdx index of the first argument belonging to the circle
+     * @return parsed circle
+     * @throws TerminalParseException if any token is not numeric
      */
     public static Circle parseCircle(String[] args, int startIdx) throws TerminalParseException {
         if (args.length - startIdx == 0) {
@@ -89,12 +97,12 @@ public class Circle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parseCollection}.
+     * {@link PointCollection} entry point; delegates to {@link #parseCircle}.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args full terminal argument array
+     * @param startIdx index of the first argument belonging to the circle
+     * @return parsed circle as a {@link PointCollection}
+     * @throws TerminalParseException if the slice is malformed
      */
     @Override
     public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {
@@ -103,9 +111,10 @@ public class Circle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code realizePoints}.
+     * Sample {@code numPoints} vertices evenly around the circle starting at
+     * {@code rotation} radians.
      *
-     * @return TODO: describe
+     * @return newly built list of {@link PointND.Double} vertices
      */
     @Override
     public ArrayList<PointND> realizePoints() {
@@ -122,9 +131,9 @@ public class Circle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code desc}.
+     * Short human-readable description shown in terminal help.
      *
-     * @return TODO: describe
+     * @return description string
      */
     @Override
     public String desc() {
@@ -132,9 +141,9 @@ public class Circle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code usage}.
+     * Usage hint shown when the command is invoked with bad arguments.
      *
-     * @return TODO: describe
+     * @return single-line usage string
      */
     @Override
     public String usage() {
@@ -142,9 +151,9 @@ public class Circle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code argLength}.
+     * Required positional arg count for parsing: {@value #NUM_5}.
      *
-     * @return TODO: describe
+     * @return number of arguments {@link #parseCircle} consumes
      */
     @Override
     public int argLength() {
@@ -152,9 +161,10 @@ public class Circle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code options}.
+     * Aliases the terminal accepts for this geometry ({@code c}, {@code circ},
+     * {@code circle}).
      *
-     * @return TODO: describe
+     * @return shared option list
      */
     @Override
     public OptionList options() {
@@ -162,9 +172,9 @@ public class Circle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code toFileString}.
+     * Serialize this circle to its {@code .ix} file representation.
      *
-     * @return TODO: describe
+     * @return {@code "CIRCLE x y r n rot"} in space-separated form
      */
     @Override
     public String toFileString() {
@@ -172,9 +182,9 @@ public class Circle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code fullName}.
+     * Long terminal name for this geometry.
      *
-     * @return TODO: describe
+     * @return {@value #CIRCLE}
      */
     @Override
     public String fullName() {
@@ -182,9 +192,9 @@ public class Circle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code shortName}.
+     * CLI shorthand for this geometry, matching the {@code @GeometryAnnotation} id.
      *
-     * @return TODO: describe
+     * @return {@code "circ"}
      */
     @Override
     public String shortName() {

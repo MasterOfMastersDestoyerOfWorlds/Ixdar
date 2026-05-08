@@ -5,18 +5,24 @@ import ixdar.gui.terminal.commands.ChangeToolCommand;
 import ixdar.gui.terminal.commands.LoadIxCommand;
 import ixdar.gui.ui.tools.MapEditorTool;
 
+/**
+ * Menu action that opens the map editor: loads a blank ixdar file then activates
+ * {@link MapEditorTool} in the main scene.
+ */
 public class LoadMapEditor implements Action {
 
     private String fileName = "";
 
     /**
-     * TODO: document {@code LoadMapEditor}.
+     * Create the action; the loaded file name defaults to the empty string,
+     * yielding a blank editor session.
      */
     public LoadMapEditor() {
     }
 
     /**
-     * TODO: document {@code perform}.
+     * Load the bound file and switch the active tool to {@link MapEditorTool},
+     * printing any terminal parse error to stdout.
      */
     @Override
     public void perform() {

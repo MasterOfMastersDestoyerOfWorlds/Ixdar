@@ -32,11 +32,13 @@ public final class GridToMesh2D {
     }
 
     /**
-     * TODO: document {@code emit}.
+     * Sweep the grid and emit a floor, ceiling, and one wall per EMPTY-bordered side of every
+     * non-empty cell, with double-sided winding so the result is visible from inside and outside.
+     * The output mesh is centered on the world origin with edge length {@code cellSize}.
      *
-     * @param grid TODO: describe
-     * @param cellSize TODO: describe
-     * @return TODO: describe
+     * @param grid     populated tile grid (rooms / hallways from earlier pipeline stages)
+     * @param cellSize world-space size of a single grid cell
+     * @return a fresh {@link ArrayMesh} with positions, quad indices, and computed normals
      */
     public static ArrayMesh emit(TileGridValue grid, float cellSize) {
         // Each visible boundary emits TWO quads (inward + outward winding) so the dungeon is

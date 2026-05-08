@@ -24,11 +24,17 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
     public static final String ERROR = "error";
 
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code POST /input/click}: move the cursor to a target position then issue a
+     * press/release pair on the active mouse handler. Recorded as an abstract
+     * {@code "click"} action.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body JSON body with {@code x}, {@code y} (floats, default 0),
+     *             {@code normalized} (boolean; when true, {@code x}/{@code y} are
+     *             treated as fractions of window size), and {@code button}
+     *             (GLFW button code, default 0)
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return {@code {"ok": true, "event": {xPx, yPx, xNorm, yNorm, button}}} on
+     *         success, or an error object when no mouse handler is active
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         float x = body.has(X) ? body.get(X).getAsFloat() : 0f;

@@ -54,11 +54,9 @@ public class MouseTrap {
     private Canvas3D canvas;
 
     /**
-     * TODO: document {@code MouseTrap}.
-     *
-     * @param main TODO: describe
-     * @param camera TODO: describe
-     * @param canvas TODO: describe
+     * @param main owning {@link MainScene}, or {@code null} for non-main scenes
+     * @param camera camera to drive (pan, hover, zoom)
+     * @param canvas owning canvas (provides platform ID)
      */
     public MouseTrap(MainScene main, Camera camera, Canvas3D canvas) {
         this.main = main;
@@ -96,19 +94,20 @@ public class MouseTrap {
     }
 
     /**
-     * TODO: document {@code subscribeScrollRegion}.
+     * Register a region of the screen that wants its own scroll behavior; while the cursor is
+     * inside {@code bounds}, scroll events go to {@code handler} instead of camera zoom.
      *
-     * @param bounds TODO: describe
-     * @param handler TODO: describe
+     * @param bounds screen region
+     * @param handler callback invoked while the cursor is inside {@code bounds}
      */
     public static void subscribeScrollRegion(Bounds bounds, ScrollHandler handler) {
         getSubscriptionsForCurrentPlatform().add(new ScrollSubscription(bounds, handler));
     }
 
     /**
-     * TODO: document {@code unsubscribeScrollRegion}.
+     * Remove every scroll subscription whose handler is {@code handler} on the current platform.
      *
-     * @param handler TODO: describe
+     * @param handler handler to unregister
      */
     public static void unsubscribeScrollRegion(ScrollHandler handler) {
         List<ScrollSubscription> list = getSubscriptionsForCurrentPlatform();
@@ -121,19 +120,20 @@ public class MouseTrap {
     }
 
     /**
-     * TODO: document {@code subscribeClickRegion}.
+     * Register a region that captures clicks; the first matching region inside {@code bounds}
+     * wins and short-circuits further click handling for that event.
      *
-     * @param bounds TODO: describe
-     * @param handler TODO: describe
+     * @param bounds screen region
+     * @param handler callback invoked when a click lands inside {@code bounds}
      */
     public static void subscribeClickRegion(Bounds bounds, ClickHandler handler) {
         getClickSubscriptionsForCurrentPlatform().add(new ClickSubscription(bounds, handler));
     }
 
     /**
-     * TODO: document {@code unsubscribeClickRegion}.
+     * Remove every click subscription whose handler is {@code handler} on the current platform.
      *
-     * @param handler TODO: describe
+     * @param handler handler to unregister
      */
     public static void unsubscribeClickRegion(ClickHandler handler) {
         List<ClickSubscription> list = getClickSubscriptionsForCurrentPlatform();
@@ -141,11 +141,13 @@ public class MouseTrap {
     }
 
     /**
-     * TODO: document {@code mouseClicked}.
+     * Fired on a press/release pair that didn't move far enough to count as a drag. Routes to
+     * the focused pane's tool/terminal, calls hover handlers on every {@code HyperString}, and
+     * dispatches to any subscribed click region (which short-circuits if matched).
      *
-     * @param xPos TODO: describe
-     * @param yPos TODO: describe
-     * @param button TODO: describe
+     * @param xPos cursor x in window pixels
+     * @param yPos cursor y in window pixels
+     * @param button button index
      */
     public void mouseClicked(float xPos, float yPos, int button) {
         if (!active) {
@@ -204,10 +206,10 @@ public class MouseTrap {
     }
 
     /**
-     * TODO: document {@code mousePressed}.
+     * Cache the normalized press position as the drag start point.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param x cursor x in window pixels
+     * @param y cursor y in window pixels
      */
     public void mousePressed(float x, float y) {
         normalizedPosX = camera.getNormalizePosX(x);
@@ -217,10 +219,11 @@ public class MouseTrap {
     }
 
     /**
-     * TODO: document {@code mouseDragged}.
+     * Pan the camera by the normalized-coordinate delta from the previous drag sample, but only
+     * when the drag started inside the {@code KnotView} pane.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param x cursor x in window pixels
+     * @param y cursor y in window pixels
      */
     public void mouseDragged(float x, float y) {
 
@@ -236,19 +239,20 @@ public class MouseTrap {
     }
 
     /**
-     * TODO: document {@code mouseReleased}.
+     * Hook for subclasses to react to a release that did not produce a click; default is a
+     * no-op.
      */
     public void mouseReleased() {
     }
 
     /**
-     * TODO: document {@code mouseEntered}.
+     * Hook for cursor-enter events; default is a no-op.
      */
     public void mouseEntered() {
     }
 
     /**
-     * TODO: document {@code mouseExited}.
+     * Cursor-exit hook: clears any active tool hover so stale highlights don't linger.
      */
     public void mouseExited() {
         if (main != null) {
@@ -257,9 +261,10 @@ public class MouseTrap {
     }
 
     /**
-     * TODO: document {@code scrollCallback}.
+     * Queue scroll ticks (4 per wheel-click) and stamp the time so {@link #paintUpdate} can
+     * decay them after {@link #NUM_60} ms of inactivity.
      *
-     * @param y TODO: describe
+     * @param y vertical scroll delta
      */
     public void scrollCallback(double y) {
         Platforms.init(canvas.platform.getPlatformID());
@@ -269,19 +274,21 @@ public class MouseTrap {
     }
 
     /**
-     * TODO: document {@code setCanvas}.
+     * Re-bind this trap to a different canvas (used during scene switches).
      *
-     * @param canvas3d TODO: describe
+     * @param canvas3d new owning canvas
      */
     public void setCanvas(Canvas3D canvas3d) {
         this.canvas = canvas3d;
     }
 
     /**
-     * TODO: document {@code mousePos}.
+     * Move-without-drag entry point: updates normalized position and last pixel coordinates,
+     * notifies the camera, runs menu hover, runs the active tool's hover (only inside KnotView),
+     * and re-runs HyperString hover.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param x cursor x in window pixels
+     * @param y cursor y in window pixels
      */
     public void mousePos(float x, float y) {
         if (!active) {
@@ -312,9 +319,11 @@ public class MouseTrap {
     }
 
     /**
-     * TODO: document {@code paintUpdate}.
+     * Per-frame: drain queued scroll ticks. If the cursor is inside any subscribed scroll
+     * region, hand the ticks to that handler and short-circuit; otherwise refresh HyperString
+     * hover state. Ticks decay if {@link #NUM_60} ms passes with no further scroll.
      *
-     * @param SHIFT_MOD TODO: describe
+     * @param SHIFT_MOD speed multiplier (currently unused; kept for API parity)
      */
     public void paintUpdate(float SHIFT_MOD) {
         if (System.currentTimeMillis() - timeLastScroll > NUM_60) {
@@ -368,11 +377,13 @@ public class MouseTrap {
     }
 
     /**
-     * TODO: document {@code mouseButton}.
+     * Platform mouse-button entry point. On press, records the press position and time; on
+     * release, dispatches to {@link #mouseClicked} when the cursor stayed within
+     * {@link #NUM_3} pixels, or to {@link #mouseReleased} otherwise.
      *
-     * @param button TODO: describe
-     * @param action TODO: describe
-     * @param mods TODO: describe
+     * @param button button index
+     * @param action {@code ACTION_PRESS} or {@code ACTION_RELEASE}
+     * @param mods modifier-key bitmask
      */
     public void mouseButton(int button, int action, int mods) {
         Platforms.init(canvas.platform.getPlatformID());
@@ -395,11 +406,13 @@ public class MouseTrap {
     }
 
     /**
-     * TODO: document {@code moveOrDrag}.
+     * Mouse-motion entry point: routes to {@link #mouseDragged} while the left button is held
+     * and the cursor has moved past the {@link #NUM_3}-pixel deadzone, otherwise to
+     * {@link #mousePos}.
      *
-     * @param window TODO: describe
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param window platform window handle (for GL mouse-state polling)
+     * @param x cursor x in window pixels
+     * @param y cursor y in window pixels
      */
     public void moveOrDrag(long window, float x, float y) {
         Platforms.init(canvas.platform.getPlatformID());
@@ -414,10 +427,11 @@ public class MouseTrap {
 
     public interface ScrollHandler {
         /**
-         * TODO: document {@code onScroll}.
+         * Called once per frame while accumulated scroll ticks land inside the registered
+         * region.
          *
-         * @param scrollUp TODO: describe
-         * @param deltaSeconds TODO: describe
+         * @param scrollUp true when the wheel rolled "up" (negative tick count)
+         * @param deltaSeconds frame delta in seconds, scaled by {@link #NUM_100}
          */
         void onScroll(boolean scrollUp, double deltaSeconds);
     }
@@ -425,9 +439,9 @@ public class MouseTrap {
     @FunctionalInterface
     public interface ClickHandler {
         /**
-         * TODO: document {@code onClick}.
+         * Called when a click lands inside the registered region.
          *
-         * @param button TODO: describe
+         * @param button button index
          */
         void onClick(int button);
     }
@@ -437,10 +451,8 @@ public class MouseTrap {
         public ScrollHandler handler;
 
         /**
-         * TODO: document {@code ScrollSubscription}.
-         *
-         * @param bounds TODO: describe
-         * @param handler TODO: describe
+         * @param bounds screen region (recalculated each event)
+         * @param handler callback invoked while the cursor is inside {@code bounds}
          */
         public ScrollSubscription(Bounds bounds, ScrollHandler handler) {
             this.bounds = bounds;
@@ -453,10 +465,8 @@ public class MouseTrap {
         public ClickHandler handler;
 
         /**
-         * TODO: document {@code ClickSubscription}.
-         *
-         * @param bounds TODO: describe
-         * @param handler TODO: describe
+         * @param bounds screen region (recalculated each event)
+         * @param handler callback invoked when a click lands inside {@code bounds}
          */
         public ClickSubscription(Bounds bounds, ClickHandler handler) {
             this.bounds = bounds;

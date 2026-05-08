@@ -59,41 +59,28 @@ public class LwjglPlatform implements Platform {
     private float frameBufferSizeY;
     private int platformId;
 
-    /**
-     * TODO: document {@code LwjglPlatform}.
+        /**
+     * Construct a LwjglPlatform.
      *
-     * @param window TODO: describe
+     * @param window constructor argument
      */
     public LwjglPlatform(long window) {
         this.window = window;
     }
 
-    /**
-     * TODO: document {@code allocateFloats}.
-     *
-     * @param capacity TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public IxBuffer allocateFloats(int capacity) {
         return new DefaultBuffer(capacity);
     }
 
-    /**
-     * TODO: document {@code setTitle}.
-     *
-     * @param title TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setTitle(String title) {
         glfwSetWindowTitle(window, title);
     }
 
-    /**
-     * TODO: document {@code getWindowWidth}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getWindowWidth() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -104,11 +91,7 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /**
-     * TODO: document {@code getWindowHeight}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getWindowHeight() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -119,81 +102,51 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /**
-     * TODO: document {@code requestRepaint}.
-     */
+    /** {@inheritDoc} */
     @Override
     public void requestRepaint() {
         // no-op; loop-driven repaint in LWJGL
     }
 
-    /**
-     * TODO: document {@code timeSeconds}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public float timeSeconds() {
         return (float) (System.nanoTime() / NUM_1e9);
     }
 
-    /**
-     * TODO: document {@code setKeyCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setKeyCallback(KeyCallback callback) {
         glfwSetKeyCallback(window,
                 (w, key, scancode, action, mods) -> inputQueue.add(() -> callback.onKey(key, scancode, action, mods)));
     }
 
-    /**
-     * TODO: document {@code setCharCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setCharCallback(CharCallback callback) {
         glfwSetCharCallback(window, (w, codepoint) -> inputQueue.add(() -> callback.onChar(codepoint)));
     }
 
-    /**
-     * TODO: document {@code setCursorPosCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setCursorPosCallback(CursorPosCallback callback) {
         glfwSetCursorPosCallback(window, (w, x, y) -> inputQueue.add(() -> callback.onMousePos(window, x, y)));
     }
 
-    /**
-     * TODO: document {@code setMouseButtonCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setMouseButtonCallback(MouseButtonCallback callback) {
         glfwSetMouseButtonCallback(window,
                 (w, button, action, mods) -> inputQueue.add(() -> callback.onMouseButton(button, action, mods)));
     }
 
-    /**
-     * TODO: document {@code setScrollCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setScrollCallback(ScrollCallback callback) {
         glfwSetScrollCallback(window, (w, x, y) -> inputQueue.add(() -> callback.onScroll(x, y)));
     }
 
-    /**
-     * TODO: document {@code setCursorMode}.
-     *
-     * @param mode TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setCursorMode(CursorMode mode) {
         switch (mode) {
@@ -209,24 +162,13 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /**
-     * TODO: document {@code parseFontAtlas}.
-     *
-     * @param json TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public FontAtlasDTO parseFontAtlas(String json) {
         return new Gson().fromJson(json, FontAtlasDTO.class);
     }
 
-    /**
-     * TODO: document {@code loadTexture}.
-     *
-     * @param resourceName TODO: describe
-     * @param platformId TODO: describe
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void loadTexture(String resourceName, int platformId, Consumer<Texture> callback) {
         STBImage.stbi_set_flip_vertically_on_load(true);
@@ -246,34 +188,19 @@ public class LwjglPlatform implements Platform {
         callback.accept(new Texture(resourceName, image, width, height));
     }
 
-    /**
-     * TODO: document {@code startTime}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public float startTime() {
         return IxdarWindow.startTime;
     }
 
-    /**
-     * TODO: document {@code exit}.
-     *
-     * @param code TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void exit(int code) {
         System.exit(code);
     }
 
-    /**
-     * TODO: document {@code loadSource}.
-     *
-     * @param folder TODO: describe
-     * @param filename TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     public String loadSource(String folder, String filename) throws IOException {
         String path = folder + STR + filename;
         try (InputStream in = LwjglPlatform.class.getClassLoader().getResourceAsStream(path)) {
@@ -281,13 +208,7 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /**
-     * TODO: document {@code trySyncLoadSource}.
-     *
-     * @param resourceFolder TODO: describe
-     * @param filename TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public String trySyncLoadSource(String resourceFolder, String filename) {
         try {
@@ -297,14 +218,7 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /**
-     * TODO: document {@code loadSourceAsync}.
-     *
-     * @param resourceFolder TODO: describe
-     * @param filename TODO: describe
-     * @param platformId TODO: describe
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
         try {
@@ -317,14 +231,7 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /**
-     * TODO: document {@code loadShaderSourceAsync}.
-     *
-     * @param resourceFolder TODO: describe
-     * @param filename TODO: describe
-     * @param platformId TODO: describe
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId,
             Consumer<String> callback) {
@@ -338,12 +245,7 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /**
-     * TODO: document {@code loadFile}.
-     *
-     * @param path TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public TextFile loadFile(String path) {
         path = path.replaceAll("./src/main/resources/", "");
@@ -360,13 +262,7 @@ public class LwjglPlatform implements Platform {
         return new TextFile(path, lines);
     }
 
-    /**
-     * TODO: document {@code loadExternalFile}.
-     *
-     * @param absolutePath TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public TextFile loadExternalFile(String absolutePath) throws IOException {
         Path path = Path.of(absolutePath);
@@ -377,13 +273,7 @@ public class LwjglPlatform implements Platform {
         return new TextFile(path.toString(), lines);
     }
 
-    /**
-     * TODO: document {@code writeTextFile}.
-     *
-     * @param file TODO: describe
-     * @param append TODO: describe
-     * @throws IOException TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void writeTextFile(TextFile file, boolean append) throws IOException {
         File newFile = new File(file.getPath());
@@ -400,81 +290,50 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /**
-     * TODO: document {@code log}.
-     *
-     * @param msg TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void log(String msg) {
         System.out.println(msg);
     }
 
-    /**
-     * TODO: document {@code canHotReload}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean canHotReload() {
         return true;
     }
 
-    /**
-     * TODO: document {@code setFrameBufferSize}.
-     *
-     * @param f TODO: describe
-     * @param g TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setFrameBufferSize(float f, float g) {
         frameBufferSizeX = f;
         frameBufferSizeY = g;
     }
 
-    /**
-     * TODO: document {@code getFrameBufferWidth}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getFrameBufferWidth() {
         return (int) frameBufferSizeX;
     }
 
-    /**
-     * TODO: document {@code getFrameBufferHeight}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getFrameBufferHeight() {
         return (int) frameBufferSizeY;
     }
 
-    /**
-     * TODO: document {@code getPlatformID}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getPlatformID() {
         return platformId;
     }
 
-    /**
-     * TODO: document {@code setPlatformID}.
-     *
-     * @param p TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setPlatformID(Integer p) {
         this.platformId = p == null ? -1 : p.intValue();
     }
 
-    /**
-     * TODO: document {@code processInputQueue}.
-     */
+    /** {@inheritDoc} */
     public void processInputQueue() {
         Runnable runnable;
         while ((runnable = inputQueue.poll()) != null) {

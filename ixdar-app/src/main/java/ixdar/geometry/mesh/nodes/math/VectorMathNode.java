@@ -11,7 +11,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
-import ixdar.annotations.meshnode.Vec3Field;
+import ixdar.annotations.meshnode.Vector3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 
 /**
@@ -91,7 +91,7 @@ public class VectorMathNode implements MeshNode {
         if (sv instanceof FloatField sf) {
             n = Math.max(n, sf.length());
         }
-        boolean fieldVec = av instanceof Vec3Field || bv instanceof Vec3Field;
+        boolean fieldVec = av instanceof Vector3Field || bv instanceof Vector3Field;
 
         if (fieldVec || n > 0) {
             Vector3f a = new Vector3f();
@@ -137,7 +137,7 @@ public class VectorMathNode implements MeshNode {
                 out[NUM_3 * i + 2] = outVec.z;
                 lengths[i] = outVec.length();
             }
-            ctx.setOutput(VECTOR_2, new Vec3Field(out));
+            ctx.setOutput(VECTOR_2, new Vector3Field(out));
             ctx.setOutput(RESULT_2,new FloatField(lengths));
             return;
         }

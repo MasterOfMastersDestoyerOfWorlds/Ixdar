@@ -8,12 +8,20 @@ import java.util.Set;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.ColorText;
 
+/**
+ * Lightweight syntax colorizer for a single line of GLSL: recognises
+ * whitespace,
+ * brackets/braces/commas, numeric literals, identifiers (with member-access
+ * chains),
+ * and a small palette of operators, mapping each token to its highlight
+ * {@link Color}.
+ */
 public final class GLSLColorizer {
 
     private static final Set<String> KEYWORDS = new HashSet<>();
     private static final Set<String> TYPES = new HashSet<>();
     static {
-        // flow/qualifier keywords
+
         KEYWORDS.add("return");
         KEYWORDS.add("in");
         KEYWORDS.add("out");
@@ -23,7 +31,6 @@ public final class GLSLColorizer {
         KEYWORDS.add("attribute");
         KEYWORDS.add("varying");
 
-        // basic types
         TYPES.add("void");
         TYPES.add("float");
         TYPES.add("int");
@@ -35,10 +42,20 @@ public final class GLSLColorizer {
     }
 
     /**
-     * TODO: document {@code colorize}.
+     * Walk {@code codeLine} character by character, classify each token
+     * (whitespace,
+     * brackets, numeric literal, identifier with optional member-access tail,
+     * operator),
+     * and emit one {@link ColorText} per token tagged with its highlight
+     * {@link Color}.
+     * Identifiers are resolved against the keyword/type sets and against a
+     * parenthesis
+     * lookahead to flag function calls.
      *
-     * @param codeLine TODO: describe
-     * @return TODO: describe
+     * @param codeLine single shader line to tokenise; {@code null} or empty returns
+     *                 an empty list
+     * @return ordered list of coloured token spans that, concatenated, reproduce
+     *         {@code codeLine}
      */
     public static List<ColorText<?>> colorize(String codeLine) {
         ArrayList<ColorText<?>> out = new ArrayList<>();
@@ -49,7 +66,7 @@ public final class GLSLColorizer {
         int n = codeLine.length();
         while (i < n) {
             char c = codeLine.charAt(i);
-            // whitespace (preserve spacing)
+
             if (Character.isWhitespace(c)) {
                 int start = i;
                 while (i < n && Character.isWhitespace(codeLine.charAt(i)))
@@ -57,25 +74,25 @@ public final class GLSLColorizer {
                 out.add(new ColorText<String>(codeLine.substring(start, i), Color.WHITE));
                 continue;
             }
-            // parentheses
+
             if (c == '(' || c == ')') {
                 out.add(new ColorText<String>(String.valueOf(c), Color.GLSL_PARENTHESIS));
                 i++;
                 continue;
             }
-            // curly braces
+
             if (c == '{' || c == '}') {
                 out.add(new ColorText<String>(String.valueOf(c), Color.GLSL_BRACE));
                 i++;
                 continue;
             }
-            // comma
+
             if (c == ',') {
                 out.add(new ColorText<String>(",", Color.GLSL_COMMA));
                 i++;
                 continue;
             }
-            // numbers (floats/ints) - color as float
+
             if (Character.isDigit(c) || (c == '.' && i + 1 < n && Character.isDigit(codeLine.charAt(i + 1)))) {
                 int start = i;
                 boolean sawDot = (c == '.');
@@ -96,16 +113,16 @@ public final class GLSLColorizer {
                 out.add(new ColorText<String>(codeLine.substring(start, i), Color.GLSL_FLOAT));
                 continue;
             }
-            // identifiers
+
             if (isIdentStart(c)) {
                 int start = i;
                 i++;
                 while (i < n && isIdentPart(codeLine.charAt(i)))
                     i++;
-                // consume chained member access: .identPart repeatedly (e.g., variable.xyz)
+
                 int k = i;
                 while (k < n && codeLine.charAt(k) == '.' && (k + 1) < n && isIdentStart(codeLine.charAt(k + 1))) {
-                    k++; // skip '.'
+                    k++;
                     while (k < n && isIdentPart(codeLine.charAt(k)))
                         k++;
                 }
@@ -118,7 +135,6 @@ public final class GLSLColorizer {
                     base = ident.substring(0, dot);
                 String lower = base.toLowerCase();
 
-                // lookahead skipping whitespace
                 int j = i;
                 while (j < n && Character.isWhitespace(codeLine.charAt(j)))
                     j++;
@@ -137,7 +153,7 @@ public final class GLSLColorizer {
                 }
                 continue;
             }
-            // single char fallback (operators, semicolons, etc.)
+
             if (c == '+' || c == '-' || c == '*' || c == '/') {
                 out.add(new ColorText<String>(String.valueOf(c), Color.GLSL_OPERATOR));
             } else if (c == '=') {

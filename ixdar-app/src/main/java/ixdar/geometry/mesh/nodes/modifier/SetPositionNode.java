@@ -43,7 +43,7 @@ public class SetPositionNode implements MeshNode {
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
                 GEOMETRY_2, "Input/output. Every vertex position is shifted by `offset`.",
-                OFFSET_2, "World-space translation added to every vertex. <0,0,0> = identity. For selective displacement, use a Vec3Field."
+                OFFSET_2, "World-space translation added to every vertex. <0,0,0> = identity. For selective displacement, use a Vector3field."
         );
     }
 

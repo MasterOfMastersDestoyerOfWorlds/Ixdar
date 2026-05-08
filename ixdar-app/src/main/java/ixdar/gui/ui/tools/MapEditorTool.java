@@ -20,6 +20,11 @@ import ixdar.gui.ui.Drawing;
 import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;
 
+/**
+ * Map Editor tool: lets the user add, delete, move, group, and ungroup
+ * point-collection elements on the active grid by clicking. Cycles through
+ * its {@link States} via the layer next/prev controls.
+ */
 public class MapEditorTool extends Tool {
 
     public static ArrayList<Color> colors;
@@ -38,7 +43,9 @@ public class MapEditorTool extends Tool {
     HashMap<Long, Integer> colorLookup;
 
     /**
-     * TODO: document {@code MapEditorTool}.
+     * Build the tool: disallow toggles incompatible with editing (cut-match
+     * preview, layer switching, knot-gradient/metro/displayed-knots draw),
+     * and snapshot the terminal's point-collection class map.
      */
     public MapEditorTool() {
         disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.CanSwitchLayer,
@@ -47,7 +54,8 @@ public class MapEditorTool extends Tool {
     }
 
     /**
-     * TODO: document {@code reset}.
+     * Reset editor state to the {@link States#Add} mode for the grid's first
+     * allowable point-collection type and re-issue the on-screen instruction.
      */
     @Override
     public void reset() {
@@ -65,10 +73,12 @@ public class MapEditorTool extends Tool {
     }
 
     /**
-     * TODO: document {@code calculateHover}.
+     * Project the mouse into world space and (when {@link Toggle#SnapToGrid}
+     * is on) snap the resulting point to the nearest grid coordinate, caching
+     * it in {@link #hoverPoint} for the next draw.
      *
-     * @param mouseX TODO: describe
-     * @param mouseY TODO: describe
+     * @param mouseX cursor x in window pixels (pre screen-offset)
+     * @param mouseY cursor y in window pixels (pre screen-offset)
      */
     @Override
     public void calculateHover(float mouseX, float mouseY) {
@@ -87,17 +97,19 @@ public class MapEditorTool extends Tool {
     }
 
     /**
-     * TODO: document {@code hoverChanged}.
+     * Hook called when the hover target changes; intentionally a no-op here
+     * because all hover feedback is driven from {@link #calculateHover}.
      */
     @Override
     public void hoverChanged() {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Draw a red circle at the snapped hover point so the user can see where
+     * the next click will land on the grid.
      *
-     * @param camera TODO: describe
-     * @param minLineThickness TODO: describe
+     * @param camera the scene camera
+     * @param minLineThickness base line thickness in pixels
      */
     @Override
     public void draw(Camera2D camera, float minLineThickness) {
@@ -107,10 +119,11 @@ public class MapEditorTool extends Tool {
     }
 
     /**
-     * TODO: document {@code calculateClick}.
+     * Click hit-testing is handled inline by the editor states rather than
+     * via the inherited segment hit-test, so this hook is intentionally empty.
      *
-     * @param mouseX TODO: describe
-     * @param mouseY TODO: describe
+     * @param mouseX cursor x in window pixels
+     * @param mouseY cursor y in window pixels
      */
     @Override
     public void calculateClick(float mouseX, float mouseY) {
@@ -118,11 +131,11 @@ public class MapEditorTool extends Tool {
     }
 
     /**
-     * TODO: document {@code click}.
+     * On any segment click, simply confirm the pending edit.
      *
-     * @param s TODO: describe
-     * @param kp TODO: describe
-     * @param cp TODO: describe
+     * @param s  hovered segment, ignored
+     * @param kp segment knot point, ignored
+     * @param cp segment cut point, ignored
      */
     @Override
     public void click(Segment s, Knot kp, Knot cp) {
@@ -130,14 +143,16 @@ public class MapEditorTool extends Tool {
     }
 
     /**
-     * TODO: document {@code confirm}.
+     * Confirm placeholder; concrete add/remove/group operations are wired up
+     * elsewhere via the terminal commands.
      */
     @Override
     public void confirm() {
     }
 
     /**
-     * TODO: document {@code instruct}.
+     * Push a state-appropriate instruction string to the terminal banner so
+     * the user knows what this state expects next.
      */
     public void instruct() {
         switch (state) {
@@ -163,7 +178,9 @@ public class MapEditorTool extends Tool {
     }
 
     /**
-     * TODO: document {@code increaseViewLayer}.
+     * Override the layer hotkey to cycle the editor {@link #state} forward
+     * through {@link States} (wrapping at the end) instead of changing the
+     * scene's draw layer.
      */
     @Override
     public void increaseViewLayer() {
@@ -172,7 +189,9 @@ public class MapEditorTool extends Tool {
     }
 
     /**
-     * TODO: document {@code decreaseViewLayer}.
+     * Override the layer hotkey to cycle the editor {@link #state} backward
+     * through {@link States} (wrapping at the start) instead of changing the
+     * scene's draw layer.
      */
     @Override
     public void decreaseViewLayer() {
@@ -182,9 +201,10 @@ public class MapEditorTool extends Tool {
     }
 
     /**
-     * TODO: document {@code buildInfoText}.
+     * Build the side-panel text: current editor state plus the hover/selection
+     * coordinate (grid coords, or the displayed knot point's coords).
      *
-     * @return TODO: describe
+     * @return the formatted info text
      */
     @Override
     public HyperString buildInfoText() {
@@ -203,9 +223,7 @@ public class MapEditorTool extends Tool {
     }
 
     /**
-     * TODO: document {@code displayName}.
-     *
-     * @return TODO: describe
+     * @return the display name "Map Editor"
      */
     @Override
     public String displayName() {
@@ -213,9 +231,7 @@ public class MapEditorTool extends Tool {
     }
 
     /**
-     * TODO: document {@code fullName}.
-     *
-     * @return TODO: describe
+     * @return the full terminal name {@code "mapeditor"}
      */
     @Override
     public String fullName() {
@@ -223,9 +239,7 @@ public class MapEditorTool extends Tool {
     }
 
     /**
-     * TODO: document {@code shortName}.
-     *
-     * @return TODO: describe
+     * @return the short terminal alias {@code "me"}
      */
     @Override
     public String shortName() {
@@ -233,15 +247,16 @@ public class MapEditorTool extends Tool {
     }
 
     /**
-     * TODO: document {@code desc}.
-     *
-     * @return TODO: describe
+     * @return the one-line description of this tool's purpose
      */
     @Override
     public String desc() {
         return "A tool that allows the user to add, move, or remove points in an ixdar file.";
     }
 
+    /**
+     * Editor sub-modes the user cycles through with the layer next/prev keys.
+     */
     public enum States {
         Add,
         Delete,
@@ -250,20 +265,22 @@ public class MapEditorTool extends Tool {
         UnGroup;
 
         /**
-         * TODO: document {@code atOrAfter}.
+         * Test whether this state is at or beyond {@code state} in the
+         * declared enum order.
          *
-         * @param state TODO: describe
-         * @return TODO: describe
+         * @param state the threshold state
+         * @return true if {@code this.ordinal() >= state.ordinal()}
          */
         public boolean atOrAfter(States state) {
             return this.ordinal() >= state.ordinal();
         }
 
         /**
-         * TODO: document {@code before}.
+         * Test whether this state precedes {@code state} in the declared enum
+         * order.
          *
-         * @param state TODO: describe
-         * @return TODO: describe
+         * @param state the threshold state
+         * @return true if {@code this.ordinal() < state.ordinal()}
          */
         public boolean before(States state) {
             return this.ordinal() < state.ordinal();

@@ -68,11 +68,14 @@ public class GLSLExpressionParser {
     }
 
     /**
-     * TODO: document {@code evaluateAndAssign}.
+     * Evaluate a single GLSL line, optionally assigning into {@code env}. Handles
+     * inline {@code if/else} expressions, swizzle assignments, {@code vecN(...)}
+     * constructors, and bare arithmetic. Declarations and lines containing
+     * {@code ==}, {@code ?}, layout/uniform/etc. prefixes are skipped.
      *
-     * @param line TODO: describe
-     * @param env TODO: describe
-     * @return TODO: describe
+     * @param line raw source line (comment and trailing semicolon are stripped)
+     * @param env  mutable variable environment; written for assignments
+     * @return computed value, or {@code null} if the line was skipped or failed
      */
     public static GLSLParseText evaluateAndAssign(String line, Map<String, GLSLParseText> env) {
 
@@ -89,10 +92,6 @@ public class GLSLExpressionParser {
             return null;
         }
 
-        // Handle single-line if/else of the form:
-        // if (cond) <then> else <else>
-        // Both <then> and <else> can be expressions or assignments (optionally wrapped
-        // in braces)
         String sTrimLower = s.trim().toLowerCase();
         if (sTrimLower.startsWith(IF)) {
             try {
@@ -117,8 +116,6 @@ public class GLSLExpressionParser {
             String var = extractVarName(left);
             if (var != null && !var.isEmpty()) {
 
-                // Support assignment from an inline if-expression: var = if (cond) expr else
-                // expr
                 if (right.toLowerCase().startsWith(IF)) {
                     GLSLParseText ifVal = evaluateIfElse(right, env);
                     if (ifVal != null && ifVal.data != null) {
@@ -170,25 +167,28 @@ public class GLSLExpressionParser {
         return null;
     }
 
-    // Evaluate a whole set of code lines with control flow (if/else with braces)
-    // and write per-line suffixes into cachedSuffixes. This avoids evaluating
-    // assignments inside non-taken branches.
     /**
-     * TODO: document {@code evaluateAndAssign}.
+     * Walk a block of GLSL lines, tracking brace-scoped {@code if}/{@code else if}/
+     * {@code else} execution, evaluating only assignments inside taken branches,
+     * and writing each line's display suffix (computed value or {@code SKIP}) into
+     * {@code cachedSuffixes} at the matching index.
      *
-     * @param lines TODO: describe
-     * @param env TODO: describe
-     * @param cachedSuffixes TODO: describe
+     * @param lines          source lines in original order; {@code null} entries
+     *                       are tolerated
+     * @param env            mutable variable environment; only updated for executed
+     *                       assignments
+     * @param cachedSuffixes per-line output slots, must already match
+     *                       {@code lines.size()}
      */
     public static void evaluateAndAssign(List<String> lines, Map<String, GLSLParseText> env,
             List<GLSLParseText> cachedSuffixes) {
         if (lines == null || cachedSuffixes == null) {
             return;
         }
-        // Execution stack: true means current block is executing. Root is true.
+
         ArrayList<Boolean> execStack = new ArrayList<>();
         execStack.add(Boolean.TRUE);
-        // Track if-blocks to connect an 'else' with the most recent 'if'
+
         ArrayList<Boolean> isIfStack = new ArrayList<>();
         isIfStack.add(Boolean.FALSE);
         ArrayList<Boolean> elseShouldExecStack = new ArrayList<>();
@@ -208,9 +208,8 @@ public class GLSLExpressionParser {
                 s = s.substring(0, cidx);
             String decl = s.trim();
 
-            // Handle closing brace(s): may be '}' alone or start of a line like '} else {'
             if (!decl.isEmpty() && decl.charAt(0) == '}') {
-                // Pop one or more blocks for each leading '}' but never pop the root
+
                 while (!decl.isEmpty() && decl.charAt(0) == '}') {
                     if (execStack.size() > 1) {
                         boolean poppedIsIf = isIfStack.remove(isIfStack.size() - 1);
@@ -225,11 +224,9 @@ public class GLSLExpressionParser {
                     }
                     decl = decl.substring(1).trim();
                 }
-                // Do NOT set suffixes or continue; allow the remainder (e.g. 'else {') to be
-                // processed
+
             }
 
-            // if (cond) { ... }
             IfHeader ifHdr = parseIfHeader(decl);
             if (ifHdr != null && ifHdr.hasOpenBrace) {
                 boolean parentExec = execStack.get(execStack.size() - 1);
@@ -251,7 +248,6 @@ public class GLSLExpressionParser {
                 continue;
             }
 
-            // else if (cond) { ... }
             IfHeader elseIfHdr = parseElseIfHeader(decl);
             if (elseIfHdr != null && elseIfHdr.hasOpenBrace) {
                 boolean parentExec = execStack.get(execStack.size() - 1);
@@ -266,14 +262,13 @@ public class GLSLExpressionParser {
                 elseShouldExecStack.add(Boolean.FALSE);
                 braceDepth++;
                 if (doExec) {
-                    awaitingElseExec = false; // else-if taken: no further else
+                    awaitingElseExec = false;
                 }
                 GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, Color.GLSL_BOOLEAN);
                 cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(STR_4)).join(boolVal));
                 continue;
             }
 
-            // else { ... }
             if (isElseOpenBrace(decl)) {
                 boolean parentExec = execStack.get(execStack.size() - 1);
                 boolean doExec = awaitingElseExec && parentExec && (braceDepth == awaitingElseDepth);
@@ -281,20 +276,18 @@ public class GLSLExpressionParser {
                 isIfStack.add(Boolean.FALSE);
                 elseShouldExecStack.add(Boolean.FALSE);
                 braceDepth++;
-                awaitingElseExec = false; // consumed
+                awaitingElseExec = false;
 
                 GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, Color.GLSL_BOOLEAN);
                 cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(STR_4)).join(boolVal));
                 continue;
             }
 
-            // else single-line: else <statement>
             if (startsWithElse(decl) && !decl.endsWith(STR_5)) {
                 boolean parentExec = execStack.get(execStack.size() - 1);
                 boolean doExec = awaitingElseExec && parentExec && (braceDepth == awaitingElseDepth);
                 String afterElse = decl.substring(decl.toLowerCase().indexOf(ELSE) + NUM_4).trim();
                 if (!afterElse.isEmpty() && afterElse.startsWith(IF)) {
-                    // else if (...) single-line
                     IfHeaderPos posHdr = parseIfHeaderWithPos(afterElse);
                     boolean condVal = false;
                     if (doExec && posHdr != null) {
@@ -314,11 +307,9 @@ public class GLSLExpressionParser {
                     } else {
                         out = GLSLParseText.BLANK;
                     }
-                    // Only consume else chain if the else-if branch is taken
                     if (runThen) {
                         awaitingElseExec = false;
                     }
-                    // Add boolean suffix for else-if decision
                     GLSLParseText boolVal = new GLSLParseText(runThen ? TRUE : FALSE, Color.GLSL_BOOLEAN);
                     if (!runThen) {
                         GLSLParseText skip = new GLSLParseText(SKIP, Color.GLSL_SKIP);
@@ -339,13 +330,12 @@ public class GLSLExpressionParser {
                     } else {
                         out = GLSLParseText.BLANK;
                     }
-                    awaitingElseExec = false; // consumed
+                    awaitingElseExec = false;
                 }
                 cachedSuffixes.set(i, out);
                 continue;
             }
 
-            // Normal line: evaluate only if current block is executing
             boolean executing = execStack.get(execStack.size() - 1);
             if (executing && !skipControlOnlyLine(decl)) {
                 if (decl.startsWith("uniform") || decl.startsWith("in")) {
@@ -377,9 +367,9 @@ public class GLSLExpressionParser {
      * Compute, for each line, whether it would execute under the current env,
      * without mutating env or suffixes. Control-flow only (if/else/braces).
      *
-     * @param lines TODO: describe
-     * @param envSnapshot TODO: describe
-     * @return TODO: describe
+     * @param lines       source lines in original order
+     * @param envSnapshot read-only environment used when evaluating conditions
+     * @return list of booleans, one per input line, in the same order
      */
     public static java.util.List<Boolean> wouldExecute(List<String> lines, Map<String, GLSLParseText> envSnapshot) {
         java.util.ArrayList<Boolean> execFlags = new java.util.ArrayList<>();
@@ -507,7 +497,7 @@ public class GLSLExpressionParser {
         String t = decl.trim().toLowerCase();
         if (!t.startsWith("else if") && !t.startsWith("elseif"))
             return null;
-        // normalize: remove leading 'else'
+
         String rest = decl.trim();
         int idx = rest.toLowerCase().indexOf(IF);
         if (idx < 0)
@@ -550,7 +540,7 @@ public class GLSLExpressionParser {
             return true;
         if (t.equalsIgnoreCase(ELSE) || t.equalsIgnoreCase(ELSE_2) || t.equalsIgnoreCase(ELSE_3))
             return true;
-        // lines like: if (cond) {
+
         IfHeader h = parseIfHeader(t);
         if (h != null && h.hasOpenBrace)
             return true;
@@ -567,20 +557,20 @@ public class GLSLExpressionParser {
     }
 
     private static GLSLParseText evaluateIfElse(String s, Map<String, GLSLParseText> env) {
-        // Expect: if (cond) thenPart [else elsePart]
+
         if (s == null) {
             return null;
         }
         int i = 0;
         int n = s.length();
-        // skip leading ws
+
         while (i < n && Character.isWhitespace(s.charAt(i)))
             i++;
         if (i + 1 >= n || s.charAt(i) != 'i' || s.charAt(i + 1) != 'f') {
             return null;
         }
         i += 2;
-        // next non-ws must be '('
+
         while (i < n && Character.isWhitespace(s.charAt(i)))
             i++;
         if (i >= n || s.charAt(i) != '(') {
@@ -592,9 +582,9 @@ public class GLSLExpressionParser {
             return null;
         }
         String condStr = s.substring(condStart, condEnd).trim();
-        // After ')', the then part starts
+
         int thenStart = condEnd + 1;
-        // Find top-level 'else' after thenStart
+
         int elseIdx = findTopLevelElse(s, thenStart);
         String thenPart;
         String elsePart = null;
@@ -614,7 +604,7 @@ public class GLSLExpressionParser {
         if (chosen == null || chosen.isEmpty()) {
             return null;
         }
-        // Evaluate chosen branch: allow either assignment or bare expression
+
         GLSLParseText res = evaluateAndAssign(chosen, env);
         if (res != null) {
             return res;
@@ -630,7 +620,7 @@ public class GLSLExpressionParser {
         if (cond == null) {
             return false;
         }
-        // Find a top-level comparator outside parentheses
+
         int[] hit = findTopLevelComparator(cond);
         try {
             if (hit != null) {
@@ -644,23 +634,23 @@ public class GLSLExpressionParser {
                 double l = lv.data.x;
                 double r = rv.data.x;
                 switch (op) {
-                case STR_3:
-                    return l == r;
-                case STR_7:
-                    return l != r;
-                case STR_8:
-                    return l >= r;
-                case STR_9:
-                    return l <= r;
-                case ">":
-                    return l > r;
-                case "<":
-                    return l < r;
-                default:
-                    return false;
+                    case STR_3:
+                        return l == r;
+                    case STR_7:
+                        return l != r;
+                    case STR_8:
+                        return l >= r;
+                    case STR_9:
+                        return l <= r;
+                    case ">":
+                        return l > r;
+                    case "<":
+                        return l < r;
+                    default:
+                        return false;
                 }
             } else {
-                // No comparator: non-zero is true
+
                 GLSLParseText v = new GLSLExpressionParser(cond, env).parse();
                 return Math.abs(v.data.x) > NUM_1e_6;
             }
@@ -685,7 +675,7 @@ public class GLSLExpressionParser {
     }
 
     private static int[] findTopLevelComparator(String s) {
-        // Returns {index, length} or null
+
         int depth = 0;
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
@@ -726,9 +716,9 @@ public class GLSLExpressionParser {
             else if (c == '}')
                 depthBrace--;
             if (depthParen == 0 && depthBrace == 0) {
-                // check "else" word at i
+
                 if ((s.charAt(i) == 'e' || s.charAt(i) == 'E') && s.regionMatches(true, i, ELSE, 0, NUM_4)) {
-                    // Ensure word boundary before and after
+
                     boolean beforeOk = (i == 0) || !Character.isLetterOrDigit(s.charAt(i - 1));
                     int j = i + NUM_4;
                     boolean afterOk = (j >= s.length()) || !Character.isLetterOrDigit(s.charAt(j));
@@ -766,10 +756,12 @@ public class GLSLExpressionParser {
     }
 
     /**
-     * TODO: document {@code extractAssignedVar}.
+     * Return the variable name on the left-hand side of a single-{@code =} GLSL
+     * assignment after stripping comments, or {@code null} if no simple assignment
+     * is present.
      *
-     * @param line TODO: describe
-     * @return TODO: describe
+     * @param line raw source line
+     * @return assigned variable name, or {@code null}
      */
     public static String extractAssignedVar(String line) {
         if (line == null) {
@@ -890,7 +882,7 @@ public class GLSLExpressionParser {
     private GLSLParseText parseNumberOrParenExpr() {
         skipWs();
         int start = pos;
-        // Allow nested parenthesis and unary before numbers
+
         if (match('(')) {
             GLSLParseText inner = parseExpr();
             expect(')');
@@ -957,77 +949,77 @@ public class GLSLExpressionParser {
 
     private GLSLParseText applyFunc(String name, List<GLSLParseText> a) {
         switch (name) {
-        case "sin":
-            return applyOneArgFunc(Math::sin, a);
-        case "cos":
-            return applyOneArgFunc(Math::cos, a);
-        case "tan":
-            return applyOneArgFunc(Math::tan, a);
-        case "sqrt":
-            return applyOneArgFunc(Math::sqrt, a);
-        case "abs":
-            return applyOneArgFunc(Math::abs, a);
-        case "floor":
-            return applyOneArgFunc(Math::floor, a);
-        case "ceil":
-            return applyOneArgFunc(Math::ceil, a);
-        case "pow":
-            return applyTwoArgFunc(Math::pow, a);
-        case "sign":
-            return applyOneArgFunc((x) -> {
-                if (x < 0) {
-                    return -1.0;
-                } else if (x > 0) {
-                    return 1.0;
-                }
-                return 0.0;
-            }, a);
-        case "round":
-            return applyOneArgFunc((x) -> x - (x.intValue()) < NUM_0_5 ? Math.floor(x) : Math.ceil(x), a);
-        case "min":
-            return applyTwoArgFunc(Math::min, a);
-        case "mod":
-            return applyTwoArgFunc((x, y) -> x % y, a);
-        case "max":
-            return applyTwoArgFunc(Math::max, a);
-        case "dot":
-            return applyTwoArgFuncSum((x, y) -> x * y, a);
-        case "distance":
-            return distanceFunc(a);
-        case "mix": {
-            return mixFunc(a);
-        }
-        case "float": {
-            // GLSL float(x): cast to float; we just forward the value (use first component)
-            GLSLParseText arg = a.get(0);
-            Vector4f v = arg.data;
-            Vector4f res = new Vector4f(v.x, NUM_0, NUM_0, NUM_0);
-            return new GLSLParseText(s, res, 1, "");
-        }
-        case "smoothstep": {
-            return applyThreeArgFunc((edge0, edge1, x) -> {
-                if (edge0 == edge1)
-                    return x < edge0 ? 0.0 : 1.0;
-                double t = (x - edge0) / (edge1 - edge0);
-                if (t < 0.0)
-                    t = 0.0;
-                if (t > 1.0)
-                    t = 1.0;
-                return t * t * (NUM_3_0 - NUM_2_0_2 * t);
-            }, a);
+            case "sin":
+                return applyOneArgFunc(Math::sin, a);
+            case "cos":
+                return applyOneArgFunc(Math::cos, a);
+            case "tan":
+                return applyOneArgFunc(Math::tan, a);
+            case "sqrt":
+                return applyOneArgFunc(Math::sqrt, a);
+            case "abs":
+                return applyOneArgFunc(Math::abs, a);
+            case "floor":
+                return applyOneArgFunc(Math::floor, a);
+            case "ceil":
+                return applyOneArgFunc(Math::ceil, a);
+            case "pow":
+                return applyTwoArgFunc(Math::pow, a);
+            case "sign":
+                return applyOneArgFunc((x) -> {
+                    if (x < 0) {
+                        return -1.0;
+                    } else if (x > 0) {
+                        return 1.0;
+                    }
+                    return 0.0;
+                }, a);
+            case "round":
+                return applyOneArgFunc((x) -> x - (x.intValue()) < NUM_0_5 ? Math.floor(x) : Math.ceil(x), a);
+            case "min":
+                return applyTwoArgFunc(Math::min, a);
+            case "mod":
+                return applyTwoArgFunc((x, y) -> x % y, a);
+            case "max":
+                return applyTwoArgFunc(Math::max, a);
+            case "dot":
+                return applyTwoArgFuncSum((x, y) -> x * y, a);
+            case "distance":
+                return distanceFunc(a);
+            case "mix": {
+                return mixFunc(a);
+            }
+            case "float": {
 
-        }
-        case "clamp": {
-            return applyThreeArgFunc((x, lo, hi) -> Math.max(lo, Math.min(hi, x)), a);
-        }
-        case "vec2":
-            return constructVecN(2, a);
-        case "vec3":
-            return constructVecN(NUM_3, a);
-        case "vec4":
-            return constructVecN(NUM_4, a);
-        default:
-            return GLSLParseText.BLANK;
+                GLSLParseText arg = a.get(0);
+                Vector4f v = arg.data;
+                Vector4f res = new Vector4f(v.x, NUM_0, NUM_0, NUM_0);
+                return new GLSLParseText(s, res, 1, "");
+            }
+            case "smoothstep": {
+                return applyThreeArgFunc((edge0, edge1, x) -> {
+                    if (edge0 == edge1)
+                        return x < edge0 ? 0.0 : 1.0;
+                    double t = (x - edge0) / (edge1 - edge0);
+                    if (t < 0.0)
+                        t = 0.0;
+                    if (t > 1.0)
+                        t = 1.0;
+                    return t * t * (NUM_3_0 - NUM_2_0_2 * t);
+                }, a);
+
+            }
+            case "clamp": {
+                return applyThreeArgFunc((x, lo, hi) -> Math.max(lo, Math.min(hi, x)), a);
+            }
+            case "vec2":
+                return constructVecN(2, a);
+            case "vec3":
+                return constructVecN(NUM_3, a);
+            case "vec4":
+                return constructVecN(NUM_4, a);
+            default:
+                return GLSLParseText.BLANK;
         }
     }
 
@@ -1123,7 +1115,7 @@ public class GLSLExpressionParser {
         for (int i = 0; i < len; i++) {
             int xi = Math.min(i, Math.max(0, x.vectorLength - 1));
             int yi = Math.min(i, Math.max(0, y.vectorLength - 1));
-            // GLSL mix allows scalar or vector t; support both
+
             int ti = Math.min(i, Math.max(0, t.vectorLength - 1));
             double tt = tv.get(t.vectorLength == 1 ? 0 : ti);
             result[i] = (float) (xv.get(xi) * (1.0 - tt) + yv.get(yi) * tt);
@@ -1290,36 +1282,36 @@ public class GLSLExpressionParser {
 
     private static boolean isSwizzleChar(char c) {
         switch (Character.toLowerCase(c)) {
-        case 'x':
-        case 'y':
-        case 'z':
-        case 'w':
-        case 'r':
-        case 'g':
-        case 'b':
-        case 'a':
-            return true;
-        default:
-            return false;
+            case 'x':
+            case 'y':
+            case 'z':
+            case 'w':
+            case 'r':
+            case 'g':
+            case 'b':
+            case 'a':
+                return true;
+            default:
+                return false;
         }
     }
 
     private static int componentSuffix(char c) {
         switch (Character.toLowerCase(c)) {
-        case 'x':
-        case 'r':
-            return 0;
-        case 'y':
-        case 'g':
-            return 1;
-        case 'z':
-        case 'b':
-            return 2;
-        case 'w':
-        case 'a':
-            return NUM_3;
-        default:
-            return NUM_4;
+            case 'x':
+            case 'r':
+                return 0;
+            case 'y':
+            case 'g':
+                return 1;
+            case 'z':
+            case 'b':
+                return 2;
+            case 'w':
+            case 'a':
+                return NUM_3;
+            default:
+                return NUM_4;
         }
     }
 
@@ -1348,10 +1340,12 @@ public class GLSLExpressionParser {
     }
 
     /**
-     * TODO: document {@code isAssignmentLine}.
+     * Heuristic check for "simple assignment" lines: must end with {@code ;},
+     * contain a single {@code =} (not {@code ==}), and not start with comment,
+     * uniform/in/out/void/precision/layout keywords.
      *
-     * @param line TODO: describe
-     * @return TODO: describe
+     * @param line raw source line
+     * @return {@code true} if the line looks like an evaluable assignment
      */
     public static boolean isAssignmentLine(String line) {
         if (line == null) {
@@ -1374,8 +1368,7 @@ public class GLSLExpressionParser {
             return false;
         if (s.startsWith("layout "))
             return false;
-        // Simple assignment detect: has '=' and ends with ';', avoid '==' '>=', '<='
-        // etc.
+
         int eq = s.indexOf('=');
         if (eq < 0)
             return false;
@@ -1387,10 +1380,13 @@ public class GLSLExpressionParser {
     }
 
     /**
-     * TODO: document {@code detectOutName}.
+     * Find the fragment-output variable: the first {@code out vec4 <name>}
+     * declaration (with optional {@code layout(...)} prefix), else
+     * {@code FragColor}
+     * if it appears anywhere, else {@code "fragColor"}.
      *
-     * @param lines TODO: describe
-     * @return TODO: describe
+     * @param lines GLSL source split into lines
+     * @return detected output variable name
      */
     public static String detectOutName(String[] lines) {
         String outName = "fragColor";

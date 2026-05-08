@@ -12,9 +12,10 @@ public record TileGridValue3D(int width, int height, int depth, CellType[] cells
     public static final String X = "x";
 
     /**
-     * TODO: document {@code TileGridValue3D}.
+     * Validates dimensions and clones the cells array so the value is fully immutable.
      *
-     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalArgumentException if any dimension is negative, or if {@code cells.length}
+     *     does not equal {@code width * height * depth}
      */
     public TileGridValue3D {
         if (width < 0 || height < 0 || depth < 0) {
@@ -43,9 +44,9 @@ public record TileGridValue3D(int width, int height, int depth, CellType[] cells
     }
 
     /**
-     * TODO: document {@code cellCount}.
+     * Backing array length.
      *
-     * @return TODO: describe
+     * @return {@code width * height * depth}
      */
     public int cellCount() {
         return cells.length;

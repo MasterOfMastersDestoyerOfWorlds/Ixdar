@@ -29,16 +29,18 @@ public final class ModelCatalog {
     private int currentIndex = 0;
 
     /**
-     * TODO: document {@code ModelCatalog}.
+     * Build a catalog from {@link #defaultRoot()}.
      */
     public ModelCatalog() {
         this(defaultRoot());
     }
 
     /**
-     * TODO: document {@code ModelCatalog}.
+     * Build a catalog by scanning {@code root} for DSL files under
+     * {@code dsl/}, voyage OBJs under {@code obj/voyage/}, and user
+     * blends under {@code obj/blends/}.
      *
-     * @param root TODO: describe
+     * @param root staging directory to scan
      */
     public ModelCatalog(Path root) {
         this.root = root;
@@ -46,9 +48,10 @@ public final class ModelCatalog {
     }
 
     /**
-     * TODO: document {@code defaultRoot}.
+     * Resolve the default staging directory: the {@code IXDAR_MODEL_DIR}
+     * environment variable if set, else {@code ~/.ix/ixdar-models}.
      *
-     * @return TODO: describe
+     * @return absolute path to the staging directory
      */
     public static Path defaultRoot() {
         String override = System.getenv("IXDAR_MODEL_DIR");
@@ -59,27 +62,27 @@ public final class ModelCatalog {
     }
 
     /**
-     * TODO: document {@code root}.
+     * Staging directory the catalog was built from.
      *
-     * @return TODO: describe
+     * @return scan root
      */
     public Path root() {
         return root;
     }
 
     /**
-     * TODO: document {@code entries}.
+     * Immutable list of discovered model entries, sorted by display name.
      *
-     * @return TODO: describe
+     * @return all model entries
      */
     public List<ModelEntry> entries() {
         return entries;
     }
 
     /**
-     * TODO: document {@code current}.
+     * Entry at the current cursor position.
      *
-     * @return TODO: describe
+     * @return the current entry, or {@code null} if the catalog is empty
      */
     public ModelEntry current() {
         if (entries.isEmpty()) return null;
@@ -87,18 +90,18 @@ public final class ModelCatalog {
     }
 
     /**
-     * TODO: document {@code currentIndex}.
+     * Index of the current entry within {@link #entries()}.
      *
-     * @return TODO: describe
+     * @return zero-based current index
      */
     public int currentIndex() {
         return currentIndex;
     }
 
     /**
-     * TODO: document {@code next}.
+     * Advance the cursor by one (wrapping at the end).
      *
-     * @return TODO: describe
+     * @return the entry at the new cursor, or {@code null} if the catalog is empty
      */
     public ModelEntry next() {
         if (entries.isEmpty()) return null;
@@ -107,9 +110,9 @@ public final class ModelCatalog {
     }
 
     /**
-     * TODO: document {@code prev}.
+     * Step the cursor back by one (wrapping at the start).
      *
-     * @return TODO: describe
+     * @return the entry at the new cursor, or {@code null} if the catalog is empty
      */
     public ModelEntry prev() {
         if (entries.isEmpty()) return null;
@@ -118,10 +121,10 @@ public final class ModelCatalog {
     }
 
     /**
-     * TODO: document {@code select}.
+     * Move the cursor to {@code index} if it is in range.
      *
-     * @param index TODO: describe
-     * @return TODO: describe
+     * @param index target index in {@link #entries()}
+     * @return the entry at {@code index}, or {@code null} if out of range or the catalog is empty
      */
     public ModelEntry select(int index) {
         if (entries.isEmpty()) return null;
@@ -133,8 +136,8 @@ public final class ModelCatalog {
     /**
      * Find the catalog index whose absolute path matches, or -1.
      *
-     * @param absolutePath TODO: describe
-     * @return TODO: describe
+     * @param absolutePath path to look up against {@link ModelEntry#absolutePath()}
+     * @return matching index, or {@code -1} if no entry has that path
      */
     public int indexOfPath(String absolutePath) {
         for (int i = 0; i < entries.size(); i++) {

@@ -27,10 +27,10 @@ public class PointSet extends ArrayList<PointND> {
     }
 
     /**
-     * TODO: document {@code getByID}.
+     * Linear lookup of a point by its assigned id.
      *
-     * @param ID TODO: describe
-     * @return TODO: describe
+     * @param ID id to search for, as set via {@link PointND#setID(int)}
+     * @return the matching point, or {@code null} if none has that id
      */
     public PointND getByID(int ID) {
         for (PointND p : this) {
@@ -42,11 +42,12 @@ public class PointSet extends ArrayList<PointND> {
     }
 
     /**
-     * TODO: document {@code SumDistancesToPoint}.
+     * Sum the cached distances from every other point in this set to {@code p}.
+     * The point {@code p} itself is skipped via {@link Object#equals(Object)}.
      *
-     * @param p TODO: describe
-     * @param d TODO: describe
-     * @return TODO: describe
+     * @param p reference point all distances are measured to
+     * @param d precomputed distance matrix used as the metric source
+     * @return total distance from every other point to {@code p}
      */
     public double SumDistancesToPoint(PointND p, DistanceMatrix d) {
         double sum = 0.0;
@@ -81,11 +82,12 @@ public class PointSet extends ArrayList<PointND> {
     }
 
     /**
-     * Finds the anoid of the pointset ps.
+     * Finds the anoid of the pointset ps - the point of {@code ps} that is
+     * farthest from the supplied centroid under the given distance metric.
      *
-     * @param ps TODO: describe
-     * @param centroid TODO: describe
-     * @param d TODO: describe
+     * @param ps the point set to search
+     * @param centroid reference point distances are measured from
+     * @param d precomputed distance matrix used as the metric source
      * @return the anoid
      */
     public static PointND findAnoid(PointSet ps, PointND centroid, DistanceMatrix d) {
@@ -103,9 +105,11 @@ public class PointSet extends ArrayList<PointND> {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Compact debug representation: {@code PointSet[id1, id2, ...]} using
+     * {@link PointND#getID()} when available, falling back to each point's
+     * own {@code toString()} when it lacks an id.
      *
-     * @return TODO: describe
+     * @return bracketed comma-separated string of ids/points
      */
     @Override
     public String toString() {
@@ -127,9 +131,10 @@ public class PointSet extends ArrayList<PointND> {
     }
 
     /**
-     * TODO: document {@code toStringCoords}.
+     * Like {@link #toString()} but always emits each point's full coordinate
+     * string (one entry per line) instead of its id.
      *
-     * @return TODO: describe
+     * @return multi-line bracketed list of point coordinates
      */
     public String toStringCoords() {
         String str = POINTSET;

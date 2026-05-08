@@ -2,362 +2,299 @@ package ixdar.geometry.mesh.data;
 
 import org.joml.Vector3f;
 
+/**
+ * Read-only mesh topology and geometry interface used by the editor and
+ * geometry algorithms. Surfaces vertices, edges, faces, and (where
+ * supported) half-edges with stable integer ids and adjacency lookups.
+ */
 public interface MeshTopology {
     int NONE = -1;
 
     /**
-     * TODO: document {@code vertexCount}.
-     *
-     * @return TODO: describe
+     * @return number of live vertices in the mesh
      */
     int vertexCount();
 
     /**
-     * TODO: document {@code edgeCount}.
-     *
-     * @return TODO: describe
+     * @return number of live edges in the mesh
      */
     int edgeCount();
 
     /**
-     * TODO: document {@code faceCount}.
-     *
-     * @return TODO: describe
+     * @return number of live faces in the mesh
      */
     int faceCount();
 
     /**
-     * TODO: document {@code halfEdgeCount}.
-     *
-     * @return TODO: describe
+     * @return number of live half-edges (0 if the implementation does not store them)
      */
     int halfEdgeCount();
 
     /**
-     * TODO: document {@code vertexIdAt}.
+     * Vertex id at the given dense index in {@code [0, vertexCount())}.
      *
-     * @param activeIndex TODO: describe
-     * @return TODO: describe
+     * @param activeIndex packed index over live vertices
+     * @return stable vertex id at that position
      */
     int vertexIdAt(int activeIndex);
 
     /**
-     * TODO: document {@code edgeIdAt}.
+     * Edge id at the given dense index in {@code [0, edgeCount())}.
      *
-     * @param activeIndex TODO: describe
-     * @return TODO: describe
+     * @param activeIndex packed index over live edges
+     * @return stable edge id at that position
      */
     int edgeIdAt(int activeIndex);
 
     /**
-     * TODO: document {@code faceIdAt}.
+     * Face id at the given dense index in {@code [0, faceCount())}.
      *
-     * @param activeIndex TODO: describe
-     * @return TODO: describe
+     * @param activeIndex packed index over live faces
+     * @return stable face id at that position
      */
     int faceIdAt(int activeIndex);
 
     /**
-     * TODO: document {@code halfEdgeIdAt}.
+     * Half-edge id at the given dense index in {@code [0, halfEdgeCount())}.
      *
-     * @param activeIndex TODO: describe
-     * @return TODO: describe
+     * @param activeIndex packed index over live half-edges
+     * @return stable half-edge id at that position
      */
     int halfEdgeIdAt(int activeIndex);
 
     /**
-     * TODO: document {@code hasVertex}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
+     * @param vertexId candidate id
+     * @return true if {@code vertexId} refers to a live vertex
      */
     boolean hasVertex(int vertexId);
 
     /**
-     * TODO: document {@code hasEdge}.
-     *
-     * @param edgeId TODO: describe
-     * @return TODO: describe
+     * @param edgeId candidate id
+     * @return true if {@code edgeId} refers to a live edge
      */
     boolean hasEdge(int edgeId);
 
     /**
-     * TODO: document {@code hasFace}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
+     * @param faceId candidate id
+     * @return true if {@code faceId} refers to a live face
      */
     boolean hasFace(int faceId);
 
     /**
-     * TODO: document {@code hasHalfEdge}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
+     * @param halfEdgeId candidate id
+     * @return true if {@code halfEdgeId} refers to a live half-edge
      */
     boolean hasHalfEdge(int halfEdgeId);
 
     /**
-     * TODO: document {@code vertexPosition}.
+     * Read the position of a vertex into {@code dest}.
      *
-     * @param vertexId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
+     * @param vertexId vertex to read
+     * @param dest scratch vector to fill
+     * @return {@code dest} for chaining
      */
     Vector3f vertexPosition(int vertexId, Vector3f dest);
 
     /**
-     * TODO: document {@code vertexNormal}.
+     * Read the (cached) per-vertex normal into {@code dest}.
      *
-     * @param vertexId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
+     * @param vertexId vertex to read
+     * @param dest scratch vector to fill
+     * @return {@code dest} for chaining
      */
     Vector3f vertexNormal(int vertexId, Vector3f dest);
 
     /**
-     * TODO: document {@code vertexOutgoingHalfEdge}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
+     * @param vertexId vertex to query
+     * @return id of one outgoing half-edge, or {@link #NONE} if none
      */
     int vertexOutgoingHalfEdge(int vertexId);
 
     /**
-     * TODO: document {@code vertexOutgoingHalfEdgeCount}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
+     * @param vertexId vertex to query
+     * @return number of outgoing half-edges incident to {@code vertexId}
      */
     int vertexOutgoingHalfEdgeCount(int vertexId);
 
     /**
-     * TODO: document {@code vertexOutgoingHalfEdgeAt}.
-     *
-     * @param vertexId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
+     * @param vertexId vertex to query
+     * @param adjacencyIndex index in {@code [0, vertexOutgoingHalfEdgeCount(vertexId))}
+     * @return outgoing half-edge id at that adjacency slot
      */
     int vertexOutgoingHalfEdgeAt(int vertexId, int adjacencyIndex);
 
     /**
-     * TODO: document {@code vertexEdgeCount}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
+     * @param vertexId vertex to query
+     * @return number of edges incident to {@code vertexId}
      */
     int vertexEdgeCount(int vertexId);
 
     /**
-     * TODO: document {@code vertexEdgeAt}.
-     *
-     * @param vertexId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
+     * @param vertexId vertex to query
+     * @param adjacencyIndex index in {@code [0, vertexEdgeCount(vertexId))}
+     * @return incident edge id at that adjacency slot
      */
     int vertexEdgeAt(int vertexId, int adjacencyIndex);
 
     /**
-     * TODO: document {@code vertexFaceCount}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
+     * @param vertexId vertex to query
+     * @return number of faces incident to {@code vertexId}
      */
     int vertexFaceCount(int vertexId);
 
     /**
-     * TODO: document {@code vertexFaceAt}.
-     *
-     * @param vertexId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
+     * @param vertexId vertex to query
+     * @param adjacencyIndex index in {@code [0, vertexFaceCount(vertexId))}
+     * @return incident face id at that adjacency slot
      */
     int vertexFaceAt(int vertexId, int adjacencyIndex);
 
     /**
-     * TODO: document {@code isBoundaryVertex}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
+     * @param vertexId vertex to query
+     * @return true if any incident half-edge lies on the boundary
      */
     boolean isBoundaryVertex(int vertexId);
 
     /**
-     * TODO: document {@code edgeHalfEdge}.
-     *
-     * @param edgeId TODO: describe
-     * @return TODO: describe
+     * @param edgeId edge to query
+     * @return id of one half-edge along {@code edgeId}
      */
     int edgeHalfEdge(int edgeId);
 
     /**
-     * TODO: document {@code isBoundaryEdge}.
-     *
-     * @param edgeId TODO: describe
-     * @return TODO: describe
+     * @param edgeId edge to query
+     * @return true if either side of the edge has no incident face
      */
     boolean isBoundaryEdge(int edgeId);
 
     /**
-     * TODO: document {@code faceHalfEdge}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
+     * @param faceId face to query
+     * @return id of one half-edge bounding {@code faceId}
      */
     int faceHalfEdge(int faceId);
 
     /**
-     * TODO: document {@code faceHalfEdgeCount}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
+     * @param faceId face to query
+     * @return number of half-edges around the face (= polygon side count)
      */
     int faceHalfEdgeCount(int faceId);
 
     /**
-     * TODO: document {@code faceHalfEdgeAt}.
-     *
-     * @param faceId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
+     * @param faceId face to query
+     * @param adjacencyIndex index in {@code [0, faceHalfEdgeCount(faceId))}
+     * @return bounding half-edge id at that slot, in face winding order
      */
     int faceHalfEdgeAt(int faceId, int adjacencyIndex);
 
     /**
-     * TODO: document {@code faceVertexCount}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
+     * @param faceId face to query
+     * @return number of corner vertices of the face
      */
     int faceVertexCount(int faceId);
 
     /**
-     * TODO: document {@code faceVertexAt}.
-     *
-     * @param faceId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
+     * @param faceId face to query
+     * @param adjacencyIndex index in {@code [0, faceVertexCount(faceId))}
+     * @return corner vertex id at that slot, in face winding order
      */
     int faceVertexAt(int faceId, int adjacencyIndex);
 
     /**
-     * TODO: document {@code faceEdgeCount}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
+     * @param faceId face to query
+     * @return number of edges bounding the face
      */
     int faceEdgeCount(int faceId);
 
     /**
-     * TODO: document {@code faceEdgeAt}.
-     *
-     * @param faceId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
+     * @param faceId face to query
+     * @param adjacencyIndex index in {@code [0, faceEdgeCount(faceId))}
+     * @return bounding edge id at that slot, in face winding order
      */
     int faceEdgeAt(int faceId, int adjacencyIndex);
 
     /**
-     * TODO: document {@code faceNormal}.
+     * Read the (cached) per-face normal into {@code dest}.
      *
-     * @param faceId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
+     * @param faceId face to read
+     * @param dest scratch vector to fill
+     * @return {@code dest} for chaining
      */
     Vector3f faceNormal(int faceId, Vector3f dest);
 
     /**
-     * TODO: document {@code halfEdgeVertex}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
+     * @param halfEdgeId half-edge to query
+     * @return source (origin) vertex id of {@code halfEdgeId}
      */
     int halfEdgeVertex(int halfEdgeId);
 
     /**
-     * TODO: document {@code halfEdgeEndVertex}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
+     * @param halfEdgeId half-edge to query
+     * @return destination (target) vertex id of {@code halfEdgeId}
      */
     int halfEdgeEndVertex(int halfEdgeId);
 
     /**
-     * TODO: document {@code halfEdgeTwin}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
+     * @param halfEdgeId half-edge to query
+     * @return id of the opposite half-edge (or {@link #NONE} on boundary)
      */
     int halfEdgeTwin(int halfEdgeId);
 
     /**
-     * TODO: document {@code halfEdgeNext}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
+     * @param halfEdgeId half-edge to query
+     * @return id of the next half-edge around the same face
      */
     int halfEdgeNext(int halfEdgeId);
 
     /**
-     * TODO: document {@code halfEdgePrev}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
+     * @param halfEdgeId half-edge to query
+     * @return id of the previous half-edge around the same face
      */
     int halfEdgePrev(int halfEdgeId);
 
     /**
-     * TODO: document {@code halfEdgeFace}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
+     * @param halfEdgeId half-edge to query
+     * @return id of the face on this side of the half-edge (or {@link #NONE} on boundary)
      */
     int halfEdgeFace(int halfEdgeId);
 
     /**
-     * TODO: document {@code halfEdgeEdge}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
+     * @param halfEdgeId half-edge to query
+     * @return id of the underlying edge that pairs this half-edge and its twin
      */
     int halfEdgeEdge(int halfEdgeId);
 
     /**
-     * TODO: document {@code isBoundaryHalfEdge}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
+     * @param halfEdgeId half-edge to query
+     * @return true if {@code halfEdgeId} has no incident face
      */
     boolean isBoundaryHalfEdge(int halfEdgeId);
 
     /**
-     * TODO: document {@code boundsMin}.
+     * Read the axis-aligned bounding-box minimum into {@code dest}.
      *
-     * @param dest TODO: describe
-     * @return TODO: describe
+     * @param dest scratch vector to fill
+     * @return {@code dest} for chaining
      */
     Vector3f boundsMin(Vector3f dest);
 
     /**
-     * TODO: document {@code boundsMax}.
+     * Read the axis-aligned bounding-box maximum into {@code dest}.
      *
-     * @param dest TODO: describe
-     * @return TODO: describe
+     * @param dest scratch vector to fill
+     * @return {@code dest} for chaining
      */
     Vector3f boundsMax(Vector3f dest);
 
     /**
-     * TODO: document {@code center}.
+     * Read the bounding-box center into {@code dest}.
      *
-     * @param dest TODO: describe
-     * @return TODO: describe
+     * @param dest scratch vector to fill
+     * @return {@code dest} for chaining
      */
     Vector3f center(Vector3f dest);
 
     /**
-     * TODO: document {@code radius}.
-     *
-     * @return TODO: describe
+     * @return half-length of the bounding-box diagonal (used as a default scene scale)
      */
     float radius();
 }

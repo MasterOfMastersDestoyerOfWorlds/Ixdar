@@ -10,6 +10,10 @@ import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Clock;
 import ixdar.platform.Platforms;
 
+/**
+ * Generic 2D pan / zoom mouse handler — left-drag pans the camera, scroll zooms. Used by
+ * scenes that need {@link MouseTrap}'s plumbing without {@code MainScene}-specific click logic.
+ */
 public class Scene2DMousePanTrap extends MouseTrap {
     public static final float NUM_3 = 3f;
     public static final int NUM_4 = 4;
@@ -18,21 +22,19 @@ public class Scene2DMousePanTrap extends MouseTrap {
     private Vector2f leftMouseDownPos;
 
     /**
-     * TODO: document {@code Scene2DMousePanTrap}.
-     *
-     * @param camera TODO: describe
-     * @param canvas TODO: describe
+     * @param camera camera to pan/zoom
+     * @param canvas owning canvas (for platform-id resolution)
      */
     public Scene2DMousePanTrap(Camera camera, Canvas3D canvas) {
         super(null, camera, canvas);
     }
 
     /**
-     * TODO: document {@code mouseButton}.
+     * Track press-down position for drag detection; release clears it.
      *
-     * @param button TODO: describe
-     * @param action TODO: describe
-     * @param mods TODO: describe
+     * @param button button index
+     * @param action {@code ACTION_PRESS} or {@code ACTION_RELEASE}
+     * @param mods modifier-key bitmask (unused)
      */
     @Override
     public void mouseButton(int button, int action, int mods) {
@@ -51,11 +53,12 @@ public class Scene2DMousePanTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code moveOrDrag}.
+     * Dispatch to {@link #mouseDragged} when the left button is held and the cursor has moved
+     * more than {@link #NUM_3} pixels from the press point, otherwise treat as a plain move.
      *
-     * @param window TODO: describe
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param window platform window handle
+     * @param x cursor x in window coordinates
+     * @param y cursor y in window coordinates
      */
     @Override
     public void moveOrDrag(long window, float x, float y) {
@@ -77,10 +80,10 @@ public class Scene2DMousePanTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code mouseDragged}.
+     * Pan the camera by the normalized-coordinate delta since the previous drag sample.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param x cursor x in window coordinates
+     * @param y cursor y in window coordinates
      */
     @Override
     public void mouseDragged(float x, float y) {
@@ -92,9 +95,10 @@ public class Scene2DMousePanTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code scrollCallback}.
+     * Queue scroll ticks (applied during {@link #paintUpdate}); ticks decay if no further scroll
+     * arrives within {@link #NUM_60} ms.
      *
-     * @param y TODO: describe
+     * @param y vertical scroll delta
      */
     @Override
     public void scrollCallback(double y) {
@@ -107,9 +111,10 @@ public class Scene2DMousePanTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code paintUpdate}.
+     * Per-frame: drain queued scroll ticks into a camera zoom call (sign of accumulated ticks
+     * picks zoom-in vs zoom-out).
      *
-     * @param shiftMod TODO: describe
+     * @param shiftMod speed multiplier (currently unused; preserved for API parity)
      */
     @Override
     public void paintUpdate(float shiftMod) {

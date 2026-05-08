@@ -11,9 +11,9 @@ public class WebBuffer implements IxBuffer {
     private int remaining;
 
     /**
-     * TODO: document {@code WebBuffer}.
+     * Allocate a JS {@code Float32Array} of {@code capacity} floats.
      *
-     * @param capacity TODO: describe
+     * @param capacity number of floats
      */
     public WebBuffer(int capacity) {
         this.capacity = capacity;
@@ -22,14 +22,15 @@ public class WebBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code flip}.
+     * No-op: the WebGL upload paths read the entire {@code Float32Array}, so flipping is
+     * unnecessary.
      */
     @Override
     public void flip() {
     }
 
     /**
-     * TODO: document {@code clear}.
+     * Reset {@link #remaining} to the full capacity (next {@link #put} writes at index 0).
      */
     @Override
     public void clear() {
@@ -37,9 +38,7 @@ public class WebBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code remaining}.
-     *
-     * @return TODO: describe
+     * @return floats not yet written via {@link #put}
      */
     @Override
     public int remaining() {
@@ -47,10 +46,10 @@ public class WebBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code put}.
+     * Append at index {@code capacity - remaining} and decrement {@link #remaining}.
      *
-     * @param x1 TODO: describe
-     * @return TODO: describe
+     * @param x1 float to write
+     * @return this buffer
      */
     @Override
     public IxBuffer put(float x1) {
@@ -61,9 +60,7 @@ public class WebBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code capacity}.
-     *
-     * @return TODO: describe
+     * @return capacity passed to the constructor
      */
     @Override
     public int capacity() {
@@ -71,19 +68,19 @@ public class WebBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code getFloatBuffer}.
+     * Direct access to the underlying typed array; pass to WebGL calls.
      *
-     * @return TODO: describe
+     * @return wrapped {@link Float32Array}
      */
     public Float32Array getFloatBuffer() {
         return fb;
     }
 
     /**
-     * TODO: document {@code get}.
+     * Absolute read from the typed array.
      *
-     * @param i TODO: describe
-     * @return TODO: describe
+     * @param i index
+     * @return {@code fb.get(i)}
      */
     @Override
     public Float get(int i) {

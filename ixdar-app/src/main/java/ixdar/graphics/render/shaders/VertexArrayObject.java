@@ -9,7 +9,7 @@ public class VertexArrayObject {
     private final int id;
 
     /**
-     * TODO: document {@code VertexArrayObject}.
+     * Allocate a new GL vertex array object name.
      */
     public VertexArrayObject() {
         GL gl = Platforms.gl();
@@ -17,7 +17,7 @@ public class VertexArrayObject {
     }
 
     /**
-     * TODO: document {@code bind}.
+     * Bind this VAO as the current vertex array.
      */
     public void bind() {
         GL gl = Platforms.gl();
@@ -25,7 +25,7 @@ public class VertexArrayObject {
     }
 
     /**
-     * TODO: document {@code delete}.
+     * Delete this VAO from GL state.
      */
     public void delete() {
         GL gl = Platforms.gl();
@@ -33,9 +33,9 @@ public class VertexArrayObject {
     }
 
     /**
-     * TODO: document {@code getID}.
+     * The GL name for this VAO.
      *
-     * @return TODO: describe
+     * @return GL-assigned vertex array id
      */
     public int getID() {
         return id;

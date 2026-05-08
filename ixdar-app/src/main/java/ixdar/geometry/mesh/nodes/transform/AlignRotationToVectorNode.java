@@ -14,7 +14,7 @@ import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.annotations.meshnode.RotationField;
 import ixdar.annotations.meshnode.RotationValue;
-import ixdar.annotations.meshnode.Vec3Field;
+import ixdar.annotations.meshnode.Vector3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
@@ -59,7 +59,7 @@ public class AlignRotationToVectorNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         Object vo = FieldBroadcast.getInputOrDefault(ctx, VECTOR_2, VECTOR.defaultValue());
-        if (vo instanceof Vec3Field vf) {
+        if (vo instanceof Vector3Field vf) {
             int n = vf.length();
             float[] d = new float[n * NUM_4];
             Vector3f dir = new Vector3f();

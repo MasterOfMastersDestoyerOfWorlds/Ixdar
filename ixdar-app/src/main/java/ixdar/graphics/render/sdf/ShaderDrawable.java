@@ -70,17 +70,18 @@ public abstract class ShaderDrawable {
     private IxBuffer geometryBuf;
 
     /**
-     * TODO: document {@code ShaderDrawable}.
+     * Assign a unique per-class drawing id used for persistent VBO allocation
+     * keying.
      */
     protected ShaderDrawable() {
         this.drawingId = nextId(getClass());
     }
 
     /**
-     * TODO: document {@code nextId}.
+     * Increment and return the next per-class drawing id counter.
      *
-     * @param clazz TODO: describe
-     * @return TODO: describe
+     * @param clazz subclass requesting a fresh id
+     * @return monotonically increasing id, starting at 0 per class
      */
     protected static long nextId(Class<?> clazz) {
         long id = counters.computeIfAbsent(clazz, c -> 0L);
@@ -89,18 +90,20 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code getDrawingId}.
+     * The unique id used to key this drawable's persistent VBO allocation.
      *
-     * @return TODO: describe
+     * @return drawing id assigned at construction
      */
     public long getDrawingId() {
         return drawingId;
     }
 
     /**
-     * TODO: document {@code setup}.
+     * Bind shader, recompute the quad, derive width/height/center/uv axes,
+     * push uniforms, and (re)upload geometry into the persistent VBO slice
+     * if the quad or color changed.
      *
-     * @param camera TODO: describe
+     * @param camera camera providing transform and z-index
      */
     public void setup(Camera camera) {
         this.camera = camera;
@@ -143,9 +146,9 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code cleanup}.
+     * End the current shader pass and advance the camera's near z-index.
      *
-     * @param c TODO: describe
+     * @param c camera whose z-index should be incremented
      */
     public void cleanup(Camera c) {
         shader.end();
@@ -153,9 +156,10 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code cleanupFar}.
+     * End the current shader pass and decrement the camera's far z-index
+     * (used when rendering background-layer drawables).
      *
-     * @param c TODO: describe
+     * @param c camera whose far z-index should be decremented
      */
     public void cleanupFar(Camera c) {
         shader.end();
@@ -163,18 +167,20 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setUniforms}.
+     * Push shader-specific uniforms before the draw call. Subclasses must
+     * override.
      *
-     * @throws UnsupportedOperationException TODO: describe
+     * @throws UnsupportedOperationException if a subclass does not override
      */
     protected void setUniforms() {
         throw new UnsupportedOperationException("Unimplemented method");
     }
 
     /**
-     * TODO: document {@code getUniformMap}.
+     * Snapshot the shader's current uniform values as parseable GLSL text
+     * (used by the GLSL editor / inspector UI).
      *
-     * @return TODO: describe
+     * @return map keyed by uniform name with rendered text and value tuples
      */
     public Map<String, GLSLParseText> getUniformMap() {
         Map<String, GLSLParseText> map = new HashMap<>();
@@ -212,14 +218,14 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Cache rectangle and color and submit a draw.
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param c TODO: describe
-     * @param camera TODO: describe
+     * @param drawX bottom-left x in world coordinates
+     * @param drawY bottom-left y in world coordinates
+     * @param width quad width in world units
+     * @param height quad height in world units
+     * @param c tint color (ignored when {@code null})
+     * @param camera camera providing transform and z-index
      */
     public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
         if (c != null) {
@@ -233,10 +239,11 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Submit one draw: run setup, queue the quad's vertex range, and run
+     * cleanup. Logs and returns early if the shader is missing.
      *
-     * @param camera TODO: describe
-     * @throws NullPointerException TODO: describe
+     * @param camera camera providing transform and z-index
+     * @throws NullPointerException if the shader belongs to a different platform
      */
     public void draw(Camera camera) {
         if (shader == null) {
@@ -261,10 +268,11 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code drawFar}.
+     * Submit one draw using the allocation keyed by {@code id}, advancing the
+     * camera's far z-index instead of its near one.
      *
-     * @param camera TODO: describe
-     * @param id TODO: describe
+     * @param camera camera providing transform and z-index
+     * @param id allocation id to draw (typically a per-instance identifier)
      */
     public void drawFar(Camera camera, Long id) {
         this.camera = camera;
@@ -277,9 +285,9 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code calculateQuad}.
+     * Cache the camera and rebuild the quad.
      *
-     * @param camera2d TODO: describe
+     * @param camera2d camera to associate with the recomputed quad
      */
     public void calculateQuad(Camera camera2d) {
         this.camera = camera2d;
@@ -287,7 +295,8 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code calculateQuad}.
+     * Default quad: axis-aligned rectangle of width x height anchored at
+     * {@code (drawX, drawY)}, with corresponding u/v axes.
      */
     public void calculateQuad() {
         bottomLeft = new Vector2f(drawX, drawY);
@@ -299,28 +308,28 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code drawCentered}.
+     * Draw the quad centered on {@code (drawX, drawY)}.
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param c TODO: describe
-     * @param camera TODO: describe
+     * @param drawX center x in world coordinates
+     * @param drawY center y in world coordinates
+     * @param width quad width in world units
+     * @param height quad height in world units
+     * @param c tint color
+     * @param camera camera providing transform and z-index
      */
     public void drawCentered(float drawX, float drawY, float width, float height, Color c, Camera camera) {
         draw(drawX - (width / 2), drawY - (height / 2), width, height, c, camera);
     }
 
     /**
-     * TODO: document {@code drawRightBound}.
+     * Draw the quad with its right edge at {@code drawX} (right-aligned).
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param c TODO: describe
-     * @param camera TODO: describe
+     * @param drawX right-edge x in world coordinates
+     * @param drawY bottom-left y in world coordinates
+     * @param width quad width in world units
+     * @param height quad height in world units
+     * @param c tint color
+     * @param camera camera providing transform and z-index
      */
     public void drawRightBound(float drawX, float drawY, float width, float height, Color c, Camera camera) {
         draw(drawX - width, drawY, width, height, c, camera);
@@ -346,9 +355,10 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code getQuad}.
+     * Return the most recently uploaded quad for this drawable's id (may be
+     * {@code null} if nothing has been drawn yet).
      *
-     * @return TODO: describe
+     * @return cached quad snapshot or {@code null}
      */
     public Quad getQuad() {
         return prevQuadById.get(drawingId);
@@ -403,10 +413,10 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code toTextureSpace}.
+     * Project a world-space point onto the quad's normalized [0,1] uv space.
      *
-     * @param p TODO: describe
-     * @return TODO: describe
+     * @param p world-space point
+     * @return (u, v) in [0,1] when {@code p} lies on the quad
      */
     public Vector2f toTextureSpace(Vector2f p) {
         if (uAxis == null) {
@@ -420,10 +430,11 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code toScaledTextureSpace}.
+     * Project a world-space point into texture space scaled by
+     * {@code (texWidth, texHeight)} (i.e. preserves the quad's aspect).
      *
-     * @param p TODO: describe
-     * @return TODO: describe
+     * @param p world-space point
+     * @return scaled (u, v) coordinates
      */
     public Vector2f toScaledTextureSpace(Vector2f p) {
         if (uAxis == null) {
@@ -439,27 +450,27 @@ public abstract class ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code getShader}.
+     * The shader program currently driving this drawable.
      *
-     * @return TODO: describe
+     * @return active shader
      */
     public ShaderProgram getShader() {
         return shader;
     }
 
     /**
-     * TODO: document {@code getUAxis}.
+     * The quad's u-axis (bottomRight - bottomLeft) in world coordinates.
      *
-     * @return TODO: describe
+     * @return horizontal edge vector of the last computed quad
      */
     public Vector2f getUAxis() {
         return uAxis;
     }
 
     /**
-     * TODO: document {@code getVAxis}.
+     * The quad's v-axis (topLeft - bottomLeft) in world coordinates.
      *
-     * @return TODO: describe
+     * @return vertical edge vector of the last computed quad
      */
     public Vector2f getVAxis() {
         return vAxis;

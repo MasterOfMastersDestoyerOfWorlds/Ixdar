@@ -16,11 +16,14 @@ public class InjectScroll extends AutomationEndpoint implements AutomationRoute 
     public static final String OK = "ok";
     public static final String ERROR = "error";
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code POST /input/scroll}: deliver a synthesized scroll event to the active
+     * mouse handler. Recorded as an abstract {@code "scroll"} action.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body JSON body with {@code delta} (double, default 0) — the vertical
+     *             scroll delta passed to {@code scrollCallback}
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return {@code {"ok": true}} on success, or an error object when no mouse
+     *         handler is active
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {

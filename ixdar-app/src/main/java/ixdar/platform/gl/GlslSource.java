@@ -11,9 +11,11 @@ public final class GlslSource {
 
     /**
      * Rewrite WebGL2-oriented sources for OpenGL 3.3 core: version line and ES-only precision.
+     * Replaces a leading {@code #version 300 es} with {@code #version 330 core} and strips any
+     * {@code precision ...;} declarations. Trailing NULs are stripped.
      *
-     * @param source TODO: describe
-     * @return TODO: describe
+     * @param source GLSL ES source text (may be null / empty)
+     * @return adapted source for desktop core profile, or {@code source} unchanged if null/empty
      */
     public static String adaptEs300SharedForDesktopCore330(String source) {
         if (source == null || source.isEmpty()) {
@@ -48,10 +50,10 @@ public final class GlslSource {
     }
 
     /**
-     * TODO: document {@code joinChunks}.
+     * Concatenate shader source fragments, skipping nulls and stripping a trailing NUL.
      *
-     * @param parts TODO: describe
-     * @return TODO: describe
+     * @param parts source chunks (may contain nulls)
+     * @return concatenated source, or {@code ""} when {@code parts} is null / empty
      */
     public static String joinChunks(CharSequence[] parts) {
         if (parts == null || parts.length == 0) {

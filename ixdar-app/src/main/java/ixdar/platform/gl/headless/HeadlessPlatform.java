@@ -48,17 +48,18 @@ public class HeadlessPlatform implements Platform {
     private HeadlessGL gl;
 
     /**
-     * TODO: document {@code HeadlessPlatform}.
+     * 512x512 default headless platform.
      */
     public HeadlessPlatform() {
         this(NUM_512, NUM_512);
     }
-    
+
     /**
-     * TODO: document {@code HeadlessPlatform}.
+     * Build a headless platform sized {@code width x height}; window and framebuffer dimensions
+     * are both initialized to that size.
      *
-     * @param width TODO: describe
-     * @param height TODO: describe
+     * @param width window/framebuffer width in pixels
+     * @param height window/framebuffer height in pixels
      */
     public HeadlessPlatform(int width, int height) {
         this.startTime = (float) (System.nanoTime() / NUM_1e9);
@@ -69,174 +70,108 @@ public class HeadlessPlatform implements Platform {
         this.gl = new HeadlessGL(width, height);
     }
 
-    /**
-     * TODO: document {@code allocateFloats}.
-     *
-     * @param capacity TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public IxBuffer allocateFloats(int capacity) {
         return new HeadlessBuffer(capacity);
     }
 
-    /**
-     * TODO: document {@code setTitle}.
-     *
-     * @param title TODO: describe
-     */
+    /** No-op: headless has no window decoration. */
     @Override
     public void setTitle(String title) {
         // no-op
     }
 
-    /**
-     * TODO: document {@code getWindowWidth}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getWindowWidth() {
         return windowWidth;
     }
 
-    /**
-     * TODO: document {@code getWindowHeight}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getWindowHeight() {
         return windowHeight;
     }
 
-    /**
-     * TODO: document {@code requestRepaint}.
-     */
+    /** No-op: headless renders on demand from test code. */
     @Override
     public void requestRepaint() {
         // no-op
     }
 
-    /**
-     * TODO: document {@code timeSeconds}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public float timeSeconds() {
         return (float) (System.nanoTime() / NUM_1e9);
     }
 
-    /**
-     * TODO: document {@code setKeyCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** No-op: headless does not deliver keyboard events. */
     @Override
     public void setKeyCallback(KeyCallback callback) {
         // no-op
     }
 
-    /**
-     * TODO: document {@code setCharCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** No-op: headless does not deliver text input. */
     @Override
     public void setCharCallback(CharCallback callback) {
         // no-op
     }
 
-    /**
-     * TODO: document {@code setCursorPosCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** No-op: headless does not deliver cursor positions. */
     @Override
     public void setCursorPosCallback(CursorPosCallback callback) {
         // no-op
     }
 
-    /**
-     * TODO: document {@code setMouseButtonCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** No-op: headless does not deliver mouse-button events. */
     @Override
     public void setMouseButtonCallback(MouseButtonCallback callback) {
         // no-op
     }
 
-    /**
-     * TODO: document {@code setScrollCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** No-op: headless does not deliver scroll events. */
     @Override
     public void setScrollCallback(ScrollCallback callback) {
         // no-op
     }
 
-    /**
-     * TODO: document {@code setCursorMode}.
-     *
-     * @param mode TODO: describe
-     */
+    /** No-op: headless has no window or cursor. */
     @Override
     public void setCursorMode(CursorMode mode) {
         // no-op — headless has no window or cursor
     }
 
-    /**
-     * TODO: document {@code parseFontAtlas}.
-     *
-     * @param json TODO: describe
-     * @return TODO: describe
-     */
+    /** Parse atlas JSON via Gson (same as desktop). */
     @Override
     public FontAtlasDTO parseFontAtlas(String json) {
         return new Gson().fromJson(json, FontAtlasDTO.class);
     }
 
-    /**
-     * TODO: document {@code loadTexture}.
-     *
-     * @param resourceName TODO: describe
-     * @param platformId TODO: describe
-     * @param callback TODO: describe
-     */
+    /** No-op: textures aren't currently loaded for headless tests. */
     @Override
     public void loadTexture(String resourceName, int platformId, Consumer<Texture> callback) {
         // no-op for headless
     }
 
-    /**
-     * TODO: document {@code startTime}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public float startTime() {
         return startTime;
     }
 
-    /**
-     * TODO: document {@code exit}.
-     *
-     * @param code TODO: describe
-     */
+    /** No-op: tests must not terminate the JVM. */
     @Override
     public void exit(int code) {
         // no-op for tests
     }
 
     /**
-     * TODO: document {@code trySyncLoadSource}.
+     * Read {@code resourceFolder/filename} from the classpath synchronously.
      *
-     * @param resourceFolder TODO: describe
-     * @param filename TODO: describe
-     * @return TODO: describe
+     * @param resourceFolder folder under the classpath (e.g. {@code "glsl"})
+     * @param filename file within {@code resourceFolder}
+     * @return file contents, or {@code null} if missing
      */
     @Override
     public String trySyncLoadSource(String resourceFolder, String filename) {
@@ -253,14 +188,7 @@ public class HeadlessPlatform implements Platform {
         }
     }
 
-    /**
-     * TODO: document {@code loadSourceAsync}.
-     *
-     * @param resourceFolder TODO: describe
-     * @param filename TODO: describe
-     * @param platformId TODO: describe
-     * @param callback TODO: describe
-     */
+    /** Resolves synchronously via the classpath; falls back to {@code ""} on miss. */
     @Override
     public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
         String sync = trySyncLoadSource(resourceFolder, filename);
@@ -271,14 +199,7 @@ public class HeadlessPlatform implements Platform {
         callback.accept("");
     }
 
-    /**
-     * TODO: document {@code loadShaderSourceAsync}.
-     *
-     * @param resourceFolder TODO: describe
-     * @param filename TODO: describe
-     * @param platformId TODO: describe
-     * @param callback TODO: describe
-     */
+    /** Force shader sources to be loaded from the {@code glsl/} classpath folder. */
     @Override
     public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId,
             Consumer<String> callback) {
@@ -286,11 +207,12 @@ public class HeadlessPlatform implements Platform {
     }
 
     /**
-     * TODO: document {@code loadFile}.
+     * Load a classpath resource as a {@link TextFile}, accommodating the test layout where
+     * paths may begin with {@code ./src/main/resources/} or be relative to {@code src/}.
      *
-     * @param path TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param path resource path
+     * @throws IOException if the resource cannot be located
+     * @return loaded text
      */
     @Override
     public TextFile loadFile(String path) throws IOException {
@@ -312,11 +234,11 @@ public class HeadlessPlatform implements Platform {
     }
 
     /**
-     * TODO: document {@code loadExternalFile}.
+     * Load an external (filesystem) text file by absolute path.
      *
-     * @param absolutePath TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param absolutePath absolute filesystem path
+     * @throws IOException if the file is missing
+     * @return loaded text
      */
     @Override
     public TextFile loadExternalFile(String absolutePath) throws IOException {
@@ -329,11 +251,11 @@ public class HeadlessPlatform implements Platform {
     }
 
     /**
-     * TODO: document {@code writeTextFile}.
+     * Write {@code file} to disk, creating parent directories as needed.
      *
-     * @param file TODO: describe
-     * @param append TODO: describe
-     * @throws IOException TODO: describe
+     * @param file file (path + lines) to persist
+     * @param append true to append, false to truncate
+     * @throws IOException on filesystem failure
      */
     @Override
     public void writeTextFile(TextFile file, boolean append) throws IOException {
@@ -352,100 +274,68 @@ public class HeadlessPlatform implements Platform {
         }
     }
 
-    /**
-     * TODO: document {@code log}.
-     *
-     * @param msg TODO: describe
-     */
+    /** Route logs to {@code System.out}. */
     @Override
     public void log(String msg) {
         System.out.println(msg);
     }
 
-    /**
-     * TODO: document {@code canHotReload}.
-     *
-     * @return TODO: describe
-     */
+    /** {@code false}: no live resource reloading in headless tests. */
     @Override
     public boolean canHotReload() {
         return false;
     }
 
-    /**
-     * TODO: document {@code setFrameBufferSize}.
-     *
-     * @param width TODO: describe
-     * @param height TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setFrameBufferSize(float width, float height) {
         this.frameBufferWidth = (int) width;
         this.frameBufferHeight = (int) height;
     }
 
-    /**
-     * TODO: document {@code getFrameBufferWidth}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getFrameBufferWidth() {
         return frameBufferWidth;
     }
 
-    /**
-     * TODO: document {@code getFrameBufferHeight}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getFrameBufferHeight() {
         return frameBufferHeight;
     }
 
-    /**
-     * TODO: document {@code getPlatformID}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getPlatformID() {
         return platformId;
     }
 
-    /**
-     * TODO: document {@code setPlatformID}.
-     *
-     * @param p TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setPlatformID(Integer p) {
         this.platformId = p == null ? -1 : p.intValue();
     }
 
-    /**
-     * TODO: document {@code processInputQueue}.
-     */
+    /** No-op: headless has no input queue to drain. */
     @Override
     public void processInputQueue() {
         // no-op for headless
     }
 
     /**
-     * Get the headless GL instance.
-     *
-     * @return TODO: describe
+     * @return the {@link HeadlessGL} created at construction
      */
     public HeadlessGL getGL() {
         return gl;
     }
 
     /**
-     * Capture a screenshot and save to PNG file.
+     * Read the framebuffer back via {@link HeadlessGL#readPixels} and write the result to a PNG
+     * file (Y-flipping from GL's bottom-left origin to AWT's top-left).
      *
-     * @param outputPath TODO: describe
-     * @throws IOException TODO: describe
+     * @param outputPath PNG output path (parent dirs are created)
+     * @throws IOException if GL is not initialized or PNG encoding fails
      */
     public void screenshot(String outputPath) throws IOException {
         if (gl == null) {
@@ -493,7 +383,7 @@ public class HeadlessPlatform implements Platform {
     }
 
     /**
-     * Release all resources.
+     * Tear down the GL context and destroy the offscreen window.
      */
     public void shutdown() {
         if (gl != null) {

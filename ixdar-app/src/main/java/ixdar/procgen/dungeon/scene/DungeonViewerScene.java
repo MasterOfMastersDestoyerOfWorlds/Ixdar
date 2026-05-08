@@ -18,7 +18,6 @@ import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.procgen.dungeon.camera.ThirdPersonCamera;
-import ixdar.procgen.dungeon.physics.Vec3f;
 import ixdar.procgen.dungeon.player.PlayerController;
 import ixdar.procgen.dungeon.player.PlayerSpawner;
 import ixdar.procgen.dungeon.player.SpawnPoint;
@@ -81,7 +80,8 @@ public class DungeonViewerScene extends Scene {
     private DebugCapsuleRuntime capsuleRuntime;
 
     /**
-     * TODO: document {@code DungeonViewerScene}.
+     * Builds the scene, picking the DSL resource from the {@code ixdar.mesh.dsl} system property
+     * (defaulting to {@code dungeon_2d.dsl}) and appending the {@code .dsl} extension if absent.
      */
     public DungeonViewerScene() {
         String v = System.getProperty("ixdar.mesh.dsl");
@@ -90,9 +90,10 @@ public class DungeonViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code initGL}.
+     * Wires up input handlers and the debug capsule runtime, then kicks off the asynchronous
+     * DSL load that populates the mesh and (for 3D dungeons) the player collision world.
      *
-     * @throws IllegalStateException TODO: describe
+     * @throws IllegalStateException if the debug capsule runtime cannot be created
      */
     @Override
     public void initGL() {
@@ -212,7 +213,7 @@ public class DungeonViewerScene extends Scene {
                     float r  = playerCellSize * CAPSULE_RADIUS_FRAC;
                     float jump = JUMP_SPEED_PER_CELL * playerCellSize;
                     float walk = WALK_SPEED_PER_CELL * playerCellSize;
-                    this.player = new PlayerController(grid, playerCellSize, Vec3f.ZERO,
+                    this.player = new PlayerController(grid, playerCellSize, new Vector3f(0f, 0f, 0f),
                             hh, r, PlayerController.DEFAULT_GRAVITY, jump, walk);
                     return;
                 }
@@ -295,7 +296,8 @@ public class DungeonViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code drawScene}.
+     * Per-frame draw. Steps player physics (in player mode), refreshes the camera, renders the
+     * dungeon mesh, and overlays the debug capsule when in third-person.
      */
     @Override
     public void drawScene() {
@@ -310,7 +312,7 @@ public class DungeonViewerScene extends Scene {
                 player.update(dt, keys.pressedKeys, camera.yaw);
             } else {
                 player.update(dt, keys.pressedKeys, camera.yaw);
-                Vec3f eye = player.cameraEyePosition();
+                Vector3f eye = player.cameraEyePosition();
                 camera.position.set(eye.x(), eye.y(), eye.z());
             }
         }
@@ -318,7 +320,7 @@ public class DungeonViewerScene extends Scene {
         camera.updateViewFirstPerson();
         meshRuntime.render(camera);
         if (playerMode && viewMode == ViewMode.THIRD_PERSON && player != null && capsuleRuntime != null) {
-            Vec3f p = player.position();
+            Vector3f p = player.position();
             float yawRad = (float) Math.toRadians(player.facingYawDegrees());
             capsuleRuntime.render(camera, p.x(), p.y(), p.z(), yawRad,
                     player.radius(), player.halfHeight());
@@ -326,9 +328,10 @@ public class DungeonViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code activate}.
+     * Scene activation hook. On deactivation, releases GL-bound mesh and capsule runtimes so
+     * resources don't leak when switching scenes.
      *
-     * @param state TODO: describe
+     * @param state {@code true} when the scene is being activated, {@code false} on deactivation
      */
     @Override
     public void activate(boolean state) {
@@ -346,7 +349,8 @@ public class DungeonViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code shutdown}.
+     * Releases GL runtimes and restores the OS cursor so the user can interact with the desktop
+     * after the scene exits.
      */
     @Override
     public void shutdown() {
@@ -366,27 +370,27 @@ public class DungeonViewerScene extends Scene {
     // --- Accessors for tests / automation ------------------------------------
 
     /**
-     * TODO: document {@code getMeshVertexCount}.
+     * Vertex count of the currently-loaded dungeon mesh.
      *
-     * @return TODO: describe
+     * @return number of vertices, or 0 if the DSL has not finished loading
      */
     public int getMeshVertexCount() {
         return mesh == null ? 0 : mesh.vertexCount();
     }
 
     /**
-     * TODO: document {@code getMeshFaceCount}.
+     * Face count of the currently-loaded dungeon mesh.
      *
-     * @return TODO: describe
+     * @return number of faces, or 0 if the DSL has not finished loading
      */
     public int getMeshFaceCount() {
         return mesh == null ? 0 : mesh.faceCount();
     }
 
     /**
-     * TODO: document {@code isPlayerMode}.
+     * Whether the scene is currently in player-walk mode (versus fly-cam).
      *
-     * @return TODO: describe
+     * @return {@code true} if the player capsule owns horizontal motion this frame
      */
     public boolean isPlayerMode() {
         return playerMode;

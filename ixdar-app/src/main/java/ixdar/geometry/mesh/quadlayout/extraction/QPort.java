@@ -39,18 +39,20 @@ public final class QPort {
     public boolean connected = false;
 
     /**
-     * TODO: document {@code QPort}.
+     * Construct a port, leaving {@code prevPort}, {@code nextPort}, and
+     * {@code connectedEdgeId} unset (caller fills them after the cyclic ring
+     * is sorted and the edge tracer pairs ports up).
      *
-     * @param id TODO: describe
-     * @param qVertId TODO: describe
-     * @param source TODO: describe
-     * @param sourceId TODO: describe
-     * @param faceId TODO: describe
-     * @param uvU TODO: describe
-     * @param uvV TODO: describe
-     * @param dirU TODO: describe
-     * @param dirV TODO: describe
-     * @param position TODO: describe
+     * @param id sequential port id (matches the index in the ports list)
+     * @param qVertId id of the {@link QVert} this port emits from
+     * @param source source kind of the owning QVert (FACE / EDGE / VERT)
+     * @param sourceId mesh entity id for {@code source}
+     * @param faceId mesh face whose UV frame the port's direction is expressed in
+     * @param uvU u coordinate of the port location in {@code faceId}'s frame
+     * @param uvV v coordinate of the port location in {@code faceId}'s frame
+     * @param dirU u component of the cardinal direction (one of -1, 0, +1)
+     * @param dirV v component of the cardinal direction (one of -1, 0, +1)
+     * @param position 3D position of the port (= the QVert's position)
      */
     public QPort(int id, int qVertId, QVert.Source source, int sourceId,
                  int faceId, float uvU, float uvV, float dirU, float dirV,

@@ -7,15 +7,19 @@ import ixdar.annotations.geometry.Geometry;
 import ixdar.annotations.geometry.GeometryAnnotation;
 import ixdar.common.exceptions.TerminalParseException;
 
+/**
+ * Equilateral triangle sampled around a center, exposed on the terminal as
+ * {@code add tri} (also {@code t} / {@code triangle}). It is a regular polygon
+ * fixed at three vertices, parameterized by center, radius, and rotation.
+ */
 @GeometryAnnotation(id = "tri")
 public class Triangle implements Geometry, PointCollection {
     public static final String TRIANGLE = "triangle";
     public static final int NUM_3 = 3;
     public static final double NUM_180_0 = 180.0;
     public static final int NUM_10 = 10;
-
-    public static OptionList opts = new OptionList("t", cmd, TRIANGLE);
     public static String cmd = "tri";
+    public static OptionList opts = new OptionList("t", cmd, TRIANGLE);
 
     double xCenter;
     double yCenter;
@@ -24,12 +28,12 @@ public class Triangle implements Geometry, PointCollection {
     ArrayList<PointND> points;
 
     /**
-     * TODO: document {@code Triangle}.
+     * Build a triangle from explicit parameters and realize its three vertices.
      *
-     * @param xCenter TODO: describe
-     * @param yCenter TODO: describe
-     * @param radius TODO: describe
-     * @param rotation TODO: describe
+     * @param xCenter  x of the center
+     * @param yCenter  y of the center
+     * @param radius   distance from center to each vertex
+     * @param rotation starting-angle offset in radians
      */
     public Triangle(double xCenter, double yCenter, double radius, double rotation) {
         this.xCenter = xCenter;
@@ -40,7 +44,8 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code Triangle}.
+     * Default triangle: centered at the origin, radius {@value #NUM_10}, zero
+     * rotation. Note: vertices are not eagerly realized in this overload.
      */
     public Triangle() {
         xCenter = 0.0;
@@ -50,12 +55,12 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parse}.
+     * Convenience that parses the args and returns just the realized vertices.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args     full terminal argument array
+     * @param startIdx index of the first argument belonging to the triangle
+     * @return the three sampled points of the parsed triangle
+     * @throws TerminalParseException if the slice is malformed
      */
     public static ArrayList<PointND> parse(String[] args, int startIdx) throws TerminalParseException {
         Triangle t = parseTriangle(args, startIdx);
@@ -63,12 +68,15 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parseTriangle}.
+     * Parse a {@code Triangle} from {@code [xCenter, yCenter, radius,
+     * rotationDeg]}. With zero trailing args, returns a default
+     * {@link #Triangle()}; rotation is supplied in degrees and converted to
+     * radians.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args     full terminal argument array
+     * @param startIdx index of the first argument belonging to the triangle
+     * @return parsed triangle
+     * @throws TerminalParseException if any token is not numeric
      */
     public static Triangle parseTriangle(String[] args, int startIdx) throws TerminalParseException {
         if (args.length - startIdx == 0) {
@@ -83,12 +91,12 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parseCollection}.
+     * {@link PointCollection} entry point; delegates to {@link #parseTriangle}.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args     full terminal argument array
+     * @param startIdx index of the first argument belonging to the triangle
+     * @return parsed triangle as a {@link PointCollection}
+     * @throws TerminalParseException if the slice is malformed
      */
     @Override
     public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {
@@ -97,9 +105,9 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code desc}.
+     * Short human-readable description shown in terminal help.
      *
-     * @return TODO: describe
+     * @return description string
      */
     @Override
     public String desc() {
@@ -107,9 +115,9 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code usage}.
+     * Usage hint shown when the command is invoked with bad arguments.
      *
-     * @return TODO: describe
+     * @return single-line usage string
      */
     @Override
     public String usage() {
@@ -117,9 +125,9 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code argLength}.
+     * Required positional arg count for parsing: {@value #NUM_3}.
      *
-     * @return TODO: describe
+     * @return number of arguments {@link #parseTriangle} consumes
      */
     @Override
     public int argLength() {
@@ -127,9 +135,10 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code options}.
+     * Aliases the terminal accepts for this geometry ({@code t}, {@code tri},
+     * {@code triangle}).
      *
-     * @return TODO: describe
+     * @return shared option list
      */
     @Override
     public OptionList options() {
@@ -137,9 +146,9 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code toFileString}.
+     * Serialize this triangle to its {@code .ix} file representation.
      *
-     * @return TODO: describe
+     * @return {@code "TRI x y r  rot"} in space-separated form
      */
     @Override
     public String toFileString() {
@@ -147,9 +156,10 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code realizePoints}.
+     * Sample three vertices evenly around the triangle, starting at
+     * {@code rotation} radians.
      *
-     * @return TODO: describe
+     * @return newly built list of {@link PointND.Double} vertices
      */
     @Override
     public ArrayList<PointND> realizePoints() {
@@ -166,9 +176,9 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code fullName}.
+     * Long terminal name for this geometry.
      *
-     * @return TODO: describe
+     * @return {@value #TRIANGLE}
      */
     @Override
     public String fullName() {
@@ -176,9 +186,9 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code shortName}.
+     * CLI shorthand for this geometry, matching the {@code @GeometryAnnotation} id.
      *
-     * @return TODO: describe
+     * @return {@code "tri"}
      */
     @Override
     public String shortName() {

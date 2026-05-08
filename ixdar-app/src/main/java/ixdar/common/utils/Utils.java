@@ -8,68 +8,76 @@ import org.apache.commons.math3.util.Pair;
 import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
 
+/**
+ * Grab-bag of small static helpers used across the geometry/balancer code:
+ * pretty-printing, knot-point marching around a knot's circular index, and
+ * miscellaneous list/set conversions.
+ */
 public final class Utils {
-    public static final String STR = "[";
-    public static final String STR_2 = "]";
+    public static final String LBRACE = "[";
+    public static final String RBRACE = "]";
 
     /**
-     * TODO: document {@code pairsToString}.
+     * Render a list of {@link Pair}s as {@code [Pair[a : b],...]}.
      *
-     * @param <K> TODO: describe
-     * @param <V> TODO: describe
-     * @param pairs TODO: describe
-     * @return TODO: describe
+     * @param <K> first-element type
+     * @param <V> second-element type
+     * @param pairs pairs to format
+     * @return bracketed comma-separated string
      */
     public static <K, V> String pairsToString(ArrayList<Pair<K, V>> pairs) {
-        String str = STR;
+        String str = LBRACE;
         for (Pair<K, V> p : pairs) {
             str += Utils.pairToString(p) + ",";
         }
-        str += STR_2;
+        str += RBRACE;
         return str;
 
     }
 
     /**
-     * TODO: document {@code pairToString}.
+     * Render a single {@link Pair} as {@code Pair[first : second]}.
      *
-     * @param <K> TODO: describe
-     * @param <V> TODO: describe
-     * @param pair TODO: describe
-     * @return TODO: describe
+     * @param <K> first-element type
+     * @param <V> second-element type
+     * @param pair pair to format
+     * @return formatted string
      */
     public static <K, V> String pairToString(Pair<K, V> pair) {
-        return "Pair[" + pair.getFirst() + " : " + pair.getSecond() + STR_2;
+        return "Pair[" + pair.getFirst() + " : " + pair.getSecond() + RBRACE;
 
     }
 
     /**
-     * TODO: document {@code printArray}.
+     * Render an array as {@code [a, b, ...]} (or {@code "null"} when null).
      *
-     * @param <K> TODO: describe
-     * @param array TODO: describe
-     * @return TODO: describe
+     * @param <K> element type
+     * @param array array to format
+     * @return bracketed comma-separated string
      */
     public static <K> String printArray(K[] array) {
         if (array == null) {
             return "null";
         }
-        String str = STR;
+        String str = LBRACE;
         for (K entry : array) {
             str += entry + ", ";
         }
-        str += STR_2;
+        str += RBRACE;
         return str;
     }
 
     /**
-     * TODO: document {@code marchLookup}.
+     * March around {@code knot.knotPoints} starting at {@code vp2} toward
+     * {@code kp2} and return the first adjacent pair whose far end lies in
+     * {@code potentialNeighbors}, or {@code null} if no such pair exists in one
+     * full revolution.
      *
-     * @param knot TODO: describe
-     * @param kp2 TODO: describe
-     * @param vp2 TODO: describe
-     * @param potentialNeighbors TODO: describe
-     * @return TODO: describe
+     * @param knot knot whose circular point list is walked
+     * @param kp2 reference knot point used to pick the march direction
+     * @param vp2 starting knot point
+     * @param potentialNeighbors candidate "next" knot points to stop at
+     * @return adjacent (current, next) pair or {@code null}
      */
     public static Pair<Knot, Knot> marchLookup(Knot knot, Knot kp2, Knot vp2,
             ArrayList<Knot> potentialNeighbors) {
@@ -104,14 +112,16 @@ public final class Utils {
     }
 
     /**
-     * TODO: document {@code marchContains}.
+     * March around {@code knot} starting from {@code startPoint} away from
+     * {@code awaySegment} and check whether {@code target} is reached before
+     * crossing into {@code subKnot}.
      *
-     * @param startPoint TODO: describe
-     * @param awaySegment TODO: describe
-     * @param target TODO: describe
-     * @param knot TODO: describe
-     * @param subKnot TODO: describe
-     * @return TODO: describe
+     * @param startPoint starting knot point
+     * @param awaySegment segment whose direction we move away from
+     * @param target knot point we are looking for
+     * @param knot knot whose circular point list is walked
+     * @param subKnot knot whose membership terminates the march early
+     * @return {@code true} if {@code target} was hit before entering {@code subKnot}
      */
     public static boolean marchContains(Knot startPoint, Segment awaySegment, Knot target, Knot knot,
             Knot subKnot) {
@@ -150,13 +160,15 @@ public final class Utils {
     }
 
     /**
-     * TODO: document {@code marchLookup}.
+     * March around {@code knot} starting at {@code start} away from {@code away}
+     * and return the first adjacent pair lying on {@code cutSegment2}.
      *
-     * @param knot TODO: describe
-     * @param start TODO: describe
-     * @param away TODO: describe
-     * @param cutSegment2 TODO: describe
-     * @return TODO: describe
+     * @param knot knot whose circular point list is walked
+     * @param start starting knot point
+     * @param away knot point used to pick the (then reversed) march direction
+     * @param cutSegment2 segment whose endpoints define the stop condition
+     * @return adjacent (current, next) pair on {@code cutSegment2}, or {@code null}
+     *         if {@code knot} does not contain that segment
      */
     public static Pair<Knot, Knot> marchLookup(Knot knot, Knot start, Knot away,
             Segment cutSegment2) {
@@ -199,14 +211,16 @@ public final class Utils {
     }
 
     /**
-     * TODO: document {@code wouldOrphan}.
+     * Test whether placing two cuts (cutp1-knotp1 and cutp2-knotp2) along
+     * {@code knotList} would leave a segment of the run isolated/orphaned by
+     * comparing the relative ordering of the four indices.
      *
-     * @param cutp1 TODO: describe
-     * @param knotp1 TODO: describe
-     * @param cutp2 TODO: describe
-     * @param knotp2 TODO: describe
-     * @param knotList TODO: describe
-     * @return TODO: describe
+     * @param cutp1 first cut endpoint
+     * @param knotp1 first cut's knot-side endpoint
+     * @param cutp2 second cut endpoint
+     * @param knotp2 second cut's knot-side endpoint
+     * @param knotList ordered run of knot points to check against
+     * @return {@code true} if the proposed cuts would orphan part of the run
      */
     public static boolean wouldOrphan(Knot cutp1, Knot knotp1, Knot cutp2, Knot knotp2,
             ArrayList<Knot> knotList) {
@@ -234,15 +248,18 @@ public final class Utils {
     }
 
     /**
-     * TODO: document {@code marchUntilHasOneKnotPoint}.
+     * March around {@code knot} away from {@code awaySegment} and return
+     * {@code true} if {@code untilSegment} is reached before encountering both
+     * {@code kp1} and {@code kp2} (which would indicate two knot-points have
+     * been seen in the marched arc).
      *
-     * @param startPoint TODO: describe
-     * @param awaySegment TODO: describe
-     * @param untilSegment TODO: describe
-     * @param kp1 TODO: describe
-     * @param kp2 TODO: describe
-     * @param knot TODO: describe
-     * @return TODO: describe
+     * @param startPoint starting knot point
+     * @param awaySegment segment whose direction we move away from
+     * @param untilSegment segment whose appearance terminates the march with success
+     * @param kp1 first knot-point sentinel
+     * @param kp2 second knot-point sentinel
+     * @param knot knot whose circular point list is walked
+     * @return {@code true} if {@code untilSegment} reached before both sentinels
      */
     public static boolean marchUntilHasOneKnotPoint(Knot startPoint, Segment awaySegment,
             Segment untilSegment, Knot kp1, Knot kp2, Knot knot) {
@@ -292,10 +309,10 @@ public final class Utils {
     }
 
     /**
-     * TODO: document {@code toSegmentArray}.
+     * Copy an {@link ArrayList} of segments into a new array.
      *
-     * @param first TODO: describe
-     * @return TODO: describe
+     * @param first source list
+     * @return new array of the same length and contents
      */
     public static Segment[] toSegmentArray(ArrayList<Segment> first) {
         Segment[] array = new Segment[first.size()];
@@ -306,10 +323,10 @@ public final class Utils {
     }
 
     /**
-     * TODO: document {@code toSegmentArray}.
+     * Copy a {@link Set} of segments into a new array (iteration order preserved).
      *
-     * @param first TODO: describe
-     * @return TODO: describe
+     * @param first source set
+     * @return new array of the same length and contents
      */
     public static Segment[] toSegmentArray(Set<Segment> first) {
         Segment[] array = new Segment[first.size()];
@@ -322,11 +339,12 @@ public final class Utils {
     }
 
     /**
-     * TODO: document {@code setContains}.
+     * {@link Set#contains}-style probe that uses {@link Segment#equals} on every
+     * element (useful when set hashing cannot be relied on).
      *
-     * @param matches TODO: describe
-     * @param matchSegmentAcrossFinal TODO: describe
-     * @return TODO: describe
+     * @param matches set of segments to scan
+     * @param matchSegmentAcrossFinal segment to test for membership
+     * @return {@code true} if an equal segment is present
      */
     public static boolean setContains(Set<Segment> matches, Segment matchSegmentAcrossFinal) {
         for (Segment segment : matches) {
@@ -338,10 +356,11 @@ public final class Utils {
     }
 
     /**
-     * TODO: document {@code segmentListToPath}.
+     * Convert a closed ring of segments to its ordered list of shared knot
+     * endpoints (each entry is the overlap between consecutive segments).
      *
-     * @param segments TODO: describe
-     * @return TODO: describe
+     * @param segments ordered ring of segments
+     * @return ordered list of shared knot points
      */
     public static ArrayList<Knot> segmentListToPath(ArrayList<Segment> segments) {
         ArrayList<Knot> result = new ArrayList<>();
@@ -356,12 +375,13 @@ public final class Utils {
     }
 
     /**
-     * TODO: document {@code getSegmentInSubKnot}.
+     * Find the segment that connects {@code otherNeighborPoint} to its neighbor
+     * in {@code superKnot} that lies inside the sub-knot {@code knot}.
      *
-     * @param otherNeighborPoint TODO: describe
-     * @param knot TODO: describe
-     * @param superKnot TODO: describe
-     * @return TODO: describe
+     * @param otherNeighborPoint pivot knot point
+     * @param knot sub-knot containing one of the neighbors
+     * @param superKnot enclosing knot whose flattened point list defines neighbors
+     * @return closest segment toward the matching neighbor, or {@code null} if neither neighbor lies in {@code knot}
      */
     public static Segment getSegmentInSubKnot(Knot otherNeighborPoint, Knot knot, Knot superKnot) {
         int idx = superKnot.knotPointsFlattened.indexOf(otherNeighborPoint);
@@ -377,11 +397,11 @@ public final class Utils {
     }
 
     /**
-     * TODO: document {@code hasKnot}.
+     * Test whether any knot in {@code runList} has the given ID.
      *
-     * @param runList TODO: describe
-     * @param i TODO: describe
-     * @return TODO: describe
+     * @param runList list of knots to scan
+     * @param i ID to search for
+     * @return {@code true} if a knot with {@code id == i} exists in the list
      */
     public static boolean hasKnot(ArrayList<Knot> runList, int i) {
         for (Knot vp : runList) {

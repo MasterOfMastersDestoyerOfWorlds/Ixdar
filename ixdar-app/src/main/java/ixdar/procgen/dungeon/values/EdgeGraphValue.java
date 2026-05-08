@@ -13,9 +13,10 @@ package ixdar.procgen.dungeon.values;
 public record EdgeGraphValue(int nodeCount, int[][] edges) {
 
     /**
-     * TODO: document {@code EdgeGraphValue}.
+     * Validates and defensive-copies the edge array.
      *
-     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalArgumentException if {@code nodeCount} is negative, any row is not exactly
+     *     length 2, or any endpoint index is outside {@code [0, nodeCount)}
      */
     public EdgeGraphValue {
         if (nodeCount < 0) {
@@ -38,9 +39,9 @@ public record EdgeGraphValue(int nodeCount, int[][] edges) {
     }
 
     /**
-     * TODO: document {@code edgeCount}.
+     * Number of edges in the graph.
      *
-     * @return TODO: describe
+     * @return {@code edges.length}
      */
     public int edgeCount() {
         return edges.length;

@@ -15,11 +15,11 @@ public final class CurveGeometry implements GeometryBundleValue {
     private final int[] curveOffsets;
 
     /**
-     * TODO: document {@code CurveGeometry}.
+     * Wrap the packed point/offset arrays directly (no defensive copy).
      *
-     * @param positions TODO: describe
-     * @param curveOffsets TODO: describe
-     * @throws IllegalArgumentException TODO: describe
+     * @param positions packed xyz; length must be divisible by 3
+     * @param curveOffsets curve start offsets; must contain at least 2 entries (one curve)
+     * @throws IllegalArgumentException if either array is null or has the wrong shape
      */
     public CurveGeometry(float[] positions, int[] curveOffsets) {
         if (positions == null || positions.length % NUM_3 != 0) {
@@ -33,46 +33,46 @@ public final class CurveGeometry implements GeometryBundleValue {
     }
 
     /**
-     * TODO: document {@code positions}.
+     * Backing positions array (shared, not a copy).
      *
-     * @return TODO: describe
+     * @return packed xyz of all points across all curves
      */
     public float[] positions() {
         return positions;
     }
 
     /**
-     * TODO: document {@code curveOffsets}.
+     * Backing curve-start offsets (shared, not a copy).
      *
-     * @return TODO: describe
+     * @return offsets array of length {@code curveCount() + 1}
      */
     public int[] curveOffsets() {
         return curveOffsets;
     }
 
     /**
-     * TODO: document {@code curveCount}.
+     * Number of polylines packed in this geometry.
      *
-     * @return TODO: describe
+     * @return {@code curveOffsets.length - 1}
      */
     public int curveCount() {
         return curveOffsets.length - 1;
     }
 
     /**
-     * TODO: document {@code pointCount}.
+     * Total number of 3D points across all curves.
      *
-     * @return TODO: describe
+     * @return {@code positions.length / 3}
      */
     public int pointCount() {
         return positions.length / NUM_3;
     }
 
     /**
-     * TODO: document {@code singlePolyline}.
+     * Build a single-curve geometry by copying {@code positions} into a fresh array.
      *
-     * @param positions TODO: describe
-     * @return TODO: describe
+     * @param positions packed xyz of the polyline
+     * @return geometry with one curve covering all points
      */
     public static CurveGeometry singlePolyline(float[] positions) {
         int n = positions.length / NUM_3;

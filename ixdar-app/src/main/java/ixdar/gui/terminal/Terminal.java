@@ -28,6 +28,11 @@ import ixdar.platform.input.Keys;
 import ixdar.platform.input.MouseTrap;
 import ixdar.scenes.main.MainScene;
 
+/**
+ * The editor's interactive REPL: keeps the command/tool/point-collection registries,
+ * tokenises and dispatches input lines through the matching {@link TerminalCommand},
+ * and renders the scrollable history plus current prompt into a {@link HyperString}.
+ */
 public class Terminal implements MouseTrap.ScrollHandler {
 
     public static ArrayList<TerminalOption> commandList;
@@ -85,9 +90,10 @@ public class Terminal implements MouseTrap.ScrollHandler {
     private HyperString cachedInfo;
 
     /**
-     * TODO: document {@code Terminal}.
+     * Build a terminal bound to {@code file}: its working directory becomes the file's
+     * parent path and its history, command line, and command-history index start empty.
      *
-     * @param file TODO: describe
+     * @param file currently loaded file that anchors this terminal's directory context
      */
     public Terminal(TextFile file) {
         storedCommandLine = "";
@@ -105,13 +111,15 @@ public class Terminal implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code loadClassType}.
+     * Reflectively scan {@code packageName} for non-abstract, non-enum classes that extend
+     * {@code type}, instantiate each via its no-arg constructor, and register the instances
+     * into both {@code list} and {@code classMap}.
      *
-     * @param <E> TODO: describe
-     * @param packageName TODO: describe
-     * @param list TODO: describe
-     * @param classMap TODO: describe
-     * @param type TODO: describe
+     * @param <E> base type implemented by every discovered class
+     * @param packageName fully-qualified package to scan (dotted form)
+     * @param list output collection to which each new instance is added
+     * @param classMap output map keyed by concrete class for class-based lookup
+     * @param type marker base class that discovered classes must extend
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public static <E> void loadClassType(String packageName, ArrayList<E> list, Map<Class<E>, E> classMap,
@@ -169,21 +177,25 @@ public class Terminal implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code calculateClick}.
+     * Click hook for the terminal's pane. Currently a no-op — the terminal does not yet
+     * react to direct clicks within its drawn region.
      *
-     * @param normalizedPosX TODO: describe
-     * @param normalizedPosY TODO: describe
+     * @param normalizedPosX normalised x coordinate of the click
+     * @param normalizedPosY normalised y coordinate of the click
      */
     public void calculateClick(float normalizedPosX, float normalizedPosY) {
 
     }
 
     /**
-     * TODO: document {@code keyPress}.
+     * Apply a keyboard event to the active command line: backspace edits (with Ctrl-word-delete),
+     * up/down browses {@link #commandHistory}, Enter submits via {@link #run(String)}, Space
+     * inserts a literal space, and Tab cycles through the latest {@code nextLogicalCommand}
+     * suggestions.
      *
-     * @param key TODO: describe
-     * @param mods TODO: describe
-     * @param controlMask TODO: describe
+     * @param key key code from {@link Keys}
+     * @param mods modifier-key bitmask (currently unused)
+     * @param controlMask {@code true} if Ctrl is held (enables word-wise backspace)
      */
     public void keyPress(int key, int mods, boolean controlMask) {
         if (key == Keys.BACKSPACE) {
@@ -262,9 +274,10 @@ public class Terminal implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code type}.
+     * Append a typed character to the command line and reset the history-browse index so the
+     * next up-arrow starts again from the most recent entry.
      *
-     * @param typedCharacter TODO: describe
+     * @param typedCharacter character text from the OS input event; ignored if blank
      */
     public void type(String typedCharacter) {
         if (ixdar.common.utils.Compat.isBlank(typedCharacter)) {
@@ -275,9 +288,12 @@ public class Terminal implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code run}.
+     * Tokenise {@code commandLine}, look the leading word up in {@link #commandMap}, optionally
+     * print help when the next token is {@code -h}/{@code --help}, validate the argument count,
+     * dispatch to the resolved {@link TerminalCommand}, and capture any returned tab-completion
+     * suggestions. Errors are reported into {@link #history}.
      *
-     * @param commandLine TODO: describe
+     * @param commandLine raw user-entered command, with arguments separated by whitespace
      */
     public void run(String commandLine) {
         String[] args = commandLine.split(" +");
@@ -316,9 +332,12 @@ public class Terminal implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Render the terminal: build a {@link HyperString} from {@link #history} plus the current
+     * command line (or its instruction placeholder if empty), draw it through the font system,
+     * and snap the scroll offset so the prompt is visible whenever {@code scrollToCommandLine}
+     * was set.
      *
-     * @param camera TODO: describe
+     * @param camera 2D camera supplying the view transform
      */
     public void draw(Camera2D camera) {
         int row = 0;
@@ -342,10 +361,12 @@ public class Terminal implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code onScroll}.
+     * Adjust {@link #scrollOffsetY} in response to a scroll-wheel tick, clamping at the top
+     * (offset never below zero) and at the bottom (when the cached last-word position is on
+     * or above the visible row).
      *
-     * @param scrollUp TODO: describe
-     * @param deltaSeconds TODO: describe
+     * @param scrollUp {@code true} when scrolling upward (towards earlier history)
+     * @param deltaSeconds frame delta used to scale {@link #SCROLL_SPEED}
      */
     @Override
     public void onScroll(boolean scrollUp, double deltaSeconds) {
@@ -364,44 +385,48 @@ public class Terminal implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code instruct}.
+     * Set the instruction placeholder shown in the prompt area when the command line is empty.
      *
-     * @param instruction TODO: describe
+     * @param instruction text rendered in {@link #instructColor} as a hint
      */
     public void instruct(String instruction) {
         this.commandLineInstruct = instruction;
     }
 
     /**
-     * TODO: document {@code clearInstruct}.
+     * Clear any active prompt-area instruction set by {@link #instruct(String)}.
      */
     public void clearInstruct() {
         this.commandLineInstruct = "";
     }
 
     /**
-     * TODO: document {@code getCachedInfo}.
+     * The {@link HyperString} most recently composed by {@link #draw(Camera2D)} (history plus
+     * current command line), used by scroll bookkeeping.
      *
-     * @return TODO: describe
+     * @return cached snapshot, or {@code null} before the first draw
      */
     public HyperString getCachedInfo() {
         return cachedInfo;
     }
 
     /**
-     * TODO: document {@code error}.
+     * Append an exception line to {@link #history} prefixed with {@code "EXCEPTION: "} and
+     * coloured red.
      *
-     * @param string TODO: describe
+     * @param string error message body
      */
     public void error(String string) {
         this.history.addLine("EXCEPTION: " + string, Color.RED);
     }
 
     /**
-     * TODO: document {@code runNoArgs}.
+     * Look up the registered instance of {@code cmd} and invoke its {@link TerminalCommand#run}
+     * with an empty argument array, but only when the command's declared {@link TerminalCommand#argLength()}
+     * is zero or negative.
      *
-     * @param <E> TODO: describe
-     * @param cmd TODO: describe
+     * @param <E> command type
+     * @param cmd concrete {@link TerminalCommand} class to invoke argument-less
      */
     public static <E extends TerminalCommand> void runNoArgs(Class<E> cmd) {
         TerminalCommand tc = (TerminalCommand) commandClassMap.get(cmd);

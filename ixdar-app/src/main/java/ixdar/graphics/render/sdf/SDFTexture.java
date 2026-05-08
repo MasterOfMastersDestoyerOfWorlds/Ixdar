@@ -39,9 +39,10 @@ public class SDFTexture extends ShaderDrawable {
     private float edgeDist = 0.5f;
 
     /**
-     * TODO: document {@code SDFTexture}.
+     * Wrap an already-loaded MSDF texture and bind the texture SDF shader with
+     * a transparent border band and rounded corners.
      *
-     * @param texture TODO: describe
+     * @param texture pre-loaded MSDF texture
      */
     public SDFTexture(Texture texture) {
         this.texture = texture;
@@ -55,13 +56,14 @@ public class SDFTexture extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code SDFTexture}.
+     * Asynchronously load the MSDF texture from a resource and configure a
+     * fixed border band.
      *
-     * @param sdfLocation TODO: describe
-     * @param borderColor TODO: describe
-     * @param borderDist TODO: describe
-     * @param borderOffset TODO: describe
-     * @param sharpCorners TODO: describe
+     * @param sdfLocation resource path to the MSDF texture
+     * @param borderColor color rendered in the border band
+     * @param borderDist outer border radius (distance from edge)
+     * @param borderOffset offset of the border start from the edge
+     * @param sharpCorners {@code true} to disable corner rounding in the shader
      */
     public SDFTexture(String sdfLocation, Color borderColor,
             float borderDist, float borderOffset, boolean sharpCorners) {
@@ -79,29 +81,30 @@ public class SDFTexture extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Draw the full MSDF texture into the given rectangle.
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param c TODO: describe
-     * @param camera TODO: describe
+     * @param drawX bottom-left x in world coordinates
+     * @param drawY bottom-left y in world coordinates
+     * @param width quad width in world units
+     * @param height quad height in world units
+     * @param c tint color
+     * @param camera camera providing transform and z-index
      */
     public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
         draw(drawX, drawY, width, height, c, 0L, camera);
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Draw the full MSDF texture into the given rectangle. No-op if the
+     * texture is still loading.
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param c TODO: describe
-     * @param id TODO: describe
-     * @param camera TODO: describe
+     * @param drawX bottom-left x in world coordinates
+     * @param drawY bottom-left y in world coordinates
+     * @param width quad width in world units
+     * @param height quad height in world units
+     * @param c tint color
+     * @param id legacy allocation id (currently unused)
+     * @param camera camera providing transform and z-index
      */
     public void draw(float drawX, float drawY, float width, float height, Color c, long id, Camera camera) {
         if (texture == null) {
@@ -115,18 +118,19 @@ public class SDFTexture extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code drawRegionNoSetup}.
+     * Submit a region draw without re-running shader setup/cleanup; intended
+     * for batched glyph rendering inside an outer setup/cleanup pair.
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param regX TODO: describe
-     * @param regY TODO: describe
-     * @param regWidth TODO: describe
-     * @param regHeight TODO: describe
-     * @param c TODO: describe
-     * @param camera TODO: describe
+     * @param drawX destination x in world coordinates
+     * @param drawY destination y in world coordinates
+     * @param width destination width in world units
+     * @param height destination height in world units
+     * @param regX source x in atlas pixels
+     * @param regY source y in atlas pixels
+     * @param regWidth source width in atlas pixels
+     * @param regHeight source height in atlas pixels
+     * @param c tint color
+     * @param camera camera providing z-index
      */
     public void drawRegionNoSetup(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
             int regHeight, Color c, Camera camera) {
@@ -136,16 +140,17 @@ public class SDFTexture extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code getTexture}.
+     * The MSDF texture being rendered (may be {@code null} while still loading).
      *
-     * @return TODO: describe
+     * @return current texture binding
      */
     public Texture getTexture() {
         return texture;
     }
 
     /**
-     * TODO: document {@code setUniforms}.
+     * Bind the texture and push border-band, corner, MSDF range, and
+     * zoom-adjusted edge-sharpness uniforms.
      */
     @Override
     protected void setUniforms() {
@@ -186,18 +191,18 @@ public class SDFTexture extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code drawRegion}.
+     * Draw a sub-region of the atlas into the given rectangle.
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param regX TODO: describe
-     * @param regY TODO: describe
-     * @param regWidth TODO: describe
-     * @param regHeight TODO: describe
-     * @param c TODO: describe
-     * @param camera TODO: describe
+     * @param drawX destination x in world coordinates
+     * @param drawY destination y in world coordinates
+     * @param width destination width in world units
+     * @param height destination height in world units
+     * @param regX source x in atlas pixels
+     * @param regY source y in atlas pixels
+     * @param regWidth source width in atlas pixels
+     * @param regHeight source height in atlas pixels
+     * @param c tint color
+     * @param camera camera providing transform and z-index
      */
     public void drawRegion(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
             int regHeight, Color c, Camera camera) {
@@ -205,19 +210,19 @@ public class SDFTexture extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code drawRegion}.
+     * Draw a sub-region of the atlas with explicit shader setup/cleanup.
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param regX TODO: describe
-     * @param regY TODO: describe
-     * @param regWidth TODO: describe
-     * @param regHeight TODO: describe
-     * @param c TODO: describe
-     * @param id TODO: describe
-     * @param camera TODO: describe
+     * @param drawX destination x in world coordinates
+     * @param drawY destination y in world coordinates
+     * @param width destination width in world units
+     * @param height destination height in world units
+     * @param regX source x in atlas pixels
+     * @param regY source y in atlas pixels
+     * @param regWidth source width in atlas pixels
+     * @param regHeight source height in atlas pixels
+     * @param c tint color
+     * @param id legacy allocation id (currently unused)
+     * @param camera camera providing transform and z-index
      */
     public void drawRegion(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
             int regHeight, Color c, long id, Camera camera) {
@@ -227,27 +232,28 @@ public class SDFTexture extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code drawCentered}.
+     * Draw the texture centered on {@code (drawX, drawY)}.
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param c TODO: describe
-     * @param camera TODO: describe
+     * @param drawX center x in world coordinates
+     * @param drawY center y in world coordinates
+     * @param width quad width in world units
+     * @param height quad height in world units
+     * @param c tint color
+     * @param camera camera providing transform and z-index
      */
     public void drawCentered(float drawX, float drawY, float width, float height, Color c, Camera camera) {
         draw(drawX - (width / 2), drawY - (height / 2), width, height, c, camera);
     }
 
     /**
-     * TODO: document {@code drawCentered}.
+     * Draw the texture centered on {@code (drawX, drawY)}, sized to the
+     * texture's pixel dimensions multiplied by {@code scale}.
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param scale TODO: describe
-     * @param c TODO: describe
-     * @param camera TODO: describe
+     * @param drawX center x in world coordinates
+     * @param drawY center y in world coordinates
+     * @param scale uniform scale applied to the texture's pixel size
+     * @param c tint color
+     * @param camera camera providing transform and z-index
      */
     public void drawCentered(float drawX, float drawY, float scale, Color c, Camera camera) {
         float width = (float) (texture.width * scale);
@@ -256,9 +262,9 @@ public class SDFTexture extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setBorderDist}.
+     * Set the border outer radius and a 0.1-unit feather inner edge.
      *
-     * @param borderDist TODO: describe
+     * @param borderDist outer border radius in distance-field units
      */
     public void setBorderDist(float borderDist) {
         this.borderInner = borderDist - NUM_0_1;
@@ -266,23 +272,24 @@ public class SDFTexture extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setSharpCorners}.
+     * Toggle the {@code sharpCorners} shader uniform.
      *
-     * @param sharpCorners TODO: describe
+     * @param sharpCorners {@code true} to disable corner rounding
      */
     public void setSharpCorners(boolean sharpCorners) {
         this.sharpCorners = sharpCorners;
     }
 
     /**
-     * TODO: document {@code drawRightBound}.
+     * Draw the texture so that its right edge sits at {@code drawX} (i.e.
+     * right-aligned at that x).
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param c TODO: describe
-     * @param camera TODO: describe
+     * @param drawX right-edge x in world coordinates
+     * @param drawY bottom-left y in world coordinates
+     * @param width quad width in world units
+     * @param height quad height in world units
+     * @param c tint color
+     * @param camera camera providing transform and z-index
      */
     public void drawRightBound(float drawX, float drawY, float width, float height, Color c, Camera camera) {
         draw(drawX - width, drawY, width, height, c, camera);

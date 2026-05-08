@@ -20,14 +20,16 @@ public class LineScene extends Scene {
     private Segment lineSegment;
 
     /**
-     * TODO: document {@code LineScene}.
+     * Anatomy demo for a single solid SDF segment between two draggable
+     * endpoints.
      */
     public LineScene() {
         super();
     }
 
     /**
-     * TODO: document {@code initPoints}.
+     * Seed the shell with the two horizontal endpoints used as draggable
+     * line anchors.
      */
     @Override
     public void initPoints() {
@@ -39,7 +41,8 @@ public class LineScene extends Scene {
     }
 
     /**
-     * TODO: document {@code initGL}.
+     * Build the segment between the two anchor knots, configure the
+     * solid stroke, and attach the code pane bound to its SDF shader.
      */
     @Override
     public void initGL() {
@@ -52,7 +55,8 @@ public class LineScene extends Scene {
     }
 
     /**
-     * TODO: document {@code drawScene}.
+     * Re-apply the stroke each frame (so resize/zoom updates take effect)
+     * and draw the segment with a red-to-green gradient body.
      */
     @Override
     public void drawScene() {

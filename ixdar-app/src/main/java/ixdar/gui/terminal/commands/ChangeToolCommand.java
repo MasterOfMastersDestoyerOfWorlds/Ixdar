@@ -5,15 +5,19 @@ import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.tools.Tool;
 import ixdar.scenes.main.MainScene;
 
+/**
+ * Terminal command {@code ct}/{@code changetool} that swaps the active editor tool on
+ * {@link MainScene} for the named {@link Tool}.
+ */
 @CommandAnnotation(id = "ct")
 public class ChangeToolCommand extends TerminalCommand {
 
     public static String cmd = "ct";
 
     /**
-     * TODO: document {@code fullName}.
+     * Full command word: {@code "changetool"}.
      *
-     * @return TODO: describe
+     * @return fully-qualified command name used at the prompt
      */
     @Override
     public String fullName() {
@@ -21,9 +25,9 @@ public class ChangeToolCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code shortName}.
+     * Short alias for the command: {@code "ct"}.
      *
-     * @return TODO: describe
+     * @return short command name used at the prompt
      */
     @Override
     public String shortName() {
@@ -31,9 +35,9 @@ public class ChangeToolCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code desc}.
+     * One-line description shown in help output.
      *
-     * @return TODO: describe
+     * @return human-readable summary of the command
      */
     @Override
     public String desc() {
@@ -41,9 +45,9 @@ public class ChangeToolCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code usage}.
+     * Usage hint displayed when the command is mis-invoked or {@code -h} is passed.
      *
-     * @return TODO: describe
+     * @return usage string
      */
     @Override
     public String usage() {
@@ -51,9 +55,9 @@ public class ChangeToolCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code argLength}.
+     * Exact number of trailing arguments expected: a single tool name.
      *
-     * @return TODO: describe
+     * @return {@code 1}
      */
     @Override
     public int argLength() {
@@ -61,9 +65,9 @@ public class ChangeToolCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code run}.
+     * Switch the active {@link MainScene} tool to {@code t}, resetting it first.
      *
-     * @param t TODO: describe
+     * @param t tool instance to activate
      */
     public static void run(Tool t) {
         t.reset();
@@ -71,10 +75,10 @@ public class ChangeToolCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code run}.
+     * Switch the active tool by class, resolved through {@link Terminal#toolClassMap}.
      *
-     * @param <E> TODO: describe
-     * @param type TODO: describe
+     * @param <E> tool subtype
+     * @param type concrete tool class to look up and activate
      */
     public static <E extends Tool> void run(Class<E> type) {
         Tool t = Terminal.toolClassMap.get(type);
@@ -82,12 +86,13 @@ public class ChangeToolCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code run}.
+     * Look up the tool named at {@code args[startIdx]} in {@link Terminal#toolMap}, activate it
+     * if found, and return one {@code "ct &lt;tool&gt;"} suggestion per registered tool for tab cycling.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @param terminal TODO: describe
-     * @return TODO: describe
+     * @param args full tokenised command line
+     * @param startIdx index of the tool-name argument in {@code args}
+     * @param terminal dispatching terminal
+     * @return suggestion list of {@code ct} invocations across all known tools
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {

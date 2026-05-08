@@ -22,10 +22,12 @@ public record OptimizableParameter(
         boolean isLiteral) {
 
     /**
-     * TODO: document {@code fromInput}.
+     * Adapter from a user-declared input node descriptor. Pulls default and
+     * min/max from the descriptor (using INT vs FLOAT-typed fields as appropriate),
+     * and uses the input node id as the override key.
      *
-     * @param p TODO: describe
-     * @return TODO: describe
+     * @param p input parameter descriptor harvested from the parsed graph
+     * @return non-literal descriptor keyed by {@code p.nodeId()}
      */
     public static OptimizableParameter fromInput(InputParameterDescriptor p) {
         float def, min, max;
@@ -42,10 +44,13 @@ public record OptimizableParameter(
     }
 
     /**
-     * TODO: document {@code fromLiteral}.
+     * Adapter from a hardcoded-literal descriptor (e.g. {@code thumb_attach.theta}
+     * or a vec3 component). Uses the descriptor's {@code overrideKey} for both
+     * the override map key and the display name; missing min/max default to
+     * unbounded.
      *
-     * @param p TODO: describe
-     * @return TODO: describe
+     * @param p literal parameter descriptor
+     * @return literal-flagged descriptor
      */
     public static OptimizableParameter fromLiteral(LiteralParameterDescriptor p) {
         float min = p.minValue() != null ? p.minValue() : Float.NEGATIVE_INFINITY;

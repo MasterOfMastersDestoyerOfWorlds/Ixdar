@@ -38,10 +38,11 @@ public final class MathExpressionEvaluator {
     private double xValue;
 
     /**
-     * TODO: document {@code MathExpressionEvaluator}.
+     * Capture the source expression for repeated evaluation; parsing happens lazily in
+     * {@link #evaluate(double)}.
      *
-     * @param expression TODO: describe
-     * @throws IllegalArgumentException TODO: describe
+     * @param expression source text in the grammar described above
+     * @throws IllegalArgumentException if {@code expression} is null or blank
      */
     public MathExpressionEvaluator(String expression) {
         if (expression == null || expression.isBlank()) {
@@ -51,11 +52,13 @@ public final class MathExpressionEvaluator {
     }
 
     /**
-     * TODO: document {@code evaluate}.
+     * Parse and evaluate the captured expression with the variable {@code x} bound to the
+     * supplied value. Re-parses on every call.
      *
-     * @param x TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param x value bound to the {@code x} identifier inside the expression
+     * @return the numeric result
+     * @throws IllegalArgumentException on syntax errors, unknown identifiers/functions,
+     *         wrong-arity calls, or trailing characters after the expression
      */
     public double evaluate(double x) {
         this.s = expression;

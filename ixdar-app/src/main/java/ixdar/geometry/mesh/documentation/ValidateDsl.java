@@ -54,10 +54,14 @@ public final class ValidateDsl {
      * and the automation server endpoint. Returns a result map matching the
      * standard JSON schema (valid, nodeCount, errors, warnings, meshProbe, ...).
      *
-     * @param source TODO: describe
-     * @param skillDir TODO: describe
-     * @param exportPath TODO: describe
-     * @return TODO: describe
+     * @param source DSL source text to parse and validate
+     * @param skillDir optional path to a directory of skill libraries; preamble is prepended to
+     *                 the parser when non-empty. Unreadable directories are silently ignored.
+     * @param exportPath optional OBJ export path; when set and the mesh probe succeeds, the
+     *                   resulting mesh (and a sibling {@code .tags.json} when tags are present)
+     *                   is written here.
+     * @return ordered map containing {@code valid}, {@code nodeCount}, {@code errors},
+     *         {@code warnings}, and {@code meshProbe} (or a parse-error shape on lex/parse failure)
      */
     public static Map<String, Object> validate(
         String source,
@@ -185,10 +189,12 @@ public final class ValidateDsl {
     }
 
     /**
-     * TODO: document {@code main}.
+     * CLI driver: read the DSL file at {@code args[0]}, validate it, and print the JSON result.
+     * Honors {@code -Dskill.dir} for skill libraries and {@code -Ddsl.export} for OBJ export.
+     * Exit code is 0 when valid, 1 when validation fails, and 2 on usage/IO errors.
      *
-     * @param args TODO: describe
-     * @throws IOException TODO: describe
+     * @param args single element: path to a {@code .dsl} file
+     * @throws IOException if the input file cannot be read
      */
     public static void main(String[] args) throws IOException {
         if (args.length < 1) {
@@ -377,7 +383,7 @@ public final class ValidateDsl {
         float rad = mesh.radius();
         probe.put("radius", floatJson(rad));
 
-        boolean positionsOk = vec3Finite(mn) && vec3Finite(mx);
+        boolean positionsOk = Vector3finite(mn) && Vector3finite(mx);
         boolean extentOk = Float.isFinite(extent) && extent > NUM_1e_10;
         boolean radiusOk = Float.isFinite(rad) && rad > NUM_1e_10;
 
@@ -400,7 +406,7 @@ public final class ValidateDsl {
         return probe;
     }
 
-    private static boolean vec3Finite(Vector3f v) {
+    private static boolean Vector3finite(Vector3f v) {
         return (
             Float.isFinite(v.x) && Float.isFinite(v.y) && Float.isFinite(v.z)
         );

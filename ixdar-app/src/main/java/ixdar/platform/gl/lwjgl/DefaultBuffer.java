@@ -11,9 +11,10 @@ public class DefaultBuffer implements IxBuffer {
     FloatBuffer fb;
 
     /**
-     * TODO: document {@code DefaultBuffer}.
+     * Allocate a direct, native-byte-order {@link FloatBuffer} of {@code capacity} floats —
+     * the layout LWJGL GL calls expect.
      *
-     * @param capacity TODO: describe
+     * @param capacity number of floats
      */
     public DefaultBuffer(int capacity) {
         ByteBuffer bb = ByteBuffer.allocateDirect(capacity * Float.BYTES).order(ByteOrder.nativeOrder());
@@ -21,7 +22,7 @@ public class DefaultBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code flip}.
+     * Delegates to {@link FloatBuffer#flip()}.
      */
     @Override
     public void flip() {
@@ -29,7 +30,7 @@ public class DefaultBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code clear}.
+     * Delegates to {@link FloatBuffer#clear()}.
      */
     @Override
     public void clear() {
@@ -37,9 +38,7 @@ public class DefaultBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code remaining}.
-     *
-     * @return TODO: describe
+     * @return {@link FloatBuffer#remaining()}
      */
     @Override
     public int remaining() {
@@ -47,10 +46,10 @@ public class DefaultBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code put}.
+     * Append a float at the current position.
      *
-     * @param x1 TODO: describe
-     * @return TODO: describe
+     * @param x1 value to write
+     * @return this buffer
      */
     @Override
     public IxBuffer put(float x1) {
@@ -59,9 +58,7 @@ public class DefaultBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code capacity}.
-     *
-     * @return TODO: describe
+     * @return {@link FloatBuffer#capacity()}
      */
     @Override
     public int capacity() {
@@ -69,19 +66,19 @@ public class DefaultBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code getFloatBuffer}.
+     * Direct access to the underlying NIO buffer — pass to LWJGL GL calls.
      *
-     * @return TODO: describe
+     * @return wrapped {@link FloatBuffer}
      */
     public FloatBuffer getFloatBuffer() {
         return fb;
     }
-    
+
     /**
-     * TODO: document {@code get}.
+     * Absolute read.
      *
-     * @param i TODO: describe
-     * @return TODO: describe
+     * @param i index
+     * @return {@link FloatBuffer#get(int)} at {@code i}
      */
     @Override
     public Float get(int i) {

@@ -41,12 +41,12 @@ public class ColorRGB implements Color {
     }
 
     /**
-     * TODO: document {@code ColorRGB}.
+     * Creates a named RGB-Color with an alpha value of 1.
      *
-     * @param red TODO: describe
-     * @param green TODO: describe
-     * @param blue TODO: describe
-     * @param name TODO: describe
+     * @param red   The red component. Range from 0f to 1f.
+     * @param green The green component. Range from 0f to 1f.
+     * @param blue  The blue component. Range from 0f to 1f.
+     * @param name  Display name returned by {@link #getName()}.
      */
     public ColorRGB(float red, float green, float blue, String name) {
         this(red, green, blue, NUM_1);
@@ -69,13 +69,13 @@ public class ColorRGB implements Color {
     }
 
     /**
-     * TODO: document {@code ColorRGB}.
+     * Creates a named RGBA-Color.
      *
-     * @param red TODO: describe
-     * @param green TODO: describe
-     * @param blue TODO: describe
-     * @param alpha TODO: describe
-     * @param name TODO: describe
+     * @param red   The red component. Range from 0f to 1f.
+     * @param green The green component. Range from 0f to 1f.
+     * @param blue  The blue component. Range from 0f to 1f.
+     * @param alpha The transparency. Range from 0f to 1f.
+     * @param name  Display name returned by {@link #getName()}.
      */
     public ColorRGB(float red, float green, float blue, float alpha, String name) {
         setRed(red);
@@ -97,12 +97,12 @@ public class ColorRGB implements Color {
     }
 
     /**
-     * TODO: document {@code ColorRGB}.
+     * Creates a named RGB-Color with an alpha value of 1.
      *
-     * @param red TODO: describe
-     * @param green TODO: describe
-     * @param blue TODO: describe
-     * @param name TODO: describe
+     * @param red   The red component. Range from 0 to 255.
+     * @param green The green component. Range from 0 to 255.
+     * @param blue  The blue component. Range from 0 to 255.
+     * @param name  Display name returned by {@link #getName()}.
      */
     public ColorRGB(int red, int green, int blue, String name) {
         this(red, green, blue, NUM_255);
@@ -125,13 +125,13 @@ public class ColorRGB implements Color {
     }
 
     /**
-     * TODO: document {@code ColorRGB}.
+     * Creates a named RGBA-Color.
      *
-     * @param red TODO: describe
-     * @param green TODO: describe
-     * @param blue TODO: describe
-     * @param alpha TODO: describe
-     * @param string TODO: describe
+     * @param red    The red component. Range from 0 to 255.
+     * @param green  The green component. Range from 0 to 255.
+     * @param blue   The blue component. Range from 0 to 255.
+     * @param alpha  The transparency. Range from 0 to 255.
+     * @param string Display name returned by {@link #getName()}.
      */
     public ColorRGB(int red, int green, int blue, int alpha, String string) {
         setRed(red);
@@ -142,9 +142,9 @@ public class ColorRGB implements Color {
     }
 
     /**
-     * TODO: document {@code ColorRGB}.
+     * Copy-constructs from any {@link Color} by reading its vec4 representation.
      *
-     * @param color TODO: describe
+     * @param color source color whose RGBA channels are copied.
      */
     public ColorRGB(Color color) {
         Vector4f other = color.toVector4f();
@@ -155,10 +155,10 @@ public class ColorRGB implements Color {
     }
 
     /**
-     * TODO: document {@code ColorRGB}.
+     * Copy-constructs RGB from {@code color} and overrides alpha.
      *
-     * @param color TODO: describe
-     * @param alpha TODO: describe
+     * @param color source color whose RGB channels are copied (alpha is ignored).
+     * @param alpha replacement transparency. Range from 0f to 1f.
      */
     public ColorRGB(Color color, float alpha) {
         Vector3f other = color.toVector3f();
@@ -321,9 +321,10 @@ public class ColorRGB implements Color {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * String form of this color: the assigned {@code name} if non-empty,
+     * otherwise the four channel values.
      *
-     * @return TODO: describe
+     * @return display name or "R: ... G: ... B: ... A: ..."
      */
     @Override
     public String toString() {
@@ -335,9 +336,10 @@ public class ColorRGB implements Color {
     }
 
     /**
-     * TODO: document {@code getName}.
+     * Display name supplied at construction (may be {@code null} for the
+     * unnamed constructors).
      *
-     * @return TODO: describe
+     * @return the configured color name.
      */
     @Override
     public String getName() {

@@ -47,7 +47,8 @@ public class SDFLine extends ShaderDrawable {
     private boolean arrow;
 
     /**
-     * TODO: document {@code SDFLine}.
+     * Cache shaders for every line variant (solid, dashed, round-cap, end-cap,
+     * arrow) and start with the solid line shader and transparent border.
      */
     public SDFLine() {
         super();
@@ -66,12 +67,12 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code SDFLine}.
+     * Build a line drawable using a custom SDF shader with a fixed border band.
      *
-     * @param sdfShader TODO: describe
-     * @param borderColor TODO: describe
-     * @param borderDist TODO: describe
-     * @param borderOffset TODO: describe
+     * @param sdfShader explicit SDF program to use as the active line shader
+     * @param borderColor color drawn in the border band
+     * @param borderDist outer border radius (distance from edge)
+     * @param borderOffset offset of the border start from the line edge
      */
     public SDFLine(SDFShader sdfShader, Color borderColor,
             float borderDist, float borderOffset) {
@@ -90,25 +91,26 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Draw a solid-color line segment from {@code pA} to {@code pB}.
      *
-     * @param pA TODO: describe
-     * @param pB TODO: describe
-     * @param c TODO: describe
-     * @param camera TODO: describe
+     * @param pA start endpoint in world coordinates
+     * @param pB end endpoint in world coordinates
+     * @param c line color (used for both gradient stops)
+     * @param camera camera supplying view/projection
      */
     public void draw(Vector2f pA, Vector2f pB, Color c, Camera camera) {
         draw(pA, pB, c, c, camera);
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Draw a line segment with a linear gradient from {@code c} at {@code pA}
+     * to {@code c2} at {@code pB}.
      *
-     * @param pA TODO: describe
-     * @param pB TODO: describe
-     * @param c TODO: describe
-     * @param c2 TODO: describe
-     * @param camera TODO: describe
+     * @param pA start endpoint in world coordinates
+     * @param pB end endpoint in world coordinates
+     * @param c color at {@code pA}
+     * @param c2 color at {@code pB}
+     * @param camera camera supplying view/projection
      */
     public void draw(Vector2f pA, Vector2f pB, Color c, Color c2, Camera camera) {
         this.pA = pA;
@@ -120,7 +122,7 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setShader}.
+     * Pick the active shader from the dashed/round/end-cap/arrow flags.
      */
     public void setShader() {
         shader = lineShader;
@@ -137,9 +139,9 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setBorderDist}.
+     * Set the border outer radius and a 0.1-unit feather inner edge.
      *
-     * @param borderDist TODO: describe
+     * @param borderDist outer border radius
      */
     public void setBorderDist(float borderDist) {
         this.borderInner = borderDist - NUM_0_1;
@@ -147,18 +149,18 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setBorderColor}.
+     * Set the color used for the border band.
      *
-     * @param borderColor TODO: describe
+     * @param borderColor color drawn between {@code borderInner} and {@code borderOuter}
      */
     public void setBorderColor(Color borderColor) {
         this.borderColor = borderColor;
     }
 
     /**
-     * TODO: document {@code setBorderOffset}.
+     * Set the border-band offset and a 0.1-unit feather inner edge.
      *
-     * @param borderOffset TODO: describe
+     * @param borderOffset offset of the border start from the line edge
      */
     public void setBorderOffset(float borderOffset) {
         this.borderOffsetInner = borderOffset - NUM_0_1;
@@ -166,18 +168,19 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setBackgroundColor}.
+     * Set the color rendered inside the line body (behind the gradient).
      *
-     * @param backgroundColor TODO: describe
+     * @param backgroundColor fill color
      */
     public void setBackgroundColor(Color backgroundColor) {
         this.backgroundColor = backgroundColor;
     }
 
     /**
-     * TODO: document {@code setBorderBand}.
+     * Configure a feathered border band starting at the edge distance and
+     * extending outward by {@code borderWidth} (clamped to non-negative).
      *
-     * @param borderWidth TODO: describe
+     * @param borderWidth thickness of the border band in distance-field units
      */
     public void setBorderBand(float borderWidth) {
         float clampedWidth = Math.max(NUM_0, borderWidth);
@@ -189,9 +192,9 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setStroke}.
+     * Toggle dashed stroking and reset the edge distance.
      *
-     * @param dashed TODO: describe
+     * @param dashed {@code true} to use the dashed-line shader on next draw
      */
     public void setStroke(boolean dashed) {
         this.dashed = dashed;
@@ -200,10 +203,10 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setStroke}.
+     * Set line thickness (clamped to {@code MIN_THICKNESS/3}) and dashed flag.
      *
-     * @param lineWidth TODO: describe
-     * @param dashed TODO: describe
+     * @param lineWidth desired thickness in world units
+     * @param dashed {@code true} to use the dashed-line shader on next draw
      */
     public void setStroke(float lineWidth, boolean dashed) {
         this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS / NUM_3);
@@ -213,15 +216,15 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setStroke}.
+     * Configure all stroke parameters at once and pick the matching shader.
      *
-     * @param lineWidth TODO: describe
-     * @param dashed TODO: describe
-     * @param dashLength TODO: describe
-     * @param dashRate TODO: describe
-     * @param roundCaps TODO: describe
-     * @param endCaps TODO: describe
-     * @param arrow TODO: describe
+     * @param lineWidth thickness in world units (clamped to {@code MIN_THICKNESS})
+     * @param dashed enable dashed rendering
+     * @param dashLength dash period in world units
+     * @param dashRate dash phase advance rate (animated via {@code Clock})
+     * @param roundCaps render dashes with rounded ends
+     * @param endCaps render rounded caps at the line endpoints
+     * @param arrow render an arrowhead shader at the end
      */
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
             boolean endCaps, boolean arrow) {
@@ -237,16 +240,18 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setStroke}.
+     * Camera-aware overload of
+     * {@link #setStroke(float, boolean, float, float, boolean, boolean, boolean)}
+     * (camera kept for callers that thread it through; not currently used here).
      *
-     * @param lineWidth TODO: describe
-     * @param dashed TODO: describe
-     * @param dashLength TODO: describe
-     * @param dashRate TODO: describe
-     * @param roundCaps TODO: describe
-     * @param endCaps TODO: describe
-     * @param arrow TODO: describe
-     * @param camera2d TODO: describe
+     * @param lineWidth thickness in world units (clamped to {@code MIN_THICKNESS})
+     * @param dashed enable dashed rendering
+     * @param dashLength dash period in world units
+     * @param dashRate dash phase advance rate
+     * @param roundCaps render dashes with rounded ends
+     * @param endCaps render rounded caps at the line endpoints
+     * @param arrow render an arrowhead shader at the end
+     * @param camera2d 2D camera context (unused)
      */
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
             boolean endCaps, boolean arrow, Camera2D camera2d) {
@@ -262,7 +267,9 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code calculateQuad}.
+     * Build the line's bounding quad: clip the segment to the camera viewport
+     * (when culling is on), then expand to a rectangle thick enough to contain
+     * the stroke and compute texture-space endpoints for the SDF shader.
      */
     @Override
     public void calculateQuad() {
@@ -364,7 +371,8 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setUniforms}.
+     * Push line endpoints, dash phase/length, edge sharpness, gradient color,
+     * and border band parameters in texture space.
      */
     @Override
     protected void setUniforms() {
@@ -392,14 +400,14 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * Returns 1 if the lines intersect, otherwise 0. In addition, if the lines /*
-     * intersect the intersection point may be stored in the floats i_x and i_y.
+     * Compute the intersection of two line segments, if any.
      *
-     * @param pA TODO: describe
-     * @param pB TODO: describe
-     * @param pC TODO: describe
-     * @param pD TODO: describe
-     * @return TODO: describe
+     * @param pA first endpoint of segment 1
+     * @param pB second endpoint of segment 1
+     * @param pC first endpoint of segment 2
+     * @param pD second endpoint of segment 2
+     * @return ({@code true}, intersection point) when the segments cross;
+     *         ({@code false}, {@code null}) otherwise
      */
     public Pair<Boolean, Vector2f> get_line_intersection(Vector2f pA, Vector2f pB, Vector2f pC, Vector2f pD) {
         float s1_x, s1_y, s2_x, s2_y;
@@ -420,11 +428,11 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setEndpoints}.
+     * Set the line endpoints and current camera without triggering a draw.
      *
-     * @param camera2d TODO: describe
-     * @param pA TODO: describe
-     * @param pB TODO: describe
+     * @param camera2d active 2D camera
+     * @param pA start endpoint in world coordinates
+     * @param pB end endpoint in world coordinates
      */
     public void setEndpoints(Camera2D camera2d, Vector2f pA, Vector2f pB) {
         this.camera = camera2d;
@@ -433,9 +441,9 @@ public class SDFLine extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setCulling}.
+     * Enable or disable viewport-clipping in {@link #calculateQuad()}.
      *
-     * @param b TODO: describe
+     * @param b {@code true} to clip segments to the camera rectangle
      */
     public void setCulling(boolean b) {
         culling = b;

@@ -31,10 +31,11 @@ public final class DelaunayTriangulation2D {
     }
 
     /**
-     * TODO: document {@code triangulate}.
+     * Bowyer-Watson incremental insertion over the room centers, then strip super-triangles and
+     * emit the unique edges sorted lexicographically.
      *
-     * @param rooms TODO: describe
-     * @return TODO: describe
+     * @param rooms input rooms whose centers act as Delaunay sites
+     * @return edge graph indexed by room id; empty for &lt; 2 rooms, a single edge for 2 rooms
      */
     public static EdgeGraphValue triangulate(RoomListValue rooms) {
         int n = rooms.size();

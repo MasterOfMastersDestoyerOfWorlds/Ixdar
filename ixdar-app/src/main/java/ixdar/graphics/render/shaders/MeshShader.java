@@ -12,12 +12,13 @@ public class MeshShader extends ShaderProgram {
     public static final int NUM_6 = 6;
 
     /**
-     * TODO: document {@code MeshShader}.
+     * Build a textured mesh shader with a position+normal+uv (8-float)
+     * vertex layout.
      *
-     * @param vertexShaderLocation TODO: describe
-     * @param fragmentShaderLocation TODO: describe
-     * @throws UnsupportedEncodingException TODO: describe
-     * @throws IOException TODO: describe
+     * @param vertexShaderLocation vertex GLSL resource path
+     * @param fragmentShaderLocation fragment GLSL resource path
+     * @throws UnsupportedEncodingException on shader source encoding error
+     * @throws IOException on shader source I/O error
      */
     public MeshShader(String vertexShaderLocation, String fragmentShaderLocation)
             throws UnsupportedEncodingException, IOException {
@@ -26,7 +27,8 @@ public class MeshShader extends ShaderProgram {
     }
 
     /**
-     * TODO: document {@code init}.
+     * Bind the VAO/VBO, configure position/normal/uv attributes, and bind
+     * the {@code albedoTex} sampler to texture unit 0.
      */
     @Override
     public void init() {
@@ -47,11 +49,11 @@ public class MeshShader extends ShaderProgram {
     }
 
     /**
-     * TODO: document {@code updateProjectionMatrix}.
+     * No-op: the model scene sets projection per-frame from {@code Camera3D}.
      *
-     * @param framebufferWidth TODO: describe
-     * @param framebufferHeight TODO: describe
-     * @param scale TODO: describe
+     * @param framebufferWidth viewport width in pixels (unused)
+     * @param framebufferHeight viewport height in pixels (unused)
+     * @param scale DPI scale hint (unused)
      */
     @Override
     public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float scale) {

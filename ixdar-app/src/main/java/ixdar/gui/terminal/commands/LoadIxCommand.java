@@ -9,6 +9,10 @@ import ixdar.gui.terminal.Terminal;
 import ixdar.platform.file.FileManagement;
 import ixdar.scenes.main.MainScene;
 
+/**
+ * Terminal command {@code ld}/{@code loadix} that loads an existing {@code .ix} file
+ * into {@link MainScene} and starts its calculations.
+ */
 @CommandAnnotation(id = "ld")
 public class LoadIxCommand extends TerminalCommand {
     public static final String IX = ".ix";
@@ -16,9 +20,9 @@ public class LoadIxCommand extends TerminalCommand {
     public static String cmd = "ld";
 
     /**
-     * TODO: document {@code fullName}.
+     * Full command word: {@code "loadix"}.
      *
-     * @return TODO: describe
+     * @return fully-qualified command name used at the prompt
      */
     @Override
     public String fullName() {
@@ -26,9 +30,9 @@ public class LoadIxCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code shortName}.
+     * Short alias for the command: {@code "ld"}.
      *
-     * @return TODO: describe
+     * @return short command name used at the prompt
      */
     @Override
     public String shortName() {
@@ -36,9 +40,9 @@ public class LoadIxCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code desc}.
+     * One-line description shown in help output.
      *
-     * @return TODO: describe
+     * @return human-readable summary of the command
      */
     @Override
     public String desc() {
@@ -46,9 +50,9 @@ public class LoadIxCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code usage}.
+     * Usage hint displayed when the command is mis-invoked or {@code -h} is passed.
      *
-     * @return TODO: describe
+     * @return usage string
      */
     @Override
     public String usage() {
@@ -56,9 +60,9 @@ public class LoadIxCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code argLength}.
+     * Exact number of trailing arguments expected: a single filename.
      *
-     * @return TODO: describe
+     * @return {@code 1}
      */
     @Override
     public int argLength() {
@@ -66,10 +70,11 @@ public class LoadIxCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code run}.
+     * Refresh the test-file cache for {@code fileName}, run {@link MainScene#main} on it,
+     * then activate the scene.
      *
-     * @param fileName TODO: describe
-     * @throws TerminalParseException TODO: describe
+     * @param fileName base name of the {@code .ix} file (without extension)
+     * @throws TerminalParseException if reading/loading the file fails
      */
     public static void run(String fileName) throws TerminalParseException {
         FileManagement.updateTestFileCache(fileName);
@@ -84,12 +89,15 @@ public class LoadIxCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code run}.
+     * Resolve the {@code .ix} file (first under the standard solutions folder, then under
+     * {@code terminal.directory}), invoke {@link #run(String)} on it when it exists, and
+     * return {@code "ls "} as the next-suggested command. Reports an error to the terminal
+     * if the file cannot be found or fails to load.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @param terminal TODO: describe
-     * @return TODO: describe
+     * @param args full tokenised command line
+     * @param startIdx index of the filename argument in {@code args}
+     * @param terminal dispatching terminal (used for directory context and error reporting)
+     * @return follow-up suggestion array, or {@code null} on failure
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {

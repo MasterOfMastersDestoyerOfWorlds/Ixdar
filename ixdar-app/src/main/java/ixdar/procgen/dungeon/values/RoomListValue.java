@@ -11,26 +11,26 @@ import java.util.List;
 public record RoomListValue(List<Room> rooms) {
 
     /**
-     * TODO: document {@code RoomListValue}.
+     * Defensive-copies the room list so callers can't mutate it through the original reference.
      */
     public RoomListValue {
         rooms = List.copyOf(rooms);
     }
 
     /**
-     * TODO: document {@code size}.
+     * Number of rooms in the list.
      *
-     * @return TODO: describe
+     * @return {@code rooms.size()}
      */
     public int size() {
         return rooms.size();
     }
 
     /**
-     * TODO: document {@code get}.
+     * Room at the given index.
      *
-     * @param index TODO: describe
-     * @return TODO: describe
+     * @param index zero-based room index, must satisfy {@code 0 <= index < size()}
+     * @return the {@link Room} at that position
      */
     public Room get(int index) {
         return rooms.get(index);
@@ -48,27 +48,27 @@ public record RoomListValue(List<Room> rooms) {
      */
     public record Room(int id, float centerX, float centerY, float halfExtentX, float halfExtentY) {
         /**
-         * TODO: document {@code minX}.
+         * Left edge of the room AABB on the X axis.
          *
-         * @return TODO: describe
+         * @return {@code centerX - halfExtentX}
          */
         public float minX() { return centerX - halfExtentX; }
         /**
-         * TODO: document {@code maxX}.
+         * Right edge of the room AABB on the X axis.
          *
-         * @return TODO: describe
+         * @return {@code centerX + halfExtentX}
          */
         public float maxX() { return centerX + halfExtentX; }
         /**
-         * TODO: document {@code minY}.
+         * Bottom edge of the room AABB on the Y axis.
          *
-         * @return TODO: describe
+         * @return {@code centerY - halfExtentY}
          */
         public float minY() { return centerY - halfExtentY; }
         /**
-         * TODO: document {@code maxY}.
+         * Top edge of the room AABB on the Y axis.
          *
-         * @return TODO: describe
+         * @return {@code centerY + halfExtentY}
          */
         public float maxY() { return centerY + halfExtentY; }
 

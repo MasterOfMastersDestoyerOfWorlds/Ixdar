@@ -33,11 +33,12 @@ public class AutomationApiServer {
     private final ExecutorService executor;
 
     /**
-     * TODO: document {@code AutomationApiServer}.
+     * Bind a new HTTP server to {@code 127.0.0.1:port}, install a cached-thread
+     * executor, and register every route discovered via {@link AutomationRouteMap}.
      *
-     * @param runtime TODO: describe
-     * @param port TODO: describe
-     * @throws IOException TODO: describe
+     * @param runtime shared editor state passed to each route handler
+     * @param port loopback TCP port to listen on
+     * @throws IOException if the socket cannot be bound
      */
     public AutomationApiServer(AutomationRuntime runtime, int port)
             throws IOException {
@@ -52,23 +53,23 @@ public class AutomationApiServer {
     }
 
     /**
-     * TODO: document {@code port}.
+     * The loopback port this server is bound to.
      *
-     * @return TODO: describe
+     * @return port number passed to the constructor
      */
     public int port() {
         return port;
     }
 
     /**
-     * TODO: document {@code start}.
+     * Start the underlying {@link HttpServer} and begin accepting requests.
      */
     public void start() {
         server.start();
     }
 
     /**
-     * TODO: document {@code stop}.
+     * Stop the HTTP server immediately and shut down the request executor.
      */
     public void stop() {
         server.stop(0);

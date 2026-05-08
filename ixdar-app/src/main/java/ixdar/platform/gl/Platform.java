@@ -7,73 +7,72 @@ import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.text.FontAtlasDTO;
 import ixdar.platform.file.TextFile;
 
+/**
+ * Windowing / OS abstraction sibling of {@link GL}. Implementations: {@code LwjglPlatform}
+ * (desktop), {@code HeadlessPlatform} (CI / tests), {@code WebPlatform} (TeaVM browser).
+ */
 public interface Platform {
 
     /**
-     * TODO: document {@code setTitle}.
+     * Set the OS window / browser tab title.
      *
-     * @param title TODO: describe
+     * @param title new title
      */
     void setTitle(String title);
 
     /**
-     * TODO: document {@code getWindowWidth}.
-     *
-     * @return TODO: describe
+     * @return logical window width in pixels
      */
     int getWindowWidth();
 
     /**
-     * TODO: document {@code getWindowHeight}.
-     *
-     * @return TODO: describe
+     * @return logical window height in pixels
      */
     int getWindowHeight();
 
     /**
-     * TODO: document {@code requestRepaint}.
+     * Hint that the next frame should be rendered. Desktop drives rendering from the main loop
+     * and treats this as a no-op; web RAF loops likewise.
      */
     void requestRepaint();
 
     /**
-     * TODO: document {@code timeSeconds}.
-     *
-     * @return TODO: describe
+     * @return monotonic time-since-process-start in seconds
      */
     float timeSeconds();
 
     /**
-     * TODO: document {@code setKeyCallback}.
+     * Register the keyboard key callback (translated GLFW / DOM events).
      *
-     * @param callback TODO: describe
+     * @param callback receives key events
      */
     void setKeyCallback(KeyCallback callback);
 
     /**
-     * TODO: document {@code setCharCallback}.
+     * Register the text-input callback for typed characters.
      *
-     * @param callback TODO: describe
+     * @param callback receives Unicode code points
      */
     void setCharCallback(CharCallback callback);
 
     /**
-     * TODO: document {@code setCursorPosCallback}.
+     * Register the mouse-move callback (window/canvas-local coordinates).
      *
-     * @param callback TODO: describe
+     * @param callback receives cursor positions
      */
     void setCursorPosCallback(CursorPosCallback callback);
 
     /**
-     * TODO: document {@code setMouseButtonCallback}.
+     * Register the mouse-button callback.
      *
-     * @param callback TODO: describe
+     * @param callback receives mouse-button events
      */
     void setMouseButtonCallback(MouseButtonCallback callback);
 
     /**
-     * TODO: document {@code setScrollCallback}.
+     * Register the scroll-wheel callback.
      *
-     * @param callback TODO: describe
+     * @param callback receives scroll deltas
      */
     void setScrollCallback(ScrollCallback callback);
 
@@ -87,41 +86,42 @@ public interface Platform {
      *       Used for FPS mouse-look — see {@code DungeonViewerScene} player mode.</li>
      * </ul>
      *
-     * @param mode TODO: describe
+     * @param mode requested cursor mode
      */
     void setCursorMode(CursorMode mode);
 
     /**
-     * TODO: document {@code parseFontAtlas}.
+     * Parse an MSDF font-atlas JSON document. Desktop uses Gson; web uses native
+     * {@code JSON.parse} bridged through TeaVM.
      *
-     * @param json TODO: describe
-     * @return TODO: describe
+     * @param json atlas JSON payload
+     * @return parsed DTO
      */
     FontAtlasDTO parseFontAtlas(String json);
 
     /**
-     * TODO: document {@code exit}.
+     * Terminate the process (or no-op on web / tests).
      *
-     * @param code TODO: describe
+     * @param code process exit code
      */
     void exit(int code);
 
     /**
-     * TODO: document {@code loadTexture}.
+     * Asynchronously load an image resource and hand back a {@link Texture} ready for GL upload.
      *
-     * @param resourceName TODO: describe
-     * @param platformId TODO: describe
-     * @param callback TODO: describe
+     * @param resourceName classpath-relative file name under {@code res/}
+     * @param platformId the platform to bind into before invoking {@code callback}
+     * @param callback called once the image bytes are decoded
      */
     void loadTexture(String resourceName, int platformId, Consumer<Texture> callback);
 
     /**
-     * TODO: document {@code loadSourceAsync}.
+     * Asynchronously load a text resource (e.g. shader, JSON).
      *
-     * @param resourceFolder TODO: describe
-     * @param filename TODO: describe
-     * @param platformId TODO: describe
-     * @param callback TODO: describe
+     * @param resourceFolder folder under {@code res/} (or web root)
+     * @param filename file within {@code resourceFolder}
+     * @param platformId the platform to bind into before invoking {@code callback}
+     * @param callback receives the loaded text (empty string on failure)
      */
     void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback);
 
@@ -129,116 +129,110 @@ public interface Platform {
      * Desktop/headless: synchronous text from classpath or disk when cheap. Web: always null so callers use
      * {@link #loadSourceAsync} (no synchronous XHR — browser deprecation and main-thread jank).
      *
-     * @param resourceFolder TODO: describe
-     * @param filename TODO: describe
-     * @return TODO: describe
+     * @param resourceFolder folder under {@code res/}
+     * @param filename file within {@code resourceFolder}
+     * @return file contents, or {@code null} when not available synchronously
      */
     String trySyncLoadSource(String resourceFolder, String filename);
 
     /**
-     * TODO: document {@code loadShaderSourceAsync}.
+     * Asynchronously load a shader source from the {@code glsl/} resource folder.
      *
-     * @param resourceFolder TODO: describe
-     * @param filename TODO: describe
-     * @param platformId TODO: describe
-     * @param callback TODO: describe
+     * @param resourceFolder ignored on most backends (always reads from {@code glsl/})
+     * @param filename shader file name
+     * @param platformId the platform to bind into before invoking {@code callback}
+     * @param callback receives the shader source
      */
     void loadShaderSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback);
 
     /**
-     * TODO: document {@code loadFile}.
+     * Synchronously load a classpath / filesystem text file. Web throws — callers must use
+     * {@link #loadSourceAsync} there.
      *
-     * @param path TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param path resource or filesystem path
+     * @throws IOException if the file cannot be read
+     * @return loaded {@link TextFile}
      */
     TextFile loadFile(String path) throws IOException;
 
     /**
-     * TODO: document {@code loadExternalFile}.
+     * Load a file by absolute filesystem path (used for {@link FontAtlasDTO}/asset repo files
+     * that live outside the classpath).
      *
-     * @param absolutePath TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param absolutePath absolute filesystem path
+     * @throws IOException if the file is missing or unreadable
+     * @return loaded {@link TextFile}
      */
     TextFile loadExternalFile(String absolutePath) throws IOException;
 
     /**
-     * TODO: document {@code writeTextFile}.
+     * Write the line buffer of {@code path} back to disk. No-op on web.
      *
-     * @param path TODO: describe
-     * @param append TODO: describe
-     * @throws IOException TODO: describe
+     * @param path target file
+     * @param append true to append, false to truncate
+     * @throws IOException on filesystem failure
      */
     void writeTextFile(TextFile path, boolean append) throws IOException;
 
     /**
-     * TODO: document {@code startTime}.
-     *
-     * @return TODO: describe
+     * @return seconds-since-epoch (or platform clock origin) when the application started
      */
     float startTime();
 
     /**
-     * TODO: document {@code log}.
+     * Diagnostic logger; routes to {@code stdout} on desktop / headless, {@code console.log} on web.
      *
-     * @param msg TODO: describe
+     * @param msg message to log
      */
     void log(String msg);
 
     /**
-     * TODO: document {@code canHotReload}.
-     *
-     * @return TODO: describe
+     * @return true when this platform supports live reload of resources (desktop only)
      */
     boolean canHotReload();
 
     /**
-     * TODO: document {@code allocateFloats}.
+     * Allocate a backend-appropriate {@link IxBuffer} of {@code i} floats.
      *
-     * @param i TODO: describe
-     * @return TODO: describe
+     * @param i capacity in floats
+     * @return new buffer
      */
     IxBuffer allocateFloats(int i);
 
     /**
-     * TODO: document {@code setFrameBufferSize}.
+     * Cache the framebuffer size reported by GLFW / canvas resize callbacks.
      *
-     * @param f TODO: describe
-     * @param g TODO: describe
+     * @param f width in pixels
+     * @param g height in pixels
      */
     void setFrameBufferSize(float f, float g);
 
     /**
-     * TODO: document {@code getFrameBufferWidth}.
-     *
-     * @return TODO: describe
+     * @return cached framebuffer width (drawable pixels, may differ from window width on HiDPI)
      */
     int getFrameBufferWidth();
 
     /**
-     * TODO: document {@code getFrameBufferHeight}.
-     *
-     * @return TODO: describe
+     * @return cached framebuffer height
      */
     int getFrameBufferHeight();
 
     /**
-     * TODO: document {@code getPlatformID}.
-     *
-     * @return TODO: describe
+     * @return platform ID assigned by {@link ixdar.platform.Platforms#init(Platform, GL)}
      */
     int getPlatformID();
 
     /**
-     * TODO: document {@code setPlatformID}.
+     * Stamp this platform with its ID (called from {@link ixdar.platform.Platforms}).
      *
-     * @param p TODO: describe
+     * @param p platform ID
      */
     void setPlatformID(Integer p);
 
     /**
-     * TODO: document {@code processInputQueue}.
+     * Drain queued input events on the GL thread (LWJGL marshals callbacks into a queue so they
+     * fire in step with the render loop; web is a no-op since events are already on the main
+     * thread).
      */
     void processInputQueue();
 
@@ -246,53 +240,53 @@ public interface Platform {
 
     interface KeyCallback {
         /**
-         * TODO: document {@code onKey}.
+         * Called for every key event.
          *
-         * @param key TODO: describe
-         * @param scancode TODO: describe
-         * @param action TODO: describe
-         * @param mods TODO: describe
+         * @param key platform-mapped key code (see {@code Keys})
+         * @param scancode raw scancode (GLFW; 0 on web)
+         * @param action {@code ACTION_PRESS} / {@code ACTION_RELEASE} / {@code ACTION_REPEAT}
+         * @param mods modifier-key bitmask
          */
         void onKey(int key, int scancode, int action, int mods);
     }
 
     interface CharCallback {
         /**
-         * TODO: document {@code onChar}.
+         * Called for typed text after IME composition.
          *
-         * @param codepoint TODO: describe
+         * @param codepoint Unicode code point
          */
         void onChar(int codepoint);
     }
 
     interface CursorPosCallback {
         /**
-         * TODO: document {@code onMousePos}.
+         * Called for every mouse-move event.
          *
-         * @param window TODO: describe
-         * @param x TODO: describe
-         * @param y TODO: describe
+         * @param window GLFW window handle (always 0 on web)
+         * @param x cursor x in window coordinates
+         * @param y cursor y in window coordinates
          */
         void onMousePos(long window, double x, double y);
     }
 
     interface MouseButtonCallback {
         /**
-         * TODO: document {@code onMouseButton}.
+         * Called for mouse-button presses and releases.
          *
-         * @param button TODO: describe
-         * @param action TODO: describe
-         * @param mods TODO: describe
+         * @param button button index (0 = left, 1 = right, ...)
+         * @param action {@code ACTION_PRESS} or {@code ACTION_RELEASE}
+         * @param mods modifier-key bitmask
          */
         void onMouseButton(int button, int action, int mods);
     }
 
     interface ScrollCallback {
         /**
-         * TODO: document {@code onScroll}.
+         * Called for scroll-wheel / trackpad scroll events.
          *
-         * @param xoffset TODO: describe
-         * @param yoffset TODO: describe
+         * @param xoffset horizontal scroll delta
+         * @param yoffset vertical scroll delta
          */
         void onScroll(double xoffset, double yoffset);
     }

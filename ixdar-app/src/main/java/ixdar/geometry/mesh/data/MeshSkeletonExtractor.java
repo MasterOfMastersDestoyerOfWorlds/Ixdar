@@ -81,11 +81,12 @@ public final class MeshSkeletonExtractor {
     // ───────── public entry point ─────────
 
     /**
-     * TODO: document {@code extract}.
+     * Run the full TEASAR pipeline on {@code mesh}: voxelize, compute distance-from-boundary,
+     * extract branches via penalized Dijkstra, then simplify with RDP.
      *
-     * @param mesh TODO: describe
-     * @param resolution TODO: describe
-     * @return TODO: describe
+     * @param mesh input triangle mesh
+     * @param resolution voxel-grid resolution along the longest bounding-box axis
+     * @return skeleton result with branches, branch points, and root position in world space
      */
     public static SkeletonResult extract(ArrayMesh mesh, int resolution) {
         Vector3f bmin = mesh.boundsMin(new Vector3f());
@@ -517,8 +518,8 @@ public final class MeshSkeletonExtractor {
     /**
      * CLI test: java MeshSkeletonExtractor path/to/mesh.obj [resolution].
      *
-     * @param args TODO: describe
-     * @throws Exception TODO: describe
+     * @param args {@code args[0]} = obj path, optional {@code args[1]} = voxel resolution (default 128)
+     * @throws Exception if mesh loading fails
      */
     public static void main(String[] args) throws Exception {
         if (args.length < 1) { System.err.println("Usage: MeshSkeletonExtractor <obj-path> [resolution]"); return; }
@@ -542,10 +543,10 @@ public final class MeshSkeletonExtractor {
 
     private record VDist(int index, float dist) implements Comparable<VDist> {
         /**
-         * TODO: document {@code compareTo}.
+         * Order by ascending distance for use in a min-heap.
          *
-         * @param o TODO: describe
-         * @return TODO: describe
+         * @param o other entry
+         * @return signum of {@code this.dist - o.dist}
          */
         @Override public int compareTo(VDist o) { return Float.compare(dist, o.dist); }
     }

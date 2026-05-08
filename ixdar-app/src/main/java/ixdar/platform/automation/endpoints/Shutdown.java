@@ -15,11 +15,13 @@ public class Shutdown extends AutomationEndpoint implements AutomationRoute {
     public static final int NUM_150 = 150;
     public static final int NUM_1200 = 1200;
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code POST /shutdown}: acknowledge immediately, then asynchronously close the
+     * canvas (or stop the runtime), request window close, and finally call
+     * {@link System#exit(int)} after a short grace period.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body request body (unused)
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return {@code {"ok": true, "accepted": true}}
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject result = new JsonObject();

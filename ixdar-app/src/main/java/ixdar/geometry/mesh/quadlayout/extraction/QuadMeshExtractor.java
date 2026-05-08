@@ -33,12 +33,13 @@ public final class QuadMeshExtractor {
     private QuadMeshExtractor() {}
 
     /**
-     * Convenience overload for matching-free inputs (planar tests).
+     * Convenience overload for matching-free inputs (planar tests). Delegates
+     * to the four-arg form with a {@code null} {@link CombedField}.
      *
-     * @param mesh TODO: describe
-     * @param uCorner TODO: describe
-     * @param vCorner TODO: describe
-     * @return TODO: describe
+     * @param mesh underlying triangle mesh
+     * @param uCorner per-corner u, length {@code 3 * F}
+     * @param vCorner per-corner v, length {@code 3 * F}
+     * @return extraction result (intermediate stage data + final quad mesh)
      */
     public static Result extract(ArrayMesh mesh, float[] uCorner, float[] vCorner) {
         return extract(mesh, uCorner, vCorner, null);
@@ -52,7 +53,8 @@ public final class QuadMeshExtractor {
      * @param vCorner per-corner v, length {@code 3 * F}
      * @param combed combed cross field providing per-edge matching; may be
      *               {@code null} for tests where matching is identically 0
-     * @return TODO: describe
+     * @return extraction result with all four QEx stages' outputs and the
+     *         compactified quad mesh
      */
     public static Result extract(ArrayMesh mesh, float[] uCorner, float[] vCorner,
                                   CombedField combed) {

@@ -12,12 +12,13 @@ public class DiffuseShader extends ShaderProgram {
     public static final int NUM_6 = 6;
 
     /**
-     * TODO: document {@code DiffuseShader}.
+     * Build the diffuse-lit mesh shader (shader.vs/shader.fs) with a
+     * position+normal+uv (8-float) vertex layout.
      *
-     * @param vao TODO: describe
-     * @param vbo TODO: describe
-     * @throws UnsupportedEncodingException TODO: describe
-     * @throws IOException TODO: describe
+     * @param vao vertex array object to bind attributes on
+     * @param vbo vertex buffer object backing the geometry
+     * @throws UnsupportedEncodingException on shader source encoding error
+     * @throws IOException on shader source I/O error
      */
     public DiffuseShader(VertexArrayObject vao,
             VertexBufferObject vbo) throws UnsupportedEncodingException, IOException {
@@ -25,7 +26,8 @@ public class DiffuseShader extends ShaderProgram {
     }
 
     /**
-     * TODO: document {@code init}.
+     * Bind the VAO/VBO and configure position (vec3), normal (vec3) and uv
+     * (vec2) attribute pointers at the standard locations.
      */
     @Override
     public void init() {
@@ -44,11 +46,12 @@ public class DiffuseShader extends ShaderProgram {
     }
 
     /**
-     * TODO: document {@code updateProjectionMatrix}.
+     * No-op: the 3D scene supplies its own per-frame projection from
+     * {@code Camera3D}.
      *
-     * @param framebufferWidth TODO: describe
-     * @param framebufferHeight TODO: describe
-     * @param scale TODO: describe
+     * @param framebufferWidth viewport width in pixels (unused)
+     * @param framebufferHeight viewport height in pixels (unused)
+     * @param scale DPI scale hint (unused)
      */
     @Override
     public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float scale) {

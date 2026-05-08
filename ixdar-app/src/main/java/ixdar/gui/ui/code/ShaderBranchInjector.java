@@ -32,11 +32,12 @@ public class ShaderBranchInjector {
     private ShaderDrawable uniformProvider;
 
     /**
-     * TODO: document {@code ShaderBranchInjector}.
+     * Capture the unmodified fragment source plus the shader and uniform provider that
+     * subsequent {@link #injectAndReload(int)} calls will edit and recompile.
      *
-     * @param uniformProvider TODO: describe
-     * @param originalFragmentSource TODO: describe
-     * @param targetShader TODO: describe
+     * @param uniformProvider supplier of runtime uniform values used during evaluation
+     * @param originalFragmentSource pristine fragment shader text to use as the injection base
+     * @param targetShader shader program whose fragment source will be replaced on injection
      */
     public ShaderBranchInjector(ShaderDrawable uniformProvider, String originalFragmentSource,
             ShaderProgram targetShader) {
@@ -46,9 +47,16 @@ public class ShaderBranchInjector {
     }
 
     /**
-     * TODO: document {@code injectAndReload}.
+     * Rewrite {@link #originalFragmentSource} so the fragment output is replaced with a
+     * preview expression derived from the variable assigned at {@code lineIndex}, then
+     * push the rewritten source back into {@link #targetShader}. Bails out silently when
+     * the line is not an assignment or {@code main} cannot be located. When the clicked
+     * line lives inside an {@code if/else} pair, both branches are emitted so the active
+     * branch shows the preview while the other clears to opaque black; otherwise the
+     * function is truncated after the clicked line and a single preview assignment is
+     * appended via {@link #simpleTruncate}.
      *
-     * @param lineIndex TODO: describe
+     * @param lineIndex zero-based index into the split source lines that the user clicked
      */
     public void injectAndReload(int lineIndex) {
         if (originalFragmentSource == null || originalFragmentSource.isEmpty()) {

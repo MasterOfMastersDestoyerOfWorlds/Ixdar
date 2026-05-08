@@ -7,13 +7,21 @@ import ixdar.gui.terminal.Terminal;
 import ixdar.platform.Platforms;
 import ixdar.platform.file.TextFile;
 
+/**
+ * Base class for terminal commands: subclasses provide their {@link #fullName()},
+ * {@link #shortName()}, {@link #desc()}, {@link #usage()}, {@link #argLength()}, and
+ * {@link #run(String[], int, Terminal)} implementation; this class supplies the shared
+ * help renderer and option/min-argument defaults.
+ */
 public abstract class TerminalCommand implements TerminalOption {
 
     /**
-     * TODO: document {@code help}.
+     * Print the {@code -h}/{@code --help} block for {@code command} into the terminal history:
+     * the command name, its description, the contents of {@code ./src/shell/terminal/help/<fullName>.help}
+     * (or an error if that file is missing), then its usage line.
      *
-     * @param terminal TODO: describe
-     * @param command TODO: describe
+     * @param terminal terminal whose history receives the rendered help text
+     * @param command command whose help is being printed
      */
     public static void help(Terminal terminal, TerminalOption command) {
         String commandName = command.fullName();
@@ -32,9 +40,10 @@ public abstract class TerminalCommand implements TerminalOption {
     }
 
     /**
-     * TODO: document {@code minArgLength}.
+     * Minimum number of trailing arguments this command accepts. Default {@code -1}
+     * means the command does not enforce a minimum (it relies on {@link #argLength()} instead).
      *
-     * @return TODO: describe
+     * @return minimum required argument count, or {@code -1} if unconstrained
      */
     @Override
     public int minArgLength() {
@@ -42,9 +51,10 @@ public abstract class TerminalCommand implements TerminalOption {
     }
 
     /**
-     * TODO: document {@code options}.
+     * Sub-options recognised by this command (used for completion and parsing).
+     * Default is {@code null}, meaning the command takes no nested options.
      *
-     * @return TODO: describe
+     * @return option list, or {@code null} when none are defined
      */
     @Override
     public OptionList options() {
@@ -52,12 +62,12 @@ public abstract class TerminalCommand implements TerminalOption {
     }
 
     /**
-     * TODO: document {@code run}.
+     * Execute this command against {@code terminal}.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @param terminal TODO: describe
-     * @return TODO: describe
+     * @param args full tokenised command line (the command word at index 0)
+     * @param startIdx index of the first command-specific argument in {@code args}
+     * @param terminal terminal that dispatched the command and receives any output
+     * @return suggested follow-up command lines for tab-completion, or {@code null} if none
      */
     public abstract String[] run(String[] args, int startIdx, Terminal terminal);
 

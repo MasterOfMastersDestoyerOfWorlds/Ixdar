@@ -5,15 +5,19 @@ import ixdar.gui.terminal.Terminal;
 import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;
 
+/**
+ * Terminal command {@code rst}/{@code reset} that resets a sub-system on {@link MainScene}
+ * (camera, current tool, toggles, or all of them) to its initial state.
+ */
 @CommandAnnotation(id = "rst")
 public class ResetCommand extends TerminalCommand {
 
     public static String cmd = "rst";
 
     /**
-     * TODO: document {@code fullName}.
+     * Full command word: {@code "reset"}.
      *
-     * @return TODO: describe
+     * @return fully-qualified command name used at the prompt
      */
     @Override
     public String fullName() {
@@ -21,9 +25,9 @@ public class ResetCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code shortName}.
+     * Short alias for the command: {@code "rst"}.
      *
-     * @return TODO: describe
+     * @return short command name used at the prompt
      */
     @Override
     public String shortName() {
@@ -31,9 +35,9 @@ public class ResetCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code desc}.
+     * One-line description shown in help output.
      *
-     * @return TODO: describe
+     * @return human-readable summary of the command
      */
     @Override
     public String desc() {
@@ -41,9 +45,9 @@ public class ResetCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code usage}.
+     * Usage hint displayed when the command is mis-invoked or {@code -h} is passed.
      *
-     * @return TODO: describe
+     * @return usage string
      */
     @Override
     public String usage() {
@@ -51,9 +55,9 @@ public class ResetCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code argLength}.
+     * Exact number of trailing arguments expected: a single target name.
      *
-     * @return TODO: describe
+     * @return {@code 1}
      */
     @Override
     public int argLength() {
@@ -61,9 +65,10 @@ public class ResetCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code run}.
+     * Apply the reset action selected by {@code option} to the appropriate {@link MainScene}
+     * sub-system(s).
      *
-     * @param option TODO: describe
+     * @param option which target to reset (camera, tool, toggles, or all)
      */
     public static void run(ResetOption option) {
         switch (option) {
@@ -83,12 +88,14 @@ public class ResetCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code run}.
+     * Match {@code args[startIdx]} against the aliases of every {@link ResetOption} and
+     * dispatch to {@link #run(ResetOption)} on the first hit. Reports a usage error to
+     * the terminal if no option matches.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @param terminal TODO: describe
-     * @return TODO: describe
+     * @param args full tokenised command line
+     * @param startIdx index of the target-name argument in {@code args}
+     * @param terminal dispatching terminal (used for error reporting)
+     * @return always {@code null} (this command provides no completion suggestions)
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
@@ -124,9 +131,9 @@ public class ResetCommand extends TerminalCommand {
         }
 
         /**
-         * TODO: document {@code toString}.
+         * Render this option as its space-separated list of accepted aliases.
          *
-         * @return TODO: describe
+         * @return concatenation of every alias followed by a single space
          */
         @Override
         public String toString() {

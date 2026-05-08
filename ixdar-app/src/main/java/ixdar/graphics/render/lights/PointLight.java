@@ -43,11 +43,13 @@ public class PointLight {
     float quadratic;
 
     /**
-     * TODO: document {@code PointLight}.
+     * Build a point light whose ambient, diffuse, and specular terms all
+     * carry the same {@code color}, with attenuation coefficients selected
+     * from {@link #attenuationLookupTable} for the desired effective range.
      *
-     * @param position TODO: describe
-     * @param color TODO: describe
-     * @param distance TODO: describe
+     * @param position world-space position of the emitter.
+     * @param color shared RGB intensity for ambient/diffuse/specular.
+     * @param distance approximate falloff range used to pick attenuation.
      */
     public PointLight(Vector3f position, Vector3f color, float distance) {
         this.position = position;
@@ -58,9 +60,11 @@ public class PointLight {
     }
 
     /**
-     * TODO: document {@code setAttenuation}.
+     * Pick the constant/linear/quadratic attenuation triple from
+     * {@link #attenuationLookupTable} whose effective range bracket
+     * contains {@code distance}.
      *
-     * @param distance TODO: describe
+     * @param distance falloff range in world units.
      */
     public void setAttenuation(float distance) {
         int rows = attenuationLookupTable.length / NUM_4;

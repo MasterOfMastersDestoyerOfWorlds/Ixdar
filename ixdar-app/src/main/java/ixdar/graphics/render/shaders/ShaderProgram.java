@@ -106,16 +106,19 @@ public abstract class ShaderProgram {
     private IxBuffer mat4Buf;
 
     /**
-     * TODO: document {@code ShaderProgram}.
+     * Asynchronously load shader sources, normalize them for the active GL
+     * backend (desktop GL3.3 vs WebGL ES 3.0), compile and link them, and
+     * call {@link #init()} when ready.
      *
-     * @param vertexShaderLocation TODO: describe
-     * @param fragmentShaderLocation TODO: describe
-     * @param vao TODO: describe
-     * @param vbo TODO: describe
-     * @param strideFloats TODO: describe
-     * @param useBuffer TODO: describe
-     * @throws UnsupportedEncodingException TODO: describe
-     * @throws IOException TODO: describe
+     * @param vertexShaderLocation vertex GLSL resource path
+     * @param fragmentShaderLocation fragment GLSL resource path
+     * @param vao vertex array object owned by this program
+     * @param vbo vertex buffer object owned by this program
+     * @param strideFloats number of floats per vertex
+     * @param useBuffer {@code true} to allocate a streaming staging buffer
+     *                  for the legacy immediate-mode draw path
+     * @throws UnsupportedEncodingException on shader source encoding error
+     * @throws IOException on shader source I/O error
      */
     public ShaderProgram(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
             VertexBufferObject vbo, int strideFloats, boolean useBuffer)
@@ -165,10 +168,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code getAttributeLocation}.
+     * Look up a vertex attribute location by name on the linked program.
      *
-     * @param name TODO: describe
-     * @return TODO: describe
+     * @param name attribute identifier in the vertex shader
+     * @return GL attribute location, or -1 if not found
      */
     public int getAttributeLocation(CharSequence name) {
 
@@ -176,7 +179,7 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code use}.
+     * Make this program the current one (no-op if linking has not finished).
      */
     public void use() {
         if (ID < 0) {
@@ -186,10 +189,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code setBool}.
+     * Upload a boolean uniform (encoded as 0/1 int) and cache it.
      *
-     * @param name TODO: describe
-     * @param value TODO: describe
+     * @param name uniform name
+     * @param value boolean value
      */
     public void setBool(String name, boolean value) {
 
@@ -198,10 +201,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code setInt}.
+     * Upload an integer uniform and cache it.
      *
-     * @param name TODO: describe
-     * @param value TODO: describe
+     * @param name uniform name
+     * @param value integer value (or sampler binding)
      */
     public void setInt(String name, int value) {
 
@@ -210,10 +213,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code setFloat}.
+     * Upload a float uniform and cache it.
      *
-     * @param name TODO: describe
-     * @param value TODO: describe
+     * @param name uniform name
+     * @param value float value
      */
     public void setFloat(String name, float value) {
 
@@ -222,10 +225,11 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code setMat4}.
+     * Upload a 4x4 matrix uniform via a reusable direct float buffer (avoids
+     * per-call native allocations) and cache it.
      *
-     * @param name TODO: describe
-     * @param mat TODO: describe
+     * @param name uniform name
+     * @param mat matrix to upload
      */
     public void setMat4(String name, Matrix4f mat) {
 
@@ -242,10 +246,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code setMat4}.
+     * Upload a 4x4 matrix uniform from a caller-owned, already-flipped buffer.
      *
-     * @param name TODO: describe
-     * @param allocatedBuffer TODO: describe
+     * @param name uniform name
+     * @param allocatedBuffer 16-float buffer ready for upload
      */
     public void setMat4(String name, IxBuffer allocatedBuffer) {
 
@@ -254,10 +258,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code setVec2}.
+     * Upload a vec2 uniform via a reusable direct float buffer and cache it.
      *
-     * @param name TODO: describe
-     * @param vec2 TODO: describe
+     * @param name uniform name
+     * @param vec2 (x, y) vector
      */
     public void setVec2(String name, Vector2f vec2) {
 
@@ -269,12 +273,12 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code setVec3}.
+     * Upload a vec3 uniform from three components and cache it.
      *
-     * @param name TODO: describe
-     * @param f TODO: describe
-     * @param g TODO: describe
-     * @param h TODO: describe
+     * @param name uniform name
+     * @param f x component
+     * @param g y component
+     * @param h z component
      */
     public void setVec3(String name, float f, float g, float h) {
 
@@ -286,10 +290,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code setVec3}.
+     * Upload a vec3 uniform from a {@link Vector3f} and cache it.
      *
-     * @param name TODO: describe
-     * @param vec3 TODO: describe
+     * @param name uniform name
+     * @param vec3 (x, y, z) vector
      */
     public void setVec3(String name, Vector3f vec3) {
         if (vec3Buf == null) vec3Buf = platform.allocateFloats(NUM_3);
@@ -300,10 +304,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code setVec4}.
+     * Upload a vec4 uniform via a reusable direct float buffer and cache it.
      *
-     * @param name TODO: describe
-     * @param vec4 TODO: describe
+     * @param name uniform name
+     * @param vec4 (x, y, z, w) vector
      */
     public void setVec4(String name, Vector4f vec4) {
 
@@ -336,11 +340,12 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code readFile}.
+     * Read a shader source file line-by-line and append a NUL terminator on
+     * the final chunk (required by the desktop loader path).
      *
-     * @param shaderFile TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param shaderFile file to read
+     * @throws IOException on read error
+     * @return per-line {@link CharSequence} array suitable for upload
      */
     protected CharSequence[] readFile(File shaderFile) throws IOException {
         BufferedReader br = new BufferedReader(new FileReader(shaderFile));
@@ -361,7 +366,9 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code hotReload}.
+     * Re-read shader files on disk and recompile/relink the program if any
+     * have changed since the last check (no-op on platforms that don't
+     * support hot reload).
      */
     public void hotReload() {
         if (!Platforms.get().canHotReload()) {
@@ -396,9 +403,12 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code reloadProgram}.
+     * Recompile and relink shaders. On success, swap in the new program,
+     * delete the old one, rebuild VAO/VBO/uniform-location caches, reapply
+     * cached uniforms, and refresh the projection matrix. On failure, keep
+     * the previous program ID.
      *
-     * @return TODO: describe
+     * @return {@code true} if the new program linked successfully
      */
     public synchronized boolean reloadProgram() {
         if (this.platformId != Platforms.gl().getPlatformID()) {
@@ -429,9 +439,11 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code reloadWithFragmentSource}.
+     * Reload the program using a custom fragment-shader source string,
+     * reverting to the previous source if the new one fails to compile or
+     * link (used by the in-app shader editor).
      *
-     * @param src TODO: describe
+     * @param src raw fragment GLSL source
      */
     public synchronized void reloadWithFragmentSource(String src) {
         CharSequence[] prevFrag = this.fragmentShaderSource;
@@ -471,8 +483,8 @@ public abstract class ShaderProgram {
      * Desktop (LWJGL) expects a trailing NUL on the last chunk; Web (WebGL) uses a
      * plain string without NUL.
      *
-     * @param src TODO: describe
-     * @return TODO: describe
+     * @param src raw fragment GLSL source
+     * @return platform-appropriate source array
      */
     private CharSequence[] buildPlatformFragmentSource(String src) {
         String body = gl.usesWebGlsl() ? src : GlslSource.adaptEs300SharedForDesktopCore330(src);
@@ -548,12 +560,14 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code setTexture}.
+     * Bind {@code tex} to texture unit {@code j}, set the sampler uniform,
+     * activate texture unit {@code i}, and cache the texture by name. Lazily
+     * uploads the texture to GL if needed.
      *
-     * @param glslName TODO: describe
-     * @param tex TODO: describe
-     * @param i TODO: describe
-     * @param j TODO: describe
+     * @param glslName sampler uniform name in the shader
+     * @param tex texture to bind ({@code null} caches a null binding)
+     * @param i GL texture unit constant (e.g. {@code GL_TEXTURE0 + j})
+     * @param j sampler binding slot index
      */
     public void setTexture(String glslName, Texture tex, int i, int j) {
 
@@ -573,10 +587,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code bindFragmentDataLocation}.
+     * Bind a fragment-shader output to a draw-buffer color attachment.
      *
-     * @param i TODO: describe
-     * @param string TODO: describe
+     * @param i color attachment index
+     * @param string fragment output variable name
      */
     public void bindFragmentDataLocation(int i, String string) {
 
@@ -584,9 +598,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Begin rendering.
+     * Begin rendering: reset the staging vertex count and clear queued
+     * persistent-region draws.
      *
-     * @throws IllegalStateException TODO: describe
+     * @throws IllegalStateException if {@link #begin()} was already called
      */
     public void begin() {
         if (drawing) {
@@ -598,9 +613,9 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * End rendering.
+     * End rendering: flush staged geometry and any queued persistent draws.
      *
-     * @throws IllegalStateException TODO: describe
+     * @throws IllegalStateException if {@link #begin()} was not called
      */
     public void end() {
         if (!drawing) {
@@ -611,7 +626,8 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code flush}.
+     * Upload any staged vertices and issue draws for both the legacy
+     * immediate-mode buffer and the queued persistent-region draw ranges.
      */
     public void flush() {
         if (ID < 0) {
@@ -689,9 +705,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code getVertexSource}.
+     * Reassemble the vertex shader source as a plain string with the NUL
+     * terminator stripped (used by the shader editor / inspector).
      *
-     * @return TODO: describe
+     * @return current vertex shader source text
      */
     public String getVertexSource() {
         if (vertexShaderSource == null) {
@@ -709,9 +726,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code getFragmentSource}.
+     * Reassemble the fragment shader source as a plain string with the NUL
+     * terminator stripped.
      *
-     * @return TODO: describe
+     * @return current fragment shader source text
      */
     public String getFragmentSource() {
         if (fragmentShaderSource == null) {
@@ -736,7 +754,7 @@ public abstract class ShaderProgram {
      * @param x       X position of the texture
      * @param y       Y position of the texture
      * @param c       The color to use
-     * @param zIndex TODO: describe
+     * @param zIndex depth value written to gl_Position.z
      */
     public void drawTexture(Texture texture, float x, float y, float zIndex, Color c) {
         /* Vertex positions */
@@ -765,7 +783,7 @@ public abstract class ShaderProgram {
      * @param regY      Y position of the texture region
      * @param regWidth  Width of the texture region
      * @param regHeight Height of the texture region
-     * @param zIndex TODO: describe
+     * @param zIndex depth value written to gl_Position.z
      */
     public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY,
             float regWidth,
@@ -785,7 +803,7 @@ public abstract class ShaderProgram {
      * @param regWidth  Width of the texture region
      * @param regHeight Height of the texture region
      * @param c         The color to use
-     * @param zIndex TODO: describe
+     * @param zIndex depth value written to gl_Position.z
      */
     public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY,
             float regWidth,
@@ -806,19 +824,20 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code drawTextureRegion}.
+     * Draw a texture region with explicit destination corners (allows
+     * non-square stretching).
      *
-     * @param texture TODO: describe
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param x2 TODO: describe
-     * @param y2 TODO: describe
-     * @param zIndex TODO: describe
-     * @param regX TODO: describe
-     * @param regY TODO: describe
-     * @param regWidth TODO: describe
-     * @param regHeight TODO: describe
-     * @param c TODO: describe
+     * @param texture source texture (used for width/height to compute uvs)
+     * @param x bottom-left destination x
+     * @param y bottom-left destination y
+     * @param x2 top-right destination x
+     * @param y2 top-right destination y
+     * @param zIndex depth value written to gl_Position.z
+     * @param regX source x in texture pixels
+     * @param regY source y in texture pixels
+     * @param regWidth source width in texture pixels
+     * @param regHeight source height in texture pixels
+     * @param c tint color
      */
     public void drawTextureRegion(Texture texture, float x, float y, float x2, float y2, float zIndex, float regX,
             float regY, float regWidth,
@@ -837,18 +856,20 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code drawBlankTextureRegion}.
+     * Draw a quad with synthesized [0..1]x[0..1] uvs derived from
+     * {@code regWidth}/{@code regHeight} (no underlying texture binding
+     * assumed).
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param x2 TODO: describe
-     * @param y2 TODO: describe
-     * @param zIndex TODO: describe
-     * @param regX TODO: describe
-     * @param regY TODO: describe
-     * @param regWidth TODO: describe
-     * @param regHeight TODO: describe
-     * @param c TODO: describe
+     * @param x bottom-left destination x
+     * @param y bottom-left destination y
+     * @param x2 top-right destination x
+     * @param y2 top-right destination y
+     * @param zIndex depth value written to gl_Position.z
+     * @param regX source x divisor for s1
+     * @param regY source y divisor for t1
+     * @param regWidth full-width divisor (scales s coordinates)
+     * @param regHeight full-height divisor (scales t coordinates)
+     * @param c tint color
      */
     public void drawBlankTextureRegion(float x, float y, float x2, float y2, float zIndex, float regX,
             float regY, float regWidth,
@@ -878,7 +899,7 @@ public abstract class ShaderProgram {
      * @param t1 Bottom left t coordinate
      * @param s2 Top right s coordinate
      * @param t2 Top right t coordinate
-     * @param zIndex TODO: describe
+     * @param zIndex depth value written to gl_Position.z
      */
     public void drawTextureRegion(float x1, float y1, float x2, float y2, float zIndex, float s1, float t1, float s2,
             float t2) {
@@ -898,7 +919,7 @@ public abstract class ShaderProgram {
      * @param s2 Top right s coordinate
      * @param t2 Top right t coordinate
      * @param c  The color to use
-     * @param zIndex TODO: describe
+     * @param zIndex depth value written to gl_Position.z
      */
     public void drawTextureRegion(float x1, float y1, float x2, float y2, float zIndex, float s1, float t1, float s2,
             float t2,
@@ -926,14 +947,15 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code drawColorRegion}.
+     * Stage two triangles forming a flat-color rectangle (7-float vertex:
+     * pos+color, no uv).
      *
-     * @param x1 TODO: describe
-     * @param y1 TODO: describe
-     * @param x2 TODO: describe
-     * @param y2 TODO: describe
-     * @param zIndex TODO: describe
-     * @param c TODO: describe
+     * @param x1 bottom-left x
+     * @param y1 bottom-left y
+     * @param x2 top-right x
+     * @param y2 top-right y
+     * @param zIndex depth value written to gl_Position.z
+     * @param c fill color
      */
     public void drawColorRegion(float x1, float y1, float x2, float y2, float zIndex, Color c) {
         if (verteciesBuff.remaining() < NUM_7 * NUM_6) {
@@ -960,22 +982,24 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code drawSDFRegion}.
+     * Stage two triangles forming an arbitrary quadrilateral with SDF
+     * texture coordinates (used for line/arrow strokes whose quads aren't
+     * axis-aligned).
      *
-     * @param x1 TODO: describe
-     * @param y1 TODO: describe
-     * @param x2 TODO: describe
-     * @param y2 TODO: describe
-     * @param x3 TODO: describe
-     * @param y3 TODO: describe
-     * @param x4 TODO: describe
-     * @param y4 TODO: describe
-     * @param zIndex TODO: describe
-     * @param s1 TODO: describe
-     * @param t1 TODO: describe
-     * @param s2 TODO: describe
-     * @param t2 TODO: describe
-     * @param c TODO: describe
+     * @param x1 first vertex x
+     * @param y1 first vertex y
+     * @param x2 second vertex x
+     * @param y2 second vertex y
+     * @param x3 third vertex x
+     * @param y3 third vertex y
+     * @param x4 fourth vertex x
+     * @param y4 fourth vertex y
+     * @param zIndex depth value written to gl_Position.z
+     * @param s1 left u
+     * @param t1 bottom v
+     * @param s2 right u
+     * @param t2 top v
+     * @param c tint color
      */
     public void drawSDFRegion(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
             float zIndex, float s1, float t1, float s2, float t2, Color c) {
@@ -1003,23 +1027,25 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code drawSDFLinearGradient}.
+     * Stage two triangles for an SDF quad with a linear gradient: the first
+     * triangle gets {@code c}, the second gets {@code c2} (the GPU
+     * interpolates per-vertex colors).
      *
-     * @param x1 TODO: describe
-     * @param y1 TODO: describe
-     * @param x2 TODO: describe
-     * @param y2 TODO: describe
-     * @param x3 TODO: describe
-     * @param y3 TODO: describe
-     * @param x4 TODO: describe
-     * @param y4 TODO: describe
-     * @param zIndex TODO: describe
-     * @param s1 TODO: describe
-     * @param t1 TODO: describe
-     * @param s2 TODO: describe
-     * @param t2 TODO: describe
-     * @param c TODO: describe
-     * @param c2 TODO: describe
+     * @param x1 first vertex x
+     * @param y1 first vertex y
+     * @param x2 second vertex x
+     * @param y2 second vertex y
+     * @param x3 third vertex x
+     * @param y3 third vertex y
+     * @param x4 fourth vertex x
+     * @param y4 fourth vertex y
+     * @param zIndex depth value written to gl_Position.z
+     * @param s1 left u
+     * @param t1 bottom v
+     * @param s2 right u
+     * @param t2 top v
+     * @param c color at the start of the gradient
+     * @param c2 color at the end of the gradient
      */
     public void drawSDFLinearGradient(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
             float zIndex, float s1, float t1, float s2, float t2, Color c, Color c2) {
@@ -1052,16 +1078,18 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code updateProjectionMatrix}.
+     * Build and upload this program's projection matrix.
      *
-     * @param framebufferWidth TODO: describe
-     * @param framebufferHeight TODO: describe
-     * @param f TODO: describe
+     * @param framebufferWidth viewport width in pixels
+     * @param framebufferHeight viewport height in pixels
+     * @param f DPI/zoom scale hint
      */
     public abstract void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float f);
 
     /**
-     * TODO: document {@code init}.
+     * Allocate the staging vertex buffer (when {@code useBuffer} is on),
+     * size the GPU VBO, and reset draw bookkeeping. Subclasses override to
+     * additionally wire vertex attributes.
      */
     public void init() {
         if (useBuffer) {
@@ -1083,9 +1111,9 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code getStrideFloats}.
+     * The number of floats per vertex in this program's layout.
      *
-     * @return TODO: describe
+     * @return per-vertex stride in float units
      */
     public int getStrideFloats() {
         return strideFloats;
@@ -1103,12 +1131,14 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code ensureAllocation}.
+     * Get or grow this owner's persistent VBO slice. New allocations are
+     * rounded up to the next power of two, and undersized existing
+     * allocations are relocated to the next free region.
      *
-     * @param owner TODO: describe
-     * @param minVertexCapacity TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param owner identity key for the allocation (e.g. a drawable instance)
+     * @param minVertexCapacity required vertex capacity
+     * @throws IllegalArgumentException if {@code owner} is {@code null}
+     * @return existing or newly-created allocation
      */
     public Allocation ensureAllocation(Object owner, int minVertexCapacity) {
         if (owner == null) {
@@ -1146,11 +1176,12 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code ensureAllocation}.
+     * Variant of {@link #ensureAllocation(Object, int)} keyed by a numeric
+     * id (mapped to a stable global owner key).
      *
-     * @param id TODO: describe
-     * @param minVertexCapacity TODO: describe
-     * @return TODO: describe
+     * @param id numeric allocation id
+     * @param minVertexCapacity required vertex capacity
+     * @return existing or newly-created allocation
      */
     public Allocation ensureAllocation(long id, int minVertexCapacity) {
         Object key = getGlobalOwnerKey(id);
@@ -1160,20 +1191,21 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code getAllocationById}.
+     * Look up the allocation previously created via the long-id overload.
      *
-     * @param id TODO: describe
-     * @return TODO: describe
+     * @param id allocation id
+     * @return matching allocation, or {@code null} if none exists
      */
     public Allocation getAllocationById(long id) {
         return idToAllocation.get(id);
     }
 
     /**
-     * TODO: document {@code queueDraw}.
+     * Queue a draw of {@code vertexCount} vertices from the allocation
+     * registered under {@code id}; no-op if the id is unknown.
      *
-     * @param id TODO: describe
-     * @param vertexCount TODO: describe
+     * @param id allocation id
+     * @param vertexCount number of vertices to draw
      */
     public void queueDraw(long id, int vertexCount) {
         Allocation alloc = getAllocationById(id);
@@ -1183,11 +1215,12 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code uploadAllocation}.
+     * Upload {@code data} into the GPU buffer at the allocation's vertex
+     * offset, mark it clean, and remember the vertex count.
      *
-     * @param allocation TODO: describe
-     * @param data TODO: describe
-     * @param verticesToUpload TODO: describe
+     * @param allocation target slice in the persistent VBO
+     * @param data already-flipped float buffer of vertex data
+     * @param verticesToUpload number of vertices written into {@code data}
      */
     public void uploadAllocation(Allocation allocation, IxBuffer data, int verticesToUpload) {
         if (this.platformId != Platforms.gl().getPlatformID()) {
@@ -1204,10 +1237,11 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code queueDraw}.
+     * Queue a draw range for the given allocation; rendered on the next
+     * {@link #flush()}.
      *
-     * @param allocation TODO: describe
-     * @param vertexCount TODO: describe
+     * @param allocation slice to draw from
+     * @param vertexCount number of vertices to draw
      */
     public void queueDraw(Allocation allocation, int vertexCount) {
         if (allocation == null || vertexCount <= 0)
@@ -1216,7 +1250,7 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code clearQueuedRanges}.
+     * Discard any queued persistent-region draw ranges without flushing.
      */
     public void clearQueuedRanges() {
         queuedRanges.clear();
@@ -1249,7 +1283,8 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * TODO: document {@code printCurrentUniformValues}.
+     * Diagnostic: print every active uniform's current GPU value (float,
+     * vec2, vec4, sampler2D) to stdout.
      */
     public void printCurrentUniformValues() {
         System.out.println("--- Current Uniform Values for Shader Program ID: " + ID + " ---");
@@ -1341,9 +1376,12 @@ public abstract class ShaderProgram {
         }
 
         /**
-         * TODO: document {@code createShader}.
+         * Instantiate the concrete shader subclass for this enum entry on
+         * the active GL platform and register it with the platform's shader
+         * list.
          *
-         * @throws RuntimeException TODO: describe
+         * @throws RuntimeException if the shader class is unrecognized or
+         *                          its sources fail to load
          */
         public void createShader() {
             ShaderProgram shader = null;
@@ -1369,9 +1407,9 @@ public abstract class ShaderProgram {
         }
 
         /**
-         * TODO: document {@code getShader}.
+         * Get the shader for the current platform, creating it on first use.
          *
-         * @return TODO: describe
+         * @return shader instance for the active platform id
          */
         public ShaderProgram getShader() {
             int p = Platforms.gl().getPlatformID();
@@ -1382,10 +1420,11 @@ public abstract class ShaderProgram {
         }
 
         /**
-         * TODO: document {@code getShader}.
+         * Get the shader for a specific platform id, initializing the
+         * platform and creating the shader on first use.
          *
-         * @param p TODO: describe
-         * @return TODO: describe
+         * @param p target platform id
+         * @return shader instance for that platform
          */
         public ShaderProgram getShader(Integer p) {
             if (!shaderMap.containsKey(p)) {
@@ -1407,10 +1446,10 @@ public abstract class ShaderProgram {
         boolean dirty = true;
 
         /**
-         * TODO: document {@code Allocation}.
+         * Build an allocation describing a vertex slice in the persistent VBO.
          *
-         * @param firstVertex TODO: describe
-         * @param vertexCapacity TODO: describe
+         * @param firstVertex starting vertex index
+         * @param vertexCapacity reserved vertex count (power of two)
          */
         public Allocation(int firstVertex, int vertexCapacity) {
             this.firstVertex = firstVertex;
@@ -1419,36 +1458,36 @@ public abstract class ShaderProgram {
         }
 
         /**
-         * TODO: document {@code getFirstVertex}.
+         * Starting vertex index of this slice in the GPU buffer.
          *
-         * @return TODO: describe
+         * @return first vertex index
          */
         public int getFirstVertex() {
             return firstVertex;
         }
 
         /**
-         * TODO: document {@code getVertexCapacity}.
+         * Reserved vertex count for this slice (upper bound on uploads).
          *
-         * @return TODO: describe
+         * @return capacity in vertices
          */
         public int getVertexCapacity() {
             return vertexCapacity;
         }
 
         /**
-         * TODO: document {@code getLastVertexCount}.
+         * Vertex count from the most recent successful upload.
          *
-         * @return TODO: describe
+         * @return last uploaded vertex count
          */
         public int getLastVertexCount() {
             return lastVertexCount;
         }
 
         /**
-         * TODO: document {@code isDirty}.
+         * Whether this slice's GPU contents are stale and must be re-uploaded.
          *
-         * @return TODO: describe
+         * @return {@code true} if a re-upload is required
          */
         public boolean isDirty() {
             return dirty;

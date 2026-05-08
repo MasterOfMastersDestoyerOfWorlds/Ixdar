@@ -57,7 +57,9 @@ public class MenuBox implements MouseTrap.ScrollHandler {
     private Bounds scrollBounds;
 
     /**
-     * TODO: document {@code MenuBox}.
+     * Build the menu-box widget: load button textures, create the debug and
+     * game menus, pick the active one based on {@code Toggle.GameMode}, and
+     * subscribe to scroll input so the user can scroll long menus.
      */
     public MenuBox() {
         alpha = NUM_0_95;
@@ -126,9 +128,11 @@ public class MenuBox implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Draw the logo, then (when {@link #menuVisible}) the stack of menu-item
+     * buttons centered on screen. Highlights whichever button the cursor
+     * currently hovers and updates the scroll bounds to the menu's extents.
      *
-     * @param camera TODO: describe
+     * @param camera the active camera used for screen-space rendering
      */
     public void draw(Camera camera) {
         if (menuOuterBorder.outerTexture == null) {
@@ -187,10 +191,11 @@ public class MenuBox implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code setHover}.
+     * Record the current cursor position so that the next {@link #draw} can
+     * detect which menu item (if any) is hovered.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param x cursor x in screen pixels
+     * @param y cursor y in screen pixels
      */
     public void setHover(float x, float y) {
         hoverX = x;
@@ -198,10 +203,11 @@ public class MenuBox implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code click}.
+     * Hit-test menu items against the current hover position; if one is hit,
+     * record an automation event, play the click SFX, and fire its action.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param x cursor x in screen pixels (used only for normalized telemetry)
+     * @param y cursor y in screen pixels (used only for normalized telemetry)
      */
     public void click(float x, float y) {
         if (!menuVisible) {
@@ -232,9 +238,10 @@ public class MenuBox implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code load}.
+     * Make the given menu the active screen, resetting scroll and refreshing
+     * the displayed item list.
      *
-     * @param parent TODO: describe
+     * @param parent the menu to display
      */
     public static void load(Menu parent) {
         scrollOffsetY = 0;
@@ -243,17 +250,20 @@ public class MenuBox implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code back}.
+     * Forward a back-navigation gesture to the active menu's
+     * {@link Menu#back()} hook.
      */
     public void back() {
         activeMenu.back();
     }
 
     /**
-     * TODO: document {@code onScroll}.
+     * Scroll the menu list up or down. Clamps so the top item never goes below
+     * its starting position and the bottom item never scrolls past the screen
+     * floor; if the whole menu fits on screen, scrolling is disabled.
      *
-     * @param scrollUp TODO: describe
-     * @param deltaSeconds TODO: describe
+     * @param scrollUp     true if the wheel ticked up, false for down
+     * @param deltaSeconds time since the last frame, used to scale scroll speed
      */
     public void onScroll(boolean scrollUp, double deltaSeconds) {
         float menuBottom = Platforms.get().getFrameBufferHeight() / 2 - (itemHeight * menuItems.size() * NUM_1_5);
@@ -297,9 +307,12 @@ public class MenuBox implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code getMenuItemBounds}.
+     * Compute per-item screen-space bounds for the currently visible menu.
+     * Used by automation/test harnesses to locate buttons without having to
+     * replicate the layout math.
      *
-     * @return TODO: describe
+     * @return a list of {@link MenuItemBounds}, one per item, or empty if the
+     *         menu has no items or its textures are not yet loaded
      */
     public List<MenuItemBounds> getMenuItemBounds() {
         ArrayList<MenuItemBounds> bounds = new ArrayList<>();

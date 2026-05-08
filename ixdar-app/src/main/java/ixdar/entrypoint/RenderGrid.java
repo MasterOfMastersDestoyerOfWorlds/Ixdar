@@ -74,9 +74,12 @@ public class RenderGrid {
     private static final Color REF_LABEL_FG = new Color(255, 180, 60);
 
     /**
-     * TODO: document {@code main}.
+     * CLI entry: render every {@code .dsl} file in {@code --inputs} (plus an
+     * optional {@code --reference} cell) into a single labeled PNG grid suitable
+     * for a VLM tournament prompt.
      *
-     * @param args TODO: describe
+     * @param args {@code --inputs <dir> --output <path> [--reference <file>]
+     *             [--cols N] [--cell-size N] [--labels a,b,c] [--skill-dir path]}
      */
     public static void main(String[] args) {
         String inputDir = null;

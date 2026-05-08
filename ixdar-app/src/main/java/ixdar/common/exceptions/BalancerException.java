@@ -3,25 +3,30 @@ package ixdar.common.exceptions;
 import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
 
+/**
+ * Thrown by the cut/match balancer when the requested cut cannot be balanced.
+ * Inherits cut-context state from {@link SegmentBalanceException} and adds a
+ * descriptive {@code errorMsg} formed from the offending knot points/segments.
+ */
 public class BalancerException extends SegmentBalanceException {
 
     String errorMsg;
 
     /**
-     * TODO: document {@code BalancerException}.
+     * Wrap an existing {@link SegmentBalanceException}, copying its diagnostic state.
      *
-     * @param sbe TODO: describe
+     * @param sbe source exception to inherit context from
      */
     public BalancerException(SegmentBalanceException sbe) {
         super(sbe);
     }
 
     /**
-     * TODO: document {@code BalancerException}.
+     * Construct for a "bad cut" between two knot points.
      *
-     * @param vp1 TODO: describe
-     * @param vp2 TODO: describe
-     * @param sbe TODO: describe
+     * @param vp1 first knot point of the failing cut
+     * @param vp2 second knot point of the failing cut
+     * @param sbe source exception to inherit context from
      */
     public BalancerException(Knot vp1, Knot vp2, SegmentBalanceException sbe) {
         super(sbe);
@@ -29,12 +34,12 @@ public class BalancerException extends SegmentBalanceException {
     }
 
     /**
-     * TODO: document {@code BalancerException}.
+     * Construct with a custom message prefix describing why a match was rejected.
      *
-     * @param vp TODO: describe
-     * @param newMatch TODO: describe
-     * @param sbe TODO: describe
-     * @param messageType TODO: describe
+     * @param vp knot point at which the failure occurred
+     * @param newMatch candidate match segment that was rejected
+     * @param sbe source exception to inherit context from
+     * @param messageType prefix categorizing the failure (concatenated with vp/newMatch)
      */
     public BalancerException(Knot vp, Segment newMatch, SegmentBalanceException sbe, String messageType) {
         super(sbe);
@@ -42,9 +47,9 @@ public class BalancerException extends SegmentBalanceException {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Diagnostic string including the cut ID and computed error message.
      *
-     * @return TODO: describe
+     * @return human-readable representation for logs
      */
     @Override
     public String toString() {

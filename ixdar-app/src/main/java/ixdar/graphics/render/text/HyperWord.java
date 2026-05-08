@@ -32,14 +32,15 @@ public class HyperWord {
     private Font font;
 
     /**
-     * TODO: document {@code HyperWord}.
+     * Build a static word: convert {@code word} to a per-char HyperChar
+     * stream, measure its width, and wire hover/click actions.
      *
-     * @param word TODO: describe
-     * @param c TODO: describe
-     * @param hoverAction TODO: describe
-     * @param clearHover TODO: describe
-     * @param clickAction TODO: describe
-     * @param font TODO: describe
+     * @param word word text (typically with a trailing space)
+     * @param c word color
+     * @param hoverAction action invoked while hovered
+     * @param clearHover action invoked when hover leaves
+     * @param clickAction action invoked on click ({@code null} -> no-op)
+     * @param font font owning the glyphs
      */
     public HyperWord(String word, Color c, Action hoverAction, Action clearHover, Action clickAction, Font font) {
         charSequence = word;
@@ -59,10 +60,10 @@ public class HyperWord {
     }
 
     /**
-     * TODO: document {@code HyperWord}.
+     * Build a newline sentinel word (zero width, empty char stream).
      *
-     * @param b TODO: describe
-     * @param font TODO: describe
+     * @param b {@code true} to mark this entry as a line break
+     * @param font font owning future re-measurements
      */
     public HyperWord(boolean b, Font font) {
         newLine = b;
@@ -74,14 +75,15 @@ public class HyperWord {
     }
 
     /**
-     * TODO: document {@code HyperWord}.
+     * Build a dynamic word whose text is supplied each frame; renders
+     * {@code "?MissingWord?"} until the supplier produces sub-words.
      *
-     * @param wordAction TODO: describe
-     * @param c TODO: describe
-     * @param hoverAction TODO: describe
-     * @param clearHover TODO: describe
-     * @param clickAction TODO: describe
-     * @param font TODO: describe
+     * @param wordAction supplier returning the up-to-date colored phrase
+     * @param c default color
+     * @param hoverAction action invoked while hovered
+     * @param clearHover action invoked when hover leaves
+     * @param clickAction action invoked on click ({@code null} -> no-op)
+     * @param font font owning future re-measurements
      */
     public HyperWord(Supplier<ColorText<?>> wordAction, Color c, Action hoverAction, Action clearHover,
             Action clickAction,
@@ -114,14 +116,15 @@ public class HyperWord {
     }
 
     /**
-     * TODO: document {@code setBounds}.
+     * Cache the world and screen positions of this word along with the
+     * containing view rectangle (used for hit-testing and rendering).
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param xScreen TODO: describe
-     * @param yScreen TODO: describe
-     * @param height TODO: describe
-     * @param viewBounds TODO: describe
+     * @param x world-space x of the bottom-left
+     * @param y world-space y of the bottom-left
+     * @param xScreen screen-space x of the bottom-left
+     * @param yScreen screen-space y of the bottom-left
+     * @param height row height in pixels
+     * @param viewBounds clipping rectangle for hit-testing
      */
     public void setBounds(float x, float y, float xScreen, float yScreen, float height, Bounds viewBounds) {
         this.x = x;
@@ -133,9 +136,9 @@ public class HyperWord {
     }
 
     /**
-     * TODO: document {@code setFont}.
+     * Replace the font and, if this is a dynamic word, re-measure its width.
      *
-     * @param font TODO: describe
+     * @param font new font
      */
     public void setFont(Font font) {
         this.font = font;
@@ -145,26 +148,27 @@ public class HyperWord {
     }
 
     /**
-     * TODO: document {@code setWidth}.
+     * Re-measure this word's width using {@code font}.
      *
-     * @param font TODO: describe
+     * @param font font to measure with
      */
     public void setWidth(Font font) {
         this.width = font.getWidth(charSequence);
     }
 
     /**
-     * TODO: document {@code setZeroWidth}.
+     * Force this word's measured width to zero.
      */
     public void setZeroWidth() {
         this.width = 0;
     }
 
     /**
-     * TODO: document {@code calculateClearHover}.
+     * Fire {@link #clearHover} when the cursor is no longer inside this word
+     * (or any of its dynamic sub-words).
      *
-     * @param normalizedPosX TODO: describe
-     * @param normalizedPosY TODO: describe
+     * @param normalizedPosX cursor x in screen-normalized coordinates
+     * @param normalizedPosY cursor y in screen-normalized coordinates
      */
     public void calculateClearHover(float normalizedPosX, float normalizedPosY) {
         if (subWords != null && !subWords.isEmpty()) {
@@ -190,10 +194,11 @@ public class HyperWord {
     }
 
     /**
-     * TODO: document {@code calculateHover}.
+     * Fire {@link #hoverAction} when the cursor is inside this word and the
+     * containing view bounds; recurses into dynamic sub-words.
      *
-     * @param normalizedPosX TODO: describe
-     * @param normalizedPosY TODO: describe
+     * @param normalizedPosX cursor x in screen-normalized coordinates
+     * @param normalizedPosY cursor y in screen-normalized coordinates
      */
     public void calculateHover(float normalizedPosX, float normalizedPosY) {
         if (subWords != null && !subWords.isEmpty()) {
@@ -209,9 +214,9 @@ public class HyperWord {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * The plain text of this word.
      *
-     * @return TODO: describe
+     * @return underlying character sequence as a string
      */
     @Override
     public String toString() {
@@ -219,10 +224,11 @@ public class HyperWord {
     }
 
     /**
-     * TODO: document {@code click}.
+     * Fire {@link #clickAction} when the cursor is inside this word and the
+     * containing view bounds; recurses into dynamic sub-words.
      *
-     * @param normalizedPosX TODO: describe
-     * @param normalizedPosY TODO: describe
+     * @param normalizedPosX cursor x in screen-normalized coordinates
+     * @param normalizedPosY cursor y in screen-normalized coordinates
      */
     public void click(float normalizedPosX, float normalizedPosY) {
         if (subWords != null && !subWords.isEmpty()) {
@@ -238,9 +244,11 @@ public class HyperWord {
     }
 
     /**
-     * TODO: document {@code subWords}.
+     * Refresh the dynamic word's sub-words by invoking {@link #wordAction};
+     * rebuilds the cached sub-word list only when the supplied phrase is
+     * marked dirty.
      *
-     * @return TODO: describe
+     * @return current per-token sub-word list
      */
     public ArrayList<HyperWord> subWords() {
         ColorText<?> colorText = wordAction.get();

@@ -7,6 +7,11 @@ import ixdar.annotations.geometry.Geometry;
 import ixdar.annotations.geometry.GeometryAnnotation;
 import ixdar.common.exceptions.TerminalParseException;
 
+/**
+ * Section of a circle sampled between two angles, exposed on the terminal as
+ * {@code add arc} (also {@code a}). Stores the center, radius, vertex count,
+ * and start/end angles in radians.
+ */
 @GeometryAnnotation(id = "arc")
 public class Arc implements Geometry, PointCollection {
     public static final int NUM_3 = 3;
@@ -29,7 +34,10 @@ public class Arc implements Geometry, PointCollection {
     ArrayList<PointND> points;
 
     /**
-     * TODO: document {@code Arc}.
+     * Default arc: centered at the origin, radius and vertex count both
+     * {@value #NUM_10}, sweeping from {@value #NUM_45} to {@value #NUM_315}
+     * (interpreted as raw values, not converted from degrees). Realizes its
+     * points eagerly.
      */
     public Arc() {
         xCenter = 0.0;
@@ -43,14 +51,14 @@ public class Arc implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code Arc}.
+     * Build an arc from explicit parameters and realize its vertices.
      *
-     * @param xCenter TODO: describe
-     * @param yCenter TODO: describe
-     * @param radius TODO: describe
-     * @param numPoints TODO: describe
-     * @param startAngle TODO: describe
-     * @param endAngle TODO: describe
+     * @param xCenter x of the center
+     * @param yCenter y of the center
+     * @param radius arc radius
+     * @param numPoints number of evenly-spaced samples along the arc
+     * @param startAngle starting sweep angle in radians
+     * @param endAngle ending sweep angle in radians
      */
     public Arc(double xCenter, double yCenter, double radius, int numPoints, double startAngle, double endAngle) {
         this.xCenter = xCenter;
@@ -63,12 +71,12 @@ public class Arc implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parse}.
+     * Convenience that parses the args and returns just the realized vertices.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args full terminal argument array
+     * @param startIdx index of the first argument belonging to the arc
+     * @return the sampled points of the parsed arc
+     * @throws TerminalParseException if the slice is malformed
      */
     public static ArrayList<PointND> parse(String[] args, int startIdx) throws TerminalParseException {
         Arc arc = parseArc(args, startIdx);
@@ -76,12 +84,15 @@ public class Arc implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parseArc}.
+     * Parse an {@code Arc} from {@code [xCenter, yCenter, radius, numPoints,
+     * startAngleDeg, endAngleDeg]}. With zero trailing args, returns a default
+     * {@link #Arc()}; the angles are supplied in degrees and converted to
+     * radians.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args full terminal argument array
+     * @param startIdx index of the first argument belonging to the arc
+     * @return parsed arc
+     * @throws TerminalParseException if any token is not numeric
      */
     public static Arc parseArc(String[] args, int startIdx) throws TerminalParseException {
         if (args.length - startIdx == 0) {
@@ -97,12 +108,12 @@ public class Arc implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parseCollection}.
+     * {@link PointCollection} entry point; delegates to {@link #parseArc}.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args full terminal argument array
+     * @param startIdx index of the first argument belonging to the arc
+     * @return parsed arc as a {@link PointCollection}
+     * @throws TerminalParseException if the slice is malformed
      */
     @Override
     public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {
@@ -111,9 +122,10 @@ public class Arc implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code realizePoints}.
+     * Sample {@code numPoints} vertices evenly between {@code startAngle} and
+     * {@code endAngle} on the circle of {@code radius} around the center.
      *
-     * @return TODO: describe
+     * @return newly built list of {@link PointND.Double} vertices
      */
     @Override
     public ArrayList<PointND> realizePoints() {
@@ -129,9 +141,9 @@ public class Arc implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code desc}.
+     * Short human-readable description shown in terminal help.
      *
-     * @return TODO: describe
+     * @return description string
      */
     @Override
     public String desc() {
@@ -139,9 +151,9 @@ public class Arc implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code usage}.
+     * Usage hint shown when the command is invoked with bad arguments.
      *
-     * @return TODO: describe
+     * @return single-line usage string
      */
     @Override
     public String usage() {
@@ -149,9 +161,9 @@ public class Arc implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code argLength}.
+     * Required positional arg count for parsing: {@value #NUM_6}.
      *
-     * @return TODO: describe
+     * @return number of arguments {@link #parseArc} consumes
      */
     @Override
     public int argLength() {
@@ -159,9 +171,9 @@ public class Arc implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code options}.
+     * Aliases the terminal accepts for this geometry ({@code a}, {@code arc}).
      *
-     * @return TODO: describe
+     * @return shared option list
      */
     @Override
     public OptionList options() {
@@ -169,9 +181,9 @@ public class Arc implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code toFileString}.
+     * Serialize this arc to its {@code .ix} file representation.
      *
-     * @return TODO: describe
+     * @return {@code "ARC x y r n start end"} space-separated, with angles in radians
      */
     @Override
     public String toFileString() {
@@ -179,9 +191,10 @@ public class Arc implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code fullName}.
+     * Long terminal name for this geometry. (Same value as {@link #shortName()}
+     * for arcs.)
      *
-     * @return TODO: describe
+     * @return {@code "arc"}
      */
     @Override
     public String fullName() {
@@ -189,9 +202,9 @@ public class Arc implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code shortName}.
+     * CLI shorthand for this geometry, matching the {@code @GeometryAnnotation} id.
      *
-     * @return TODO: describe
+     * @return {@code "arc"}
      */
     @Override
     public String shortName() {

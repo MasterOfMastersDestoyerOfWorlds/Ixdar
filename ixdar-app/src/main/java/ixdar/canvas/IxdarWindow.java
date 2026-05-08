@@ -73,12 +73,13 @@ public class IxdarWindow {
     private static int windowHeight;
 
     /**
-     * TODO: document {@code main}.
+     * Desktop entry point: pick the canvas id from {@code args[0]} (default
+     * {@code "ixdar"}), record the start time, and launch the GLFW loop.
      *
-     * @param args TODO: describe
-     * @throws UnsupportedEncodingException TODO: describe
-     * @throws IOException TODO: describe
-     * @throws InterruptedException TODO: describe
+     * @param args optional canvas id at index 0
+     * @throws UnsupportedEncodingException propagated from window initialization
+     * @throws IOException propagated from window initialization
+     * @throws InterruptedException if the polling thread is interrupted
      */
     public static void main(String[] args) throws UnsupportedEncodingException, IOException, InterruptedException {
         if (args.length == 0) {
@@ -91,20 +92,21 @@ public class IxdarWindow {
     }
 
     /**
-     * TODO: document {@code getAspectRatio}.
+     * Width-over-height aspect ratio of the underlying Swing frame.
      *
-     * @return TODO: describe
+     * @return {@code frame.getWidth() / frame.getHeight()}
      */
     public static float getAspectRatio() {
         return ((float) frame.getWidth()) / ((float) frame.getHeight());
     }
 
     /**
-     * TODO: document {@code runGLFW}.
+     * Run the full GLFW lifecycle: initialize, drive the render/poll loop, then
+     * tear down callbacks, the window, GLFW itself, and the error callback.
      *
-     * @throws UnsupportedEncodingException TODO: describe
-     * @throws IOException TODO: describe
-     * @throws InterruptedException TODO: describe
+     * @throws UnsupportedEncodingException propagated from {@link #init()}
+     * @throws IOException propagated from {@link #init()}
+     * @throws InterruptedException if the polling thread is interrupted
      */
     public void runGLFW() throws UnsupportedEncodingException, IOException, InterruptedException {
 
@@ -228,43 +230,43 @@ public class IxdarWindow {
     }
 
     /**
-     * TODO: document {@code getWidth}.
+     * Last reported logical window width in screen units (not framebuffer pixels).
      *
-     * @return TODO: describe
+     * @return cached width from the most recent size callback
      */
     public static float getWidth() {
         return windowWidth;
     }
 
     /**
-     * TODO: document {@code getHeight}.
+     * Last reported logical window height in screen units (not framebuffer pixels).
      *
-     * @return TODO: describe
+     * @return cached height from the most recent size callback
      */
     public static float getHeight() {
         return windowHeight;
     }
 
     /**
-     * TODO: document {@code getCanvasId}.
+     * Canvas id selected at startup (drives {@link CanvasSceneMap} lookup).
      *
-     * @return TODO: describe
+     * @return the active canvas id
      */
     public static String getCanvasId() {
         return canvasId;
     }
 
     /**
-     * TODO: document {@code setTitle}.
+     * Set the GLFW window title.
      *
-     * @param title TODO: describe
+     * @param title new title shown in the OS window chrome
      */
     public static void setTitle(String title) {
         glfwSetWindowTitle(window, title);
     }
 
     /**
-     * TODO: document {@code requestClose}.
+     * Ask GLFW to close the window on the next poll; no-op if no window exists.
      */
     public static void requestClose() {
         if (window != 0) {

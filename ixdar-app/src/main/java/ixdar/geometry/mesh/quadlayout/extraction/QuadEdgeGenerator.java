@@ -68,14 +68,20 @@ public final class QuadEdgeGenerator {
     private QuadEdgeGenerator() {}
 
     /**
-     * TODO: document {@code generate}.
+     * Connect every unconnected port to its iso-line mate, returning the list of
+     * resulting {@link QEdge}s. Resets the per-trace static counters first so
+     * callers can read them after the run.
      *
-     * @param mesh TODO: describe
-     * @param ports TODO: describe
-     * @param uCorner TODO: describe
-     * @param vCorner TODO: describe
-     * @param trs TODO: describe
-     * @return TODO: describe
+     * @param mesh underlying triangle mesh
+     * @param ports all {@link QPort}s emitted by Stage 2 (mutated in place: the
+     *        two paired ports are flagged {@code connected} and tagged with the
+     *        new edge id)
+     * @param uCorner per-corner u, length {@code 3 * F}
+     * @param vCorner per-corner v, length {@code 3 * F}
+     * @param trs per-half-edge transition matrices for crossing into a neighbour
+     *        face's UV frame
+     * @return one {@link QEdge} per successful pairing; unpaired ports are left
+     *         with {@code connected = false}
      */
     public static List<QEdge> generate(ArrayMesh mesh,
                                        List<QPort> ports,

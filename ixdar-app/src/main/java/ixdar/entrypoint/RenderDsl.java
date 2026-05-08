@@ -44,9 +44,12 @@ public class RenderDsl {
     private static final float CAMERA_ELEVATION = (float) Math.toRadians(24.0);
 
     /**
-     * TODO: document {@code main}.
+     * CLI entry: parse a DSL file, execute its node graph through
+     * {@link NodeGraphRuntime}, render the resulting mesh into a headless GL
+     * context, and write a PNG of the framebuffer to the requested path.
      *
-     * @param args TODO: describe
+     * @param args {@code <file.dsl> <output.png> [--node id] [--port name]
+     *             [--width N] [--height N] [--skill-dir path]}
      */
     public static void main(String[] args) {
         if (args.length < 2) {

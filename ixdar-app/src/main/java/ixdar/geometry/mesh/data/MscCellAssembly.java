@@ -47,10 +47,10 @@ public final class MscCellAssembly {
      * be the field used for ascent, otherwise face-to-max assignments
      * may not align with the cell boundaries the user sees as MSC arcs.
      *
-     * @param mesh TODO: describe
-     * @param scalar TODO: describe
-     * @param msc TODO: describe
-     * @return TODO: describe
+     * @param mesh input mesh
+     * @param scalar smoothed Morse scalar that produced {@code msc} (must match)
+     * @param msc Morse-Smale critical-point set
+     * @return per-face labels indexed in {@code [0, faceCount)}
      */
     public static int[] ascendingManifold(ArrayMesh mesh, float[] scalar,
                                           MorseSmaleComplex.Result msc) {
@@ -69,11 +69,11 @@ public final class MscCellAssembly {
      * <p>If a vertex has no non-crossing uphill option, fall back to
      * the crossing one — better to terminate at a max than stall.
      *
-     * @param mesh TODO: describe
-     * @param scalar TODO: describe
-     * @param msc TODO: describe
-     * @param highConfidenceEdges TODO: describe
-     * @return TODO: describe
+     * @param mesh input mesh
+     * @param scalar smoothed Morse scalar that produced {@code msc} (must match)
+     * @param msc Morse-Smale critical-point set
+     * @param highConfidenceEdges packed (lo,hi) edge keys the walker should avoid crossing when possible
+     * @return per-face labels indexed in {@code [0, faceCount)}
      */
     public static int[] ascendingManifold(ArrayMesh mesh, float[] scalar,
                                           MorseSmaleComplex.Result msc,
@@ -142,10 +142,10 @@ public final class MscCellAssembly {
      * Each unique label becomes one Patch. Patch palette is the standard
      * golden-ratio-hue progression used elsewhere in the renderer.
      *
-     * @param mesh TODO: describe
-     * @param faceLabels TODO: describe
-     * @param positions TODO: describe
-     * @return TODO: describe
+     * @param mesh input mesh
+     * @param faceLabels ascending-manifold labels (one per face)
+     * @param positions vertex positions packed xyz (length {@code 3 * vertexCount})
+     * @return decomposition with one {@link Patch} per non-empty label
      */
     public static PatchDecomposition toPatchDecomposition(ArrayMesh mesh,
                                                            int[] faceLabels,
@@ -253,13 +253,13 @@ public final class MscCellAssembly {
      * the vertex with highest scalar value (closest to its target max,
      * so the most authoritative).
      *
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @param c TODO: describe
-     * @param scalar TODO: describe
-     * @param faceIdx TODO: describe
-     * @param faceId TODO: describe
-     * @return TODO: describe
+     * @param a label from corner 0
+     * @param b label from corner 1
+     * @param c label from corner 2
+     * @param scalar per-vertex Morse scalar
+     * @param faceIdx packed triangle face indices
+     * @param faceId face whose corners are being voted on
+     * @return chosen label
      */
     private static int majority(int a, int b, int c, float[] scalar, int[] faceIdx, int faceId) {
         if (a == b && b == c) return a;

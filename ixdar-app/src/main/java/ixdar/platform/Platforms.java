@@ -18,10 +18,11 @@ public final class Platforms {
     }
 
     /**
-     * TODO: document {@code init}.
+     * Register {@code platform} + {@code gl} under the GL's platform ID and make them current.
+     * Used at startup so subsequent {@link #get()}/{@link #gl()} calls resolve to this pairing.
      *
-     * @param platform TODO: describe
-     * @param gl TODO: describe
+     * @param platform windowing / OS adapter to register
+     * @param gl GL backend providing the platform ID; both sides are stamped with that ID
      */
     public static void init(Platform platform, GL gl) {
         instance = platform;
@@ -34,10 +35,11 @@ public final class Platforms {
     }
 
     /**
-     * TODO: document {@code init}.
+     * Switch the current platform/GL pair to a previously registered one (web supports multiple
+     * canvases; this picks which one input/render calls bind to).
      *
-     * @param p TODO: describe
-     * @throws IllegalStateException TODO: describe
+     * @param p platform ID previously registered via {@link #init(Platform, GL)}
+     * @throws IllegalStateException if {@code p} was never registered
      */
     public static void init(Integer p) {
         if (!platformMap.containsKey(p)) {
@@ -48,10 +50,10 @@ public final class Platforms {
     }
 
     /**
-     * TODO: document {@code get}.
+     * Currently active platform adapter.
      *
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @throws IllegalStateException if {@link #init} has not run yet
+     * @return the registered {@link Platform}
      */
     public static Platform get() {
         if (instance == null) {
@@ -61,10 +63,10 @@ public final class Platforms {
     }
 
     /**
-     * TODO: document {@code gl}.
+     * Currently active GL backend.
      *
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @throws IllegalStateException if {@link #init} has not run yet
+     * @return the registered {@link GL}
      */
     public static GL gl() {
         if (glInstance == null) {

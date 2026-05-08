@@ -12,11 +12,12 @@ import ixdar.platform.automation.AutomationEndpoint;
 @AutomationRouteAnnotation(path = "replay/status", method = APIMethod.GET)
 public class Status extends AutomationEndpoint implements AutomationRoute {
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code GET /replay/status}: snapshot of the replay engine.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body request body (unused)
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return {@code {"replaying", "status", "file", "paused"}} with the engine's
+     *         current flags and the path of the most recent recording
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject result = new JsonObject();

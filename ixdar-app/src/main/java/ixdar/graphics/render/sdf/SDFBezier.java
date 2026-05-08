@@ -31,7 +31,9 @@ public class SDFBezier extends ShaderDrawable {
     private float edgeDistUnits = 0.35f;
 
     /**
-     * TODO: document {@code SDFBezier}.
+     * Build a Bezier SDF drawable, wiring the {@code BezierSDF} shader
+     * program so {@link ShaderDrawable#draw(ixdar.graphics.cameras.Camera)}
+     * uses it.
      */
     public SDFBezier() {
         super();
@@ -40,7 +42,13 @@ public class SDFBezier extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code calculateQuad}.
+     * Compute the oriented bounding box that tightly encloses the quadratic
+     * Bezier through {@code pA}, {@code pControl}, {@code pB} (per Vlad
+     * Jukov / iq), then expand outward by {@code edgeDistUnits} so the SDF
+     * shader has a margin to anti-alias the edge. Updates the four corner
+     * vectors and the {@code uAxis} / {@code vAxis} basis used by the base
+     * class to emit a quad, plus the texture-space control points consumed
+     * by {@link #setUniforms()}.
      */
     @Override
     public void calculateQuad() {
@@ -124,7 +132,10 @@ public class SDFBezier extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setUniforms}.
+     * Push Bezier-specific uniforms to the active shader: the inverse of the
+     * squared chord length (used to normalize distances), the gradient
+     * end color, the three texture-space control points, the edge-anti-alias
+     * margin, and an edge-sharpness factor scaled by line width.
      */
     @Override
     protected void setUniforms() {

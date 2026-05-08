@@ -27,16 +27,17 @@ public class IrregularQuadLayoutGenerator {
     public static final float NUM_0_65 = 0.65f;
 
     /**
-     * TODO: document {@code generate}.
+     * Build a Townscaper-style irregular quad layout sized so it roughly contains
+     * {@code targetCities} cells, then fit it to the requested rectangle.
      *
-     * @param targetCities TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param margin TODO: describe
-     * @param seed TODO: describe
-     * @param relaxIterations TODO: describe
-     * @param jitterRatio TODO: describe
-     * @return TODO: describe
+     * @param targetCities lower bound on cell count (clamped to at least 4)
+     * @param width target rectangle width in world units
+     * @param height target rectangle height in world units
+     * @param margin inner padding inside the rectangle
+     * @param seed RNG seed driving triangle pairing
+     * @param relaxIterations Laplacian smoothing iterations applied to interior points
+     * @param jitterRatio reserved jitter parameter (currently unused)
+     * @return generated {@link Layout} fitted to the rectangle
      */
     public static Layout generate(int targetCities, float width, float height, float margin, long seed,
             int relaxIterations,
@@ -50,13 +51,16 @@ public class IrregularQuadLayoutGenerator {
     }
 
     /**
-     * TODO: document {@code generateTownscaperHex}.
+     * Core generator: tile a hex region with triangles, randomly pair adjacent
+     * triangles into quads (leaving stragglers as triangles), subdivide every face
+     * into per-vertex quads, smooth interior points, and emit points/edges/dual
+     * centroids plus per-orientation edge-length statistics.
      *
-     * @param hexRadius TODO: describe
-     * @param triangleSize TODO: describe
-     * @param seed TODO: describe
-     * @param relaxIterations TODO: describe
-     * @return TODO: describe
+     * @param hexRadius lattice radius in triangles (clamped to at least 2)
+     * @param triangleSize edge length of the base triangles
+     * @param seed RNG seed for triangle pairing order
+     * @param relaxIterations Laplacian smoothing iterations applied to interior points
+     * @return populated {@link Layout}
      */
     public static Layout generateTownscaperHex(int hexRadius, float triangleSize, long seed, int relaxIterations) {
         int radius = Math.max(2, hexRadius);

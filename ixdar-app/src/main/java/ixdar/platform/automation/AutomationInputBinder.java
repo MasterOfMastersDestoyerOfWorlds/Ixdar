@@ -12,11 +12,14 @@ public class AutomationInputBinder {
     }
 
     /**
-     * TODO: document {@code bind}.
+     * Install platform input callbacks that tee each event into the
+     * {@link AutomationRuntime} recorder before forwarding it to the normal
+     * {@link KeyGuy}/{@link MouseTrap} handlers.
      *
-     * @param platform TODO: describe
-     * @param keys TODO: describe
-     * @param mouse TODO: describe
+     * @param platform platform whose key/char/mouse/scroll callbacks will be replaced
+     * @param keys keyboard handler that should receive forwarded key and char events
+     * @param mouse mouse handler that should receive forwarded button, move, and
+     *              scroll events
      */
     public static void bind(Platform platform, KeyGuy keys, MouseTrap mouse) {
         platform.setKeyCallback((key, scancode, action, mods) -> {

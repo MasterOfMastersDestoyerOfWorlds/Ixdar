@@ -20,14 +20,16 @@ public class DashedLineRoundScene extends Scene {
     private Segment lineSegment;
 
     /**
-     * TODO: document {@code DashedLineRoundScene}.
+     * Anatomy demo for a diagonal SDF segment rendered as a dashed line
+     * with rounded dash bodies.
      */
     public DashedLineRoundScene() {
         super();
     }
 
     /**
-     * TODO: document {@code initPoints}.
+     * Seed the shell with the two diagonal endpoints used as draggable
+     * line anchors.
      */
     @Override
     public void initPoints() {
@@ -39,7 +41,9 @@ public class DashedLineRoundScene extends Scene {
     }
 
     /**
-     * TODO: document {@code initGL}.
+     * Build the segment between the two anchor knots, configure the
+     * rounded dashed stroke, and attach the code pane bound to its SDF
+     * shader.
      */
     @Override
     public void initGL() {
@@ -52,12 +56,13 @@ public class DashedLineRoundScene extends Scene {
     }
 
     /**
-     * TODO: document {@code drawScene}.
+     * Re-apply the rounded dashed stroke each frame and draw the segment
+     * with a red-to-green gradient body.
      */
     @Override
     public void drawScene() {
         super.drawScene();
-        lineSegment.setStroke(NUM_10 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, NUM_0_4, 0.0f, true, false, false, camera2D);        
+        lineSegment.setStroke(NUM_10 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, NUM_0_4, 0.0f, true, false, false, camera2D);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);

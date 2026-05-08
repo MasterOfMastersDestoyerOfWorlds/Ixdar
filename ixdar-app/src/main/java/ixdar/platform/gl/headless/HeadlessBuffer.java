@@ -17,9 +17,10 @@ public class HeadlessBuffer implements IxBuffer {
     private int limit;
 
     /**
-     * TODO: document {@code HeadlessBuffer}.
+     * Allocate a heap-backed buffer of {@code capacity} floats; position starts at 0, limit at
+     * {@code capacity}.
      *
-     * @param capacity TODO: describe
+     * @param capacity number of floats
      */
     public HeadlessBuffer(int capacity) {
         this.data = new float[capacity];
@@ -28,7 +29,7 @@ public class HeadlessBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code flip}.
+     * Set limit to the current write position and rewind position to 0.
      */
     @Override
     public void flip() {
@@ -37,7 +38,7 @@ public class HeadlessBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code clear}.
+     * Reset position to 0 and limit to the full capacity.
      */
     @Override
     public void clear() {
@@ -46,9 +47,7 @@ public class HeadlessBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code remaining}.
-     *
-     * @return TODO: describe
+     * @return floats between position and limit
      */
     @Override
     public int remaining() {
@@ -56,10 +55,11 @@ public class HeadlessBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code put}.
+     * Write {@code value} at the current position and advance; silently discards writes past
+     * the end of the backing array.
      *
-     * @param value TODO: describe
-     * @return TODO: describe
+     * @param value float to append
+     * @return this buffer
      */
     @Override
     public IxBuffer put(float value) {
@@ -70,9 +70,7 @@ public class HeadlessBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code capacity}.
-     *
-     * @return TODO: describe
+     * @return backing array length
      */
     @Override
     public int capacity() {
@@ -80,10 +78,10 @@ public class HeadlessBuffer implements IxBuffer {
     }
 
     /**
-     * TODO: document {@code get}.
+     * Absolute read; out-of-range indices return {@code 0f} rather than throwing.
      *
-     * @param i TODO: describe
-     * @return TODO: describe
+     * @param i absolute index
+     * @return value at {@code i}, or {@code 0f} if out of range
      */
     @Override
     public Float get(int i) {
@@ -95,9 +93,9 @@ public class HeadlessBuffer implements IxBuffer {
 
     /**
      * Returns a FloatBuffer view of the data (position 0 to limit).
-     * Creates a new direct buffer each call — cache externally if needed per-frame.
+     * Creates a new direct buffer each call; cache externally if needed per-frame.
      *
-     * @return TODO: describe
+     * @return new direct {@link FloatBuffer} containing {@code data[0..limit)}, flipped for reading
      */
     public FloatBuffer getBuffer() {
         int len = limit - 0;  // always from start

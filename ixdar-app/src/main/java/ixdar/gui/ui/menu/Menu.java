@@ -8,20 +8,29 @@ import ixdar.gui.ui.actions.LoadIxAction;
 import ixdar.gui.ui.actions.LoadMapEditor;
 import ixdar.platform.file.FileManagement;
 
+/**
+ * A menu screen: a list of {@link MenuItem}s plus a back-navigation hook.
+ * Implementations include the debug {@link MainMenu}, the file-browsing
+ * {@link LoadMenu}, and the in-game {@link GameMenu}.
+ */
 public interface Menu {
 
     /**
-     * TODO: document {@code loadMenu}.
+     * Get the items to display in this menu.
      *
-     * @return TODO: describe
+     * @return the menu rows in top-to-bottom display order
      */
     public ArrayList<MenuItem> loadMenu();
 
     /**
-     * TODO: document {@code back}.
+     * Handle the back navigation gesture (Escape / back button) for this
+     * screen, e.g. return to a parent menu or exit the app.
      */
     public void back();
 
+    /**
+     * Top-level debug-mode main menu: Continue, Load, Settings, Map Editor.
+     */
     public class MainMenu implements Menu {
         public ArrayList<MenuItem> menuItems;
 
@@ -33,7 +42,7 @@ public interface Menu {
         }
 
         /**
-         * TODO: document {@code initMenu}.
+         * Populate {@link #menuItems} with the four main-menu rows.
          */
         public void initMenu() {
 
@@ -46,9 +55,9 @@ public interface Menu {
         }
 
         /**
-         * TODO: document {@code loadMenu}.
+         * Return the cached list of main-menu items.
          *
-         * @return TODO: describe
+         * @return the menu's items in display order
          */
         @Override
         public ArrayList<MenuItem> loadMenu() {
@@ -56,7 +65,7 @@ public interface Menu {
         }
 
         /**
-         * TODO: document {@code back}.
+         * Back action: terminate the application via the platform exit hook.
          */
         @Override
         public void back() {
@@ -65,16 +74,20 @@ public interface Menu {
 
     }
 
+    /**
+     * File-browser menu showing the contents of a folder. Subdirectories chain
+     * into another {@link LoadMenu}; files become {@link LoadIxAction} items.
+     */
     public class LoadMenu implements Menu {
         public String folder;
         public Menu parent;
         public ArrayList<MenuItem> menuItems;
 
         /**
-         * TODO: document {@code LoadMenu}.
+         * Build a load menu rooted at the given folder.
          *
-         * @param folder TODO: describe
-         * @param parentMenu TODO: describe
+         * @param folder absolute or relative path to list
+         * @param parentMenu menu to return to from {@link #back()}
          */
         public LoadMenu(String folder, Menu parentMenu) {
             this.folder = folder;
@@ -82,9 +95,11 @@ public interface Menu {
         }
 
         /**
-         * TODO: document {@code loadMenu}.
+         * Lazily list the folder, building one menu item per child entry.
+         * Subdirectories produce nested {@link LoadMenu} screens; files
+         * produce {@link LoadIxAction} items.
          *
-         * @return TODO: describe
+         * @return the menu's items in display order
          */
         @Override
         public ArrayList<MenuItem> loadMenu() {
@@ -111,7 +126,8 @@ public interface Menu {
         }
 
         /**
-         * TODO: document {@code back}.
+         * Back action: switch the active {@link MenuBox} screen to the parent
+         * menu passed at construction.
          */
         @Override
         public void back() {

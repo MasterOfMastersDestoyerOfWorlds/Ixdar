@@ -4,35 +4,40 @@ import ixdar.geometry.cuts.CutInfo;
 import ixdar.geometry.cuts.CutMatchList;
 import ixdar.geometry.shell.Shell;
 
+/**
+ * Thrown when a proposed cut cannot be applied because it violates cut-validity
+ * rules (e.g. would orphan knot points or otherwise produce a disallowed
+ * topology). Carries an optional human-readable failure reason.
+ */
 public class InvalidCutException extends SegmentBalanceException {
 
     String errMsg = "";
 
     /**
-     * TODO: document {@code InvalidCutException}.
+     * Wrap an existing {@link SegmentBalanceException}, copying its diagnostic state.
      *
-     * @param sbe TODO: describe
+     * @param sbe source exception to inherit context from
      */
     public InvalidCutException(SegmentBalanceException sbe) {
         super(sbe);
     }
 
     /**
-     * TODO: document {@code InvalidCutException}.
+     * Construct with the partial cut-match list and surrounding cut context.
      *
-     * @param shell TODO: describe
-     * @param internalCuts12 TODO: describe
-     * @param c TODO: describe
+     * @param shell shell on which the cut was attempted
+     * @param internalCuts12 internal cut-match list built before the rejection
+     * @param c cut context describing the invalid cut
      */
     public InvalidCutException(Shell shell, CutMatchList internalCuts12, CutInfo c) {
         super(shell, internalCuts12, c);
     }
 
     /**
-     * TODO: document {@code InvalidCutException}.
+     * Construct with a free-form failure reason.
      *
-     * @param string TODO: describe
-     * @param sbe TODO: describe
+     * @param string description of why the cut was rejected
+     * @param sbe source exception (currently unused for state copy)
      */
     public InvalidCutException(String string, SegmentBalanceException sbe) {
         super(new SegmentBalanceException());
@@ -40,9 +45,9 @@ public class InvalidCutException extends SegmentBalanceException {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Diagnostic string including the failure reason and inherited cut state.
      *
-     * @return TODO: describe
+     * @return human-readable representation for logs
      */
     @Override
     public String toString() {

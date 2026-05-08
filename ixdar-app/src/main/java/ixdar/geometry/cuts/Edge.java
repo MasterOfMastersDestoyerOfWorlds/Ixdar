@@ -13,12 +13,14 @@ public class Edge {
     public Segment cutSegment;
 
     /**
-     * TODO: document {@code Edge}.
+     * Build a directed edge entry between two knot points, deriving its
+     * {@code routeOffset} and matrix index from the {@link RouteType}
+     * (next-cut or prev-cut) selected by {@code isNext}.
      *
-     * @param idx TODO: describe
-     * @param isNext TODO: describe
-     * @param acrossSegment TODO: describe
-     * @param cutSegment TODO: describe
+     * @param idx column index of the target knot point
+     * @param isNext {@code true} for the next-neighbor route, {@code false} for the previous-neighbor route
+     * @param acrossSegment segment from the source point across to the neighbor
+     * @param cutSegment segment from the target point to that same neighbor
      */
     public Edge(int idx, boolean isNext, Segment acrossSegment, Segment cutSegment) {
         this.idx = idx;

@@ -32,13 +32,14 @@ public final class PrimMinimumSpanningTree {
     }
 
     /**
-     * TODO: document.
+     * Run Prim's MST on Delaunay edges weighted by 2D Euclidean distance between room centers,
+     * then probabilistically reintroduce non-MST Delaunay edges to add loops.
      *
      * @param delaunayEdges edges from {@link DelaunayTriangulation2D} (candidate set)
      * @param rooms         source rooms used to compute edge weights
      * @param extraEdgeProb probability [0, 1] of keeping each non-MST edge as a loop
      * @param seed          seed for the extra-edge RNG stream
-     * @return TODO: describe
+     * @return MST edges plus the kept extras, in original Delaunay index order
      */
     public static EdgeGraphValue build(EdgeGraphValue delaunayEdges,
                                        RoomListValue rooms,
@@ -55,11 +56,11 @@ public final class PrimMinimumSpanningTree {
     /**
      * 3D analog: weights are 3D Euclidean distances between {@link RoomListValue3D.Room} centers.
      *
-     * @param delaunayEdges TODO: describe
-     * @param rooms TODO: describe
-     * @param extraEdgeProb TODO: describe
-     * @param seed TODO: describe
-     * @return TODO: describe
+     * @param delaunayEdges edges from {@link DelaunayTriangulation3D} (candidate set)
+     * @param rooms         source 3D rooms used to compute edge weights
+     * @param extraEdgeProb probability [0, 1] of keeping each non-MST edge as a loop
+     * @param seed          seed for the extra-edge RNG stream
+     * @return MST edges plus the kept extras, in original Delaunay index order
      */
     public static EdgeGraphValue build3D(EdgeGraphValue delaunayEdges,
                                          RoomListValue3D rooms,

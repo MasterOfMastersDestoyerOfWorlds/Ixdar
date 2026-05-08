@@ -17,11 +17,14 @@ public class Timing extends AutomationEndpoint implements AutomationRoute {
     public static final String ERROR = "error";
 
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code GET /mesh/dsl/timing}: report per-node execution times for the most
+     * recent DSL graph run on the active {@link MeshNodeViewerScene}.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body request body (unused)
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return {@code {"ok": true, "total_ms": <ms>, "nodes": [{node, ms}, ...]}} on
+     *         success, or an error object when {@link MeshNodeViewerScene} is not
+     *         active or no DSL has been executed yet
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject result = new JsonObject();

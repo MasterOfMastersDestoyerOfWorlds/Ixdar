@@ -71,10 +71,14 @@ public final class BatchDslEvaluator {
     private static final String[] INPUT_NODE_TYPES = {"input_float", "input_int"};
 
     /**
-     * TODO: document {@code main}.
+     * CLI dispatcher. Parses {@code args[0]} as a DSL file, then routes on {@code args[1]}:
+     * {@code --discover} to print the parameter space, {@code --skeleton-sensitivity} to compute
+     * a parameter Jacobian against a reference OBJ, {@code --skeleton-optimize} to iteratively
+     * minimize skeleton error, or otherwise treats {@code args[1..3]} as
+     * {@code <output-dir> <params-json> [ref-obj]} for batch evaluation.
      *
-     * @param args TODO: describe
-     * @throws Exception TODO: describe
+     * @param args see usage printed by {@link #printUsage()}
+     * @throws Exception on parse, IO, or graph-execution failure
      */
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {

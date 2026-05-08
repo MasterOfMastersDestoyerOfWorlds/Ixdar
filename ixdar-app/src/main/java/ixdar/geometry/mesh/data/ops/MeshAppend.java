@@ -19,12 +19,14 @@ public final class MeshAppend {
     }
 
     /**
-     * TODO: document {@code append}.
+     * Append every vertex and face of {@code src} into {@code out}, transforming
+     * vertex positions by {@code transform}. {@code src} ids are remapped to the
+     * new ids assigned in {@code out}.
      *
-     * @param out TODO: describe
-     * @param src TODO: describe
-     * @param transform TODO: describe
-     * @return TODO: describe
+     * @param out destination mesh (mutated in place and returned)
+     * @param src source mesh; null or empty inputs are passed through
+     * @param transform homogeneous transform applied to each source vertex position
+     * @return {@code out}
      */
     public static HalfEdgeMesh append(HalfEdgeMesh out, MeshTopology src, Matrix4f transform) {
         if (src == null || src.vertexCount() == 0) {
@@ -56,11 +58,13 @@ public final class MeshAppend {
     }
 
     /**
-     * TODO: document {@code join}.
+     * Concatenate two meshes. Two {@link ArrayMesh} inputs sharing
+     * verts-per-face go through the dense engine; everything else falls back to
+     * a {@link HalfEdgeMesh} append with normals recomputed.
      *
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @return TODO: describe
+     * @param a first mesh
+     * @param b second mesh
+     * @return combined mesh (an {@link ArrayMesh} on the dense fast path, otherwise a {@link HalfEdgeMesh})
      */
     public static MeshTopology join(MeshTopology a, MeshTopology b) {
         if (a instanceof ArrayMesh aa && b instanceof ArrayMesh ab && aa.getVertsPerFace() == ab.getVertsPerFace()) {

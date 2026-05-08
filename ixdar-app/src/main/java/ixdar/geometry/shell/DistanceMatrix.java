@@ -38,7 +38,8 @@ public class DistanceMatrix {
      * Creates a distance matrix that represents the distance between every point in
      * the pointset.
      *
-     * @param pointset TODO: describe
+     * @param pointset points whose pairwise distances populate the matrix; iteration order
+     *                 fixes the row/column indexing and an id-to-index lookup is built alongside
      */
     public DistanceMatrix(PointSet pointset) {
         matrix = new double[pointset.size()][pointset.size()];
@@ -62,10 +63,11 @@ public class DistanceMatrix {
     }
 
     /**
-     * TODO: document {@code DistanceMatrix}.
+     * Build a distance matrix for {@code ps} by reusing distances cached in another matrix
+     * {@code d}. Inherits {@code zero} and {@code maxDist} from {@code d}.
      *
-     * @param ps TODO: describe
-     * @param d TODO: describe
+     * @param ps points to index in the new matrix
+     * @param d source matrix that already knows the pairwise distances for these points
      */
     public DistanceMatrix(PointSet ps, DistanceMatrix d) {
         matrix = new double[ps.size()][ps.size()];
@@ -85,36 +87,36 @@ public class DistanceMatrix {
     }
 
     /**
-     * TODO: document {@code getnSphereCenter}.
+     * Cached center of the n-sphere fit through the points (set by {@link #findNSphereCenter()}).
      *
-     * @return TODO: describe
+     * @return the n-sphere center, or {@code null} if not yet computed
      */
     public PointND.Double getnSphereCenter() {
         return nSphereCenter;
     }
 
     /**
-     * TODO: document {@code setnSphereCenter}.
+     * Override the cached n-sphere center.
      *
-     * @param nSphereCenter TODO: describe
+     * @param nSphereCenter the new center to store
      */
     public void setnSphereCenter(PointND.Double nSphereCenter) {
         this.nSphereCenter = nSphereCenter;
     }
 
     /**
-     * TODO: document {@code getnSphereRadius}.
+     * Cached radius of the n-sphere fit through the points; {@code -1} until computed.
      *
-     * @return TODO: describe
+     * @return the n-sphere radius
      */
     public double getnSphereRadius() {
         return nSphereRadius;
     }
 
     /**
-     * TODO: document {@code setnSphereRadius}.
+     * Override the cached n-sphere radius.
      *
-     * @param nSphereRadius TODO: describe
+     * @param nSphereRadius the new radius to store
      */
     public void setnSphereRadius(double nSphereRadius) {
         this.nSphereRadius = nSphereRadius;
@@ -139,7 +141,8 @@ public class DistanceMatrix {
     }
 
     /**
-     * TODO: document {@code updateMaxDist}.
+     * Re-scan every cell to refresh the cached {@code maxDist} and {@code minDist} values.
+     * Use after rows/columns change indirectly (via lookup) without rebuilding the matrix.
      */
     public void updateMaxDist() {
         for (int i = 0; i < matrix.length; i++) {
@@ -167,8 +170,8 @@ public class DistanceMatrix {
     /**
      * Gets the distance between i and j.
      *
-     * @param i TODO: describe
-     * @param j TODO: describe
+     * @param i first point (looked up by id)
+     * @param j second point (looked up by id)
      * @return the distance
      */
     public double getDistance(PointND i, PointND j) {
@@ -181,10 +184,10 @@ public class DistanceMatrix {
     }
 
     /**
-     * TODO: document {@code sumDistances}.
+     * Sum every entry in {@code p}'s row, including the diagonal {@code 0}.
      *
-     * @param p TODO: describe
-     * @return TODO: describe
+     * @param p point whose row total is computed
+     * @return the row sum, or {@code 0} when {@code p} is not in this matrix
      */
     public double sumDistances(PointND p) {
         Integer idx = lookup.get(p.getID());
@@ -200,10 +203,10 @@ public class DistanceMatrix {
     }
 
     /**
-     * TODO: document {@code sumAngles}.
+     * Sum every off-diagonal entry in {@code p}'s row (i.e. distances to all other points).
      *
-     * @param p TODO: describe
-     * @return TODO: describe
+     * @param p point whose row total is computed
+     * @return the off-diagonal row sum, or {@code 0} when {@code p} is not in this matrix
      */
     public double sumAngles(PointND p) {
         Integer idx = lookup.get(p.getID());
@@ -224,9 +227,9 @@ public class DistanceMatrix {
      * Adds a dummy node to the matrix with infinite distance to all points except
      * start and end which is zero distance away.
      *
-     * @param ID TODO: describe
-     * @param first TODO: describe
-     * @param last TODO: describe
+     * @param ID id to assign to the dummy point; values {@code < 0} leave the auto-assigned id
+     * @param first endpoint that the dummy connects to with zero distance
+     * @param last endpoint that the dummy connects to with zero distance
      * @return A new distance matrix with the dummy node added on
      */
     public PointND addDummyNode(int ID, PointND first, PointND last) {
@@ -272,9 +275,9 @@ public class DistanceMatrix {
     }
 
     /**
-     * TODO: document {@code getEigenvalues}.
+     * Eigendecomposition of the raw distance matrix (treated as a real matrix).
      *
-     * @return TODO: describe
+     * @return Apache Commons Math eigendecomposition of {@code matrix}
      */
     public EigenDecomposition getEigenvalues() {
         RealMatrix E = new Array2DRowRealMatrix(matrix);
@@ -383,10 +386,11 @@ public class DistanceMatrix {
     }
 
     /**
-     * TODO: document {@code findCentroid}.
+     * Average the supplied {@code ps} (typically the output of {@link #toPointSet()}) into a
+     * centroid, mark it as a centroid point, and cache each point's distance to it.
      *
-     * @param ps TODO: describe
-     * @return TODO: describe
+     * @param ps the point set whose coordinates are averaged
+     * @return the centroid point
      */
     public PointND findCentroid(PointSet ps) {
         this.centroid = new PointND.Double(ps);
@@ -407,9 +411,10 @@ public class DistanceMatrix {
     }
 
     /**
-     * TODO: document {@code findNSphereCenter}.
+     * Triangulate the matrix to a point set via {@link #toPointSet()} then locate the
+     * surrounding n-sphere.
      *
-     * @return TODO: describe
+     * @return the n-sphere center; also caches it in {@link #getnSphereCenter()}
      */
     public PointND findNSphereCenter() {
         PointSet ps = this.toPointSet();
@@ -418,10 +423,12 @@ public class DistanceMatrix {
     }
 
     /**
-     * TODO: document {@code findNSphereCenter}.
+     * Solve for the center and radius of an n-sphere passing through the supplied points
+     * via SVD of the linear system described in the referenced StackOverflow posts.
+     * Caches the result in {@link #getnSphereCenter()} and {@link #getnSphereRadius()}.
      *
-     * @param ps TODO: describe
-     * @return TODO: describe
+     * @param ps points lying on the desired n-sphere
+     * @return the n-sphere center
      */
     public PointND findNSphereCenter(PointSet ps) {
         int numPoints = ps.size();
@@ -519,9 +526,10 @@ public class DistanceMatrix {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Multi-line debug rendering listing each row's distances to seven-decimal precision.
+     * Dummy points are tagged {@code *} instead of their numeric id.
      *
-     * @return TODO: describe
+     * @return human-readable table of the matrix
      */
     @Override
     public String toString() {
@@ -547,27 +555,28 @@ public class DistanceMatrix {
     }
 
     /**
-     * TODO: document {@code getZero}.
+     * Zero offset added by {@link #addDummyNode(int, PointND, PointND)} so that genuine
+     * (non-dummy) edges remain orderable below dummy edges in TSP-style algorithms.
      *
-     * @return TODO: describe
+     * @return the current zero offset (initially {@code 0})
      */
     public double getZero() {
         return this.zero;
     }
 
     /**
-     * TODO: document {@code size}.
+     * Number of points in the matrix (the side length of the square distance array).
      *
-     * @return TODO: describe
+     * @return the dimension of the matrix
      */
     public int size() {
         return matrix.length;
     }
 
     /**
-     * TODO: document {@code getSmallestSegmentLength}.
+     * Smallest non-self distance found in the matrix.
      *
-     * @return TODO: describe
+     * @return the minimum off-diagonal entry
      */
     public double getSmallestSegmentLength() {
         double minLength = Double.MAX_VALUE;
@@ -586,9 +595,10 @@ public class DistanceMatrix {
     }
 
     /**
-     * TODO: document {@code getLargestSegmentLength}.
+     * Largest distance value present in the matrix (including the diagonal zero, though it can
+     * never exceed off-diagonal entries in practice).
      *
-     * @return TODO: describe
+     * @return the maximum entry seen
      */
     public double getLargestSegmentLength() {
         double maxLength = Double.MIN_VALUE;

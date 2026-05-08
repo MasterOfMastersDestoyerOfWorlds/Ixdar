@@ -21,11 +21,12 @@ public class ColorLerp implements Color {
     private String name;
 
     /**
-     * TODO: document {@code ColorLerp}.
+     * Animated color that swings between {@code startColor} and {@code endColor}
+     * on every channel (default RGB-only) at the given oscillator rate.
      *
-     * @param startColor TODO: describe
-     * @param endColor TODO: describe
-     * @param radsPerSecond TODO: describe
+     * @param startColor color at the start of each oscillation cycle.
+     * @param endColor color at the peak of each oscillation cycle.
+     * @param radsPerSecond angular frequency passed to {@link Clock#oscillate}.
      */
     public ColorLerp(Color startColor, Color endColor, float radsPerSecond) {
         this.startColor = startColor;
@@ -35,12 +36,14 @@ public class ColorLerp implements Color {
     }
 
     /**
-     * TODO: document {@code ColorLerp}.
+     * Animated lerp between {@code startColor} and {@code endColor} with both
+     * endpoints rebuilt at a fixed alpha. Useful for fade-friendly variants
+     * of opaque palette colors.
      *
-     * @param startColor TODO: describe
-     * @param endColor TODO: describe
-     * @param radsPerSecond TODO: describe
-     * @param alpha TODO: describe
+     * @param startColor color at the start of each oscillation cycle.
+     * @param endColor color at the peak of each oscillation cycle.
+     * @param radsPerSecond angular frequency passed to {@link Clock#oscillate}.
+     * @param alpha shared alpha applied to both endpoints. Range from 0f to 1f.
      */
     public ColorLerp(Color startColor, Color endColor, float radsPerSecond, float alpha) {
         this.startColor = new ColorRGB(startColor, alpha);
@@ -50,11 +53,12 @@ public class ColorLerp implements Color {
     }
 
     /**
-     * TODO: document {@code ColorLerp}.
+     * Animated lerp with a per-channel mask: a 1 in {@code channelLerp[i]}
+     * lets channel i animate, a 0 freezes it at the start value.
      *
-     * @param startColor TODO: describe
-     * @param endColor TODO: describe
-     * @param channelLerp TODO: describe
+     * @param startColor color at the start of each oscillation cycle.
+     * @param endColor color at the peak of each oscillation cycle.
+     * @param channelLerp four-byte RGBA mask (1 = animate, 0 = hold).
      */
     public ColorLerp(Color startColor, Color endColor, byte[] channelLerp) {
         this.startColor = startColor;
@@ -64,12 +68,12 @@ public class ColorLerp implements Color {
     }
 
     /**
-     * TODO: document {@code ColorLerp}.
+     * Animated lerp with both a per-channel mask and a custom rate.
      *
-     * @param startColor TODO: describe
-     * @param endColor TODO: describe
-     * @param channelLerp TODO: describe
-     * @param radsPerSecond TODO: describe
+     * @param startColor color at the start of each oscillation cycle.
+     * @param endColor color at the peak of each oscillation cycle.
+     * @param channelLerp four-byte RGBA mask (1 = animate, 0 = hold).
+     * @param radsPerSecond angular frequency passed to {@link Clock#oscillate}.
      */
     public ColorLerp(Color startColor, Color endColor, byte[] channelLerp, float radsPerSecond) {
         this.startColor = startColor;
@@ -84,11 +88,13 @@ public class ColorLerp implements Color {
     }
 
     /**
-     * TODO: document {@code flashColor}.
+     * Cached lerp that flashes the alpha of {@code c} between full opacity
+     * and {@link Color#TRANSPARENT25}. Subsequent calls with the same
+     * {@code c} return the same instance so callers share its phase.
      *
-     * @param c TODO: describe
-     * @param radsPerSecond TODO: describe
-     * @return TODO: describe
+     * @param c color whose alpha should pulse.
+     * @param radsPerSecond angular frequency of the flash.
+     * @return the cached alpha-only lerp for {@code c}.
      */
     public static ColorLerp flashColor(Color c, float radsPerSecond) {
         flashColors.putIfAbsent(c, new ColorLerp(c, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, radsPerSecond));
@@ -131,9 +137,10 @@ public class ColorLerp implements Color {
     }
 
     /**
-     * TODO: document {@code getName}.
+     * Auto-generated label of the form
+     * {@code "<startName>-<endName>-Lerp"}, set during construction.
      *
-     * @return TODO: describe
+     * @return composite name of the two endpoints.
      */
     @Override
     public String getName() {

@@ -1,45 +1,47 @@
 package ixdar.platform.gl;
 
 
+/**
+ * Cross-platform float buffer abstraction. Backed by an LWJGL {@link java.nio.FloatBuffer}
+ * on desktop / headless and a JS {@code Float32Array} on web — semantics mirror NIO buffers
+ * (position / limit / flip).
+ */
 public interface IxBuffer {
 
     /**
-     * TODO: document {@code flip}.
+     * Switch from writing to reading: set limit to current position and rewind position to 0
+     * (NIO buffer convention).
      */
     void flip();
 
     /**
-     * TODO: document {@code clear}.
+     * Reset position to 0 and limit to capacity, leaving the underlying data alone.
      */
     void clear();
 
     /**
-     * TODO: document {@code remaining}.
-     *
-     * @return TODO: describe
+     * @return number of floats between position and limit
      */
     int remaining();
 
     /**
-     * TODO: document {@code put}.
+     * Write {@code x1} at the current position and advance.
      *
-     * @param x1 TODO: describe
-     * @return TODO: describe
+     * @param x1 float to append
+     * @return this buffer for chaining
      */
     IxBuffer put(float x1);
 
     /**
-     * TODO: document {@code capacity}.
-     *
-     * @return TODO: describe
+     * @return the maximum number of floats this buffer can hold
      */
     int capacity();
 
     /**
-     * TODO: document {@code get}.
+     * Random-access read by absolute index (does not affect position).
      *
-     * @param i TODO: describe
-     * @return TODO: describe
+     * @param i absolute index, {@code 0 <= i < capacity()}
+     * @return the float stored at {@code i}
      */
     Float get(int i);
 }

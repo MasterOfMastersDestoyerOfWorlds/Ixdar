@@ -12,19 +12,19 @@ public class SDFCircleSimple extends ShaderDrawable {
     public float radius;
 
     /**
-     * TODO: document {@code SDFCircleSimple}.
+     * Bind the simple circle SDF shader.
      */
     public SDFCircleSimple() {
         shader = ShaderType.CircleSDFSimple.getShader();
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Store the circle parameters and submit the draw.
      *
-     * @param center TODO: describe
-     * @param radius TODO: describe
-     * @param c TODO: describe
-     * @param camera TODO: describe
+     * @param center circle center in world coordinates
+     * @param radius circle radius in world units
+     * @param c fill color
+     * @param camera camera providing transform and z-index
      */
     public void draw(Vector2f center, float radius, Color c, Camera camera) {
         this.radius = radius;
@@ -34,7 +34,7 @@ public class SDFCircleSimple extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code calculateQuad}.
+     * Build the bounding quad as the axis-aligned square inscribing the circle.
      */
     @Override
     public void calculateQuad() {
@@ -45,7 +45,7 @@ public class SDFCircleSimple extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setUniforms}.
+     * Push the center, radius, and zoom-adjusted edge sharpness uniforms.
      */
     @Override
     protected void setUniforms() {

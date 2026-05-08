@@ -31,9 +31,10 @@ public final class DebugCapsuleRuntime {
     private float builtHalfHeight = -1f;
 
     /**
-     * TODO: document {@code DebugCapsuleRuntime}.
+     * Allocate the underlying mesh runtime and configure a flat solid color. The capsule mesh
+     * itself is built lazily on the first {@link #render} or {@link #buildIfNeeded} call.
      *
-     * @throws Exception TODO: describe
+     * @throws Exception if the underlying {@link HalfEdgeMeshRuntime} fails to initialize
      */
     public DebugCapsuleRuntime() throws Exception {
         this.runtime = new HalfEdgeMeshRuntime();
@@ -43,8 +44,8 @@ public final class DebugCapsuleRuntime {
     /**
      * Build (or rebuild) the capsule mesh at the given dimensions. Cheap; safe to call once.
      *
-     * @param radius TODO: describe
-     * @param halfHeight TODO: describe
+     * @param radius     capsule cylinder radius (also the radius of each hemisphere cap)
+     * @param halfHeight half the cylinder length between the two hemisphere centers
      */
     public void buildIfNeeded(float radius, float halfHeight) {
         if (Math.abs(radius - builtRadius) < NUM_1e_6 && Math.abs(halfHeight - builtHalfHeight) < NUM_1e_6) {
@@ -58,15 +59,16 @@ public final class DebugCapsuleRuntime {
     }
 
     /**
-     * TODO: document {@code render}.
+     * Rebuild the mesh if dimensions changed, then translate it to {@code (px, py, pz)},
+     * rotate it around Y by {@code yawRadians}, and submit a draw call against {@code camera}.
      *
-     * @param camera TODO: describe
-     * @param px TODO: describe
-     * @param py TODO: describe
-     * @param pz TODO: describe
-     * @param yawRadians TODO: describe
-     * @param radius TODO: describe
-     * @param halfHeight TODO: describe
+     * @param camera     scene camera to render through
+     * @param px         player position X in world units
+     * @param py         player position Y in world units
+     * @param pz         player position Z in world units
+     * @param yawRadians player facing yaw in radians (Y-axis rotation)
+     * @param radius     capsule radius
+     * @param halfHeight capsule half-length between hemisphere centers
      */
     public void render(Camera3D camera, float px, float py, float pz, float yawRadians,
                         float radius, float halfHeight) {
@@ -79,7 +81,7 @@ public final class DebugCapsuleRuntime {
     }
 
     /**
-     * TODO: document {@code dispose}.
+     * Release the GPU resources held by the underlying mesh runtime. Idempotent on the runtime.
      */
     public void dispose() {
         runtime.dispose();

@@ -51,16 +51,17 @@ public enum Toggle {
     }
 
     /**
-     * TODO: document {@code toggle}.
+     * Flip {@link #value}.
      */
     public void toggle() {
         value = !value;
     }
 
     /**
-     * TODO: document {@code setPanelFocus}.
+     * Set the {@code IsMainFocused} / {@code IsInfoFocused} / {@code IsTerminalFocused} toggles
+     * so exactly one is true based on which pane just took focus.
      *
-     * @param focusedPanel TODO: describe
+     * @param focusedPanel pane that should become focused; others become unfocused
      */
     public static void setPanelFocus(PaneTypes focusedPanel) {
         IsMainFocused.value = focusedPanel == PaneTypes.KnotView;
@@ -69,16 +70,17 @@ public enum Toggle {
     }
 
     /**
-     * TODO: document {@code shortName}.
+     * Compact terminal/CLI alias for this toggle (e.g. {@code calcKnot}).
      *
-     * @return TODO: describe
+     * @return short name used by terminal commands and {@code TGL}/{@code TOGGLE} file directives
      */
     public String shortName() {
         return shortName;
     }
 
     /**
-     * TODO: document {@code resetAll}.
+     * Restore every toggle whose {@code shouldReset} flag is true to its declared initial value.
+     * Toggles flagged non-resettable (e.g. focus state, {@code GameMode}) are left untouched.
      */
     public static void resetAll() {
         for (Toggle toggle : Toggle.values()) {

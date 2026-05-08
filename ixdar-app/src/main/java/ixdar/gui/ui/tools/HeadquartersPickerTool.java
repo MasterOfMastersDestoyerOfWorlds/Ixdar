@@ -18,10 +18,11 @@ public class HeadquartersPickerTool extends Tool {
     private City hoveredCity;
 
     /**
-     * TODO: document {@code HeadquartersPickerTool}.
+     * Build the picker, binding it to the trade scene it should hand control
+     * to once a city is chosen, and the city network it picks from.
      *
-     * @param tradeScene TODO: describe
-     * @param network TODO: describe
+     * @param tradeScene the trade scene that owns this tool
+     * @param network    the city network whose cities are picker targets
      */
     public HeadquartersPickerTool(TradeScene tradeScene, CityNetwork network) {
         this.tradeScene = tradeScene;
@@ -29,10 +30,11 @@ public class HeadquartersPickerTool extends Tool {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * No-op draw override: cities are rendered by the network's own draw
+     * pass, and this tool needs no extra overlay.
      *
-     * @param camera TODO: describe
-     * @param lineThickness TODO: describe
+     * @param camera        the scene camera (unused)
+     * @param lineThickness base line thickness in pixels (unused)
      */
     @Override
     public void draw(Camera2D camera, float lineThickness) {
@@ -71,7 +73,7 @@ public class HeadquartersPickerTool extends Tool {
     }
 
     /**
-     * TODO: document {@code reset}.
+     * Clear the cached hovered city so the next frame starts fresh.
      */
     @Override
     public void reset() {
@@ -79,7 +81,8 @@ public class HeadquartersPickerTool extends Tool {
     }
 
     /**
-     * TODO: document {@code confirm}.
+     * No-op: this tool commits via {@link #onCityClick(City)}, not via the
+     * generic confirm key.
      */
     @Override
     public void confirm() {
@@ -87,9 +90,9 @@ public class HeadquartersPickerTool extends Tool {
     }
 
     /**
-     * TODO: document {@code buildInfoText}.
+     * Build the side-panel text instructing the player to select a city.
      *
-     * @return TODO: describe
+     * @return the formatted info text
      */
     @Override
     public HyperString buildInfoText() {
@@ -101,9 +104,7 @@ public class HeadquartersPickerTool extends Tool {
     }
 
     /**
-     * TODO: document {@code displayName}.
-     *
-     * @return TODO: describe
+     * @return the display name "Headquarters Picker"
      */
     @Override
     public String displayName() {
@@ -111,9 +112,7 @@ public class HeadquartersPickerTool extends Tool {
     }
 
     /**
-     * TODO: document {@code fullName}.
-     *
-     * @return TODO: describe
+     * @return the full terminal name {@code "hqpicker"}
      */
     @Override
     public String fullName() {
@@ -121,9 +120,7 @@ public class HeadquartersPickerTool extends Tool {
     }
 
     /**
-     * TODO: document {@code shortName}.
-     *
-     * @return TODO: describe
+     * @return the short terminal alias {@code "hq"}
      */
     @Override
     public String shortName() {
@@ -131,9 +128,7 @@ public class HeadquartersPickerTool extends Tool {
     }
 
     /**
-     * TODO: document {@code desc}.
-     *
-     * @return TODO: describe
+     * @return the one-line description of this tool's purpose
      */
     @Override
     public String desc() {

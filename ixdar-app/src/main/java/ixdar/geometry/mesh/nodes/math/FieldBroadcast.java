@@ -6,11 +6,11 @@ import ixdar.annotations.meshnode.BoolField;
 import ixdar.annotations.meshnode.FloatField;
 import ixdar.annotations.meshnode.IntField;
 import ixdar.annotations.meshnode.NodeContext;
-import ixdar.annotations.meshnode.Vec3Field;
+import ixdar.annotations.meshnode.Vector3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 
 /**
- * Scalar vs {@link FloatField} / {@link Vec3Field} broadcasting for geometry-node math.
+ * Scalar vs {@link FloatField} / {@link Vector3Field} broadcasting for geometry-node math.
  */
 public final class FieldBroadcast {
     public static final String VS = " vs ";
@@ -178,8 +178,8 @@ public final class FieldBroadcast {
      * @return TODO: describe
      */
     public static int vec3Length(Object a, Object b) {
-        int la = a instanceof Vec3Field va ? va.length() : 0;
-        int lb = b instanceof Vec3Field vb ? vb.length() : 0;
+        int la = a instanceof Vector3Field va ? va.length() : 0;
+        int lb = b instanceof Vector3Field vb ? vb.length() : 0;
         if (la > 0 && lb > 0 && la != lb) {
             throw new IllegalArgumentException("Vec3 field length mismatch: " + la + VS + lb);
         }
@@ -193,7 +193,7 @@ public final class FieldBroadcast {
      * @return TODO: describe
      */
     public static int vec3Length1(Object a) {
-        return a instanceof Vec3Field va ? va.length() : 0;
+        return a instanceof Vector3Field va ? va.length() : 0;
     }
 
     /**
@@ -209,7 +209,7 @@ public final class FieldBroadcast {
             dest.set(defaultV.x(), defaultV.y(), defaultV.z());
             return;
         }
-        if (o instanceof Vec3Field v) {
+        if (o instanceof Vector3Field v) {
             dest.set(v.getX(i), v.getY(i), v.getZ(i));
             return;
         }
@@ -234,7 +234,7 @@ public final class FieldBroadcast {
         if (o instanceof Vector3Value vv) {
             return vv;
         }
-        if (o instanceof Vec3Field v && v.length() > 0) {
+        if (o instanceof Vector3Field v && v.length() > 0) {
             return v.toVector3Value(0);
         }
         return def;

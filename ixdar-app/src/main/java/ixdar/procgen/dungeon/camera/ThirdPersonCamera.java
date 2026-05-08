@@ -1,7 +1,8 @@
 package ixdar.procgen.dungeon.camera;
 
+import org.joml.Vector3f;
+
 import ixdar.graphics.cameras.Camera3D;
-import ixdar.procgen.dungeon.physics.Vec3f;
 import ixdar.procgen.dungeon.player.PlayerController;
 import ixdar.procgen.dungeon.values.TileGridValue3D;
 
@@ -35,7 +36,9 @@ public final class ThirdPersonCamera {
     private float desiredDistance;
 
     /**
-     * TODO: document {@code ThirdPersonCamera}.
+     * Construct an orbit camera with a default azimuth of -90 degrees, elevation of 15 degrees,
+     * and a unit-cell distance. Call {@link #enterFromCurrentCamera} before first {@link #update}
+     * to align with the existing camera state.
      */
     public ThirdPersonCamera() {
         this.azimuth = (float) Math.toRadians(-NUM_90_0);
@@ -46,8 +49,8 @@ public final class ThirdPersonCamera {
     /**
      * Initialize orbit so the toggle from first- to third-person doesn't jolt the view.
      *
-     * @param camera TODO: describe
-     * @param cellSize TODO: describe
+     * @param camera   first-person camera whose yaw/pitch (degrees) seeds the orbit angles
+     * @param cellSize world-space size of a grid cell, used to scale the default distance
      */
     public void enterFromCurrentCamera(Camera3D camera, float cellSize) {
         this.azimuth = (float) Math.toRadians(camera.yaw);
@@ -57,10 +60,11 @@ public final class ThirdPersonCamera {
     }
 
     /**
-     * TODO: document {@code applyMouseDelta}.
+     * Add mouse motion to the orbit angles: {@code dxPixels} drives azimuth, {@code dyPixels}
+     * drives elevation (clamped to roughly +-80 degrees).
      *
-     * @param dxPixels TODO: describe
-     * @param dyPixels TODO: describe
+     * @param dxPixels horizontal mouse delta in pixels
+     * @param dyPixels vertical mouse delta in pixels (positive = mouse moved down)
      */
     public void applyMouseDelta(float dxPixels, float dyPixels) {
         azimuth += dxPixels * SENSITIVITY;
@@ -68,10 +72,11 @@ public final class ThirdPersonCamera {
     }
 
     /**
-     * TODO: document {@code applyZoom}.
+     * Multiply the desired distance by {@code ZOOM_BASE^wheelTicks}, clamped to the configured
+     * min/max distance (in cells, scaled by {@code cellSize}).
      *
-     * @param wheelTicks TODO: describe
-     * @param cellSize TODO: describe
+     * @param wheelTicks scroll-wheel delta (positive = zoom in)
+     * @param cellSize   world-space size of a grid cell, used to scale the clamp range
      */
     public void applyZoom(int wheelTicks, float cellSize) {
         if (wheelTicks == 0) return;
@@ -84,14 +89,14 @@ public final class ThirdPersonCamera {
      * Compute pivot, sweep camera against grid, write camera.position / yaw / pitch.
      * Call BEFORE {@code player.update(...)} so the controller reads the up-to-date yaw.
      *
-     * @param player TODO: describe
-     * @param grid TODO: describe
-     * @param cellSize TODO: describe
-     * @param camera TODO: describe
+     * @param player   player whose head position acts as the orbit pivot
+     * @param grid     3D tile grid for the {@link CameraGridSweep} obstruction test
+     * @param cellSize world-space size of a grid cell
+     * @param camera   shared {@link Camera3D} whose position and orientation are written
      */
     public void update(PlayerController player, TileGridValue3D grid, float cellSize, Camera3D camera) {
-        Vec3f playerPos = player.position();
-        Vec3f pivot = new Vec3f(playerPos.x(), playerPos.y() + player.halfHeight(), playerPos.z());
+        Vector3f playerPos = player.position();
+        Vector3f pivot = new Vector3f(playerPos.x(), playerPos.y() + player.halfHeight(), playerPos.z());
 
         float cosE = (float) Math.cos(elevation);
         float sinE = (float) Math.sin(elevation);
@@ -103,34 +108,34 @@ public final class ThirdPersonCamera {
         float fx = cosA * cosE;
         float fy = sinE;
         float fz = sinA * cosE;
-        Vec3f desired = new Vec3f(pivot.x() - fx * desiredDistance,
+        Vector3f desired = new Vector3f(pivot.x() - fx * desiredDistance,
                                   pivot.y() - fy * desiredDistance,
                                   pivot.z() - fz * desiredDistance);
 
         float radius = CAMERA_RADIUS_FRAC * cellSize;
         float padding = CAMERA_PADDING_FRAC * cellSize;
-        Vec3f cam = CameraGridSweep.sweep(pivot, desired, radius, grid, cellSize, padding);
+        Vector3f cam = CameraGridSweep.sweep(pivot, desired, radius, grid, cellSize, padding);
 
         camera.position.set(cam.x(), cam.y(), cam.z());
         camera.setOrientation((float) Math.toDegrees(azimuth), (float) Math.toDegrees(elevation));
     }
 
     /**
-     * TODO: document {@code azimuthDegrees}.
+     * Current orbit azimuth (around Y) in degrees.
      *
-     * @return TODO: describe
+     * @return azimuth in degrees
      */
     public float azimuthDegrees() { return (float) Math.toDegrees(azimuth); }
     /**
-     * TODO: document {@code elevationDegrees}.
+     * Current orbit elevation (pitch) in degrees.
      *
-     * @return TODO: describe
+     * @return elevation in degrees
      */
     public float elevationDegrees() { return (float) Math.toDegrees(elevation); }
     /**
-     * TODO: document {@code desiredDistance}.
+     * Currently requested camera-to-pivot distance in world units, before grid sweeping.
      *
-     * @return TODO: describe
+     * @return desired distance in world units
      */
     public float desiredDistance() { return desiredDistance; }
 

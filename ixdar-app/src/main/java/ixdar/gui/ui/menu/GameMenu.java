@@ -14,9 +14,10 @@ public class GameMenu implements Menu {
     private Menu debugMenu;
 
     /**
-     * TODO: document {@code GameMenu}.
+     * Build the game menu. Holds a reference to the debug menu so the user can
+     * jump back to it via the "Debug Menu" item or the {@link #back()} button.
      *
-     * @param debugMenu TODO: describe
+     * @param debugMenu the debug-mode main menu to return to
      */
     public GameMenu(Menu debugMenu) {
         this.debugMenu = debugMenu;
@@ -32,9 +33,10 @@ public class GameMenu implements Menu {
     }
 
     /**
-     * TODO: document {@code loadMenu}.
+     * Return the cached list of game-menu items (Start New Game, Continue,
+     * Settings, Debug Menu).
      *
-     * @return TODO: describe
+     * @return the menu's items in display order
      */
     @Override
     public ArrayList<MenuItem> loadMenu() {
@@ -42,7 +44,7 @@ public class GameMenu implements Menu {
     }
 
     /**
-     * TODO: document {@code back}.
+     * Back action: switch the active {@link MenuBox} screen to the debug menu.
      */
     @Override
     public void back() {

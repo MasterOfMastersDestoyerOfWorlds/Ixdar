@@ -42,7 +42,9 @@ public class Font {
     private Map<Integer, Map<Integer, Float>> kerningEm;
 
     /**
-     * TODO: document {@code Font}.
+     * Load the OpenSans MSDF atlas (synchronously when available, otherwise
+     * asynchronously) and finalize {@link #glyphs}, {@link #texture}, the
+     * SDF shader, and metric-derived {@link #fontHeight}/{@link #fontWidth}.
      */
     public Font() {
         String json = Platforms.get().trySyncLoadSource(RES, ATLAS_JSON_PATH);
@@ -94,10 +96,11 @@ public class Font {
     }
 
     /**
-     * TODO: document {@code getWidth}.
+     * Compute the rendered pixel width of {@code text}, accounting for
+     * kerning and taking the maximum across newline-separated lines.
      *
-     * @param text TODO: describe
-     * @return TODO: describe
+     * @param text source text (may contain {@code \n})
+     * @return widest line's pixel width
      */
     public float getWidth(CharSequence text) {
         if (glyphs == null) {
@@ -135,10 +138,10 @@ public class Font {
     }
 
     /**
-     * TODO: document {@code getHeight}.
+     * Compute rendered pixel height as line count times {@link #fontHeight}.
      *
-     * @param text TODO: describe
-     * @return TODO: describe
+     * @param text source text (may contain {@code \n})
+     * @return total pixel height for all lines
      */
     public int getHeight(CharSequence text) {
         if (glyphs == null) {
@@ -155,14 +158,16 @@ public class Font {
     }
 
     /**
-     * TODO: document {@code drawTextNoSetup}.
+     * Render a sequence of {@link HyperChar} glyphs at {@code (x, y)} using
+     * the active SDF shader's already-running setup pass. Walks the string
+     * laying out plane-space glyph quads with kerning and newlines.
      *
-     * @param text TODO: describe
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param glyphHeight TODO: describe
-     * @param c TODO: describe
-     * @param camera TODO: describe
+     * @param text glyph stream to render
+     * @param x left x in world coordinates
+     * @param y top y in world coordinates
+     * @param glyphHeight target glyph height in pixels
+     * @param c text tint
+     * @param camera camera providing transform and z-index
      */
     public void drawTextNoSetup(ArrayList<HyperChar> text, float x, float y, float glyphHeight,
             Color c, Camera camera) {
@@ -212,20 +217,21 @@ public class Font {
     }
 
     /**
-     * TODO: document {@code dispose}.
+     * Free the GL atlas texture.
      */
     public void dispose() {
         texture.delete();
     }
 
     /**
-     * TODO: document {@code drawHyperString}.
+     * Lay out a {@link HyperString} centered on {@code (x, y)} and draw all
+     * its words (including dynamic sub-words) under a single SDF shader pass.
      *
-     * @param hyperString TODO: describe
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param height TODO: describe
-     * @param camera TODO: describe
+     * @param hyperString text to render
+     * @param x center x in world coordinates
+     * @param y center y in world coordinates
+     * @param height row height in pixels
+     * @param camera 2D camera providing transform and z-index
      */
     public void drawHyperString(HyperString hyperString, float x, float y, float height, Camera2D camera) {
         hyperString.setLineOffsetCentered(camera, x, y, this, 0);
@@ -252,12 +258,13 @@ public class Font {
     }
 
     /**
-     * TODO: document {@code drawHyperStrings}.
+     * Lay out and draw multiple {@link HyperString}s at parallel positions
+     * inside a single SDF shader pass.
      *
-     * @param hyperStrings TODO: describe
-     * @param xLoc TODO: describe
-     * @param height TODO: describe
-     * @param camera TODO: describe
+     * @param hyperStrings strings to render
+     * @param xLoc center positions, one per string (must match length)
+     * @param height row height in pixels
+     * @param camera 2D camera providing transform and z-index
      */
     public void drawHyperStrings(ArrayList<HyperString> hyperStrings, ArrayList<Vector2f> xLoc, float height,
             Camera2D camera) {
@@ -289,13 +296,15 @@ public class Font {
     }
 
     /**
-     * TODO: document {@code drawHyperStringRows}.
+     * Lay out a {@link HyperString} top-down starting at {@code row} with a
+     * vertical scroll offset, draw the visible (non-culled, non-newline)
+     * words inside a single SDF shader pass.
      *
-     * @param hyperString TODO: describe
-     * @param row TODO: describe
-     * @param scrollOffsetY TODO: describe
-     * @param height TODO: describe
-     * @param camera TODO: describe
+     * @param hyperString text to render
+     * @param row row index of the first line from the top
+     * @param scrollOffsetY vertical scroll offset in pixels
+     * @param height row height in pixels
+     * @param camera 2D camera providing transform and z-index
      */
     public void drawHyperStringRows(HyperString hyperString, int row, float scrollOffsetY, float height,
             Camera2D camera) {

@@ -9,17 +9,17 @@ import java.util.List;
  * Matches the common case of {@code _build_closure_with_curve} mapping samples.
  */
 public final class FloatCurveKernel {
-    public static final int NUM_4 = 4;
+    public static final int MIN_FLOAT_POINTS = 4;
 
     private final float[] xs;
     private final float[] ys;
 
     /**
-     * TODO: document {@code FloatCurveKernel}.
+     * Build a curve from parallel x/y arrays. The arrays are cloned and re-sorted by ascending x.
      *
-     * @param xs TODO: describe
-     * @param ys TODO: describe
-     * @throws IllegalArgumentException TODO: describe
+     * @param xs control point x-coordinates
+     * @param ys control point y-coordinates (parallel to {@code xs})
+     * @throws IllegalArgumentException if either array is null, lengths differ, or fewer than two points
      */
     public FloatCurveKernel(float[] xs, float[] ys) {
         if (xs == null || ys == null || xs.length != ys.length || xs.length < 2) {
@@ -31,18 +31,20 @@ public final class FloatCurveKernel {
     }
 
     /**
-     * TODO: document {@code fromCommaSeparatedPairs}.
+     * Parse a curve from a flat {@code "x0,y0,x1,y1,..."} string with at least two points.
      *
-     * @param raw TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param raw comma-separated x,y pairs
+     * @return the parsed curve
+     * @throws IllegalArgumentException if {@code raw} is blank, has fewer than four entries, or
+     *         contains an odd number of values
+     * @throws NumberFormatException if any entry is not a valid float
      */
     public static FloatCurveKernel fromCommaSeparatedPairs(String raw) {
         if (raw == null || raw.isBlank()) {
             throw new IllegalArgumentException("Empty curve points");
         }
         String[] parts = raw.split(",");
-        if (parts.length < NUM_4 || parts.length % 2 != 0) {
+        if (parts.length < MIN_FLOAT_POINTS || parts.length % 2 != 0) {
             throw new IllegalArgumentException("Expected comma-separated x,y pairs");
         }
         int n = parts.length / 2;
@@ -74,9 +76,10 @@ public final class FloatCurveKernel {
 
     /**
      * Map {@code factor} along curve x-axis to y (float curve evaluation at a given factor).
+     * Values outside the control point range are clamped to the nearest endpoint y.
      *
-     * @param factor TODO: describe
-     * @return TODO: describe
+     * @param factor x value to look up
+     * @return linearly interpolated y, clamped at the curve endpoints
      */
     public float evaluate(float factor) {
         if (factor <= xs[0]) {

@@ -25,7 +25,7 @@ public class InputNormalNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                VECTOR_2, "Per-vertex Vec3Field of unit outward normals. Requires a mesh field context."
+                VECTOR_2, "Per-vertex Vector3field of unit outward normals. Requires a mesh field context."
         );
     }
 

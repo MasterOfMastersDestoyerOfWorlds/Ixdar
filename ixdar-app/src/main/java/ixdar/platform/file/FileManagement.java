@@ -47,9 +47,10 @@ public class FileManagement {
     public static final String subGraphUnitTestFolder = "./test/unit/subgraphs/";
 
     /**
-     * TODO: document {@code getAssetRepoRoot}.
+     * Locate the IxdarAssets checkout root, preferring the JVM property
+     * {@code ixdar.asset.repo.root} over the env var {@code IXDAR_ASSET_REPO_ROOT}.
      *
-     * @return TODO: describe
+     * @return absolute root path, or {@code null} if neither is set
      */
     public static String getAssetRepoRoot() {
         String propRoot = System.getProperty(ASSET_REPO_PROP);
@@ -64,11 +65,11 @@ public class FileManagement {
     }
 
     /**
-     * TODO: document {@code resolveAssetPath}.
+     * Resolve a path inside the IxdarAssets repo to an absolute filesystem path.
      *
-     * @param relativeAssetPath TODO: describe
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @param relativeAssetPath path relative to the assets repo root
+     * @throws IllegalStateException if the assets repo root has not been configured
+     * @return absolute path produced by {@code Path.of(root, relativeAssetPath)}
      */
     public static String resolveAssetPath(String relativeAssetPath) {
         String root = getAssetRepoRoot();
@@ -82,11 +83,11 @@ public class FileManagement {
     }
 
     /**
-     * TODO: document {@code loadAssetFile}.
+     * Load a file from the IxdarAssets repo via the current platform.
      *
-     * @param relativeAssetPath TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param relativeAssetPath path relative to the assets repo root
+     * @throws IOException if the asset is missing or cannot be read
+     * @return the file contents
      */
     public static TextFile loadAssetFile(String relativeAssetPath) throws IOException {
         String absolutePath = resolveAssetPath(relativeAssetPath);
@@ -94,10 +95,11 @@ public class FileManagement {
     }
 
     /**
-     * TODO: document {@code getTestFile}.
+     * Resolve a solution-folder path for a logical test file name. Splits on {@code _} so that
+     * {@code "myShape_v1"} maps under {@code solutions/myShape/}; appends {@code .ix} when missing.
      *
-     * @param fileName TODO: describe
-     * @return TODO: describe
+     * @param fileName base name (with or without {@code .ix} extension)
+     * @return relative path under {@link #solutionsFolder}
      */
     public static String getTestFile(String fileName) {
         String[] parts = fileName.split("_");
@@ -108,10 +110,10 @@ public class FileManagement {
     }
 
     /**
-     * TODO: document {@code getFile}.
+     * Wrap {@link #getTestFile(String)} as a {@link TextFile} (no I/O performed).
      *
-     * @param fileName TODO: describe
-     * @return TODO: describe
+     * @param fileName base name forwarded to {@link #getTestFile(String)}
+     * @return empty {@link TextFile} pointing at the resolved path
      */
     public static TextFile getFile(String fileName) {
         String path = getTestFile(fileName);
@@ -119,19 +121,20 @@ public class FileManagement {
     }
 
     /**
-     * TODO: document {@code getTempFile}.
+     * Logical scratch file at {@code "temp.ix"}; the {@code fileName} argument is currently
+     * ignored.
      *
-     * @param fileName TODO: describe
-     * @return TODO: describe
+     * @param fileName intended name (unused)
+     * @return temp {@link TextFile}
      */
     public static TextFile getTempFile(String fileName) {
         return new TextFile("temp", IX);
     }
 
     /**
-     * TODO: document {@code getTestFileCache}.
+     * Read the most recently used file path from the on-disk test cache.
      *
-     * @return TODO: describe
+     * @return cached path string, or {@code ""} if the cache is missing or unreadable
      */
     public static String getTestFileCache() {
         File cache = new File(testFileCacheLocation);
@@ -146,9 +149,10 @@ public class FileManagement {
     }
 
     /**
-     * TODO: document {@code updateTestFileCache}.
+     * Persist {@code cachedLocation} as the last-used file path. Blank strings are ignored;
+     * I/O errors are logged and swallowed.
      *
-     * @param cachedLocation TODO: describe
+     * @param cachedLocation path to remember; ignored if blank
      */
     public static void updateTestFileCache(String cachedLocation) {
         if (!ixdar.common.utils.Compat.isBlank(cachedLocation)) {
@@ -165,12 +169,16 @@ public class FileManagement {
     }
 
     /**
-     * TODO: document {@code importFromFile}.
+     * Parse an {@code .ix} solution file: reads points, geometry primitives (circles, lines,
+     * triangles, arcs, hex points), wormholes ({@code WH}), the answer order ({@code ANS}),
+     * nested loads ({@code Ix}), flags ({@code REMOVE_DUPLICATES}, {@code SHOW_GRID}),
+     * and toggle directives ({@code TOGGLE}/{@code TGL}). Parsing begins after the
+     * {@code NODE_COORD_SECTION} marker.
      *
-     * @param path TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param path path forwarded to {@link Platforms#get()}.{@code loadFile}
+     * @throws TerminalParseException if a primitive fails its grid check
+     * @throws IOException if the file cannot be read
+     * @return parsed pointset, answer tour, distance matrix, comments, and grid
      */
     public static PointSetPath importFromFile(String path) throws TerminalParseException, IOException {
 
@@ -298,20 +306,21 @@ public class FileManagement {
     // New APIs returning logical text files instead of java.io.File for
     // cross-platform
     /**
-     * TODO: document {@code toTextFile}.
+     * Wrap a logical path in an empty {@link TextFile} (cross-platform alternative to
+     * {@code java.io.File} since web has no filesystem).
      *
-     * @param logicalPath TODO: describe
-     * @return TODO: describe
+     * @param logicalPath path string
+     * @return empty {@link TextFile} bound to that path
      */
     public static TextFile toTextFile(String logicalPath) {
         return new TextFile(logicalPath);
     }
 
     /**
-     * TODO: document {@code rewriteSolutionFile}.
+     * Overwrite {@code path} with one {@code toFileString()} line per element of {@code shell}.
      *
-     * @param path TODO: describe
-     * @param shell TODO: describe
+     * @param path target file path (truncated, not appended)
+     * @param shell ordered points to serialize
      */
     public static void rewriteSolutionFile(String path, Shell shell) {
         ArrayList<String> lines = new ArrayList<String>();
@@ -351,11 +360,12 @@ public class FileManagement {
     }
 
     /**
-     * TODO: document {@code addPoints}.
+     * Append a batch of parsed primitive points to the in-progress {@link FileInfo}, validating
+     * each against the active grid (cartesian / hex). Auto-detects the grid from the first point.
      *
-     * @param points TODO: describe
-     * @param fi TODO: describe
-     * @throws TerminalParseException TODO: describe
+     * @param points points to append in order
+     * @param fi parser state being populated
+     * @throws TerminalParseException if a point's coordinate type is incompatible with the grid
      */
     public static void addPoints(ArrayList<PointND> points, FileInfo fi) throws TerminalParseException {
         for (int i = 0; i < points.size(); i++) {
@@ -410,10 +420,11 @@ public class FileManagement {
     }
 
     /**
-     * TODO: document {@code copyFileContents}.
+     * Copy {@code src} to {@code dest} line-by-line (each terminated by {@code \n}); errors are
+     * caught and printed.
      *
-     * @param src TODO: describe
-     * @param dest TODO: describe
+     * @param src source file
+     * @param dest destination file (overwritten)
      */
     public static void copyFileContents(File src, File dest) {
 
@@ -440,10 +451,11 @@ public class FileManagement {
     }
 
     /**
-     * TODO: document {@code appendAns}.
+     * Replace the existing {@code ANS } line with one built from {@code ans} point IDs, or
+     * append a new one if the file has no answer line yet, then write the result back.
      *
-     * @param file TODO: describe
-     * @param ans TODO: describe
+     * @param file target solution file
+     * @param ans ordered points whose IDs make up the answer
      */
     public static void appendAns(TextFile file, Shell ans) {
 
@@ -474,10 +486,11 @@ public class FileManagement {
     }
 
     /**
-     * TODO: document {@code appendComment}.
+     * Append a {@code //}-prefixed comment line to {@code path} and flush it to disk in append
+     * mode.
      *
-     * @param path TODO: describe
-     * @param comment TODO: describe
+     * @param path target file (mutated in memory and on disk)
+     * @param comment text after {@code //}
      */
     public static void appendComment(TextFile path, String comment) {
         try {
@@ -489,10 +502,12 @@ public class FileManagement {
     }
 
     /**
-     * TODO: document {@code appendLine}.
+     * Append a line to {@code path} and flush it to disk in append mode. Note: the line is
+     * also currently prefixed with {@code //} due to shared implementation with
+     * {@link #appendComment}.
      *
-     * @param path TODO: describe
-     * @param appLine TODO: describe
+     * @param path target file
+     * @param appLine line content
      */
     public static void appendLine(TextFile path, String appLine) {
         try {
@@ -504,9 +519,10 @@ public class FileManagement {
     }
 
     /**
-     * TODO: document {@code appendCutAns}.
+     * Round-trip {@code f} through line-by-line read/write (effectively rewrites it with
+     * {@code \n} line terminators). Currently a placeholder for future cut-answer logic.
      *
-     * @param f TODO: describe
+     * @param f file to rewrite in place
      */
     public static void appendCutAns(File f) {
         List<String> lines = new ArrayList<String>();
@@ -534,10 +550,11 @@ public class FileManagement {
     // removed duplicate rewriteSolutionFile method
 
     /**
-     * TODO: document {@code writeSubGraphTest}.
+     * Write a generated unit-test source under {@link #subGraphUnitTestFolder}. {@code template}
+     * is split on {@code \n} and each line written with the platform line separator.
      *
-     * @param fileName TODO: describe
-     * @param template TODO: describe
+     * @param fileName test file name (within the subgraph unit-test folder)
+     * @param template full source body
      */
     public static void writeSubGraphTest(String fileName, String template) {
         File unitTest = new File(subGraphUnitTestFolder + fileName);

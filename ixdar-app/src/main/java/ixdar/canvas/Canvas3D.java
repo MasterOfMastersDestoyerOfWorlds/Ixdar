@@ -15,6 +15,7 @@ import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.Clock;
+import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.graphics.render.sdf.SDFFluid;
 import ixdar.graphics.render.shaders.DiffuseShader;
@@ -37,10 +38,7 @@ public class Canvas3D extends SceneDrawable {
     public static final String AUDIOASSETS = "AudioAssets";
     public static final String PLATFORM = "platform";
     public static final String AUTOMATION = "automation";
-    public static final float NUM_0_7 = 0.7f;
-    public static final float NUM_0_1 = 0.1f;
-    public static final float NUM_0_07 = 0.07f;
-    public static final float NUM_1 = 1f;
+    public static final float PROJECTION_MATRIX_SCALE = 1f;
 
     public static Canvas3D instance;
 
@@ -76,7 +74,9 @@ public class Canvas3D extends SceneDrawable {
     protected DiffuseShader shader;
 
     /**
-     * TODO: document {@code Canvas3D}.
+     * Construct the active canvas: store as the singleton, mark active, capture the
+     * current platform, start the optional automation runtime, and seed an empty
+     * Shell.
      */
     public Canvas3D() {
         instance = this;
@@ -87,7 +87,8 @@ public class Canvas3D extends SceneDrawable {
         if (rt != null) {
             try {
                 rt.getClass().getMethod("start", Canvas3D.class).invoke(rt, this);
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
         }
 
         shell = new Shell();
@@ -100,66 +101,75 @@ public class Canvas3D extends SceneDrawable {
                 Class<?> cls = Class.forName(
                         String.join(STR, IXDAR, AUDIO, "AudioSystem"));
                 audioSystem = cls.getMethod(GET).invoke(null);
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
         }
         return audioSystem;
     }
 
     /**
-     * TODO: document {@code audioInit}.
-     */
-    public static void audioInit() {
-        Object audio = getAudioSystem();
-        if (audio == null) return;
-        try { audio.getClass().getMethod("init").invoke(audio); } catch (Throwable ignored) {}
-    }
-
-    /**
-     * TODO: document {@code audioPlayMenuMusic}.
+     * Reflectively start looping the {@code AudioAssets.MENU_MUSIC} track via
+     * {@code AudioSystem.playMenuMusicLoop}; no-op if audio is unavailable.
      */
     public static void audioPlayMenuMusic() {
         Object audio = getAudioSystem();
-        if (audio == null) return;
+        if (audio == null)
+            return;
         try {
             String path = (String) Class.forName(
                     String.join(STR, IXDAR, AUDIO, AUDIOASSETS))
                     .getField("MENU_MUSIC").get(null);
             audio.getClass().getMethod("playMenuMusicLoop", String.class).invoke(audio, path);
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
     }
 
     /**
-     * TODO: document {@code audioPauseMenuMusic}.
+     * Reflectively call {@code AudioSystem.pauseMenuMusic()}; no-op if audio is
+     * unavailable.
      */
     public static void audioPauseMenuMusic() {
         Object audio = getAudioSystem();
-        if (audio == null) return;
-        try { audio.getClass().getMethod("pauseMenuMusic").invoke(audio); } catch (Throwable ignored) {}
+        if (audio == null)
+            return;
+        try {
+            audio.getClass().getMethod("pauseMenuMusic").invoke(audio);
+        } catch (Throwable ignored) {
+        }
     }
 
     /**
-     * TODO: document {@code audioPlaySfx}.
+     * Reflectively play a one-shot SFX whose path is the named static field on
+     * {@code AudioAssets}; no-op if audio is unavailable or the field is missing.
      *
-     * @param fieldName TODO: describe
+     * @param fieldName public static String field on
+     *                  {@code ixdar.audio.AudioAssets}
      */
     public static void audioPlaySfx(String fieldName) {
         Object audio = getAudioSystem();
-        if (audio == null) return;
+        if (audio == null)
+            return;
         try {
             String path = (String) Class.forName(
                     String.join(STR, IXDAR, AUDIO, AUDIOASSETS))
                     .getField(fieldName).get(null);
             audio.getClass().getMethod("playSfxOnce", String.class).invoke(audio, path);
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
     }
 
     /**
-     * TODO: document {@code audioShutdown}.
+     * Reflectively call {@code AudioSystem.shutdown()}; no-op if audio is
+     * unavailable.
      */
     public static void audioShutdown() {
         Object audio = getAudioSystem();
-        if (audio == null) return;
-        try { audio.getClass().getMethod("shutdown").invoke(audio); } catch (Throwable ignored) {}
+        if (audio == null)
+            return;
+        try {
+            audio.getClass().getMethod("shutdown").invoke(audio);
+        } catch (Throwable ignored) {
+        }
     }
 
     private static Object getAutomationRuntime() {
@@ -169,13 +179,17 @@ public class Canvas3D extends SceneDrawable {
                 Class<?> cls = Class.forName(
                         String.join(STR, IXDAR, PLATFORM, AUTOMATION, "AutomationRuntime"));
                 automationRuntime = cls.getMethod(GET).invoke(null);
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
         }
         return automationRuntime;
     }
 
     /**
-     * TODO: document {@code initPoints}.
+     * Seed the unit-square shell, build its {@link DistanceMatrix} and
+     * {@link PointSet},
+     * and initialize the 2D camera and default web-view bounds covering the
+     * framebuffer.
      */
     public void initPoints() {
         shell.clear();
@@ -199,7 +213,8 @@ public class Canvas3D extends SceneDrawable {
     }
 
     /**
-     * TODO: document {@code initGL}.
+     * Initialize GL state on the render thread: capabilities, viewport, depth/blend
+     * state, clear color, audio init/start, and {@link #initPoints()}.
      */
     public void initGL() {
         GL gl = Platforms.gl();
@@ -214,10 +229,14 @@ public class Canvas3D extends SceneDrawable {
 
         gl.enable(gl.DEPTH_TEST());
 
-        gl.clearColor(NUM_0_7, NUM_0_1, NUM_0_1, 1.0f);
+        gl.clearColor(Color.DARK_RED);
         gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
         gl.enable(gl.BLEND());
-        audioInit();
+        Object audio = getAudioSystem();
+        try {
+            audio.getClass().getMethod("init").invoke(audio);
+        } catch (Throwable ignored) {
+        }
         if (MenuBox.menuVisible) {
             audioPlayMenuMusic();
         }
@@ -227,7 +246,9 @@ public class Canvas3D extends SceneDrawable {
     }
 
     /**
-     * TODO: document {@code paintGL}.
+     * Render one frame: resize the viewport, clear, drive input, call
+     * {@link #drawScene()}, hot-reload and flush all shaders, run automation
+     * mainthread commands, and tick the frame clock.
      */
     public void paintGL() {
         GL gl = Platforms.gl();
@@ -236,7 +257,7 @@ public class Canvas3D extends SceneDrawable {
         if (fbw > 0 && fbh > 0) {
             gl.viewport(0, 0, fbw, fbh);
         }
-        gl.clearColor(NUM_0_07, NUM_0_07, NUM_0_07, 1.0f);
+        gl.clearColor(Color.DARK_GRAY);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera.resetZIndex();
         camera2D.resetZIndex();
@@ -250,7 +271,8 @@ public class Canvas3D extends SceneDrawable {
             if (s.ID < 0) {
                 continue;
             }
-            s.updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), NUM_1);
+            s.updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(),
+                    PROJECTION_MATRIX_SCALE);
             s.hotReload();
         }
         for (ShaderProgram s : shaders) {
@@ -263,13 +285,16 @@ public class Canvas3D extends SceneDrawable {
         if (rt2 != null) {
             try {
                 rt2.getClass().getMethod("processMainThreadCommands").invoke(rt2);
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
         }
         Clock.frameRendered();
     }
 
     /**
-     * TODO: document {@code drawScene}.
+     * Lazily construct the menu and SDF fluid, then dispatch drawing to the menu,
+     * the active {@link TradeScene}, or the {@link MainScene} based on visibility
+     * flags.
      */
     public void drawScene() {
         if (menu == null) {
@@ -293,9 +318,12 @@ public class Canvas3D extends SceneDrawable {
     }
 
     /**
-     * TODO: document {@code activate}.
+     * Toggle interactive state: bind/unbind automation input, start or pause menu
+     * music, and update {@code keys}, {@code mouse}, menu-visibility, and the
+     * {@code active} flag.
      *
-     * @param state TODO: describe
+     * @param state {@code true} to enable input/audio/menu; {@code false} to
+     *              suspend
      */
     public void activate(boolean state) {
         if (state) {
@@ -312,7 +340,8 @@ public class Canvas3D extends SceneDrawable {
     }
 
     /**
-     * TODO: document {@code shutdown}.
+     * Deactivate the canvas, stop the optional automation runtime, and shut down
+     * audio.
      */
     @Override
     public void shutdown() {
@@ -321,17 +350,20 @@ public class Canvas3D extends SceneDrawable {
         if (rt3 != null) {
             try {
                 rt3.getClass().getMethod("stop").invoke(rt3);
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
         }
         audioShutdown();
     }
 
     /**
-     * TODO: document {@code bindAutomationIfAvailable}.
+     * Reflectively wire the optional {@code AutomationInputBinder} into the
+     * platform
+     * and input listeners; silently no-op when the automation module is absent.
      *
-     * @param platform TODO: describe
-     * @param keys TODO: describe
-     * @param mouse TODO: describe
+     * @param platform host platform whose input queue to bind
+     * @param keys     keyboard listener to register
+     * @param mouse    mouse listener to register
      */
     protected static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
         try {

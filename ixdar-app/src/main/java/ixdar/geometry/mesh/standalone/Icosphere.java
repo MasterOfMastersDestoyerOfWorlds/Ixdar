@@ -36,9 +36,10 @@ public class Icosphere {
     private final float radius;
 
     /**
-     * TODO: document {@code Icosphere}.
+     * Build a 20-face icosahedron of the given radius and precompute each face's local triangle
+     * vertices, center, normal, and ideal orientation, plus per-vertex unit axes.
      *
-     * @param radius TODO: describe
+     * @param radius sphere radius (vertices are normalized to this length)
      */
     public Icosphere(float radius) {
         this.radius = radius;
@@ -109,46 +110,46 @@ public class Icosphere {
     }
 
     /**
-     * TODO: document {@code faces}.
+     * Unmodifiable view of the 20 icosahedron faces with their local-space vertices.
      *
-     * @return TODO: describe
+     * @return read-only face list
      */
     public List<Face> faces() {
         return Collections.unmodifiableList(faces);
     }
 
     /**
-     * TODO: document {@code idealStates}.
+     * Unmodifiable view of each face's reference position, orientation, and normal.
      *
-     * @return TODO: describe
+     * @return read-only ideal-state list, parallel to {@link #faces()}
      */
     public List<FaceState> idealStates() {
         return Collections.unmodifiableList(idealStates);
     }
 
     /**
-     * TODO: document {@code axes}.
+     * Unmodifiable view of the 12 unit-length vertex axes of the icosahedron.
      *
-     * @return TODO: describe
+     * @return read-only axis list
      */
     public List<Vector3f> axes() {
         return Collections.unmodifiableList(axes);
     }
 
     /**
-     * TODO: document {@code radius}.
+     * Sphere radius supplied at construction.
      *
-     * @return TODO: describe
+     * @return the radius value
      */
     public float radius() {
         return radius;
     }
 
     /**
-     * TODO: document {@code randomAxis}.
+     * Pick a vertex axis uniformly at random; falls back to {@code (0,1,0)} if the axes list is empty.
      *
-     * @param random TODO: describe
-     * @return TODO: describe
+     * @param random source of randomness
+     * @return a defensive copy of one of the unit axes
      */
     public Vector3f randomAxis(Random random) {
         if (axes.isEmpty()) {
@@ -158,11 +159,13 @@ public class Icosphere {
     }
 
     /**
-     * TODO: document {@code selectBand}.
+     * Collect face indices grouped by their orientation against {@code axis}: a polar cap (faces
+     * with {@code dot > 0.6}) when {@code capBand} is true, or an equatorial belt
+     * ({@code -0.4 < dot < 0.4}) otherwise.
      *
-     * @param axis TODO: describe
-     * @param capBand TODO: describe
-     * @return TODO: describe
+     * @param axis reference direction (not required to be unit length)
+     * @param capBand select the polar cap when {@code true}, the equatorial band when {@code false}
+     * @return indices into {@link #idealStates()} that fall into the chosen band
      */
     public ArrayList<Integer> selectBand(Vector3f axis, boolean capBand) {
         ArrayList<Integer> group = new ArrayList<>();

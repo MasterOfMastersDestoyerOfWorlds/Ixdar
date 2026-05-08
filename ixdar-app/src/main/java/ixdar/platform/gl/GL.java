@@ -4,849 +4,792 @@ import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 
+import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.input.MouseButtons;
 
+/**
+ * Minimum GL surface used by the renderer, abstracting LWJGL (desktop / headless) and WebGL
+ * behind the same call shape. Method names mirror the underlying {@code glXxx} entry points;
+ * the all-caps zero-arg accessors return platform-specific GL enum values
+ * (e.g. {@link #COLOR_BUFFER_BIT()}, {@link #TRIANGLES()}).
+ */
 public interface GL {
     /**
-     * TODO: document {@code viewport}.
+     * Set the GL viewport rectangle.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param w TODO: describe
-     * @param h TODO: describe
+     * @param x lower-left x in pixels
+     * @param y lower-left y in pixels
+     * @param w width in pixels
+     * @param h height in pixels
      */
     void viewport(int x, int y, int w, int h);
 
     /**
-     * TODO: document {@code clearColor}.
+     * Set the colour the framebuffer is cleared to.
      *
-     * @param r TODO: describe
-     * @param g TODO: describe
-     * @param b TODO: describe
-     * @param a TODO: describe
+     * @param r red component, 0..1
+     * @param g green component, 0..1
+     * @param b blue component, 0..1
+     * @param a alpha component, 0..1
      */
     void clearColor(float r, float g, float b, float a);
 
     /**
-     * TODO: document {@code clear}.
+     * Set the colour the framebuffer is cleared to.
      *
-     * @param mask TODO: describe
+     * @param c color to clear the framebuffer to
+     */
+    void clearColor(Color c);
+
+    /**
+     * Clear the buffers indicated by {@code mask} (bitwise OR of {@link #COLOR_BUFFER_BIT()},
+     * {@link #DEPTH_BUFFER_BIT()}).
+     *
+     * @param mask buffer-bit mask
      */
     void clear(int mask);
 
     /**
-     * TODO: document {@code createProgram}.
+     * Create a new program object.
      *
-     * @return TODO: describe
+     * @return platform-specific program ID
      */
     int createProgram();
 
     /**
-     * TODO: document {@code createShader}.
+     * Create a shader object of the given stage.
      *
-     * @param type TODO: describe
-     * @return TODO: describe
+     * @param type {@link #VERTEX_SHADER()} or {@link #FRAGMENT_SHADER()}
+     * @return platform-specific shader ID
      */
     int createShader(int type);
 
     /**
-     * TODO: document {@code shaderSource}.
+     * Set the GLSL source for a shader.
      *
-     * @param shader TODO: describe
-     * @param src TODO: describe
+     * @param shader shader ID returned by {@link #createShader(int)}
+     * @param src full source text
      */
     void shaderSource(int shader, String src);
 
     /**
-     * TODO: document {@code compileShader}.
+     * Compile a shader whose source has been set.
      *
-     * @param shader TODO: describe
+     * @param shader shader ID
      */
     void compileShader(int shader);
 
     /**
-     * TODO: document {@code getShaderiv}.
+     * Read a single integer parameter from a shader.
      *
-     * @param shader TODO: describe
-     * @param pname TODO: describe
-     * @return TODO: describe
+     * @param shader shader ID
+     * @param pname parameter name (e.g. {@link #COMPILE_STATUS()})
+     * @return the parameter value
      */
     int getShaderiv(int shader, int pname);
 
     /**
-     * TODO: document {@code getShaderInfoLog}.
-     *
-     * @param shader TODO: describe
-     * @return TODO: describe
+     * @param shader shader ID
+     * @return compiler info log (empty string when there are no diagnostics)
      */
     String getShaderInfoLog(int shader);
 
     /**
-     * TODO: document {@code attachShader}.
+     * Attach {@code shader} to {@code program}.
      *
-     * @param program TODO: describe
-     * @param shader TODO: describe
+     * @param program program ID
+     * @param shader shader ID
      */
     void attachShader(int program, int shader);
 
     /**
-     * TODO: document {@code linkProgram}.
+     * Link a program after its shaders have been attached.
      *
-     * @param program TODO: describe
+     * @param program program ID
      */
     void linkProgram(int program);
 
     /**
-     * TODO: document {@code getProgramiv}.
+     * Read a single integer parameter from a program.
      *
-     * @param program TODO: describe
-     * @param pname TODO: describe
-     * @return TODO: describe
+     * @param program program ID
+     * @param pname parameter name (e.g. {@link #LINK_STATUS()})
+     * @return parameter value
      */
     int getProgramiv(int program, int pname);
 
     /**
-     * TODO: document {@code getProgramInfoLog}.
-     *
-     * @param program TODO: describe
-     * @return TODO: describe
+     * @param program program ID
+     * @return linker info log (empty when no diagnostics)
      */
     String getProgramInfoLog(int program);
 
     /**
-     * TODO: document {@code useProgram}.
+     * Make {@code program} the active program for subsequent draw calls.
      *
-     * @param program TODO: describe
+     * @param program program ID
      */
     void useProgram(int program);
 
     /**
-     * TODO: document {@code deleteShader}.
+     * Delete a shader object.
      *
-     * @param shader TODO: describe
+     * @param shader shader ID
      */
     void deleteShader(int shader);
 
     /**
-     * TODO: document {@code deleteProgram}.
+     * Delete a program object.
      *
-     * @param program TODO: describe
+     * @param program program ID
      */
     void deleteProgram(int program);
 
     /**
-     * TODO: document {@code genBuffer}.
+     * Generate one buffer object.
      *
-     * @return TODO: describe
+     * @return new buffer ID
      */
     int genBuffer();
 
     /**
-     * TODO: document {@code bindArrayBuffer}.
+     * Bind a buffer to the {@link #ARRAY_BUFFER()} target.
      *
-     * @param buffer TODO: describe
+     * @param buffer buffer ID
      */
     void bindArrayBuffer(int buffer);
 
     /**
-     * TODO: document {@code bufferDataArray}.
+     * Upload {@code data} to the currently bound array buffer.
      *
-     * @param data TODO: describe
-     * @param usage TODO: describe
+     * @param data source buffer
+     * @param usage usage hint (e.g. {@link #STATIC_DRAW()}, {@link #DYNAMIC_DRAW()})
      */
     void bufferDataArray(IxBuffer data, int usage);
 
     /**
-     * TODO: document {@code bufferDataArray}.
+     * Upload a float array to the currently bound array buffer.
      *
-     * @param data TODO: describe
-     * @param usage TODO: describe
+     * @param data source array
+     * @param usage usage hint
      */
     void bufferDataArray(float[] data, int usage);
 
     /**
-     * TODO: document {@code enableVertexAttribArray}.
+     * Enable a generic vertex attribute slot.
      *
-     * @param index TODO: describe
+     * @param index attribute location
      */
     void enableVertexAttribArray(int index);
 
     /**
-     * TODO: document {@code vertexAttribPointer}.
+     * Describe an attribute's layout within the bound array buffer.
      *
-     * @param index TODO: describe
-     * @param size TODO: describe
-     * @param type TODO: describe
-     * @param normalized TODO: describe
-     * @param stride TODO: describe
-     * @param pointer TODO: describe
+     * @param index attribute location
+     * @param size component count (1..4)
+     * @param type element type (e.g. {@link #FLOAT()})
+     * @param normalized true to normalize integer types into [0,1]/[-1,1]
+     * @param stride byte stride between successive vertices
+     * @param pointer byte offset of the first component
      */
     void vertexAttribPointer(int index, int size, int type, boolean normalized, int stride, int pointer);
 
     /**
-     * TODO: document {@code genVertexArray}.
+     * Generate one VAO.
      *
-     * @return TODO: describe
+     * @return new VAO ID
      */
     int genVertexArray();
 
     /**
-     * TODO: document {@code bindVertexArray}.
+     * Bind a VAO ({@code 0} unbinds).
      *
-     * @param vao TODO: describe
+     * @param vao VAO ID
      */
     void bindVertexArray(int vao);
 
     /**
-     * TODO: document {@code drawArrays}.
+     * Issue a non-indexed draw.
      *
-     * @param mode TODO: describe
-     * @param first TODO: describe
-     * @param count TODO: describe
+     * @param mode primitive mode (e.g. {@link #TRIANGLES()}, {@link #LINES()})
+     * @param first starting vertex index
+     * @param count vertex count
      */
     void drawArrays(int mode, int first, int count);
     /**
-     * TODO: document {@code drawElements}.
+     * Issue an indexed draw using the bound element-array buffer.
      *
-     * @param mode TODO: describe
-     * @param count TODO: describe
-     * @param type TODO: describe
-     * @param indicesOffsetBytes TODO: describe
+     * @param mode primitive mode
+     * @param count index count
+     * @param type index element type (e.g. {@link #UNSIGNED_INT()})
+     * @param indicesOffsetBytes byte offset into the element-array buffer
      */
     void drawElements(int mode, int count, int type, int indicesOffsetBytes);
 
     /**
-     * TODO: document {@code getUniformLocation}.
+     * Look up a uniform location.
      *
-     * @param program TODO: describe
-     * @param name TODO: describe
-     * @return TODO: describe
+     * @param program program ID
+     * @param name uniform name as declared in GLSL
+     * @return location ID, or {@code -1} if not found / inactive
      */
     int getUniformLocation(int program, String name);
 
     /**
-     * TODO: document {@code uniform1f}.
+     * Set a {@code float} uniform.
      *
-     * @param loc TODO: describe
-     * @param v TODO: describe
+     * @param loc uniform location
+     * @param v value
      */
     void uniform1f(int loc, float v);
 
     /**
-     * TODO: document {@code uniform1i}.
+     * Set an {@code int} (or sampler) uniform.
      *
-     * @param loc TODO: describe
-     * @param v TODO: describe
+     * @param loc uniform location
+     * @param v value
      */
     void uniform1i(int loc, int v);
 
     /**
-     * TODO: document {@code uniform2fv}.
+     * Upload one or more {@code vec2}s from a flat float buffer.
      *
-     * @param loc TODO: describe
-     * @param buffer TODO: describe
+     * @param loc uniform location
+     * @param buffer values, packed xy
      */
     void uniform2fv(int loc, IxBuffer buffer);
 
     /**
-     * TODO: document {@code uniform3fv}.
+     * Upload one or more {@code vec3}s from a flat float buffer.
      *
-     * @param loc TODO: describe
-     * @param buffer TODO: describe
+     * @param loc uniform location
+     * @param buffer values, packed xyz
      */
     void uniform3fv(int loc, IxBuffer buffer);
 
     /**
-     * TODO: document {@code uniform4fv}.
+     * Upload one or more {@code vec4}s from a flat float buffer.
      *
-     * @param loc TODO: describe
-     * @param buffer TODO: describe
+     * @param loc uniform location
+     * @param buffer values, packed xyzw
      */
     void uniform4fv(int loc, IxBuffer buffer);
 
     /**
-     * TODO: document {@code uniformMatrix4fv}.
+     * Upload one or more {@code mat4}s from a flat float buffer.
      *
-     * @param loc TODO: describe
-     * @param transpose TODO: describe
-     * @param buffer TODO: describe
+     * @param loc uniform location
+     * @param transpose true to transpose during upload
+     * @param buffer 16 floats per matrix
      */
     void uniformMatrix4fv(int loc, boolean transpose, IxBuffer buffer);
 
     /**
-     * TODO: document {@code genTexture}.
+     * Generate one texture object.
      *
-     * @return TODO: describe
+     * @return new texture ID
      */
     int genTexture();
     /**
-     * TODO: document {@code deleteTexture}.
+     * Delete a texture object.
      *
-     * @param id TODO: describe
+     * @param id texture ID
      */
     void deleteTexture(int id);
 
     /**
-     * TODO: document {@code bindTexture2D}.
+     * Bind a texture to {@link #TEXTURE_2D()} on the active texture unit.
      *
-     * @param id TODO: describe
+     * @param id texture ID
      */
     void bindTexture2D(int id);
 
     /**
-     * TODO: document {@code texParameteri}.
+     * Set an integer texture parameter.
      *
-     * @param target TODO: describe
-     * @param pname TODO: describe
-     * @param param TODO: describe
+     * @param target texture target (e.g. {@link #TEXTURE_2D()})
+     * @param pname parameter name
+     * @param param parameter value
      */
     void texParameteri(int target, int pname, int param);
 
     /**
-     * TODO: document {@code texImage2D}.
+     * Upload a 2D texture image.
      *
-     * @param target TODO: describe
-     * @param level TODO: describe
-     * @param internalFormat TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param border TODO: describe
-     * @param format TODO: describe
-     * @param type TODO: describe
-     * @param data TODO: describe
+     * @param target texture target
+     * @param level mipmap level (0 for base)
+     * @param internalFormat GPU-side format
+     * @param width texel width
+     * @param height texel height
+     * @param border must be 0 in core profile
+     * @param format pixel format of {@code data}
+     * @param type pixel type of {@code data}
+     * @param data raw pixel bytes (may be {@code null} to allocate without uploading)
      */
     void texImage2D(int target, int level, int internalFormat, int width, int height, int border, int format, int type,
             ByteBuffer data);
 
     /**
-     * TODO: document {@code generateMipmap}.
+     * Generate the mipmap chain for the bound texture.
      *
-     * @param target TODO: describe
+     * @param target texture target
      */
     void generateMipmap(int target);
 
     /**
-     * TODO: document {@code COLOR_BUFFER_BIT}.
-     *
-     * @return TODO: describe
+     * @return GL constant for the colour buffer bit
      */
     int COLOR_BUFFER_BIT();
 
     /**
-     * TODO: document {@code DEPTH_BUFFER_BIT}.
-     *
-     * @return TODO: describe
+     * @return GL constant for the depth buffer bit
      */
     int DEPTH_BUFFER_BIT();
 
     /**
-     * TODO: document {@code TRIANGLES}.
-     *
-     * @return TODO: describe
+     * @return primitive mode for triangle lists
      */
     int TRIANGLES();
 
     /**
-     * TODO: document {@code ARRAY_BUFFER}.
-     *
-     * @return TODO: describe
+     * @return GL_ARRAY_BUFFER target
      */
     int ARRAY_BUFFER();
     /**
-     * TODO: document {@code ELEMENT_ARRAY_BUFFER}.
-     *
-     * @return TODO: describe
+     * @return GL_ELEMENT_ARRAY_BUFFER target
      */
     int ELEMENT_ARRAY_BUFFER();
 
     /**
-     * TODO: document {@code STATIC_DRAW}.
-     *
-     * @return TODO: describe
+     * @return GL_STATIC_DRAW usage hint
      */
     int STATIC_DRAW();
 
     /**
-     * TODO: document {@code FLOAT}.
-     *
-     * @return TODO: describe
+     * @return GL_FLOAT element type
      */
     int FLOAT();
 
     /**
-     * TODO: document {@code FRAGMENT_SHADER}.
-     *
-     * @return TODO: describe
+     * @return GL_FRAGMENT_SHADER stage
      */
     int FRAGMENT_SHADER();
 
     /**
-     * TODO: document {@code VERTEX_SHADER}.
-     *
-     * @return TODO: describe
+     * @return GL_VERTEX_SHADER stage
      */
     int VERTEX_SHADER();
 
     /**
-     * TODO: document {@code TEXTURE_2D}.
-     *
-     * @return TODO: describe
+     * @return GL_TEXTURE_2D target
      */
     int TEXTURE_2D();
 
     /**
-     * TODO: document {@code RGBA}.
-     *
-     * @return TODO: describe
+     * @return GL_RGBA pixel format
      */
     int RGBA();
 
     /**
-     * TODO: document {@code RGBA8}.
-     *
-     * @return TODO: describe
+     * @return GL_RGBA8 sized internal format
      */
     int RGBA8();
 
     /**
-     * TODO: document {@code UNSIGNED_BYTE}.
-     *
-     * @return TODO: describe
+     * @return GL_UNSIGNED_BYTE element type
      */
     int UNSIGNED_BYTE();
     /**
-     * TODO: document {@code UNSIGNED_INT}.
-     *
-     * @return TODO: describe
+     * @return GL_UNSIGNED_INT element type
      */
     int UNSIGNED_INT();
 
     /**
-     * TODO: document {@code TEXTURE_WRAP_S}.
-     *
-     * @return TODO: describe
+     * @return GL_TEXTURE_WRAP_S parameter
      */
     int TEXTURE_WRAP_S();
 
     /**
-     * TODO: document {@code TEXTURE_WRAP_T}.
-     *
-     * @return TODO: describe
+     * @return GL_TEXTURE_WRAP_T parameter
      */
     int TEXTURE_WRAP_T();
 
     /**
-     * TODO: document {@code TEXTURE_MIN_FILTER}.
-     *
-     * @return TODO: describe
+     * @return GL_TEXTURE_MIN_FILTER parameter
      */
     int TEXTURE_MIN_FILTER();
 
     /**
-     * TODO: document {@code TEXTURE_MAG_FILTER}.
-     *
-     * @return TODO: describe
+     * @return GL_TEXTURE_MAG_FILTER parameter
      */
     int TEXTURE_MAG_FILTER();
 
     /**
-     * TODO: document {@code LINES}.
-     *
-     * @return TODO: describe
+     * @return primitive mode for line lists
      */
     int LINES();
 
     /**
-     * TODO: document {@code lineWidth}.
+     * Set the rasterized line width.
      *
-     * @param width TODO: describe
+     * @param width width in pixels
      */
     void lineWidth(float width);
 
     /**
-     * TODO: document {@code LINEAR}.
-     *
-     * @return TODO: describe
+     * @return GL_LINEAR filter
      */
     int LINEAR();
 
     /**
-     * TODO: document {@code REPEAT}.
-     *
-     * @return TODO: describe
+     * @return GL_REPEAT wrap mode
      */
     int REPEAT();
 
     /**
-     * TODO: document {@code getMouseButton}.
+     * Poll a mouse-button state for the given window handle.
      *
-     * @param window TODO: describe
-     * @param mouseButtonLeft TODO: describe
-     * @return TODO: describe
+     * @param window platform window handle (GLFW; ignored on web)
+     * @param mouseButtonLeft button to query
+     * @return true while the button is currently down
      */
     boolean getMouseButton(long window, MouseButtons mouseButtonLeft);
 
     /**
-     * TODO: document {@code SRC_ALPHA}.
-     *
-     * @return TODO: describe
+     * @return GL_SRC_ALPHA blend factor
      */
     int SRC_ALPHA();
 
     /**
-     * TODO: document {@code ONE_MINUS_SRC_ALPHA}.
-     *
-     * @return TODO: describe
+     * @return GL_ONE_MINUS_SRC_ALPHA blend factor
      */
     int ONE_MINUS_SRC_ALPHA();
 
     /**
-     * TODO: document {@code BLEND}.
-     *
-     * @return TODO: describe
+     * @return GL_BLEND capability
      */
     int BLEND();
 
     /**
-     * TODO: document {@code blendFunc}.
+     * Configure source/destination blend factors.
      *
-     * @param SRC_ALPHA TODO: describe
-     * @param ONE_MINUS_SRC_ALPHA TODO: describe
+     * @param SRC_ALPHA source factor
+     * @param ONE_MINUS_SRC_ALPHA destination factor
      */
     void blendFunc(int SRC_ALPHA, int ONE_MINUS_SRC_ALPHA);
 
     /**
-     * TODO: document {@code enable}.
+     * Enable a GL capability (e.g. {@link #BLEND()}, {@link #DEPTH_TEST()}).
      *
-     * @param blend TODO: describe
+     * @param blend capability constant
      */
     void enable(int blend);
 
     /**
-     * TODO: document {@code disable}.
+     * Disable a GL capability.
      *
-     * @param depthTest TODO: describe
+     * @param depthTest capability constant
      */
     void disable(int depthTest);
 
     /**
-     * TODO: document {@code depthMask}.
+     * Enable or disable depth-buffer writes.
      *
-     * @param flag TODO: describe
+     * @param flag true allows writes
      */
     void depthMask(boolean flag);
 
     /**
-     * TODO: document {@code createCapabilities}.
+     * Bind GL function pointers (LWJGL {@code GL.createCapabilities}); a no-op on WebGL where
+     * the context is the function table.
      */
     void createCapabilities();
 
     /**
-     * TODO: document {@code DEPTH_TEST}.
-     *
-     * @return TODO: describe
+     * @return GL_DEPTH_TEST capability
      */
     int DEPTH_TEST();
 
     /**
-     * TODO: document {@code setWindowTitle}.
+     * Set the platform window title (desktop) or document/tab title (web).
      *
-     * @param string TODO: describe
+     * @param string new title
      */
     void setWindowTitle(String string);
 
     /**
-     * TODO: document {@code genVertexArrays}.
+     * Generate one VAO (LWJGL-style alias for {@link #genVertexArray()}).
      *
-     * @return TODO: describe
+     * @return VAO ID
      */
     int genVertexArrays();
 
     /**
-     * TODO: document {@code deleteVertexArrays}.
+     * Delete a VAO.
      *
-     * @param id TODO: describe
+     * @param id VAO ID
      */
     void deleteVertexArrays(int id);
 
     /**
-     * TODO: document {@code genBuffers}.
+     * Generate one buffer object (LWJGL-style alias for {@link #genBuffer()}).
      *
-     * @return TODO: describe
+     * @return buffer ID
      */
     int genBuffers();
 
     /**
-     * TODO: document {@code bindBuffer}.
+     * Bind {@code id} to {@code target}.
      *
-     * @param target TODO: describe
-     * @param id TODO: describe
+     * @param target buffer target ({@link #ARRAY_BUFFER()} / {@link #ELEMENT_ARRAY_BUFFER()})
+     * @param id buffer ID
      */
     void bindBuffer(int target, int id);
 
     /**
-     * TODO: document {@code bufferData}.
+     * Upload float data to the buffer bound at {@code target}.
      *
-     * @param target TODO: describe
-     * @param data TODO: describe
-     * @param usage TODO: describe
+     * @param target buffer target
+     * @param data source buffer
+     * @param usage usage hint
      */
     void bufferData(int target, IxBuffer data, int usage);
 
     /**
-     * TODO: document {@code bufferData}.
+     * Upload a float array to the buffer bound at {@code target}.
      *
-     * @param target TODO: describe
-     * @param data TODO: describe
-     * @param usage TODO: describe
+     * @param target buffer target
+     * @param data source data
+     * @param usage usage hint
      */
     void bufferData(int target, float[] data, int usage);
 
     /**
-     * TODO: document {@code bufferData}.
+     * Allocate uninitialized storage of {@code size} bytes for the buffer bound at {@code target}.
      *
-     * @param target TODO: describe
-     * @param size TODO: describe
-     * @param usage TODO: describe
+     * @param target buffer target
+     * @param size byte size
+     * @param usage usage hint
      */
     void bufferData(int target, long size, int usage);
 
     /**
-     * TODO: document {@code bufferSubData}.
+     * Update a sub-range of the buffer bound at {@code target}.
      *
-     * @param target TODO: describe
-     * @param offset TODO: describe
-     * @param data TODO: describe
+     * @param target buffer target
+     * @param offset byte offset into the buffer
+     * @param data source values
      */
     void bufferSubData(int target, long offset, IxBuffer data);
 
     /**
-     * TODO: document {@code bufferData}.
+     * Upload integer data (typically index data) to the buffer bound at {@code target}.
      *
-     * @param target TODO: describe
-     * @param data TODO: describe
-     * @param usage TODO: describe
+     * @param target buffer target
+     * @param data integer values from current position to limit
+     * @param usage usage hint
      */
     void bufferData(int target, IntBuffer data, int usage);
 
     /**
-     * TODO: document {@code deleteBuffers}.
+     * Delete a buffer object.
      *
-     * @param id TODO: describe
+     * @param id buffer ID
      */
     void deleteBuffers(int id);
 
     /**
-     * TODO: document {@code getAttribLocation}.
+     * Look up a vertex attribute location.
      *
-     * @param iD TODO: describe
-     * @param name TODO: describe
-     * @return TODO: describe
+     * @param iD program ID
+     * @param name attribute name as declared in GLSL
+     * @return location, or {@code -1} if not found
      */
     int getAttribLocation(int iD, CharSequence name);
 
     /**
-     * TODO: document {@code DYNAMIC_DRAW}.
-     *
-     * @return TODO: describe
+     * @return GL_DYNAMIC_DRAW usage hint
      */
     int DYNAMIC_DRAW();
 
     /**
-     * TODO: document {@code bindFragDataLocation}.
+     * Bind a fragment-shader output to a colour attachment (desktop only; no-op on WebGL).
      *
-     * @param iD TODO: describe
-     * @param i TODO: describe
-     * @param string TODO: describe
+     * @param iD program ID
+     * @param i colour number
+     * @param string output variable name
      */
     void bindFragDataLocation(int iD, int i, String string);
 
     /**
-     * TODO: document {@code activeTexture}.
+     * Select an active texture unit ({@link #TEXTURE0()} + offset).
      *
-     * @param i TODO: describe
+     * @param i texture unit constant
      */
     void activeTexture(int i);
 
     /**
-     * TODO: document {@code detachShader}.
+     * Detach a previously attached shader from a program.
      *
-     * @param iD TODO: describe
-     * @param fragmentShader TODO: describe
+     * @param iD program ID
+     * @param fragmentShader shader ID
      */
     void detachShader(int iD, int fragmentShader);
 
     /**
-     * TODO: document {@code shaderSource}.
+     * Set shader source from concatenated chunks.
      *
-     * @param fragmentShader TODO: describe
-     * @param fragmentShaderSource TODO: describe
+     * @param fragmentShader shader ID
+     * @param fragmentShaderSource source fragments (concatenated in order)
      */
     void shaderSource(int fragmentShader, CharSequence[] fragmentShaderSource);
 
     /**
-     * TODO: document {@code LINK_STATUS}.
-     *
-     * @return TODO: describe
+     * @return GL_LINK_STATUS parameter name
      */
     int LINK_STATUS();
 
     /**
-     * TODO: document {@code getProgramiv}.
+     * Read a program parameter into {@code success.put(0, ...)}.
      *
-     * @param shader TODO: describe
-     * @param link_STATUS TODO: describe
-     * @param success TODO: describe
+     * @param shader program ID
+     * @param link_STATUS parameter name
+     * @param success destination buffer; first element receives the value
      */
     void getProgramiv(int shader, int link_STATUS, IntBuffer success);
 
     /**
-     * TODO: document {@code COMPILE_STATUS}.
-     *
-     * @return TODO: describe
+     * @return GL_COMPILE_STATUS parameter name
      */
     int COMPILE_STATUS();
 
     /**
-     * TODO: document {@code getShaderiv}.
+     * Read a shader parameter into {@code success.put(0, ...)}.
      *
-     * @param shader TODO: describe
-     * @param compile_STATUS TODO: describe
-     * @param success TODO: describe
+     * @param shader shader ID
+     * @param compile_STATUS parameter name
+     * @param success destination buffer
      */
     void getShaderiv(int shader, int compile_STATUS, IntBuffer success);
 
     /**
-     * TODO: document {@code uniform3fv}.
+     * Set a {@code vec3} uniform from a packed buffer (Integer-keyed overload for callers that
+     * carry locations boxed).
      *
-     * @param integer TODO: describe
-     * @param vec3 TODO: describe
+     * @param integer uniform location
+     * @param vec3 packed xyz values
      */
     void uniform3fv(Integer integer, IxBuffer vec3);
 
     /**
-     * TODO: document {@code readPixels}.
+     * Read pixels back from the bound framebuffer into a packed RGBA int array.
      *
-     * @param i TODO: describe
-     * @param j TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param rgba TODO: describe
-     * @param unsigned_BYTE TODO: describe
-     * @param fb TODO: describe
-     * @return TODO: describe
+     * @param i lower-left x
+     * @param j lower-left y
+     * @param width width in pixels
+     * @param height height in pixels
+     * @param rgba pixel format (typically {@link #RGBA()})
+     * @param unsigned_BYTE pixel type
+     * @param fb unused (kept for signature parity across backends)
+     * @return one int per pixel, packed (a/r/g/b layout depends on backend)
      */
     int[] readPixels(int i, int j, int width, int height, int rgba, int unsigned_BYTE, int fb);
 
     /**
-     * TODO: document {@code TEXTURE0}.
-     *
-     * @return TODO: describe
+     * @return GL_TEXTURE0 unit constant
      */
     int TEXTURE0();
 
     /**
-     * TODO: document {@code coldStartStack}.
+     * Touch off-thread native stacks once at startup so the first real frame doesn't pay the
+     * lazy-init cost (LWJGL-only; no-op on web).
      */
     void coldStartStack();
 
     /**
-     * TODO: document {@code getShaders}.
-     *
-     * @return TODO: describe
+     * @return shader programs registered via {@link #addShader(ShaderProgram)}
      */
     ArrayList<ShaderProgram> getShaders();
 
     /**
-     * TODO: document {@code addShader}.
+     * Register a shader so the renderer can iterate over all shaders for hot-reload, etc.
      *
-     * @param shader TODO: describe
+     * @param shader program wrapper to register
      */
     void addShader(ShaderProgram shader);
 
     /**
-     * TODO: document {@code getPlatformID}.
-     *
-     * @return TODO: describe
+     * @return platform ID assigned via {@link #setPlatformID(Integer)}
      */
     int getPlatformID();
 
     /**
-     * TODO: document {@code getAttachedShaders}.
+     * Read the {@code GL_ATTACHED_SHADERS} count of {@code shader} into {@code success.put(0, ...)}.
      *
-     * @param shader TODO: describe
-     * @param success TODO: describe
+     * @param shader program ID
+     * @param success destination buffer
      */
     void getAttachedShaders(int shader, IntBuffer success);
 
     /**
-     * TODO: document {@code getActiveUniforms}.
+     * Read the {@link #ACTIVE_UNIFORMS()} count of {@code shader} into {@code success.put(0, ...)}.
      *
-     * @param shader TODO: describe
-     * @param success TODO: describe
+     * @param shader program ID
+     * @param success destination buffer
      */
     void getActiveUniforms(int shader, IntBuffer success);
 
     /**
-     * TODO: document {@code ACTIVE_UNIFORMS}.
-     *
-     * @return TODO: describe
+     * @return GL_ACTIVE_UNIFORMS parameter name
      */
     int ACTIVE_UNIFORMS();
 
     /**
-     * TODO: document {@code getActiveUniform}.
+     * Look up an active uniform's metadata by index.
      *
-     * @param iD TODO: describe
-     * @param i TODO: describe
-     * @param sizeBuffer TODO: describe
-     * @param typeBuffer TODO: describe
-     * @return TODO: describe
+     * @param iD program ID
+     * @param i uniform index
+     * @param sizeBuffer receives the array size (may be ignored by some backends)
+     * @param typeBuffer receives the GL type (may be ignored by some backends)
+     * @return the uniform name
      */
     String getActiveUniform(int iD, int i, IntBuffer sizeBuffer, IntBuffer typeBuffer);
 
     /**
-     * TODO: document {@code FLOAT_VEC2}.
-     *
-     * @return TODO: describe
+     * @return GL_FLOAT_VEC2 type constant
      */
     int FLOAT_VEC2();
 
     /**
-     * TODO: document {@code FLOAT_VEC4}.
-     *
-     * @return TODO: describe
+     * @return GL_FLOAT_VEC4 type constant
      */
     int FLOAT_VEC4();
 
     /**
-     * TODO: document {@code SAMPLER_2D}.
-     *
-     * @return TODO: describe
+     * @return GL_SAMPLER_2D type constant
      */
     int SAMPLER_2D();
 
     /**
-     * TODO: document {@code getUniformfv}.
+     * Read the current value of a float uniform back into {@code val}.
      *
-     * @param iD TODO: describe
-     * @param location TODO: describe
-     * @param val TODO: describe
+     * @param iD program ID
+     * @param location uniform location
+     * @param val destination buffer
      */
     void getUniformfv(int iD, int location, IxBuffer val);
 
     /**
-     * TODO: document {@code setPlatformID}.
+     * Stamp this GL with its owning platform ID (used by {@link Platforms} to route inputs
+     * across multiple canvases on web).
      *
-     * @param p TODO: describe
+     * @param p platform ID
      */
     void setPlatformID(Integer p);
 
     /**
-     * TODO: document {@code LINEAR_MIPMAP_LINEAR}.
-     *
-     * @return TODO: describe
+     * @return GL_LINEAR_MIPMAP_LINEAR filter
      */
     int LINEAR_MIPMAP_LINEAR();
 
@@ -854,7 +797,7 @@ public interface GL {
      * When true, shader sources are left as GLSL ES ({@code #version 300 es}). When false, shared
      * sources are adapted for desktop OpenGL 3.3 core ({@link GlslSource}).
      *
-     * @return TODO: describe
+     * @return true on WebGL backends, false on desktop / headless
      */
     default boolean usesWebGlsl() {
         return false;

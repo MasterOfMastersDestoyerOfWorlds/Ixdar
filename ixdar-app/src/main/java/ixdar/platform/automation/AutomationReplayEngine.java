@@ -29,56 +29,63 @@ public class AutomationReplayEngine {
     private volatile String lastReplayFile = "";
 
     /**
-     * TODO: document {@code AutomationReplayEngine}.
+     * Build a replay engine that dispatches replayed events through {@code runtime}.
      *
-     * @param runtime TODO: describe
+     * @param runtime shared runtime used to resolve the active mouse/key handlers
+     *                via {@link AutomationRuntime#executeReplayEvent}
      */
     public AutomationReplayEngine(AutomationRuntime runtime) {
         this.runtime = runtime;
     }
 
     /**
-     * TODO: document {@code isReplaying}.
+     * Whether a replay thread is currently running.
      *
-     * @return TODO: describe
+     * @return {@code true} between {@link #startReplay} and replay completion or
+     *         cancellation
      */
     public boolean isReplaying() {
         return replaying;
     }
 
     /**
-     * TODO: document {@code isPaused}.
+     * Whether the active replay is paused.
      *
-     * @return TODO: describe
+     * @return {@code true} when {@link #pause()} has been called and {@link #resume()}
+     *         has not
      */
     public boolean isPaused() {
         return paused;
     }
 
     /**
-     * TODO: document {@code getLastReplayStatus}.
+     * Status string of the most recent replay run.
      *
-     * @return TODO: describe
+     * @return {@code "idle"}, {@code "running"}, {@code "paused"},
+     *         {@code "completed"}, {@code "cancelled"}, or {@code "failed: <message>"}
      */
     public String getLastReplayStatus() {
         return lastReplayStatus;
     }
 
     /**
-     * TODO: document {@code getLastReplayFile}.
+     * Path of the file driving the most recent replay run.
      *
-     * @return TODO: describe
+     * @return file path passed to {@link #startReplay}, or empty string before any run
      */
     public String getLastReplayFile() {
         return lastReplayFile;
     }
 
     /**
-     * TODO: document {@code startReplay}.
+     * Spawn a daemon thread that loads the recording at {@code filePath} and replays
+     * its events with the original inter-event delays.
      *
-     * @param filePath TODO: describe
-     * @param mode TODO: describe
-     * @return TODO: describe
+     * @param filePath recording file; relative paths resolve against {@code user.dir}
+     * @param mode {@link ReplayMode#RAW} to replay {@code rawEvents}, or
+     *             {@link ReplayMode#ABSTRACT} to replay {@code abstractActions}
+     * @return {@code true} if the replay thread was started, {@code false} if a
+     *         replay was already running
      */
     public synchronized boolean startReplay(String filePath, ReplayMode mode) {
         if (replaying) {
@@ -141,7 +148,8 @@ public class AutomationReplayEngine {
     }
 
     /**
-     * TODO: document {@code pause}.
+     * Request that the active replay loop suspend before dispatching the next event.
+     * No-op when no replay is running.
      */
     public void pause() {
         if (replaying) {
@@ -151,7 +159,7 @@ public class AutomationReplayEngine {
     }
 
     /**
-     * TODO: document {@code resume}.
+     * Resume a paused replay. No-op when no replay is running.
      */
     public void resume() {
         if (replaying) {
@@ -161,7 +169,9 @@ public class AutomationReplayEngine {
     }
 
     /**
-     * TODO: document {@code cancel}.
+     * Signal the active replay to abort at the next event boundary. The replay
+     * thread will mark its status as {@code "cancelled"} and exit. No-op when no
+     * replay is running.
      */
     public void cancel() {
         if (replaying) {

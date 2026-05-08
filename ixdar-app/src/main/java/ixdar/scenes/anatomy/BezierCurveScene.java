@@ -23,14 +23,15 @@ public class BezierCurveScene extends Scene {
     SDFBezier bezier;
 
     /**
-     * TODO: document {@code BezierCurveScene}.
+     * Anatomy demo for a quadratic Bezier curve rendered via SDF.
      */
     public BezierCurveScene() {
         super();
     }
 
     /**
-     * TODO: document {@code initPoints}.
+     * Seed the shell with the two endpoints and the single control point
+     * used by the quadratic Bezier.
      */
     @Override
     public void initPoints() {
@@ -44,7 +45,8 @@ public class BezierCurveScene extends Scene {
     }
 
     /**
-     * TODO: document {@code initGL}.
+     * Allocate the SDF Bezier drawable and attach the code pane bound
+     * to its shader.
      */
     @Override
     public void initGL() {
@@ -54,7 +56,8 @@ public class BezierCurveScene extends Scene {
     }
 
     /**
-     * TODO: document {@code drawScene}.
+     * Project the three world-space anchors into screen space and draw
+     * the quadratic Bezier with a red start and green end color.
      */
     @Override
     public void drawScene() {

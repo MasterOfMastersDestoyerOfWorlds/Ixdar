@@ -6,19 +6,35 @@ import ixdar.annotations.command.TerminalOption;
 import ixdar.common.exceptions.TerminalParseException;
 import ixdar.platform.file.FileStringable;
 
+/**
+ * Contract for any geometry the {@code add} terminal command can drop into a
+ * knot file: parses itself from CLI arguments, expands to concrete
+ * {@link PointND} instances, and round-trips through the {@code .ix} file
+ * format.
+ * <p>
+ * Implementations advertise their CLI shorthand via {@link #shortName()} /
+ * {@link #fullName()} (typically backed by an {@code @GeometryAnnotation id})
+ * and serialize themselves with {@link FileStringable#toFileString()}.
+ */
 public interface PointCollection extends FileStringable, TerminalOption {
 
     /**
-     * TODO: document {@code realizePoints}.
+     * Expand this collection into the concrete points it represents. Called
+     * after construction (and after parsing) to produce the points actually
+     * inserted into the active point set.
      *
-     * @return TODO: describe
+     * @return freshly built list of points; primitives like {@link PointND}
+     *         return a singleton list of {@code this}, while shapes such as
+     *         {@link Circle} or {@link Line} return their sampled vertices
      */
     public abstract ArrayList<PointND> realizePoints();
 
     /**
-     * TODO: document {@code minArgLength}.
+     * Minimum number of CLI arguments the parser accepts before falling back to
+     * defaults. Most collections accept either zero args (use defaults) or the
+     * full {@link TerminalOption#argLength()}; default is {@code 0}.
      *
-     * @return TODO: describe
+     * @return minimum acceptable trailing-argument count
      */
     @Override
     public default int minArgLength() {
@@ -26,12 +42,15 @@ public interface PointCollection extends FileStringable, TerminalOption {
     }
 
     /**
-     * TODO: document {@code parseCollection}.
+     * Parse a collection of this kind from the tail of a terminal command. The
+     * implementation typically delegates to a static {@code parseXxx} helper,
+     * reading {@link TerminalOption#argLength()} tokens starting at {@code i}.
      *
-     * @param args TODO: describe
-     * @param i TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args the full terminal argument array
+     * @param i index of the first argument that belongs to this collection
+     * @return a populated collection ready for {@link #realizePoints()}
+     * @throws TerminalParseException if the slice cannot be parsed (bad number
+     *         format, wrong arity, missing file, etc.)
      */
     public abstract PointCollection parseCollection(String[] args, int i) throws TerminalParseException;
 

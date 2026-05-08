@@ -50,7 +50,7 @@ public class RoutePlanningTool extends Tool {
     public static final int NUM_89 = 89;
     public static final int NUM_259 = 259;
 
-    // Colors
+    
     private static final Color ROUTE_COLOR = Color.MAGENTA;
     private static final Color ROUTE_PREVIEW_COLOR = new ColorRGB(1f, 0f, 1f, 0.5f);
     private static final Color EDGE_REMOVE_COLOR = new ColorRGB(1f, 0.2f, 0.2f, 0.8f);
@@ -61,21 +61,21 @@ public class RoutePlanningTool extends Tool {
     private static final Color BUTTON_HOVER_COLOR = new ColorRGB(0.4f, 0.4f, 0.5f, 0.9f);
     private static final Color SELECTED_KNOT_COLOR = new ColorRGB(1f, 1f, 0f, 0.5f);
 
-    // Toolbar layout
+    
     private static final float TOOLBAR_HEIGHT = 50f;
     private static final float BUTTON_SIZE = 40f;
     private static final float BUTTON_PADDING = 10f;
 
-    // ==================== FIELDS ====================
+    
 
     private TradeScene tradeScene;
     private CityNetwork network;
 
-    // Operation state
+    
     private Mode currentMode = Mode.PIPE;
     private OperationState state = OperationState.IDLE;
 
-    // Selection state
+    
     private Knot selectedKnotA;
     private Knot selectedKnotB;
     private Segment selectedEdgeA;
@@ -83,57 +83,60 @@ public class RoutePlanningTool extends Tool {
     private City selectedCityA;
     private City selectedCityB;
 
-    // Undo/redo
+    
     private RouteOperationStack operationStack = new RouteOperationStack();
 
-    // Current route (the player's trade route knot)
+    
     private Knot currentRoute;
 
-    // Hierarchy navigation
-    private Knot currentViewKnot; // Which level of hierarchy we're viewing/editing
-    private ArrayList<Knot> hierarchyPath = new ArrayList<>(); // Breadcrumb path from root to current
+    
+    private Knot currentViewKnot; 
+    private ArrayList<Knot> hierarchyPath = new ArrayList<>(); 
 
-    // Hover state
+    
     private City hoveredCity;
     private Segment hoveredEdge;
 
-    // Drawing
+    
     private SDFLine routeLine = new SDFLine();
     private SDFCircleSimple buttonCircle = new SDFCircleSimple();
     private SDFCircleSimple highlightCircle = new SDFCircleSimple();
 
-    // Button hover state
-    private int hoveredButton = -1; // -1 = none, 0 = pipe, 1 = grow, 2 = collapse, 3 = undo, 4 = confirm
+    
+    private int hoveredButton = -1; 
 
-    // ==================== CONSTRUCTOR ====================
+    
 
     /**
-     * TODO: document {@code RoutePlanningTool}.
+     * Build the route-planning tool, binding it to the owning trade scene and
+     * the city network whose cities and knot mappings it edits.
      *
-     * @param tradeScene TODO: describe
-     * @param network TODO: describe
+     * @param tradeScene the trade scene that owns this tool
+     * @param network    the city network being edited
      */
     public RoutePlanningTool(TradeScene tradeScene, CityNetwork network) {
         this.tradeScene = tradeScene;
         this.network = network;
     }
 
-    // ==================== DRAWING ====================
+    
 
     /**
-     * TODO: document {@code draw}.
+     * Render the planning overlay: the current route knot, selection
+     * highlights, the operation preview (or a hover-to-target preview line
+     * during city selection), and the bottom toolbar.
      *
-     * @param camera TODO: describe
-     * @param lineThickness TODO: describe
+     * @param camera        the scene camera
+     * @param lineThickness base line thickness in pixels
      */
     @Override
     public void draw(Camera2D camera, float lineThickness) {
-        // Draw current route if exists
+        
         if (currentRoute != null) {
             drawKnot(camera, currentRoute, ROUTE_COLOR);
         }
 
-        // Draw selection highlights
+        
         if (selectedCityA != null) {
             drawCityHighlight(camera, selectedCityA, SELECTED_KNOT_COLOR);
         }
@@ -141,17 +144,17 @@ public class RoutePlanningTool extends Tool {
             drawCityHighlight(camera, selectedCityB, SELECTED_KNOT_COLOR);
         }
 
-        // Draw preview based on mode and state
+        
         if (state == OperationState.PREVIEW) {
             drawOperationPreview(camera);
         } else if (state == OperationState.KNOT_A_SELECTED && hoveredCity != null) {
-            // Draw preview line to hovered city
+            
             if (selectedCityA != null && hoveredCity != selectedCityA) {
                 drawPreviewLine(camera, selectedCityA, hoveredCity);
             }
         }
 
-        // Draw toolbar
+        
         drawToolbar(camera);
     }
 
@@ -192,7 +195,7 @@ public class RoutePlanningTool extends Tool {
         float x2 = camera.pointTransformX(to.getX());
         float y2 = camera.pointTransformY(to.getY());
 
-        // Draw both directions for loop preview
+        
         routeLine.draw(new Vector2f(x1, y1), new Vector2f(x2, y2), ROUTE_PREVIEW_COLOR, camera);
         routeLine.draw(new Vector2f(x2, y2), new Vector2f(x1, y1), ROUTE_PREVIEW_COLOR, camera);
     }
@@ -218,7 +221,7 @@ public class RoutePlanningTool extends Tool {
 
         routeLine.setStroke(NUM_3, false);
 
-        // Draw the new connection (green)
+        
         float x1 = camera.pointTransformX(selectedCityA.getX());
         float y1 = camera.pointTransformY(selectedCityA.getY());
         float x2 = camera.pointTransformX(selectedCityB.getX());
@@ -226,7 +229,7 @@ public class RoutePlanningTool extends Tool {
         routeLine.draw(new Vector2f(x1, y1), new Vector2f(x2, y2), EDGE_ADD_COLOR, camera);
         routeLine.draw(new Vector2f(x2, y2), new Vector2f(x1, y1), EDGE_ADD_COLOR, camera);
 
-        // Draw edges to cut (red dashed) if applicable
+        
         if (selectedEdgeA != null) {
             drawEdgeHighlight(camera, selectedEdgeA, EDGE_REMOVE_COLOR, true);
         }
@@ -242,10 +245,10 @@ public class RoutePlanningTool extends Tool {
 
         routeLine.setStroke(NUM_3, false);
 
-        // Draw edge being split (red dashed)
+        
         drawEdgeHighlight(camera, selectedEdgeA, EDGE_REMOVE_COLOR, true);
 
-        // Draw new edges through inserted city (green)
+        
         if (selectedEdgeA.first.p != null && selectedCityB != null) {
             float x1 = camera.pointTransformX((float) selectedEdgeA.first.p.getScreenX());
             float y1 = camera.pointTransformY((float) selectedEdgeA.first.p.getScreenY());
@@ -263,7 +266,7 @@ public class RoutePlanningTool extends Tool {
     }
 
     private void drawCollapsePreview(Camera2D camera) {
-        // TODO: Draw collapse preview showing pipes becoming single with crossings
+        
     }
 
     private void drawEdgeHighlight(Camera2D camera, Segment edge, Color color, boolean dashed) {
@@ -282,26 +285,26 @@ public class RoutePlanningTool extends Tool {
     private void drawToolbar(Camera2D camera) {
         float wWidth = Platforms.get().getWindowWidth();
 
-        // Position toolbar at bottom of screen (y=0 is bottom in OpenGL)
+        
         float toolbarY = TOOLBAR_HEIGHT / 2;
         float startX = wWidth / 2 - (NUM_3_2 * BUTTON_SIZE + 2 * BUTTON_PADDING) / 2;
 
-        // Pipe button
+        
         drawToolbarButton(camera, startX, toolbarY, 0, P, currentMode == Mode.PIPE);
 
-        // Grow button
+        
         drawToolbarButton(camera, startX + BUTTON_SIZE + BUTTON_PADDING, toolbarY, 1, "G", currentMode == Mode.GROW);
 
-        // Collapse button
+        
         drawToolbarButton(camera, startX + 2 * (BUTTON_SIZE + BUTTON_PADDING), toolbarY, 2, "C",
                 currentMode == Mode.COLLAPSE);
 
-        // Undo button (left side)
+        
         if (operationStack.canUndo()) {
             drawToolbarButton(camera, BUTTON_PADDING + BUTTON_SIZE / 2, toolbarY, NUM_3_2, "Z", false);
         }
 
-        // Confirm button (right side, only in preview state)
+        
         if (state == OperationState.PREVIEW) {
             drawToolbarButton(camera, wWidth - BUTTON_PADDING - BUTTON_SIZE / 2, toolbarY, NUM_4_2, "OK", false);
         }
@@ -316,15 +319,15 @@ public class RoutePlanningTool extends Tool {
             bgColor = BUTTON_HOVER_COLOR;
         }
 
-        // SDFCircle expects screen coordinates directly (like highlightCircle.draw
-        // uses)
+        
+        
         buttonCircle.draw(new Vector2f(screenX, screenY), BUTTON_SIZE / 2, bgColor, camera);
 
-        // Draw label text (simplified - just uses the letter for now)
-        // In a full implementation, this would draw the actual text
+        
+        
     }
 
-    // ==================== INPUT HANDLING ====================
+    
 
     /**
      * Handle a city click during route planning.
@@ -354,7 +357,7 @@ public class RoutePlanningTool extends Tool {
             break;
         case CONFIRMED:
             System.out.println("[RoutePlanningTool] Handling CONFIRMED click - resetting");
-            // Reset and start new operation
+            
             resetOperation();
             handleIdleClick(city);
             break;
@@ -366,7 +369,7 @@ public class RoutePlanningTool extends Tool {
         syncRouteReference();
         switch (currentMode) {
         case PIPE:
-            // For initial pipe, first click must be HQ
+            
             if (currentRoute == null) {
                 if (city == network.headquartersCity) {
                     selectedCityA = city;
@@ -376,21 +379,21 @@ public class RoutePlanningTool extends Tool {
                     System.out.println("First route must start from HQ");
                 }
             } else {
-                // Route exists - check if city is already in route
+                
                 Knot cityKnot = network.getKnotForCity(city);
                 if (cityKnot != null && currentRoute.contains(cityKnot)) {
-                    // City is already in route - select it to adjust edges
+                    
                     selectedCityA = city;
                     state = OperationState.KNOT_A_SELECTED;
                     System.out.println(SELECTED_ROUTE_CITY + city.name + " (in route)");
                 } else if (cityKnot != null && cityKnot.isSingleton()) {
-                    // City is a singleton not in route - auto-setup grow preview
+                    
                     selectedCityB = city;
                     computeDefaultGrowEdge();
                     state = OperationState.PREVIEW;
                     System.out.println("Preview: Add " + city.name + " to route (Enter to confirm)");
                 } else {
-                    // Complex knot not in route
+                    
                     selectedCityA = city;
                     state = OperationState.KNOT_A_SELECTED;
                     System.out.println(SELECTED + city.name);
@@ -399,7 +402,7 @@ public class RoutePlanningTool extends Tool {
             break;
 
         case GROW:
-            // Grow: first click selects the route (any city in it)
+            
             if (currentRoute != null) {
                 selectedCityA = city;
                 state = OperationState.KNOT_A_SELECTED;
@@ -410,7 +413,7 @@ public class RoutePlanningTool extends Tool {
             break;
 
         case COLLAPSE:
-            // Collapse: first click selects start child
+            
             if (currentRoute != null && !currentRoute.isSingleton()) {
                 selectedCityA = city;
                 state = OperationState.KNOT_A_SELECTED;
@@ -424,13 +427,13 @@ public class RoutePlanningTool extends Tool {
 
     private void handleSecondClick(City city) {
         if (city == selectedCityA) {
-            return; // Can't select same city twice
+            return; 
         }
 
         switch (currentMode) {
         case PIPE:
             selectedCityB = city;
-            // Compute default edges if applicable
+            
             computeDefaultPipeEdges();
             state = OperationState.PREVIEW;
             System.out.println("Pipe preview: " + selectedCityA.name + STR + city.name);
@@ -438,7 +441,7 @@ public class RoutePlanningTool extends Tool {
 
         case GROW:
             selectedCityB = city;
-            // Compute default edge for grow
+            
             computeDefaultGrowEdge();
             state = OperationState.PREVIEW;
             System.out.println("Grow preview: insert " + city.name);
@@ -453,20 +456,20 @@ public class RoutePlanningTool extends Tool {
     }
 
     private void handlePreviewClick(City city) {
-        // In preview, clicking on edges allows adjustment
-        // For now, just confirm if clicking elsewhere
-        // TODO: Implement edge selection for adjustment
+        
+        
+        
     }
 
     private void computeDefaultPipeEdges() {
-        // For initial route creation (two singletons), no edges to cut
+        
         if (currentRoute == null) {
             selectedEdgeA = null;
             selectedEdgeB = null;
             return;
         }
 
-        // TODO: Use Knot.getLowestCostPipeEdges for existing routes
+        
         selectedEdgeA = null;
         selectedEdgeB = null;
     }
@@ -477,8 +480,8 @@ public class RoutePlanningTool extends Tool {
             return;
         }
 
-        // Find the lowest-cost edge using the network's city-to-knot mapping
-        // For now, just use the first edge
+        
+        
         if (!currentRoute.manifoldSegments.isEmpty()) {
             selectedEdgeA = currentRoute.manifoldSegments.get(0);
         }
@@ -493,26 +496,26 @@ public class RoutePlanningTool extends Tool {
     public boolean onKeyPress(int key) {
         System.out.println("[RoutePlanningTool] onKeyPress: " + key + STATE + state + MODE + currentMode);
 
-        // P = Pipe mode
-        if (key == NUM_80) { // 'P'
+        
+        if (key == NUM_80) { 
             System.out.println("[RoutePlanningTool] Setting PIPE mode");
             setMode(Mode.PIPE);
             return true;
         }
-        // G = Grow mode
-        if (key == NUM_71) { // 'G'
+        
+        if (key == NUM_71) { 
             System.out.println("[RoutePlanningTool] Setting GROW mode");
             setMode(Mode.GROW);
             return true;
         }
-        // C = Collapse mode
-        if (key == NUM_67) { // 'C'
+        
+        if (key == NUM_67) { 
             System.out.println("[RoutePlanningTool] Setting COLLAPSE mode");
             setMode(Mode.COLLAPSE);
             return true;
         }
-        // Enter = Confirm
-        if (key == NUM_257) { // GLFW_KEY_ENTER
+        
+        if (key == NUM_257) { 
             System.out.println("[RoutePlanningTool] Enter pressed, state=" + state);
             if (state == OperationState.PREVIEW) {
                 System.out.println("[RoutePlanningTool] Executing operation");
@@ -520,26 +523,26 @@ public class RoutePlanningTool extends Tool {
                 return true;
             }
         }
-        // Escape = Cancel
-        if (key == NUM_256) { // GLFW_KEY_ESCAPE
+        
+        if (key == NUM_256) { 
             System.out.println("[RoutePlanningTool] Escape - cancelling");
             resetOperation();
             return true;
         }
-        // Ctrl+Z = Undo
-        if (key == NUM_90) { // 'Z' (with Ctrl modifier checked elsewhere)
+        
+        if (key == NUM_90) { 
             System.out.println("[RoutePlanningTool] Undo");
             undo();
             return true;
         }
-        // Ctrl+Y = Redo
-        if (key == NUM_89) { // 'Y'
+        
+        if (key == NUM_89) { 
             System.out.println("[RoutePlanningTool] Redo");
             redo();
             return true;
         }
-        // Backspace = Navigate up hierarchy
-        if (key == NUM_259) { // GLFW_KEY_BACKSPACE
+        
+        if (key == NUM_259) { 
             if (navigateUp()) {
                 return true;
             }
@@ -556,7 +559,7 @@ public class RoutePlanningTool extends Tool {
         }
     }
 
-    // ==================== OPERATIONS ====================
+    
 
     private void executeOperation() {
         switch (currentMode) {
@@ -576,12 +579,12 @@ public class RoutePlanningTool extends Tool {
     }
 
     private void executePipe() {
-        // Make sure trade routes are initialized
+        
         if (!network.isTradeInitialized()) {
             network.initTradeRoutes();
         }
 
-        // Handle auto-grow case: route exists, cityA is null, cityB is set
+        
         if (currentRoute != null && selectedCityA == null && selectedCityB != null) {
             Knot knotB = network.getKnotForCity(selectedCityB);
             if (knotB != null && knotB.isSingleton()) {
@@ -610,7 +613,7 @@ public class RoutePlanningTool extends Tool {
         }
 
         if (currentRoute == null) {
-            // Create initial route from two singleton cities
+            
             System.out.println("Creating initial route: " + selectedCityA.name + STR + selectedCityB.name);
 
             PipeRecord record = Knot.pipeSimple(knotA, knotB);
@@ -620,11 +623,11 @@ public class RoutePlanningTool extends Tool {
             operationStack.push(record);
             System.out.println("Route created! Loop has " + currentRoute.manifoldSegments.size() + SEGMENTS);
         } else {
-            // Pipe to existing route - use grow for singletons
+            
             System.out.println("Piping " + selectedCityB.name + " to route");
 
             if (knotB.isSingleton()) {
-                // Grow the route by adding this city
+                
                 Segment lowestCostEdge = currentRoute.getLowestCostGrowEdge(knotB);
                 if (lowestCostEdge != null) {
                     GrowRecord record = currentRoute.grow(knotB, lowestCostEdge);
@@ -632,7 +635,7 @@ public class RoutePlanningTool extends Tool {
                     System.out.println("Grew route to include " + selectedCityB.name);
                 }
             } else {
-                // Full pipe between two multi-point knots
+                
                 PipeRecord record = Knot.pipe(currentRoute, knotB, selectedEdgeA, selectedEdgeB);
                 if (record != null) {
                     currentRoute = record.resultKnot;
@@ -648,7 +651,7 @@ public class RoutePlanningTool extends Tool {
             return;
         }
 
-        // Make sure trade routes are initialized
+        
         if (!network.isTradeInitialized()) {
             network.initTradeRoutes();
         }
@@ -659,7 +662,7 @@ public class RoutePlanningTool extends Tool {
             return;
         }
 
-        // Find the edge to split
+        
         Segment edgeToSplit = selectedEdgeA;
         if (edgeToSplit == null) {
             edgeToSplit = currentRoute.getLowestCostGrowEdge(knotB);
@@ -683,13 +686,14 @@ public class RoutePlanningTool extends Tool {
 
         System.out.println("Collapsing from " + selectedCityA.name + TO + selectedCityB.name);
 
-        // TODO: Execute collapse operation
-        // CollapseRecord record = currentRoute.collapse(startKnot, endKnot);
-        // operationStack.push(record);
+        
+        
+        
     }
 
     /**
-     * TODO: document {@code undo}.
+     * Undo the most recent route operation if the operation stack permits,
+     * resyncing the live route reference around the change.
      */
     public void undo() {
         syncRouteReference();
@@ -701,7 +705,8 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
-     * TODO: document {@code redo}.
+     * Redo the most recently undone route operation if the operation stack
+     * permits, resyncing the live route reference around the change.
      */
     public void redo() {
         syncRouteReference();
@@ -712,7 +717,7 @@ public class RoutePlanningTool extends Tool {
         }
     }
 
-    // ==================== HIERARCHY NAVIGATION ====================
+    
 
     /**
      * Navigate up one level in the knot hierarchy.
@@ -741,12 +746,12 @@ public class RoutePlanningTool extends Tool {
             return false;
         }
 
-        // Check if child is actually a child of current view
+        
         if (!currentViewKnot.knotPoints.contains(child)) {
             return false;
         }
 
-        // Only navigate down into non-singleton knots
+        
         if (child.isSingleton()) {
             return false;
         }
@@ -769,7 +774,7 @@ public class RoutePlanningTool extends Tool {
         }
 
         currentViewKnot = hierarchyPath.get(index);
-        // Trim hierarchy path to this level
+        
         while (hierarchyPath.size() > index + 1) {
             hierarchyPath.remove(hierarchyPath.size() - 1);
         }
@@ -816,7 +821,7 @@ public class RoutePlanningTool extends Tool {
             return;
         }
 
-        // Build path from current back to root
+        
         ArrayList<Knot> reversePath = new ArrayList<>();
         Knot node = currentViewKnot;
         while (node != null) {
@@ -824,7 +829,7 @@ public class RoutePlanningTool extends Tool {
             node = node.topGroupKnot;
         }
 
-        // Reverse to get root-to-current order
+        
         for (int i = reversePath.size() - 1; i >= 0; i--) {
             hierarchyPath.add(reversePath.get(i));
         }
@@ -915,7 +920,7 @@ public class RoutePlanningTool extends Tool {
         }
     }
 
-    // ==================== HOVER STATE ====================
+    
 
     /**
      * Update the hovered city.
@@ -944,31 +949,31 @@ public class RoutePlanningTool extends Tool {
     public void updateHoveredButton(float mouseX, float mouseY) {
         float wWidth = Platforms.get().getWindowWidth();
         float wHeight = Platforms.get().getWindowHeight();
-        // For drawing: y=0 is bottom in OpenGL, toolbar is at low Y
-        float toolbarY = TOOLBAR_HEIGHT / 2; // OpenGL coords for button position
+        
+        float toolbarY = TOOLBAR_HEIGHT / 2; 
         float startX = wWidth / 2 - (NUM_3_2 * BUTTON_SIZE + 2 * BUTTON_PADDING) / 2;
 
-        // Convert mouse Y from window coords (y=0 at top) to OpenGL coords (y=0 at
-        // bottom)
+        
+        
         float mouseYOpenGL = wHeight - mouseY;
 
         hoveredButton = -1;
 
-        // Check if in toolbar area (low Y in OpenGL coords = bottom of screen)
+        
         if (mouseYOpenGL < TOOLBAR_HEIGHT) {
-            // Check each button using OpenGL coordinates
+            
             if (isInButton(mouseX, mouseYOpenGL, startX, toolbarY)) {
-                hoveredButton = 0; // Pipe
+                hoveredButton = 0; 
             } else if (isInButton(mouseX, mouseYOpenGL, startX + BUTTON_SIZE + BUTTON_PADDING, toolbarY)) {
-                hoveredButton = 1; // Grow
+                hoveredButton = 1; 
             } else if (isInButton(mouseX, mouseYOpenGL, startX + 2 * (BUTTON_SIZE + BUTTON_PADDING), toolbarY)) {
-                hoveredButton = 2; // Collapse
+                hoveredButton = 2; 
             } else if (isInButton(mouseX, mouseYOpenGL, BUTTON_PADDING + BUTTON_SIZE / 2, toolbarY)
                     && operationStack.canUndo()) {
-                hoveredButton = NUM_3_2; // Undo
+                hoveredButton = NUM_3_2; 
             } else if (isInButton(mouseX, mouseYOpenGL, wWidth - BUTTON_PADDING - BUTTON_SIZE / 2, toolbarY)
                     && state == OperationState.PREVIEW) {
-                hoveredButton = NUM_4_2; // Confirm
+                hoveredButton = NUM_4_2; 
             }
         }
     }
@@ -1051,10 +1056,11 @@ public class RoutePlanningTool extends Tool {
         }
     }
 
-    // ==================== TOOL INTERFACE ====================
+    
 
     /**
-     * TODO: document {@code reset}.
+     * Clear pending operation state and the hover caches (city and toolbar
+     * button) on tool (de)activation.
      */
     @Override
     public void reset() {
@@ -1064,7 +1070,8 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
-     * TODO: document {@code confirm}.
+     * If a preview is currently shown, execute the previewed operation
+     * (Pipe / Grow / Collapse). No-op otherwise.
      */
     @Override
     public void confirm() {
@@ -1109,51 +1116,45 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
-     * TODO: document {@code getSelectedCityAName}.
-     *
-     * @return TODO: describe
+     * @return the name of the first selected city, or an empty string if none
      */
     public String getSelectedCityAName() {
         return selectedCityA == null ? "" : selectedCityA.name;
     }
 
     /**
-     * TODO: document {@code getSelectedCityBName}.
-     *
-     * @return TODO: describe
+     * @return the name of the second selected city, or an empty string if none
      */
     public String getSelectedCityBName() {
         return selectedCityB == null ? "" : selectedCityB.name;
     }
 
     /**
-     * TODO: document {@code canUndoOperation}.
-     *
-     * @return TODO: describe
+     * @return true if the operation stack has an undoable operation
      */
     public boolean canUndoOperation() {
         return operationStack.canUndo();
     }
 
     /**
-     * TODO: document {@code canRedoOperation}.
-     *
-     * @return TODO: describe
+     * @return true if the operation stack has a redoable operation
      */
     public boolean canRedoOperation() {
         return operationStack.canRedo();
     }
 
     /**
-     * TODO: document {@code buildInfoText}.
+     * Build the side-panel text: hierarchy breadcrumb (if a route exists),
+     * the active mode, a state-specific instruction, and a keybind cheat
+     * sheet at the bottom.
      *
-     * @return TODO: describe
+     * @return the formatted info text
      */
     @Override
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
 
-        // Hierarchy breadcrumb (if we have a route)
+        
         if (currentRoute != null && !hierarchyPath.isEmpty()) {
             h.addWord("Route: ", Color.LIGHT_GRAY);
             h.addWord(getHierarchyPathString(), Color.YELLOW);
@@ -1166,7 +1167,7 @@ public class RoutePlanningTool extends Tool {
             h.wrap();
         }
 
-        // Mode indicator
+        
         h.addWord("[" + currentMode.name() + "] ", Color.CYAN);
 
         switch (state) {
@@ -1203,7 +1204,7 @@ public class RoutePlanningTool extends Tool {
             break;
         }
 
-        // Keybind hints
+        
         h.wrap();
         h.addWord("P=Pipe G=Grow C=Collapse | Ctrl+Z=Undo | Backspace=Up", Color.LIGHT_GRAY);
 
@@ -1211,9 +1212,7 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
-     * TODO: document {@code displayName}.
-     *
-     * @return TODO: describe
+     * @return the display name "Route Planning"
      */
     @Override
     public String displayName() {
@@ -1221,9 +1220,7 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
-     * TODO: document {@code fullName}.
-     *
-     * @return TODO: describe
+     * @return the full terminal name {@code "routeplanning"}
      */
     @Override
     public String fullName() {
@@ -1231,9 +1228,7 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
-     * TODO: document {@code shortName}.
-     *
-     * @return TODO: describe
+     * @return the short terminal alias {@code "rp"}
      */
     @Override
     public String shortName() {
@@ -1241,33 +1236,31 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
-     * TODO: document {@code desc}.
-     *
-     * @return TODO: describe
+     * @return the one-line description of this tool's purpose
      */
     @Override
     public String desc() {
         return "Plan and build trade routes using Pipe, Grow, and Collapse operations.";
     }
 
-    // ==================== ENUMS ====================
+    
 
     /**
      * Operation modes for route planning.
      */
     public enum Mode {
-        PIPE, // Connect two knots
-        GROW, // Insert city into route edge
-        COLLAPSE // Convert double-pipes to single
+        PIPE, 
+        GROW, 
+        COLLAPSE 
     }
 
     /**
      * State within an operation.
      */
     public enum OperationState {
-        IDLE, // Waiting for first selection
-        KNOT_A_SELECTED, // First knot chosen, waiting for second
-        PREVIEW, // Showing operation preview, can adjust edges
-        CONFIRMED // Operation executed
+        IDLE, 
+        KNOT_A_SELECTED, 
+        PREVIEW, 
+        CONFIRMED 
     }
 }

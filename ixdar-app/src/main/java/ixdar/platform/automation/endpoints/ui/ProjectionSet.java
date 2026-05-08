@@ -16,11 +16,13 @@ public class ProjectionSet extends AutomationEndpoint implements AutomationRoute
     public static final String OK = "ok";
     public static final String ERROR = "error";
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code POST /ui/projection}: toggle the active mesh-node viewer between
+     * orthographic and perspective projection.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body JSON body containing {@code orthographic} (boolean, default false)
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return {@code {"ok": true, "orthographic": <bool>}} on success, or an error
+     *         object when {@link MeshNodeViewerScene} is not the active canvas
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {

@@ -4,32 +4,37 @@ import ixdar.geometry.cuts.CutInfo;
 import ixdar.geometry.cuts.CutMatchList;
 import ixdar.geometry.shell.Shell;
 
+/**
+ * Thrown by the cut balancer when it expects to discover a path strictly
+ * shorter than the current candidate but none exists. Inherits cut-context
+ * state from {@link SegmentBalanceException}.
+ */
 public class ShorterPathNotFoundException extends SegmentBalanceException {
 
     /**
-     * TODO: document {@code ShorterPathNotFoundException}.
+     * Wrap an existing {@link SegmentBalanceException}, copying its diagnostic state.
      *
-     * @param sbe TODO: describe
+     * @param sbe source exception to inherit context from
      */
     public ShorterPathNotFoundException(SegmentBalanceException sbe) {
         super(sbe);
     }
 
     /**
-     * TODO: document {@code ShorterPathNotFoundException}.
+     * Construct with the partial cut-match list and surrounding cut context.
      *
-     * @param shell TODO: describe
-     * @param internalCuts12 TODO: describe
-     * @param c TODO: describe
+     * @param shell shell on which the search was attempted
+     * @param internalCuts12 internal cut-match list built before the failure
+     * @param c cut context describing the search
      */
     public ShorterPathNotFoundException(Shell shell, CutMatchList internalCuts12, CutInfo c) {
         super(shell, internalCuts12, c);
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Diagnostic string including cut ID, knots, segments, and cut-match list.
      *
-     * @return TODO: describe
+     * @return human-readable representation for logs
      */
     @Override
     public String toString() {

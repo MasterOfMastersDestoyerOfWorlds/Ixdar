@@ -10,9 +10,10 @@ package ixdar.procgen.dungeon.values;
 public record TileGridValue(int width, int height, CellType[] cells) {
 
     /**
-     * TODO: document {@code TileGridValue}.
+     * Validates dimensions and clones the cells array so the value is fully immutable.
      *
-     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalArgumentException if {@code width} or {@code height} is negative, or if
+     *     {@code cells.length} does not equal {@code width * height}
      */
     public TileGridValue {
         if (width < 0 || height < 0) {

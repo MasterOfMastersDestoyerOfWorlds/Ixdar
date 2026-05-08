@@ -11,6 +11,12 @@ import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.platform.Platforms;
 
+/**
+ * Orbit camera controller: left-drag rotates around a fixed target (azimuth + elevation),
+ * scroll wheel adjusts orbit distance. Elevation is clamped to roughly +/-85 degrees so the
+ * camera never inverts; distance is clamped between {@link #MIN_DISTANCE} and
+ * {@link #MAX_DISTANCE}. Used for mesh-node inspection and 3D debug views.
+ */
 public class OrbitMouseTrap extends MouseTrap {
     public static final float NUM_3 = 3f;
     public static final int NUM_60 = 60;
@@ -30,10 +36,11 @@ public class OrbitMouseTrap extends MouseTrap {
     private float distance = 3.5f;
 
     /**
-     * TODO: document {@code OrbitMouseTrap}.
+     * Build a trap that orbits {@code camera} around the origin at the default angles and
+     * distance, then push that pose to the camera via {@link #applyOrbit()}.
      *
-     * @param camera TODO: describe
-     * @param canvas TODO: describe
+     * @param camera 3D camera to control
+     * @param canvas owning canvas
      */
     public OrbitMouseTrap(Camera3D camera, Canvas3D canvas) {
         super(null, camera, canvas);
@@ -42,9 +49,9 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code setTarget}.
+     * Re-center the orbit on a new world-space point and reapply the camera pose.
      *
-     * @param target TODO: describe
+     * @param target new orbit center (copied)
      */
     public void setTarget(Vector3f target) {
         orbitTarget.set(target);
@@ -52,11 +59,13 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code setOrbit}.
+     * Set the orbit angles and distance directly. Elevation is clamped to
+     * [{@link #MIN_ELEVATION}, {@link #MAX_ELEVATION}] and distance to
+     * [{@link #MIN_DISTANCE}, {@link #MAX_DISTANCE}].
      *
-     * @param azimuthRadians TODO: describe
-     * @param elevationRadians TODO: describe
-     * @param orbitDistance TODO: describe
+     * @param azimuthRadians horizontal angle around the target
+     * @param elevationRadians vertical angle above the equator
+     * @param orbitDistance camera distance from the target
      */
     public void setOrbit(float azimuthRadians, float elevationRadians, float orbitDistance) {
         azimuth = azimuthRadians;
@@ -66,30 +75,24 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code getAzimuth}.
-     *
-     * @return TODO: describe
+     * @return current azimuth in radians
      */
     public float getAzimuth() { return azimuth; }
     /**
-     * TODO: document {@code getElevation}.
-     *
-     * @return TODO: describe
+     * @return current elevation in radians (clamped to MIN/MAX_ELEVATION)
      */
     public float getElevation() { return elevation; }
     /**
-     * TODO: document {@code getDistance}.
-     *
-     * @return TODO: describe
+     * @return current distance from the orbit target
      */
     public float getDistance() { return distance; }
 
     /**
-     * TODO: document {@code mouseButton}.
+     * Track left-button press for drag detection; only the left button drives orbiting.
      *
-     * @param button TODO: describe
-     * @param action TODO: describe
-     * @param mods TODO: describe
+     * @param button button index
+     * @param action {@code ACTION_PRESS} or {@code ACTION_RELEASE}
+     * @param mods modifier-key bitmask (unused)
      */
     @Override
     public void mouseButton(int button, int action, int mods) {
@@ -108,11 +111,12 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code moveOrDrag}.
+     * Route mouse motion to {@link #mouseDragged} while the left button is held past the
+     * {@link #NUM_3}-pixel deadzone, otherwise to {@link #mousePos}.
      *
-     * @param window TODO: describe
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param window platform window handle
+     * @param x cursor x in window coordinates
+     * @param y cursor y in window coordinates
      */
     @Override
     public void moveOrDrag(long window, float x, float y) {
@@ -130,10 +134,10 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code mousePos}.
+     * Update normalized cursor position and last pixel coordinates without changing orbit angles.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param x cursor x in window coordinates
+     * @param y cursor y in window coordinates
      */
     @Override
     public void mousePos(float x, float y) {
@@ -147,10 +151,11 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code mouseDragged}.
+     * Apply the per-pixel azimuth / elevation deltas (scaled by
+     * {@link #DRAG_RADIANS_PER_PIXEL}) and reapply the camera pose.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param x cursor x in window coordinates
+     * @param y cursor y in window coordinates
      */
     @Override
     public void mouseDragged(float x, float y) {
@@ -170,9 +175,10 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code scrollCallback}.
+     * Forward to {@link MouseTrap#scrollCallback(double)} which queues ticks for
+     * {@link #paintUpdate} to consume as zoom changes.
      *
-     * @param y TODO: describe
+     * @param y vertical scroll delta
      */
     @Override
     public void scrollCallback(double y) {
@@ -183,9 +189,10 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code paintUpdate}.
+     * Per-frame: drain queued scroll ticks into a multiplicative distance change
+     * ({@link #ZOOM_BASE}^ticks, then clamped) and reapply the camera pose.
      *
-     * @param shiftMod TODO: describe
+     * @param shiftMod speed multiplier (currently unused)
      */
     @Override
     public void paintUpdate(float shiftMod) {

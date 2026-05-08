@@ -2,7 +2,7 @@ package ixdar.geometry.mesh.data;
 
 import org.joml.Vector3f;
 
-import ixdar.annotations.meshnode.Vec3Field;
+import ixdar.annotations.meshnode.Vector3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 
 /**
@@ -18,12 +18,13 @@ public final class MeshVertexOffset {
     }
 
     /**
-     * TODO: document {@code apply}.
+     * Add a per-vertex or uniform offset to every vertex of {@code mesh},
+     * returning a new mesh of the same kind with normals recomputed.
      *
-     * @param mesh TODO: describe
-     * @param offsetObj TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh; null or empty meshes pass through as an empty mesh of the appropriate kind
+     * @param offsetObj a {@link Vector3Field} (length must equal vertex count), a {@link Vector3Value} for a uniform offset, or anything else for a zero offset
+     * @throws IllegalArgumentException if {@code offsetObj} is a {@link Vector3Field} whose length does not match {@code mesh.vertexCount()}
+     * @return new offset mesh ({@link ArrayMesh} when input is dense, otherwise {@link HalfEdgeMesh})
      */
     public static MeshTopology apply(MeshTopology mesh, Object offsetObj) {
         if (mesh == null || mesh.vertexCount() == 0) {
@@ -31,9 +32,9 @@ public final class MeshVertexOffset {
         }
         int n = mesh.vertexCount();
         Vector3f tmp = new Vector3f();
-        Vec3Field field = null;
+        Vector3Field field = null;
         Vector3Value uniform = null;
-        if (offsetObj instanceof Vec3Field vf) {
+        if (offsetObj instanceof Vector3Field vf) {
             if (vf.length() != n) {
                 throw new IllegalArgumentException("offset field length " + vf.length() + " != vertex count " + n);
             }

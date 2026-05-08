@@ -12,10 +12,11 @@ public class Range {
     public boolean reversed;
 
     /**
-     * TODO: document {@code Range}.
+     * Inclusive integer interval {@code [startIdx, endIdx]}; if {@code startIdx > endIdx} the
+     * range is marked {@link #reversed} and {@link #rangeLength} accounts for either direction.
      *
-     * @param startIdx TODO: describe
-     * @param endIdx TODO: describe
+     * @param startIdx first index of the interval (inclusive)
+     * @param endIdx last index of the interval (inclusive); may be less than {@code startIdx}
      */
     public Range(int startIdx, int endIdx) {
         this.startIdx = startIdx;
@@ -29,11 +30,13 @@ public class Range {
     }
 
     /**
-     * TODO: document {@code parse}.
+     * Parse a CLI range token. Either a single integer ({@code "5"}) or a dash-separated pair
+     * ({@code "3-7"}); the dash form may be reversed ({@code "7-3"}).
      *
-     * @param arg TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param arg the token to parse
+     * @return the parsed range
+     * @throws TerminalParseException if the token is empty, has more than one dash, or either
+     *         half is not an integer
      */
     public static Range parse(String arg) throws TerminalParseException {
         if (arg.contains(STR)) {
@@ -66,9 +69,10 @@ public class Range {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Render the range using the same syntax accepted by {@link #parse(String)}: either
+     * {@code "n"} for a single index or {@code "a-b"} for a span.
      *
-     * @return TODO: describe
+     * @return CLI-compatible string form
      */
     @Override
     public String toString() {
@@ -79,10 +83,10 @@ public class Range {
     }
 
     /**
-     * TODO: document {@code hasPoint}.
+     * Test whether {@code p}'s ID falls within this inclusive range, honoring {@link #reversed}.
      *
-     * @param p TODO: describe
-     * @return TODO: describe
+     * @param p point whose {@code getID()} is checked
+     * @return {@code true} when the ID lies in the interval (in either direction)
      */
     public boolean hasPoint(PointND p) {
         if (reversed) {

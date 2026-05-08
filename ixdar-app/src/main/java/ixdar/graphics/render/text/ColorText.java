@@ -12,11 +12,13 @@ public class ColorText<T> {
     public ArrayList<HyperWord> subWords;
 
     /**
-     * TODO: document {@code ColorText}.
+     * Build a colored phrase by splitting {@code text} on spaces; every word
+     * gets the same color. {@code data} is an opaque payload tied to this
+     * phrase.
      *
-     * @param text TODO: describe
-     * @param color TODO: describe
-     * @param data TODO: describe
+     * @param text whitespace-separated string
+     * @param color color applied to every word
+     * @param data caller-defined payload
      */
     public ColorText(String text, Color color, T data) {
         this.text = new ArrayList<>();
@@ -31,10 +33,11 @@ public class ColorText<T> {
     }
 
     /**
-     * TODO: document {@code ColorText}.
+     * Copy constructor with a replaced data payload (text and colors are
+     * shallow-copied into fresh lists).
      *
-     * @param text TODO: describe
-     * @param data TODO: describe
+     * @param text source phrase
+     * @param data new payload
      */
     public ColorText(ColorText<T> text, T data) {
         this.text = new ArrayList<>(text.text);
@@ -43,63 +46,65 @@ public class ColorText<T> {
     }
 
     /**
-     * TODO: document {@code ColorText}.
+     * Build a colored phrase with no payload.
      *
-     * @param text TODO: describe
-     * @param color TODO: describe
+     * @param text whitespace-separated string
+     * @param color color applied to every word
      */
     public ColorText(String text, Color color) {
         this(text, color, null);
     }
 
     /**
-     * TODO: document {@code ColorText}.
+     * Build a phrase coloured with the default scalar palette and a payload.
      *
-     * @param scalarString TODO: describe
-     * @param value TODO: describe
+     * @param scalarString whitespace-separated string
+     * @param value caller-defined payload
      */
     public ColorText(String scalarString, T value) {
         this(scalarString, Color.BLUE_WHITE, value);
     }
 
     /**
-     * TODO: document {@code ColorText}.
+     * Build a phrase coloured with the default scalar palette and no payload.
      *
-     * @param scalarString TODO: describe
+     * @param scalarString whitespace-separated string
      */
     public ColorText(String scalarString) {
         this(scalarString, Color.BLUE_WHITE, null);
     }
 
     /**
-     * TODO: document {@code ColorText}.
+     * Build an empty phrase. Use {@link #addWord(String, Color)} or
+     * {@link #join(ColorText)} to populate.
      */
     public ColorText() {
     }
 
     /**
-     * TODO: document {@code setData}.
+     * Set the payload tied to this phrase.
      *
-     * @param data TODO: describe
+     * @param data caller-defined payload
      */
     public void setData(T data) {
         this.data = data;
     }
 
     /**
-     * TODO: document {@code getData}.
+     * The payload tied to this phrase.
      *
-     * @return TODO: describe
+     * @return caller-defined payload (may be {@code null})
      */
     public T getData() {
         return data;
     }
 
     /**
-     * TODO: document {@code join}.
+     * Concatenate this phrase with {@code v} into a new phrase; the result's
+     * payload comes from {@code v}.
      *
-     * @param v TODO: describe
-     * @return TODO: describe
+     * @param v phrase to append
+     * @return new phrase containing this followed by {@code v}
      */
     public ColorText<T> join(ColorText<T> v) {
         ColorText<T> result = new ColorText<>();
@@ -113,7 +118,7 @@ public class ColorText<T> {
     }
 
     /**
-     * TODO: document {@code resetText}.
+     * Clear all words and per-word colors.
      */
     public void resetText() {
         text = new ArrayList<>();
@@ -121,10 +126,10 @@ public class ColorText<T> {
     }
 
     /**
-     * TODO: document {@code addWord}.
+     * Append a single word with its own color.
      *
-     * @param word TODO: describe
-     * @param wordColor TODO: describe
+     * @param word word text
+     * @param wordColor color for this word
      */
     public void addWord(String word, Color wordColor) {
         text.add(word);

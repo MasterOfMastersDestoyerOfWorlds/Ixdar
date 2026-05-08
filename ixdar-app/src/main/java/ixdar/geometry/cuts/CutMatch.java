@@ -30,11 +30,11 @@ public class CutMatch {
     String cutType;
 
     /**
-     * TODO: document {@code CutMatch}.
+     * Build an empty cut/match pair tagged with a category label.
      *
-     * @param cutType TODO: describe
-     * @param shell TODO: describe
-     * @param sbe TODO: describe
+     * @param cutType free-form label identifying which cut routine produced this
+     * @param shell host shell used for buffered diagnostics
+     * @param sbe balance exception attached to validation failures
      */
     public CutMatch(String cutType, Shell shell, SegmentBalanceException sbe) {
         cutSegments = new ArrayList<>();
@@ -45,7 +45,9 @@ public class CutMatch {
     }
 
     /**
-     * TODO: document {@code updateDelta}.
+     * Recompute {@code delta} (matches minus cuts by segment distance) and,
+     * when a {@code superKnot} is set, the {@code deltaInternal} restricted
+     * to segments whose endpoints both lie inside that super-knot.
      */
     public void updateDelta() {
         deltaInternal = 0;
@@ -73,10 +75,11 @@ public class CutMatch {
     }
 
     /**
-     * TODO: document {@code checkValid}.
+     * Validate that no segment appears in both lists, and that match segments
+     * do not collide with the (super)knot's existing perimeter.
      *
-     * @throws SegmentBalanceException TODO: describe
-     * @throws InvalidCutException TODO: describe
+     * @throws SegmentBalanceException propagated from the underlying balance check
+     * @throws InvalidCutException if a segment is both cut and matched, or a match reuses an existing knot segment
      */
     public void checkValid() throws SegmentBalanceException {
         for (Segment s : cutSegments) {
@@ -124,9 +127,10 @@ public class CutMatch {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Multi-line debug rendering of this cut/match: cuts, matches, knot,
+     * super-knot, kpSegment, delta, original arrays, cut id and cut type.
      *
-     * @return TODO: describe
+     * @return human-readable diagnostic string
      */
     @Override
     public String toString() {
@@ -151,9 +155,10 @@ public class CutMatch {
     }
 
     /**
-     * TODO: document {@code copy}.
+     * Deep-ish clone of this cut/match: copies cut/match segment lists, the
+     * recursive {@code diff}, knot/super-knot/kp references, and {@code delta}.
      *
-     * @return TODO: describe
+     * @return a new instance carrying the same configuration
      */
     public CutMatch copy() {
         CutMatch copy = new CutMatch(cutType, shell, sbe);

@@ -57,7 +57,8 @@ public class Shell extends LinkedList<PointND> {
     private Shell child;
 
     /**
-     * TODO: document {@code Shell}.
+     * Empty shell with an empty point map; populated later via {@link #initShell(DistanceMatrix)}
+     * or by adding points directly.
      */
     public Shell() {
         pointMap = new HashMap<>();
@@ -66,7 +67,7 @@ public class Shell extends LinkedList<PointND> {
     /**
      * Initializes a new shell with no parent or child; a blank slate.
      *
-     * @param points TODO: describe
+     * @param points points to seed the shell with (in order)
      */
 
     public Shell(PointND... points) {
@@ -77,9 +78,9 @@ public class Shell extends LinkedList<PointND> {
 
 
     /**
-     * TODO: document {@code Shell}.
+     * Build a shell containing every point in the supplied set, preserving the iteration order.
      *
-     * @param points TODO: describe
+     * @param points point set to copy into the shell
      */
     public Shell(PointSet points) {
         for (int i = 0; i < points.size(); i++) {
@@ -88,9 +89,11 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code initPoints}.
+     * Wrap each point of {@code distanceMatrix} in a {@link Knot}, building each knot's
+     * sorted segment list and lookup keyed by every other point in the matrix.
+     * Does not populate the shell-level segment fields.
      *
-     * @param distanceMatrix TODO: describe
+     * @param distanceMatrix supplies the point set and pairwise distances
      */
     public void initPoints(DistanceMatrix distanceMatrix) {
         this.distanceMatrix = distanceMatrix;
@@ -115,13 +118,15 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code tspSolve}.
+     * Stub TSP entry point: initializes points and asks the {@link KnotEngine} to build knots.
+     * Currently returns an empty shell and intentionally divides by zero when more than one
+     * knot remains, signalling that the recursion limit was reached.
      *
-     * @param A TODO: describe
-     * @param distanceMatrix TODO: describe
-     * @throws SegmentBalanceException TODO: describe
-     * @throws BalancerException TODO: describe
-     * @return TODO: describe
+     * @param A unused candidate shell (parameter retained for API compatibility)
+     * @param distanceMatrix pairwise distances driving knot creation
+     * @return placeholder result shell
+     * @throws SegmentBalanceException propagated from {@link KnotEngine#createKnots}
+     * @throws BalancerException propagated from {@link KnotEngine#createKnots}
      */
     @SuppressWarnings("unused")
     public Shell tspSolve(Shell A, DistanceMatrix distanceMatrix) throws SegmentBalanceException, BalancerException {
@@ -146,9 +151,10 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code initShell}.
+     * Build the per-knot segment lists and the shell-level {@code sortedSegments} /
+     * {@code segmentLookup} containing each unordered pair once. Sorts both segment lists.
      *
-     * @param distanceMatrix TODO: describe
+     * @param distanceMatrix supplies the points and pairwise distances
      */
     public void initShell(DistanceMatrix distanceMatrix) {
         this.distanceMatrix = distanceMatrix;
@@ -180,13 +186,14 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code slowSolve}.
+     * Initialize the shell from {@code distanceMatrix} and run the knot engine to a fixed
+     * recursion depth.
      *
-     * @param A TODO: describe
-     * @param distanceMatrix TODO: describe
-     * @param layers TODO: describe
-     * @throws MultipleCyclesFoundException TODO: describe
-     * @return TODO: describe
+     * @param A unused candidate shell (parameter retained for API compatibility)
+     * @param distanceMatrix pairwise distances driving knot creation
+     * @param layers maximum recursion depth passed through to the {@link KnotEngine}
+     * @return knots produced by the engine
+     * @throws MultipleCyclesFoundException propagated from the knot engine
      */
     public ArrayList<Knot> slowSolve(Shell A, DistanceMatrix distanceMatrix, int layers)
             throws MultipleCyclesFoundException {
@@ -196,9 +203,10 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code updateSmallestKnot}.
+     * Record the first (smallest) knot id observed for each point. Lazily allocates the lookup
+     * table on first call; never overwrites an existing assignment.
      *
-     * @param knotNew TODO: describe
+     * @param knotNew newly formed knot whose flattened points should be claimed if unclaimed
      */
     public void updateSmallestKnot(Knot knotNew) {
 
@@ -217,9 +225,10 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code updateSmallestCommonKnot}.
+     * Record the smallest knot containing each unordered pair of points. Lazily allocates the
+     * symmetric lookup table on first call; never overwrites an existing pair.
      *
-     * @param knotNew TODO: describe
+     * @param knotNew newly formed knot whose pairs of flattened points should be tagged if untagged
      */
     public void updateSmallestCommonKnot(Knot knotNew) {
 
@@ -245,15 +254,17 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code solveBetweenEndpoints}.
+     * Solve a Hamiltonian path between fixed endpoints by reducing to a TSP cycle: appends a
+     * dummy node connected only to {@code first} and {@code last}, runs {@link #tspSolve}, then
+     * rotates the result so it begins at {@code first}.
      *
-     * @param first TODO: describe
-     * @param last TODO: describe
-     * @param A TODO: describe
-     * @param d TODO: describe
-     * @throws SegmentBalanceException TODO: describe
-     * @throws BalancerException TODO: describe
-     * @return TODO: describe
+     * @param first required start point of the path
+     * @param last required end point of the path
+     * @param A intermediate points to include between the endpoints
+     * @param d distance matrix that already knows the relevant pairwise distances
+     * @return shell representing the open path from {@code first} to {@code last}
+     * @throws SegmentBalanceException propagated from {@link #tspSolve}
+     * @throws BalancerException propagated from {@link #tspSolve}
      */
     public Shell solveBetweenEndpoints(PointND first, PointND last, Shell A, DistanceMatrix d)
             throws SegmentBalanceException, BalancerException {
@@ -315,9 +326,10 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code getLengthEndpoints}.
+     * Length of the open path through the shell, i.e. {@link #getLength()} without the
+     * closing edge from the last point back to the first.
      *
-     * @return TODO: describe
+     * @return summed pairwise distances along the open path
      */
     public double getLengthEndpoints() {
         PointND first = null, last = null;
@@ -338,8 +350,8 @@ public class Shell extends LinkedList<PointND> {
     /**
      * Gets the distance from a point to its neighboring points in the shell.
      *
-     * @param p TODO: describe
-     * @param d TODO: describe
+     * @param p point in the shell whose neighbour edges are summed
+     * @param d distance source for the lookups
      * @return the sum of the distance from p to the prev point in the shell and the
      *         distance from p to the next point in the shell
      */
@@ -354,8 +366,8 @@ public class Shell extends LinkedList<PointND> {
      * Gets the distance from the point previous to p and the point after p in the
      * shell.
      *
-     * @param p TODO: describe
-     * @param d TODO: describe
+     * @param p point whose immediate neighbours are inspected
+     * @param d distance source for the lookup
      * @return the sum of the distance from the prev point in the shell to the next
      *         point in the shell
      */
@@ -399,11 +411,12 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code replaceByID}.
+     * Build a new shell by walking {@code A} and substituting each point with the one in
+     * {@code ps} that has the same id.
      *
-     * @param A TODO: describe
-     * @param ps TODO: describe
-     * @return TODO: describe
+     * @param A template shell whose order and ids are copied
+     * @param ps source of the replacement {@link PointND} instances, indexed by id
+     * @return shell with the same order as {@code A} but pointing at {@code ps}'s objects
      */
     public static Shell replaceByID(Shell A, PointSet ps) {
         Shell result = new Shell();
@@ -414,11 +427,11 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code getIndexByID}.
+     * Find the position in this shell of the point with the given id.
      *
-     * @param idTarget TODO: describe
-     * @throws IdDoesNotExistException TODO: describe
-     * @return TODO: describe
+     * @param idTarget id to locate
+     * @return zero-based index into the shell
+     * @throws IdDoesNotExistException if no point in the shell has that id
      */
     public int getIndexByID(int idTarget) throws IdDoesNotExistException {
         int idx = 0;
@@ -432,11 +445,11 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code removeByID}.
+     * Remove and return the point with the given id.
      *
-     * @param idTarget TODO: describe
-     * @throws IdDoesNotExistException TODO: describe
-     * @return TODO: describe
+     * @param idTarget id of the point to remove
+     * @return the removed point
+     * @throws IdDoesNotExistException if no point in the shell has that id
      */
     public PointND removeByID(int idTarget) throws IdDoesNotExistException {
         int idx = getIndexByID(idTarget);
@@ -444,10 +457,12 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code removeRotate}.
+     * Drop any point not in {@code ps} (treated as the dummy boundary) and rotate the remaining
+     * points so the segment that the dummy bridged is split, with the {@code after} group
+     * placed before the {@code before} group.
      *
-     * @param ps TODO: describe
-     * @return TODO: describe
+     * @param ps the set of real points to retain
+     * @return the rotated shell containing exactly {@code size() - 1} points
      */
     public Shell removeRotate(PointSet ps) {
 
@@ -473,10 +488,11 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code rotateTo}.
+     * Rotate the shell in place so that the edge between {@code p1} and {@code p2} (in either
+     * direction) is the wrap-around edge of the underlying linked list.
      *
-     * @param p1 TODO: describe
-     * @param p2 TODO: describe
+     * @param p1 one endpoint of the edge to put at the seam
+     * @param p2 the other endpoint of that edge
      */
     public void rotateTo(PointND p1, PointND p2) {
         Shell before = new Shell(), after = new Shell();
@@ -568,9 +584,9 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code reverse}.
+     * Build a new shell with this shell's points in reversed order.
      *
-     * @return TODO: describe
+     * @return reversed shell (does not mutate this one)
      */
     public Shell reverse() {
         Shell result = new Shell();
@@ -581,9 +597,10 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Comma-separated rendering of the shell. Points with a real id print as their id, dummy
+     * points (id {@code -1}) fall back to their full {@link PointND#toString()}.
      *
-     * @return TODO: describe
+     * @return debug-friendly bracketed listing
      */
     @Override
     public String toString() {
@@ -604,11 +621,12 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code compareTo}.
+     * Render two shells side by side using {@code A}'s indices as the canonical ordering. Used
+     * for debugging which permutation of the same point set a second shell represents.
      *
-     * @param A TODO: describe
-     * @param B TODO: describe
-     * @return TODO: describe
+     * @param A reference shell whose positions define the index labels
+     * @param B comparison shell, expected to contain the same points in some order
+     * @return two-line bracketed listing
      */
     public static String compareTo(Shell A, Shell B) {
         String str = "Shell A[";
@@ -628,10 +646,10 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code add}.
+     * Append a point to the end of the shell (delegates to {@link LinkedList#add(Object)}).
      *
-     * @param e TODO: describe
-     * @return TODO: describe
+     * @param e point to append
+     * @return always {@code true}
      */
     @Override
     public boolean add(PointND e) {
@@ -641,10 +659,10 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code addAll}.
+     * Append all points of {@code c} to the end of the shell, preserving iteration order.
      *
-     * @param c TODO: describe
-     * @return TODO: describe
+     * @param c points to append
+     * @return always {@code true}
      */
     @Override
     public boolean addAll(Collection<? extends PointND> c) {
@@ -653,10 +671,10 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code addAllFirst}.
+     * Prepend all points of {@code c} to the front of the shell, preserving their order.
      *
-     * @param c TODO: describe
-     * @return TODO: describe
+     * @param c points to prepend
+     * @return always {@code true}
      */
     public boolean addAllFirst(Collection<? extends PointND> c) {
         Object[] points = c.toArray();
@@ -667,20 +685,22 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code addAfter}.
+     * Insert {@code insert} immediately after the existing point {@code contained}.
      *
-     * @param contained TODO: describe
-     * @param insert TODO: describe
+     * @param contained anchor point that must already be in the shell
+     * @param insert point to insert directly after the anchor
      */
     public void addAfter(PointND contained, PointND insert) {
         super.add(this.indexOf(contained) + 1, insert);
     }
 
     /**
-     * TODO: document {@code addOutside}.
+     * Insert {@code insert} immediately after {@code contained} (which must be one of the
+     * shell's endpoints) and rotate so {@code insert} becomes the new tail or head, keeping the
+     * insertion on the outer edge of the cycle.
      *
-     * @param contained TODO: describe
-     * @param insert TODO: describe
+     * @param contained current first or last point of the shell
+     * @param insert point to splice in next to that endpoint
      */
     public void addOutside(PointND contained, PointND insert) {
         assert (this.getLast().equals(contained) || this.getFirst().equals(contained))
@@ -694,11 +714,13 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code addAllAtSegment}.
+     * Splice {@code other} onto this shell at the endpoint {@code contained}, joined via the
+     * endpoint of {@code other} that equals {@code connector}. Reverses {@code other} when its
+     * orientation does not align with the join.
      *
-     * @param contained TODO: describe
-     * @param connector TODO: describe
-     * @param other TODO: describe
+     * @param contained the endpoint of this shell to attach to (must be first or last)
+     * @param connector the endpoint of {@code other} that should meet {@code contained}
+     * @param other the shell to merge in
      */
     public void addAllAtSegment(PointND contained, PointND connector, Shell other) {
         if (this.getLast().equals(contained)) {
@@ -719,10 +741,10 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code getOppositeOutside}.
+     * Return whichever endpoint of the shell is not {@code endpoint}.
      *
-     * @param endpoint TODO: describe
-     * @return TODO: describe
+     * @param endpoint the first or last point of the shell
+     * @return the opposite endpoint
      */
     public PointND getOppositeOutside(PointND endpoint) {
         assert (this.getLast().equals(endpoint) || this.getFirst().equals(endpoint)) : endpoint.getID();
@@ -734,20 +756,20 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code isEndpoint}.
+     * Test whether {@code p} is the first or last point of the shell.
      *
-     * @param p TODO: describe
-     * @return TODO: describe
+     * @param p point to check
+     * @return {@code true} if {@code p} sits at either end
      */
     public boolean isEndpoint(PointND p) {
         return p.equals(this.getLast()) || p.equals(this.getFirst());
     }
 
     /**
-     * TODO: document {@code containsID}.
+     * Linear search for a point with the given id.
      *
-     * @param id TODO: describe
-     * @return TODO: describe
+     * @param id id to search for
+     * @return {@code true} if any point in the shell has that id
      */
     public boolean containsID(int id) {
         for (PointND pointND : this) {
@@ -759,10 +781,11 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code containsRange}.
+     * Test whether the shell contains both endpoints of {@code r}. Does not check the
+     * interior ids.
      *
-     * @param r TODO: describe
-     * @return TODO: describe
+     * @param r range whose start and end ids must both be present
+     * @return {@code true} when both endpoint ids appear in the shell
      */
     public boolean containsRange(Range r) {
         boolean hasStart = false;
@@ -780,10 +803,10 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code getNext}.
+     * Wrap-around accessor for the point one position after index {@code i}.
      *
-     * @param i TODO: describe
-     * @return TODO: describe
+     * @param i base index
+     * @return point at {@code (i + 1) mod size()}
      */
     public PointND getNext(int i) {
         if (i + 1 >= this.size()) {
@@ -793,10 +816,10 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code getPrev}.
+     * Wrap-around accessor for the point one position before index {@code i}.
      *
-     * @param i TODO: describe
-     * @return TODO: describe
+     * @param i base index
+     * @return point at {@code (i - 1 + size()) mod size()}
      */
     public PointND getPrev(int i) {
         if (i - 1 < 0) {
@@ -806,11 +829,13 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code moveAfter}.
+     * Remove the points in {@code idTarget} from the shell and reinsert them immediately after
+     * {@code idDest}. Reverses the moved block when {@code idTarget} is reversed.
      *
-     * @param idTarget TODO: describe
-     * @param idDest TODO: describe
-     * @throws IdDoesNotExistException TODO: describe
+     * @param idTarget inclusive id range describing the block to relocate
+     * @param idDest id of the point the moved block lands directly after
+     * @throws IdDoesNotExistException if either {@code idTarget}'s endpoints or {@code idDest}
+     *         is not in the shell
      */
     public void moveAfter(Range idTarget, int idDest) throws IdDoesNotExistException {
         if (!containsRange(idTarget)) {
@@ -830,11 +855,13 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code moveBefore}.
+     * Remove the points in {@code idTarget} from the shell and reinsert them immediately
+     * before {@code idDest}.
      *
-     * @param idTarget TODO: describe
-     * @param idDest TODO: describe
-     * @throws IdDoesNotExistException TODO: describe
+     * @param idTarget inclusive id range describing the block to relocate
+     * @param idDest id of the point the moved block lands directly before
+     * @throws IdDoesNotExistException if either {@code idTarget}'s endpoints or {@code idDest}
+     *         is not in the shell
      */
     public void moveBefore(Range idTarget, int idDest) throws IdDoesNotExistException {
         if (!containsRange(idTarget)) {
@@ -849,13 +876,15 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code moveBetween}.
+     * Remove the points in {@code idTarget} and reinsert them between two adjacent points
+     * {@code idDest1} and {@code idDest2}. The two destination points must be neighbours in
+     * the shell (or the wrap-around pair).
      *
-     * @param idTarget TODO: describe
-     * @param idDest1 TODO: describe
-     * @param idDest2 TODO: describe
-     * @throws IdDoesNotExistException TODO: describe
-     * @throws IdsNotConcurrentException TODO: describe
+     * @param idTarget inclusive id range to relocate
+     * @param idDest1 first of the two neighbouring destination ids
+     * @param idDest2 second of the two neighbouring destination ids
+     * @throws IdDoesNotExistException if any of the referenced ids is missing from the shell
+     * @throws IdsNotConcurrentException if {@code idDest1} and {@code idDest2} are not neighbours
      */
     public void moveBetween(Range idTarget, int idDest1, int idDest2)
             throws IdDoesNotExistException, IdsNotConcurrentException {
@@ -889,10 +918,10 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code hasPoint}.
+     * Linear search by id (alias of {@link #containsID(int)}).
      *
-     * @param id TODO: describe
-     * @return TODO: describe
+     * @param id id to look for
+     * @return {@code true} when a point with that id is present
      */
     public boolean hasPoint(int id) {
         for (PointND p : this) {
@@ -904,10 +933,11 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code addAllInRange}.
+     * Append every point of {@code orgShell} whose id lies in {@code r} to this shell, in
+     * the order they appear in {@code orgShell}.
      *
-     * @param r TODO: describe
-     * @param orgShell TODO: describe
+     * @param r id range used to filter points
+     * @param orgShell source shell to scan
      */
     public void addAllInRange(Range r, Shell orgShell) {
         for (PointND p : orgShell) {
@@ -918,10 +948,11 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code getAllInRange}.
+     * Collect all points whose id lies inside {@code r}, in shell order, without modifying
+     * this shell.
      *
-     * @param r TODO: describe
-     * @return TODO: describe
+     * @param r id range used to filter points
+     * @return new list of matching points
      */
     public ArrayList<PointND> getAllInRange(Range r) {
         ArrayList<PointND> points = new ArrayList<>();
@@ -934,10 +965,11 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code removeAllInRange}.
+     * Remove all points whose id lies inside {@code r} and return them in the order they
+     * appeared in this shell.
      *
-     * @param r TODO: describe
-     * @return TODO: describe
+     * @param r id range describing which points to extract
+     * @return new list containing the removed points
      */
     public ArrayList<PointND> removeAllInRange(Range r) {
         ArrayList<PointND> points = new ArrayList<>();
@@ -951,9 +983,12 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code isLocalMinima}.
+     * Look for a 2-opt-style improvement: a point that, if removed and reinserted on a
+     * different non-adjacent edge, would shorten the cycle by more than {@code 1e-7}.
      *
-     * @return TODO: describe
+     * @return {@code (curr, (currD, nextD))} describing a beneficial move (relocate
+     *         {@code curr} between {@code currD} and {@code nextD}), or {@code null} when no
+     *         such move exists
      */
     public Pair<PointND, Pair<PointND, PointND>> isLocalMinima() {
         for (int i = 0; i < this.size(); i++) {
@@ -978,10 +1013,12 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * TODO: document {@code getHyperStrings}.
+     * Lazily build (and cache) one debug-tooltip {@link HyperString} per point in the shell.
+     * Each tooltip shows the point's id, the colour {@code c}, and {@link PointND#toString()}
+     * as the body text.
      *
-     * @param c TODO: describe
-     * @return TODO: describe
+     * @param c tooltip accent colour
+     * @return cached list of hyperstrings, one per point in the shell
      */
     public ArrayList<HyperString> getHyperStrings(Color c) {
         if (hyperStrings.size() == this.size()) {

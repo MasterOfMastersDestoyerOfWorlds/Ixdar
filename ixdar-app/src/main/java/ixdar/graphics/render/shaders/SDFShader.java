@@ -18,12 +18,13 @@ public class SDFShader extends ShaderProgram {
     public static final float NUM_2 = 2f;
 
     /**
-     * TODO: document {@code SDFShader}.
+     * Build a signed-distance-field shader program with a 9-float vertex
+     * layout (3 position + 4 color + 2 uv).
      *
-     * @param vertexShaderLocation TODO: describe
-     * @param fragmentShaderLocation TODO: describe
-     * @throws UnsupportedEncodingException TODO: describe
-     * @throws IOException TODO: describe
+     * @param vertexShaderLocation vertex GLSL resource path
+     * @param fragmentShaderLocation fragment GLSL resource path
+     * @throws UnsupportedEncodingException on shader source encoding error
+     * @throws IOException on shader source I/O error
      */
     public SDFShader(String vertexShaderLocation, String fragmentShaderLocation)
             throws UnsupportedEncodingException, IOException {
@@ -32,7 +33,9 @@ public class SDFShader extends ShaderProgram {
     }
 
     /**
-     * TODO: document {@code init}.
+     * Wire position/color/texCoord attributes, bind {@code fragColor} and
+     * the {@code texImage} sampler (unit 0), set identity model/view
+     * matrices, and update the orthographic projection.
      */
     @Override
     public void init() {
@@ -70,11 +73,13 @@ public class SDFShader extends ShaderProgram {
     }
 
     /**
-     * TODO: document {@code updateProjectionMatrix}.
+     * Build an orthographic projection sized to the framebuffer and upload
+     * it as the {@code projection} uniform. Skipped for non-positive
+     * framebuffer dimensions.
      *
-     * @param framebufferWidth TODO: describe
-     * @param framebufferHeight TODO: describe
-     * @param scale TODO: describe
+     * @param framebufferWidth viewport width in pixels
+     * @param framebufferHeight viewport height in pixels
+     * @param scale DPI scale hint (unused)
      */
     @Override
     public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float scale) {

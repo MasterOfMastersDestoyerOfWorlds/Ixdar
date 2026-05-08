@@ -35,7 +35,8 @@ public final class SplitTable {
      * @param tmesh        T-mesh containing arcs
      * @param patch        the Tpatch to split
      * @param splitsByArc  per-arc split vertices (output of {@link SplitArcs})
-     * @return TODO: describe
+     * @return per-side lists of split elements with cumulative parametric
+     *          distance from each side's starting corner
      */
     public static Result generate(TMesh tmesh, TPatch patch,
                                    List<List<SplitVert>> splitsByArc) {

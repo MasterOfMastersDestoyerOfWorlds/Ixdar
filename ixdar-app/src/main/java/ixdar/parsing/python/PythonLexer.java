@@ -7,18 +7,20 @@ public class PythonLexer {
     private int line = 1;
 
     /**
-     * TODO: document {@code PythonLexer}.
+     * Build a lexer over the given source string; position starts at 0, line at 1.
      *
-     * @param input TODO: describe
+     * @param input full source text to tokenize
      */
     public PythonLexer(String input) {
         this.input = input;
     }
 
     /**
-     * TODO: document {@code nextToken}.
+     * Skip whitespace and {@code #} comments, then consume and return the next
+     * token; returns an {@code EOF} token at end of input. Unknown characters are
+     * skipped rather than rejected so LLM-generated DSL stays parseable.
      *
-     * @return TODO: describe
+     * @return next {@link Token} (never {@code null})
      */
     public Token nextToken() {
         skipWhitespace();
@@ -140,11 +142,11 @@ public class PythonLexer {
         public final int line;
 
         /**
-         * TODO: document {@code Token}.
+         * Build an immutable token record.
          *
-         * @param type TODO: describe
-         * @param value TODO: describe
-         * @param line TODO: describe
+         * @param type token kind
+         * @param value source text of the token
+         * @param line 1-based line number where the token started
          */
         public Token(TokenType type, String value, int line) {
             this.type = type;

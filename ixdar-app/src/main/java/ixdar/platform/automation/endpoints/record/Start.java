@@ -12,11 +12,13 @@ import ixdar.platform.automation.AutomationEndpoint;
 @AutomationRouteAnnotation(path = "record/start", method = APIMethod.POST)
 public class Start extends AutomationEndpoint implements AutomationRoute {
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code POST /record/start}: begin a new recording session, clearing any
+     * previously buffered events.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body request body (unused)
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return recorder status (see {@link ixdar.platform.automation.AutomationRecorder#status()})
+     *         with an additional {@code "ok": true} flag
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         runtime.recorder().start();

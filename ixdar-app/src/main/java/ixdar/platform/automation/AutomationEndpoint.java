@@ -25,11 +25,11 @@ public class AutomationEndpoint {
     protected AutomationRuntime runtime;
     
     /**
-     * TODO: document {@code readBodyJson}.
+     * Read the request body as a UTF-8 JSON object.
      *
-     * @param exchange TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param exchange the HTTP exchange whose request body should be consumed
+     * @throws IOException if reading the body stream fails
+     * @return parsed object, or an empty object when the body is missing or blank
      */
     public JsonObject readBodyJson(HttpExchange exchange) throws IOException {
         InputStream bodyStream = exchange.getRequestBody();
@@ -47,13 +47,14 @@ public class AutomationEndpoint {
     }
 
     /**
-     * TODO: document {@code writeError}.
+     * Write a JSON error envelope ({@code {"ok": false, "error": message}}) and close
+     * the exchange.
      *
-     * @param exchange TODO: describe
-     * @param statusCode TODO: describe
-     * @param message TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param exchange the HTTP exchange to respond on
+     * @param statusCode HTTP status code to send
+     * @param message human-readable error message; null is rendered as the empty string
+     * @throws IOException if writing the response fails
+     * @return the error payload that was sent
      */
     public JsonObject writeError(
         HttpExchange exchange,
@@ -67,12 +68,12 @@ public class AutomationEndpoint {
     }
 
     /**
-     * TODO: document {@code writeJson}.
+     * Convenience overload that writes {@code payload} with HTTP 200.
      *
-     * @param exchange TODO: describe
-     * @param payload TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param exchange the HTTP exchange to respond on
+     * @param payload JSON body to serialize
+     * @throws IOException if writing the response fails
+     * @return the same {@code payload} that was sent
      */
     public JsonObject writeJson(HttpExchange exchange, JsonObject payload)
         throws IOException {
@@ -80,13 +81,14 @@ public class AutomationEndpoint {
     }
 
     /**
-     * TODO: document {@code writeJson}.
+     * Serialize {@code payload} as UTF-8 JSON, send it with the given status code, and
+     * close the exchange.
      *
-     * @param exchange TODO: describe
-     * @param code TODO: describe
-     * @param payload TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param exchange the HTTP exchange to respond on
+     * @param code HTTP status code to send
+     * @param payload JSON body to serialize
+     * @throws IOException if writing the response fails
+     * @return the same {@code payload} that was sent
      */
     public JsonObject writeJson(HttpExchange exchange, int code, JsonObject payload)
         throws IOException {
@@ -101,10 +103,12 @@ public class AutomationEndpoint {
     }
     
     /**
-     * TODO: document {@code normalizeX}.
+     * Convert a pixel x-coordinate into a normalized {@code [0, 1]} fraction of the
+     * current window width. Window width is clamped to at least 1 to avoid division
+     * by zero.
      *
-     * @param x TODO: describe
-     * @return TODO: describe
+     * @param x pixel x-coordinate
+     * @return {@code x / windowWidth}
      */
     public float normalizeX(float x) {
         int w = Math.max(1, Platforms.get().getWindowWidth());
@@ -112,10 +116,12 @@ public class AutomationEndpoint {
     }
 
     /**
-     * TODO: document {@code normalizeY}.
+     * Convert a pixel y-coordinate into a normalized {@code [0, 1]} fraction of the
+     * current window height. Window height is clamped to at least 1 to avoid division
+     * by zero.
      *
-     * @param y TODO: describe
-     * @return TODO: describe
+     * @param y pixel y-coordinate
+     * @return {@code y / windowHeight}
      */
     public float normalizeY(float y) {
         int h = Math.max(1, Platforms.get().getWindowHeight());
@@ -123,31 +129,31 @@ public class AutomationEndpoint {
     }
 
     /**
-     * TODO: document {@code denormalizeX}.
+     * Convert a normalized x-coordinate back to pixels using the current window width.
      *
-     * @param x TODO: describe
-     * @return TODO: describe
+     * @param x normalized x in {@code [0, 1]}
+     * @return {@code x * windowWidth}
      */
     public float denormalizeX(float x) {
         return x * Platforms.get().getWindowWidth();
     }
 
     /**
-     * TODO: document {@code denormalizeY}.
+     * Convert a normalized y-coordinate back to pixels using the current window height.
      *
-     * @param y TODO: describe
-     * @return TODO: describe
+     * @param y normalized y in {@code [0, 1]}
+     * @return {@code y * windowHeight}
      */
     public float denormalizeY(float y) {
         return y * Platforms.get().getWindowHeight();
     }
 
     /**
-     * TODO: document {@code imageBytes}.
+     * Encode the given image as PNG bytes via {@link ImageIO}.
      *
-     * @param image TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param image source image
+     * @throws IOException if PNG encoding fails
+     * @return PNG-encoded byte array
      */
     public byte[] imageBytes(BufferedImage image) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -156,11 +162,11 @@ public class AutomationEndpoint {
     }
 
     /**
-     * TODO: document {@code sha256}.
+     * Compute the lowercase hexadecimal SHA-256 digest of {@code bytes}.
      *
-     * @param bytes TODO: describe
-     * @throws Exception TODO: describe
-     * @return TODO: describe
+     * @param bytes data to hash
+     * @throws Exception if the SHA-256 algorithm is unavailable
+     * @return 64-character lowercase hex digest
      */
     public String sha256(byte[] bytes) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -176,10 +182,13 @@ public class AutomationEndpoint {
     // ====================
 
     /**
-     * TODO: document {@code resolvePath}.
+     * Resolve a user-supplied path against the current working directory and verify
+     * that it exists.
      *
-     * @param path TODO: describe
-     * @return TODO: describe
+     * @param path filesystem path; absolute paths are used as-is, relative paths are
+     *             resolved against {@code user.dir}
+     * @return existing {@link File}, or {@code null} when {@code path} is blank or
+     *         the resolved file does not exist
      */
     public File resolvePath(String path) {
         if (path == null || path.isBlank())

@@ -3,20 +3,23 @@ package ixdar.gui.ui.actions;
 import ixdar.gui.ui.menu.Menu;
 import ixdar.gui.ui.menu.MenuBox;
 
+/**
+ * Menu action that swaps the active {@link MenuBox} screen to a target {@link Menu}.
+ */
 public class ChangeScreenAction implements Action {
     Menu screen;
 
     /**
-     * TODO: document {@code ChangeScreenAction}.
+     * Bind this action to the menu it should switch to.
      *
-     * @param screen TODO: describe
+     * @param screen the menu to display when {@link #perform()} is invoked
      */
     public ChangeScreenAction(Menu screen) {
         this.screen = screen;
     }
 
     /**
-     * TODO: document {@code perform}.
+     * Load the bound screen into the active {@link MenuBox}.
      */
     @Override
     public void perform() {

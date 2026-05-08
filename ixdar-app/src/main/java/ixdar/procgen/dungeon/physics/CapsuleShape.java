@@ -1,5 +1,7 @@
 package ixdar.procgen.dungeon.physics;
 
+import org.joml.Vector3f;
+
 /**
  * Vertical capsule (Y-axis) defined by its center, the half-height of the cylindrical body,
  * and the radius of the hemispherical endcaps and cylinder.
@@ -15,9 +17,10 @@ public record CapsuleShape(float centerX, float centerY, float centerZ,
                            float halfHeight, float radius) {
 
     /**
-     * TODO: document {@code CapsuleShape}.
+     * Validates capsule dimensions.
      *
-     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalArgumentException if {@code halfHeight} is negative or {@code radius} is
+     *     not strictly positive
      */
     public CapsuleShape {
         if (halfHeight < 0f) {
@@ -29,29 +32,29 @@ public record CapsuleShape(float centerX, float centerY, float centerZ,
     }
 
     /** Returns a copy of this capsule with a new center, preserving halfHeight and radius. */
-    public CapsuleShape atCenter(Vec3f c) {
+    public CapsuleShape atCenter(Vector3f c) {
         return new CapsuleShape(c.x(), c.y(), c.z(), halfHeight, radius);
     }
 
     /**
-     * TODO: document {@code center}.
+     * Capsule center as a {@link Vector3f}.
      *
-     * @return TODO: describe
+     * @return new vector with components {@code (centerX, centerY, centerZ)}
      */
-    public Vec3f center() {
-        return new Vec3f(centerX, centerY, centerZ);
+    public Vector3f center() {
+        return new Vector3f(centerX, centerY, centerZ);
     }
 
     /**
-     * TODO: document {@code segmentMinY}.
+     * Bottom endpoint of the capsule's central vertical segment (center of the lower hemisphere).
      *
-     * @return TODO: describe
+     * @return {@code centerY - halfHeight}
      */
     public float segmentMinY() { return centerY - halfHeight; }
     /**
-     * TODO: document {@code segmentMaxY}.
+     * Top endpoint of the capsule's central vertical segment (center of the upper hemisphere).
      *
-     * @return TODO: describe
+     * @return {@code centerY + halfHeight}
      */
     public float segmentMaxY() { return centerY + halfHeight; }
 

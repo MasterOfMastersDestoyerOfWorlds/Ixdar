@@ -13,10 +13,10 @@ import java.nio.file.Path;
 public final class ExportMeshNodeCatalog {
 
     /**
-     * TODO: document {@code main}.
+     * Write the mesh-node catalog JSON (built from the annotation registry) to the path in {@code args[0]}.
      *
-     * @param args TODO: describe
-     * @throws IOException TODO: describe
+     * @param args single element: output file path. Parent directories are created on demand.
+     * @throws IOException if the output file cannot be created or written
      */
     public static void main(String[] args) throws IOException {
         if (args.length < 1) {

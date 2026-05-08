@@ -40,10 +40,11 @@ public enum RouteType {
     }
 
     /**
-     * TODO: document {@code idTransform}.
+     * Pack a knot-point id together with this route type into a unique route id
+     * by computing {@code id * 4 + ordinal()}. Returns {@code -1} for {@link #None}.
      *
-     * @param id TODO: describe
-     * @return TODO: describe
+     * @param id base knot-point id
+     * @return packed route id, or {@code -1} for {@link #None}
      */
     public int idTransform(int id) {
         nextDC.oppositeRoute = prevDC;
@@ -54,10 +55,11 @@ public enum RouteType {
     }
 
     /**
-     * TODO: document {@code idTransformToType}.
+     * Inverse of {@link #idTransform}: extract the route type from a packed
+     * route id by inspecting {@code id % 4}. Negative ids map to {@link #None}.
      *
-     * @param id TODO: describe
-     * @return TODO: describe
+     * @param id packed route id
+     * @return the {@link RouteType} encoded in {@code id}, or {@link #None}
      */
     public static RouteType idTransformToType(int id) {
         if (id < 0) {

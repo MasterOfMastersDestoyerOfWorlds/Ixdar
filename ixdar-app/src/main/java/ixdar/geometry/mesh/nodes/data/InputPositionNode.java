@@ -25,7 +25,7 @@ public class InputPositionNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                VECTOR_2, "Per-vertex Vec3Field of world-space positions. Requires a mesh field context."
+                VECTOR_2, "Per-vertex Vector3field of world-space positions. Requires a mesh field context."
         );
     }
 

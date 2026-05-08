@@ -14,9 +14,12 @@ public class InfoPane implements MouseTrap.ScrollHandler {
     private HyperString cachedInfo;
 
     /**
-     * TODO: document {@code draw}.
+     * Render the info pane: the active tool's general info followed by
+     * its dynamic info block, both stacked from the top with the current
+     * scroll offset applied. Records how long {@code tool.info()} took
+     * into {@link MainScene#canvas}'s paint-time tracker.
      *
-     * @param camera TODO: describe
+     * @param camera 2D camera providing the pane's view bounds
      */
     public void draw(Camera2D camera) {
         int row = 0;
@@ -40,10 +43,13 @@ public class InfoPane implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code onScroll}.
+     * Mouse-wheel scroll handler: shift {@link #scrollOffsetY} up or down
+     * by {@link #SCROLL_SPEED} times the frame delta, clamped at the top
+     * (offset never goes negative) and limited downward to keep the last
+     * info row visible.
      *
-     * @param scrollUp TODO: describe
-     * @param deltaSeconds TODO: describe
+     * @param scrollUp true if the wheel scrolled upward (content moves down)
+     * @param deltaSeconds wheel-delta scaling factor in seconds
      */
     @Override
     public void onScroll(boolean scrollUp, double deltaSeconds) {
@@ -59,9 +65,9 @@ public class InfoPane implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code getCachedInfo}.
+     * The most recently rendered tool info block (set during {@link #draw}).
      *
-     * @return TODO: describe
+     * @return the cached info string, or {@code null} if {@link #draw} has not run yet
      */
     public HyperString getCachedInfo() {
         return cachedInfo;

@@ -41,11 +41,9 @@ public class TradeMouseTrap extends MouseTrap {
     private boolean automationInputInProgress = false;
 
     /**
-     * TODO: document {@code TradeMouseTrap}.
-     *
-     * @param tradeScene TODO: describe
-     * @param camera TODO: describe
-     * @param canvas TODO: describe
+     * @param tradeScene owning trade scene (used for city hit-testing and tool dispatch)
+     * @param camera camera the controller drives
+     * @param canvas owning canvas
      */
     public TradeMouseTrap(TradeScene tradeScene, Camera camera, Canvas3D canvas) {
         super(null, camera, canvas);
@@ -53,24 +51,27 @@ public class TradeMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code beginAutomationInput}.
+     * Mark the start of an automation-driven input burst so user mouse-move heuristics don't
+     * interrupt programmatic hover locks.
      */
     public void beginAutomationInput() {
         automationInputInProgress = true;
     }
 
     /**
-     * TODO: document {@code endAutomationInput}.
+     * End the automation-input burst started by {@link #beginAutomationInput()}.
      */
     public void endAutomationInput() {
         automationInputInProgress = false;
     }
 
     /**
-     * TODO: document {@code setAutomationHoverLock}.
+     * Pin hover at {@code (x, y)} from automation; survives subsequent paint frames until
+     * either {@link #clearAutomationHoverLock()} or the user moves more than {@link #NUM_2}
+     * pixels away.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param x window x to lock hover at
+     * @param y window y to lock hover at
      */
     public void setAutomationHoverLock(float x, float y) {
         automationHoverLocked = true;
@@ -80,7 +81,7 @@ public class TradeMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code clearAutomationHoverLock}.
+     * Release the automation hover lock so live mouse movement controls hover again.
      */
     public void clearAutomationHoverLock() {
         automationHoverLocked = false;
@@ -104,11 +105,12 @@ public class TradeMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code mouseButton}.
+     * Track press position; on release within {@link #NUM_5} pixels, treat it as a city click
+     * via {@code handleCityClick}.
      *
-     * @param button TODO: describe
-     * @param action TODO: describe
-     * @param mods TODO: describe
+     * @param button button index
+     * @param action {@code ACTION_PRESS} or {@code ACTION_RELEASE}
+     * @param mods modifier-key bitmask (unused)
      */
     @Override
     public void mouseButton(int button, int action, int mods) {
@@ -181,11 +183,13 @@ public class TradeMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code moveOrDrag}.
+     * Trade-specific move/drag: pans the camera while left-dragged past {@link #NUM_3} pixels,
+     * otherwise updates city hover. Real cursor motion past the deadzone clears any active
+     * automation hover lock.
      *
-     * @param window TODO: describe
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param window platform window handle
+     * @param x cursor x in window pixels
+     * @param y cursor y in window pixels
      */
     @Override
     public void moveOrDrag(long window, float x, float y) {
@@ -213,10 +217,11 @@ public class TradeMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code mousePos}.
+     * Plain move: clear automation lock on real motion, run the base hover, then refresh the
+     * city-hover overlay.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param x cursor x in window pixels
+     * @param y cursor y in window pixels
      */
     @Override
     public void mousePos(float x, float y) {
@@ -229,10 +234,10 @@ public class TradeMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code mouseDragged}.
+     * Pan the camera by the normalized-coordinate delta from the previous drag sample.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param x cursor x in window pixels
+     * @param y cursor y in window pixels
      */
     @Override
     public void mouseDragged(float x, float y) {
@@ -256,9 +261,9 @@ public class TradeMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code scrollCallback}.
+     * Queue scroll ticks for {@link #paintUpdate}; ticks decay after {@link #NUM_60} ms.
      *
-     * @param y TODO: describe
+     * @param y vertical scroll delta
      */
     @Override
     public void scrollCallback(double y) {
@@ -270,9 +275,10 @@ public class TradeMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code paintUpdate}.
+     * Per-frame: drain queued scroll ticks into camera zoom and re-pin hover when the
+     * automation lock is active.
      *
-     * @param SHIFT_MOD TODO: describe
+     * @param SHIFT_MOD speed multiplier (currently unused)
      */
     @Override
     public void paintUpdate(float SHIFT_MOD) {

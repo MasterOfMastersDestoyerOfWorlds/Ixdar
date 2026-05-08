@@ -41,7 +41,9 @@ public class IrregularGridScene extends Canvas3D {
     private final Vector2f tmpScreen = new Vector2f();
 
     /**
-     * TODO: document {@code initGL}.
+     * Initialize input handlers, build the Townscaper-style hex/quad grid,
+     * frame the camera around it, and subscribe scroll-to-zoom on the
+     * 2D camera bounds.
      */
     @Override
     public void initGL() {
@@ -58,7 +60,9 @@ public class IrregularGridScene extends Canvas3D {
     }
 
     /**
-     * TODO: document {@code drawScene}.
+     * Per-frame: pump input, draw all primal edges as gray SDF lines,
+     * draw cyan dots at primal anchors and orange dots at dual points,
+     * then overlay the FPS readout.
      */
     @Override
     public void drawScene() {
@@ -91,90 +95,90 @@ public class IrregularGridScene extends Canvas3D {
     }
 
     /**
-     * TODO: document {@code getSeed}.
+     * RNG seed used by the layout generator for deterministic grids.
      *
-     * @return TODO: describe
+     * @return the fixed seed
      */
     public long getSeed() {
         return SEED;
     }
 
     /**
-     * TODO: document {@code getRelaxIters}.
+     * Number of Lloyd-style relaxation passes applied to the layout.
      *
-     * @return TODO: describe
+     * @return relaxation iteration count
      */
     public int getRelaxIters() {
         return RELAX_ITERS;
     }
 
     /**
-     * TODO: document {@code getJitter}.
+     * Jitter magnitude applied to anchor positions (0 means none).
      *
-     * @return TODO: describe
+     * @return jitter amount
      */
     public float getJitter() {
         return JITTER;
     }
 
     /**
-     * TODO: document {@code getPrimalPointCount}.
+     * Number of primal anchor points in the current grid.
      *
-     * @return TODO: describe
+     * @return anchor count, or 0 if the grid has not been built
      */
     public int getPrimalPointCount() {
         return grid == null ? 0 : grid.anchorCount();
     }
 
     /**
-     * TODO: document {@code getDualPointCount}.
+     * Number of dual (face-center) points in the current grid.
      *
-     * @return TODO: describe
+     * @return dual point count, or 0 if the grid has not been built
      */
     public int getDualPointCount() {
         return grid == null ? 0 : grid.dualPointCount();
     }
 
     /**
-     * TODO: document {@code getEdgeCount}.
+     * Number of edges in the current grid.
      *
-     * @return TODO: describe
+     * @return edge count, or 0 if the grid has not been built
      */
     public int getEdgeCount() {
         return grid == null ? 0 : grid.edgeCount();
     }
 
     /**
-     * TODO: document {@code getHorizontalEdgeStdDev}.
+     * Standard deviation of horizontal edge lengths in the current grid.
      *
-     * @return TODO: describe
+     * @return std-dev, or {@link #JITTER} if the grid has not been built
      */
     public float getHorizontalEdgeStdDev() {
         return grid == null ? JITTER : grid.horizontalEdgeStdDev();
     }
 
     /**
-     * TODO: document {@code getVerticalEdgeStdDev}.
+     * Standard deviation of vertical edge lengths in the current grid.
      *
-     * @return TODO: describe
+     * @return std-dev, or {@link #JITTER} if the grid has not been built
      */
     public float getVerticalEdgeStdDev() {
         return grid == null ? JITTER : grid.verticalEdgeStdDev();
     }
 
     /**
-     * TODO: document {@code getHorizontalEdgeMean}.
+     * Mean horizontal edge length in the current grid.
      *
-     * @return TODO: describe
+     * @return mean, or {@link #JITTER} if the grid has not been built
      */
     public float getHorizontalEdgeMean() {
         return grid == null ? JITTER : grid.horizontalEdgeMean();
     }
 
     /**
-     * TODO: document {@code getVerticalEdgeMean}.
+     * Mean vertical edge length in the current grid.
      *
-     * @return TODO: describe
+     * @return mean, or {@link #JITTER} if the grid has not been built
      */
     public float getVerticalEdgeMean() {
         return grid == null ? JITTER : grid.verticalEdgeMean();

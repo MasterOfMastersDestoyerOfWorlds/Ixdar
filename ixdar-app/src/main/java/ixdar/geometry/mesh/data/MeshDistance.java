@@ -433,8 +433,8 @@ public final class MeshDistance {
     /**
      * Extract flat XYZ positions from a MeshTopology.
      *
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param mesh source topology
+     * @return packed xyz of every active vertex, in the mesh's iteration order
      */
     public static float[] extractPositions(MeshTopology mesh) {
         float[] pos = new float[mesh.vertexCount() * FLOATS_PER_VERTEX];
@@ -505,11 +505,11 @@ public final class MeshDistance {
         public final float similarityScore;
 
         /**
-         * TODO: document {@code MeshMetrics}.
+         * Bundle of distance + similarity metrics produced by {@link #computeAllMetrics}.
          *
-         * @param hausdorffDistance TODO: describe
-         * @param chamferDistance TODO: describe
-         * @param similarityScore TODO: describe
+         * @param hausdorffDistance symmetric Hausdorff distance
+         * @param chamferDistance symmetric Chamfer distance
+         * @param similarityScore exponential decay of {@code hausdorffDistance} mapped to [0, 100]
          */
         public MeshMetrics(float hausdorffDistance, float chamferDistance, float similarityScore) {
             this.hausdorffDistance = hausdorffDistance;
@@ -518,9 +518,9 @@ public final class MeshDistance {
         }
 
         /**
-         * TODO: document {@code toString}.
+         * Human-readable summary of all three metrics.
          *
-         * @return TODO: describe
+         * @return formatted string with hausdorff, chamfer, and similarity percentage
          */
         @Override
         public String toString() {

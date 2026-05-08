@@ -17,12 +17,13 @@ public class ColorShader extends ShaderProgram {
     public static final float NUM_2 = 2f;
 
     /**
-     * TODO: document {@code ColorShader}.
+     * Build a flat-color shader program with a 7-float vertex layout
+     * (3 position + 4 color).
      *
-     * @param vertexShaderLocation TODO: describe
-     * @param fragmentShaderLocation TODO: describe
-     * @throws UnsupportedEncodingException TODO: describe
-     * @throws IOException TODO: describe
+     * @param vertexShaderLocation vertex GLSL resource path
+     * @param fragmentShaderLocation fragment GLSL resource path
+     * @throws UnsupportedEncodingException on shader source encoding error
+     * @throws IOException on shader source I/O error
      */
     public ColorShader(String vertexShaderLocation, String fragmentShaderLocation)
             throws UnsupportedEncodingException, IOException {
@@ -31,7 +32,8 @@ public class ColorShader extends ShaderProgram {
     }
 
     /**
-     * TODO: document {@code init}.
+     * Wire up position/color attributes, bind the fragment output, set
+     * identity model/view matrices, and update the orthographic projection.
      */
     @Override
     public void init() {
@@ -62,11 +64,12 @@ public class ColorShader extends ShaderProgram {
     }
 
     /**
-     * TODO: document {@code updateProjectionMatrix}.
+     * Build an orthographic projection matrix sized to the framebuffer and
+     * upload it as the {@code projection} uniform.
      *
-     * @param framebufferWidth TODO: describe
-     * @param framebufferHeight TODO: describe
-     * @param scale TODO: describe
+     * @param framebufferWidth viewport width in pixels
+     * @param framebufferHeight viewport height in pixels
+     * @param scale unused (DPI scale hint reserved for subclasses)
      */
     @Override
     public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float scale) {

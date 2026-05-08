@@ -19,11 +19,16 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
     public static final String OK = "ok";
     public static final String ERROR = "error";
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code POST /input/key}: synthesize a single GLFW key event on the active key
+     * handler. Recorded as an abstract {@code "key"} action.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body JSON body with {@code key} (GLFW key code, default 0),
+     *             {@code action} (press/release/repeat, default 1 = press),
+     *             {@code mods} (modifier bitmask, default 0), and {@code scancode}
+     *             (default 0)
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return {@code {"ok": true}} on success, or an error object when no key
+     *         handler is active
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         int key = body.has(KEY) ? body.get(KEY).getAsInt() : 0;

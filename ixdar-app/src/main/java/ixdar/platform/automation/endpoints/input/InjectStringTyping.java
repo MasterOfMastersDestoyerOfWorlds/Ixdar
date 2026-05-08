@@ -16,11 +16,14 @@ public class InjectStringTyping extends AutomationEndpoint implements Automation
     public static final String OK = "ok";
     public static final String ERROR = "error";
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code POST /input/type}: synthesize a sequence of character events on the
+     * active key handler, one {@code charCallback} per character. Recorded as an
+     * abstract {@code "type"} action.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body JSON body with {@code text} (string, default {@code ""})
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return {@code {"ok": true}} on success, or an error object when no key
+     *         handler is active or main-thread dispatch fails
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {

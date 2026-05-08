@@ -9,7 +9,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
-import ixdar.annotations.meshnode.Vec3Field;
+import ixdar.annotations.meshnode.Vector3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
@@ -59,15 +59,15 @@ public class SwitchVectorNode implements MeshNode {
         Object fa = FieldBroadcast.getInputOrDefault(ctx, FALSE, FALSE_VAL.defaultValue());
         Object tr = FieldBroadcast.getInputOrDefault(ctx, TRUE, TRUE_VAL.defaultValue());
 
-        if (so instanceof BoolField || fa instanceof Vec3Field || tr instanceof Vec3Field) {
+        if (so instanceof BoolField || fa instanceof Vector3Field || tr instanceof Vector3Field) {
             int n = 0;
             if (so instanceof BoolField bf) {
                 n = Math.max(n, bf.length());
             }
-            if (fa instanceof Vec3Field vf) {
+            if (fa instanceof Vector3Field vf) {
                 n = Math.max(n, vf.length());
             }
-            if (tr instanceof Vec3Field vt) {
+            if (tr instanceof Vector3Field vt) {
                 n = Math.max(n, vt.length());
             }
             float[] out = new float[n * NUM_3];
@@ -82,7 +82,7 @@ public class SwitchVectorNode implements MeshNode {
                 out[NUM_3 * i + 1] = pick.y;
                 out[NUM_3 * i + 2] = pick.z;
             }
-            ctx.setOutput(VECTOR_2,new Vec3Field(out));
+            ctx.setOutput(VECTOR_2,new Vector3Field(out));
             return;
         }
 

@@ -16,10 +16,10 @@ public final class GeometryBundle implements GeometryBundleValue {
     private final Map<String, Object> slots;
 
     /**
-     * TODO: document {@code GeometryBundle}.
+     * Wrap a mesh and a slot map; the slot map is defensively copied as immutable.
      *
-     * @param mesh TODO: describe
-     * @param slots TODO: describe
+     * @param mesh underlying topology
+     * @param slots arbitrary named auxiliary data
      */
     public GeometryBundle(MeshTopology mesh, Map<String, Object> slots) {
         this.mesh = mesh;
@@ -27,10 +27,10 @@ public final class GeometryBundle implements GeometryBundleValue {
     }
 
     /**
-     * TODO: document {@code ofMesh}.
+     * Build a bundle wrapping {@code mesh} with no slots.
      *
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param mesh non-null topology to wrap
+     * @return bundle with empty slot map
      */
     public static GeometryBundle ofMesh(MeshTopology mesh) {
         Objects.requireNonNull(mesh, "mesh");
@@ -38,18 +38,18 @@ public final class GeometryBundle implements GeometryBundleValue {
     }
 
     /**
-     * TODO: document {@code empty}.
+     * Bundle holding an empty quad mesh and no slots.
      *
-     * @return TODO: describe
+     * @return shared sentinel for "no geometry"
      */
     public static GeometryBundle empty() {
         return new GeometryBundle(ArrayMeshEngine.emptyQuads(), Map.of());
     }
 
     /**
-     * TODO: document {@code mesh}.
+     * Underlying topology.
      *
-     * @return TODO: describe
+     * @return mesh passed at construction
      */
     public MeshTopology mesh() {
         return mesh;
@@ -60,27 +60,27 @@ public final class GeometryBundle implements GeometryBundleValue {
      * otherwise null. Dense {@link ArrayMesh} bundles are not mutable via this
      * accessor.
      *
-     * @return TODO: describe
+     * @return wrapped half-edge mesh, or {@code null} if this is an array mesh
      */
     public HalfEdgeMesh mutableMesh() {
         return mesh instanceof HalfEdgeMesh h ? h : null;
     }
 
     /**
-     * TODO: document {@code slots}.
+     * Immutable view of the bundle's named auxiliary data.
      *
-     * @return TODO: describe
+     * @return slot map (read-only)
      */
     public Map<String, Object> slots() {
         return slots;
     }
 
     /**
-     * TODO: document {@code withSlot}.
+     * Return a copy with {@code key} mapped to {@code value} (other slots preserved).
      *
-     * @param key TODO: describe
-     * @param value TODO: describe
-     * @return TODO: describe
+     * @param key slot name
+     * @param value slot value (any object)
+     * @return new bundle sharing this mesh
      */
     public GeometryBundle withSlot(String key, Object value) {
         HashMap<String, Object> next = new HashMap<>(slots);
@@ -89,10 +89,10 @@ public final class GeometryBundle implements GeometryBundleValue {
     }
 
     /**
-     * TODO: document {@code withMesh}.
+     * Return a copy that swaps in {@code newMesh} but keeps the existing slots.
      *
-     * @param newMesh TODO: describe
-     * @return TODO: describe
+     * @param newMesh replacement topology
+     * @return new bundle sharing this slot map
      */
     public GeometryBundle withMesh(MeshTopology newMesh) {
         return new GeometryBundle(newMesh, slots);

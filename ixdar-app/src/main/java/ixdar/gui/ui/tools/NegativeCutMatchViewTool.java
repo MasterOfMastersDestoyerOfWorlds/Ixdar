@@ -12,6 +12,11 @@ import ixdar.gui.ui.Drawing;
 import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;
 
+/**
+ * Negative Cut-Match View tool: highlights manifold segments whose hole-move
+ * cut/match swap would shorten the total length, letting the user inspect the
+ * negative-cost matches available at any segment.
+ */
 public class NegativeCutMatchViewTool extends Tool {
     public static ArrayList<Color> colors;
 
@@ -20,7 +25,8 @@ public class NegativeCutMatchViewTool extends Tool {
     HashMap<Long, Integer> colorLookup;
 
     /**
-     * TODO: document {@code NegativeCutMatchViewTool}.
+     * Build the tool: disallow rendering toggles that would clutter the
+     * overlay and seed the {@code colors} palette (blue, red).
      */
     public NegativeCutMatchViewTool() {
         disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.DrawKnotGradient,
@@ -31,7 +37,8 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code reset}.
+     * Reset selection state and rebuild the negative-segment cache for the
+     * current draw layer.
      */
     @Override
     public void reset() {
@@ -40,10 +47,12 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Draw the orange "cut" segment at the hovered manifold edge, the cyan
+     * candidate match segments with negative net length, and color each
+     * displayed knot's manifold path by whether it has any negative matches.
      *
-     * @param camera TODO: describe
-     * @param minLineThickness TODO: describe
+     * @param camera the scene camera
+     * @param minLineThickness base line thickness in pixels
      */
     @Override
     public void draw(Camera2D camera, float minLineThickness) {
@@ -76,7 +85,10 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code initSegmentMap}.
+     * (Re)compute, for each manifold segment of each displayed knot, the list
+     * of off-manifold candidate match segments whose length is shorter than
+     * the manifold segment (i.e. would yield a negative-cost cut/match), and
+     * record per-direction color indices accordingly.
      */
     public void initSegmentMap() {
         layerCalculated = MainScene.knotDrawLayer;
@@ -124,9 +136,10 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code buildInfoText}.
+     * Build the side-panel text describing the hovered cut, its length, and
+     * each negative-cost candidate match with its delta.
      *
-     * @return TODO: describe
+     * @return the formatted info text
      */
     @Override
     public HyperString buildInfoText() {
@@ -159,9 +172,7 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code displayName}.
-     *
-     * @return TODO: describe
+     * @return the display name "Negative Cut Match View"
      */
     @Override
     public String displayName() {
@@ -169,9 +180,7 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code shortName}.
-     *
-     * @return TODO: describe
+     * @return the short terminal alias {@code "neg"}
      */
     @Override
     public String shortName() {
@@ -179,9 +188,7 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code fullName}.
-     *
-     * @return TODO: describe
+     * @return the full terminal name {@code "negativecutmatchview"}
      */
     @Override
     public String fullName() {
@@ -189,9 +196,7 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code desc}.
-     *
-     * @return TODO: describe
+     * @return the one-line description of this tool's purpose
      */
     @Override
     public String desc() {

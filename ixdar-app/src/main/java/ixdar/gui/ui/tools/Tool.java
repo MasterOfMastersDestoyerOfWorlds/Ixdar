@@ -30,18 +30,20 @@ public abstract class Tool {
     private HyperString toolInfoHyperString;
 
     /**
-     * TODO: document {@code draw}.
+     * Render this tool's overlay (highlights, previews, gizmos) on top of the
+     * scene. Subclasses must override; the base implementation is a guard.
      *
-     * @param camera TODO: describe
-     * @param lineThickness TODO: describe
-     * @throws UnsupportedOperationException TODO: describe
+     * @param camera the scene camera used to project knot points to the screen
+     * @param lineThickness base line thickness in pixels before camera scaling
+     * @throws UnsupportedOperationException if a subclass forgets to override
      */
     public void draw(Camera2D camera, float lineThickness) {
         throw new UnsupportedOperationException("Unimplemented method 'draw'");
     }
 
     /**
-     * TODO: document {@code cycleLeft}.
+     * Cycle the displayed knot/cut-point pair clockwise around the current
+     * knot, advancing the segment under inspection.
      */
     public void cycleLeft() {
         ArrayList<Knot> knotsDisplayed = MainScene.knotsDisplayed;
@@ -70,7 +72,9 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code cycleRight}.
+     * Cycle the displayed knot/cut-point pair counter-clockwise around the
+     * current knot, advancing the segment under inspection in the reverse
+     * direction of {@link #cycleLeft()}.
      */
     public void cycleRight() {
         if (displaySegment == null) {
@@ -99,29 +103,32 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code selectedKnot}.
+     * Subclass hook returning the knot the tool considers "selected" for
+     * downstream consumers. The base implementation returns {@code null}.
      *
-     * @return TODO: describe
+     * @return the selected knot, or null if none
      */
     public Knot selectedKnot() {
         return null;
     }
 
     /**
-     * TODO: document {@code confirm}.
+     * Apply the tool's pending action (e.g. on Enter). Subclasses must
+     * override; the base implementation is a guard.
      *
-     * @throws UnsupportedOperationException TODO: describe
+     * @throws UnsupportedOperationException if a subclass forgets to override
      */
     public void confirm() {
         throw new UnsupportedOperationException("Unimplemented method 'confirm'");
     }
 
     /**
-     * TODO: document {@code click}.
+     * Default click handler: latch the hovered segment / knot-point /
+     * cut-point as both the selection and the display target.
      *
-     * @param s TODO: describe
-     * @param kp TODO: describe
-     * @param cp TODO: describe
+     * @param s  segment hit by the click, or null
+     * @param kp the segment endpoint nearer the click (knot point), or null
+     * @param cp the other endpoint of the segment (cut point), or null
      */
     public void click(Segment s, Knot kp, Knot cp) {
         selectedSegment = s;
@@ -133,7 +140,8 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code reset}.
+     * Clear all selection and display state and wipe any active terminal
+     * instruction. Called on tool (de)activation.
      */
     public void reset() {
         selectedSegment = null;
@@ -146,7 +154,7 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code freeTool}.
+     * Switch the active scene tool back to the free/default tool and reset it.
      */
     public void freeTool() {
         MainScene.tool = MainScene.freeTool;
@@ -154,7 +162,8 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code clearHover}.
+     * Drop the current hover by reverting display state to whatever is
+     * currently selected.
      */
     public void clearHover() {
         displaySegment = selectedSegment;
@@ -163,11 +172,13 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code setHover}.
+     * Set the hovered segment / knot-point / cut-point. Fires
+     * {@link #hoverChanged()} when either endpoint actually differs from the
+     * previous frame.
      *
-     * @param s TODO: describe
-     * @param kp TODO: describe
-     * @param cp TODO: describe
+     * @param s  the hovered segment, or null
+     * @param kp the segment endpoint nearer the cursor, or null
+     * @param cp the other endpoint of the segment, or null
      */
     public void setHover(Segment s, Knot kp, Knot cp) {
         boolean changed = (kp != null && !kp.equals(displayKP)) || (cp != null && !cp.equals(displayCP));
@@ -180,16 +191,19 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code hoverChanged}.
+     * Hook fired when the hovered point changes. Subclasses override to
+     * recompute hover-dependent state (e.g. info text). No-op by default.
      */
     public void hoverChanged() {
     }
 
     /**
-     * TODO: document {@code canUseToggle}.
+     * Test whether a toggle is permitted while this tool is active. Returns
+     * false for any toggle in {@link #disallowedToggles}; otherwise returns
+     * the toggle's current value.
      *
-     * @param toggle TODO: describe
-     * @return TODO: describe
+     * @param toggle the toggle to test
+     * @return true if the toggle may apply, false if blocked or off
      */
     public boolean canUseToggle(Toggle toggle) {
         for (int i = 0; i < disallowedToggles.length; i++) {
@@ -201,10 +215,12 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code calculateHover}.
+     * Hit-test the displayed knots against the cursor position and update the
+     * active tool's hover state to the closest segment (and the endpoint
+     * nearer the cursor). Clears the hover when the cursor leaves the window.
      *
-     * @param normalizedPosX TODO: describe
-     * @param normalizedPosY TODO: describe
+     * @param normalizedPosX cursor x in window pixels (pre screen-offset)
+     * @param normalizedPosY cursor y in window pixels (pre screen-offset)
      */
     public void calculateHover(float normalizedPosX, float normalizedPosY) {
 
@@ -249,10 +265,12 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code calculateClick}.
+     * Hit-test the displayed knots against a click position and forward the
+     * resulting segment / knot-point / cut-point triple to the active tool's
+     * {@link #click(Segment, Knot, Knot)}.
      *
-     * @param normalizedPosX TODO: describe
-     * @param normalizedPosY TODO: describe
+     * @param normalizedPosX click x in window pixels (pre screen-offset)
+     * @param normalizedPosY click y in window pixels (pre screen-offset)
      */
     public void calculateClick(float normalizedPosX, float normalizedPosY) {
 
@@ -295,10 +313,12 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code lookupSegmentPairs}.
+     * Build, for each manifold segment of {@code k}, the pair of ordered
+     * segment ids (first&rarr;last and last&rarr;first). Used by drawing code
+     * that needs to look up per-direction colors.
      *
-     * @param k TODO: describe
-     * @return TODO: describe
+     * @param k knot whose manifold segments to enumerate
+     * @return one pair per manifold segment, in segment order
      */
     public static ArrayList<Pair<Long, Long>> lookupSegmentPairs(Knot k) {
 
@@ -314,9 +334,10 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code toolType}.
+     * Categorize this tool. The default {@link Type#None} is overridden by
+     * the free/default tool to return {@link Type#Free}.
      *
-     * @return TODO: describe
+     * @return this tool's {@link Type}
      */
     public Type toolType() {
         return Type.None;
@@ -324,16 +345,18 @@ public abstract class Tool {
 
 
     /**
-     * TODO: document {@code buildInfoText}.
+     * Build the tool-specific info text (status, hover details, hints) shown
+     * in the side panel. Subclasses must implement.
      *
-     * @return TODO: describe
+     * @return a freshly constructed {@link HyperString} for display
      */
     public abstract HyperString buildInfoText();
 
     /**
-     * TODO: document {@code info}.
+     * Cached accessor for {@link #buildInfoText()}; the underlying text is
+     * constructed lazily on first call.
      *
-     * @return TODO: describe
+     * @return the cached info hyperstring
      */
     public HyperString info() {
         if(toolInfoHyperString == null){
@@ -343,9 +366,10 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code toolGeneralInfo}.
+     * Build the always-visible header info (FPS plus current tool display
+     * name) shown above the tool-specific info panel.
      *
-     * @return TODO: describe
+     * @return a freshly constructed {@link HyperString}
      */
     public HyperString toolGeneralInfo() {
         HyperString h = new HyperString();
@@ -357,7 +381,8 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code back}.
+     * Back-navigation hook: if already on the free tool, deactivate the main
+     * scene; otherwise revert to the free tool.
      */
     public void back() {
         if (MainScene.tool.toolType() == Tool.Type.Free) {
@@ -367,9 +392,10 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code setScreenOffset}.
+     * Cache the active camera's screen offsets so subsequent hover/click
+     * coordinate math can subtract them.
      *
-     * @param camera TODO: describe
+     * @param camera the camera whose offsets to mirror onto this tool
      */
     public void setScreenOffset(Camera2D camera) {
         ScreenOffsetX = camera.ScreenOffsetX;
@@ -377,7 +403,9 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code increaseViewLayer}.
+     * Step the displayed knot layer one level up (toward {@code totalLayers}),
+     * clamped to the valid range and respecting the
+     * {@link Toggle#CanSwitchLayer} / {@link Toggle#CanSwitchTopLayer} gates.
      */
     public void increaseViewLayer() {
         if (canUseToggle(Toggle.CanSwitchLayer)) {
@@ -397,7 +425,9 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code decreaseViewLayer}.
+     * Step the displayed knot layer one level down (toward layer 1), clamped
+     * to the valid range and respecting {@link Toggle#CanSwitchLayer}. A
+     * sentinel layer of -1 jumps straight to {@code totalLayers}.
      */
     public void decreaseViewLayer() {
         if (canUseToggle(Toggle.CanSwitchLayer)) {
@@ -415,44 +445,45 @@ public abstract class Tool {
     }
 
     /**
-     * TODO: document {@code cycleToolLayerPrev}.
+     * Convenience alias for {@link #decreaseViewLayer()}.
      */
     public void cycleToolLayerPrev() {
         decreaseViewLayer();
     }
 
     /**
-     * TODO: document {@code cycleToolLayerNext}.
+     * Convenience alias for {@link #increaseViewLayer()}.
      */
     public void cycleToolLayerNext() {
         increaseViewLayer();
     }
 
     /**
-     * TODO: document {@code displayName}.
+     * Human-readable name of the tool, e.g. shown in the side panel header.
      *
-     * @return TODO: describe
+     * @return the display name (typically Title Case with spaces)
      */
     public abstract String displayName();
 
     /**
-     * TODO: document {@code fullName}.
+     * Long token for this tool, used by terminal commands like
+     * {@code tool <fullName>} to switch tools.
      *
-     * @return TODO: describe
+     * @return the lowercase, no-spaces full name
      */
     public abstract String fullName();
 
     /**
-     * TODO: document {@code shortName}.
+     * Short token for this tool, used as a terse alias by terminal commands.
      *
-     * @return TODO: describe
+     * @return the lowercase short alias
      */
     public abstract String shortName();
 
     /**
-     * TODO: document {@code desc}.
+     * Long-form description of what this tool does, shown in tool listings.
      *
-     * @return TODO: describe
+     * @return a one-sentence description
      */
     public abstract String desc();
 

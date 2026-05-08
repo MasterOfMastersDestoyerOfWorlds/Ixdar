@@ -48,10 +48,12 @@ public final class SkillLibrary {
     private final List<Skill> skills = new ArrayList<>();
 
     /**
-     * Load all .skill files from a directory.
+     * Load all .skill files from a directory. Missing directories are silently
+     * ignored. Per-file failures are logged to stderr and skipped — one bad file
+     * doesn't fail the whole library.
      *
-     * @param skillDir TODO: describe
-     * @throws IOException TODO: describe
+     * @param skillDir directory containing {@code *.skill} files
+     * @throws IOException on directory traversal failure
      */
     public void loadDirectory(Path skillDir) throws IOException {
         if (!Files.isDirectory(skillDir)) return;
@@ -70,11 +72,13 @@ public final class SkillLibrary {
     }
 
     /**
-     * Load a single .skill file.
+     * Load a single .skill file. Parses the optional {@code ---}-delimited
+     * metadata header, then runs the rest through the DSL parser to extract a
+     * {@link PythonParser.FunctionDef}. Returns null when the body is empty.
      *
-     * @param file TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param file path to a {@code .skill} file
+     * @throws IOException on read failure or unterminated metadata header
+     * @return loaded skill or null when no DSL body is present
      */
     public static Skill loadSkillFile(Path file) throws IOException {
         String content = Files.readString(file);
@@ -134,18 +138,17 @@ public final class SkillLibrary {
     }
 
     /**
-     * Get all loaded skills.
-     *
-     * @return TODO: describe
+     * @return all skills loaded so far (live list; not a copy)
      */
     public List<Skill> getSkills() {
         return skills;
     }
 
     /**
-     * Register all loaded skills' function definitions with a runtime.
+     * Register all loaded skills' function definitions with a runtime so DSL
+     * code can call them by name.
      *
-     * @param runtime TODO: describe
+     * @param runtime runtime to receive {@link NodeGraphRuntime#registerFunctionDefs}
      */
     public void registerWith(NodeGraphRuntime runtime) {
         Map<String, PythonParser.FunctionDef> defs = new LinkedHashMap<>();
@@ -156,9 +159,10 @@ public final class SkillLibrary {
     }
 
     /**
-     * Generate the "Available Skills" prompt block for LLM injection.
+     * Generate the "Available Skills" prompt block for LLM injection. Each skill
+     * contributes its signature and description; empty when no skills loaded.
      *
-     * @return TODO: describe
+     * @return markdown-formatted prompt section, or empty string
      */
     public String toPromptBlock() {
         if (skills.isEmpty()) return "";
@@ -171,9 +175,10 @@ public final class SkillLibrary {
     }
 
     /**
-     * Export all skills as DSL function definition text (for inclusion in DSL files).
+     * Export all skills as raw DSL function definition text, ready to prepend to
+     * a generated DSL file so it can call any skill by name.
      *
-     * @return TODO: describe
+     * @return concatenated DSL source (function defs separated by blank lines)
      */
     public String toDslPreamble() {
         StringBuilder sb = new StringBuilder();
@@ -196,17 +201,19 @@ public final class SkillLibrary {
         public final Path sourcePath;
 
         /**
-         * TODO: document {@code Skill}.
+         * Direct field constructor; fields are populated by
+         * {@link SkillLibrary#loadSkillFile} from the metadata header (or
+         * defaults) and the parsed function body.
          *
-         * @param name TODO: describe
-         * @param description TODO: describe
-         * @param technique TODO: describe
-         * @param fitness TODO: describe
-         * @param generation TODO: describe
-         * @param originRun TODO: describe
-         * @param dslCode TODO: describe
-         * @param functionDef TODO: describe
-         * @param sourcePath TODO: describe
+         * @param name        skill name (header {@code name:}, or function-def name)
+         * @param description short prose describing what the skill produces
+         * @param technique   evolution-search-friendly category tag
+         * @param fitness     evaluator score from the run that produced this skill
+         * @param generation  generation index in that run
+         * @param originRun   identifier of the producing run
+         * @param dslCode     full original DSL source (used by {@link #toDslPreamble})
+         * @param functionDef parsed function definition (used by {@link NodeGraphRuntime})
+         * @param sourcePath  filesystem location the skill was loaded from
          */
         public Skill(String name, String description, String technique, float fitness,
                 int generation, String originRun, String dslCode,
@@ -223,9 +230,10 @@ public final class SkillLibrary {
         }
 
         /**
-         * Format for LLM context injection: signature + description.
+         * Format for LLM context injection: signature + description, optionally
+         * appended with fitness and origin run.
          *
-         * @return TODO: describe
+         * @return markdown bullet describing this skill
          */
         public String toPromptBlock() {
             StringBuilder sb = new StringBuilder();

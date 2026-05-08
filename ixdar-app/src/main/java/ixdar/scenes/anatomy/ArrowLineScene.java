@@ -21,14 +21,15 @@ public class ArrowLineScene extends Scene {
     private Segment lineSegment;
 
     /**
-     * TODO: document {@code ArrowLineScene}.
+     * Anatomy demo for a single SDF segment with an arrowhead end-cap.
      */
     public ArrowLineScene() {
         super();
     }
 
     /**
-     * TODO: document {@code initPoints}.
+     * Seed the shell with the two horizontal endpoints used as draggable
+     * line anchors.
      */
     @Override
     public void initPoints() {
@@ -40,7 +41,9 @@ public class ArrowLineScene extends Scene {
     }
 
     /**
-     * TODO: document {@code initGL}.
+     * Build the segment between the two anchor knots, configure stroke
+     * width, navy fill with a blue-white arrow border, and attach the
+     * code pane bound to the segment's SDF shader.
      */
     @Override
     public void initGL() {
@@ -58,7 +61,8 @@ public class ArrowLineScene extends Scene {
     }
 
     /**
-     * TODO: document {@code drawScene}.
+     * Re-apply stroke/colors each frame (so resize/zoom updates take effect)
+     * and draw the segment with a red-to-green gradient body.
      */
     @Override
     public void drawScene() {

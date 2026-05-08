@@ -10,7 +10,7 @@ public class VertexBufferObject {
     private final int id;
 
     /**
-     * TODO: document {@code VertexBufferObject}.
+     * Allocate a new GL buffer name.
      */
     public VertexBufferObject() {
         GL gl = Platforms.gl();
@@ -18,9 +18,9 @@ public class VertexBufferObject {
     }
 
     /**
-     * TODO: document {@code bind}.
+     * Bind this VBO to a GL buffer target.
      *
-     * @param target TODO: describe
+     * @param target buffer binding point (e.g. {@code GL_ARRAY_BUFFER})
      */
     public void bind(int target) {
         GL gl = Platforms.gl();
@@ -28,11 +28,11 @@ public class VertexBufferObject {
     }
 
     /**
-     * TODO: document {@code uploadData}.
+     * Replace the buffer's contents from a direct buffer.
      *
-     * @param target TODO: describe
-     * @param data TODO: describe
-     * @param usage TODO: describe
+     * @param target buffer binding point
+     * @param data source vertex data (already flipped)
+     * @param usage GL usage hint (e.g. {@code GL_STATIC_DRAW})
      */
     public void uploadData(int target, IxBuffer data, int usage) {
         GL gl = Platforms.gl();
@@ -40,11 +40,11 @@ public class VertexBufferObject {
     }
 
     /**
-     * TODO: document {@code uploadData}.
+     * Replace the buffer's contents from a Java float array.
      *
-     * @param target TODO: describe
-     * @param data TODO: describe
-     * @param usage TODO: describe
+     * @param target buffer binding point
+     * @param data source vertex data
+     * @param usage GL usage hint
      */
     public void uploadData(int target, float[] data, int usage) {
         GL gl = Platforms.gl();
@@ -52,11 +52,11 @@ public class VertexBufferObject {
     }
 
     /**
-     * TODO: document {@code uploadData}.
+     * Allocate the buffer with uninitialized contents of the given size.
      *
-     * @param target TODO: describe
-     * @param size TODO: describe
-     * @param usage TODO: describe
+     * @param target buffer binding point
+     * @param size byte size to reserve
+     * @param usage GL usage hint
      */
     public void uploadData(int target, long size, int usage) {
         GL gl = Platforms.gl();
@@ -64,11 +64,11 @@ public class VertexBufferObject {
     }
 
     /**
-     * TODO: document {@code uploadSubData}.
+     * Update a sub-range of the buffer at a byte offset.
      *
-     * @param target TODO: describe
-     * @param offset TODO: describe
-     * @param data TODO: describe
+     * @param target buffer binding point
+     * @param offset byte offset into the buffer
+     * @param data source vertex data (already flipped)
      */
     public void uploadSubData(int target, long offset, IxBuffer data) {
         GL gl = Platforms.gl();
@@ -76,7 +76,7 @@ public class VertexBufferObject {
     }
 
     /**
-     * TODO: document {@code delete}.
+     * Delete this VBO from GL state.
      */
     public void delete() {
         GL gl = Platforms.gl();
@@ -84,9 +84,9 @@ public class VertexBufferObject {
     }
 
     /**
-     * TODO: document {@code getID}.
+     * The GL name for this VBO.
      *
-     * @return TODO: describe
+     * @return GL-assigned buffer id
      */
     public int getID() {
         return id;

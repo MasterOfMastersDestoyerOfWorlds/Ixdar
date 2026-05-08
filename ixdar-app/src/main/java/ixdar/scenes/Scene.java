@@ -17,14 +17,15 @@ public abstract class Scene extends Canvas3D {
     public float SCROLL_SPEED = 10f;
 
     /**
-     * TODO: document {@code Scene}.
+     * Default Scene constructor; defers GL setup to {@link #initGL()}.
      */
     public Scene() {
         super();
     }
 
     /**
-     * TODO: document {@code initGL}.
+     * Initialize the scene: seed editable points, install a framebuffer-sized
+     * pane bounds updater, and frame the 2D camera on the default view.
      */
     @Override
     public void initGL() {
@@ -38,20 +39,23 @@ public abstract class Scene extends Canvas3D {
 
 
     /**
-     * TODO: document {@code initCodePane}.
+     * Attach a {@link ShaderCodePane} that renders {@code shader}'s source
+     * alongside the live SDF rendered by {@code provider}, then re-frame
+     * the 2D camera so the pane lays out correctly.
      *
-     * @param title TODO: describe
-     * @param shader TODO: describe
-     * @param provider TODO: describe
+     * @param title heading shown above the code pane
+     * @param shader shader program whose source is displayed and edited
+     * @param provider drawable bound to the same shader (used for live preview)
      */
     public void initCodePane(String title, ShaderProgram shader, ShaderDrawable provider) {
         codePane = new ShaderCodePane(paneBounds, webViews, SCROLL_SPEED, shader, title, provider, camera2D, this);
-        
+
         camera2D.initCamera(webViews, DEFAULT_VIEW);
     }
 
     /**
-     * TODO: document {@code drawScene}.
+     * Per-frame entry point: draw the UI overlay and reset the 2D camera
+     * to the default view for the next frame.
      */
     public void drawScene() {
         drawUI();
@@ -61,7 +65,8 @@ public abstract class Scene extends Canvas3D {
     }
 
     /**
-     * TODO: document {@code drawUI}.
+     * Draw the scene UI; currently just the optional code pane if one
+     * was attached via {@link #initCodePane}.
      */
     public void drawUI() {
         if (codePane != null) {
@@ -73,9 +78,9 @@ public abstract class Scene extends Canvas3D {
      * Bind automation input via reflection to avoid pulling desktop-only classes
      * into the TeaVM compilation graph. On web, this silently does nothing.
      *
-     * @param platform TODO: describe
-     * @param keys TODO: describe
-     * @param mouse TODO: describe
+     * @param platform current platform whose input callbacks should be bound
+     * @param keys keyboard handler to wire into the platform
+     * @param mouse mouse handler to wire into the platform
      */
     protected static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
         try {

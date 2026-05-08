@@ -2,9 +2,10 @@ package ixdar.platform.file;
 
 public interface FileStringable {
     /**
-     * TODO: document {@code toFileString}.
+     * Serialize this object to a single line suitable for writing into an {@code .ix} solution
+     * file (round-trippable through {@link FileManagement#importFromFile}).
      *
-     * @return TODO: describe
+     * @return the file-format text representation
      */
     public String toFileString();
 }

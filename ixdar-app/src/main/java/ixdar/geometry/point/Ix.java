@@ -10,6 +10,12 @@ import ixdar.common.exceptions.TerminalParseException;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.PointSetPath;
 
+/**
+ * Reference to another {@code .ix} file's point set, exposed on the terminal
+ * as {@code add ix} (also {@code i} / {@code ixdar} / {@code load} /
+ * {@code ld}). On parse the referenced file is loaded and its points become
+ * this collection's points.
+ */
 @GeometryAnnotation(id = "ix")
 public class Ix implements Geometry, PointCollection {
     public static final String IXDAR = "ixdar";
@@ -20,17 +26,17 @@ public class Ix implements Geometry, PointCollection {
     ArrayList<PointND> points;
 
     /**
-     * TODO: document {@code Ix}.
+     * Default reference: loads the {@code djbouti.ix} sample file when realized.
      */
     public Ix() {
         fileName = "djbouti.ix";
     }
 
     /**
-     * TODO: document {@code Ix}.
+     * Build an {@code Ix} reference with a known filename and pre-loaded points.
      *
-     * @param fileName TODO: describe
-     * @param points TODO: describe
+     * @param fileName name of the {@code .ix} file this reference points at
+     * @param points points already loaded from {@code fileName}
      */
     public Ix(String fileName, ArrayList<PointND> points) {
         this.fileName = fileName;
@@ -38,12 +44,13 @@ public class Ix implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parse}.
+     * Convenience that parses the filename arg, loads the file, and returns
+     * just its points.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args full terminal argument array
+     * @param startIdx index of the filename argument
+     * @return points loaded from the referenced file
+     * @throws TerminalParseException if the file cannot be located or read
      */
     public static ArrayList<PointND> parse(String[] args, int startIdx) throws TerminalParseException {
         PointSetPath retTup = parseFull(args, startIdx);
@@ -51,33 +58,35 @@ public class Ix implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parseFull}.
+     * Resolve the filename argument to a test-fixture path and import the
+     * whole {@link PointSetPath} (points plus path data) from it.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args full terminal argument array
+     * @param startIdx index of the filename argument
+     * @return loaded point-set-and-path tuple
+     * @throws TerminalParseException if the underlying file IO fails
      */
     public static PointSetPath parseFull(String[] args, int startIdx) throws TerminalParseException {
         String loadFile = FileManagement.getTestFile(args[startIdx]);
         try{
         PointSetPath retTup = FileManagement.importFromFile(loadFile);
-        
+
         return retTup;
         }
         catch(IOException e){
             throw new TerminalParseException("could not load: "+ loadFile);
         }
-        
+
     }
 
     /**
-     * TODO: document {@code parseIx}.
+     * Parse a full {@code Ix} value, retaining both the filename and the
+     * loaded points.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args full terminal argument array
+     * @param startIdx index of the filename argument
+     * @return populated {@code Ix} reference
+     * @throws TerminalParseException if the file cannot be located or read
      */
     public static Ix parseIx(String[] args, int startIdx) throws TerminalParseException {
         PointSetPath retTup = parseFull(args, startIdx);
@@ -86,12 +95,12 @@ public class Ix implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parseCollection}.
+     * {@link PointCollection} entry point; delegates to {@link #parseIx}.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args full terminal argument array
+     * @param startIdx index of the filename argument
+     * @return parsed reference as a {@link PointCollection}
+     * @throws TerminalParseException if the file cannot be located or read
      */
     @Override
     public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {
@@ -100,9 +109,9 @@ public class Ix implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code minArgLength}.
+     * Minimum CLI args: the filename is required.
      *
-     * @return TODO: describe
+     * @return {@code 1}
      */
     @Override
     public int minArgLength() {
@@ -110,9 +119,9 @@ public class Ix implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code realizePoints}.
+     * Return the points loaded from the referenced file.
      *
-     * @return TODO: describe
+     * @return the previously imported points (not a copy)
      */
     @Override
     public ArrayList<PointND> realizePoints() {
@@ -120,9 +129,9 @@ public class Ix implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code desc}.
+     * Short human-readable description shown in terminal help.
      *
-     * @return TODO: describe
+     * @return description string
      */
     @Override
     public String desc() {
@@ -130,9 +139,9 @@ public class Ix implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code usage}.
+     * Usage hint shown when the command is invoked with bad arguments.
      *
-     * @return TODO: describe
+     * @return single-line usage string
      */
     @Override
     public String usage() {
@@ -140,9 +149,9 @@ public class Ix implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code argLength}.
+     * Required positional arg count for parsing: a single filename.
      *
-     * @return TODO: describe
+     * @return {@code 1}
      */
     @Override
     public int argLength() {
@@ -150,9 +159,10 @@ public class Ix implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code options}.
+     * Aliases the terminal accepts for this geometry ({@code i}, {@code ix},
+     * {@code ixdar}, {@code load}, {@code ld}).
      *
-     * @return TODO: describe
+     * @return shared option list
      */
     @Override
     public OptionList options() {
@@ -160,9 +170,9 @@ public class Ix implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code toFileString}.
+     * Serialize this reference to its {@code .ix} file representation.
      *
-     * @return TODO: describe
+     * @return {@code "IX <fileName>"}
      */
     @Override
     public String toFileString() {
@@ -170,9 +180,9 @@ public class Ix implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code fullName}.
+     * Long terminal name for this geometry.
      *
-     * @return TODO: describe
+     * @return {@value #IXDAR}
      */
     @Override
     public String fullName() {
@@ -180,9 +190,9 @@ public class Ix implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code shortName}.
+     * CLI shorthand for this geometry, matching the {@code @GeometryAnnotation} id.
      *
-     * @return TODO: describe
+     * @return {@code "ix"}
      */
     @Override
     public String shortName() {

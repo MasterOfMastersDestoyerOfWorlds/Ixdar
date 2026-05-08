@@ -67,16 +67,20 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private boolean loaded = false;
 
     /**
-     * TODO: document {@code ShaderCodePane}.
+     * Wire this pane up: resolve the target shader (preferring {@code shader}, falling back
+     * to {@code provider}'s shader, then to the font shader), install resize callbacks that
+     * snap the view to half-width when code is shown and full-width when hidden, register
+     * the pane bounds in {@code webViews}, build the show/hide button plus FPS/mouse readout,
+     * and subscribe to scroll and click events through {@link MouseTrap}.
      *
-     * @param parentBounds TODO: describe
-     * @param webViews TODO: describe
-     * @param scrollSpeed TODO: describe
-     * @param shader TODO: describe
-     * @param title TODO: describe
-     * @param provider TODO: describe
-     * @param camera TODO: describe
-     * @param canvas TODO: describe
+     * @param parentBounds host region that the pane lays itself out within
+     * @param webViews registry of named bounds keyed by view id; this pane registers itself
+     * @param scrollSpeed pixels-per-second factor applied during {@link #onScroll}
+     * @param shader explicit shader to introspect, or {@code null} to fall back to {@code provider}
+     * @param title human-readable label (defaults to {@code "Shader"} when {@code null})
+     * @param provider runtime uniform/quad supplier used by mouse-driven evaluation
+     * @param camera 2D camera whose views are refreshed when the pane resizes
+     * @param canvas 3D canvas whose mouse state drives the live preview
      */
     public ShaderCodePane(Bounds parentBounds, Map<String, Bounds> webViews, float scrollSpeed, ShaderProgram shader,
             String title,
@@ -283,9 +287,11 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Render the pane: lazy-load the shader source on first call, draw the colourised
+     * code lines under the pane view, draw the show/hide button plus readouts under the
+     * parent view, and overlay a cyan crosshair when the live-preview lock is active.
      *
-     * @param camera TODO: describe
+     * @param camera 2D camera supplying the view transforms for both bounds
      */
     public void draw(Camera2D camera) {
         if (!loaded) {
@@ -344,10 +350,11 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code onScroll}.
+     * Adjust {@link #scrollOffsetY} in response to a scroll-wheel tick: scroll up clamps
+     * at zero, scroll down only advances while the cached last-word is still off-screen.
      *
-     * @param scrollUp TODO: describe
-     * @param deltaSeconds TODO: describe
+     * @param scrollUp {@code true} when scrolling upward (towards earlier code)
+     * @param deltaSeconds frame delta used to scale {@link #scrollSpeed}
      */
     @Override
     public void onScroll(boolean scrollUp, double deltaSeconds) {
@@ -365,9 +372,10 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * TODO: document {@code getBounds}.
+     * Bounds of the pane's drawing region (the right-hand half of the framebuffer when
+     * code is shown, zero width when hidden).
      *
-     * @return TODO: describe
+     * @return the pane's {@link Bounds} instance
      */
     public Bounds getBounds() {
         return paneBounds;

@@ -20,13 +20,14 @@ public class GLSLParseText extends ColorText<Vector4f> {
     int vectorLength;
 
     /**
-     * TODO: document {@code GLSLParseText}.
+     * Primary constructor: store text/color/data and re-render the colored token
+     * stream from the vector value when {@code 1 <= vectorLength <= 4}.
      *
-     * @param text TODO: describe
-     * @param color TODO: describe
-     * @param data TODO: describe
-     * @param vectorLength TODO: describe
-     * @param key TODO: describe
+     * @param text plain initial label (overwritten by the vector renderer)
+     * @param color fallback color for the initial label
+     * @param data vector value, accessed up to {@code vectorLength} components
+     * @param vectorLength 1..4 to render as scalar/vec; values outside skip rendering
+     * @param key environment binding name for this token
      */
     public GLSLParseText(String text, Color color, Vector4f data, int vectorLength, String key) {
         super(text, color, data);
@@ -36,35 +37,36 @@ public class GLSLParseText extends ColorText<Vector4f> {
     }
 
     /**
-     * TODO: document {@code GLSLParseText}.
+     * Convenience overload that defaults the data vector to {@code new Vector4f()}.
      *
-     * @param text TODO: describe
-     * @param color TODO: describe
-     * @param vectorLength TODO: describe
-     * @param key TODO: describe
+     * @param text plain initial label
+     * @param color fallback color for the initial label
+     * @param vectorLength 1..4 to render as scalar/vec; values outside skip rendering
+     * @param key environment binding name for this token
      */
     public GLSLParseText(String text, Color color, int vectorLength, String key) {
         this(text, color, new Vector4f(), vectorLength, key);
     }
 
     /**
-     * TODO: document {@code GLSLParseText}.
+     * Convenience overload that defaults color to {@link Color#BLUE_WHITE} and
+     * data to {@code new Vector4f()}.
      *
-     * @param text TODO: describe
-     * @param vectorLength TODO: describe
-     * @param key TODO: describe
+     * @param text plain initial label
+     * @param vectorLength 1..4 to render as scalar/vec; values outside skip rendering
+     * @param key environment binding name for this token
      */
     public GLSLParseText(String text, int vectorLength, String key) {
         this(text, Color.BLUE_WHITE, new Vector4f(), vectorLength, key);
     }
 
     /**
-     * TODO: document {@code GLSLParseText}.
+     * Convenience overload that defaults color to {@link Color#BLUE_WHITE}.
      *
-     * @param text TODO: describe
-     * @param data TODO: describe
-     * @param vectorLength TODO: describe
-     * @param key TODO: describe
+     * @param text plain initial label
+     * @param data vector value, accessed up to {@code vectorLength} components
+     * @param vectorLength 1..4 to render as scalar/vec; values outside skip rendering
+     * @param key environment binding name for this token
      */
     public GLSLParseText(String text, Vector4f data, int vectorLength, String key) {
         this(text, Color.BLUE_WHITE, data, vectorLength, key);
@@ -78,77 +80,77 @@ public class GLSLParseText extends ColorText<Vector4f> {
     }
 
     /**
-     * TODO: document {@code GLSLParseText}.
+     * Empty token; fields are populated later (used as a builder for {@link #join}).
      */
     public GLSLParseText() {
         super();
     }
 
     /**
-     * TODO: document {@code GLSLParseText}.
+     * Convenience overload that uses {@code text} as both label and binding key.
      *
-     * @param text TODO: describe
-     * @param color TODO: describe
-     * @param vectorLength TODO: describe
+     * @param text plain initial label, also used as the environment key
+     * @param color fallback color for the initial label
+     * @param vectorLength 1..4 to render as scalar/vec; values outside skip rendering
      */
     public GLSLParseText(String text, Color color, int vectorLength) {
         this(text, color, new Vector4f(), vectorLength, text);
     }
 
     /**
-     * TODO: document {@code GLSLParseText}.
+     * Build a labeled scalar token with the float value packed into x.
      *
-     * @param text TODO: describe
-     * @param val TODO: describe
+     * @param text plain initial label
+     * @param val scalar value stored at component x
      */
     public GLSLParseText(String text, Float val) {
         this(text, Color.BLUE_WHITE, new Vector4f(val, NUM_0, NUM_0, NUM_0), 1, "");
     }
 
     /**
-     * TODO: document {@code GLSLParseText}.
+     * Build an unlabeled scalar token with the float value packed into x.
      *
-     * @param val TODO: describe
+     * @param val scalar value stored at component x
      */
     public GLSLParseText(Float val) {
         this("", Color.BLUE_WHITE, new Vector4f(val, NUM_0, NUM_0, NUM_0), 1, "");
     }
 
     /**
-     * TODO: document {@code GLSLParseText}.
+     * Build a non-vector token (no data) with an explicit binding key.
      *
-     * @param text TODO: describe
-     * @param key TODO: describe
+     * @param text plain label
+     * @param key environment binding name for this token
      */
     public GLSLParseText(String text, String key) {
         this(text, Color.BLUE_WHITE, null, -1, key);
     }
 
     /**
-     * TODO: document {@code GLSLParseText}.
+     * Build a plain label-only token with no vector data and no binding key.
      *
-     * @param text TODO: describe
+     * @param text plain label
      */
     public GLSLParseText(String text) {
         this(text, Color.BLUE_WHITE, null, -1, null);
     }
 
     /**
-     * TODO: document {@code GLSLParseText}.
+     * Build a plain colored label-only token with no vector data.
      *
-     * @param text TODO: describe
-     * @param color TODO: describe
+     * @param text plain label
+     * @param color color for the label
      */
     public GLSLParseText(String text, Color color) {
         this(text, color, null, -1, null);
     }
 
     /**
-     * TODO: document {@code GLSLParseText}.
+     * Convenience overload with default color and no binding key.
      *
-     * @param text TODO: describe
-     * @param vec TODO: describe
-     * @param vectorLength TODO: describe
+     * @param text plain initial label
+     * @param vec vector value, accessed up to {@code vectorLength} components
+     * @param vectorLength 1..4 to render as scalar/vec; values outside skip rendering
      */
     public GLSLParseText(String text, Vector4f vec, int vectorLength) {
         this(text, Color.BLUE_WHITE, vec, vectorLength, null);
@@ -176,10 +178,11 @@ public class GLSLParseText extends ColorText<Vector4f> {
     }
 
     /**
-     * TODO: document {@code join}.
+     * Concatenate {@code v}'s text/color streams onto a copy of this token's
+     * streams; data, key, and the larger of the two vector lengths are kept.
      *
-     * @param v TODO: describe
-     * @return TODO: describe
+     * @param v token whose tokens to append
+     * @return new combined token
      */
     public GLSLParseText join(GLSLParseText v) {
         GLSLParseText result = new GLSLParseText();
@@ -194,10 +197,11 @@ public class GLSLParseText extends ColorText<Vector4f> {
     }
 
     /**
-     * TODO: document {@code formatFixed}.
+     * Render a float with exactly two fractional digits, padding or truncating as
+     * needed (no scientific notation).
      *
-     * @param val TODO: describe
-     * @return TODO: describe
+     * @param val value to format
+     * @return string with exactly two digits after the decimal point
      */
     public static String formatFixed(Float val) {
         int digits = 2;
@@ -226,11 +230,12 @@ public class GLSLParseText extends ColorText<Vector4f> {
     }
 
     /**
-     * TODO: document {@code put}.
+     * Bind {@code var} in {@code env} to a token whose vector packs the given
+     * components; 1 component yields a scalar, 2..4 yield a colored vec literal.
      *
-     * @param env TODO: describe
-     * @param var TODO: describe
-     * @param dv TODO: describe
+     * @param env environment map to mutate
+     * @param var variable name to bind
+     * @param dv 1..4 component values, in xyzw order
      */
     public static void put(Map<String, GLSLParseText> env, String var, Float... dv) {
         if (dv == null || dv.length == 0) {
@@ -252,11 +257,13 @@ public class GLSLParseText extends ColorText<Vector4f> {
     }
 
     /**
-     * TODO: document {@code putVec}.
+     * Concatenate the components of each entry in {@code dv} (up to 4 floats total)
+     * and bind the result via {@link #put}. Aborts silently if the combined length
+     * exceeds 4 or any entry has an invalid {@code vectorLength}.
      *
-     * @param env TODO: describe
-     * @param var TODO: describe
-     * @param dv TODO: describe
+     * @param env environment map to mutate
+     * @param var variable name to bind
+     * @param dv ordered list of scalar/vector tokens whose components are packed
      */
     public static void putVec(Map<String, GLSLParseText> env, String var, ArrayList<GLSLParseText> dv) {
         Float[] data = new Float[NUM_4];

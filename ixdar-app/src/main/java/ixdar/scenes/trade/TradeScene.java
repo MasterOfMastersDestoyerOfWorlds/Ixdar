@@ -72,10 +72,12 @@ public class TradeScene {
     private TradeMouseTrap mouse;
 
     /**
-     * TODO: document {@code TradeScene}.
+     * Build a trade scene around {@code network}: derive the camera's
+     * point set from its cities, instantiate the HQ-picker and route-
+     * planning tools, and wire input handlers.
      *
-     * @param network TODO: describe
-     * @param canvas TODO: describe
+     * @param network city network containing cities and roads
+     * @param canvas backing 3D canvas used for input dispatch
      */
     public TradeScene(CityNetwork network, Canvas3D canvas) {
         this.network = network;
@@ -142,7 +144,7 @@ public class TradeScene {
     /**
      * Activate or deactivate this scene's input handlers.
      *
-     * @param state TODO: describe
+     * @param state true to take input focus, false to release it back to the canvas
      */
     public void activate(boolean state) {
         if (state) {
@@ -160,7 +162,7 @@ public class TradeScene {
     /**
      * Main draw loop.
      *
-     * @param camera3D TODO: describe
+     * @param camera3D outer 3D camera whose z-index is shared with the 2D camera
      */
     public void draw(Camera camera3D) {
         try {
@@ -207,8 +209,8 @@ public class TradeScene {
     /**
      * Draw the top bar HUD (placeholder for TRADE-11).
      *
-     * @param wWidth TODO: describe
-     * @param wHeight TODO: describe
+     * @param wWidth current window width in pixels
+     * @param wHeight current window height in pixels
      */
     private void drawTopBar(int wWidth, int wHeight) {
         // TODO: Implement in TRADE-11
@@ -252,18 +254,18 @@ public class TradeScene {
     }
 
     /**
-     * TODO: document {@code getKeys}.
+     * Keyboard input handler for this scene.
      *
-     * @return TODO: describe
+     * @return the trade-specific key handler
      */
     public TradeKeyGuy getKeys() {
         return keys;
     }
 
     /**
-     * TODO: document {@code getMouse}.
+     * Mouse input handler for this scene.
      *
-     * @return TODO: describe
+     * @return the trade-specific mouse handler
      */
     public TradeMouseTrap getMouse() {
         return mouse;
@@ -341,9 +343,9 @@ public class TradeScene {
     // Static tooltip methods
 
     /**
-     * TODO: document {@code setTooltipText}.
+     * Show a floating tooltip with the given text on the next frame.
      *
-     * @param tip TODO: describe
+     * @param tip formatted tooltip body
      */
     public static void setTooltipText(HyperString tip) {
         toolTip = tip;
@@ -351,7 +353,7 @@ public class TradeScene {
     }
 
     /**
-     * TODO: document {@code clearTooltipText}.
+     * Hide the floating tooltip and clear its text.
      */
     public static void clearTooltipText() {
         toolTip = null;
@@ -359,18 +361,18 @@ public class TradeScene {
     }
 
     /**
-     * TODO: document {@code getToolTip}.
+     * Current tooltip body, or {@code null} when no tooltip is set.
      *
-     * @return TODO: describe
+     * @return the tooltip text, or null
      */
     public static HyperString getToolTip() {
         return toolTip;
     }
 
     /**
-     * TODO: document {@code isToolTipVisible}.
+     * Whether the tooltip should be drawn this frame.
      *
-     * @return TODO: describe
+     * @return true if a tooltip is set and visible
      */
     public static boolean isToolTipVisible() {
         return showToolTip;

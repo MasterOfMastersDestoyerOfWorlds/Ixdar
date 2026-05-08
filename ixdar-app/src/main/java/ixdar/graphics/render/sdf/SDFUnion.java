@@ -24,18 +24,19 @@ public class SDFUnion extends ShaderDrawable {
     public float showPin;
 
     /**
-     * TODO: document {@code SDFUnion}.
+     * Asynchronously load inner and outer MSDF textures and configure the
+     * union shader (used by knot pin / colored-shape composites).
      *
-     * @param sdfInnerLocation TODO: describe
-     * @param innerColor TODO: describe
-     * @param innerScale TODO: describe
-     * @param innerOffsetX TODO: describe
-     * @param innerOffsetY TODO: describe
-     * @param sdfOuterLocation TODO: describe
-     * @param outerColor TODO: describe
-     * @param alpha TODO: describe
-     * @param numberPinStripes TODO: describe
-     * @param showPin TODO: describe
+     * @param sdfInnerLocation resource path to the inner MSDF texture
+     * @param innerColor inner-shape color (alpha-multiplied)
+     * @param innerScale uniform scale applied to the inner shape (1/scale in shader)
+     * @param innerOffsetX inner-shape x offset in texture space
+     * @param innerOffsetY inner-shape y offset in texture space
+     * @param sdfOuterLocation resource path to the outer MSDF texture
+     * @param outerColor outer-shape color (alpha-multiplied)
+     * @param alpha alpha applied uniformly to inner and outer colors
+     * @param numberPinStripes pin-stripe count uniform
+     * @param showPin pin-visibility uniform (0 hides, 1 shows)
      */
     public SDFUnion(String sdfInnerLocation, Color innerColor, float innerScale,
             float innerOffsetX, float innerOffsetY, String sdfOuterLocation, Color outerColor, float alpha,
@@ -58,15 +59,15 @@ public class SDFUnion extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Draw the inner+outer composite into the given rectangle.
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param innerColor TODO: describe
-     * @param outerColor TODO: describe
-     * @param camera TODO: describe
+     * @param drawX bottom-left x in world coordinates
+     * @param drawY bottom-left y in world coordinates
+     * @param width quad width in world units
+     * @param height quad height in world units
+     * @param innerColor inner-shape tint
+     * @param outerColor outer-shape tint
+     * @param camera camera providing transform and z-index
      */
     public void draw(float drawX, float drawY, float width, float height, Color innerColor,
             Color outerColor, Camera camera) {
@@ -74,16 +75,16 @@ public class SDFUnion extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Draw the inner+outer composite using the outer texture's atlas region.
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param innerColor TODO: describe
-     * @param outerColor TODO: describe
-     * @param id TODO: describe
-     * @param camera TODO: describe
+     * @param drawX bottom-left x in world coordinates
+     * @param drawY bottom-left y in world coordinates
+     * @param width quad width in world units
+     * @param height quad height in world units
+     * @param innerColor inner-shape tint (passed as the vertex color)
+     * @param outerColor outer-shape tint (cached as border color)
+     * @param id legacy allocation id (currently unused)
+     * @param camera camera providing transform and z-index
      */
     public void draw(float drawX, float drawY, float width, float height, Color innerColor,
             Color outerColor, long id, Camera camera) {
@@ -96,7 +97,8 @@ public class SDFUnion extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setUniforms}.
+     * Bind both atlases to texture units 0 and 1 and push inner/outer scale,
+     * offset, border color, and pin-stripe uniforms.
      */
     protected void setUniforms() {
         if (innerTexture == null || outerTexture == null) {
@@ -117,14 +119,15 @@ public class SDFUnion extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code drawCentered}.
+     * Draw the composite centered on {@code (drawX, drawY)} sized as
+     * {@code outerTexture.width/height * scale}.
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param scale TODO: describe
-     * @param innerColor TODO: describe
-     * @param outerColor TODO: describe
-     * @param camera TODO: describe
+     * @param drawX center x in world coordinates
+     * @param drawY center y in world coordinates
+     * @param scale uniform scale applied to the outer-texture pixel size
+     * @param innerColor inner-shape tint
+     * @param outerColor outer-shape tint
+     * @param camera camera providing transform and z-index
      */
     public void drawCentered(float drawX, float drawY, float scale, Color innerColor, Color outerColor, Camera camera) {
         float width = (float) (outerTexture.width * scale);
@@ -134,12 +137,12 @@ public class SDFUnion extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code drawCentered}.
+     * Draw the composite centered using the previously-configured colors.
      *
-     * @param drawX TODO: describe
-     * @param drawY TODO: describe
-     * @param scale TODO: describe
-     * @param camera TODO: describe
+     * @param drawX center x in world coordinates
+     * @param drawY center y in world coordinates
+     * @param scale uniform scale applied to the outer-texture pixel size
+     * @param camera camera providing transform and z-index
      */
     public void drawCentered(float drawX, float drawY, float scale, Camera camera) {
         float width = (float) (outerTexture.width * scale);

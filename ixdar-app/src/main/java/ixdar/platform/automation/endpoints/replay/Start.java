@@ -16,11 +16,15 @@ public class Start extends AutomationEndpoint implements AutomationRoute {
     public static final String MODE = "mode";
     public static final String OK = "ok";
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code POST /replay/start}: launch a replay from a previously saved recording.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body JSON body with {@code file} (path to the recording, required) and
+     *             optional {@code mode} ({@code "raw"} or {@code "abstract"};
+     *             defaults to {@code "abstract"})
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return {@code {"ok": <started>, "mode": <selected>}} where {@code ok} is
+     *         {@code false} when a replay is already running, or an error object on
+     *         unexpected failure
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {

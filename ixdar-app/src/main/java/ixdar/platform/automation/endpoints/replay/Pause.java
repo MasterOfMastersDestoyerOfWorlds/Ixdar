@@ -14,11 +14,13 @@ public class Pause extends AutomationEndpoint implements AutomationRoute {
     public static final String OK = "ok";
 
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code POST /replay/pause}: ask the replay engine to suspend before the next
+     * event. No-op when no replay is running.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body request body (unused)
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return {@code {"ok": true, "paused": true}}, or {@code {"ok": false, "error":
+     *         <message>}} on unexpected failure
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {

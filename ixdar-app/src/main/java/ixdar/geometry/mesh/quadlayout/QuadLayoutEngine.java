@@ -63,11 +63,14 @@ public final class QuadLayoutEngine {
             """;
 
     /**
-     * TODO: document {@code pipeline}.
+     * Run the Lyon 2021 quad-layout pipeline on {@code mesh}. Currently builds
+     * stage 1 only (cross field + singularities); the remaining stages
+     * (seamless parametrization, motorcycle T-mesh, ILP quantization, layout
+     * extraction) are scaffolded but commented out.
      *
-     * @param mesh TODO: describe
-     * @param alpha TODO: describe
-     * @return TODO: describe
+     * @param mesh   triangle mesh, manifold, possibly with boundary
+     * @param alpha  maximum separatrix deviation in radians (e.g. 5°…45°)
+     * @return the cross field built on {@code mesh}
      */
     public static CrossField pipeline(HalfEdgeMesh mesh, float alpha) {
         CrossField crossField = new CrossField(mesh).build();

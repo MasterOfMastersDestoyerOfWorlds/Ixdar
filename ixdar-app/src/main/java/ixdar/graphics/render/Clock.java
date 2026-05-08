@@ -1,5 +1,10 @@
 package ixdar.graphics.render;
 
+/**
+ * Wall-clock helpers for the renderer: monotonic time, frame deltas, and
+ * driver functions (sine oscillation, modulo "spin", FPS counter) used by
+ * shaders and animations across the graphics layer.
+ */
 public class Clock {
     public static final double NUM_1000_0 = 1000.0;
     public static final float NUM_2 = 2f;
@@ -22,24 +27,26 @@ public class Clock {
     static int samples;
 
     /**
-     * TODO: document {@code oscillate}.
+     * Double-precision overload of {@link #oscillate(float, float, float)}.
      *
-     * @param offset TODO: describe
-     * @param range TODO: describe
-     * @param radsPerSecond TODO: describe
-     * @return TODO: describe
+     * @param offset value at the bottom of the swing
+     * @param range peak-to-peak amplitude
+     * @param radsPerSecond angular frequency
+     * @return offset plus a cosine-shifted sine in [0, range]
      */
     public static float oscillate(double offset, double range, double radsPerSecond) {
         return oscillate((float) offset, (float) range, (float) radsPerSecond);
     }
 
     /**
-     * TODO: document {@code oscillate}.
+     * Sample a sine wave that swings from {@code offset} to
+     * {@code offset + range} at the given angular frequency, anchored to
+     * Clock startup time.
      *
-     * @param offset TODO: describe
-     * @param range TODO: describe
-     * @param radsPerSecond TODO: describe
-     * @return TODO: describe
+     * @param offset value at the bottom of the swing
+     * @param range peak-to-peak amplitude
+     * @param radsPerSecond angular frequency
+     * @return offset plus a cosine-shifted sine in [0, range]
      */
     public static float oscillate(float offset, float range, float radsPerSecond) {
         double timeSeconds = (((double) System.currentTimeMillis()) / NUM_1000_0) - startTimeSeconds;
@@ -47,10 +54,11 @@ public class Clock {
     }
 
     /**
-     * TODO: document {@code spin}.
+     * Monotonic angular position modulo 2pi at the given rate, anchored to
+     * Clock startup time.
      *
-     * @param radsPerSecond TODO: describe
-     * @return TODO: describe
+     * @param radsPerSecond angular rate
+     * @return current angle in radians, wrapped to [0, 2pi)
      */
     public static float spin(float radsPerSecond) {
         double timeSeconds = (((double) System.currentTimeMillis()) / NUM_1000_0) - startTimeSeconds;
@@ -59,11 +67,11 @@ public class Clock {
     }
 
     /**
-     * TODO: document {@code spin}.
+     * {@link #spin(float)} mapped onto a [0, range) sawtooth.
      *
-     * @param radsPerSecond TODO: describe
-     * @param range TODO: describe
-     * @return TODO: describe
+     * @param radsPerSecond angular rate
+     * @param range output amplitude
+     * @return current sawtooth phase in [0, range)
      */
     public static float spin(float radsPerSecond, float range) {
         double timeSeconds = (((double) System.currentTimeMillis()) / NUM_1000_0) - startTimeSeconds;
@@ -72,12 +80,12 @@ public class Clock {
     }
 
     /**
-     * TODO: document {@code spin}.
+     * {@link #spin(float, float)} shifted by {@code offset}.
      *
-     * @param radsPerSecond TODO: describe
-     * @param range TODO: describe
-     * @param offset TODO: describe
-     * @return TODO: describe
+     * @param radsPerSecond angular rate
+     * @param range output amplitude
+     * @param offset additive bias
+     * @return offset plus current sawtooth phase in [0, range)
      */
     public static float spin(float radsPerSecond, float range, float offset) {
         double timeSeconds = (((double) System.currentTimeMillis()) / NUM_1000_0) - startTimeSeconds;
@@ -85,10 +93,11 @@ public class Clock {
     }
 
     /**
-     * TODO: document {@code spinTick}.
+     * Variant of {@link #spin(float)} quantized to whole-second ticks.
+     * Useful for blink-style animations.
      *
-     * @param radsPerSecond TODO: describe
-     * @return TODO: describe
+     * @param radsPerSecond angular rate
+     * @return current angle in radians, wrapped to [0, TAU), advancing once per second
      */
     public static float spinTick(float radsPerSecond) {
         double time = System.currentTimeMillis();
@@ -98,9 +107,10 @@ public class Clock {
     }
 
     /**
-     * TODO: document {@code time}.
+     * Monotonic seconds elapsed since Clock startup, computed from
+     * {@link System#nanoTime()}.
      *
-     * @return TODO: describe
+     * @return seconds since startup as a float
      */
     public static float time() {
         double timeSeconds = ((double) (System.nanoTime() - startTimeNanoSeconds) / NUM_1000000000_0);
@@ -108,7 +118,9 @@ public class Clock {
     }
 
     /**
-     * TODO: document {@code frameRendered}.
+     * Mark the end of a rendered frame. Shifts the previous frame timestamp
+     * into the prior slot so deltaTime reports the elapsed gap, and advances
+     * the modulo-60 frame counter.
      */
     public static void frameRendered() {
         lastFrameDouble2 = lastFrameDouble;

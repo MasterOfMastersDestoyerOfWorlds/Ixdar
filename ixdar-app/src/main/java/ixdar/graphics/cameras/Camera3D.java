@@ -10,6 +10,13 @@ import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
 
+/**
+ * Perspective 3D first-person camera. Holds position plus yaw/pitch and
+ * derives front/right/up basis vectors and a JOML look-at view matrix.
+ * Supports orbit, drag-rotate, mouse-look, WASD movement, and fov-based
+ * scroll zoom; many of the {@link Camera} 2D-only hooks throw
+ * {@link UnsupportedOperationException}.
+ */
 public class Camera3D implements Camera {
     public static final String UNIMPLEMENTED_METHOD_SCREENTRANSFORMX = "Unimplemented method 'screenTransformX'";
     public static final String UNIMPLEMENTED_METHOD_SCREENTRANSFORMY = "Unimplemented method 'screenTransformY'";
@@ -41,12 +48,14 @@ public class Camera3D implements Camera {
     private float zIndex;
     private float farZIndex;
     /**
-     * TODO: document {@code Camera3D}.
+     * Construct a camera at {@code position} looking in the direction given
+     * by yaw/pitch (degrees). Builds the initial front/right/up basis and
+     * view matrix and stores yaw/pitch as the reset target.
      *
-     * @param position TODO: describe
-     * @param yaw TODO: describe
-     * @param pitch TODO: describe
-     * @param canvas TODO: describe
+     * @param position world-space camera position
+     * @param yaw initial yaw in degrees (rotation around world up)
+     * @param pitch initial pitch in degrees (rotation around right axis)
+     * @param canvas owning 3D canvas, used by host wiring
      */
     public Camera3D(Vector3f position, float yaw, float pitch, Canvas3D canvas) {
         this.position = position;
@@ -70,17 +79,18 @@ public class Camera3D implements Camera {
     /**
      * Units-per-second the camera travels when {@link #move(Direction)} is called.
      *
-     * @param speed TODO: describe
+     * @param speed translation speed in world units per second
      */
     public void setMovementSpeed(float speed) {
         this.movementSpeed = speed;
     }
 
     /**
-     * TODO: document {@code orbit}.
+     * Continuously orbit the camera around {@code target} at the given radius
+     * and angular rate, keeping target.y as the orbit-plane height.
      *
-     * @param radius TODO: describe
-     * @param radsPerSecond TODO: describe
+     * @param radius orbital radius in world units
+     * @param radsPerSecond angular speed in radians per second
      */
     public void orbit(float radius, float radsPerSecond) {
 
@@ -90,7 +100,8 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code updateViewFirstPerson}.
+     * Rebuild the look-at view matrix from the current position, target,
+     * and up vector for first-person rendering.
      */
     public void updateViewFirstPerson() {
         view.set(new Matrix4f()).lookAt(position, target, up);
@@ -129,7 +140,8 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code reset}.
+     * Restore yaw and pitch to the values supplied at construction. Position
+     * is left untouched.
      */
     @Override
     public void reset() {
@@ -138,9 +150,10 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code move}.
+     * Translate the camera one frame's worth along the front or right axis
+     * scaled by movement speed, then rebuild the basis.
      *
-     * @param direction TODO: describe
+     * @param direction cardinal direction to move
      */
     @Override
     public void move(Direction direction) {
@@ -157,9 +170,9 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code setShiftMod}.
+     * Set the multiplier applied to zoom rate while shift is held.
      *
-     * @param SHIFT_MOD TODO: describe
+     * @param SHIFT_MOD multiplier to install
      */
     @Override
     public void setShiftMod(float SHIFT_MOD) {
@@ -167,10 +180,11 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code onScroll}.
+     * Scroll-zoom by widening or narrowing the field of view, clamped to
+     * [1°, 45°].
      *
-     * @param b TODO: describe
-     * @param delta TODO: describe
+     * @param b true to widen fov, false to narrow
+     * @param delta wheel notch magnitude (units of 100)
      */
     @Override
     public void onScroll(boolean b, double delta) {
@@ -192,10 +206,11 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code drag}.
+     * Apply a mouse drag as direct yaw/pitch deltas in degrees and rebuild
+     * the basis vectors.
      *
-     * @param d TODO: describe
-     * @param e TODO: describe
+     * @param d delta yaw in degrees
+     * @param e delta pitch in degrees
      */
     @Override
     public void drag(float d, float e) {
@@ -207,8 +222,8 @@ public class Camera3D implements Camera {
     /**
      * Sets yaw and pitch directly and rebuilds derived front/right/up/target vectors.
      *
-     * @param yawDegrees TODO: describe
-     * @param pitchDegrees TODO: describe
+     * @param yawDegrees absolute yaw in degrees
+     * @param pitchDegrees absolute pitch in degrees, clamped to [-89, 89]
      */
     public void setOrientation(float yawDegrees, float pitchDegrees) {
         this.yaw = yawDegrees;
@@ -217,9 +232,7 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code getScaleFactor}.
-     *
-     * @return TODO: describe
+     * @return the constant 1; 3D cameras do not scale via point-space zoom
      */
     @Override
     public float getScaleFactor() {
@@ -227,12 +240,14 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code mouseMove}.
+     * Mouse-look update: convert the cursor delta into yaw/pitch (with a
+     * sensitivity of 0.1°/pixel), clamp pitch to [-89, 89], and rebuild
+     * basis vectors.
      *
-     * @param lastX TODO: describe
-     * @param lastY TODO: describe
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param lastX previous cursor x
+     * @param lastY previous cursor y
+     * @param x current cursor x
+     * @param y current cursor y
      */
     @Override
     public void mouseMove(float lastX, float lastY, float x, float y) {
@@ -258,10 +273,10 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code getNormalizePosX}.
+     * Normalize a window-space cursor x to framebuffer space for HiDPI scaling.
      *
-     * @param xPos TODO: describe
-     * @return TODO: describe
+     * @param xPos window-space cursor x
+     * @return framebuffer-space x
      */
     @Override
     public float getNormalizePosX(float xPos) {
@@ -269,10 +284,11 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code getNormalizePosY}.
+     * Flip a window-space cursor y to framebuffer space (bottom-origin)
+     * with HiDPI scaling.
      *
-     * @param yPos TODO: describe
-     * @return TODO: describe
+     * @param yPos window-space cursor y
+     * @return framebuffer-space y
      */
     @Override
     public float getNormalizePosY(float yPos) {
@@ -280,7 +296,8 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code incZIndex}.
+     * Advance the ortho z-index by one increment. Used by the shared 2D
+     * overlay path on top of the 3D scene.
      */
     @Override
     public void incZIndex() {
@@ -288,9 +305,9 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code addZIndex}.
+     * Add an arbitrary delta to the ortho z-index.
      *
-     * @param diff TODO: describe
+     * @param diff signed z-index increment
      */
     @Override
     public void addZIndex(float diff) {
@@ -298,9 +315,9 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code setZIndex}.
+     * Step this camera's ortho z-index past {@code camera}'s.
      *
-     * @param camera TODO: describe
+     * @param camera reference camera whose z-index defines the baseline
      */
     @Override
     public void setZIndex(Camera camera) {
@@ -308,9 +325,7 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code getZIndex}.
-     *
-     * @return TODO: describe
+     * @return the current ortho z-index
      */
     @Override
     public float getZIndex() {
@@ -318,7 +333,8 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code resetZIndex}.
+     * Reset z-index to zero and far-z cursor near the near plane for the
+     * start of a frame.
      */
     @Override
     public void resetZIndex() {
@@ -327,7 +343,7 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code decFarZIndex}.
+     * Step the far-z cursor away from the near plane by one ortho-z increment.
      */
     @Override
     public void decFarZIndex() {
@@ -335,9 +351,7 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code getFarZIndex}.
-     *
-     * @return TODO: describe
+     * @return current depth used by the descending far-z cursor
      */
     @Override
     public float getFarZIndex() {
@@ -345,10 +359,11 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code calculateCameraTransform}.
+     * Unsupported in 3D: framing is driven by direct {@link #position} /
+     * {@link #target} writes, not by point-set bounds.
      *
-     * @param ps TODO: describe
-     * @throws UnsupportedOperationException TODO: describe
+     * @param ps point set (ignored)
+     * @throws UnsupportedOperationException always
      */
     @Override
     public void calculateCameraTransform(PointSet ps) {
@@ -356,11 +371,12 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code screenTransformX}.
+     * Unsupported in 3D: there is no single inverse-projection transform
+     * available without a depth value.
      *
-     * @param normalizedPosX TODO: describe
-     * @throws UnsupportedOperationException TODO: describe
-     * @return TODO: describe
+     * @param normalizedPosX framebuffer-space x (ignored)
+     * @throws UnsupportedOperationException always
+     * @return never returns
      */
     @Override
     public float screenTransformX(float normalizedPosX) {
@@ -368,11 +384,12 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code screenTransformY}.
+     * Unsupported in 3D: there is no single inverse-projection transform
+     * available without a depth value.
      *
-     * @param normalizedPosY TODO: describe
-     * @throws UnsupportedOperationException TODO: describe
-     * @return TODO: describe
+     * @param normalizedPosY framebuffer-space y (ignored)
+     * @throws UnsupportedOperationException always
+     * @return never returns
      */
     @Override
     public float screenTransformY(float normalizedPosY) {
@@ -380,11 +397,11 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code pointTransformX}.
+     * Unsupported in 3D: 2D point-space transforms do not apply.
      *
-     * @param normalizedPosX TODO: describe
-     * @throws UnsupportedOperationException TODO: describe
-     * @return TODO: describe
+     * @param normalizedPosX point-space x (ignored)
+     * @throws UnsupportedOperationException always
+     * @return never returns
      */
     @Override
     public float pointTransformX(float normalizedPosX) {
@@ -392,11 +409,11 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code pointTransformY}.
+     * Unsupported in 3D: 2D point-space transforms do not apply.
      *
-     * @param normalizedPosY TODO: describe
-     * @throws UnsupportedOperationException TODO: describe
-     * @return TODO: describe
+     * @param normalizedPosY point-space y (ignored)
+     * @throws UnsupportedOperationException always
+     * @return never returns
      */
     @Override
     public float pointTransformY(float normalizedPosY) {
@@ -404,9 +421,7 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code getWidth}.
-     *
-     * @return TODO: describe
+     * @return current framebuffer width (the 3D viewport always covers it)
      */
     @Override
     public float getWidth() {
@@ -414,9 +429,7 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code getHeight}.
-     *
-     * @return TODO: describe
+     * @return current framebuffer height
      */
     @Override
     public float getHeight() {
@@ -424,9 +437,7 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code getScreenOffsetX}.
-     *
-     * @return TODO: describe
+     * @return zero (3D viewport originates at the framebuffer corner)
      */
     @Override
     public float getScreenOffsetX() {
@@ -434,9 +445,7 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code getScreenOffsetY}.
-     *
-     * @return TODO: describe
+     * @return zero (3D viewport originates at the framebuffer corner)
      */
     @Override
     public float getScreenOffsetY() {
@@ -444,9 +453,7 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code getScreenWidthRatio}.
-     *
-     * @return TODO: describe
+     * @return 1 (no DPI rescaling applied to 3D viewport sizing)
      */
     @Override
     public float getScreenWidthRatio() {
@@ -454,9 +461,7 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code getScreenHeightRatio}.
-     *
-     * @return TODO: describe
+     * @return 1 (no DPI rescaling applied to 3D viewport sizing)
      */
     @Override
     public float getScreenHeightRatio() {
@@ -464,9 +469,7 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code getBounds}.
-     *
-     * @return TODO: describe
+     * @return {@code null}; 3D camera does not maintain a {@link Bounds} rectangle
      */
     @Override
     public Bounds getBounds() {
@@ -474,10 +477,11 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code contains}.
+     * 3D camera has no 2D viewport rectangle, so no screen-space point lies
+     * inside it.
      *
-     * @param pB TODO: describe
-     * @return TODO: describe
+     * @param pB screen-space point (ignored)
+     * @return always {@code false}
      */
     @Override
     public boolean contains(Vector2f pB) {
@@ -485,12 +489,13 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code updateView}.
+     * Resize the GL viewport and rebuild perspective projection matrices on
+     * every shader.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
+     * @param x viewport lower-left x
+     * @param y viewport lower-left y
+     * @param width viewport width
+     * @param height viewport height
      */
     @Override
     public void updateView(int x, int y, int width, int height) {
@@ -504,7 +509,7 @@ public class Camera3D implements Camera {
     }
 
     /**
-     * TODO: document {@code resetView}.
+     * Reset the GL viewport to the full framebuffer.
      */
     @Override
     public void resetView() {

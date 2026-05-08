@@ -43,17 +43,20 @@ public final class WebLauncher {
     }
 
     /**
-     * TODO: document {@code main}.
+     * TeaVM/browser entry point: for each canvas id in {@code args}, locate the
+     * matching {@code <canvas>} element, build its {@link WebPlatform}/{@link WebGL},
+     * pick a {@link Canvas3D} (OBJ viewer, DSL viewer, or registered scene), and
+     * schedule the per-canvas animation tick.
      *
-     * @param args TODO: describe
-     * @throws InstantiationException TODO: describe
-     * @throws IllegalAccessException TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @throws InvocationTargetException TODO: describe
-     * @throws NoSuchMethodException TODO: describe
-     * @throws SecurityException TODO: describe
-     * @throws UnsupportedEncodingException TODO: describe
-     * @throws IOException TODO: describe
+     * @param args canvas element ids to bind, one per scene
+     * @throws InstantiationException if scene reflection fails
+     * @throws IllegalAccessException if scene reflection fails
+     * @throws IllegalArgumentException if scene reflection fails
+     * @throws InvocationTargetException if scene reflection fails
+     * @throws NoSuchMethodException if scene reflection fails
+     * @throws SecurityException if scene reflection fails
+     * @throws UnsupportedEncodingException propagated from scene initialization
+     * @throws IOException propagated from scene initialization
      */
     public static void main(String[] args)
             throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException,
@@ -165,9 +168,9 @@ public final class WebLauncher {
     }
 
     /**
-     * TODO: document {@code setTitle}.
+     * Set the host browser document title.
      *
-     * @param string TODO: describe
+     * @param string new value for {@code document.title}
      */
     public static void setTitle(String string) {
         Window.current().getDocument().setTitle(string);

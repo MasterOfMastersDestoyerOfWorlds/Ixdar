@@ -54,17 +54,18 @@ public final class SplitArcTracer {
      * use the {@link #traceFromArc} overload that takes the begin-side arc
      * and corner explicitly.
      *
-     * @param tmesh TODO: describe
-     * @param mesh TODO: describe
-     * @param patch TODO: describe
-     * @param sideRSum TODO: describe
-     * @param uCorner TODO: describe
-     * @param vCorner TODO: describe
-     * @param trs TODO: describe
-     * @param beginSide TODO: describe
-     * @param from TODO: describe
-     * @param to TODO: describe
-     * @return TODO: describe
+     * @param tmesh     T-mesh providing arc records
+     * @param mesh      triangle mesh providing half-edge twins/faces
+     * @param patch     T-patch whose sides bound the trace
+     * @param sideRSum  per-side total parametric length (length 4)
+     * @param uCorner   per-corner u (length {@code 3 * F})
+     * @param vCorner   per-corner v (length {@code 3 * F})
+     * @param trs       transition matrices applied at each half-edge crossing
+     * @param beginSide side index 0..3 that {@code from} lies on
+     * @param from      split element on {@code beginSide}
+     * @param to        split element on the opposite side
+     *                  ({@code (beginSide + 2) % 4})
+     * @return traced split arc as an ordered list of per-face edges
      */
     public static SplitArc trace(TMesh tmesh, ArrayMesh mesh,
                                   TPatch patch, double[] sideRSum,
@@ -91,14 +92,14 @@ public final class SplitArcTracer {
      *                           (sum of underlying TArc parametric lengths)
      * @param beginSide          0..3; only used to index {@code sideRSum} for
      *                           the mid/end side lookups
-     * @param tmesh TODO: describe
-     * @param mesh TODO: describe
-     * @param uCorner TODO: describe
-     * @param vCorner TODO: describe
-     * @param trs TODO: describe
-     * @param from TODO: describe
-     * @param to TODO: describe
-     * @return TODO: describe
+     * @param tmesh    T-mesh providing arc records
+     * @param mesh     triangle mesh providing half-edge twins/faces
+     * @param uCorner  per-corner u (length {@code 3 * F})
+     * @param vCorner  per-corner v (length {@code 3 * F})
+     * @param trs      transition matrices applied at each half-edge crossing
+     * @param from     split element to start tracing from
+     * @param to       split element on the opposite side
+     * @return traced split arc as an ordered list of per-face edges
      */
     public static SplitArc traceFromArc(TMesh tmesh, ArrayMesh mesh,
                                          TArc beginSideArc,
@@ -249,15 +250,18 @@ public final class SplitArcTracer {
     /**
      * Standard 2D ray-segment intersection (same as QuadEdgeGenerator).
      *
-     * @param px TODO: describe
-     * @param py TODO: describe
-     * @param dx TODO: describe
-     * @param dy TODO: describe
-     * @param ax TODO: describe
-     * @param ay TODO: describe
-     * @param bx TODO: describe
-     * @param by TODO: describe
-     * @return TODO: describe
+     * @param px ray origin x
+     * @param py ray origin y
+     * @param dx ray direction x
+     * @param dy ray direction y
+     * @param ax segment endpoint A x
+     * @param ay segment endpoint A y
+     * @param bx segment endpoint B x
+     * @param by segment endpoint B y
+     * @return {@code {tRay, tSeg}} where the ray hits the segment at
+     *          {@code (px+tRay*dx, py+tRay*dy)} and parametric segment
+     *          coordinate {@code tSeg in [0,1]}; or {@code null} when parallel
+     *          or behind the ray origin
      */
     private static double[] raySegmentIntersect(double px, double py,
                                                  double dx, double dy,

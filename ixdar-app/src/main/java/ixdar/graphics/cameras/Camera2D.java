@@ -16,6 +16,12 @@ import ixdar.gui.ui.tools.Tool;
 import ixdar.platform.Platforms;
 import ixdar.scenes.main.MainScene;
 
+/**
+ * Orthographic 2D camera that frames a {@link PointSet} on a screen-space
+ * viewport. Holds pan/scale state, point↔screen transforms, and zoom-to-fit
+ * helpers for knots, segments, and arbitrary point selections. Maintains an
+ * ortho z-index counter used by ordered 2D draw calls within one frame.
+ */
 public class Camera2D implements Camera {
     public static final int NUM__10 = -10;
     public static final int NUM_10 = 10;
@@ -56,14 +62,15 @@ public class Camera2D implements Camera {
     private Bounds mainViewBounds;
 
     /**
-     * TODO: document {@code Camera2D}.
+     * Construct a camera over the square min(Width, Height) viewport at the
+     * given screen offset, framing the provided point set.
      *
-     * @param Width TODO: describe
-     * @param Height TODO: describe
-     * @param ScaleFactor TODO: describe
-     * @param ScreenOffsetX TODO: describe
-     * @param ScreenOffsetY TODO: describe
-     * @param ps TODO: describe
+     * @param Width design-space width in points
+     * @param Height design-space height in points
+     * @param ScaleFactor initial zoom; preserved as {@link #InitialScale}
+     * @param ScreenOffsetX viewport lower-left x in framebuffer space
+     * @param ScreenOffsetY viewport lower-left y in framebuffer space
+     * @param ps point set this camera will frame
      */
     public Camera2D(int Width, int Height, float ScaleFactor, float ScreenOffsetX, float ScreenOffsetY, PointSet ps) {
         if (Height < Width) {
@@ -89,9 +96,7 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code getWidth}.
-     *
-     * @return TODO: describe
+     * @return the camera viewport's current screen width
      */
     @Override
     public float getWidth() {
@@ -99,9 +104,7 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code getHeight}.
-     *
-     * @return TODO: describe
+     * @return the camera viewport's current screen height
      */
     @Override
     public float getHeight() {
@@ -109,10 +112,10 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code updateSize}.
+     * Update the cached screen-space viewport size used by transforms.
      *
-     * @param newWidth TODO: describe
-     * @param newHeight TODO: describe
+     * @param newWidth new viewport screen width
+     * @param newHeight new viewport screen height
      */
     public void updateSize(float newWidth, float newHeight) {
         ScreenWidth = newWidth;
@@ -120,9 +123,12 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code calculateCameraTransform}.
+     * Recompute min/max bounds, range, and pixel offsets of the point set so
+     * subsequent {@link #pointTransformX(float)} / {@link #pointTransformY(float)}
+     * calls reflect the latest geometry. Falls back to a [-10, 10] box when
+     * the set is empty.
      *
-     * @param ps TODO: describe
+     * @param ps point set to bound
      */
     @Override
     public void calculateCameraTransform(PointSet ps) {
@@ -169,7 +175,9 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code initCamera}.
+     * Compute the bounding box of the point set, center it within the
+     * viewport, seed pan/default-pan with that centering, and call
+     * {@link #reset()} to apply the framing.
      */
     public void initCamera() {
         minX = java.lang.Float.MAX_VALUE;
@@ -224,7 +232,10 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code reset}.
+     * Reframe the camera. If a hover/selected knot is active in
+     * {@code MainScene}, zoom to it; otherwise refit the full point set into
+     * the active view bounds, choosing a scale that preserves aspect ratio.
+     * Also caches the screen-space-per-point-space ratio.
      */
     @Override
     public void reset() {
@@ -287,18 +298,18 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code zoomToKnot}.
+     * Frame the camera around the flattened points of {@code containingKnot}.
      *
-     * @param containingKnot TODO: describe
+     * @param containingKnot knot whose constituent points define the target frame
      */
     public void zoomToKnot(Knot containingKnot) {
         zoomToPoints(containingKnot.knotPointsFlattened);
     }
 
     /**
-     * TODO: document {@code zoomToSegment}.
+     * Frame the camera around a single segment (its two endpoint knots).
      *
-     * @param s TODO: describe
+     * @param s segment to bring fully into view
      */
     public void zoomToSegment(Segment s) {
         ArrayList<Knot> points = new ArrayList<>();
@@ -308,9 +319,10 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code zoomToPoints}.
+     * Compute a scale and pan that fits the bounding box of {@code list} into
+     * the active view bounds while preserving aspect ratio.
      *
-     * @param list TODO: describe
+     * @param list knots whose 2D positions define the target frame
      */
     public void zoomToPoints(ArrayList<Knot> list) {
 
@@ -385,9 +397,10 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code centerOnPoint}.
+     * Translate pan so {@code pn}'s screen-space position lands at the
+     * center of the active view bounds (no scale change).
      *
-     * @param pn TODO: describe
+     * @param pn point to recenter on
      */
     public void centerOnPoint(PointND pn) {
         float sx = (float) pn.getScreenX();
@@ -397,20 +410,21 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code pointSpaceLengthToScreenSpace}.
+     * Scale a point-space length by the cached screen-space-per-point-space
+     * ratio, giving the equivalent length in pixels.
      *
-     * @param smallestLength TODO: describe
-     * @return TODO: describe
+     * @param smallestLength length in point space
+     * @return equivalent length in screen space
      */
     public double pointSpaceLengthToScreenSpace(double smallestLength) {
         return smallestLength * screenSpaceDistanceOverPointSpaceDistanceRatio;
     }
 
     /**
-     * TODO: document {@code pointTransformX}.
+     * Double-precision overload of {@link #pointTransformX(float)}.
      *
-     * @param x TODO: describe
-     * @return TODO: describe
+     * @param x point-space x coordinate
+     * @return screen-space x
      */
     public float pointTransformX(double x) {
         return pointTransformX((float) x);
@@ -418,10 +432,10 @@ public class Camera2D implements Camera {
 
     // transform from point space to screen space
     /**
-     * TODO: document {@code pointTransformX}.
+     * Map a point-space x to screen-space using the current pan and scale.
      *
-     * @param x TODO: describe
-     * @return TODO: describe
+     * @param x point-space x coordinate
+     * @return screen-space x
      */
     @Override
     public float pointTransformX(float x) {
@@ -430,11 +444,12 @@ public class Camera2D implements Camera {
 
     // transform from point space to screen space
     /**
-     * TODO: document {@code pointTransformX}.
+     * Variant of {@link #pointTransformX(float)} that uses the supplied scale
+     * instead of the current zoom (used during scale animations).
      *
-     * @param x TODO: describe
-     * @param scale TODO: describe
-     * @return TODO: describe
+     * @param x point-space x coordinate
+     * @param scale alternate scale factor to apply
+     * @return screen-space x at the given scale
      */
     public float pointTransformX(float x, float scale) {
         return ((((x - minX) * (Width * scale)) / rangeX) + offsetX);
@@ -442,10 +457,11 @@ public class Camera2D implements Camera {
 
     // transform from screen space to point space
     /**
-     * TODO: document {@code screenTransformX}.
+     * Inverse of {@link #pointTransformX(float)}: map a screen-space x back
+     * to point space.
      *
-     * @param x TODO: describe
-     * @return TODO: describe
+     * @param x screen-space x coordinate
+     * @return point-space x
      */
     @Override
     public float screenTransformX(float x) {
@@ -453,10 +469,10 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code pointTransformY}.
+     * Double-precision overload of {@link #pointTransformY(float)}.
      *
-     * @param y TODO: describe
-     * @return TODO: describe
+     * @param y point-space y coordinate
+     * @return screen-space y
      */
     public float pointTransformY(double y) {
         return pointTransformY((float) y);
@@ -464,10 +480,10 @@ public class Camera2D implements Camera {
 
     // transform from point space to screen space
     /**
-     * TODO: document {@code pointTransformY}.
+     * Map a point-space y to screen-space using the current pan and scale.
      *
-     * @param y TODO: describe
-     * @return TODO: describe
+     * @param y point-space y coordinate
+     * @return screen-space y
      */
     @Override
     public float pointTransformY(float y) {
@@ -476,11 +492,12 @@ public class Camera2D implements Camera {
 
     // transform from point space to screen space
     /**
-     * TODO: document {@code pointTransformY}.
+     * Variant of {@link #pointTransformY(float)} that uses the supplied scale
+     * instead of the current zoom.
      *
-     * @param y TODO: describe
-     * @param scale TODO: describe
-     * @return TODO: describe
+     * @param y point-space y coordinate
+     * @param scale alternate scale factor to apply
+     * @return screen-space y at the given scale
      */
     public float pointTransformY(float y, float scale) {
         return ((((y - minY) * (Height * scale)) / rangeY) + offsetY);
@@ -488,10 +505,11 @@ public class Camera2D implements Camera {
 
     // transform from screen space to point space
     /**
-     * TODO: document {@code screenTransformY}.
+     * Inverse of {@link #pointTransformY(float)}: map a screen-space y back
+     * to point space.
      *
-     * @param y TODO: describe
-     * @return TODO: describe
+     * @param y screen-space y coordinate
+     * @return point-space y
      */
     @Override
     public float screenTransformY(float y) {
@@ -499,9 +517,11 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code scale}.
+     * Apply a zoom delta while keeping the screen-space center anchored to
+     * the same point-space location. Ignored when the resulting scale would
+     * fall below 0.1.
      *
-     * @param delta TODO: describe
+     * @param delta signed change to {@link #ScaleFactor}
      */
     public void scale(float delta) {
 
@@ -519,9 +539,10 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code move}.
+     * Pan one frame in {@code direction} at {@code PAN_SPEED * SHIFT_MOD *
+     * deltaTime} pixels.
      *
-     * @param direction TODO: describe
+     * @param direction cardinal direction to pan
      */
     @Override
     public void move(Direction direction) {
@@ -545,9 +566,9 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code setShiftMod}.
+     * Set the multiplier applied to pan and zoom rates while shift is held.
      *
-     * @param SHIFT_MOD TODO: describe
+     * @param SHIFT_MOD multiplier to install
      */
     @Override
     public void setShiftMod(float SHIFT_MOD) {
@@ -555,10 +576,11 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code onScroll}.
+     * Translate scroll wheel input into a {@link #scale(float)} call,
+     * zooming in when {@code b} is true and out otherwise.
      *
-     * @param b TODO: describe
-     * @param delta TODO: describe
+     * @param b true for zoom-in, false for zoom-out
+     * @param delta wheel notch magnitude (units of 100)
      */
     @Override
     public void onScroll(boolean b, double delta) {
@@ -571,10 +593,10 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code drag}.
+     * Pan the camera by the given screen-space delta.
      *
-     * @param d TODO: describe
-     * @param e TODO: describe
+     * @param d horizontal pan delta
+     * @param e vertical pan delta
      */
     @Override
     public void drag(float d, float e) {
@@ -583,9 +605,7 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code getScaleFactor}.
-     *
-     * @return TODO: describe
+     * @return the current zoom factor
      */
     @Override
     public float getScaleFactor() {
@@ -593,19 +613,19 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code mouseMove}.
+     * No-op for the 2D camera; mouse-look only applies in 3D.
      *
-     * @param lastX TODO: describe
-     * @param lastY TODO: describe
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param lastX previous cursor x (ignored)
+     * @param lastY previous cursor y (ignored)
+     * @param x current cursor x (ignored)
+     * @param y current cursor y (ignored)
      */
     @Override
     public void mouseMove(float lastX, float lastY, float x, float y) {
     }
 
     /**
-     * TODO: document {@code incZIndex}.
+     * Advance the ortho z-index by one {@link ShaderProgram#ORTHO_Z_INCREMENT}.
      */
     @Override
     public void incZIndex() {
@@ -613,9 +633,9 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code addZIndex}.
+     * Add an arbitrary delta to the ortho z-index.
      *
-     * @param diff TODO: describe
+     * @param diff signed z-index increment
      */
     @Override
     public void addZIndex(float diff) {
@@ -623,9 +643,7 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code getZIndex}.
-     *
-     * @return TODO: describe
+     * @return the current ortho z-index
      */
     @Override
     public float getZIndex() {
@@ -633,9 +651,9 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code setZIndex}.
+     * Place this camera one step in front of {@code camera} on the ortho z axis.
      *
-     * @param camera TODO: describe
+     * @param camera reference camera whose z-index defines the baseline
      */
     @Override
     public void setZIndex(Camera camera) {
@@ -643,7 +661,8 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code resetZIndex}.
+     * Reset z-index to zero and far-z cursor one increment in front of
+     * {@link ShaderProgram#ORTHO_FAR} for the start of a frame.
      */
     @Override
     public void resetZIndex() {
@@ -652,7 +671,7 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code decFarZIndex}.
+     * Step the descending far-z cursor one ortho-z increment toward the near plane.
      */
     @Override
     public void decFarZIndex() {
@@ -660,9 +679,7 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code getFarZIndex}.
-     *
-     * @return TODO: describe
+     * @return current depth used by the descending far-z cursor
      */
     @Override
     public float getFarZIndex() {
@@ -670,9 +687,7 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code getScreenOffsetX}.
-     *
-     * @return TODO: describe
+     * @return viewport lower-left x in framebuffer space
      */
     @Override
     public float getScreenOffsetX() {
@@ -680,9 +695,7 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code getScreenOffsetY}.
-     *
-     * @return TODO: describe
+     * @return viewport lower-left y in framebuffer space
      */
     @Override
     public float getScreenOffsetY() {
@@ -690,9 +703,7 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code getScreenWidthRatio}.
-     *
-     * @return TODO: describe
+     * @return framebufferWidth / screenWidth DPI ratio
      */
     @Override
     public float getScreenWidthRatio() {
@@ -700,9 +711,7 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code getScreenHeightRatio}.
-     *
-     * @return TODO: describe
+     * @return framebufferHeight / screenHeight DPI ratio
      */
     @Override
     public float getScreenHeightRatio() {
@@ -710,10 +719,11 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code getNormalizePosX}.
+     * Normalize a window-space cursor x to framebuffer space, accounting
+     * for HiDPI scaling.
      *
-     * @param xPos TODO: describe
-     * @return TODO: describe
+     * @param xPos window-space cursor x
+     * @return framebuffer-space x
      */
     @Override
     public float getNormalizePosX(float xPos) {
@@ -727,10 +737,11 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code getNormalizePosY}.
+     * Flip a window-space cursor y (top-origin) to framebuffer space
+     * (bottom-origin) and normalize for HiDPI scaling.
      *
-     * @param yPos TODO: describe
-     * @return TODO: describe
+     * @param yPos window-space cursor y
+     * @return framebuffer-space y
      */
     @Override
     public float getNormalizePosY(float yPos) {
@@ -743,12 +754,13 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code updateView}.
+     * Resize the GL viewport, refresh cached view bounds, and rebuild the
+     * orthographic projection matrix on every shader.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
+     * @param x viewport lower-left x
+     * @param y viewport lower-left y
+     * @param width viewport width
+     * @param height viewport height
      */
     @Override
     public void updateView(int x, int y, int width, int height) {
@@ -763,10 +775,12 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code initCamera}.
+     * Bind a named viewport map to this camera, switch to the {@code active}
+     * region, and call {@link #initCamera()} so the point set is framed
+     * inside it.
      *
-     * @param boundsMap TODO: describe
-     * @param active TODO: describe
+     * @param boundsMap lookup of named viewport regions
+     * @param active key in {@code boundsMap} to make the main view bounds
      */
     public void initCamera(Map<String, Bounds> boundsMap, String active) {
         this.namedBounds = boundsMap;
@@ -782,9 +796,10 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code updateView}.
+     * Recalculate the named viewport region {@code key} and switch the GL
+     * viewport to it. No-op if no named bounds map was registered.
      *
-     * @param key TODO: describe
+     * @param key region name in the registered bounds map
      */
     public void updateView(String key) {
         if (namedBounds == null) {
@@ -799,7 +814,7 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code resetView}.
+     * Reset the GL viewport to the full framebuffer.
      */
     @Override
     public void resetView() {
@@ -814,9 +829,7 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code getBounds}.
-     *
-     * @return TODO: describe
+     * @return the camera's screen-space viewport rectangle
      */
     @Override
     public Bounds getBounds() {
@@ -824,10 +837,10 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code contains}.
+     * Test whether a screen-space point falls inside this camera's viewport.
      *
-     * @param pB TODO: describe
-     * @return TODO: describe
+     * @param pB screen-space point (origin at lower-left of viewport)
+     * @return {@code true} when the point lies in [0, ScreenWidth] × [0, ScreenHeight]
      */
     @Override
     public boolean contains(Vector2f pB) {
@@ -839,10 +852,11 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * TODO: document {@code pointsToScreenSpace}.
+     * Project an array of N-D points onto the 2D screen using the current
+     * pan and scale.
      *
-     * @param points TODO: describe
-     * @return TODO: describe
+     * @param points point-space inputs
+     * @return parallel array of screen-space {@link Vector2f}s
      */
     public Vector2f[] pointsToScreenSpace(PointND... points) {
         Vector2f[] result = new Vector2f[points.length];

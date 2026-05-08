@@ -23,6 +23,7 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 
+import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.opengl.GL;
@@ -33,6 +34,7 @@ import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryStack;
 
+import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.input.MouseButtons;
@@ -60,17 +62,17 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
     private boolean initialized = false;
 
     /**
-     * TODO: document {@code HeadlessGL}.
+     * Construct a HeadlessGL.
      */
     public HeadlessGL() {
         this(NUM_512, NUM_512);
     }
 
     /**
-     * TODO: document {@code HeadlessGL}.
+     * Construct a HeadlessGL.
      *
-     * @param width TODO: describe
-     * @param height TODO: describe
+     * @param width  constructor argument
+     * @param height constructor argument
      */
     public HeadlessGL(int width, int height) {
         this.framebufferWidth = width;
@@ -116,74 +118,37 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         }
     }
 
-    // ---- GL11 methods (viewport, clear, draw, textures, blend, enable/disable) ----
-
-    /**
-     * TODO: document {@code viewport}.
-     *
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param w TODO: describe
-     * @param h TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void viewport(int x, int y, int w, int h) {
         GL11.glViewport(x, y, w, h);
     }
 
-    /**
-     * TODO: document {@code clearColor}.
-     *
-     * @param r TODO: describe
-     * @param g TODO: describe
-     * @param b TODO: describe
-     * @param a TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void clearColor(float r, float g, float b, float a) {
         GL11.glClearColor(r, g, b, a);
     }
 
-    /**
-     * TODO: document {@code clear}.
-     *
-     * @param mask TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void clear(int mask) {
         GL11.glClear(mask);
     }
 
-    /**
-     * TODO: document {@code drawArrays}.
-     *
-     * @param mode TODO: describe
-     * @param first TODO: describe
-     * @param count TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void drawArrays(int mode, int first, int count) {
         GL11.glDrawArrays(mode, first, count);
     }
 
-    /**
-     * TODO: document {@code drawElements}.
-     *
-     * @param mode TODO: describe
-     * @param count TODO: describe
-     * @param type TODO: describe
-     * @param indicesOffsetBytes TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void drawElements(int mode, int count, int type, int indicesOffsetBytes) {
         GL11.glDrawElements(mode, count, type, indicesOffsetBytes);
     }
 
-    /**
-     * TODO: document {@code genTexture}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int genTexture() {
         int[] textures = new int[1];
@@ -191,120 +156,62 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         return textures[0];
     }
 
-    /**
-     * TODO: document {@code deleteTexture}.
-     *
-     * @param id TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void deleteTexture(int id) {
         GL11.glDeleteTextures(id);
     }
 
-    /**
-     * TODO: document {@code bindTexture2D}.
-     *
-     * @param id TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void bindTexture2D(int id) {
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, id);
     }
 
-    /**
-     * TODO: document {@code texParameteri}.
-     *
-     * @param target TODO: describe
-     * @param pname TODO: describe
-     * @param param TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void texParameteri(int target, int pname, int param) {
         GL11.glTexParameteri(target, pname, param);
     }
 
-    /**
-     * TODO: document {@code texImage2D}.
-     *
-     * @param target TODO: describe
-     * @param level TODO: describe
-     * @param internalFormat TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param border TODO: describe
-     * @param format TODO: describe
-     * @param type TODO: describe
-     * @param data TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void texImage2D(int target, int level, int internalFormat, int width, int height, int border, int format,
             int type, ByteBuffer data) {
         GL11.glTexImage2D(target, level, internalFormat, width, height, border, format, type, data);
     }
 
-    /**
-     * TODO: document {@code enable}.
-     *
-     * @param cap TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void enable(int cap) {
         GL11.glEnable(cap);
     }
 
-    /**
-     * TODO: document {@code disable}.
-     *
-     * @param cap TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void disable(int cap) {
         GL11.glDisable(cap);
     }
 
-    /**
-     * TODO: document {@code depthMask}.
-     *
-     * @param flag TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void depthMask(boolean flag) {
         GL11.glDepthMask(flag);
     }
 
-    /**
-     * TODO: document {@code blendFunc}.
-     *
-     * @param sfactor TODO: describe
-     * @param dfactor TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void blendFunc(int sfactor, int dfactor) {
         GL11.glBlendFunc(sfactor, dfactor);
     }
 
-    /**
-     * TODO: document {@code lineWidth}.
-     *
-     * @param width TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void lineWidth(float width) {
         GL11.glLineWidth(width);
     }
 
-    /**
-     * TODO: document {@code readPixels}.
-     *
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param format TODO: describe
-     * @param type TODO: describe
-     * @param fb TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int[] readPixels(int x, int y, int width, int height, int format, int type, int fb) {
         ByteBuffer frameBuffer = BufferUtils.createByteBuffer(width * height * NUM_4);
@@ -322,214 +229,178 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         return pixels;
     }
 
-    // ---- GL11 constants ----
+    /** {@inheritDoc} */
+    @Override
+    public int COLOR_BUFFER_BIT() {
+        return GL11.GL_COLOR_BUFFER_BIT;
+    }
 
-    /**
-     * TODO: document {@code COLOR_BUFFER_BIT}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int COLOR_BUFFER_BIT() { return GL11.GL_COLOR_BUFFER_BIT; }
-    /**
-     * TODO: document {@code DEPTH_BUFFER_BIT}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int DEPTH_BUFFER_BIT() { return GL11.GL_DEPTH_BUFFER_BIT; }
-    /**
-     * TODO: document {@code TRIANGLES}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int TRIANGLES() { return GL11.GL_TRIANGLES; }
-    /**
-     * TODO: document {@code LINES}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int LINES() { return GL11.GL_LINES; }
-    /**
-     * TODO: document {@code FLOAT}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int FLOAT() { return GL11.GL_FLOAT; }
-    /**
-     * TODO: document {@code UNSIGNED_BYTE}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int UNSIGNED_BYTE() { return GL11.GL_UNSIGNED_BYTE; }
-    /**
-     * TODO: document {@code UNSIGNED_INT}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int UNSIGNED_INT() { return GL11.GL_UNSIGNED_INT; }
-    /**
-     * TODO: document {@code TEXTURE_2D}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int TEXTURE_2D() { return GL11.GL_TEXTURE_2D; }
-    /**
-     * TODO: document {@code RGBA}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int RGBA() { return GL11.GL_RGBA; }
-    /**
-     * TODO: document {@code RGBA8}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int RGBA8() { return GL11.GL_RGBA8; }
-    /**
-     * TODO: document {@code TEXTURE_WRAP_S}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int TEXTURE_WRAP_S() { return GL11.GL_TEXTURE_WRAP_S; }
-    /**
-     * TODO: document {@code TEXTURE_WRAP_T}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int TEXTURE_WRAP_T() { return GL11.GL_TEXTURE_WRAP_T; }
-    /**
-     * TODO: document {@code TEXTURE_MIN_FILTER}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int TEXTURE_MIN_FILTER() { return GL11.GL_TEXTURE_MIN_FILTER; }
-    /**
-     * TODO: document {@code TEXTURE_MAG_FILTER}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int TEXTURE_MAG_FILTER() { return GL11.GL_TEXTURE_MAG_FILTER; }
-    /**
-     * TODO: document {@code LINEAR}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int LINEAR() { return GL11.GL_LINEAR; }
-    /**
-     * TODO: document {@code LINEAR_MIPMAP_LINEAR}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int LINEAR_MIPMAP_LINEAR() { return GL11.GL_LINEAR_MIPMAP_LINEAR; }
-    /**
-     * TODO: document {@code REPEAT}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int REPEAT() { return GL11.GL_REPEAT; }
-    /**
-     * TODO: document {@code DEPTH_TEST}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int DEPTH_TEST() { return GL11.GL_DEPTH_TEST; }
-    /**
-     * TODO: document {@code BLEND}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int BLEND() { return GL11.GL_BLEND; }
-    /**
-     * TODO: document {@code SRC_ALPHA}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int SRC_ALPHA() { return GL11.GL_SRC_ALPHA; }
-    /**
-     * TODO: document {@code ONE_MINUS_SRC_ALPHA}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int ONE_MINUS_SRC_ALPHA() { return GL11.GL_ONE_MINUS_SRC_ALPHA; }
+    /** {@inheritDoc} */
+    @Override
+    public int DEPTH_BUFFER_BIT() {
+        return GL11.GL_DEPTH_BUFFER_BIT;
+    }
 
-    // ---- GL13 (multitexture) ----
+    /** {@inheritDoc} */
+    @Override
+    public int TRIANGLES() {
+        return GL11.GL_TRIANGLES;
+    }
 
-    /**
-     * TODO: document {@code activeTexture}.
-     *
-     * @param unit TODO: describe
-     */
+    /** {@inheritDoc} */
+    @Override
+    public int LINES() {
+        return GL11.GL_LINES;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int FLOAT() {
+        return GL11.GL_FLOAT;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int UNSIGNED_BYTE() {
+        return GL11.GL_UNSIGNED_BYTE;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int UNSIGNED_INT() {
+        return GL11.GL_UNSIGNED_INT;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int TEXTURE_2D() {
+        return GL11.GL_TEXTURE_2D;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int RGBA() {
+        return GL11.GL_RGBA;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int RGBA8() {
+        return GL11.GL_RGBA8;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int TEXTURE_WRAP_S() {
+        return GL11.GL_TEXTURE_WRAP_S;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int TEXTURE_WRAP_T() {
+        return GL11.GL_TEXTURE_WRAP_T;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int TEXTURE_MIN_FILTER() {
+        return GL11.GL_TEXTURE_MIN_FILTER;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int TEXTURE_MAG_FILTER() {
+        return GL11.GL_TEXTURE_MAG_FILTER;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int LINEAR() {
+        return GL11.GL_LINEAR;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int LINEAR_MIPMAP_LINEAR() {
+        return GL11.GL_LINEAR_MIPMAP_LINEAR;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int REPEAT() {
+        return GL11.GL_REPEAT;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int DEPTH_TEST() {
+        return GL11.GL_DEPTH_TEST;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int BLEND() {
+        return GL11.GL_BLEND;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int SRC_ALPHA() {
+        return GL11.GL_SRC_ALPHA;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int ONE_MINUS_SRC_ALPHA() {
+        return GL11.GL_ONE_MINUS_SRC_ALPHA;
+    }
+
+
+    /** {@inheritDoc} */
     @Override
     public void activeTexture(int unit) {
         GL13.glActiveTexture(unit);
     }
 
-    /**
-     * TODO: document {@code TEXTURE0}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int TEXTURE0() { return GL13.GL_TEXTURE0; }
+    /** {@inheritDoc} */
+    @Override
+    public int TEXTURE0() {
+        return GL13.GL_TEXTURE0;
+    }
 
     // ---- GL15 (buffer objects) ----
 
-    /**
-     * TODO: document {@code genBuffer}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int genBuffer() {
         return GL15.glGenBuffers();
     }
 
-    /**
-     * TODO: document {@code genBuffers}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int genBuffers() {
         return GL15.glGenBuffers();
     }
 
-    /**
-     * TODO: document {@code bindArrayBuffer}.
-     *
-     * @param buffer TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void bindArrayBuffer(int buffer) {
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, buffer);
     }
 
-    /**
-     * TODO: document {@code bindBuffer}.
-     *
-     * @param target TODO: describe
-     * @param id TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void bindBuffer(int target, int id) {
         GL15.glBindBuffer(target, id);
     }
 
-    /**
-     * TODO: document {@code bufferDataArray}.
-     *
-     * @param data TODO: describe
-     * @param usage TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void bufferDataArray(IxBuffer data, int usage) {
         GL15.glBufferData(GL15.GL_ARRAY_BUFFER, ((HeadlessBuffer) data).getBuffer(), usage);
     }
 
-    /**
-     * TODO: document {@code bufferDataArray}.
-     *
-     * @param data TODO: describe
-     * @param usage TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void bufferDataArray(float[] data, int usage) {
         FloatBuffer buf = BufferUtils.createFloatBuffer(data.length);
@@ -537,25 +408,13 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buf, usage);
     }
 
-    /**
-     * TODO: document {@code bufferData}.
-     *
-     * @param target TODO: describe
-     * @param data TODO: describe
-     * @param usage TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void bufferData(int target, IxBuffer data, int usage) {
         GL15.glBufferData(target, ((HeadlessBuffer) data).getBuffer(), usage);
     }
 
-    /**
-     * TODO: document {@code bufferData}.
-     *
-     * @param target TODO: describe
-     * @param data TODO: describe
-     * @param usage TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void bufferData(int target, float[] data, int usage) {
         FloatBuffer buf = BufferUtils.createFloatBuffer(data.length);
@@ -563,139 +422,85 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         GL15.glBufferData(target, buf, usage);
     }
 
-    /**
-     * TODO: document {@code bufferData}.
-     *
-     * @param target TODO: describe
-     * @param size TODO: describe
-     * @param usage TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void bufferData(int target, long size, int usage) {
         GL15.glBufferData(target, size, usage);
     }
 
-    /**
-     * TODO: document {@code bufferData}.
-     *
-     * @param target TODO: describe
-     * @param data TODO: describe
-     * @param usage TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void bufferData(int target, IntBuffer data, int usage) {
         GL15.glBufferData(target, data, usage);
     }
 
-    /**
-     * TODO: document {@code bufferSubData}.
-     *
-     * @param target TODO: describe
-     * @param offset TODO: describe
-     * @param data TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void bufferSubData(int target, long offset, IxBuffer data) {
         GL15.glBufferSubData(target, offset, ((HeadlessBuffer) data).getBuffer());
     }
 
-    /**
-     * TODO: document {@code deleteBuffers}.
-     *
-     * @param id TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void deleteBuffers(int id) {
         GL15.glDeleteBuffers(id);
     }
 
-    /**
-     * TODO: document {@code ARRAY_BUFFER}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int ARRAY_BUFFER() { return GL15.GL_ARRAY_BUFFER; }
-    /**
-     * TODO: document {@code ELEMENT_ARRAY_BUFFER}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int ELEMENT_ARRAY_BUFFER() { return GL15.GL_ELEMENT_ARRAY_BUFFER; }
-    /**
-     * TODO: document {@code STATIC_DRAW}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int STATIC_DRAW() { return GL15.GL_STATIC_DRAW; }
-    /**
-     * TODO: document {@code DYNAMIC_DRAW}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int DYNAMIC_DRAW() { return GL15.GL_DYNAMIC_DRAW; }
+    /** {@inheritDoc} */
+    @Override
+    public int ARRAY_BUFFER() {
+        return GL15.GL_ARRAY_BUFFER;
+    }
 
-    // ---- GL20 (shaders, programs, uniforms, attribs) ----
+    /** {@inheritDoc} */
+    @Override
+    public int ELEMENT_ARRAY_BUFFER() {
+        return GL15.GL_ELEMENT_ARRAY_BUFFER;
+    }
 
-    /**
-     * TODO: document {@code createProgram}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
+    @Override
+    public int STATIC_DRAW() {
+        return GL15.GL_STATIC_DRAW;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int DYNAMIC_DRAW() {
+        return GL15.GL_DYNAMIC_DRAW;
+    }
+
+    /** {@inheritDoc} */
     @Override
     public int createProgram() {
         return GL20.glCreateProgram();
     }
 
-    /**
-     * TODO: document {@code createShader}.
-     *
-     * @param type TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int createShader(int type) {
         return GL20.glCreateShader(type);
     }
 
-    /**
-     * TODO: document {@code shaderSource}.
-     *
-     * @param shader TODO: describe
-     * @param src TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void shaderSource(int shader, String src) {
         GL20.glShaderSource(shader, src);
     }
 
-    /**
-     * TODO: document {@code shaderSource}.
-     *
-     * @param shader TODO: describe
-     * @param src TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void shaderSource(int shader, CharSequence[] src) {
         GL20.glShaderSource(shader, src);
     }
 
-    /**
-     * TODO: document {@code compileShader}.
-     *
-     * @param shader TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void compileShader(int shader) {
         GL20.glCompileShader(shader);
     }
 
-    /**
-     * TODO: document {@code getShaderiv}.
-     *
-     * @param shader TODO: describe
-     * @param pname TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getShaderiv(int shader, int pname) {
         IntBuffer buf = BufferUtils.createIntBuffer(1);
@@ -703,68 +508,37 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         return buf.get(0);
     }
 
-    /**
-     * TODO: document {@code getShaderiv}.
-     *
-     * @param shader TODO: describe
-     * @param pname TODO: describe
-     * @param success TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void getShaderiv(int shader, int pname, IntBuffer success) {
         GL20.glGetShaderiv(shader, pname, success);
     }
 
-    /**
-     * TODO: document {@code getShaderInfoLog}.
-     *
-     * @param shader TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public String getShaderInfoLog(int shader) {
         return GL20.glGetShaderInfoLog(shader);
     }
 
-    /**
-     * TODO: document {@code attachShader}.
-     *
-     * @param program TODO: describe
-     * @param shader TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void attachShader(int program, int shader) {
         GL20.glAttachShader(program, shader);
     }
 
-    /**
-     * TODO: document {@code detachShader}.
-     *
-     * @param program TODO: describe
-     * @param shader TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void detachShader(int program, int shader) {
         GL20.glDetachShader(program, shader);
     }
 
-    /**
-     * TODO: document {@code linkProgram}.
-     *
-     * @param program TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void linkProgram(int program) {
         GL20.glLinkProgram(program);
     }
 
-    /**
-     * TODO: document {@code getProgramiv}.
-     *
-     * @param program TODO: describe
-     * @param pname TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getProgramiv(int program, int pname) {
         IntBuffer buf = BufferUtils.createIntBuffer(1);
@@ -772,218 +546,115 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         return buf.get(0);
     }
 
-    /**
-     * TODO: document {@code getProgramiv}.
-     *
-     * @param program TODO: describe
-     * @param pname TODO: describe
-     * @param success TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void getProgramiv(int program, int pname, IntBuffer success) {
         GL20.glGetProgramiv(program, pname, success);
     }
 
-    /**
-     * TODO: document {@code getProgramInfoLog}.
-     *
-     * @param program TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public String getProgramInfoLog(int program) {
         return GL20.glGetProgramInfoLog(program);
     }
 
-    /**
-     * TODO: document {@code useProgram}.
-     *
-     * @param program TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void useProgram(int program) {
         GL20.glUseProgram(program);
     }
 
-    /**
-     * TODO: document {@code deleteShader}.
-     *
-     * @param shader TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void deleteShader(int shader) {
         GL20.glDeleteShader(shader);
     }
 
-    /**
-     * TODO: document {@code deleteProgram}.
-     *
-     * @param program TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void deleteProgram(int program) {
         GL20.glDeleteProgram(program);
     }
 
-    /**
-     * TODO: document {@code getUniformLocation}.
-     *
-     * @param program TODO: describe
-     * @param name TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getUniformLocation(int program, String name) {
         return GL20.glGetUniformLocation(program, name);
     }
 
-    /**
-     * TODO: document {@code getAttribLocation}.
-     *
-     * @param program TODO: describe
-     * @param name TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getAttribLocation(int program, CharSequence name) {
         return GL20.glGetAttribLocation(program, name.toString());
     }
 
-    /**
-     * TODO: document {@code enableVertexAttribArray}.
-     *
-     * @param index TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void enableVertexAttribArray(int index) {
         GL20.glEnableVertexAttribArray(index);
     }
 
-    /**
-     * TODO: document {@code vertexAttribPointer}.
-     *
-     * @param index TODO: describe
-     * @param size TODO: describe
-     * @param type TODO: describe
-     * @param normalized TODO: describe
-     * @param stride TODO: describe
-     * @param pointer TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void vertexAttribPointer(int index, int size, int type, boolean normalized, int stride, int pointer) {
         GL20.glVertexAttribPointer(index, size, type, normalized, stride, pointer);
     }
 
-    /**
-     * TODO: document {@code uniform1f}.
-     *
-     * @param loc TODO: describe
-     * @param v TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void uniform1f(int loc, float v) {
         GL20.glUniform1f(loc, v);
     }
 
-    /**
-     * TODO: document {@code uniform1i}.
-     *
-     * @param loc TODO: describe
-     * @param v TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void uniform1i(int loc, int v) {
         GL20.glUniform1i(loc, v);
     }
 
-    /**
-     * TODO: document {@code uniform2fv}.
-     *
-     * @param loc TODO: describe
-     * @param buffer TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void uniform2fv(int loc, IxBuffer buffer) {
         GL20.glUniform2fv(loc, ((HeadlessBuffer) buffer).getBuffer());
     }
 
-    /**
-     * TODO: document {@code uniform3fv}.
-     *
-     * @param loc TODO: describe
-     * @param buffer TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void uniform3fv(int loc, IxBuffer buffer) {
         GL20.glUniform3fv(loc, ((HeadlessBuffer) buffer).getBuffer());
     }
 
-    /**
-     * TODO: document {@code uniform3fv}.
-     *
-     * @param loc TODO: describe
-     * @param buffer TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void uniform3fv(Integer loc, IxBuffer buffer) {
         GL20.glUniform3fv(loc, ((HeadlessBuffer) buffer).getBuffer());
     }
 
-    /**
-     * TODO: document {@code uniform4fv}.
-     *
-     * @param loc TODO: describe
-     * @param buffer TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void uniform4fv(int loc, IxBuffer buffer) {
         GL20.glUniform4fv(loc, ((HeadlessBuffer) buffer).getBuffer());
     }
 
-    /**
-     * TODO: document {@code uniformMatrix4fv}.
-     *
-     * @param loc TODO: describe
-     * @param transpose TODO: describe
-     * @param buffer TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void uniformMatrix4fv(int loc, boolean transpose, IxBuffer buffer) {
         GL20.glUniformMatrix4fv(loc, transpose, ((HeadlessBuffer) buffer).getBuffer());
     }
 
-    /**
-     * TODO: document {@code getUniformfv}.
-     *
-     * @param program TODO: describe
-     * @param location TODO: describe
-     * @param val TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void getUniformfv(int program, int location, IxBuffer val) {
         GL20.glGetUniformfv(program, location, ((HeadlessBuffer) val).getBuffer());
     }
 
-    /**
-     * TODO: document {@code getActiveUniform}.
-     *
-     * @param program TODO: describe
-     * @param index TODO: describe
-     * @param sizeBuffer TODO: describe
-     * @param typeBuffer TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public String getActiveUniform(int program, int index, IntBuffer sizeBuffer, IntBuffer typeBuffer) {
         return GL20.glGetActiveUniform(program, index, sizeBuffer, typeBuffer);
     }
 
-    /**
-     * TODO: document {@code getAttachedShaders}.
-     *
-     * @param program TODO: describe
-     * @param success TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void getAttachedShaders(int program, IntBuffer success) {
         if (success != null && success.remaining() > 0) {
@@ -991,12 +662,7 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         }
     }
 
-    /**
-     * TODO: document {@code getActiveUniforms}.
-     *
-     * @param program TODO: describe
-     * @param success TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void getActiveUniforms(int program, IntBuffer success) {
         if (success != null && success.remaining() > 0) {
@@ -1004,146 +670,104 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         }
     }
 
-    /**
-     * TODO: document {@code FRAGMENT_SHADER}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int FRAGMENT_SHADER() { return GL20.GL_FRAGMENT_SHADER; }
-    /**
-     * TODO: document {@code VERTEX_SHADER}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int VERTEX_SHADER() { return GL20.GL_VERTEX_SHADER; }
-    /**
-     * TODO: document {@code LINK_STATUS}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int LINK_STATUS() { return GL20.GL_LINK_STATUS; }
-    /**
-     * TODO: document {@code COMPILE_STATUS}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int COMPILE_STATUS() { return GL20.GL_COMPILE_STATUS; }
-    /**
-     * TODO: document {@code ACTIVE_UNIFORMS}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int ACTIVE_UNIFORMS() { return GL20.GL_ACTIVE_UNIFORMS; }
-    /**
-     * TODO: document {@code FLOAT_VEC2}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int FLOAT_VEC2() { return GL20.GL_FLOAT_VEC2; }
-    /**
-     * TODO: document {@code FLOAT_VEC4}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int FLOAT_VEC4() { return GL20.GL_FLOAT_VEC4; }
-    /**
-     * TODO: document {@code SAMPLER_2D}.
-     *
-     * @return TODO: describe
-     */
-    @Override public int SAMPLER_2D() { return GL20.GL_SAMPLER_2D; }
+    /** {@inheritDoc} */
+    @Override
+    public int FRAGMENT_SHADER() {
+        return GL20.GL_FRAGMENT_SHADER;
+    }
 
-    // ---- GL30 (VAO, generateMipmap, bindFragDataLocation) ----
+    /** {@inheritDoc} */
+    @Override
+    public int VERTEX_SHADER() {
+        return GL20.GL_VERTEX_SHADER;
+    }
 
-    /**
-     * TODO: document {@code genVertexArray}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
+    @Override
+    public int LINK_STATUS() {
+        return GL20.GL_LINK_STATUS;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int COMPILE_STATUS() {
+        return GL20.GL_COMPILE_STATUS;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int ACTIVE_UNIFORMS() {
+        return GL20.GL_ACTIVE_UNIFORMS;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int FLOAT_VEC2() {
+        return GL20.GL_FLOAT_VEC2;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int FLOAT_VEC4() {
+        return GL20.GL_FLOAT_VEC4;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int SAMPLER_2D() {
+        return GL20.GL_SAMPLER_2D;
+    }
+
+
+    /** {@inheritDoc} */
     @Override
     public int genVertexArray() {
         return GL30.glGenVertexArrays();
     }
 
-    /**
-     * TODO: document {@code genVertexArrays}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int genVertexArrays() {
         return GL30.glGenVertexArrays();
     }
 
-    /**
-     * TODO: document {@code bindVertexArray}.
-     *
-     * @param vao TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void bindVertexArray(int vao) {
         GL30.glBindVertexArray(vao);
     }
 
-    /**
-     * TODO: document {@code deleteVertexArrays}.
-     *
-     * @param id TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void deleteVertexArrays(int id) {
         GL30.glDeleteVertexArrays(id);
     }
 
-    /**
-     * TODO: document {@code generateMipmap}.
-     *
-     * @param target TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void generateMipmap(int target) {
         GL30.glGenerateMipmap(target);
     }
 
-    /**
-     * TODO: document {@code bindFragDataLocation}.
-     *
-     * @param program TODO: describe
-     * @param colorNumber TODO: describe
-     * @param name TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void bindFragDataLocation(int program, int colorNumber, String name) {
         GL30.glBindFragDataLocation(program, colorNumber, name);
     }
 
-    // ---- Platform / misc ----
-
-    /**
-     * TODO: document {@code getMouseButton}.
-     *
-     * @param window TODO: describe
-     * @param button TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean getMouseButton(long window, MouseButtons button) {
         return false;
     }
 
-    /**
-     * TODO: document {@code createCapabilities}.
-     */
+    /** {@inheritDoc} */
     @Override
     public void createCapabilities() {
         // Already created in init
     }
 
-    /**
-     * TODO: document {@code setWindowTitle}.
-     *
-     * @param title TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setWindowTitle(String title) {
         if (window != NULL) {
@@ -1151,9 +775,7 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         }
     }
 
-    /**
-     * TODO: document {@code coldStartStack}.
-     */
+    /** {@inheritDoc} */
     @Override
     public void coldStartStack() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -1162,41 +784,25 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         }
     }
 
-    /**
-     * TODO: document {@code getShaders}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public ArrayList<ShaderProgram> getShaders() {
         return shaders;
     }
 
-    /**
-     * TODO: document {@code addShader}.
-     *
-     * @param shader TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void addShader(ShaderProgram shader) {
         shaders.add(shader);
     }
 
-    /**
-     * TODO: document {@code getPlatformID}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getPlatformID() {
         return platformId;
     }
 
-    /**
-     * TODO: document {@code setPlatformID}.
-     *
-     * @param p TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setPlatformID(Integer p) {
         if (p != null) {
@@ -1204,47 +810,31 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         }
     }
 
-    // ---- Headless-specific methods ----
-
-    /**
-     * TODO: document {@code getWidth}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     public int getWidth() {
         return framebufferWidth;
     }
 
-    /**
-     * TODO: document {@code getHeight}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     public int getHeight() {
         return framebufferHeight;
     }
 
-    /**
-     * TODO: document {@code swapBuffers}.
-     */
+    /** {@inheritDoc} */
     public void swapBuffers() {
         if (window != NULL) {
             glfwSwapBuffers(window);
         }
     }
 
-    /**
-     * TODO: document {@code pollEvents}.
-     */
+    /** {@inheritDoc} */
     public void pollEvents() {
         if (window != NULL) {
             glfwPollEvents();
         }
     }
 
-    /**
-     * TODO: document {@code shutdown}.
-     */
+    /** {@inheritDoc} */
     public void shutdown() {
         if (window != NULL) {
             glfwDestroyWindow(window);
@@ -1252,5 +842,12 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         }
         glfwTerminate();
         initialized = false;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void clearColor(Color c) {
+        Vector4f c4 = c.toVector4f();
+        GL11.glClearColor(c4.x, c4.y, c4.z, c4.w);
     }
 }

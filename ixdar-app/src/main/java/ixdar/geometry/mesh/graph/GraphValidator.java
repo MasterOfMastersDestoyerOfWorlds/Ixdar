@@ -13,6 +13,16 @@ import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.parsing.python.PythonParser;
 
+/**
+ * Static validation pass over a parsed DSL graph. Catches the errors that would
+ * otherwise blow up at runtime: duplicate node ids, unknown node types (with a
+ * fuzzy "did you mean..." suggestion), unknown input port names, unknown source
+ * nodes/ports on edges, and edge type mismatches.
+ *
+ * <p>Type compatibility is intentionally permissive: FLOAT⇄INT, MESH⇄GEOMETRY_BUNDLE
+ * and CLOSURE⇄CLOSURE are all considered legal, matching the runtime's coercion
+ * behaviour.
+ */
 public final class GraphValidator {
     public static final String LINE = "Line ";
     public static final String STR = "'";
@@ -27,11 +37,11 @@ public final class GraphValidator {
     }
 
     /**
-     * TODO: document {@code validate}.
+     * Validate a parsed graph with no DSL function definitions in scope.
      *
-     * @param parsed TODO: describe
-     * @param registry TODO: describe
-     * @return TODO: describe
+     * @param parsed   parsed statement list (topological order)
+     * @param registry node type id to {@link MeshNode} class
+     * @return list of human-readable error messages (empty when valid)
      */
     public static List<String> validate(List<PythonParser.ParsedNode> parsed,
             Map<String, Class<? extends MeshNode>> registry) {
@@ -39,12 +49,14 @@ public final class GraphValidator {
     }
 
     /**
-     * TODO: document {@code validate}.
+     * Validate a parsed graph, treating any node whose type is in
+     * {@code functionNames} as a DSL function call (skipped here, validated at
+     * runtime when its body executes).
      *
-     * @param parsed TODO: describe
-     * @param registry TODO: describe
-     * @param functionNames TODO: describe
-     * @return TODO: describe
+     * @param parsed        parsed statement list
+     * @param registry      node type id to class
+     * @param functionNames names of DSL function definitions in scope
+     * @return list of human-readable error messages (empty when valid)
      */
     public static List<String> validate(List<PythonParser.ParsedNode> parsed,
             Map<String, Class<? extends MeshNode>> registry,
@@ -100,11 +112,14 @@ public final class GraphValidator {
     }
 
     /**
-     * TODO: document {@code validateWithRandomValueWarnings}.
+     * Returns non-fatal warnings about edges sourced from {@code random_value}
+     * nodes. {@code random_value} populates only one of {@code float_out},
+     * {@code int_out}, {@code vector_out} depending on its mode; the others are
+     * null at runtime, which is rarely what the author intends.
      *
-     * @param parsed TODO: describe
-     * @param registry TODO: describe
-     * @return TODO: describe
+     * @param parsed   parsed statement list
+     * @param registry node type id to class
+     * @return human-readable warning strings (empty when no random_value edges)
      */
     public static List<String> validateWithRandomValueWarnings(List<PythonParser.ParsedNode> parsed,
             Map<String, Class<? extends MeshNode>> registry) {

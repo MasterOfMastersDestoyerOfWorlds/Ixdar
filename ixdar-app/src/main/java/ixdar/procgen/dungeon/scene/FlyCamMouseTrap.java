@@ -34,13 +34,16 @@ public class FlyCamMouseTrap extends MouseTrap {
     private boolean leftDown = false;
 
     /**
-     * TODO: document {@code FlyCamMouseTrap}.
+     * Builds a mouse trap whose look-mode and delta routing are decided by the supplied callbacks.
      *
-     * @param camera TODO: describe
-     * @param canvas TODO: describe
-     * @param captureSupplier TODO: describe
-     * @param onDelta TODO: describe
-     * @param onScroll TODO: describe
+     * @param camera          camera passed to the base {@link MouseTrap}
+     * @param canvas          canvas passed to the base {@link MouseTrap}
+     * @param captureSupplier returns {@code true} when cursor deltas should rotate without LMB
+     *     (capture / player mode) and {@code false} when rotation requires LMB-drag (fly-cam)
+     * @param onDelta         consumer for cursor deltas — caller decides whether to feed them to
+     *     first-person camera look or third-person orbit
+     * @param onScroll        consumer for scroll-wheel ticks (e.g. third-person zoom); may be
+     *     {@code null} to ignore scroll
      */
     public FlyCamMouseTrap(Camera camera, Canvas3D canvas,
                            BooleanSupplier captureSupplier,
@@ -53,11 +56,12 @@ public class FlyCamMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code mouseButton}.
+     * Tracks the left mouse-button state used to gate drag-to-rotate.
      *
-     * @param button TODO: describe
-     * @param action TODO: describe
-     * @param mods TODO: describe
+     * @param button platform mouse-button code
+     * @param action {@link ixdar.platform.input.Keys#ACTION_PRESS} or
+     *     {@link ixdar.platform.input.Keys#ACTION_RELEASE}
+     * @param mods   platform modifier-key bitmask (currently unused)
      */
     @Override
     public void mouseButton(int button, int action, int mods) {
@@ -73,10 +77,11 @@ public class FlyCamMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code mousePos}.
+     * Cursor-move callback. In capture mode every delta rotates; otherwise only updates the
+     * cached last-position so a future drag has a baseline.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param x cursor X in window pixels
+     * @param y cursor Y in window pixels
      */
     @Override
     public void mousePos(float x, float y) {
@@ -91,10 +96,10 @@ public class FlyCamMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code mouseDragged}.
+     * Drag callback for fly-cam mode — emits a delta only while the left mouse button is held.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param x cursor X in window pixels
+     * @param y cursor Y in window pixels
      */
     @Override
     public void mouseDragged(float x, float y) {
@@ -109,11 +114,12 @@ public class FlyCamMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code moveOrDrag}.
+     * Unified cursor entry point — dispatches to {@link #mousePos} in capture mode or to
+     * {@link #mouseDragged} when LMB is held in fly-cam mode.
      *
-     * @param window TODO: describe
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param window platform window handle (unused; required by the base API)
+     * @param x cursor X in window pixels
+     * @param y cursor Y in window pixels
      */
     @Override
     public void moveOrDrag(long window, float x, float y) {
@@ -129,9 +135,9 @@ public class FlyCamMouseTrap extends MouseTrap {
     }
 
     /**
-     * TODO: document {@code paintUpdate}.
+     * Per-frame hook that drains queued scroll-wheel ticks into {@code onScroll}.
      *
-     * @param shiftMod TODO: describe
+     * @param shiftMod movement-speed multiplier (unused here; kept for base-class symmetry)
      */
     @Override
     public void paintUpdate(float shiftMod) {
@@ -147,12 +153,12 @@ public class FlyCamMouseTrap extends MouseTrap {
     @FunctionalInterface
     public interface DeltaHandler {
         /**
-         * TODO: document {@code apply}.
+         * Receives a cursor-position delta and routes it to the appropriate look target.
          *
-         * @param lastX TODO: describe
-         * @param lastY TODO: describe
-         * @param x TODO: describe
-         * @param y TODO: describe
+         * @param lastX previous cursor X in window pixels
+         * @param lastY previous cursor Y in window pixels
+         * @param x     current cursor X in window pixels
+         * @param y     current cursor Y in window pixels
          */
         void apply(float lastX, float lastY, float x, float y);
     }

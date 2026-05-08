@@ -20,14 +20,15 @@ public class SDFFluid extends ShaderDrawable {
     public static final float NUM_40000 = 40000f;
 
     /**
-     * TODO: document {@code SDFFluid}.
+     * Bind the fluid (animated swirl) SDF shader.
      */
     public SDFFluid() {
         shader = ShaderType.Fluid.getShader();
     }
 
     /**
-     * TODO: document {@code setUniforms}.
+     * Push fluid effect uniforms (palette, spin, contrast, time, aspect-aware
+     * pixel size) for the current frame.
      */
     protected void setUniforms() {
         shader.setBool("polar_coordinates", false); // cool polar coordinates effect

@@ -30,7 +30,8 @@ public class AutomationRecorder {
     private String lastSavedFile = "";
 
     /**
-     * TODO: document {@code start}.
+     * Begin a new recording session: clears any buffered events, captures the start
+     * time (epoch and ISO-8601), and flips the recording flag on.
      */
     public synchronized void start() {
         recording = true;
@@ -42,18 +43,20 @@ public class AutomationRecorder {
     }
 
     /**
-     * TODO: document {@code isRecording}.
+     * Whether a recording session is currently active.
      *
-     * @return TODO: describe
+     * @return {@code true} between {@link #start()} and {@link #stop(String)}
      */
     public synchronized boolean isRecording() {
         return recording;
     }
 
     /**
-     * TODO: document {@code status}.
+     * Snapshot of the recorder state for the {@code record/status} endpoint.
      *
-     * @return TODO: describe
+     * @return JSON object with {@code recording}, {@code rawEventCount},
+     *         {@code abstractActionCount}, {@code startedAtIso}, and
+     *         {@code lastSavedFile}
      */
     public synchronized JsonObject status() {
         JsonObject status = new JsonObject();
@@ -66,10 +69,11 @@ public class AutomationRecorder {
     }
 
     /**
-     * TODO: document {@code recordRaw}.
+     * Append a raw input event to the session's raw-event log, tagged with the
+     * elapsed milliseconds since {@link #start()}. No-op when not recording.
      *
-     * @param type TODO: describe
-     * @param payload TODO: describe
+     * @param type event type tag (e.g. {@code "key"}, {@code "mouse_move"})
+     * @param payload event-specific fields
      */
     public synchronized void recordRaw(String type, JsonObject payload) {
         if (!recording) {
@@ -83,10 +87,12 @@ public class AutomationRecorder {
     }
 
     /**
-     * TODO: document {@code recordAbstract}.
+     * Append a high-level (abstract) action to the session log, tagged with the
+     * elapsed milliseconds since {@link #start()}. No-op when not recording.
      *
-     * @param type TODO: describe
-     * @param payload TODO: describe
+     * @param type action type tag (e.g. {@code "click"}, {@code "hover"},
+     *             {@code "scroll"})
+     * @param payload action-specific fields
      */
     public synchronized void recordAbstract(String type, JsonObject payload) {
         if (!recording) {
@@ -100,11 +106,16 @@ public class AutomationRecorder {
     }
 
     /**
-     * TODO: document {@code stop}.
+     * Finalize the session and write a pretty-printed JSON file containing the start
+     * timestamp, current window/framebuffer dimensions, and both raw and abstract
+     * event lists.
      *
-     * @param outputPath TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param outputPath target file path; relative paths resolve against
+     *                   {@code user.dir} and a blank value falls back to
+     *                   {@code recordings/automation/demo-<startMillis>.json}
+     * @throws IOException if writing the recording file fails
+     * @return status payload with {@code saved} flag and (on success) the absolute
+     *         {@code file} path that was written
      */
     public synchronized JsonObject stop(String outputPath) throws IOException {
         if (!recording) {

@@ -19,9 +19,9 @@ public class KnotEngine {
     private Shell shell;
 
     /**
-     * TODO: document {@code KnotEngine}.
+     * Build an engine that grows knots within {@code shell}'s point set.
      *
-     * @param shell TODO: describe
+     * @param shell shell whose {@code pointMap} seeds the unvisited knot list
      */
     public KnotEngine(Shell shell) {
         this.shell = shell;
@@ -29,12 +29,13 @@ public class KnotEngine {
     }
 
     /**
-     * TODO: document {@code createKnots}.
+     * Iteratively grow knots from singleton points, running up to {@code layers}
+     * passes of {@link #findKnots} until at most one knot remains.
      *
-     * @param layers TODO: describe
-     * @param sortedSegments TODO: describe
-     * @throws MultipleCyclesFoundException TODO: describe
-     * @return TODO: describe
+     * @param layers maximum number of merge passes to perform
+     * @param sortedSegments segments ordered for use by the per-pass merge
+     * @throws MultipleCyclesFoundException if a merge introduces more than one cycle
+     * @return the surviving (still-growable) knots after the last pass
      */
     public ArrayList<Knot> createKnots(int layers, ArrayList<Segment> sortedSegments)
             throws MultipleCyclesFoundException {
@@ -50,12 +51,14 @@ public class KnotEngine {
     }
 
     /**
-     * TODO: document {@code findKnots}.
+     * One merge pass: for every disjoint group, find the smallest-delta
+     * {@link CutMatch} to a different group and join the mutually-best pairs,
+     * either creating a new knot or growing an existing one by a singleton.
      *
-     * @param sortedSegments TODO: describe
-     * @param knots TODO: describe
-     * @throws MultipleCyclesFoundException TODO: describe
-     * @return TODO: describe
+     * @param sortedSegments segments used by the underlying delta computation
+     * @param knots current list of growable knots; mutated in place
+     * @throws MultipleCyclesFoundException if a merge introduces more than one cycle
+     * @return the updated {@code knots} list with merged entries removed
      */
     public ArrayList<Knot> findKnots(ArrayList<Segment> sortedSegments, ArrayList<Knot> knots)
             throws MultipleCyclesFoundException {

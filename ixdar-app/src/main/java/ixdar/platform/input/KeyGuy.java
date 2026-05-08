@@ -44,10 +44,11 @@ public class KeyGuy extends Camera2DInputController{
     long lastPressTime;
 
     /**
-     * TODO: document {@code KeyGuy}.
+     * Lightweight constructor used by scenes that don't have a {@code MainScene} (e.g.
+     * {@code TradeScene}, dungeon viewer).
      *
-     * @param camera TODO: describe
-     * @param canvas TODO: describe
+     * @param camera camera the controller drives
+     * @param canvas owning canvas (for platform-id resolution)
      */
     public KeyGuy(Camera camera, Canvas3D canvas) {
         this.camera = camera;
@@ -55,12 +56,13 @@ public class KeyGuy extends Camera2DInputController{
     }
 
     /**
-     * TODO: document {@code KeyGuy}.
+     * Constructor used by {@code MainScene} so the handler can dispatch tool / terminal
+     * shortcuts.
      *
-     * @param main TODO: describe
-     * @param fileName TODO: describe
-     * @param camera TODO: describe
-     * @param canvas2 TODO: describe
+     * @param main owning main scene
+     * @param fileName scene-loaded file name (currently unused but retained for symmetry)
+     * @param camera camera the controller drives
+     * @param canvas2 owning canvas
      */
     public KeyGuy(MainScene main, String fileName, Camera camera, Canvas3D canvas2) {
         this.main = main;
@@ -172,10 +174,11 @@ public class KeyGuy extends Camera2DInputController{
     }
 
     /**
-     * TODO: document {@code keyReleased}.
+     * Handle a key-up: fire menu / camera shortcuts when a non-main scene is active, clear the
+     * control-mask flag on left-control release, then drop {@code key} from {@link #pressedKeys}.
      *
-     * @param key TODO: describe
-     * @param mask TODO: describe
+     * @param key key code that was released
+     * @param mask modifier-key bitmask
      */
     public void keyReleased(int key, int mask) {
         if (!active) {
@@ -199,9 +202,11 @@ public class KeyGuy extends Camera2DInputController{
     }
 
     /**
-     * TODO: document {@code paintUpdate}.
+     * Per-frame: skip while terminal is focused (so typing into terminal doesn't move the
+     * camera), forward camera movement keys to {@link Camera2DInputController#apply}, then
+     * cycle the active tool on left/right with debouncing.
      *
-     * @param SHIFT_MOD TODO: describe
+     * @param SHIFT_MOD speed multiplier (typically 1 or 2)
      */
     public void paintUpdate(float SHIFT_MOD) {
         if (!active || Toggle.IsTerminalFocused.value) {
@@ -224,13 +229,15 @@ public class KeyGuy extends Camera2DInputController{
     }
 
     /**
-     * TODO: document {@code keyCallback}.
+     * Platform key-event entry point: rebinds {@link Platforms} to the owning canvas, then
+     * dispatches to {@code keyPressed} (with {@code repeated = true} for {@code ACTION_REPEAT})
+     * or {@link #keyReleased}.
      *
-     * @param window TODO: describe
-     * @param key TODO: describe
-     * @param scancode TODO: describe
-     * @param action TODO: describe
-     * @param mods TODO: describe
+     * @param window platform window handle
+     * @param key key code (see {@code Keys})
+     * @param scancode raw scancode (GLFW; 0 on web)
+     * @param action {@code ACTION_PRESS} / {@code ACTION_REPEAT} / {@code ACTION_RELEASE}
+     * @param mods modifier-key bitmask
      */
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
         Platforms.init(canvas.platform.getPlatformID());
@@ -250,10 +257,11 @@ public class KeyGuy extends Camera2DInputController{
     }
 
     /**
-     * TODO: document {@code charCallback}.
+     * Platform char-event entry point: when terminal focus is on, forwards typed characters
+     * into {@code MainScene.terminal}.
      *
-     * @param window TODO: describe
-     * @param codepoint TODO: describe
+     * @param window platform window handle
+     * @param codepoint Unicode code point of typed character
      */
     public void charCallback(long window, int codepoint) {
         Platforms.init(canvas.platform.getPlatformID());

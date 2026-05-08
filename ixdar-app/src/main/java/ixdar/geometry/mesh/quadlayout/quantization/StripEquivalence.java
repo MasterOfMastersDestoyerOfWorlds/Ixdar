@@ -42,10 +42,14 @@ public final class StripEquivalence {
     private StripEquivalence() {}
 
     /**
-     * TODO: document {@code compute}.
+     * Compute strip-equivalence classes over the T-mesh arcs in two passes:
+     * Pass 1 unifies opposite-side arcs of every 4-sided patch by reversed
+     * position; Pass 2 (PATCH-92) covers arcs that sit outside any 4-sided
+     * patch by uniting matching incoming/outgoing cardinal directions at
+     * each TNode.
      *
-     * @param tmesh TODO: describe
-     * @return TODO: describe
+     * @param tmesh T-mesh whose arcs are partitioned into strip classes
+     * @return per-arc class ids dense in {@code [0, classCount)}
      */
     public static Result compute(TMesh tmesh) {
         int n = tmesh.arcs().size();
@@ -174,9 +178,10 @@ public final class StripEquivalence {
      *  side B. Patch chaining via shared arcs propagates strip class
      *  equivalence across patch boundaries.
      *
-     * @param parent TODO: describe
-     * @param sideA TODO: describe
-     * @param sideB TODO: describe
+     * @param parent union-find parent array, indexed by arc id
+     * @param sideA  arcs on one patch side
+     * @param sideB  arcs on the opposite patch side; must match
+     *               {@code sideA.length} for any unification to occur
      */
     private static void unionByReversedPosition(int[] parent,
                                                   int[] sideA, int[] sideB) {
@@ -204,11 +209,12 @@ public final class StripEquivalence {
     }
 
     /**
-     * TODO: document {@code aggregateTargets}.
+     * Aggregate per-arc real targets to one value per strip class by taking
+     * the mean over all arcs in the class.
      *
-     * @param strips TODO: describe
-     * @param arcTargets TODO: describe
-     * @return TODO: describe
+     * @param strips     class assignment from {@link #compute(TMesh)}
+     * @param arcTargets per-arc target values (e.g. parametric lengths)
+     * @return per-class mean target, length {@code strips.classCount()}
      */
     public static double[] aggregateTargets(Result strips, double[] arcTargets) {
         double[] sumLen = new double[strips.classCount()];

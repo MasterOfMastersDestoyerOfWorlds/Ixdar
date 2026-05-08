@@ -20,11 +20,9 @@ public class TradeKeyGuy extends KeyGuy {
     private TradeScene tradeScene;
 
     /**
-     * TODO: document {@code TradeKeyGuy}.
-     *
-     * @param tradeScene TODO: describe
-     * @param camera TODO: describe
-     * @param canvas TODO: describe
+     * @param tradeScene owning trade scene (used for tool dispatch and menu return)
+     * @param camera camera the controller drives
+     * @param canvas owning canvas
      */
     public TradeKeyGuy(TradeScene tradeScene, Camera camera, Canvas3D canvas) {
         super(camera, canvas);
@@ -32,13 +30,14 @@ public class TradeKeyGuy extends KeyGuy {
     }
 
     /**
-     * TODO: document {@code keyCallback}.
+     * Trade-specific key handler: maintains {@link KeyGuy#pressedKeys}, forwards key presses
+     * first to {@link RoutePlanningTool}, and routes ESC to {@link TradeScene#returnToMenu()}.
      *
-     * @param window TODO: describe
-     * @param key TODO: describe
-     * @param scancode TODO: describe
-     * @param action TODO: describe
-     * @param mods TODO: describe
+     * @param window platform window handle
+     * @param key key code
+     * @param scancode raw scancode (GLFW; 0 on web)
+     * @param action {@code ACTION_PRESS} / {@code ACTION_REPEAT} / {@code ACTION_RELEASE}
+     * @param mods modifier-key bitmask
      */
     @Override
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
@@ -78,10 +77,11 @@ public class TradeKeyGuy extends KeyGuy {
     }
 
     /**
-     * TODO: document {@code charCallback}.
+     * Char-event handler: records the codepoint for automation but performs no other
+     * action — the trade scene has no terminal.
      *
-     * @param window TODO: describe
-     * @param codepoint TODO: describe
+     * @param window platform window handle
+     * @param codepoint Unicode code point
      */
     @Override
     public void charCallback(long window, int codepoint) {
@@ -91,9 +91,10 @@ public class TradeKeyGuy extends KeyGuy {
     }
 
     /**
-     * TODO: document {@code paintUpdate}.
+     * Per-frame: forward held movement keys to the camera via
+     * {@link Camera2DInputController#apply}.
      *
-     * @param SHIFT_MOD TODO: describe
+     * @param SHIFT_MOD speed multiplier
      */
     @Override
     public void paintUpdate(float SHIFT_MOD) {

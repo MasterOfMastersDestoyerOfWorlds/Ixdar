@@ -54,13 +54,15 @@ public final class QuadPortGenerator {
     private QuadPortGenerator() {}
 
     /**
-     * TODO: document {@code generate}.
+     * Emit the full port set for {@code qVerts} via the three per-source
+     * routines (FACE / EDGE / VERT). Each QVert's ports are appended to the
+     * shared list and prev/next-linked into a cyclic ring.
      *
-     * @param mesh TODO: describe
-     * @param qVerts TODO: describe
-     * @param uCorner TODO: describe
-     * @param vCorner TODO: describe
-     * @return TODO: describe
+     * @param mesh underlying triangle mesh
+     * @param qVerts Stage 1 output partitioned by source kind
+     * @param uCorner per-corner u, length {@code 3 * F}
+     * @param vCorner per-corner v, length {@code 3 * F}
+     * @return the flat port list plus a per-QVert id-grouping map
      */
     public static Result generate(ArrayMesh mesh,
                                   QuadVertexGenerator.Result qVerts,

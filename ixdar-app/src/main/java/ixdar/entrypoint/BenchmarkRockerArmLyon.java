@@ -34,10 +34,12 @@ public final class BenchmarkRockerArmLyon {
     }
 
     /**
-     * TODO: document {@code main}.
+     * CLI entry: load the rocker-arm OBJ (or {@code args[0]}), run the full
+     * quad-layout pipeline, and report load/layout timings; a daemon watchdog
+     * exits with code {@value #NUM_124} after {@link #TIMEOUT_MS} ms.
      *
-     * @param args TODO: describe
-     * @throws Exception TODO: describe
+     * @param args optional path to the input OBJ at index 0
+     * @throws Exception propagated from mesh loading or pipeline execution
      */
     public static void main(String[] args) throws Exception {
         AtomicBoolean finished = new AtomicBoolean(false);
@@ -95,9 +97,9 @@ public final class BenchmarkRockerArmLyon {
         }
 
         /**
-         * TODO: document {@code toString}.
+         * Compact human-readable summary of face/edge/vertex/half-edge/boundary counts.
          *
-         * @return TODO: describe
+         * @return string of the form {@code "F=.. E=.. V=.. HE=.. boundaryE=.."}
          */
         @Override
         public String toString() {

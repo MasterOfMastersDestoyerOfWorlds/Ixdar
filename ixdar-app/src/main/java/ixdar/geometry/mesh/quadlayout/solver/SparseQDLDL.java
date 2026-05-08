@@ -26,16 +26,17 @@ public final class SparseQDLDL {
     private int n;
 
     /**
-     * TODO: document {@code SparseQDLDL}.
+     * Create an undecomposed solver. Call {@link #decompose} before {@link #solve}.
      */
     public SparseQDLDL() { }
 
     /**
-     * TODO: document {@code decompose}.
+     * Factor the symmetric (or quasi-definite) sparse matrix {@code m} as
+     * {@code L D L^T}. Subsequent {@link #solve} calls reuse the factorization.
      *
-     * @param m TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param m square symmetric input
+     * @throws IllegalArgumentException if {@code m} is not square
+     * @return {@code true} if the factorization succeeded
      */
     public boolean decompose(SparseMatrix m) {
         if (m.rows() != m.cols()) {
@@ -47,21 +48,23 @@ public final class SparseQDLDL {
     }
 
     /**
-     * TODO: document {@code isSolvable}.
+     * Whether the most recent {@link #decompose} produced a usable factorization
+     * (e.g. no zero pivot encountered).
      *
-     * @return TODO: describe
+     * @return {@code true} if {@link #solve} can be called
      */
     public boolean isSolvable() {
         return ldl != null && ldl.isSolvable();
     }
 
     /**
-     * TODO: document {@code solve}.
+     * Solve {@code A x = rhs} using the previously-computed LDL factorization
+     * via forward then back substitution.
      *
-     * @param rhs TODO: describe
-     * @throws IllegalStateException TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param rhs right-hand side vector of length {@link #dimension}
+     * @throws IllegalStateException if {@link #decompose} has not been called
+     * @throws IllegalArgumentException if {@code rhs.length != dimension()}
+     * @return newly allocated solution vector {@code x}
      */
     public double[] solve(double[] rhs) {
         if (ldl == null) throw new IllegalStateException("decompose() not called");
@@ -75,9 +78,9 @@ public final class SparseQDLDL {
     }
 
     /**
-     * TODO: document {@code dimension}.
+     * Side length of the most recently decomposed square matrix.
      *
-     * @return TODO: describe
+     * @return matrix dimension {@code n}, or 0 if {@link #decompose} has not been called
      */
     public int dimension() { return n; }
 }

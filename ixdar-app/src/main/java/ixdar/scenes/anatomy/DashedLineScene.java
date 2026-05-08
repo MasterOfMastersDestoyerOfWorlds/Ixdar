@@ -20,14 +20,16 @@ public class DashedLineScene extends Scene {
     private Segment lineSegment;
 
     /**
-     * TODO: document {@code DashedLineScene}.
+     * Anatomy demo for a horizontal SDF segment rendered as a dashed line
+     * with square caps.
      */
     public DashedLineScene() {
         super();
     }
 
     /**
-     * TODO: document {@code initPoints}.
+     * Seed the shell with the two horizontal endpoints used as draggable
+     * line anchors.
      */
     @Override
     public void initPoints() {
@@ -39,7 +41,9 @@ public class DashedLineScene extends Scene {
     }
 
     /**
-     * TODO: document {@code initGL}.
+     * Build the segment between the two anchor knots, configure the
+     * dashed stroke pattern, and attach the code pane bound to its SDF
+     * shader.
      */
     @Override
     public void initGL() {
@@ -52,7 +56,8 @@ public class DashedLineScene extends Scene {
     }
 
     /**
-     * TODO: document {@code drawScene}.
+     * Re-apply the dashed stroke each frame (so resize/zoom updates take
+     * effect) and draw the segment with a red-to-green gradient body.
      */
     @Override
     public void drawScene() {

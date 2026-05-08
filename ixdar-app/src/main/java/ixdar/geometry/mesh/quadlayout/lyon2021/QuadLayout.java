@@ -138,9 +138,12 @@ public record QuadLayout(List<QuadLayoutPatch> patches,
     }
 
     /**
-     * TODO: document {@code build}.
+     * Identity build hook: returns {@code this}. The layout is fully populated
+     * by the assembly pipeline before construction; this method exists so
+     * callers can chain {@code new QuadLayout(...).build()} symmetrically with
+     * other pipeline stages.
      *
-     * @return TODO: describe
+     * @return this layout, unchanged
      */
     public QuadLayout build() {
         // L is the explicit conforming quad layout (nodes = singularities,
@@ -149,10 +152,11 @@ public record QuadLayout(List<QuadLayoutPatch> patches,
     }
 
     /**
-     * TODO: document {@code toHalfEdgeMesh}.
+     * Convert this conforming quad layout into a half-edge mesh whose faces
+     * are the layout patches. Not yet implemented.
      *
-     * @throws UnsupportedOperationException TODO: describe
-     * @return TODO: describe
+     * @throws UnsupportedOperationException always (stub)
+     * @return never returns
      */
     public HalfEdgeMesh toHalfEdgeMesh() {
         // TODO Auto-generated method stub

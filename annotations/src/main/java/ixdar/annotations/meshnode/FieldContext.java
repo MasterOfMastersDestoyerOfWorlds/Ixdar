@@ -18,12 +18,12 @@ public interface FieldContext {
      *
      * @return packed xyz positions of length {@link #elementCount()}
      */
-    Vec3Field positions();
+    Vector3Field positions();
 
     /**
      * Per-element surface normals for the active domain.
      *
      * @return packed xyz normals of length {@link #elementCount()}
      */
-    Vec3Field normals();
+    Vector3Field normals();
 }

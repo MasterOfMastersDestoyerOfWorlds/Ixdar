@@ -18,7 +18,7 @@ public class CutMatchDistanceMatrix {
      * Creates a distance matrix that represents the distance between every point in
      * the pointset.
      *
-     * @param k TODO: describe
+     * @param k knot whose flattened points populate the matrix and edge lists
      */
     public CutMatchDistanceMatrix(Knot k) {
         int size = k.size();
@@ -76,9 +76,9 @@ public class CutMatchDistanceMatrix {
     }
 
     /**
-     * TODO: document {@code size}.
+     * Number of rows (knot points) in the matrix.
      *
-     * @return TODO: describe
+     * @return row count of the distance matrix
      */
     public int size() {
         return matrix.length;

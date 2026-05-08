@@ -53,10 +53,12 @@ public class WebPlatform implements Platform {
     private int shadersToLoad;
 
     /**
-     * TODO: document {@code WebPlatform}.
+     * Build a {@link WebPlatform} bound to a specific HTML canvas; the supplied {@code id}
+     * lets {@link Platforms} route input/render calls back to the right canvas when several
+     * are mounted on the same page.
      *
-     * @param canvas TODO: describe
-     * @param id TODO: describe
+     * @param canvas DOM canvas this platform owns
+     * @param id stable identifier for this canvas (typically its DOM id)
      */
     public WebPlatform(HTMLCanvasElement canvas, String id) {
         this.currentCanvasId = id;
@@ -67,7 +69,7 @@ public class WebPlatform implements Platform {
     /**
      * Get the current canvas ID.
      *
-     * @return TODO: describe
+     * @return DOM id of the canvas this platform was constructed against
      */
     public String getCurrentCanvasId() {
         return currentCanvasId;
@@ -149,11 +151,7 @@ public class WebPlatform implements Platform {
         }
     }
 
-    /**
-     * TODO: document {@code setTitle}.
-     *
-     * @param title TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setTitle(String title) {
         setDocTitle(title);
@@ -162,29 +160,19 @@ public class WebPlatform implements Platform {
     @JSBody(params = { "t" }, script = "document.title=t;")
     private static native void setDocTitle(String t);
 
-    /**
-     * TODO: document {@code getWindowWidth}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getWindowWidth() {
         return canvas.getClientWidth();
     }
 
-    /**
-     * TODO: document {@code getWindowHeight}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getWindowHeight() {
         return canvas.getClientHeight();
     }
 
-    /**
-     * TODO: document {@code requestRepaint}.
-     */
+    /** {@inheritDoc} */
     @Override
     public void requestRepaint() {
         // RAF loop externally drives rendering
@@ -193,73 +181,45 @@ public class WebPlatform implements Platform {
     @JSBody(params = {}, script = "return Date.now()/1000.0;")
     private static native double nowSeconds();
 
-    /**
-     * TODO: document {@code timeSeconds}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public float timeSeconds() {
         return (float) nowSeconds();
     }
 
-    /**
-     * TODO: document {@code setKeyCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setKeyCallback(KeyCallback callback) {
         this.keyCallback = callback;
         sKeyCallback = callback;
     }
 
-    /**
-     * TODO: document {@code setCharCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setCharCallback(CharCallback callback) {
         this.charCallback = callback;
         sCharCallback = callback;
     }
 
-    /**
-     * TODO: document {@code setCursorPosCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setCursorPosCallback(CursorPosCallback callback) {
         this.cursorPosCallback = callback;
     }
 
-    /**
-     * TODO: document {@code setMouseButtonCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setMouseButtonCallback(MouseButtonCallback callback) {
         this.mouseButtonCallback = callback;
     }
 
-    /**
-     * TODO: document {@code setScrollCallback}.
-     *
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setScrollCallback(ScrollCallback callback) {
         this.scrollCallback = callback;
     }
 
-    /**
-     * TODO: document {@code setCursorMode}.
-     *
-     * @param mode TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setCursorMode(CursorMode mode) {
         if (canvas == null) return;
@@ -278,13 +238,7 @@ public class WebPlatform implements Platform {
     @JSBody(params = { "json" }, script = "try { return JSON.parse(json); } catch (e) { return null; }")
     private static native JsRoot parseJsonRoot(String json);
 
-    /**
-     * TODO: document {@code parseFontAtlas}.
-     *
-     * @param json TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public FontAtlasDTO parseFontAtlas(String json) {
         if (json == null || json.isEmpty()) {
@@ -353,13 +307,7 @@ public class WebPlatform implements Platform {
         return dto;
     }
 
-    /**
-     * TODO: document {@code loadTexture}.
-     *
-     * @param resourceName TODO: describe
-     * @param platformId TODO: describe
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void loadTexture(String resourceName, int platformId, Consumer<Texture> callback) {
         loadImagePixels("/ixdar/res/" + resourceName, (w, h, data) -> {
@@ -373,34 +321,19 @@ public class WebPlatform implements Platform {
         });
     }
 
-    /**
-     * TODO: document {@code startTime}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public float startTime() {
         return WebLauncher.startTime;
     }
 
-    /**
-     * TODO: document {@code exit}.
-     *
-     * @param code TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void exit(int code) {
         // no-op on web
     }
 
-    /**
-     * TODO: document {@code loadShaderSourceAsync}.
-     *
-     * @param resourceFolder TODO: describe
-     * @param filename TODO: describe
-     * @param platformId TODO: describe
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId,
             Consumer<String> callback) {
@@ -412,35 +345,18 @@ public class WebPlatform implements Platform {
         loadSourceAsync(resourceFolder, filename, platformId, callback2);
     }
 
-    /**
-     * TODO: document {@code trySyncLoadSource}.
-     *
-     * @param resourceFolder TODO: describe
-     * @param filename TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public String trySyncLoadSource(String resourceFolder, String filename) {
         return null;
     }
 
-    /**
-     * TODO: document {@code loadSourceAsync}.
-     *
-     * @param resourceFolder TODO: describe
-     * @param filename TODO: describe
-     * @param platformId TODO: describe
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
         String url = "/ixdar/" + resourceFolder + "/" + filename;
         fetchTextAsync(url, new TextCallback() {
-            /**
-             * TODO: document {@code onText}.
-             *
-             * @param text TODO: describe
-             */
+            /** {@inheritDoc} */
             @Override
             public void onText(String text) {
                 Platforms.init(platformId);
@@ -450,25 +366,13 @@ public class WebPlatform implements Platform {
         });
     }
 
-    /**
-     * TODO: document {@code loadFile}.
-     *
-     * @param path TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public TextFile loadFile(String path) throws IOException {
         throw new IOException("Synchronous loadFile is not supported on web; use async loading: " + path);
     }
 
-    /**
-     * TODO: document {@code loadExternalFile}.
-     *
-     * @param absolutePath TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public TextFile loadExternalFile(String absolutePath) throws IOException {
         throw new IOException("External filesystem assets are not available on web platform: " + absolutePath);
@@ -505,12 +409,7 @@ public class WebPlatform implements Platform {
         return p;
     }
 
-    /**
-     * TODO: document {@code loadImagePixels}.
-     *
-     * @param url TODO: describe
-     * @param callback TODO: describe
-     */
+    /** {@inheritDoc} */
     @org.teavm.jso.JSBody(params = { "url", "callback" }, script = "fetch(url)" +
             "  .then(function(r) { return r.blob(); })" +
             "  .then(function(blob) { return createImageBitmap(blob); })" +
@@ -525,23 +424,13 @@ public class WebPlatform implements Platform {
             "  });")
     public static native void loadImagePixels(String url, ImagePixelsCallback callback);
 
-    /**
-     * TODO: document {@code writeTextFile}.
-     *
-     * @param file TODO: describe
-     * @param append TODO: describe
-     * @throws IOException TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void writeTextFile(TextFile file, boolean append) throws java.io.IOException {
         // No-op for web (cannot write). Intentionally ignored.
     }
 
-    /**
-     * TODO: document {@code log}.
-     *
-     * @param msg TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void log(String msg) {
         WebPlatform.jsLog(msg);
@@ -550,84 +439,50 @@ public class WebPlatform implements Platform {
     @JSBody(params = { "msg" }, script = "console.log(msg == null ? '(null)' : msg);")
     private static native void jsLog(String msg);
 
-    /**
-     * TODO: document {@code canHotReload}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean canHotReload() {
         return false;
     }
 
-    /**
-     * TODO: document {@code allocateFloats}.
-     *
-     * @param i TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public IxBuffer allocateFloats(int i) {
         return new WebBuffer(i);
     }
 
-    /**
-     * TODO: document {@code setFrameBufferSize}.
-     *
-     * @param f TODO: describe
-     * @param g TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setFrameBufferSize(float f, float g) {
         frameBufferSizeX = f;
         frameBufferSizeY = g;
     }
 
-    /**
-     * TODO: document {@code getFrameBufferWidth}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getFrameBufferWidth() {
         return (int) frameBufferSizeX;
     }
 
-    /**
-     * TODO: document {@code getFrameBufferHeight}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getFrameBufferHeight() {
         return (int) frameBufferSizeY;
     }
 
-    /**
-     * TODO: document {@code getPlatformID}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public int getPlatformID() {
         return platformId;
     }
 
-    /**
-     * TODO: document {@code setPlatformID}.
-     *
-     * @param p TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void setPlatformID(Integer p) {
         this.platformId = p == null ? -1 : p.intValue();
     }
 
-    /**
-     * TODO: document {@code loadedShaders}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} */
     public boolean loadedShaders() {
         return shadersToLoad == 0;
     }
@@ -643,214 +498,114 @@ public class WebPlatform implements Platform {
         }
     }
 
-    /**
-     * TODO: document {@code processInputQueue}.
-     *
-     * @throws UnsupportedOperationException TODO: describe
-     */
+    /** {@inheritDoc} */
     @Override
     public void processInputQueue() {
         throw new UnsupportedOperationException("Unimplemented method 'processInputQueue'");
     }
 
     private interface JsRect extends JSObject {
-        /**
-         * TODO: document {@code getLeft}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getLeft();
 
-        /**
-         * TODO: document {@code getBottom}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getBottom();
 
-        /**
-         * TODO: document {@code getRight}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getRight();
 
-        /**
-         * TODO: document {@code getTop}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getTop();
     }
 
     private interface JsGlyphEntry extends JSObject {
-        /**
-         * TODO: document {@code getUnicode}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         int getUnicode();
 
-        /**
-         * TODO: document {@code getAdvance}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getAdvance();
 
-        /**
-         * TODO: document {@code getPlaneBounds}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         JsRect getPlaneBounds();
 
-        /**
-         * TODO: document {@code getAtlasBounds}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         JsRect getAtlasBounds();
     }
 
     private interface JsAtlasInfo extends JSObject {
-        /**
-         * TODO: document {@code getType}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         String getType();
 
-        /**
-         * TODO: document {@code getDistanceRange}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getDistanceRange();
 
-        /**
-         * TODO: document {@code getDistanceRangeMiddle}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getDistanceRangeMiddle();
 
-        /**
-         * TODO: document {@code getSize}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getSize();
 
-        /**
-         * TODO: document {@code getWidth}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         int getWidth();
 
-        /**
-         * TODO: document {@code getHeight}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         int getHeight();
 
-        /**
-         * TODO: document {@code getYOrigin}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty("yOrigin")
         String getYOrigin();
     }
 
     private interface JsMetrics extends JSObject {
-        /**
-         * TODO: document {@code getEmSize}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getEmSize();
 
-        /**
-         * TODO: document {@code getLineHeight}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getLineHeight();
 
-        /**
-         * TODO: document {@code getAscender}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getAscender();
 
-        /**
-         * TODO: document {@code getDescender}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getDescender();
 
-        /**
-         * TODO: document {@code getUnderlineY}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getUnderlineY();
 
-        /**
-         * TODO: document {@code getUnderlineThickness}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         double getUnderlineThickness();
     }
 
     private interface JsRoot extends JSObject {
-        /**
-         * TODO: document {@code getAtlas}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         JsAtlasInfo getAtlas();
 
-        /**
-         * TODO: document {@code getMetrics}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         JsMetrics getMetrics();
 
-        /**
-         * TODO: document {@code getGlyphs}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} */
         @JSProperty
         JsGlyphEntry[] getGlyphs();
         // kerning omitted for now
@@ -858,23 +613,13 @@ public class WebPlatform implements Platform {
 
     @JSFunctor
     interface TextCallback extends JSObject {
-        /**
-         * TODO: document {@code onText}.
-         *
-         * @param text TODO: describe
-         */
+        /** {@inheritDoc} */
         void onText(String text);
     }
 
     @JSFunctor
     public interface ImagePixelsCallback extends JSObject {
-        /**
-         * TODO: document {@code onPixels}.
-         *
-         * @param width TODO: describe
-         * @param height TODO: describe
-         * @param data TODO: describe
-         */
+        /** {@inheritDoc} */
         void onPixels(int width, int height, Uint8ClampedArray data);
     }
 }

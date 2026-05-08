@@ -34,7 +34,7 @@ public final class MeshLoader {
      *
      * @param path File path to OBJ or PLY file
      * @throws IOException if file cannot be read or parsed
-     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalArgumentException if {@code path} is null/empty or has an unsupported extension
      * @return ArrayMesh containing the loaded geometry
      */
     public static ArrayMesh load(String path) throws IOException {
@@ -56,9 +56,9 @@ public final class MeshLoader {
      * Supports vertex positions (v x y z) and normals (vn x y z).
      * Generates face normals if not provided.
      *
-     * @param path TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param path filesystem path to the OBJ
+     * @throws IOException if reading the file fails
+     * @return parsed mesh (empty if the file has no positions)
      */
     private static ArrayMesh loadObj(String path) throws IOException {
         try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
@@ -75,9 +75,9 @@ public final class MeshLoader {
      * Parse OBJ text content into ArrayMesh (no filesystem access).
      * Works in TeaVM/browser where FileReader is unavailable.
      *
-     * @param content TODO: describe
-     * @throws RuntimeException TODO: describe
-     * @return TODO: describe
+     * @param content raw OBJ text
+     * @throws RuntimeException if the embedded reader unexpectedly throws (should not happen for {@link StringReader})
+     * @return parsed mesh; n-gon faces are fan-triangulated, missing vertex normals are synthesized from face normals
      */
     public static ArrayMesh parseObj(String content) {
         List<Float> positions = new ArrayList<>();
@@ -243,9 +243,9 @@ public final class MeshLoader {
      * Load a PLY file into ArrayMesh.
      * Supports ASCII PLY format with vertex positions and optional normals.
      *
-     * @param path TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param path filesystem path to the PLY
+     * @throws IOException if reading the file fails
+     * @return parsed mesh (empty if the file has no positions); n-gon faces are fan-triangulated
      */
     private static ArrayMesh loadPly(String path) throws IOException {
         List<Float> positions = new ArrayList<>();

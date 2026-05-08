@@ -30,11 +30,14 @@ public final class GridToMesh3D {
     }
 
     /**
-     * TODO: document {@code emit}.
+     * Sweep the 3D grid and emit a face on every side of every non-empty cell that borders an
+     * EMPTY cell or grid edge, with double-sided winding. Floor/ceiling between vertically
+     * adjacent non-empty cells (e.g. STAIR_UP under STAIR_DOWN) are skipped so the player can
+     * pass through. The mesh is centered on the world origin.
      *
-     * @param grid TODO: describe
-     * @param cellSize TODO: describe
-     * @return TODO: describe
+     * @param grid     populated 3D tile grid
+     * @param cellSize world-space size of a single grid cell
+     * @return a fresh {@link ArrayMesh} with positions, quad indices, and computed normals
      */
     public static ArrayMesh emit(TileGridValue3D grid, float cellSize) {
         // Each visible boundary emits TWO quads (inward + outward) — see GridToMesh2D for why.

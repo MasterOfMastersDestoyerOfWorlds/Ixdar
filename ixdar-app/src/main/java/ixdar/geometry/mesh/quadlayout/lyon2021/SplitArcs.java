@@ -45,7 +45,8 @@ public final class SplitArcs {
      * @param vCorner per-corner v, length {@code 3 * F}
      * @param X       integer quantization vector indexed by arc id;
      *                {@code X.length == tmesh.arcs().size()}
-     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalArgumentException if {@code X.length} does not match the
+     *                                   T-mesh arc count
      * @return per-arc list of split vertices
      */
     public static List<List<SplitVert>> generate(TMesh tmesh, ArrayMesh mesh,
@@ -67,13 +68,15 @@ public final class SplitArcs {
      * Subdivide one T-arc into {@code num + 1} split vertices.
      * If {@code num <= 0}, returns just the single endpoint vertex (start).
      *
-     * @param arc TODO: describe
-     * @param arcId TODO: describe
-     * @param num TODO: describe
-     * @param mesh TODO: describe
-     * @param uCorner TODO: describe
-     * @param vCorner TODO: describe
-     * @return TODO: describe
+     * @param arc      T-arc to subdivide; provides {@code stepUvs} and
+     *                 {@code meshFaceCrossings}
+     * @param arcId    arc id stamped onto each emitted {@link SplitVert}
+     * @param num      quantization {@code X[arcId]}; produces {@code num + 1}
+     *                 split vertices when {@code num >= 1}
+     * @param mesh     underlying triangle mesh used for barycentric inverse
+     * @param uCorner  per-corner u (length {@code 3 * F})
+     * @param vCorner  per-corner v (length {@code 3 * F})
+     * @return ordered split vertices from arc start to arc end
      */
     static List<SplitVert> generateForArc(TArc arc, int arcId, int num,
                                           ArrayMesh mesh,
@@ -162,13 +165,14 @@ public final class SplitArcs {
     /**
      * Barycentric inverse-image: given (u, v) in face's UV frame, compute 3D position.
      *
-     * @param mesh TODO: describe
-     * @param faceId TODO: describe
-     * @param uCorner TODO: describe
-     * @param vCorner TODO: describe
-     * @param u TODO: describe
-     * @param v TODO: describe
-     * @return TODO: describe
+     * @param mesh    triangle mesh holding the world-space vertex positions
+     * @param faceId  index of the triangle whose UV frame contains (u, v)
+     * @param uCorner per-corner u (length {@code 3 * F})
+     * @param vCorner per-corner v (length {@code 3 * F})
+     * @param u       u-coordinate in the face's UV frame
+     * @param v       v-coordinate in the face's UV frame
+     * @return interpolated world-space position; falls back to the centroid
+     *          when the face's UV frame is degenerate
      */
     private static Vector3f baryToWorld(ArrayMesh mesh, int faceId,
                                         float[] uCorner, float[] vCorner,

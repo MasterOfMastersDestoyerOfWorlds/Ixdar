@@ -9,15 +9,19 @@ import ixdar.gui.terminal.Terminal;
 import ixdar.platform.file.FileManagement;
 import ixdar.scenes.main.MainScene;
 
+/**
+ * Terminal command {@code nw}/{@code newix} that creates a new blank {@code .ix} file
+ * (no points, fresh directory) and activates it on {@link MainScene}.
+ */
 @CommandAnnotation(id = "nw")
 public class NewIxCommand extends TerminalCommand {
 
     public static String cmd = "nw";
 
     /**
-     * TODO: document {@code fullName}.
+     * Full command word: {@code "newix"}.
      *
-     * @return TODO: describe
+     * @return fully-qualified command name used at the prompt
      */
     @Override
     public String fullName() {
@@ -25,9 +29,9 @@ public class NewIxCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code shortName}.
+     * Short alias for the command: {@code "nw"}.
      *
-     * @return TODO: describe
+     * @return short command name used at the prompt
      */
     @Override
     public String shortName() {
@@ -35,9 +39,9 @@ public class NewIxCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code desc}.
+     * One-line description shown in help output.
      *
-     * @return TODO: describe
+     * @return human-readable summary of the command
      */
     @Override
     public String desc() {
@@ -45,9 +49,9 @@ public class NewIxCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code usage}.
+     * Usage hint displayed when the command is mis-invoked or {@code -h} is passed.
      *
-     * @return TODO: describe
+     * @return usage string
      */
     @Override
     public String usage() {
@@ -55,9 +59,9 @@ public class NewIxCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code argLength}.
+     * Exact number of trailing arguments expected: a single base filename.
      *
-     * @return TODO: describe
+     * @return {@code 1}
      */
     @Override
     public int argLength() {
@@ -65,10 +69,11 @@ public class NewIxCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code run}.
+     * Refresh the test-file cache for {@code fileName}, deactivate the existing canvas,
+     * run {@link MainScene#main} on the new file, then activate the scene.
      *
-     * @param fileName TODO: describe
-     * @throws TerminalParseException TODO: describe
+     * @param fileName base filename for the new {@code .ix} file
+     * @throws TerminalParseException if scene initialisation fails with an {@link java.io.IOException}
      */
     public static void run(String fileName) throws TerminalParseException {
         FileManagement.updateTestFileCache(fileName);
@@ -83,12 +88,14 @@ public class NewIxCommand extends TerminalCommand {
     }
 
     /**
-     * TODO: document {@code run}.
+     * Resolve the target file under {@code terminal.directory}, invoke {@link #run(String)}
+     * on it when it exists, and return {@code "ls "} as the next-suggested command. Reports
+     * an error to the terminal if the path is missing or loading fails.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @param terminal TODO: describe
-     * @return TODO: describe
+     * @param args full tokenised command line
+     * @param startIdx index of the filename argument in {@code args}
+     * @param terminal dispatching terminal (used for directory context and error reporting)
+     * @return follow-up suggestion array, or {@code null} on failure
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {

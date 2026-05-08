@@ -31,10 +31,10 @@ public final class MeshSegmenter {
     private MeshSegmenter() {}
 
     /**
-     * TODO: document {@code segmentComponents}.
+     * Connected-component segmentation via union-find over face edges.
      *
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @return tag map keyed {@code component_<i>}, each value a sorted vertex-index array
      */
     public static Map<String, int[]> segmentComponents(ArrayMesh mesh) {
         int nv = mesh.vertexCount();
@@ -61,11 +61,12 @@ public final class MeshSegmenter {
     }
 
     /**
-     * TODO: document {@code segmentCurvature}.
+     * K-means segmentation in a 4D feature space combining vertex curvature
+     * and normalized position.
      *
-     * @param mesh TODO: describe
-     * @param nClusters TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param nClusters target cluster count for k-means
+     * @return tag map keyed {@code curvature_<i>}, each value a sorted vertex-index array
      */
     public static Map<String, int[]> segmentCurvature(ArrayMesh mesh, int nClusters) {
         int nv = mesh.vertexCount();
@@ -80,11 +81,12 @@ public final class MeshSegmenter {
     }
 
     /**
-     * TODO: document {@code segmentSpatial}.
+     * Pure spatial k-means segmentation (curvature feature zeroed) with cluster
+     * names tagged by the dominant axis offset of each centroid from the mesh center.
      *
-     * @param mesh TODO: describe
-     * @param nClusters TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param nClusters target cluster count for k-means
+     * @return tag map keyed {@code spatial_<axis><sign>_<i>}, each value a sorted vertex-index array
      */
     public static Map<String, int[]> segmentSpatial(ArrayMesh mesh, int nClusters) {
         int nv = mesh.vertexCount();

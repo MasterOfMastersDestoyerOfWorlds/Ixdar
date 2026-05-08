@@ -1,9 +1,10 @@
 package ixdar.procgen.dungeon.camera;
 
+import org.joml.Vector3f;
+
 import ixdar.procgen.dungeon.physics.AabbBox;
 import ixdar.procgen.dungeon.physics.CapsuleAabbTest;
 import ixdar.procgen.dungeon.physics.CapsuleShape;
-import ixdar.procgen.dungeon.physics.Vec3f;
 import ixdar.procgen.dungeon.values.CellType;
 import ixdar.procgen.dungeon.values.TileGridValue3D;
 
@@ -27,36 +28,38 @@ public final class CameraGridSweep {
     }
 
     /**
-     * TODO: document {@code sweep}.
+     * March a sphere of {@code cameraRadius} from {@code pivot} toward {@code desired} in
+     * fixed-size steps and stop the first time it overlaps an obstacle cell, then back the
+     * endpoint off by {@code padding} so the camera doesn't sit flush against the wall.
      *
-     * @param pivot TODO: describe
-     * @param desired TODO: describe
-     * @param cameraRadius TODO: describe
-     * @param grid TODO: describe
-     * @param cellSize TODO: describe
-     * @param padding TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param pivot        ray origin (typically the player's head)
+     * @param desired      unobstructed target position
+     * @param cameraRadius sphere radius used for the sweep
+     * @param grid         3D tile grid; EMPTY cells and out-of-bounds count as obstacles
+     * @param cellSize     world-space size of a grid cell (must be &gt; 0)
+     * @param padding      world-space pull-back distance applied after a hit
+     * @throws IllegalArgumentException if {@code cellSize} is not strictly positive
+     * @return the clipped endpoint, or {@code desired} when the sweep is fully clear
      */
-    public static Vec3f sweep(Vec3f pivot, Vec3f desired, float cameraRadius,
+    public static Vector3f sweep(Vector3f pivot, Vector3f desired, float cameraRadius,
                               TileGridValue3D grid, float cellSize, float padding) {
         if (cellSize <= NUM_0) {
             throw new IllegalArgumentException("cellSize must be > 0, got " + cellSize);
         }
-        Vec3f delta = desired.sub(pivot);
+        Vector3f delta = desired.sub(pivot);
         float dist = delta.length();
         if (dist < NUM_1e_6) return desired;
-        Vec3f dir = delta.scale(NUM_1 / dist);
+        Vector3f dir = delta.mul(NUM_1 / dist);
 
         float step = Math.max(NUM_1e_4, Math.min(cameraRadius * NUM_0_5, dist / NUM_32));
         float lastClear = NUM_0;
         for (float t = step; t <= dist; t += step) {
-            Vec3f p = new Vec3f(pivot.x() + dir.x() * t,
+            Vector3f p = new Vector3f(pivot.x() + dir.x() * t,
                                 pivot.y() + dir.y() * t,
                                 pivot.z() + dir.z() * t);
             if (overlapsObstacle(p, cameraRadius, grid, cellSize)) {
                 float clipped = Math.max(NUM_0, lastClear - padding);
-                return new Vec3f(pivot.x() + dir.x() * clipped,
+                return new Vector3f(pivot.x() + dir.x() * clipped,
                                  pivot.y() + dir.y() * clipped,
                                  pivot.z() + dir.z() * clipped);
             }
@@ -65,14 +68,14 @@ public final class CameraGridSweep {
         // Final endpoint check (loop may stop just short of dist due to step granularity).
         if (overlapsObstacle(desired, cameraRadius, grid, cellSize)) {
             float clipped = Math.max(NUM_0, lastClear - padding);
-            return new Vec3f(pivot.x() + dir.x() * clipped,
+            return new Vector3f(pivot.x() + dir.x() * clipped,
                              pivot.y() + dir.y() * clipped,
                              pivot.z() + dir.z() * clipped);
         }
         return desired;
     }
 
-    private static boolean overlapsObstacle(Vec3f center, float radius,
+    private static boolean overlapsObstacle(Vector3f center, float radius,
                                             TileGridValue3D grid, float cellSize) {
         float offsetX = -grid.width() * cellSize * NUM_0_5;
         float offsetY = -grid.height() * cellSize * NUM_0_5;

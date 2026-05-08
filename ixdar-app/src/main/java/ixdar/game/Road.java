@@ -20,10 +20,10 @@ public class Road {
     public boolean discovered;
 
     /**
-     * TODO: document {@code Road}.
+     * Build an undiscovered road between two cities; distance is computed eagerly.
      *
-     * @param from TODO: describe
-     * @param to TODO: describe
+     * @param from one endpoint city
+     * @param to the other endpoint city
      */
     public Road(City from, City to) {
         this.from = from;
@@ -62,9 +62,9 @@ public class Road {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Debug label of the form {@code "Road[<from> <-> <to>]"}.
      *
-     * @return TODO: describe
+     * @return human-readable identifier showing both endpoint city names
      */
     @Override
     public String toString() {

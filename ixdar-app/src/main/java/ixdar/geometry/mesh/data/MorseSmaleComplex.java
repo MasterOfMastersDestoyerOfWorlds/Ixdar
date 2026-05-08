@@ -53,18 +53,18 @@ public final class MorseSmaleComplex {
     private MorseSmaleComplex() {}
 
     /**
-     * TODO: document.
+     * Compute the MSC using the Phase B1 classifier (the recommended path).
      *
      * @param mesh the input mesh
+     * @param scalarIn raw per-vertex Morse scalar (e.g. signed mean curvature); smoothed before classification
+     * @param gaussKIn raw per-vertex Gaussian curvature; smoothed alongside the scalar (used by the legacy A path)
      * @param ed edge/dihedral map; we reuse its {@code edgeFaces} to build
      *        a 1-ring neighbour list cheaply.
      * @param prominenceFrac extrema kept only if their scalar value
      *        deviates from the mesh mean by at least this fraction of
      *        the scalar's p5..p95 range. 0.10 ≈ "top/bottom decile
      *        bumps only." Tune based on Phase A screenshots.
-     * @param scalarIn TODO: describe
-     * @param gaussKIn TODO: describe
-     * @return TODO: describe
+     * @return critical points, integral arcs, and the smoothed scalar field that produced them
      */
     public static Result compute(ArrayMesh mesh, float[] scalarIn, float[] gaussKIn,
                                  EdgeDihedrals ed, float prominenceFrac) {
@@ -80,13 +80,13 @@ public final class MorseSmaleComplex {
      * available behind the flag for A/B comparison and as a fallback on
      * meshes the B1 ordered-ring builder bails on (e.g. non-manifold).
      *
-     * @param mesh TODO: describe
-     * @param scalarIn TODO: describe
-     * @param gaussKIn TODO: describe
-     * @param ed TODO: describe
-     * @param prominenceFrac TODO: describe
-     * @param useB1Classifier TODO: describe
-     * @return TODO: describe
+     * @param mesh the input mesh
+     * @param scalarIn raw per-vertex Morse scalar; smoothed via 50 Laplacian iterations before classification
+     * @param gaussKIn raw per-vertex Gaussian curvature; smoothed via 30 iterations (only used by Phase A)
+     * @param ed edge/dihedral map providing edge→face adjacency
+     * @param prominenceFrac fraction of the scalar's p5..p95 range that an extremum must clear to survive the prominence filter
+     * @param useB1Classifier true for the lower-link component classifier (preferred), false for the legacy 1-ring + Gauss classifier
+     * @return critical points, integral arcs, and the smoothed scalar field
      */
     public static Result compute(ArrayMesh mesh, float[] scalarIn, float[] gaussKIn,
                                  EdgeDihedrals ed, float prominenceFrac,
@@ -218,11 +218,11 @@ public final class MorseSmaleComplex {
      * saddle by picking the highest/lowest, then the next-best whose
      * edge vector isn't parallel to the first seed's edge vector.
      *
-     * @param ring TODO: describe
-     * @param scalar TODO: describe
-     * @param saddle TODO: describe
-     * @param ascending TODO: describe
-     * @return TODO: describe
+     * @param ring 1-ring neighbours of {@code saddle}
+     * @param scalar per-vertex Morse scalar
+     * @param saddle saddle vertex id
+     * @param ascending true to pick higher-side seeds, false for lower-side seeds
+     * @return two-element array of seed ids; either slot may be -1 if no candidate exists
      */
     private static int[] topTwoOnSide(int[] ring, float[] scalar, int saddle,
                                       boolean ascending) {
@@ -260,14 +260,14 @@ public final class MorseSmaleComplex {
      * from {@code seed} until hitting a critical point of the matching
      * extremum type, revisiting a ring vertex, or running out of steps.
      *
-     * @param saddle TODO: describe
-     * @param seed TODO: describe
-     * @param scalar TODO: describe
-     * @param ring TODO: describe
-     * @param isMax TODO: describe
-     * @param isMin TODO: describe
-     * @param ascending TODO: describe
-     * @return TODO: describe
+     * @param saddle saddle vertex starting the arc
+     * @param seed first vertex stepped to from {@code saddle}
+     * @param scalar per-vertex Morse scalar
+     * @param ring 1-ring adjacency
+     * @param isMax bitmap of retained maxima
+     * @param isMin bitmap of retained minima
+     * @param ascending true to climb toward a max, false to descend toward a min
+     * @return the completed arc, or {@code null} if the walk stalls or runs out of steps
      */
     private static Arc traceArc(int saddle, int seed, float[] scalar, int[][] ring,
                                 boolean[] isMax, boolean[] isMin, boolean ascending) {
@@ -309,14 +309,14 @@ public final class MorseSmaleComplex {
      * Drops any labeled vertex that has a stronger-scoring labeled
      * vertex of the same type within 2 graph hops.
      *
+     * @param label current label array (not mutated; copied first)
+     * @param score per-vertex score driving the comparison (scalar for MAX/MIN, Gauss K for SADDLE)
+     * @param ring 1-ring adjacency used to expand to the 2-ring
+     * @param type label type to suppress against
      * @param wantHigher true for MAX (higher = stronger), false for MIN
      *        / SADDLE (lower = stronger, saddle uses negative K so "more
      *        negative" = deeper = stronger).
-     * @param label TODO: describe
-     * @param score TODO: describe
-     * @param ring TODO: describe
-     * @param type TODO: describe
-     * @return TODO: describe
+     * @return new label array with weaker same-type labels cleared
      */
     private static CriticalType[] suppressWithin2Ring(CriticalType[] label, float[] score,
                                                        int[][] ring, CriticalType type,
@@ -357,10 +357,10 @@ public final class MorseSmaleComplex {
      * critical-point classification — real anatomical extrema survive,
      * triangulation-noise bumps merge into the surrounding field.
      *
-     * @param scalar TODO: describe
-     * @param ring TODO: describe
-     * @param iterations TODO: describe
-     * @return TODO: describe
+     * @param scalar input per-vertex scalar
+     * @param ring 1-ring adjacency
+     * @param iterations number of smoothing passes
+     * @return smoothed scalar (new array)
      */
     private static float[] smoothScalar(float[] scalar, int[][] ring, int iterations) {
         int nv = scalar.length;
@@ -391,12 +391,12 @@ public final class MorseSmaleComplex {
      * via steepest descent like Phase A but with a correct critical
      * set so termination is reliable.
      *
-     * @param mesh TODO: describe
-     * @param scalar TODO: describe
-     * @param ring TODO: describe
-     * @param orderedRing TODO: describe
-     * @param prominenceFrac TODO: describe
-     * @return TODO: describe
+     * @param mesh input mesh
+     * @param scalar pre-smoothed per-vertex Morse scalar
+     * @param ring unordered 1-ring adjacency for arc tracing
+     * @param orderedRing cyclic ordered 1-ring used by the link-component classifier
+     * @param prominenceFrac fraction of the scalar's p5..p95 range used by the prominence and persistence filters
+     * @return critical points, integral arcs, and the smoothed scalar field
      */
     private static Result computeB1(ArrayMesh mesh, float[] scalar,
                                     int[][] ring, int[][] orderedRing,
@@ -511,11 +511,11 @@ public final class MorseSmaleComplex {
      * wraps so the last and first runs may merge. Tie-breaking by
      * vertex index keeps classification deterministic on plateaus.
      *
-     * @param v TODO: describe
-     * @param ord TODO: describe
-     * @param scalar TODO: describe
-     * @param lower TODO: describe
-     * @return TODO: describe
+     * @param v vertex whose link is being analyzed
+     * @param ord cyclic ordered 1-ring of {@code v}
+     * @param scalar per-vertex Morse scalar
+     * @param lower true to count lower-link components, false for upper-link
+     * @return number of connected runs in the chosen half of the link
      */
     private static int countLinkComponents(int v, int[] ord, float[] scalar, boolean lower) {
         int n = ord.length;
@@ -547,11 +547,11 @@ public final class MorseSmaleComplex {
      * (or lowest, respectively) scalar value. Returns up to 4 seeds
      * (slots set to -1 if the component count is lower).
      *
-     * @param ord TODO: describe
-     * @param scalar TODO: describe
-     * @param saddle TODO: describe
-     * @param upper TODO: describe
-     * @return TODO: describe
+     * @param ord cyclic ordered 1-ring of {@code saddle}
+     * @param scalar per-vertex Morse scalar
+     * @param saddle saddle vertex id
+     * @param upper true to seed ascending arcs, false for descending arcs
+     * @return four-slot seed array; trailing slots are -1 when fewer components exist
      */
     private static int[] bestSeedsPerLinkComponent(int[] ord, float[] scalar, int saddle, boolean upper) {
         int n = ord.length;
@@ -601,12 +601,12 @@ public final class MorseSmaleComplex {
      * during B1. Same pattern as {@link #traceArc} but returns just
      * the terminal vertex.
      *
-     * @param from TODO: describe
-     * @param scalar TODO: describe
-     * @param ring TODO: describe
-     * @param isExtremum TODO: describe
-     * @param ascending TODO: describe
-     * @return TODO: describe
+     * @param from starting vertex (typically a saddle)
+     * @param scalar per-vertex Morse scalar
+     * @param ring 1-ring adjacency
+     * @param isExtremum bitmap of acceptable terminal vertices
+     * @param ascending true for steepest ascent, false for descent
+     * @return terminal extremum vertex id, or -1 if the walk stalls or runs out of steps
      */
     private static int walkToExtremum(int from, float[] scalar, int[][] ring,
                                        boolean[] isExtremum, boolean ascending) {
@@ -638,10 +638,10 @@ public final class MorseSmaleComplex {
      * non-manifold). The ring is used by the lower-link component
      * classifier, which depends on the cyclic order.
      *
-     * @param mesh TODO: describe
-     * @param ed TODO: describe
-     * @param nv TODO: describe
-     * @return TODO: describe
+     * @param mesh input triangle mesh
+     * @param ed edge/dihedral map providing edge→face adjacency
+     * @param nv vertex count
+     * @return per-vertex cyclic ring (or {@code null} on non-manifold / boundary fans)
      */
     private static int[][] buildOrderedOneRing(ArrayMesh mesh, EdgeDihedrals ed, int nv) {
         int[] faceIdx = mesh.copyFaceIndices();

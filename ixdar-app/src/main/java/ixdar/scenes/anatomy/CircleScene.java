@@ -13,14 +13,15 @@ public class CircleScene extends Scene {
     private SDFCircleSimple circle;
 
     /**
-     * TODO: document {@code CircleScene}.
+     * Anatomy demo for a single SDF circle filling the viewport.
      */
     public CircleScene() {
         super();
     }
 
     /**
-     * TODO: document {@code initGL}.
+     * Allocate the simple circle SDF drawable and attach the code pane
+     * bound to its shader.
      */
     @Override
     public void initGL() {
@@ -30,7 +31,8 @@ public class CircleScene extends Scene {
     }
 
     /**
-     * TODO: document {@code drawScene}.
+     * Center a circle in the current view and draw it with radius equal
+     * to the smaller half-extent so it fits regardless of aspect ratio.
      */
     @Override
     public void drawScene() {

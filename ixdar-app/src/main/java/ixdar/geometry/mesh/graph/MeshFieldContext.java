@@ -9,9 +9,9 @@ import ixdar.geometry.mesh.data.MeshTopology;
 public interface MeshFieldContext extends FieldContext {
 
     /**
-     * TODO: document {@code mesh}.
+     * Underlying mesh topology that this field context is sampled over.
      *
-     * @return TODO: describe
+     * @return mesh whose vertex domain backs the field
      */
     MeshTopology mesh();
 }

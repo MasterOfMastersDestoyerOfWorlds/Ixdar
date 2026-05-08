@@ -3,13 +3,13 @@ package ixdar.annotations.meshnode;
 /**
  * Per-element 3D vectors (packed xyz per element: {@code data.length == 3 * elementCount}).
  */
-public record Vec3Field(float[] data) {
+public record Vector3Field(float[] data) {
     private static final int NUM_3 = 3;
 
     /**
      * Validate that the backing array packs whole xyz triples.
      */
-    public Vec3Field {
+    public Vector3Field {
         if (data == null || data.length % NUM_3 != 0) {
             throw new IllegalArgumentException("data length must be non-null and divisible by 3");
         }
@@ -71,14 +71,14 @@ public record Vec3Field(float[] data) {
      * @param len element count, must be non-negative
      * @return new field of length {@code len}
      */
-    public static Vec3Field constant(Vector3Value v, int len) {
+    public static Vector3Field constant(Vector3Value v, int len) {
         float[] d = new float[len * NUM_3];
         for (int i = 0; i < len; i++) {
             d[NUM_3 * i] = v.x();
             d[NUM_3 * i + 1] = v.y();
             d[NUM_3 * i + 2] = v.z();
         }
-        return new Vec3Field(d);
+        return new Vector3Field(d);
     }
 
     /**
@@ -87,9 +87,9 @@ public record Vec3Field(float[] data) {
      * @param src source array; length must be divisible by 3
      * @return new field that does not share storage with {@code src}
      */
-    public static Vec3Field copyOf(float[] src) {
+    public static Vector3Field copyOf(float[] src) {
         float[] d = new float[src.length];
         System.arraycopy(src, 0, d, 0, src.length);
-        return new Vec3Field(d);
+        return new Vector3Field(d);
     }
 }

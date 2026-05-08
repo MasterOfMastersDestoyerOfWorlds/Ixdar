@@ -20,11 +20,19 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
     public static final String OK = "ok";
     public static final String ERROR = "error";
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code POST /input/hover}: move the cursor without clicking. For
+     * {@link TradeMouseTrap}, optionally installs a persistent automation hover
+     * lock so subsequent real mouse motion does not dislodge the hover. Recorded
+     * as an abstract {@code "hover"} action.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body JSON body with {@code x}, {@code y} (floats, default 0),
+     *             {@code normalized} (boolean; when true, {@code x}/{@code y} are
+     *             fractions of window size), and {@code persistent} (boolean,
+     *             default true) controlling whether the trade hover lock is set or
+     *             cleared
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return {@code {"ok": true, "event": {xPx, yPx, xNorm, yNorm, persistent}}} on
+     *         success, or an error object when no mouse handler is active
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {

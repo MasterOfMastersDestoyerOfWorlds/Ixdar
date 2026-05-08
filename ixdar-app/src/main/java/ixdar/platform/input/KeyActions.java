@@ -56,10 +56,13 @@ public enum KeyActions {
     }
 
     /**
-     * TODO: document {@code keyPressed}.
+     * Test whether this action is currently triggered. For control-masked actions (e.g.
+     * {@link #Save}), the {@link #ControlMask} chord must also be down. For non-control actions,
+     * having any control key held suppresses the trigger so terminal shortcuts don't bleed into
+     * single-key bindings.
      *
-     * @param pressedKeys TODO: describe
-     * @return TODO: describe
+     * @param pressedKeys live set of pressed key codes
+     * @return true if the binding is satisfied this frame
      */
     public boolean keyPressed(Set<Integer> pressedKeys) {
         if (controlMask) {
@@ -91,24 +94,27 @@ public enum KeyActions {
     }
 
     /**
-     * TODO: document {@code loadKeyBindingsFile}.
+     * Reserved entry point for loading user-customized bindings from
+     * {@link #keyBindingsFileLocation}; currently unimplemented.
      */
     public static void loadKeyBindingsFile() {
 
     }
 
     /**
-     * TODO: document {@code updateKeyBindingsFile}.
+     * Reserved entry point for persisting current bindings back to
+     * {@link #keyBindingsFileLocation}; currently unimplemented.
      */
     public static void updateKeyBindingsFile() {
 
     }
 
     /**
-     * TODO: document {@code extraNames}.
+     * Display name for special keys that don't render well as a single ASCII character (arrows,
+     * modifiers, escape, enter). Falls through to {@code (char) keyCode}.
      *
-     * @param keyCode TODO: describe
-     * @return TODO: describe
+     * @param keyCode key code from {@code Keys}
+     * @return human-readable key name
      */
     public static String extraNames(int keyCode) {
         switch (keyCode) {
@@ -136,9 +142,9 @@ public enum KeyActions {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Human-readable binding label, e.g. {@code "Save => Ctrl + S"}.
      *
-     * @return TODO: describe
+     * @return the action name and its primary key (with {@code Ctrl +} prefix if control-masked)
      */
     @Override
     public String toString() {

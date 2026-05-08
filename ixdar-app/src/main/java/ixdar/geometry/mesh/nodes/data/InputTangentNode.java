@@ -8,7 +8,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
-import ixdar.annotations.meshnode.Vec3Field;
+import ixdar.annotations.meshnode.Vector3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.MeshFieldContext;
@@ -33,7 +33,7 @@ public class InputTangentNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                VECTOR_2, "Per-vertex Vec3Field of unit tangents (direction along the first outgoing half-edge)."
+                VECTOR_2, "Per-vertex Vector3field of unit tangents (direction along the first outgoing half-edge)."
         );
     }
 
@@ -81,6 +81,6 @@ public class InputTangentNode implements MeshNode {
             d[NUM_3 * vi + 1] = tan.y;
             d[NUM_3 * vi + 2] = tan.z;
         }
-        ctx.setOutput(VECTOR_2,new Vec3Field(d));
+        ctx.setOutput(VECTOR_2,new Vector3Field(d));
     }
 }

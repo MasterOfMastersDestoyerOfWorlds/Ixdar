@@ -1,6 +1,7 @@
 package ixdar.procgen.dungeon.player;
 
-import ixdar.procgen.dungeon.physics.Vec3f;
+import org.joml.Vector3f;
+
 import ixdar.procgen.dungeon.values.RoomListValue3D;
 import ixdar.procgen.dungeon.values.RoomListValue3D.Room;
 
@@ -24,7 +25,8 @@ public final class PlayerSpawner {
     }
 
     /**
-     * TODO: document.
+     * Picks a spawn point at room[0]'s center, sitting the capsule on the room's floor and
+     * yawing the camera toward room[1] when one exists.
      *
      * @param rooms        result of {@code RoomPlacer3D.place} — must have at least one room
      * @param cellSize     world units per grid cell (used to position room floor against
@@ -34,8 +36,8 @@ public final class PlayerSpawner {
      * @param gridD        grid depth along Z
      * @param halfHeight   capsule body half-height
      * @param radius       capsule radius (sphere caps)
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @throws IllegalArgumentException if {@code rooms} is empty
+     * @return spawn point with world-space capsule center, yaw, and pitch (pitch is always 0)
      */
     public static SpawnPoint pick(RoomListValue3D rooms,
                                   float cellSize,
@@ -66,6 +68,6 @@ public final class PlayerSpawner {
             // Camera3D yaw convention: forward = (cos yaw, _, sin yaw). atan2(dz, dx) gives yaw in radians.
             yawDeg = (float) Math.toDegrees(Math.atan2(dz, dx));
         }
-        return new SpawnPoint(new Vec3f(wx, wy, wz), yawDeg, NUM_0);
+        return new SpawnPoint(new Vector3f(wx, wy, wz), yawDeg, NUM_0);
     }
 }

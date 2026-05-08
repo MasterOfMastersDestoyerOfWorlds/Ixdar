@@ -141,12 +141,13 @@ public final class MotorcycleGraph {
     private MotorcycleGraph() {}
 
     /**
-     * TODO: document {@code MotorcycleGraph}.
+     * Stub constructor retained for API compatibility; actual tracing is
+     * driven through the static {@link #trace} entry points.
      *
-     * @param mesh TODO: describe
-     * @param seamlessParameterization TODO: describe
-     * @param singularities TODO: describe
-     * @param alpha TODO: describe
+     * @param mesh half-edge mesh underlying the parametrization
+     * @param seamlessParameterization seamless integer-grid parametrization
+     * @param singularities singular vertices to launch motorcycles from
+     * @param alpha Lyon §3 stopping bound (radians)
      */
     public MotorcycleGraph(HalfEdgeMesh mesh, SeamlessParameterization seamlessParameterization,
             List<Singularity> singularities, float alpha) {
@@ -164,7 +165,7 @@ public final class MotorcycleGraph {
      *  → fewer arcs. With our previous default 45°, ROCKERARM yielded 656
      *  arcs vs Lyon paper's 2742.
      *
-     * @return TODO: describe
+     * @return α-bound in radians
      */
     public static double defaultAlpha() {
         String prop = System.getProperty("ixdar.lyon.alphaDeg");
@@ -173,14 +174,15 @@ public final class MotorcycleGraph {
     }
 
     /**
-     * TODO: document {@code trace}.
+     * Trace the motorcycle graph using {@link #defaultAlpha()} as the Lyon §3
+     * stopping bound.
      *
-     * @param param TODO: describe
-     * @param mesh TODO: describe
-     * @param field TODO: describe
-     * @param combed TODO: describe
-     * @param singularities TODO: describe
-     * @return TODO: describe
+     * @param param seamless integer-grid parametrization
+     * @param mesh underlying mesh
+     * @param field per-face cross field
+     * @param combed combed field providing per-edge matching for direction transport
+     * @param singularities singularities to launch motorcycles from
+     * @return assembled traces, nodes, crashes and singVertex→node map
      */
     public static Result trace(SeamlessParameterization param,
                                ArrayMesh mesh,
@@ -195,13 +197,13 @@ public final class MotorcycleGraph {
      * Eppstein-classical "first crash stops". Lyon paper uses α ∈ [5°, 45°];
      * smaller α = longer surviving traces = more arcs and patches.
      *
-     * @param param TODO: describe
-     * @param mesh TODO: describe
-     * @param field TODO: describe
-     * @param combed TODO: describe
-     * @param singularities TODO: describe
-     * @param alpha TODO: describe
-     * @return TODO: describe
+     * @param param seamless integer-grid parametrization
+     * @param mesh underlying mesh
+     * @param field per-face cross field
+     * @param combed combed field providing per-edge matching for direction transport
+     * @param singularities singularities to launch motorcycles from
+     * @param alpha Lyon §3 stopping bound in radians (0 = Eppstein mode)
+     * @return assembled traces, nodes, crashes and singVertex→node map
      */
     public static Result trace(SeamlessParameterization param,
                                ArrayMesh mesh,

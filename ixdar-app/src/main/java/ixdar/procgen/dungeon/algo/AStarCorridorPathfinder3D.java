@@ -43,15 +43,17 @@ public final class AStarCorridorPathfinder3D {
     }
 
     /**
-     * TODO: document {@code carve}.
+     * Paint rooms into a fresh 3D grid then carve a corridor for every input edge with 3D A*,
+     * marking traversed cells as {@link CellType#HALLWAY} and inserting STAIR_UP/STAIR_DOWN
+     * pairs wherever the path changes floor.
      *
-     * @param gridW TODO: describe
-     * @param gridH TODO: describe
-     * @param gridD TODO: describe
-     * @param rooms TODO: describe
-     * @param mstEdges TODO: describe
-     * @param weights TODO: describe
-     * @return TODO: describe
+     * @param gridW    grid width in cells (X)
+     * @param gridH    grid height in floors (Y)
+     * @param gridD    grid depth in cells (Z)
+     * @param rooms    placed rooms (cells inside each room AABB are marked {@link CellType#ROOM})
+     * @param mstEdges MST (+ extras) edges to carve into corridors
+     * @param weights  per-cell-type entry costs
+     * @return a new tile grid with rooms, hallways, and stairs
      */
     public static TileGridValue3D carve(int gridW, int gridH, int gridD,
                                         RoomListValue3D rooms,
@@ -248,10 +250,10 @@ public final class AStarCorridorPathfinder3D {
 
     private record Entry(int idx, double gScore, double f) implements Comparable<Entry> {
         /**
-         * TODO: document {@code compareTo}.
+         * Order by f, then g, then idx so the priority queue is fully deterministic.
          *
-         * @param o TODO: describe
-         * @return TODO: describe
+         * @param o other entry to compare against
+         * @return negative / zero / positive per {@link Comparable}
          */
         @Override
         public int compareTo(Entry o) {

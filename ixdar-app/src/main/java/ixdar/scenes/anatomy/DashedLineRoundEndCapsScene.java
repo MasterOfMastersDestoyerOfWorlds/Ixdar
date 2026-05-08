@@ -20,14 +20,16 @@ public class DashedLineRoundEndCapsScene extends Scene {
     private Segment lineSegment;
 
     /**
-     * TODO: document {@code DashedLineRoundEndCapsScene}.
+     * Anatomy demo for a diagonal SDF segment rendered as a dashed line
+     * with rounded end caps.
      */
     public DashedLineRoundEndCapsScene() {
         super();
     }
 
     /**
-     * TODO: document {@code initPoints}.
+     * Seed the shell with the two diagonal endpoints used as draggable
+     * line anchors.
      */
     @Override
     public void initPoints() {
@@ -39,7 +41,8 @@ public class DashedLineRoundEndCapsScene extends Scene {
     }
 
     /**
-     * TODO: document {@code initGL}.
+     * Build the segment between the two anchor knots and configure the
+     * dashed stroke with rounded end caps.
      */
     @Override
     public void initGL() {
@@ -52,7 +55,8 @@ public class DashedLineRoundEndCapsScene extends Scene {
     }
 
     /**
-     * TODO: document {@code drawScene}.
+     * Re-apply the dashed-with-rounded-caps stroke each frame and draw
+     * the segment with a red-to-green gradient body.
      */
     @Override
     public void drawScene() {

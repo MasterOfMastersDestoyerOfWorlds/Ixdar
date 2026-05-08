@@ -56,16 +56,17 @@ public class AudioSystem {
     private long eventCounter = 0L;
 
     /**
-     * TODO: document {@code get}.
+     * Process-wide singleton accessor.
      *
-     * @return TODO: describe
+     * @return shared {@link AudioSystem} instance
      */
     public static AudioSystem get() {
         return INSTANCE;
     }
 
     /**
-     * TODO: document {@code init}.
+     * Open the OpenAL device and context, allocate the menu-music source, and mark
+     * the system available; idempotent and never throws (failures disable audio).
      */
     public synchronized void init() {
         if (initialized) {
@@ -109,18 +110,20 @@ public class AudioSystem {
     }
 
     /**
-     * TODO: document {@code isAvailable}.
+     * Whether OpenAL initialized successfully and audio playback is usable.
      *
-     * @return TODO: describe
+     * @return {@code true} if init succeeded and the device/context are live
      */
     public synchronized boolean isAvailable() {
         return available;
     }
 
     /**
-     * TODO: document {@code playMenuMusicLoop}.
+     * Start (or resume) looping music on the dedicated menu-music source. Loads the
+     * WAV if needed, swaps buffers when the path changes, and is a no-op if already
+     * playing the same track.
      *
-     * @param relativeAssetPath TODO: describe
+     * @param relativeAssetPath classpath/asset path to a WAV file
      */
     public synchronized void playMenuMusicLoop(String relativeAssetPath) {
         if (!ensureReady()) {
@@ -146,7 +149,7 @@ public class AudioSystem {
     }
 
     /**
-     * TODO: document {@code pauseMenuMusic}.
+     * Pause the menu-music source if it is currently playing; otherwise no-op.
      */
     public synchronized void pauseMenuMusic() {
         if (!available || menuMusicSource < 0) {
@@ -160,7 +163,7 @@ public class AudioSystem {
     }
 
     /**
-     * TODO: document {@code stopMenuMusic}.
+     * Stop the menu-music source unconditionally (rewinds to start).
      */
     public synchronized void stopMenuMusic() {
         if (!available || menuMusicSource < 0) {
@@ -171,9 +174,10 @@ public class AudioSystem {
     }
 
     /**
-     * TODO: document {@code playSfxOnce}.
+     * Play a one-shot sound effect on a fresh transient source; the source is
+     * tracked and freed once playback finishes.
      *
-     * @param relativeAssetPath TODO: describe
+     * @param relativeAssetPath classpath/asset path to a WAV file
      */
     public synchronized void playSfxOnce(String relativeAssetPath) {
         if (!ensureReady()) {
@@ -196,9 +200,9 @@ public class AudioSystem {
     }
 
     /**
-     * TODO: document {@code isMenuMusicPlaying}.
+     * Whether the menu-music source is currently in the playing state.
      *
-     * @return TODO: describe
+     * @return {@code true} only when state is {@code AL_PLAYING}
      */
     public synchronized boolean isMenuMusicPlaying() {
         if (!available || menuMusicSource < 0) {
@@ -208,9 +212,9 @@ public class AudioSystem {
     }
 
     /**
-     * TODO: document {@code getMenuMusicSourceCount}.
+     * Active menu-music source count for diagnostics: 1 if playing or paused, else 0.
      *
-     * @return TODO: describe
+     * @return 0 or 1
      */
     public synchronized int getMenuMusicSourceCount() {
         if (!available || menuMusicSource < 0) {
@@ -224,36 +228,36 @@ public class AudioSystem {
     }
 
     /**
-     * TODO: document {@code getLastSfxPlayed}.
+     * Asset path of the most recent {@link #playSfxOnce} call (empty string if none).
      *
-     * @return TODO: describe
+     * @return last SFX path
      */
     public synchronized String getLastSfxPlayed() {
         return lastSfxPlayed;
     }
 
     /**
-     * TODO: document {@code getSfxPlayCountSnapshot}.
+     * Defensive copy of the per-asset SFX play counters.
      *
-     * @return TODO: describe
+     * @return new map mapping asset path to play count
      */
     public synchronized Map<String, Integer> getSfxPlayCountSnapshot() {
         return new HashMap<>(sfxPlayCount);
     }
 
     /**
-     * TODO: document {@code getEventLogSnapshot}.
+     * Defensive copy of the rolling audio-event log (most recent 200 entries).
      *
-     * @return TODO: describe
+     * @return new list of {@code "counter|epochMs|event"} lines
      */
     public synchronized ArrayList<String> getEventLogSnapshot() {
         return new ArrayList<>(eventLog);
     }
 
     /**
-     * TODO: document {@code setMasterVolume}.
+     * Set the master gain multiplier and refresh live source gains.
      *
-     * @param volume TODO: describe
+     * @param volume desired gain, clamped to {@code [0, 1]}
      */
     public synchronized void setMasterVolume(float volume) {
         masterVolume = clamp(volume);
@@ -261,9 +265,9 @@ public class AudioSystem {
     }
 
     /**
-     * TODO: document {@code setMusicVolume}.
+     * Set the music-channel gain multiplier and refresh live source gains.
      *
-     * @param volume TODO: describe
+     * @param volume desired gain, clamped to {@code [0, 1]}
      */
     public synchronized void setMusicVolume(float volume) {
         musicVolume = clamp(volume);
@@ -271,9 +275,9 @@ public class AudioSystem {
     }
 
     /**
-     * TODO: document {@code setSfxVolume}.
+     * Set the SFX-channel gain multiplier and refresh live source gains.
      *
-     * @param volume TODO: describe
+     * @param volume desired gain, clamped to {@code [0, 1]}
      */
     public synchronized void setSfxVolume(float volume) {
         sfxVolume = clamp(volume);
@@ -281,7 +285,8 @@ public class AudioSystem {
     }
 
     /**
-     * TODO: document {@code shutdown}.
+     * Release every OpenAL source and buffer, destroy the context, and close the
+     * device; safe to call repeatedly.
      */
     public synchronized void shutdown() {
         if (!initialized) {

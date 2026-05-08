@@ -90,7 +90,9 @@ public class MeshNodeViewerScene extends Scene {
     private DecomposerKind activeDecomposer = DecomposerKind.SEMANTIC;
 
     /**
-     * TODO: document {@code MeshNodeViewerScene}.
+     * Default constructor: pick the DSL resource, final node, and port
+     * from the {@code ixdar.mesh.*} system properties, falling back to
+     * built-in defaults.
      */
     public MeshNodeViewerScene() {
         this(
@@ -100,11 +102,12 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code MeshNodeViewerScene}.
+     * Construct a viewer that will execute a DSL graph and display its
+     * mesh output.
      *
-     * @param dslResource TODO: describe
-     * @param dslFinalNode TODO: describe
-     * @param dslFinalPort TODO: describe
+     * @param dslResource DSL filename (with or without {@code .dsl} suffix)
+     * @param dslFinalNode output node id, or empty for the last node in the graph
+     * @param dslFinalPort output port name on the final node
      */
     public MeshNodeViewerScene(String dslResource, String dslFinalNode, String dslFinalPort) {
         this.dslResource = dslResource.endsWith(DSL) ? dslResource : dslResource + DSL;
@@ -149,16 +152,16 @@ public class MeshNodeViewerScene extends Scene {
     /**
      * Returns the NodeGraphRuntime from the most recent DSL execution (for timing data).
      *
-     * @return TODO: describe
+     * @return last runtime, or {@code null} if no DSL has been executed yet
      */
     public NodeGraphRuntime getLastGraphRuntime() {
         return lastGraphRuntime;
     }
 
     /**
-     * TODO: document {@code getOrbitMouse}.
+     * Orbit-camera input handler driving the 3D view.
      *
-     * @return TODO: describe
+     * @return the orbit mouse trap, or {@code null} before {@link #initGL()} runs
      */
     public OrbitMouseTrap getOrbitMouse() {
         return orbitMouse;
@@ -172,17 +175,20 @@ public class MeshNodeViewerScene extends Scene {
     /**
      * Create an OBJ viewer (no DSL execution, just loads and displays an OBJ file).
      *
-     * @param objFilename TODO: describe
-     * @return TODO: describe
+     * @param objFilename OBJ resource filename to load on init
+     * @return new viewer in OBJ mode
      */
     public static MeshNodeViewerScene forObj(String objFilename) {
         return new MeshNodeViewerScene(objFilename, true);
     }
 
     /**
-     * TODO: document {@code initGL}.
+     * Wire input handlers, scan the model catalog, and asynchronously
+     * load the configured DSL graph (or OBJ file) into a
+     * {@link HalfEdgeMeshRuntime}, then frame the orbit camera around
+     * the resulting mesh.
      *
-     * @throws IllegalStateException TODO: describe
+     * @throws IllegalStateException if mesh runtime construction or DSL execution fails
      */
     @Override
     public void initGL() {
@@ -303,7 +309,9 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code drawScene}.
+     * Per-frame render: reset the camera view, draw the main mesh, then
+     * draw any reference overlay with alpha blending and depth-write
+     * disabled so the underlying surface remains visible.
      */
     @Override
     public void drawScene() {
@@ -325,9 +333,10 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code activate}.
+     * Toggle scene activation. Disposes the mesh runtime when the scene
+     * is being deactivated so GL resources are released.
      *
-     * @param state TODO: describe
+     * @param state true to activate, false to deactivate
      */
     @Override
     public void activate(boolean state) {
@@ -338,7 +347,8 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code shutdown}.
+     * Release the mesh runtime and any overlay before chaining to the
+     * base shutdown.
      */
     @Override
     public void shutdown() {
@@ -363,36 +373,37 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code getMeshVertexCount}.
+     * Vertex count of the current mesh.
      *
-     * @return TODO: describe
+     * @return vertex count, or 0 if no mesh is loaded
      */
     public int getMeshVertexCount() {
         return mesh == null ? 0 : mesh.vertexCount();
     }
 
     /**
-     * TODO: document {@code getMeshFaceCount}.
+     * Face count of the current mesh.
      *
-     * @return TODO: describe
+     * @return face count, or 0 if no mesh is loaded
      */
     public int getMeshFaceCount() {
         return mesh == null ? 0 : mesh.faceCount();
     }
 
     /**
-     * TODO: document {@code getMeshEdgeCount}.
+     * Edge count of the current mesh.
      *
-     * @return TODO: describe
+     * @return edge count, or 0 if no mesh is loaded
      */
     public int getMeshEdgeCount() {
         return mesh == null ? 0 : mesh.edgeCount();
     }
 
     /**
-     * TODO: document {@code getMeshBoundaryEdgeCount}.
+     * Number of edges on the mesh boundary (i.e. with only one
+     * incident face).
      *
-     * @return TODO: describe
+     * @return boundary-edge count, or 0 if no mesh is loaded
      */
     public int getMeshBoundaryEdgeCount() {
         if (mesh == null) {
@@ -408,27 +419,28 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code getMeshEulerCharacteristic}.
+     * Euler characteristic V - E + F of the current mesh.
      *
-     * @return TODO: describe
+     * @return characteristic, or 0 if no mesh is loaded
      */
     public int getMeshEulerCharacteristic() {
         return mesh == null ? 0 : mesh.vertexCount() - mesh.edgeCount() + mesh.faceCount();
     }
 
     /**
-     * TODO: document {@code isMeshClosed}.
+     * Whether the mesh has no boundary edges (i.e. is closed).
      *
-     * @return TODO: describe
+     * @return true if a mesh is loaded and has zero boundary edges
      */
     public boolean isMeshClosed() {
         return mesh != null && getMeshBoundaryEdgeCount() == 0;
     }
 
     /**
-     * TODO: document {@code getMeshDegenerateFaceCount}.
+     * Count faces that have fewer than three vertices or whose first
+     * triangle has zero cross-product area (collinear/duplicate verts).
      *
-     * @return TODO: describe
+     * @return degenerate-face count, or 0 if no mesh is loaded
      */
     public int getMeshDegenerateFaceCount() {
         if (mesh == null) {
@@ -462,36 +474,36 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code getMeshRadius}.
+     * Bounding-sphere radius of the current mesh.
      *
-     * @return TODO: describe
+     * @return radius, or 0 if no mesh is loaded
      */
     public float getMeshRadius() {
         return mesh == null ? NUM_0 : mesh.radius();
     }
 
     /**
-     * TODO: document {@code getMeshCenter}.
+     * Centroid of the current mesh.
      *
-     * @return TODO: describe
+     * @return a fresh {@link Vector3f} at the centroid, or origin if no mesh is loaded
      */
     public Vector3f getMeshCenter() {
         return mesh == null ? new Vector3f() : mesh.center(new Vector3f());
     }
 
     /**
-     * TODO: document {@code getBoundingBoxMin}.
+     * Minimum corner of the current mesh's axis-aligned bounding box.
      *
-     * @return TODO: describe
+     * @return min corner, or {@code (-HALF_EXTENT, -HALF_EXTENT, -HALF_EXTENT)} if no mesh is loaded
      */
     public Vector3f getBoundingBoxMin() {
         return mesh == null ? new Vector3f(-HALF_EXTENT, -HALF_EXTENT, -HALF_EXTENT) : mesh.boundsMin(new Vector3f());
     }
 
     /**
-     * TODO: document {@code getBoundingBoxMax}.
+     * Maximum corner of the current mesh's axis-aligned bounding box.
      *
-     * @return TODO: describe
+     * @return max corner, or {@code (HALF_EXTENT, HALF_EXTENT, HALF_EXTENT)} if no mesh is loaded
      */
     public Vector3f getBoundingBoxMax() {
         return mesh == null ? new Vector3f(HALF_EXTENT, HALF_EXTENT, HALF_EXTENT) : mesh.boundsMax(new Vector3f());
@@ -500,7 +512,7 @@ public class MeshNodeViewerScene extends Scene {
     /**
      * Load a reference OBJ file as a semi-transparent overlay.
      *
-     * @param objPath TODO: describe
+     * @param objPath path or resource of the OBJ file to overlay
      */
     public void loadOverlay(String objPath) {
         disposeOverlay();
@@ -538,7 +550,7 @@ public class MeshNodeViewerScene extends Scene {
      * @param dslName DSL filename without path (e.g. "test_finger.dsl" or "test_finger")
      * @param finalNode output node ID, or empty for last node in graph
      * @param finalPort output port name, or empty for "geometry"
-     * @throws IllegalStateException TODO: describe
+     * @throws IllegalStateException if mesh runtime construction or DSL execution fails
      */
     public void loadDsl(String dslName, String finalNode, String finalPort) {
         // Normalize: append .dsl if missing
@@ -602,7 +614,7 @@ public class MeshNodeViewerScene extends Scene {
     /**
      * Current mesh from the DSL graph, or null before async load completes.
      *
-     * @return TODO: describe
+     * @return current mesh, or {@code null} if not yet loaded
      */
     public MeshTopology getMesh() {
         return mesh;
@@ -611,16 +623,17 @@ public class MeshNodeViewerScene extends Scene {
     // ==================== VIEW-7 model switching + patch overlay ====================
 
     /**
-     * TODO: document {@code getModelCatalog}.
+     * Catalog of selectable models scanned from the staging directory.
      *
-     * @return TODO: describe
+     * @return the catalog, or {@code null} before {@link #initGL()} runs
      */
     public ModelCatalog getModelCatalog() {
         return modelCatalog;
     }
 
     /**
-     * TODO: document {@code nextModel}.
+     * Advance the catalog cursor and load the next model. No-op if the
+     * catalog is empty.
      */
     public void nextModel() {
         if (modelCatalog == null || modelCatalog.entries().isEmpty()) return;
@@ -628,7 +641,8 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code prevModel}.
+     * Step the catalog cursor back and load the previous model. No-op
+     * if the catalog is empty.
      */
     public void prevModel() {
         if (modelCatalog == null || modelCatalog.entries().isEmpty()) return;
@@ -636,9 +650,11 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code loadModelEntry}.
+     * Load a specific catalog entry while preserving the current orbit
+     * camera, invalidating any cached patch decomposition, and turning
+     * off the patch overlay.
      *
-     * @param entry TODO: describe
+     * @param entry catalog entry to load (ignored if null)
      */
     public void loadModelEntry(ModelCatalog.ModelEntry entry) {
         if (entry == null) return;
@@ -716,7 +732,9 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code togglePatchOverlay}.
+     * Toggle the patch overlay. When turning on, lazily compute or
+     * reuse the cached decomposition, install patch tags / feature edges
+     * / scalar fields. When turning off, clear all overlay GL state.
      */
     public void togglePatchOverlay() {
         if (meshRuntime == null || mesh == null) {
@@ -769,7 +787,9 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code toggleShaderMode}.
+     * Cycle through {@link HalfEdgeMeshRuntime.ShaderMode}, push the
+     * new mode to the runtime, and re-derive any overlay state that
+     * depends on the active mode.
      */
     public void toggleShaderMode() {
         HalfEdgeMeshRuntime.ShaderMode[] cycle = HalfEdgeMeshRuntime.ShaderMode.values();
@@ -972,7 +992,7 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code toggleMeshWireframe}.
+     * Toggle wireframe rendering on the mesh runtime.
      */
     public void toggleMeshWireframe() {
         if (meshRuntime == null) {
@@ -983,9 +1003,10 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code setOrthographic}.
+     * Switch the camera projection between perspective and orthographic
+     * on the mesh runtime.
      *
-     * @param ortho TODO: describe
+     * @param ortho true for orthographic, false for perspective
      */
     public void setOrthographic(boolean ortho) {
         HalfEdgeMeshRuntime rt = meshRuntime;
@@ -994,9 +1015,9 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * TODO: document {@code isOrthographic}.
+     * Whether the mesh runtime is currently using an orthographic projection.
      *
-     * @return TODO: describe
+     * @return true if orthographic, false if perspective or no runtime is loaded
      */
     public boolean isOrthographic() {
         HalfEdgeMeshRuntime rt = meshRuntime;
@@ -1017,9 +1038,9 @@ public class MeshNodeViewerScene extends Scene {
      * bindAutomationIfAvailable uses Class.forName which silently fails in
      * TeaVM, leaving all input callbacks null. This method wires them directly.
      *
-     * @param platform TODO: describe
-     * @param keys TODO: describe
-     * @param mouse TODO: describe
+     * @param platform platform whose cursor/button/scroll/key callbacks are set
+     * @param keys keyboard handler invoked from the key callback
+     * @param mouse mouse handler invoked from the cursor/button/scroll callbacks
      */
     private static void bindInputDirect(ixdar.platform.gl.Platform platform,
                                          ixdar.platform.input.KeyGuy keys,

@@ -2,7 +2,7 @@ package ixdar.geometry.mesh.data;
 
 import org.joml.Vector3f;
 
-import ixdar.annotations.meshnode.Vec3Field;
+import ixdar.annotations.meshnode.Vector3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 
 /**
@@ -14,12 +14,16 @@ public final class MeshScale {
     }
 
     /**
-     * TODO: document {@code apply}.
+     * Build a fresh {@link HalfEdgeMesh} whose vertex positions are the input
+     * positions multiplied component-wise by either a per-vertex {@link Vector3Field}
+     * or a single {@link Vector3Value}. Faces and topology are preserved; normals
+     * are recomputed on the result.
      *
-     * @param mesh TODO: describe
-     * @param scaleObj TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param mesh source topology (returns an empty mesh if null/empty)
+     * @param scaleObj a {@link Vector3Field} (one scale per vertex), a {@link Vector3Value}
+     *                 (uniform scale), or any other value (treated as uniform identity)
+     * @return scaled mesh
+     * @throws IllegalArgumentException if a {@link Vector3Field} is supplied whose length does not match vertex count
      */
     public static HalfEdgeMesh apply(MeshTopology mesh, Object scaleObj) {
         if (mesh == null || mesh.vertexCount() == 0) {
@@ -27,9 +31,9 @@ public final class MeshScale {
         }
         int n = mesh.vertexCount();
         Vector3f tmp = new Vector3f();
-        Vec3Field field = null;
+        Vector3Field field = null;
         Vector3Value uniform = new Vector3Value(1f, 1f, 1f);
-        if (scaleObj instanceof Vec3Field vf) {
+        if (scaleObj instanceof Vector3Field vf) {
             if (vf.length() != n) {
                 throw new IllegalArgumentException("scale field length " + vf.length() + " != vertex count " + n);
             }

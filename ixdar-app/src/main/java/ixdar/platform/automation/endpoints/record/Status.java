@@ -12,11 +12,13 @@ import ixdar.platform.automation.AutomationEndpoint;
 @AutomationRouteAnnotation(path = "record/status", method = APIMethod.GET)
 public class Status extends AutomationEndpoint implements AutomationRoute {
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code GET /record/status}: snapshot of the recorder.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body request body (unused)
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return recorder status (see {@link ixdar.platform.automation.AutomationRecorder#status()})
+     *         with {@code recording}, event counts, start timestamp, and last saved
+     *         file path
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         return runtime.recorder().status();

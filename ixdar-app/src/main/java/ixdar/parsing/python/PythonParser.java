@@ -22,9 +22,9 @@ public class PythonParser {
     private final Map<String, FunctionDef> functionDefs = new HashMap<>();
 
     /**
-     * TODO: document {@code PythonParser}.
+     * Wrap a lexer and prime the lookahead with the first token.
      *
-     * @param lexer TODO: describe
+     * @param lexer source-backed lexer to drive
      */
     public PythonParser(PythonLexer lexer) {
         this.lexer = lexer;
@@ -46,9 +46,11 @@ public class PythonParser {
 
     // Graph -> (FunctionDef | Statement)* EOF
     /**
-     * TODO: document {@code parseGraph}.
+     * Parse the full source: top-level {@code def} statements register function
+     * definitions, every other statement is parsed into a {@link ParsedNode}
+     * (with any synthetic inline/vector nodes prepended).
      *
-     * @return TODO: describe
+     * @return ordered list of top-level parsed nodes
      */
     public List<ParsedNode> parseGraph() {
         List<ParsedNode> nodes = new ArrayList<>();
@@ -68,7 +70,7 @@ public class PythonParser {
     /**
      * Returns function definitions parsed from the graph.
      *
-     * @return TODO: describe
+     * @return live map of name to {@link FunctionDef} populated by {@link #parseGraph}
      */
     public Map<String, FunctionDef> functionDefs() {
         return functionDefs;
@@ -253,10 +255,10 @@ public class PythonParser {
         public String nodeId;
         public String portName;
         /**
-         * TODO: document {@code NodeReference}.
+         * Build a reference to {@code <nodeId>.<portName>}.
          *
-         * @param n TODO: describe
-         * @param p TODO: describe
+         * @param n id of the producer node
+         * @param p name of the output port on that node
          */
         public NodeReference(String n, String p) { nodeId = n; portName = p; }
     }
@@ -265,10 +267,10 @@ public class PythonParser {
         public String name;
         public String type;
         /**
-         * TODO: document {@code FunctionParam}.
+         * Build a typed parameter descriptor.
          *
-         * @param name TODO: describe
-         * @param type TODO: describe
+         * @param name parameter name as written in source
+         * @param type type identifier following the {@code :}
          */
         public FunctionParam(String name, String type) { this.name = name; this.type = type; }
     }
@@ -279,12 +281,12 @@ public class PythonParser {
         public String returnType;
         public List<ParsedNode> body;
         /**
-         * TODO: document {@code FunctionDef}.
+         * Build a parsed function definition.
          *
-         * @param name TODO: describe
-         * @param params TODO: describe
-         * @param returnType TODO: describe
-         * @param body TODO: describe
+         * @param name function identifier following {@code def}
+         * @param params declared parameters in source order
+         * @param returnType type identifier after {@code ->}
+         * @param body ordered nodes between {@code :} and {@code end}
          */
         public FunctionDef(String name, List<FunctionParam> params, String returnType, List<ParsedNode> body) {
             this.name = name;

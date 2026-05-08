@@ -28,40 +28,45 @@ public final class MeshNodeCatalog {
     }
 
     /**
-     * TODO: document {@code toJsonFromAnnotationRegistry}.
+     * Serialize every node in the annotation-generated registry to a pretty-printed JSON catalog.
      *
-     * @return TODO: describe
+     * @return JSON document with a top-level {@code "nodes"} array
      */
     public static String toJsonFromAnnotationRegistry() {
         return toJson(MeshNodeRegistry_MeshNodes.MAP, null);
     }
 
     /**
-     * TODO: document {@code toJsonFromAnnotationRegistry}.
+     * Serialize annotation-registered nodes whose {@link MeshNodeAnnotation#scopes() scopes}
+     * include {@code scope}.
      *
-     * @param scope TODO: describe
-     * @return TODO: describe
+     * @param scope scope id to filter by (e.g. {@code "mesh"} or {@code "dungeon"});
+     *              {@code null} disables filtering
+     * @return JSON document with a top-level {@code "nodes"} array
      */
     public static String toJsonFromAnnotationRegistry(String scope) {
         return toJson(MeshNodeRegistry_MeshNodes.MAP, scope);
     }
 
     /**
-     * TODO: document {@code toJson}.
+     * Serialize an arbitrary node registry to JSON without scope filtering.
      *
-     * @param registry TODO: describe
-     * @return TODO: describe
+     * @param registry id-to-supplier map of nodes to include
+     * @return JSON document with a top-level {@code "nodes"} array
      */
     public static String toJson(Map<String, Supplier<? extends MeshNode>> registry) {
         return toJson(registry, null);
     }
 
     /**
-     * TODO: document {@code toJson}.
+     * Serialize a node registry to JSON, optionally filtering by scope. Each entry includes the
+     * id, package-derived category, scopes, input/output schema with socket docs, optional node
+     * description, destructive flag with consumed inputs, and (for {@link RandomValueNode})
+     * the per-mode output activation map.
      *
-     * @param registry TODO: describe
-     * @param scope TODO: describe
-     * @return TODO: describe
+     * @param registry id-to-supplier map of nodes to include
+     * @param scope scope id to filter by; {@code null} disables filtering
+     * @return JSON document with a top-level {@code "nodes"} array
      */
     public static String toJson(Map<String, Supplier<? extends MeshNode>> registry, String scope) {
         List<Map<String, Object>> nodes = new ArrayList<>();

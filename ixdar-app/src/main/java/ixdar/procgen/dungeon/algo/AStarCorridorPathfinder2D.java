@@ -34,14 +34,15 @@ public final class AStarCorridorPathfinder2D {
     }
 
     /**
-     * TODO: document.
+     * Paint rooms onto a fresh grid then carve a corridor for every input edge with grid A*,
+     * marking each traversed EMPTY cell as {@link CellType#HALLWAY}.
      *
      * @param gridW    grid width in cells
      * @param gridH    grid height in cells
      * @param rooms    placed rooms (cells inside each room AABB are marked {@link CellType#ROOM})
      * @param mstEdges MST (+ extras) edges to carve into corridors
      * @param weights  per-cell-type entry costs
-     * @return TODO: describe
+     * @return a new tile grid with rooms and the carved hallways
      */
     public static TileGridValue carve(int gridW, int gridH,
                                       RoomListValue rooms,
@@ -87,15 +88,15 @@ public final class AStarCorridorPathfinder2D {
      * 4-connected grid A* with Manhattan heuristic. Returns the full path as cell indices
      * (including start and end) or {@code null} if no path exists.
      *
-     * @param cells TODO: describe
-     * @param gridW TODO: describe
-     * @param gridH TODO: describe
-     * @param sx TODO: describe
-     * @param sy TODO: describe
-     * @param tx TODO: describe
-     * @param ty TODO: describe
-     * @param weights TODO: describe
-     * @return TODO: describe
+     * @param cells   working grid (read-only here; cell type drives entry cost)
+     * @param gridW   grid width in cells
+     * @param gridH   grid height in cells
+     * @param sx      start cell x
+     * @param sy      start cell y
+     * @param tx      target cell x
+     * @param ty      target cell y
+     * @param weights per-cell-type entry costs (drives both step cost and the admissible heuristic)
+     * @return cell indices from start to target (inclusive), or {@code null} if unreachable
      */
     static int[] aStar(CellType[] cells, int gridW, int gridH,
                        int sx, int sy, int tx, int ty, CostWeights weights) {

@@ -35,11 +35,17 @@ public final class AutoTagHook {
     private AutoTagHook() {}
 
     /**
-     * TODO: document {@code applyIfApplicable}.
+     * If {@code node} exposes the {@code generated}+{@code geometry} output pair
+     * and {@code lhs} is non-empty, projects the per-face {@code generated} mask
+     * to a per-vertex mask, merges it (under tag name {@code lhs}) with any
+     * existing tags in the geometry bundle, and writes the updated bundle back
+     * to the {@code geometry} output. No-op when the node doesn't have those
+     * outputs, when the mask is empty or all-false, or when the output mesh has
+     * no vertices/faces.
      *
-     * @param node TODO: describe
-     * @param ctx TODO: describe
-     * @param lhs TODO: describe
+     * @param node node that just finished evaluating
+     * @param ctx its evaluation context (read outputs / write merged geometry)
+     * @param lhs DSL left-hand-side variable name to tag with; empty/null skips
      */
     public static void applyIfApplicable(MeshNode node, NodeContext ctx, String lhs) {
         if (lhs == null || lhs.isEmpty()) {

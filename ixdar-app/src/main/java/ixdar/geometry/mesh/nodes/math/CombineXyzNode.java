@@ -9,7 +9,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
-import ixdar.annotations.meshnode.Vec3Field;
+import ixdar.annotations.meshnode.Vector3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 
 @MeshNodeAnnotation(id = "combine_xyz")
@@ -28,7 +28,7 @@ public class CombineXyzNode implements MeshNode {
 
     @Override
     public String description() {
-        return "Combines X, Y, Z float values (scalars or per-vertex fields) into a single vector or Vec3Field.";
+        return "Combines X, Y, Z float values (scalars or per-vertex fields) into a single vector or Vector3field.";
     }
 
     @Override
@@ -37,7 +37,7 @@ public class CombineXyzNode implements MeshNode {
                 X_2, "X component (scalar float or per-vertex FloatField).",
                 Y_2, "Y component.",
                 Z_2, "Z component.",
-                VECTOR_2, "Combined Vector3 or Vec3Field (if any input is a field)."
+                VECTOR_2, "Combined Vector3 or Vector3field (if any input is a field)."
         );
     }
 
@@ -65,7 +65,7 @@ public class CombineXyzNode implements MeshNode {
                 d[NUM_3 * i + 1] = FieldBroadcast.floatAt(yo, i, NUM_0);
                 d[NUM_3 * i + 2] = FieldBroadcast.floatAt(zo, i, NUM_0);
             }
-            ctx.setOutput(VECTOR_2, new Vec3Field(d));
+            ctx.setOutput(VECTOR_2, new Vector3Field(d));
             return;
         }
 

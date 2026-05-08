@@ -126,12 +126,14 @@ public class MainScene {
     public Font font;
 
     /**
-     * TODO: document {@code MainScene}.
+     * Construct the main editor scene: load (or create) the temp/source
+     * file, parse its point set, build the camera and view layout, wire
+     * input handlers, and pick a default tool.
      *
-     * @param fileName TODO: describe
-     * @param canvas TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @throws IOException TODO: describe
+     * @param fileName name of the point-set file to open (blank uses the temp file only)
+     * @param canvas backing 3D canvas used for input dispatch and timing
+     * @throws TerminalParseException if existing terminal commands in the file fail to parse
+     * @throws IOException if the file cannot be read
      */
     public MainScene(String fileName, Canvas3D canvas) throws TerminalParseException, IOException {
         metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -176,11 +178,15 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code main}.
+     * Entry point that bootstraps the editor: creates the canvas and
+     * scene, registers all named view bounds (main, right top/bottom,
+     * bottom, tooltip) with scroll subscriptions, kicks off knot finding
+     * on the loaded point set, and seeds the per-knot color tables used
+     * by the metro/gradient diagram modes.
      *
-     * @param args TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @throws IOException TODO: describe
+     * @param args command-line arguments; {@code args[0]} is the point-set file name
+     * @throws TerminalParseException if existing terminal commands in the file fail to parse
+     * @throws IOException if the file cannot be read
      */
     public static void main(String[] args) throws TerminalParseException, IOException {
         canvas = new Canvas3D();
@@ -350,9 +356,13 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Per-frame draw of the editor: refresh view dimensions, pump input,
+     * render the active tool over the main view, draw the segment-balance
+     * exception trace if any, draw the displayed knots/metro diagram,
+     * then render the right-side logo, info pane, bottom terminal, and
+     * any tooltip.
      *
-     * @param camera3D TODO: describe
+     * @param camera3D outer 3D camera whose z-index is shared with the 2D camera
      */
     public void draw(Camera camera3D) {
         try {
@@ -421,9 +431,13 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code drawDisplayedKnots}.
+     * Render the currently visible layer of knots. At the top layer this
+     * draws gradient paths (or metro sub-paths); at intermediate layers
+     * it walks {@link #metroPathsLayer} and draws each knot's shell
+     * styled per active toggle. Always overlays the hover knot and any
+     * partial-cycle dashed segments for displayed knots.
      *
-     * @param camera TODO: describe
+     * @param camera 2D camera providing the main-view transform
      */
     public static void drawDisplayedKnots(Camera2D camera) {
         if (knotDrawLayer == totalLayers) {
@@ -513,10 +527,10 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code getKnotGradientColor}.
+     * Look up the gradient color assigned to the given knot.
      *
-     * @param displayPoint TODO: describe
-     * @return TODO: describe
+     * @param displayPoint knot to color
+     * @return assigned gradient color, or {@link Color#IXDAR} if {@code displayPoint} is null
      */
     public static Color getKnotGradientColor(Knot displayPoint) {
         Knot smallestKnot = displayPoint;
@@ -527,10 +541,11 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code getKnotGradientColorFlatten}.
+     * Like {@link #getKnotGradientColor} but treats nested-knot wrappers
+     * as their flattened representative.
      *
-     * @param k TODO: describe
-     * @return TODO: describe
+     * @param k knot to color
+     * @return assigned gradient color, or {@link Color#IXDAR} if {@code k} is null
      */
     public static Color getKnotGradientColorFlatten(Knot k) {
         Knot smallestKnot = k;
@@ -541,11 +556,13 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code getMetroColor}.
+     * Look up the metro-diagram color for {@code k}'s layer; when no
+     * specific layer is being drawn ({@code knotDrawLayer < 0}) the
+     * lookup keys off the same knot.
      *
-     * @param displayPoint TODO: describe
-     * @param k TODO: describe
-     * @return TODO: describe
+     * @param displayPoint knot being drawn (currently unused but mirrors {@link #getKnotGradientColor})
+     * @param k knot whose layer is looked up
+     * @return color assigned to {@code k}'s layer
      */
     public static Color getMetroColor(Knot displayPoint, Knot k) {
         if (knotDrawLayer < 0) {
@@ -557,10 +574,12 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code getMetroColorFlatten}.
+     * Like {@link #getMetroColor} but treats nested-knot wrappers as
+     * their flattened representative; returns {@link Color#IXDAR} when
+     * the knot or its layer is unknown.
      *
-     * @param thickKnot TODO: describe
-     * @return TODO: describe
+     * @param thickKnot knot whose layer color is requested
+     * @return color assigned to its layer, or {@link Color#IXDAR} if not assigned
      */
     public static Color getMetroColorFlatten(Knot thickKnot) {
         Knot smallestKnot = thickKnot;
@@ -575,10 +594,11 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code lookupPairs}.
+     * Build the per-segment color-lookup pairs used by gradient path
+     * drawing — one (id, id) pair per manifold segment in {@code k}.
      *
-     * @param k TODO: describe
-     * @return TODO: describe
+     * @param k knot whose manifold segments drive the result
+     * @return list of identity pairs, one per manifold segment
      */
     public static ArrayList<Pair<Long, Long>> lookupPairs(Knot k) {
 
@@ -593,9 +613,12 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code segmentBalanceExceptionHandler}.
+     * Capture a {@link SegmentBalanceException} for on-screen display:
+     * record the offending top knot's points as {@link #resultShell},
+     * dump the buffer's layer 0, and log the exception's stack until
+     * the {@code cutKnot} frame.
      *
-     * @param sbe TODO: describe
+     * @param sbe exception thrown during knot solving
      */
     public static void segmentBalanceExceptionHandler(SegmentBalanceException sbe) {
         Shell result = new Shell();
@@ -620,7 +643,9 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code updateKnotsDisplayed}.
+     * Rebuild {@link #knotsDisplayed} by walking the metro-paths queue
+     * and selecting the entries whose layer matches {@link #knotDrawLayer}.
+     * Called after {@link #knotDrawLayer} changes.
      */
     public static void updateKnotsDisplayed() {
         PriorityQueue<ShellPair> newQueue = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -638,9 +663,11 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code activate}.
+     * Toggle this scene's input handling. When activating, automation
+     * input is rebound and the underlying canvas's own input is
+     * suspended; the inverse on deactivate.
      *
-     * @param state TODO: describe
+     * @param state true to activate the scene, false to suspend it
      */
     public static void activate(boolean state) {
         if (state) {
@@ -654,9 +681,9 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code setTooltipText}.
+     * Show a floating tooltip with the given text on the next frame.
      *
-     * @param pointInfo TODO: describe
+     * @param pointInfo formatted tooltip body
      */
     public static void setTooltipText(HyperString pointInfo) {
         toolTip = pointInfo;
@@ -665,7 +692,7 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code clearTooltipText}.
+     * Hide the floating tooltip and clear its text.
      */
     public static void clearTooltipText() {
         toolTip = null;
@@ -673,28 +700,29 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code getToolTip}.
+     * Current tooltip body, or {@code null} when no tooltip is set.
      *
-     * @return TODO: describe
+     * @return the tooltip text, or null
      */
     public static HyperString getToolTip() {
         return toolTip;
     }
 
     /**
-     * TODO: document {@code isToolTipVisible}.
+     * Whether the tooltip should be drawn this frame.
      *
-     * @return TODO: describe
+     * @return true if a tooltip is set and visible
      */
     public static boolean isToolTipVisible() {
         return showToolTip;
     }
 
     /**
-     * TODO: document {@code setHoverSegment}.
+     * Highlight {@code segment} on the next frame, fading {@code c}
+     * toward 25%-transparent over a few frames.
      *
-     * @param segment TODO: describe
-     * @param c TODO: describe
+     * @param segment segment to highlight
+     * @param c base color used for the lerp
      */
     public static void setHoverSegment(Segment segment, Color c) {
         hoverSegment = segment;
@@ -704,7 +732,7 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code clearHoverSegment}.
+     * Stop highlighting any hovered segment.
      */
     public static void clearHoverSegment() {
         hoverSegment = null;
@@ -712,9 +740,10 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code setHoverKnot}.
+     * Highlight {@code k} on the next frame, fading the knot's current
+     * color toward 25%-transparent over a few frames.
      *
-     * @param k TODO: describe
+     * @param k knot to highlight
      */
     public static void setHoverKnot(Knot k) {
         hoverKnot = k;
@@ -723,7 +752,7 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code clearHoverKnot}.
+     * Stop highlighting any hovered knot.
      */
     public static void clearHoverKnot() {
         hoverKnot = null;
@@ -731,11 +760,12 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code inView}.
+     * Classify the screen-space point {@code (x, y)} into one of the
+     * four panes (knot view, terminal, info, logo).
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @return TODO: describe
+     * @param x window-space x in pixels
+     * @param y window-space y in pixels (top-down; flipped internally)
+     * @return the {@link PaneTypes} containing the point, or {@link PaneTypes#None}
      */
     public static PaneTypes inView(float x, float y) {
         boolean inMainViewRightBound = x < MainScene.MAIN_VIEW_WIDTH + MainScene.MAIN_VIEW_OFFSET_X;
@@ -756,9 +786,11 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code setDrawLevelToKnot}.
+     * Switch the draw layer to the layer that contains {@code k}, then
+     * refresh {@link #knotsDisplayed}. Falls back to the top layer if
+     * the knot is unknown.
      *
-     * @param k TODO: describe
+     * @param k knot whose layer becomes the new draw layer
      */
     public static void setDrawLevelToKnot(Knot k) {
         Knot smallestKnot = shell.pointMap.get(k.id);
@@ -771,7 +803,8 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code setDrawLevelMetro}.
+     * Toggle between drawing every layer (sentinel {@code -1}) and the
+     * top layer, then refresh {@link #knotsDisplayed}.
      */
     public static void setDrawLevelMetro() {
         if (MainScene.knotDrawLayer != -1) {
@@ -783,10 +816,11 @@ public class MainScene {
     }
 
     /**
-     * TODO: document {@code getKnotFlatten}.
+     * Return {@code k} unchanged, or the first result knot when {@code k}
+     * is null — used as a safe default for color/layer lookups.
      *
-     * @param k TODO: describe
-     * @return TODO: describe
+     * @param k candidate knot (may be null)
+     * @return {@code k} or the first {@link #resultKnots} entry when null
      */
     public static Knot getKnotFlatten(Knot k) {
         Knot smallestKnot = k;

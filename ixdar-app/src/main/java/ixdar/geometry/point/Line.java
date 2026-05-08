@@ -7,6 +7,11 @@ import ixdar.annotations.geometry.Geometry;
 import ixdar.annotations.geometry.GeometryAnnotation;
 import ixdar.common.exceptions.TerminalParseException;
 
+/**
+ * Straight-line segment sampled at evenly-spaced points, exposed on the
+ * terminal as {@code add ln} (also {@code l} / {@code line}). Stores the two
+ * endpoints and the number of vertices produced between them inclusive.
+ */
 @GeometryAnnotation(id = "ln")
 public class Line implements Geometry, PointCollection {
     public static final String LINE = "line";
@@ -26,7 +31,8 @@ public class Line implements Geometry, PointCollection {
     ArrayList<PointND> points;
 
     /**
-     * TODO: document {@code Line}.
+     * Default line: from {@code (-5, 0)} to {@code (5, 0)} sampled at
+     * {@value #NUM_10} points. Vertices are not realized eagerly.
      */
     public Line() {
         xStart = -NUM_5_0;
@@ -37,13 +43,13 @@ public class Line implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code Line}.
+     * Build a line segment between two endpoints and realize its vertices.
      *
-     * @param xStart TODO: describe
-     * @param yStart TODO: describe
-     * @param numPoints TODO: describe
-     * @param xEnd TODO: describe
-     * @param yEnd TODO: describe
+     * @param xStart x of the starting endpoint
+     * @param yStart y of the starting endpoint
+     * @param numPoints total vertices placed along the segment (including both ends)
+     * @param xEnd x of the ending endpoint
+     * @param yEnd y of the ending endpoint
      */
     public Line(double xStart, double yStart, int numPoints, double xEnd, double yEnd) {
         this.xStart = xStart;
@@ -55,12 +61,12 @@ public class Line implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parse}.
+     * Convenience that parses the args and returns just the realized vertices.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args full terminal argument array
+     * @param startIdx index of the first argument belonging to the line
+     * @return the sampled points of the parsed line
+     * @throws TerminalParseException if the slice is malformed
      */
     public static ArrayList<PointND> parse(String[] args, int startIdx) throws TerminalParseException {
         Line l = parseLine(args, startIdx);
@@ -68,12 +74,13 @@ public class Line implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parseLine}.
+     * Parse a {@code Line} from {@code [xStart, yStart, xEnd, yEnd, numPoints]}.
+     * With zero trailing args, returns a default {@link #Line()}.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args full terminal argument array
+     * @param startIdx index of the first argument belonging to the line
+     * @return parsed line
+     * @throws TerminalParseException if any token is not numeric
      */
     public static Line parseLine(String[] args, int startIdx) throws TerminalParseException {
         if (args.length - startIdx == 0) {
@@ -89,12 +96,12 @@ public class Line implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code parseCollection}.
+     * {@link PointCollection} entry point; delegates to {@link #parseLine}.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args full terminal argument array
+     * @param startIdx index of the first argument belonging to the line
+     * @return parsed line as a {@link PointCollection}
+     * @throws TerminalParseException if the slice is malformed
      */
     @Override
     public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {
@@ -103,9 +110,9 @@ public class Line implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code realizePoints}.
+     * Sample {@code numPoints} equally-spaced vertices between the endpoints.
      *
-     * @return TODO: describe
+     * @return newly built list of {@link PointND.Double} vertices
      */
     @Override
     public ArrayList<PointND> realizePoints() {
@@ -122,9 +129,9 @@ public class Line implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code fullName}.
+     * Long terminal name for this geometry.
      *
-     * @return TODO: describe
+     * @return {@value #LINE}
      */
     @Override
     public String fullName() {
@@ -132,9 +139,9 @@ public class Line implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code shortName}.
+     * CLI shorthand for this geometry, matching the {@code @GeometryAnnotation} id.
      *
-     * @return TODO: describe
+     * @return {@code "ln"}
      */
     @Override
     public String shortName() {
@@ -142,9 +149,9 @@ public class Line implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code desc}.
+     * Short human-readable description shown in terminal help.
      *
-     * @return TODO: describe
+     * @return description string
      */
     @Override
     public String desc() {
@@ -152,9 +159,9 @@ public class Line implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code usage}.
+     * Usage hint shown when the command is invoked with bad arguments.
      *
-     * @return TODO: describe
+     * @return single-line usage string
      */
     @Override
     public String usage() {
@@ -162,9 +169,9 @@ public class Line implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code argLength}.
+     * Required positional arg count for parsing: {@value #NUM_5}.
      *
-     * @return TODO: describe
+     * @return number of arguments {@link #parseLine} consumes
      */
     @Override
     public int argLength() {
@@ -172,9 +179,10 @@ public class Line implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code options}.
+     * Aliases the terminal accepts for this geometry ({@code l}, {@code ln},
+     * {@code line}).
      *
-     * @return TODO: describe
+     * @return shared option list
      */
     @Override
     public OptionList options() {
@@ -182,9 +190,9 @@ public class Line implements Geometry, PointCollection {
     }
 
     /**
-     * TODO: document {@code toFileString}.
+     * Serialize this line to its {@code .ix} file representation.
      *
-     * @return TODO: describe
+     * @return {@code "Line xStart yStart xEnd yEnd numPoints"} space-separated
      */
     @Override
     public String toFileString() {

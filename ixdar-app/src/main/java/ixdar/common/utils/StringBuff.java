@@ -2,21 +2,27 @@ package ixdar.common.utils;
 
 import java.util.ArrayList;
 
+/**
+ * Append-only debug log of stringified entries tagged with a depth/layer.
+ * Used to capture nested algorithm traces and replay them per-layer for
+ * diagnostics.
+ */
 public class StringBuff {
     ArrayList<SearchString> strings = new ArrayList<>();
     int currentDepth = 0;
 
     /**
-     * TODO: document {@code flush}.
+     * Discard all buffered entries and reset to empty.
      */
     public void flush() {
         strings = new ArrayList<>();
     }
 
     /**
-     * TODO: document {@code add}.
+     * Append an entry at the current depth. {@code null} is recorded as the
+     * literal string {@code "null"}.
      *
-     * @param s TODO: describe
+     * @param s value to stringify and record
      */
     public void add(Object s) {
         if (s != null) {
@@ -27,10 +33,11 @@ public class StringBuff {
     }
 
     /**
-     * TODO: document {@code add}.
+     * Conditional variant of {@link #add(Object)}: records {@code s} only when
+     * {@code condition} is true.
      *
-     * @param condition TODO: describe
-     * @param s TODO: describe
+     * @param condition guard predicate
+     * @param s value to stringify and record when {@code condition} holds
      */
     public void add(boolean condition, Object s) {
         if (condition) {
@@ -39,7 +46,7 @@ public class StringBuff {
     }
 
     /**
-     * TODO: document {@code printAll}.
+     * Print every buffered entry to {@code System.out} in insertion order.
      */
     public void printAll() {
         for (SearchString s : strings) {
@@ -48,9 +55,9 @@ public class StringBuff {
     }
 
     /**
-     * TODO: document {@code printLayer}.
+     * Print only the buffered entries at the given depth/layer.
      *
-     * @param depth TODO: describe
+     * @param depth layer to print
      */
     public void printLayer(int depth) {
         for (SearchString s : strings) {
@@ -61,10 +68,10 @@ public class StringBuff {
     }
 
     /**
-     * TODO: document {@code sizeLayer}.
+     * Count buffered entries at the given depth/layer.
      *
-     * @param depth TODO: describe
-     * @return TODO: describe
+     * @param depth layer to count
+     * @return number of entries recorded at that depth
      */
     public int sizeLayer(int depth) {
         int count = 0;
@@ -76,16 +83,19 @@ public class StringBuff {
         return count;
     }
 
+    /**
+     * One depth-tagged entry in the buffer.
+     */
     class SearchString {
 
         String str;
         int depth;
 
         /**
-         * TODO: document {@code SearchString}.
+         * Construct an entry holding a string and its depth.
          *
-         * @param string TODO: describe
-         * @param depth TODO: describe
+         * @param string already-stringified value
+         * @param depth layer/depth tag
          */
         public SearchString(String string, int depth) {
             str = string;
@@ -93,9 +103,9 @@ public class StringBuff {
         }
 
         /**
-         * TODO: document {@code toString}.
+         * Returns the stored string verbatim.
          *
-         * @return TODO: describe
+         * @return the recorded string
          */
         @Override
         public String toString() {

@@ -59,7 +59,7 @@ public final class Quantization {
      *  level (see PATCH-92 plan), not by bumping the cap.
      *  Override at runtime via {@code -Dixdar.lyon.ilpMaxVars=N}.
      *
-     * @return TODO: describe
+     * @return the configured ILP variable cap (default {@value #NUM_1000})
      */
     private static int ilpMaxVars() {
         String prop = System.getProperty("ixdar.lyon.ilpMaxVars");
@@ -71,9 +71,10 @@ public final class Quantization {
      * implied by {@code tmesh}'s 4-cycle patches and the validity floor
      * {@code q_i ≥ 1}. Returns {@code true} iff valid.
      *
-     * @param tmesh TODO: describe
-     * @param q TODO: describe
-     * @return TODO: describe
+     * @param tmesh T-mesh whose 4-cycle patches define the consistency rows
+     * @param q     candidate per-arc quantization, indexed by arc id
+     * @return {@code true} iff every {@code q_i >= 1} and every patch's
+     *          opposite-side sums are equal
      */
     public static boolean verifyConsistency(TMesh tmesh, int[] q) {
         if (q.length != tmesh.arcs().size()) return false;
@@ -101,8 +102,9 @@ public final class Quantization {
      * Solve the quantization ILP for {@code tmesh}. Returns one integer per
      * arc, in {@link TMesh#arcs()} order.
      *
-     * @param tmesh TODO: describe
-     * @return TODO: describe
+     * @param tmesh T-mesh from PATCH-41 (arcs, patches, layout constraints)
+     * @return per-arc integer lengths and solver diagnostics; over the
+     *          {@link #ilpMaxVars()} cap returns a fallback rounding result
      */
     public static Result solve(TMesh tmesh) {
         List<TArc> arcs = tmesh.arcs();
@@ -281,12 +283,12 @@ public final class Quantization {
      * appears with equal multiplicity on side B — typical of within-strip
      * pairs that union-find already collapsed), the constraint is dropped.
      *
-     * @param ilp TODO: describe
-     * @param qVar TODO: describe
-     * @param arcClass TODO: describe
-     * @param sideA TODO: describe
-     * @param sideB TODO: describe
-     * @param N TODO: describe
+     * @param ilp      solver to receive the new equality constraint
+     * @param qVar     class id → ILP variable index
+     * @param arcClass per-arc strip class id
+     * @param sideA    arcs on one side of the patch
+     * @param sideB    arcs on the opposite side
+     * @param N        total ILP variable count (row width)
      */
     private static void addOppositeSideConstraint(IlpSolver ilp, int[] qVar,
                                                   int[] arcClass,
@@ -307,11 +309,13 @@ public final class Quantization {
                          boolean feasible,
                          int variableCount) {
         /**
-         * TODO: document {@code Result}.
+         * Backwards-compatible constructor that defaults
+         * {@code variableCount} to {@code arcQuantization.length} (one
+         * variable per arc, no strip reduction).
          *
-         * @param arcQuantization TODO: describe
-         * @param objectiveValue TODO: describe
-         * @param feasible TODO: describe
+         * @param arcQuantization per-arc integer lengths
+         * @param objectiveValue  achieved objective value
+         * @param feasible        whether the solver returned a feasible point
          */
         public Result(int[] arcQuantization, double objectiveValue, boolean feasible) {
             this(arcQuantization, objectiveValue, feasible, arcQuantization.length);

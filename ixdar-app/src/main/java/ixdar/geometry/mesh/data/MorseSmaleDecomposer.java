@@ -55,11 +55,14 @@ public final class MorseSmaleDecomposer {
     private MorseSmaleDecomposer() {}
 
     /**
-     * TODO: document {@code decomposeWithDiagnostics}.
+     * Run the MSC-driven decomposition: borrow feature edges and the MSC result
+     * from {@link SemanticPatchDecomposer}, label every face with its
+     * ascending-manifold cell, snap boundaries onto the high-confidence feature
+     * graph, and repackage as {@link SemanticPatchDecomposer.DecompositionDiagnostics}.
      *
-     * @param mesh TODO: describe
-     * @param resolution TODO: describe
-     * @return TODO: describe
+     * @param mesh input mesh
+     * @param resolution voxel resolution forwarded to the borrowed semantic decomposer
+     * @return diagnostics whose patches/labels come from the MSC pipeline (other fields preserved from the borrow)
      */
     public static SemanticPatchDecomposer.DecompositionDiagnostics decomposeWithDiagnostics(
             ArrayMesh mesh, int resolution) {

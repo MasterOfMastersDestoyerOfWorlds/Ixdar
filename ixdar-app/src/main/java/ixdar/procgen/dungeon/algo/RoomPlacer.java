@@ -25,7 +25,8 @@ public final class RoomPlacer {
     }
 
     /**
-     * TODO: document.
+     * Reject-sample axis-aligned rooms within the grid until {@code roomCount} have been placed
+     * without colliding (with a 1-unit buffer) or {@code maxAttempts} is exhausted.
      *
      * @param seed          PRNG seed for reproducibility
      * @param gridW         grid width in units (rooms are placed so their AABBs fit in [0, gridW])
@@ -34,8 +35,8 @@ public final class RoomPlacer {
      * @param minSize       minimum room edge length in units (inclusive)
      * @param maxSize       maximum room edge length in units (inclusive)
      * @param maxAttempts   cap on total placement attempts; each attempt consumes RNG draws
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @throws IllegalArgumentException if the size range is invalid or the grid is smaller than {@code maxSize}
+     * @return the placed rooms (size may be less than {@code roomCount} on attempt exhaustion)
      */
     public static RoomListValue place(long seed, int gridW, int gridH,
                                       int roomCount, int minSize, int maxSize,
@@ -71,9 +72,9 @@ public final class RoomPlacer {
     /**
      * Two rooms collide if their AABBs (inflated by 0.5 units on each side) overlap.
      *
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @return TODO: describe
+     * @param a first room
+     * @param b second room
+     * @return {@code true} when the buffered AABBs overlap on both axes
      */
     static boolean collidesWithBuffer(Room a, Room b) {
         float buf = NUM_0_5;

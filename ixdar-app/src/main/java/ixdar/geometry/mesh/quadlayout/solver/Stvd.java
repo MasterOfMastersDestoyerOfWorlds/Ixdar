@@ -55,12 +55,14 @@ public final class Stvd {
     private final float[] positions;
 
     /**
-     * TODO: document {@code Stvd}.
+     * Construct a STVD solver against {@code mesh} with predecessor-window size
+     * {@code k} and per-edge cost callback {@code weight}. Vertex adjacency is
+     * built once at construction time.
      *
-     * @param mesh TODO: describe
-     * @param k TODO: describe
-     * @param weight TODO: describe
-     * @throws IllegalArgumentException TODO: describe
+     * @param mesh triangulation providing positions and face indices
+     * @param k chain length window (≥ 1); see class doc for tuning guidance
+     * @param weight per-edge positive scalar cost
+     * @throws IllegalArgumentException if {@code k < 1}
      */
     public Stvd(ArrayMesh mesh, int k, EdgeWeight weight) {
         if (k < 1) throw new IllegalArgumentException("k must be >= 1");
@@ -72,11 +74,12 @@ public final class Stvd {
     }
 
     /**
-     * TODO: document {@code compute}.
+     * Run multi-source STVD from {@code startVertices} (each at distance 0)
+     * and return per-vertex distance and predecessor arrays.
      *
-     * @param startVertices TODO: describe
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @param startVertices source vertex ids
+     * @throws IllegalStateException if the constructor's mesh is null
+     * @return distances + predecessor pointers for path reconstruction
      */
     public Result compute(int[] startVertices) {
         int n = positions.length / NUM_3;
@@ -116,11 +119,11 @@ public final class Stvd {
      * (u→v) edge, unfold into 2D, take the Euclidean norm of the summed
      * vectors.
      *
-     * @param u TODO: describe
-     * @param v TODO: describe
-     * @param dist TODO: describe
-     * @param pred TODO: describe
-     * @return TODO: describe
+     * @param u tail vertex of the candidate edge (predecessor of v)
+     * @param v target vertex being relaxed
+     * @param dist current per-vertex best distance, read-only here
+     * @param pred current per-vertex predecessor pointers, read-only here
+     * @return the smallest unfolded distance over all chains 1..k
      */
     private double relax(int u, int v, double[] dist, int[] pred) {
         double best = Double.POSITIVE_INFINITY;
@@ -165,9 +168,10 @@ public final class Stvd {
      * sign-of-rotation ambiguity inherent in the per-vertex unfolding
      * formulation when chains revisit headings on flat grids.
      *
-     * @param chain TODO: describe
-     * @param len TODO: describe
-     * @return TODO: describe
+     * @param chain vertex ids ordered head-first ({@code chain[0]} = head v,
+     *     {@code chain[len]} = anchor)
+     * @param len number of edges in the chain (chain holds {@code len + 1} vertices)
+     * @return Euclidean magnitude of summed unfolded edge vectors
      */
     private double unfoldedChainLength(int[] chain, int len) {
         int m = len + 1;
@@ -252,10 +256,12 @@ public final class Stvd {
     }
 
     /**
-     * Build CSR-ish vertex adjacency from face indices.
+     * Build CSR-ish vertex adjacency from face indices. Each undirected edge
+     * is added once (via a (min,max) hash key dedup) and recorded on both
+     * endpoints' lists.
      *
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @return per-vertex array of neighbor vertex ids
      */
     private static int[][] buildAdjacency(ArrayMesh mesh) {
         int n = mesh.copyPositions().length / NUM_3;
@@ -289,10 +295,10 @@ public final class Stvd {
     /**
      * Convenience entry point with k=4 (Campen's stage-2 default).
      *
-     * @param mesh TODO: describe
-     * @param startVertices TODO: describe
-     * @param w TODO: describe
-     * @return TODO: describe
+     * @param mesh triangulation to traverse
+     * @param startVertices source vertex ids (each pinned to distance 0)
+     * @param w per-edge cost callback
+     * @return distance + predecessor result from {@link #compute}
      */
     public static Result computeK4(ArrayMesh mesh, int[] startVertices, EdgeWeight w) {
         return new Stvd(mesh, NUM_4, w).compute(startVertices);
@@ -302,11 +308,11 @@ public final class Stvd {
     @FunctionalInterface
     public interface EdgeWeight {
         /**
-         * TODO: document {@code weight}.
+         * Edge cost for the directed edge {@code (u, v)}.
          *
-         * @param u TODO: describe
-         * @param v TODO: describe
-         * @return TODO: describe
+         * @param u source vertex id
+         * @param v destination vertex id
+         * @return positive scalar weight added to {@code dist[u]} during relaxation
          */
         double weight(int u, int v);
     }
@@ -315,10 +321,11 @@ public final class Stvd {
         public final double[] distance;
         public final int[] predecessor;
         /**
-         * TODO: document {@code Result}.
+         * Wrap the per-vertex distance and predecessor arrays produced by
+         * {@link Stvd#compute}.
          *
-         * @param distance TODO: describe
-         * @param predecessor TODO: describe
+         * @param distance per-vertex anisotropic distance ({@link Double#POSITIVE_INFINITY} if unreached)
+         * @param predecessor per-vertex predecessor vertex id (or {@code -1} for sources/unreached)
          */
         public Result(double[] distance, int[] predecessor) {
             this.distance = distance;

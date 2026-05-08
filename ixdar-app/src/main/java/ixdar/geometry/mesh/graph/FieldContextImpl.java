@@ -3,7 +3,7 @@ package ixdar.geometry.mesh.graph;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.FieldContext;
-import ixdar.annotations.meshnode.Vec3Field;
+import ixdar.annotations.meshnode.Vector3Field;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
@@ -13,8 +13,8 @@ public final class FieldContextImpl implements MeshFieldContext {
     public static final int NUM_3 = 3;
 
     private final MeshTopology mesh;
-    private Vec3Field positions;
-    private Vec3Field normals;
+    private Vector3Field positions;
+    private Vector3Field normals;
 
     /**
      * TODO: document {@code FieldContextImpl}.
@@ -54,7 +54,7 @@ public final class FieldContextImpl implements MeshFieldContext {
      * @return TODO: describe
      */
     @Override
-    public Vec3Field positions() {
+    public Vector3Field positions() {
         if (positions == null) {
             positions = buildPositions();
         }
@@ -67,17 +67,17 @@ public final class FieldContextImpl implements MeshFieldContext {
      * @return TODO: describe
      */
     @Override
-    public Vec3Field normals() {
+    public Vector3Field normals() {
         if (normals == null) {
             normals = buildNormals();
         }
         return normals;
     }
 
-    private Vec3Field buildPositions() {
+    private Vector3Field buildPositions() {
         int n = elementCount();
         if (n == 0) {
-            return new Vec3Field(new float[0]);
+            return new Vector3Field(new float[0]);
         }
         float[] d = new float[n * NUM_3];
         Vector3f tmp = new Vector3f();
@@ -88,13 +88,13 @@ public final class FieldContextImpl implements MeshFieldContext {
             d[NUM_3 * i + 1] = tmp.y;
             d[NUM_3 * i + 2] = tmp.z;
         }
-        return new Vec3Field(d);
+        return new Vector3Field(d);
     }
 
-    private Vec3Field buildNormals() {
+    private Vector3Field buildNormals() {
         int n = elementCount();
         if (n == 0) {
-            return new Vec3Field(new float[0]);
+            return new Vector3Field(new float[0]);
         }
         float[] d = new float[n * NUM_3];
         Vector3f tmp = new Vector3f();
@@ -105,6 +105,6 @@ public final class FieldContextImpl implements MeshFieldContext {
             d[NUM_3 * i + 1] = tmp.y;
             d[NUM_3 * i + 2] = tmp.z;
         }
-        return new Vec3Field(d);
+        return new Vector3Field(d);
     }
 }

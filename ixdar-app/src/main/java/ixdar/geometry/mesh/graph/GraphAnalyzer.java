@@ -37,7 +37,8 @@ public final class GraphAnalyzer {
      * @param parsed           parsed node list (topological order)
      * @param registry         node type registry (for port metadata)
      * @param minSubgraphSize  minimum upstream subgraph size for a seam (default 3)
-     * @return TODO: describe
+     * @return analysis bundle: edges, predecessor/successor maps, dominator tree,
+     *         and detected seam nodes
      */
     public static AnalysisResult analyze(List<PythonParser.ParsedNode> parsed,
             Map<String, Class<? extends MeshNode>> registry, int minSubgraphSize) {
@@ -84,9 +85,9 @@ public final class GraphAnalyzer {
     /**
      * Overload with default minSubgraphSize = 3.
      *
-     * @param parsed TODO: describe
-     * @param registry TODO: describe
-     * @return TODO: describe
+     * @param parsed   parsed node list (topological order)
+     * @param registry node type registry
+     * @return analysis bundle (see {@link #analyze(List, Map, int)})
      */
     public static AnalysisResult analyze(List<PythonParser.ParsedNode> parsed,
             Map<String, Class<? extends MeshNode>> registry) {
@@ -97,9 +98,9 @@ public final class GraphAnalyzer {
      * Iterative dominator computation (Cooper, Harvey, Kennedy algorithm).
      * Nodes are in topological order (index 0 = root-like, highest = sinks).
      *
-     * @param nodeIds TODO: describe
-     * @param predecessors TODO: describe
-     * @return TODO: describe
+     * @param nodeIds      node ids in topological order
+     * @param predecessors predecessor adjacency
+     * @return map from node id to immediate dominator id (null for entry nodes)
      */
     private static Map<String, String> computeDominators(List<String> nodeIds,
             Map<String, List<String>> predecessors) {
@@ -169,10 +170,10 @@ public final class GraphAnalyzer {
     /**
      * Intersect two dominators using finger-walking up the dom tree.
      *
-     * @param idom TODO: describe
-     * @param b1 TODO: describe
-     * @param b2 TODO: describe
-     * @return TODO: describe
+     * @param idom immediate-dominator index array
+     * @param b1   first node index
+     * @param b2   second node index
+     * @return common-dominator index for {@code b1} and {@code b2}
      */
     private static int intersect(int[] idom, int b1, int b2) {
         while (b1 != b2) {
@@ -196,15 +197,15 @@ public final class GraphAnalyzer {
      * N is a seam if no node in that subtree has an edge to a node outside the
      * subtree, except through N itself.
      *
-     * @param parsed TODO: describe
-     * @param nodeIds TODO: describe
-     * @param idToIndex TODO: describe
-     * @param predecessors TODO: describe
-     * @param successors TODO: describe
-     * @param idom TODO: describe
-     * @param registry TODO: describe
-     * @param minSubgraphSize TODO: describe
-     * @return TODO: describe
+     * @param parsed          parsed nodes (for type lookup)
+     * @param nodeIds         all node ids in topological order
+     * @param idToIndex       node id to position map
+     * @param predecessors    predecessor adjacency
+     * @param successors      successor adjacency
+     * @param idom            immediate dominator map
+     * @param registry        node type registry (for output port type checks)
+     * @param minSubgraphSize minimum subtree size to qualify
+     * @return seam nodes whose subtrees produce MESH or GEOMETRY_BUNDLE outputs
      */
     private static List<SeamNode> findSeams(List<PythonParser.ParsedNode> parsed,
             List<String> nodeIds, Map<String, Integer> idToIndex,
@@ -294,9 +295,9 @@ public final class GraphAnalyzer {
     /**
      * Recursively collect all nodes in the dominator subtree rooted at nodeId.
      *
-     * @param nodeId TODO: describe
-     * @param domChildren TODO: describe
-     * @param result TODO: describe
+     * @param nodeId      subtree root
+     * @param domChildren dominator-tree children adjacency
+     * @param result      accumulator that receives every node in the subtree
      */
     private static void collectDomSubtree(String nodeId, Map<String, List<String>> domChildren,
             Set<String> result) {
@@ -309,9 +310,9 @@ public final class GraphAnalyzer {
     /**
      * Get output port type names for a node type from the registry.
      *
-     * @param nodeType TODO: describe
-     * @param registry TODO: describe
-     * @return TODO: describe
+     * @param nodeType DSL node type id
+     * @param registry node type registry
+     * @return list of {@code PortType.name()} strings, or empty when type unknown
      */
     private static List<String> getOutputPortTypes(String nodeType,
             Map<String, Class<? extends MeshNode>> registry) {
@@ -338,12 +339,10 @@ public final class GraphAnalyzer {
         public final String targetPort;
 
         /**
-         * TODO: document {@code Edge}.
-         *
-         * @param sourceId TODO: describe
-         * @param sourcePort TODO: describe
-         * @param targetId TODO: describe
-         * @param targetPort TODO: describe
+         * @param sourceId   producer node id
+         * @param sourcePort producer output port name
+         * @param targetId   consumer node id
+         * @param targetPort consumer input port name
          */
         public Edge(String sourceId, String sourcePort, String targetId, String targetPort) {
             this.sourceId = sourceId;
@@ -366,13 +365,11 @@ public final class GraphAnalyzer {
         public final List<SeamNode> seams;
 
         /**
-         * TODO: document {@code AnalysisResult}.
-         *
-         * @param edges TODO: describe
-         * @param predecessors TODO: describe
-         * @param successors TODO: describe
-         * @param idom TODO: describe
-         * @param seams TODO: describe
+         * @param edges        all data-flow edges
+         * @param predecessors predecessor adjacency by node id
+         * @param successors   successor adjacency by node id
+         * @param idom         immediate-dominator map (null entries = roots)
+         * @param seams        detected seam nodes
          */
         public AnalysisResult(List<Edge> edges, Map<String, List<String>> predecessors,
                 Map<String, List<String>> successors, Map<String, String> idom,
@@ -397,13 +394,11 @@ public final class GraphAnalyzer {
         public final List<ExternalInput> externalInputs;
 
         /**
-         * TODO: document {@code SeamNode}.
-         *
-         * @param nodeId TODO: describe
-         * @param nodeType TODO: describe
-         * @param subgraphNodeIds TODO: describe
-         * @param outputPortTypes TODO: describe
-         * @param externalInputs TODO: describe
+         * @param nodeId          seam node's DSL id
+         * @param nodeType        seam node's type
+         * @param subgraphNodeIds upstream subgraph in topological order
+         * @param outputPortTypes seam node's output port types ({@code PortType.name()})
+         * @param externalInputs  inputs the subgraph reads from outside its boundary
          */
         public SeamNode(String nodeId, String nodeType, List<String> subgraphNodeIds,
                 List<String> outputPortTypes, List<ExternalInput> externalInputs) {
@@ -423,12 +418,10 @@ public final class GraphAnalyzer {
         public final String consumedByPort;
 
         /**
-         * TODO: document {@code ExternalInput}.
-         *
-         * @param sourceNodeId TODO: describe
-         * @param sourcePort TODO: describe
-         * @param consumedByNodeId TODO: describe
-         * @param consumedByPort TODO: describe
+         * @param sourceNodeId     producer node id outside the subgraph
+         * @param sourcePort       producer output port name
+         * @param consumedByNodeId consumer node id inside the subgraph
+         * @param consumedByPort   consumer input port name
          */
         public ExternalInput(String sourceNodeId, String sourcePort,
                 String consumedByNodeId, String consumedByPort) {

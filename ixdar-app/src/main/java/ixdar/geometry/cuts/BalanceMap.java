@@ -26,10 +26,11 @@ public class BalanceMap {
     Knot topExternal2;
 
     /**
-     * TODO: document {@code BalanceMap}.
+     * Build an empty balance map for a knot, seeding each knot point with two
+     * remaining internal slots and zero external matches.
      *
-     * @param knot TODO: describe
-     * @param sbe TODO: describe
+     * @param knot knot whose flattened points are tracked
+     * @param sbe balance exception attached to violations
      */
     @SuppressWarnings("static-access")
     public BalanceMap(Knot knot, SegmentBalanceException sbe) {
@@ -51,11 +52,14 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code BalanceMap}.
+     * Restrict an existing balance map to {@code subKnot}: copy cuts, external
+     * matches, externals, and group state, then carry over each sub-knot
+     * point's external balance (defaulting to zero for new points) while
+     * leaving its internal balance at {@code 2 - externalBalance}.
      *
-     * @param bMap TODO: describe
-     * @param subKnot TODO: describe
-     * @param sbe TODO: describe
+     * @param bMap source balance map
+     * @param subKnot sub-knot whose points are retained
+     * @param sbe balance exception for the new map
      */
     public BalanceMap(BalanceMap bMap, Knot subKnot, SegmentBalanceException sbe) {
         knot = subKnot;
@@ -84,21 +88,27 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code addDummyExternalMatch}.
+     * No-op placeholder for marking a knot point as having a notional external
+     * match without touching balance state.
      *
-     * @param vp TODO: describe
+     * @param vp knot point to flag (currently unused)
      */
     public void addDummyExternalMatch(Knot vp) {
 
     }
 
     /**
-     * TODO: document {@code addExternalMatch}.
+     * Record an external match between {@code vp} and {@code external}:
+     * increment the external balance on {@code vp}, append the closest segment
+     * to the external-matches list, and merge the two knots into a shared
+     * external group (creating, joining, or coalescing groups as needed). When
+     * a {@code superKnot} is supplied, every super-knot point outside the
+     * inner knot is also placed into that group.
      *
-     * @param vp TODO: describe
-     * @param external TODO: describe
-     * @param superKnot TODO: describe
-     * @throws BalancerException TODO: describe
+     * @param vp knot point on the inner knot
+     * @param external the matched external knot
+     * @param superKnot enclosing super-knot, or {@code null} when working at the top level
+     * @throws BalancerException if balance would exceed two, the match segment duplicates an existing entry, or a group id regresses
      */
     public void addExternalMatch(Knot vp, Knot external, Knot superKnot) throws BalancerException {
         callNumber++;
@@ -185,11 +195,13 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code addCut}.
+     * Record a cut between two knot points: append the closest connecting
+     * segment to {@code cuts} (if not already present) and decrement each
+     * endpoint's internal balance by one.
      *
-     * @param vp1 TODO: describe
-     * @param vp2 TODO: describe
-     * @throws BalancerException TODO: describe
+     * @param vp1 first endpoint
+     * @param vp2 second endpoint
+     * @throws BalancerException reserved for future balance-violation reporting
      */
     public void addCut(Knot vp1, Knot vp2) throws BalancerException {
         Segment newCut = vp1.getClosestSegment(vp2, null);
@@ -206,11 +218,11 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code addInternalMatch}.
+     * Record an internal match by incrementing the internal balance on each endpoint.
      *
-     * @param vp1 TODO: describe
-     * @param vp2 TODO: describe
-     * @throws BalancerException TODO: describe
+     * @param vp1 first endpoint
+     * @param vp2 second endpoint
+     * @throws BalancerException if the resulting balance is negative
      */
     public void addInternalMatch(Knot vp1, Knot vp2) throws BalancerException {
         int newBalance = balance.get(vp1.id) + 1;
@@ -223,10 +235,11 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code canMatchTo}.
+     * Whether a knot point still has room for another external match
+     * (its external balance has not reached two).
      *
-     * @param vp TODO: describe
-     * @return TODO: describe
+     * @param vp knot point to test
+     * @return {@code true} if {@code externalBalance(vp) < 2}
      */
     public boolean canMatchTo(Knot vp) {
         if (externalBalance.get(vp.id) < 2) {
@@ -236,16 +249,20 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code canMatchTo}.
+     * Whether a paired external match (vp1-ex1, vp2-ex2) is admissible given
+     * existing balance and group constraints: rejects same-vp/same-ex
+     * duplicates and same-group conflicts, walks the inner knot to assign
+     * an inferred group when {@code ex2} is ungrouped, then checks remaining
+     * external slots on each knot point.
      *
-     * @param vp TODO: describe
-     * @param ex1 TODO: describe
-     * @param matchSegment1 TODO: describe
-     * @param vp2 TODO: describe
-     * @param ex2 TODO: describe
-     * @param matchSegment2 TODO: describe
-     * @param miKnot TODO: describe
-     * @return TODO: describe
+     * @param vp first knot point
+     * @param ex1 first external
+     * @param matchSegment1 segment for the first match
+     * @param vp2 second knot point
+     * @param ex2 second external
+     * @param matchSegment2 segment for the second match
+     * @param miKnot inner knot used for group inference
+     * @return {@code true} if both matches can coexist without violating constraints
      */
     public boolean canMatchTo(Knot vp, Knot ex1, Segment matchSegment1, Knot vp2,
             Knot ex2, Segment matchSegment2,
@@ -308,9 +325,9 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Two-line debug rendering of the external and internal balance maps.
      *
-     * @return TODO: describe
+     * @return human-readable diagnostic string
      */
     @Override
     public String toString() {
@@ -318,9 +335,9 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code isBalanced}.
+     * Whether every knot point has its internal plus external balance equal to two.
      *
-     * @return TODO: describe
+     * @return {@code true} if all knot points are fully balanced
      */
     public boolean isBalanced() {
         boolean balanced = true;
@@ -333,13 +350,14 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code canCutSegments}.
+     * Test whether two prospective cut segments leave at least one
+     * non-locked knot point free to absorb additional matches.
      *
-     * @param cutPoint1 TODO: describe
-     * @param cutSegment1 TODO: describe
-     * @param cutPoint2 TODO: describe
-     * @param cutSegment2 TODO: describe
-     * @return TODO: describe
+     * @param cutPoint1 first cut point
+     * @param cutSegment1 first cut segment
+     * @param cutPoint2 second cut point
+     * @param cutSegment2 second cut segment
+     * @return {@code true} if at least one non-locked point remains after the cuts
      */
     public boolean canCutSegments(Knot cutPoint1, Segment cutSegment1, Knot cutPoint2,
             Segment cutSegment2) {
@@ -364,22 +382,26 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code balancedOmega}.
+     * Omega-shaped balance check for a two-cut configuration: confirms that
+     * each of {@code cp1}, {@code kp1}, {@code cp2}, {@code kp2} retains at
+     * least two viable match candidates - first via its prev/next neighbors
+     * along {@code subKnot}, then by scanning remaining knot points while
+     * skipping locked, already-cut, and same-group candidates.
      *
-     * @param kp1 TODO: describe
-     * @param cp1 TODO: describe
-     * @param cutSegment1 TODO: describe
-     * @param external1 TODO: describe
-     * @param matchSegment1 TODO: describe
-     * @param kp2 TODO: describe
-     * @param cp2 TODO: describe
-     * @param cutSegment2 TODO: describe
-     * @param external2 TODO: describe
-     * @param matchSegment2 TODO: describe
-     * @param subKnot TODO: describe
-     * @param c TODO: describe
-     * @param wouldFormLoop TODO: describe
-     * @return TODO: describe
+     * @param kp1 first knot point
+     * @param cp1 first cut point
+     * @param cutSegment1 first cut segment
+     * @param external1 external paired with {@code kp1} (carried for caller use)
+     * @param matchSegment1 match segment for the first pair
+     * @param kp2 second knot point
+     * @param cp2 second cut point
+     * @param cutSegment2 second cut segment
+     * @param external2 external paired with {@code kp2} (carried for caller use)
+     * @param matchSegment2 match segment for the second pair
+     * @param subKnot knot used for prev/next traversal
+     * @param c cut descriptor (carried for caller use)
+     * @param wouldFormLoop whether the configuration would form a loop (carried for caller use)
+     * @return {@code true} if every involved point still has two viable matches
      */
     public boolean balancedOmega(Knot kp1, Knot cp1, Segment cutSegment1, Knot external1,
             Segment matchSegment1,
@@ -652,16 +674,19 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code balancedAlpha}.
+     * Alpha-shaped balance check for a single-cut configuration: verifies
+     * that {@code kp1} has two available matches once the prospective external
+     * match is accounted for, falling back to a scan of {@code subKnot} for
+     * unlocked candidates.
      *
-     * @param kp1 TODO: describe
-     * @param cp1 TODO: describe
-     * @param cutSegment1 TODO: describe
-     * @param external1 TODO: describe
-     * @param matchSegment1 TODO: describe
-     * @param subKnot TODO: describe
-     * @param c TODO: describe
-     * @return TODO: describe
+     * @param kp1 knot point under test
+     * @param cp1 cut point (excluded from candidate scan)
+     * @param cutSegment1 cut segment
+     * @param external1 external paired with {@code kp1} (carried for caller use)
+     * @param matchSegment1 match segment for the pair
+     * @param subKnot knot used for neighbor traversal
+     * @param c cut descriptor (carried for caller use)
+     * @return {@code true} if {@code kp1} retains two viable matches
      */
     public boolean balancedAlpha(Knot kp1, Knot cp1, Segment cutSegment1, Knot external1,
             Segment matchSegment1, Knot subKnot, CutInfo c) {
@@ -713,17 +738,20 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code balancedBeta}.
+     * Beta-shaped balance check: like {@link #balancedAlpha} but additionally
+     * verifies that {@code cp1} has two viable matches, treating
+     * {@code external2} as a candidate while skipping locked, already-cut,
+     * and same-group points.
      *
-     * @param kp1 TODO: describe
-     * @param cp1 TODO: describe
-     * @param cutSegment1 TODO: describe
-     * @param external1 TODO: describe
-     * @param matchSegment1 TODO: describe
-     * @param external2 TODO: describe
-     * @param subKnot TODO: describe
-     * @param c TODO: describe
-     * @return TODO: describe
+     * @param kp1 knot point under test
+     * @param cp1 cut point also tested for viable matches
+     * @param cutSegment1 cut segment
+     * @param external1 external paired with {@code kp1} (carried for caller use)
+     * @param matchSegment1 match segment for the {@code kp1} pair
+     * @param external2 secondary external considered as a {@code cp1} candidate
+     * @param subKnot knot used for neighbor traversal
+     * @param c cut descriptor (carried for caller use)
+     * @return {@code true} if both {@code kp1} and {@code cp1} retain two viable matches
      */
     public boolean balancedBeta(Knot kp1, Knot cp1, Segment cutSegment1, Knot external1,
             Segment matchSegment1, Knot external2, Knot subKnot, CutInfo c) {
@@ -838,11 +866,12 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code getCutOutsideMinKnot}.
+     * Find a recorded cut whose endpoints straddle {@code minKnot} (one inside,
+     * one outside) and that {@code k} still owns as a segment.
      *
-     * @param minKnot TODO: describe
-     * @param k TODO: describe
-     * @return TODO: describe
+     * @param minKnot knot used to test endpoint membership
+     * @param k knot whose segment ownership is required
+     * @return a qualifying cut, or {@code null} if none match
      */
     public Segment getCutOutsideMinKnot(Knot minKnot, Knot k) {
         for (Segment s : cuts) {
@@ -857,10 +886,11 @@ public class BalanceMap {
     }
 
     /**
-     * TODO: document {@code getNumMatchesNeeded}.
+     * Number of additional external matches a neighbor still requires to
+     * reach the cap of two.
      *
-     * @param neighbor TODO: describe
-     * @return TODO: describe
+     * @param neighbor knot point to query
+     * @return {@code 2 - externalBalance(neighbor)}
      */
     public int getNumMatchesNeeded(Knot neighbor) {
         return 2 - externalBalance.get(neighbor.id);

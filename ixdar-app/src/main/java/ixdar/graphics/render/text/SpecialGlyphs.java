@@ -15,18 +15,19 @@ public enum SpecialGlyphs {
     }
 
     /**
-     * TODO: document {@code getChar}.
+     * The Private-Use-Area character this special glyph occupies.
      *
-     * @return TODO: describe
+     * @return PUA char value
      */
     public char getChar() {
         return value;
     }
 
     /**
-     * TODO: document {@code getCodePoint}.
+     * The Unicode code point for this special glyph (same numeric value as
+     * {@link #getChar()}).
      *
-     * @return TODO: describe
+     * @return PUA code point
      */
     public int getCodePoint() {
         return value;

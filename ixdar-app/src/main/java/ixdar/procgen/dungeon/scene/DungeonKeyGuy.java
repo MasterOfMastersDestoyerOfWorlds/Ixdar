@@ -30,13 +30,13 @@ public class DungeonKeyGuy extends KeyGuy {
     private boolean lastEscState = false;
 
     /**
-     * TODO: document {@code DungeonKeyGuy}.
+     * Wires the key handler to the scene's player-mode state and toggle callbacks.
      *
-     * @param camera TODO: describe
-     * @param canvas TODO: describe
-     * @param inPlayerMode TODO: describe
-     * @param togglePlayerMode TODO: describe
-     * @param toggleViewMode TODO: describe
+     * @param camera           camera passed through to base {@link KeyGuy} for fly-cam fallback
+     * @param canvas           canvas passed through to base {@link KeyGuy}
+     * @param inPlayerMode     supplier that returns {@code true} when the scene is in player mode
+     * @param togglePlayerMode action to flip between player and fly-cam modes
+     * @param toggleViewMode   action to swap first / third person within player mode
      */
     public DungeonKeyGuy(Camera camera, Canvas3D canvas,
                          BooleanSupplier inPlayerMode,
@@ -49,9 +49,10 @@ public class DungeonKeyGuy extends KeyGuy {
     }
 
     /**
-     * TODO: document {@code paintUpdate}.
+     * Per-frame key processing. Edge-detects F / V / Esc and suppresses the base WASD-camera
+     * loop while in player mode.
      *
-     * @param shiftMod TODO: describe
+     * @param shiftMod movement-speed multiplier (forwarded to the base implementation in fly-cam)
      */
     @Override
     public void paintUpdate(float shiftMod) {

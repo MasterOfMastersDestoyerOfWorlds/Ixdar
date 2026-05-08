@@ -13,11 +13,15 @@ import ixdar.platform.automation.AutomationEndpoint;
 public class Stop extends AutomationEndpoint implements AutomationRoute {
     public static final String PATH = "path";
     /**
-     * TODO: document {@code endpointHandler}.
+     * {@code POST /record/stop}: end the active recording session and write the
+     * captured events to disk.
      *
-     * @param body TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param body JSON body with optional {@code path} (output file path; blank
+     *             falls back to the recorder's default {@code recordings/automation/}
+     *             location)
+     * @throws IOException never thrown directly; declared to satisfy the route contract
+     * @return recorder status with {@code saved} and (on success) the absolute
+     *         {@code file} path that was written, or an error object on failure
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {

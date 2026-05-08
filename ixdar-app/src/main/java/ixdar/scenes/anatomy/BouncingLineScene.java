@@ -32,14 +32,17 @@ public class BouncingLineScene extends Scene {
     private Double point2;
 
     /**
-     * TODO: document {@code BouncingLineScene}.
+     * Anatomy demo: two points walk with constant per-frame velocities
+     * and reflect off the view bounds, dragging an SDF segment between
+     * them to visualize the line shader under continuous motion.
      */
     public BouncingLineScene() {
         super();
     }
 
     /**
-     * TODO: document {@code initPoints}.
+     * Seed the shell with the two points whose positions are updated
+     * each frame by {@link #updateBouncingPoints()}.
      */
     @Override
     public void initPoints() {
@@ -51,7 +54,8 @@ public class BouncingLineScene extends Scene {
     }
 
     /**
-     * TODO: document {@code initGL}.
+     * Wrap the two points in knots, build the connecting segment, and
+     * attach the code pane bound to the shared line SDF shader.
      */
     @Override
     public void initGL() {
@@ -63,7 +67,9 @@ public class BouncingLineScene extends Scene {
     }
 
     /**
-     * TODO: document {@code drawScene}.
+     * Advance the two points (reflecting off the camera-derived bounds),
+     * apply the latest stroke parameters, and draw the segment with a
+     * red-to-green gradient.
      */
     @Override
     public void drawScene() {

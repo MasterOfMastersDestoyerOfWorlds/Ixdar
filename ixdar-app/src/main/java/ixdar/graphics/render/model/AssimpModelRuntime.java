@@ -42,9 +42,10 @@ public class AssimpModelRuntime implements ModelRuntime {
     private final Matrix4f modelMatrix = new Matrix4f();
 
     /**
-     * TODO: document {@code AssimpModelRuntime}.
+     * Initialize the runtime's mesh shader. Must be called on a thread with
+     * a current GL context.
      *
-     * @throws Exception TODO: describe
+     * @throws Exception if shader compilation or linking fails.
      */
     public AssimpModelRuntime() throws Exception {
         this.meshShader = ShaderProgram.ShaderType.Mesh.getShader();
@@ -52,11 +53,15 @@ public class AssimpModelRuntime implements ModelRuntime {
     }
 
     /**
-     * TODO: document {@code loadFromAssetRepo}.
+     * Resolve {@code modelFileName} against the asset repository, import the
+     * model with Assimp, upload its vertex/index buffers and a generated
+     * checker texture, and return a {@link ModelHandle} that owns the GL
+     * resources.
      *
-     * @param modelFileName TODO: describe
-     * @throws Exception TODO: describe
-     * @return TODO: describe
+     * @param modelFileName asset-relative path passed to
+     *        {@link FileManagement#resolveAssetPath(String)}.
+     * @throws Exception if the file cannot be resolved or imported.
+     * @return new handle wrapping the uploaded VAO/VBO/EBO and bounds.
      */
     @Override
     public ModelHandle loadFromAssetRepo(String modelFileName) throws Exception {
@@ -99,10 +104,12 @@ public class AssimpModelRuntime implements ModelRuntime {
     }
 
     /**
-     * TODO: document {@code frameCamera}.
+     * Position {@code camera} so the entire bounding sphere of {@code handle}
+     * is visible: target the model center and pull back along +Z by
+     * {@code 2.4 * radius}.
      *
-     * @param handle TODO: describe
-     * @param camera TODO: describe
+     * @param handle model whose center/radius drives the framing.
+     * @param camera camera mutated in-place; view matrix is refreshed.
      */
     @Override
     public void frameCamera(ModelHandle handle, Camera3D camera) {
@@ -113,10 +120,14 @@ public class AssimpModelRuntime implements ModelRuntime {
     }
 
     /**
-     * TODO: document {@code render}.
+     * Draw the model: build a perspective projection from the current
+     * framebuffer aspect, bind the mesh shader with model/view/projection
+     * and a fixed solid color + light direction, optionally bind the
+     * checker texture if the import provided UVs, then issue a single
+     * indexed triangle draw.
      *
-     * @param handle TODO: describe
-     * @param camera TODO: describe
+     * @param handle uploaded model resources to draw.
+     * @param camera supplies view matrix, fov, and orientation.
      */
     @Override
     public void render(ModelHandle handle, Camera3D camera) {
@@ -147,9 +158,10 @@ public class AssimpModelRuntime implements ModelRuntime {
     }
 
     /**
-     * TODO: document {@code dispose}.
+     * Release the GL resources owned by {@code handle} (texture, EBO, VBO,
+     * VAO). Safe to call with a {@code null} handle.
      *
-     * @param handle TODO: describe
+     * @param handle model whose resources should be freed; ignored if null.
      */
     @Override
     public void dispose(ModelHandle handle) {

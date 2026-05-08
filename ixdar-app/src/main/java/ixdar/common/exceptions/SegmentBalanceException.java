@@ -8,6 +8,13 @@ import ixdar.geometry.shell.Shell;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.HyperString;
 
+/**
+ * Base exception thrown when balancing a cut's match/cut segments against a
+ * shell fails. Carries the surrounding {@link CutInfo}, super-knot, the two cut
+ * and exemplar segments, and (optionally) the partial {@link CutMatchList} so
+ * downstream rendering and logging can describe the failure precisely. Several
+ * more specific failure modes subclass this type.
+ */
 public class SegmentBalanceException extends Exception {
     public static final String X = "X";
     public static final String STR = "-";
@@ -25,9 +32,10 @@ public class SegmentBalanceException extends Exception {
     public HyperString x2;
 
     /**
-     * TODO: document {@code SegmentBalanceException}.
+     * Construct from a {@link CutInfo}, copying the super-knot, cut/exemplar
+     * segments, and shell from it.
      *
-     * @param c TODO: describe
+     * @param c cut context being balanced when the failure occurred
      */
     public SegmentBalanceException(CutInfo c) {
         topKnot = c.superKnot;
@@ -40,11 +48,11 @@ public class SegmentBalanceException extends Exception {
     }
 
     /**
-     * TODO: document {@code SegmentBalanceException}.
+     * Construct with a partial cut-match list in addition to the cut context.
      *
-     * @param shell TODO: describe
-     * @param internalCut TODO: describe
-     * @param c TODO: describe
+     * @param shell shell on which balancing was attempted
+     * @param internalCut partial cut-match list produced before the failure
+     * @param c cut context being balanced
      */
     public SegmentBalanceException(Shell shell, CutMatchList internalCut, CutInfo c) {
         cutMatchList = internalCut;
@@ -58,9 +66,9 @@ public class SegmentBalanceException extends Exception {
     }
 
     /**
-     * TODO: document {@code SegmentBalanceException}.
+     * Copy-construct, inheriting all diagnostic state from another instance.
      *
-     * @param sbe TODO: describe
+     * @param sbe source exception to copy from
      */
     public SegmentBalanceException(SegmentBalanceException sbe) {
         cutMatchList = sbe.cutMatchList;
@@ -75,13 +83,14 @@ public class SegmentBalanceException extends Exception {
     }
 
     /**
-     * TODO: document {@code SegmentBalanceException}.
+     * No-arg constructor for callers that wrap the exception without context.
      */
     public SegmentBalanceException() {
     }
 
     /**
-     * TODO: document {@code initDraw}.
+     * Lazily build the red/orange "X" hyperstrings used to render the failure
+     * markers. No-op if already initialized.
      */
     public void initDraw() {
         if(x1 != null){
@@ -94,9 +103,11 @@ public class SegmentBalanceException extends Exception {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Diagnostic string including cut ID, top knot, the two cut/exemplar
+     * segments, and the constructed cut name. Falls back to a minimal form if
+     * no {@link CutInfo} is available.
      *
-     * @return TODO: describe
+     * @return human-readable representation for logs
      */
     @Override
     public String toString() {
@@ -113,7 +124,8 @@ public class SegmentBalanceException extends Exception {
     }
 
     /**
-     * TODO: document {@code generateUnitTestFromCut}.
+     * Hook for emitting a regression test stub from the failing cut's state.
+     * Empty by default; subclasses or tooling may override.
      */
     public void generateUnitTestFromCut() {
     }

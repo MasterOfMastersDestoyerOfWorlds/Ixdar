@@ -9,7 +9,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
-import ixdar.annotations.meshnode.Vec3Field;
+import ixdar.annotations.meshnode.Vector3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 
 @MeshNodeAnnotation(id = "separate_xyz")
@@ -32,7 +32,7 @@ public class SeparateXyzNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                VECTOR_2, "Input Vector3 or Vec3Field.",
+                VECTOR_2, "Input Vector3 or Vector3field.",
                 X_2, "X component (per-element).",
                 Y_2, "Y component.",
                 Z_2, "Z component."
@@ -52,7 +52,7 @@ public class SeparateXyzNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         Object vo = FieldBroadcast.getInputOrDefault(ctx, VECTOR_2, VECTOR.defaultValue());
-        if (vo instanceof Vec3Field v) {
+        if (vo instanceof Vector3Field v) {
             int n = v.length();
             float[] x = new float[n];
             float[] y = new float[n];

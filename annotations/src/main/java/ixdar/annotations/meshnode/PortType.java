@@ -50,7 +50,7 @@ public enum PortType {
             return value instanceof Boolean || value instanceof BoolField;
         }
         if (this == VECTOR3) {
-            return value instanceof Vector3Value || value instanceof Vec3Field;
+            return value instanceof Vector3Value || value instanceof Vector3Field;
         }
         if (this == ROTATION) {
             return value instanceof RotationValue || value instanceof RotationField;

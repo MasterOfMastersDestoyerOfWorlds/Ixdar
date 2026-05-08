@@ -5,87 +5,94 @@ import org.joml.Vector2f;
 import ixdar.geometry.point.PointSet;
 import ixdar.platform.input.MouseTrap;
 
+/**
+ * Common surface for the editor's 2D and 3D cameras: viewport sizing,
+ * scroll/drag/keyboard input, point↔screen-space transforms, and a
+ * z-index counter that orders successive ortho draws within a frame.
+ */
 public interface Camera extends MouseTrap.ScrollHandler {
 
     /**
-     * TODO: document {@code reset}.
+     * Restore the camera to its default framing of the current scene.
      */
     void reset();
 
     /**
-     * TODO: document {@code move}.
+     * Translate the camera one frame's worth in {@code direction} using the
+     * camera's pan/movement speed and the current shift modifier.
      *
-     * @param direction TODO: describe
+     * @param direction cardinal direction to move
      */
     void move(Direction direction);
 
     /**
-     * TODO: document {@code setShiftMod}.
+     * Set the multiplier applied to pan/zoom rates while the shift key is held.
      *
-     * @param sHIFT_MOD TODO: describe
+     * @param sHIFT_MOD multiplier (typically 1 when released, larger when held)
      */
     void setShiftMod(float sHIFT_MOD);
 
     /**
-     * TODO: document {@code drag}.
+     * Apply a mouse-drag delta — pans the 2D camera or rotates the 3D camera
+     * depending on the implementation.
      *
-     * @param d TODO: describe
-     * @param e TODO: describe
+     * @param d horizontal delta
+     * @param e vertical delta
      */
     void drag(float d, float e);
 
     /**
-     * TODO: document {@code mouseMove}.
+     * Apply a continuous mouse-look update from the previous to the current cursor position.
      *
-     * @param lastX TODO: describe
-     * @param lastY TODO: describe
-     * @param x TODO: describe
-     * @param y TODO: describe
+     * @param lastX previous cursor x
+     * @param lastY previous cursor y
+     * @param x current cursor x
+     * @param y current cursor y
      */
     void mouseMove(float lastX, float lastY, float x, float y);
 
     /**
-     * TODO: document {@code incZIndex}.
+     * Advance the camera's z-index by one ortho-z increment so the next ortho
+     * draw lands above the previous one.
      */
     void incZIndex();
 
     /**
-     * TODO: document {@code getZIndex}.
-     *
-     * @return TODO: describe
+     * @return the current ortho z-index used by upcoming draws
      */
     float getZIndex();
 
     /**
-     * TODO: document {@code resetZIndex}.
+     * Reset the z-index counter and far-z cursor for a new frame.
      */
     void resetZIndex();
 
     /**
-     * TODO: document {@code addZIndex}.
+     * Add an arbitrary delta to the z-index counter.
      *
-     * @param diff TODO: describe
+     * @param diff signed z-index increment
      */
     void addZIndex(float diff);
 
     /**
-     * TODO: document {@code setZIndex}.
+     * Place this camera one z-step in front of {@code camera}.
      *
-     * @param camera TODO: describe
+     * @param camera reference camera whose z-index defines the baseline
      */
     void setZIndex(Camera camera);
 
     /**
-     * TODO: document {@code calculateCameraTransform}.
+     * Recompute the point-space → screen-space transform from the bounding box
+     * of {@code ps}, used to frame all input points.
      *
-     * @param ps TODO: describe
+     * @param ps point set to fit into the view
      */
     void calculateCameraTransform(PointSet ps);
 
     /**
      * transform from point space to screen space.
      *
-     * @param x TODO: describe
+     * @param x point-space x coordinate
      * @return pointSpaceX
      */
     float pointTransformX(float x);
@@ -93,7 +100,7 @@ public interface Camera extends MouseTrap.ScrollHandler {
     /**
      * transform from point space to screen space.
      *
-     * @param y TODO: describe
+     * @param y point-space y coordinate
      * @return pointSpaceY
      */
     float pointTransformY(float y);
@@ -101,7 +108,7 @@ public interface Camera extends MouseTrap.ScrollHandler {
     /**
      * transform from screen space to point space.
      *
-     * @param normalizedPosX TODO: describe
+     * @param normalizedPosX framebuffer-space x coordinate
      * @return pointSpaceX
      */
     float screenTransformX(float normalizedPosX);
@@ -109,115 +116,97 @@ public interface Camera extends MouseTrap.ScrollHandler {
     /**
      * transform from screen space to point space.
      *
-     * @param normalizedPosY TODO: describe
+     * @param normalizedPosY framebuffer-space y coordinate
      * @return pointSpaceY
      */
     float screenTransformY(float normalizedPosY);
 
     /**
-     * TODO: document {@code getWidth}.
-     *
-     * @return TODO: describe
+     * @return the camera's current screen-space width
      */
     float getWidth();
 
     /**
-     * TODO: document {@code getHeight}.
-     *
-     * @return TODO: describe
+     * @return the camera's current screen-space height
      */
     float getHeight();
 
     /**
-     * TODO: document {@code getScreenOffsetX}.
-     *
-     * @return TODO: describe
+     * @return the camera viewport's lower-left x in framebuffer space
      */
     float getScreenOffsetX();
 
     /**
-     * TODO: document {@code getScreenOffsetY}.
-     *
-     * @return TODO: describe
+     * @return the camera viewport's lower-left y in framebuffer space
      */
     float getScreenOffsetY();
 
     /**
-     * TODO: document {@code getScreenWidthRatio}.
-     *
-     * @return TODO: describe
+     * @return framebuffer-width / window-width DPI ratio
      */
     float getScreenWidthRatio();
 
     /**
-     * TODO: document {@code getScreenHeightRatio}.
-     *
-     * @return TODO: describe
+     * @return framebuffer-height / window-height DPI ratio
      */
     float getScreenHeightRatio();
 
     /**
-     * TODO: document {@code getScaleFactor}.
-     *
-     * @return TODO: describe
+     * @return current zoom / scale factor applied to point-space distances
      */
     float getScaleFactor();
 
     /**
-     * TODO: document {@code getNormalizePosX}.
+     * Convert a window-space cursor x to framebuffer-space x for hit testing.
      *
-     * @param xPos TODO: describe
-     * @return TODO: describe
+     * @param xPos window-space cursor x
+     * @return framebuffer-space x
      */
     float getNormalizePosX(float xPos);
 
     /**
-     * TODO: document {@code getNormalizePosY}.
+     * Convert a window-space cursor y (top-origin) to framebuffer-space y (bottom-origin).
      *
-     * @param yPos TODO: describe
-     * @return TODO: describe
+     * @param yPos window-space cursor y
+     * @return framebuffer-space y
      */
     float getNormalizePosY(float yPos);
 
     /**
-     * TODO: document {@code getFarZIndex}.
-     *
-     * @return TODO: describe
+     * @return current depth used by the descending far-z cursor
      */
     float getFarZIndex();
 
     /**
-     * TODO: document {@code decFarZIndex}.
+     * Step the descending far-z cursor one increment toward the near plane.
      */
     void decFarZIndex();
 
     /**
-     * TODO: document {@code getBounds}.
-     *
-     * @return TODO: describe
+     * @return the camera's screen-space viewport rectangle, or {@code null} if not assigned
      */
     Bounds getBounds();
 
     /**
-     * TODO: document {@code contains}.
+     * Test whether {@code pB} lies inside this camera's screen-space viewport.
      *
-     * @param pB TODO: describe
-     * @return TODO: describe
+     * @param pB screen-space point
+     * @return {@code true} when the point falls within the viewport
      */
     boolean contains(Vector2f pB);
 
     /**
-     * TODO: document {@code updateView}.
+     * Resize the GL viewport and rebuild projection matrices on every shader.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
+     * @param x viewport lower-left x
+     * @param y viewport lower-left y
+     * @param width viewport width
+     * @param height viewport height
      */
     void updateView(int x, int y, int width, int height);
 
     /**
-     * TODO: document {@code resetView}.
+     * Reset the GL viewport to the full framebuffer.
      */
     void resetView();
 

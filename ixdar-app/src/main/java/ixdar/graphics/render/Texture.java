@@ -20,9 +20,10 @@ public class Texture {
     private ByteBuffer image;
 
     /**
-     * TODO: document {@code Texture}.
+     * Build a placeholder texture identified by a resource name; pixels and
+     * dimensions are filled in later by the platform loader.
      *
-     * @param resourceName TODO: describe
+     * @param resourceName resource path used by the platform loader
      */
     public Texture(String resourceName) {
         this.resourceName = resourceName;
@@ -30,12 +31,12 @@ public class Texture {
     }
 
     /**
-     * TODO: document {@code Texture}.
+     * Wrap an already-uploaded GL texture handle.
      *
-     * @param resourceName TODO: describe
-     * @param texture TODO: describe
-     * @param width2 TODO: describe
-     * @param height2 TODO: describe
+     * @param resourceName resource path (purely descriptive)
+     * @param texture GL texture id
+     * @param width2 width in pixels
+     * @param height2 height in pixels
      */
     public Texture(String resourceName, int texture, int width2, int height2) {
         this.resourceName = resourceName;
@@ -46,12 +47,12 @@ public class Texture {
     }
 
     /**
-     * TODO: document {@code Texture}.
+     * Stage a CPU-decoded image for later GL upload via {@link #initGL()}.
      *
-     * @param resourceName TODO: describe
-     * @param image TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
+     * @param resourceName resource path (purely descriptive)
+     * @param image RGBA pixel buffer
+     * @param width width in pixels
+     * @param height height in pixels
      */
     public Texture(String resourceName, ByteBuffer image, int width, int height) {
         this.resourceName = resourceName;
@@ -62,11 +63,11 @@ public class Texture {
     }
 
     /**
-     * TODO: document {@code Texture}.
+     * Build an uninitialized texture with known dimensions but no pixels yet.
      *
-     * @param resourceName TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
+     * @param resourceName resource path (purely descriptive)
+     * @param width width in pixels
+     * @param height height in pixels
      */
     public Texture(String resourceName, int width, int height) {
         this.resourceName = resourceName;
@@ -76,7 +77,7 @@ public class Texture {
     }
 
     /**
-     * TODO: document {@code bind}.
+     * Bind this texture to the GL_TEXTURE_2D target.
      */
     public void bind() {
         GL gl = Platforms.gl();
@@ -84,11 +85,11 @@ public class Texture {
     }
 
     /**
-     * TODO: document {@code uploadData}.
+     * Upload pixel data using RGBA8 / RGBA format defaults.
      *
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param data TODO: describe
+     * @param width width in pixels
+     * @param height height in pixels
+     * @param data RGBA pixel buffer
      */
     public void uploadData(int width, int height, ByteBuffer data) {
         GL gl = Platforms.gl();
@@ -96,13 +97,13 @@ public class Texture {
     }
 
     /**
-     * TODO: document {@code uploadData}.
+     * Upload pixel data with explicit internal format and source format.
      *
-     * @param internalFormat TODO: describe
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param format TODO: describe
-     * @param data TODO: describe
+     * @param internalFormat GL internal storage format (e.g. RGBA8)
+     * @param width width in pixels
+     * @param height height in pixels
+     * @param format GL pixel format of {@code data} (e.g. RGBA)
+     * @param data pixel buffer
      */
     public void uploadData(int internalFormat, int width, int height, int format, ByteBuffer data) {
         GL gl = Platforms.gl();
@@ -111,7 +112,8 @@ public class Texture {
     }
 
     /**
-     * TODO: document {@code delete}.
+     * Free the underlying GL texture and mark this object uninitialized;
+     * no-op if the texture was never uploaded.
      */
     public void delete() {
         if (id >= 0) {
@@ -122,18 +124,18 @@ public class Texture {
     }
 
     /**
-     * TODO: document {@code getWidth}.
+     * Width in pixels.
      *
-     * @return TODO: describe
+     * @return texture width
      */
     public float getWidth() {
         return width;
     }
 
     /**
-     * TODO: document {@code setWidth}.
+     * Set the texture width (ignored when {@code width} is non-positive).
      *
-     * @param width TODO: describe
+     * @param width new width in pixels
      */
     public void setWidth(int width) {
         if (width > 0) {
@@ -142,18 +144,18 @@ public class Texture {
     }
 
     /**
-     * TODO: document {@code getHeight}.
+     * Height in pixels.
      *
-     * @return TODO: describe
+     * @return texture height
      */
     public float getHeight() {
         return height;
     }
 
     /**
-     * TODO: document {@code setHeight}.
+     * Set the texture height (ignored when {@code height} is non-positive).
      *
-     * @param height TODO: describe
+     * @param height new height in pixels
      */
     public void setHeight(int height) {
         if (height > 0) {
@@ -163,11 +165,12 @@ public class Texture {
 
 
     /**
-     * TODO: document {@code setImage}.
+     * Stage RGBA pixel data and dimensions for a deferred GL upload via
+     * {@link #initGL()}.
      *
-     * @param width TODO: describe
-     * @param height TODO: describe
-     * @param image TODO: describe
+     * @param width width in pixels
+     * @param height height in pixels
+     * @param image RGBA pixel buffer
      */
     public void setImage(int width, int height, ByteBuffer image) {
         this.width = width;
@@ -176,7 +179,9 @@ public class Texture {
     }
 
     /**
-     * TODO: document {@code initGL}.
+     * Upload the staged image to GL: generate a texture id, set repeat
+     * wrapping with linear filtering, allocate storage, generate mipmaps,
+     * and enable standard alpha blending. No-op if no image was staged.
      */
     public void initGL() {
         if (image == null) {
@@ -200,7 +205,6 @@ public class Texture {
         gl.generateMipmap(gl.TEXTURE_2D());
         gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
         gl.enable(gl.BLEND());
-        // image buffer owned by platform loader; no direct free here
     }
 
 }

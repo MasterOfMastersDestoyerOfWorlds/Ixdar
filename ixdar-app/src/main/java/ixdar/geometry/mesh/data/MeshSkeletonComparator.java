@@ -54,11 +54,12 @@ public final class MeshSkeletonComparator {
     // ─── Public entry point ───
 
     /**
-     * TODO: document {@code compare}.
+     * Match the generated skeleton against a reference, producing per-branch
+     * error metrics, DSL parameter recommendations, and a 0-100 similarity score.
      *
-     * @param gen TODO: describe
-     * @param ref TODO: describe
-     * @return TODO: describe
+     * @param gen generated TEASAR skeleton
+     * @param ref reference TEASAR skeleton
+     * @return summary including matches, recommendations, and scalar score
      */
     public static ComparisonResult compare(SkeletonResult gen, SkeletonResult ref) {
         // Normalize both skeletons to the same coordinate frame
@@ -137,9 +138,9 @@ public final class MeshSkeletonComparator {
      * Detailed comparison that preserves per-joint 3D position deltas for each matched branch.
      * Used by {@link SkeletonSensitivityAnalyzer} for Jacobian computation.
      *
-     * @param gen TODO: describe
-     * @param ref TODO: describe
-     * @return TODO: describe
+     * @param gen generated TEASAR skeleton
+     * @param ref reference TEASAR skeleton
+     * @return summary plus per-match resampled joint deltas
      */
     public static DetailedComparisonResult compareDetailed(SkeletonResult gen, SkeletonResult ref) {
         NormalizedSkeleton nGen = normalize(gen);
@@ -250,9 +251,9 @@ public final class MeshSkeletonComparator {
     /**
      * Compute per-joint 3D position deltas between resampled generated and reference joint lists.
      *
-     * @param genJoints TODO: describe
-     * @param refJoints TODO: describe
-     * @return TODO: describe
+     * @param genJoints joints of the generated branch
+     * @param refJoints joints of the reference branch
+     * @return one delta per resampled index (empty if either input is empty)
      */
     static List<JointDelta> computeJointDeltas(List<SkeletonJoint> genJoints, List<SkeletonJoint> refJoints) {
         if (genJoints.isEmpty() || refJoints.isEmpty()) return List.of();
@@ -317,9 +318,9 @@ public final class MeshSkeletonComparator {
     /**
      * Label a finger branch by its Z-position among all finger branches.
      *
-     * @param branch TODO: describe
-     * @param allFingers TODO: describe
-     * @return TODO: describe
+     * @param branch branch to label
+     * @param allFingers full list of finger branches used to derive Z-ranking and thumb heuristic
+     * @return one of {@link #FINGER_LABELS}, {@value #THUMB}, or {@code finger_<rank>} fallback
      */
     private static String labelFinger(SkeletonBranch branch, List<SkeletonBranch> allFingers) {
         float z = tipZ(branch);
@@ -444,8 +445,8 @@ public final class MeshSkeletonComparator {
     /**
      * Weighted skeleton similarity score (0-100).
      *
-     * @param matches TODO: describe
-     * @return TODO: describe
+     * @param matches all branch matches (including unmatched reference branches)
+     * @return length-weighted blend of length ratio (0.4), direction (0.3), and joint position (0.3)
      */
     private static float computeScore(List<BranchMatch> matches) {
         if (matches.isEmpty()) return 0;
@@ -484,8 +485,8 @@ public final class MeshSkeletonComparator {
     /**
      * Center and scale a skeleton so all joint positions are in [-0.5, 0.5]^3.
      *
-     * @param skel TODO: describe
-     * @return TODO: describe
+     * @param skel input skeleton
+     * @return normalized branches with recomputed direction and length, plus the center/scale used
      */
     private static NormalizedSkeleton normalize(SkeletonResult skel) {
         // Compute bounding box of all joints

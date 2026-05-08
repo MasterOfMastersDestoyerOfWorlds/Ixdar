@@ -31,11 +31,14 @@ public final class QuadFaceGenerator {
     private QuadFaceGenerator() {}
 
     /**
-     * TODO: document {@code generate}.
+     * Walk the port graph and return one {@link QFace} per closed 4-cycle.
+     * Cycles whose canonical (sorted) corner-QVert tuple has already been
+     * emitted are dropped, which removes the CCW/CW duplicate pair the walk
+     * naturally produces on open surfaces.
      *
-     * @param ports TODO: describe
-     * @param edges TODO: describe
-     * @return TODO: describe
+     * @param ports all ports from Stage 2
+     * @param edges all edges from Stage 3
+     * @return list of distinct quad faces in emission order
      */
     public static List<QFace> generate(List<QPort> ports, List<QEdge> edges) {
         ArrayList<QFace> faces = new ArrayList<>();

@@ -12,12 +12,13 @@ public class LightShader extends ShaderProgram {
 
 
     /**
-     * TODO: document {@code LightShader}.
+     * Build the light-source shader (light_shader.vs/.fs) sharing the mesh
+     * 8-float vertex layout but consuming only the position attribute.
      *
-     * @param vao TODO: describe
-     * @param vbo TODO: describe
-     * @throws UnsupportedEncodingException TODO: describe
-     * @throws IOException TODO: describe
+     * @param vao vertex array object to bind attributes on
+     * @param vbo vertex buffer object backing the geometry
+     * @throws UnsupportedEncodingException on shader source encoding error
+     * @throws IOException on shader source I/O error
      */
     public LightShader(VertexArrayObject vao,
             VertexBufferObject vbo) throws UnsupportedEncodingException, IOException {
@@ -25,7 +26,8 @@ public class LightShader extends ShaderProgram {
     }
 
     /**
-     * TODO: document {@code init}.
+     * Bind the VAO/VBO and enable only the position (vec3) attribute on
+     * location 0; lighting math runs entirely in the fragment shader.
      */
     @Override
     public void init() {
@@ -38,11 +40,11 @@ public class LightShader extends ShaderProgram {
     }
 
     /**
-     * TODO: document {@code updateProjectionMatrix}.
+     * No-op: the 3D scene supplies the projection from {@code Camera3D}.
      *
-     * @param framebufferWidth TODO: describe
-     * @param framebufferHeight TODO: describe
-     * @param scale TODO: describe
+     * @param framebufferWidth viewport width in pixels (unused)
+     * @param framebufferHeight viewport height in pixels (unused)
+     * @param scale DPI scale hint (unused)
      */
     @Override
     public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float scale) {

@@ -12,6 +12,11 @@ import ixdar.gui.ui.Drawing;
 import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;
 
+/**
+ * Neighbor View tool: draws each knot point's two shortest neighbor segments
+ * as dashed overlays, so the user can see the local nearest-neighbor graph at
+ * the current draw layer.
+ */
 public class NeighborViewTool extends Tool {
     public static ArrayList<Color> colors;
 
@@ -19,7 +24,8 @@ public class NeighborViewTool extends Tool {
     HashMap<Long, Integer> colorLookup;
 
     /**
-     * TODO: document {@code NeighborViewTool}.
+     * Build the tool: disallow rendering toggles that would clutter the
+     * neighbor overlay and seed the {@code colors} palette (green, yellow).
      */
     public NeighborViewTool() {
         disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.DrawKnotGradient,
@@ -30,7 +36,8 @@ public class NeighborViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code reset}.
+     * Reset selection state and rebuild the neighbor color lookup for the
+     * current draw layer.
      */
     @Override
     public void reset() {
@@ -39,10 +46,12 @@ public class NeighborViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Draw each cached neighbor segment as a dashed line in its assigned
+     * color. Rebuilds the cache lazily when the draw layer has changed.
      *
-     * @param camera TODO: describe
-     * @param minLineThickness TODO: describe
+     * @param camera the scene camera
+     * @param minLineThickness base line thickness in pixels (unused; dashes
+     *                         derive their thickness from {@link Drawing})
      */
     @Override
     public void draw(Camera2D camera, float minLineThickness) {
@@ -57,7 +66,9 @@ public class NeighborViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code initSegmentMap}.
+     * (Re)compute the segment&rarr;color index lookup for the current draw
+     * layer: each displayed knot's first two sorted segments are colored 0
+     * (closest neighbor) and 1 (second-closest).
      */
     public void initSegmentMap() {
         layerCalculated = MainScene.knotDrawLayer;
@@ -74,9 +85,10 @@ public class NeighborViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code buildInfoText}.
+     * Build the side-panel text describing the currently displayed segment
+     * (cut, length, knot point, cut point).
      *
-     * @return TODO: describe
+     * @return the formatted info text
      */
     @Override
     public HyperString buildInfoText() {
@@ -99,9 +111,7 @@ public class NeighborViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code displayName}.
-     *
-     * @return TODO: describe
+     * @return the display name "Neighbor View"
      */
     @Override
     public String displayName() {
@@ -109,9 +119,7 @@ public class NeighborViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code shortName}.
-     *
-     * @return TODO: describe
+     * @return the short terminal alias {@code "nbr"}
      */
     @Override
     public String shortName() {
@@ -119,9 +127,7 @@ public class NeighborViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code fullName}.
-     *
-     * @return TODO: describe
+     * @return the full terminal name {@code "neighborview"}
      */
     @Override
     public String fullName() {
@@ -129,9 +135,7 @@ public class NeighborViewTool extends Tool {
     }
 
     /**
-     * TODO: document {@code desc}.
-     *
-     * @return TODO: describe
+     * @return the one-line description of this tool's purpose
      */
     @Override
     public String desc() {

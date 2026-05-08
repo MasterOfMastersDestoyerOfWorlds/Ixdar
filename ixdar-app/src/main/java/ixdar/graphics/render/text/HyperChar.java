@@ -8,10 +8,11 @@ public class HyperChar extends SDFTexture {
     Font font;
 
     /**
-     * TODO: document {@code HyperChar}.
+     * Wrap a single character backed by the font's MSDF atlas (used so each
+     * glyph has its own SDF allocation/draw state).
      *
-     * @param font TODO: describe
-     * @param c TODO: describe
+     * @param font owning font (atlas + metrics provider)
+     * @param c character this glyph represents
      */
     public HyperChar(Font font, Character c) {
         super(font.texture);
@@ -20,10 +21,11 @@ public class HyperChar extends SDFTexture {
     }
 
     /**
-     * TODO: document {@code getTexture}.
+     * Return the font atlas, refreshing it from the font if it has loaded
+     * since this glyph was constructed.
      *
-     * @throws NullPointerException TODO: describe
-     * @return TODO: describe
+     * @throws NullPointerException if the font's texture is still {@code null}
+     * @return the atlas texture used for SDF sampling
      */
     @Override
     public Texture getTexture() {

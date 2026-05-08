@@ -34,10 +34,12 @@ public class AnalyzeGraph {
     public static final int NUM_3 = 3;
 
     /**
-     * TODO: document {@code main}.
+     * CLI entry: parse the given DSL file, run {@link GraphAnalyzer}, and emit a
+     * pretty-printed JSON report (nodes, edges, dominators, seam candidates) to
+     * the chosen output sink.
      *
-     * @param args TODO: describe
-     * @throws IOException TODO: describe
+     * @param args {@code <file.dsl> [--output <path>] [--min-subgraph <N>]}
+     * @throws IOException on read/write failure for input or output paths
      */
     public static void main(String[] args) throws IOException {
         if (args.length < 1) {
@@ -89,14 +91,12 @@ public class AnalyzeGraph {
 
         GraphAnalyzer.AnalysisResult analysis = GraphAnalyzer.analyze(parsed, registry, minSubgraph);
 
-        // Build JSON output
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("file", dslPath);
         result.put(NODECOUNT, parsed.size());
         result.put("functionCount", funcDefs.size());
         result.put("edgeCount", analysis.edges.size());
 
-        // Node list with adjacency info
         List<Map<String, Object>> nodes = new ArrayList<>();
         for (PythonParser.ParsedNode n : parsed) {
             Map<String, Object> nodeJson = new LinkedHashMap<>();
@@ -109,7 +109,6 @@ public class AnalyzeGraph {
         }
         result.put("nodes", nodes);
 
-        // Edges
         List<Map<String, String>> edgesJson = new ArrayList<>();
         for (GraphAnalyzer.Edge e : analysis.edges) {
             Map<String, String> edgeJson = new LinkedHashMap<>();
@@ -119,7 +118,6 @@ public class AnalyzeGraph {
         }
         result.put(EDGES, edgesJson);
 
-        // Seams
         List<Map<String, Object>> seamsJson = new ArrayList<>();
         for (GraphAnalyzer.SeamNode seam : analysis.seams) {
             Map<String, Object> seamJson = new LinkedHashMap<>();
